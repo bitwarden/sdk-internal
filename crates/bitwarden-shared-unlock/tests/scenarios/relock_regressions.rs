@@ -14,19 +14,18 @@ use crate::prelude::*;
 async fn repeated_cycles_never_relock_spuriously() {
     let user = test_user(TestUserId::A);
     let simple = SimpleTopology::make(SLOW_DELAYS).await;
-    let grace = grace(&simple.topology);
 
     for _ in 0..4 {
         // 1. Unlock the follower; all devices must become unlocked and stay that way.
         simple.follower.manual_unlock(user.id, &user.key).await;
         wait_for_devices_reaching_state(TargetLockState::Unlocked, &simple.topology, &user).await;
-        bitwarden_threading::time::sleep(grace).await;
-        assert_no_lock(&simple.topology, user.id, grace, 0);
+        bitwarden_threading::time::sleep(GRACE).await;
+        assert_no_lock(&simple.topology, user.id, GRACE, 0);
 
         // 2. Lock the follower; all devices must become locked.
         simple.follower.manual_lock(user.id).await;
         wait_for_devices_reaching_state(TargetLockState::Locked, &simple.topology, &user).await;
-        bitwarden_threading::time::sleep(grace).await;
+        bitwarden_threading::time::sleep(GRACE).await;
     }
 }
 
@@ -78,7 +77,7 @@ async fn unknown_user_stays_unlocked_on_follower() {
     bitwarden_threading::time::sleep(fast_timing().sync_interval * 4).await;
 
     // 2. Assert user C stayed unlocked on the follower.
-    assert_no_lock(&simple.topology, user.id, grace(&simple.topology), 0);
+    assert_no_lock(&simple.topology, user.id, GRACE, 0);
     assert_eq!(
         simple.follower.store().peek(user.id),
         user.unlocked(),

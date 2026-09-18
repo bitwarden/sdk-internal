@@ -169,7 +169,6 @@ async fn returning_browser_relays_web_unlock_to_sibling() {
     wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology.topology, &user).await;
 
     // 4. Assert the returning browser's initial `Locked` did not relock both tabs a tick later.
-    let grace = grace(&topology.topology);
-    bitwarden_threading::time::sleep(grace).await;
+    bitwarden_threading::time::sleep(GRACE).await;
     assert_user_state(TargetLockState::Unlocked, &topology.topology, &user);
 }

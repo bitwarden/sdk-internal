@@ -41,7 +41,7 @@ async fn replayed_lock_changes_nothing() {
     //    replay must not disturb anything.
     leader.manual_lock(user.id).await;
     wait_for_devices_reaching_state(TargetLockState::Locked, &topology, &user).await;
-    bitwarden_threading::time::sleep(grace(&topology)).await;
+    bitwarden_threading::time::sleep(GRACE).await;
 
     // 3. Assert the quirk fired, and that nothing bounced back to unlocked.
     let replays = events_matching(&topology, |event| {

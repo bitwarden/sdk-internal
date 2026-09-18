@@ -93,9 +93,8 @@ async fn unlock_web_routes_up_and_down_three_tiers() {
 
     // 2. Assert nothing relocked. Had the unlock not reached the top, the desktop would keep
     //    advertising `Locked` and relock the whole tree.
-    let grace = grace(&tree.topology);
-    bitwarden_threading::time::sleep(grace).await;
-    assert_no_lock(&tree.topology, user.id, grace, 0);
+    bitwarden_threading::time::sleep(GRACE).await;
+    assert_no_lock(&tree.topology, user.id, GRACE, 0);
 }
 
 /// Unlocking one of the desktop's followers unlocks all of them
@@ -156,7 +155,6 @@ async fn returning_browser_relays_web_unlock_to_tree() {
     wait_for_devices_reaching_state(TargetLockState::Unlocked, &tree.topology, &user).await;
 
     // 4. Assert no returning process's initial `Locked` relocked the tree a tick later.
-    let grace = grace(&tree.topology);
-    bitwarden_threading::time::sleep(grace).await;
+    bitwarden_threading::time::sleep(GRACE).await;
     assert_user_state(TargetLockState::Unlocked, &tree.topology, &user);
 }

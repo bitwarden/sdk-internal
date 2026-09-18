@@ -69,8 +69,7 @@ async fn restart_follower_keeps_leader_unlocked() {
     let restarted_at = harness::now_ms();
     simple.follower.process_reload().await;
 
-    let grace = grace(&simple.topology);
-    bitwarden_threading::time::sleep(grace).await;
+    bitwarden_threading::time::sleep(GRACE).await;
 
     // 3. Assert the leader stayed unlocked. A restarted peer advertises `Locked` so its leader
     //    learns it exists; if that announcement were treated as authoritative it would lock the
@@ -80,7 +79,7 @@ async fn restart_follower_keeps_leader_unlocked() {
         user.unlocked(),
         "A restart must not lock the peer above"
     );
-    assert_no_lock(&simple.topology, user.id, grace, restarted_at);
+    assert_no_lock(&simple.topology, user.id, GRACE, restarted_at);
 }
 
 /// A restarted leader advertises `Locked`, which must not lock its follower
@@ -103,8 +102,7 @@ async fn restart_leader_keeps_follower_unlocked() {
     let restarted_at = harness::now_ms();
     simple.leader.process_reload().await;
 
-    let grace = grace(&simple.topology);
-    bitwarden_threading::time::sleep(grace).await;
+    bitwarden_threading::time::sleep(GRACE).await;
 
     // 3. The follower must still be unlocked. A restarted leader advertises `Locked`; if that
     //    announcement were treated as authoritative it would lock everything below it.
@@ -113,5 +111,5 @@ async fn restart_leader_keeps_follower_unlocked() {
         user.unlocked(),
         "A restart must not lock the peers below"
     );
-    assert_no_lock(&simple.topology, user.id, grace, restarted_at);
+    assert_no_lock(&simple.topology, user.id, GRACE, restarted_at);
 }

@@ -73,6 +73,13 @@ pub(crate) const SLOW_DELAYS: LockDelays = LockDelays {
     unlock: Duration::from_millis(200),
 };
 
+/// How long to wait for a state that should *not* change. Sized against [`fast_timing`]: roughly
+/// eight sync intervals, so a peer advertising a stale state would have had several ticks to undo
+/// the change before this window is up. Keep it in step with the timings above — shortening
+/// `sync_interval` without shortening this only wastes wall-clock, but lengthening it past this
+/// window makes every `assert_no_lock` weaker than it reads.
+pub(crate) const GRACE: Duration = Duration::from_millis(400);
+
 /// Which of the shared test users a scenario is acting on. Which one only matters when a test
 /// needs two accounts to stay independent, or one the leader has no account for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

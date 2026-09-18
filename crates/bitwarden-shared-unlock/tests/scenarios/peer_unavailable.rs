@@ -3,6 +3,41 @@
 
 use crate::prelude::*;
 
+/// A follower unlocks and stays unlocked with no leader listening
+///
+/// ```text
+/// follower LOCKED --> UNLOCKED  (keeps retrying, stays UNLOCKED)
+///     |
+///     x  leader offline
+/// ```
+#[tokio::test]
+async fn unlock_follower_works_while_leader_offline() {
+    let user = test_user(TestUserId::A);
+    let simple = SimpleTopology::make(harness::FAST_DELAYS).await;
+
+    // 1. Take the leader offline.
+    simple.leader.go_offline();
+    let offline_at = harness::now_ms();
+
+    // 2. Unlock the follower and assert it applies locally. Shared unlock propagates state, it does
+    //    not gate on it.
+    simple.follower.manual_unlock(user.id, &user.key).await;
+    assert_eq!(simple.follower.store().peek(user.id), user.unlocked());
+
+    // 3. Assert the follower keeps trying across ticks rather than giving up or dying. Waiting out
+    //    the whole grace period, rather than just a few ticks, is what gives step 4 a log long
+    //    enough to see a late self-relock in; the extra ticks only add sync attempts.
+    bitwarden_threading::time::sleep(GRACE).await;
+    assert!(
+        count_unreachable(&simple.topology, "browser") > 1,
+        "The follower should keep attempting to sync across ticks"
+    );
+
+    // 4. Assert it never relocked itself just because nobody is listening.
+    assert_eq!(simple.follower.store().peek(user.id), user.unlocked());
+    assert_no_lock(&simple.topology, user.id, GRACE, offline_at);
+}
+
 /// A leader that comes back online adopts the unlock it missed
 ///
 /// ```text
