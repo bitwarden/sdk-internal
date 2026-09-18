@@ -6,10 +6,13 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use super::models::AccessRequestCreateRequest;
 
 /// Maximum span, in seconds, of an access request's activation window - mirrors the server's
-/// cap. Applies to both the automatic path's
+/// `LeaseDurationBounds.GlobalMaxSeconds` (one year). Applies to both the automatic path's
 /// [`duration_seconds`](AccessRequestCreateRequest::duration_seconds) and the human path's
 /// [`start`](AccessRequestCreateRequest::start)/[`end`](AccessRequestCreateRequest::end) span.
-pub const MAX_REQUEST_ACCESS_WINDOW_SECONDS: u32 = 86_400;
+///
+/// A backstop, not a policy limit: holding a shorter value here refuses requests the server would
+/// accept, before they ever reach it.
+pub const MAX_REQUEST_ACCESS_WINDOW_SECONDS: u32 = 365 * 24 * 60 * 60;
 
 /// [`MAX_REQUEST_ACCESS_WINDOW_SECONDS`], for callers that cannot read a Rust `const`.
 ///
@@ -50,7 +53,8 @@ pub enum AccessRequestWindowError {
     /// separate catalog entry (`REQUEST_ACCESS_SDK_ERRORS` vs `REQUEST_ACCESS_SERVER_ERRORS`).
     #[error("The requested window has already ended.")]
     EndInPast,
-    /// The requested window was longer than the server's 24h cap.
+    /// The requested window was longer than the global ceiling. Says nothing about the governing
+    /// rule's own cap, which this side cannot see.
     #[error(
         "The requested window exceeds the maximum of {MAX_REQUEST_ACCESS_WINDOW_SECONDS} seconds"
     )]
@@ -106,6 +110,11 @@ mod tests {
         "2024-12-31T23:00:00Z".parse().unwrap()
     }
 
+    /// Start instant for the span cases, after [`now`] so none trip the elapsed-window rule.
+    fn start() -> DateTime<Utc> {
+        "2025-01-01T00:00:00Z".parse().unwrap()
+    }
+
     fn base_request() -> AccessRequestCreateRequest {
         AccessRequestCreateRequest {
             duration_seconds: None,
@@ -124,10 +133,9 @@ mod tests {
 
     #[test]
     fn end_equal_to_start_is_invalid() {
-        let start: DateTime<Utc> = "2025-01-01T00:00:00Z".parse().unwrap();
         let request = AccessRequestCreateRequest {
-            start: Some(start),
-            end: Some(start),
+            start: Some(start()),
+            end: Some(start()),
             ..base_request()
         };
 
@@ -152,28 +160,25 @@ mod tests {
     }
 
     #[test]
-    fn window_span_of_exactly_24_hours_is_valid() {
-        let request = AccessRequestCreateRequest {
-            start: Some("2025-01-01T00:00:00Z".parse().unwrap()),
-            end: Some("2025-01-02T00:00:00Z".parse().unwrap()),
-            ..base_request()
-        };
+    fn window_span_is_valid_up_to_the_ceiling_and_invalid_past_it() {
+        let ceiling = Duration::seconds(MAX_REQUEST_ACCESS_WINDOW_SECONDS as i64);
+        for (span, expected) in [
+            // A rule may cap leases at a week; refusing that here pre-empts the server.
+            (Duration::days(7), Ok(())),
+            (ceiling, Ok(())),
+            (
+                ceiling + Duration::seconds(1),
+                Err(AccessRequestWindowError::ExceedsMaxWindow),
+            ),
+        ] {
+            let request = AccessRequestCreateRequest {
+                start: Some(start()),
+                end: Some(start() + span),
+                ..base_request()
+            };
 
-        assert_eq!(request.validate_at(now()), Ok(()));
-    }
-
-    #[test]
-    fn window_span_over_24_hours_is_invalid() {
-        let request = AccessRequestCreateRequest {
-            start: Some("2025-01-01T00:00:00Z".parse().unwrap()),
-            end: Some("2025-01-02T00:00:01Z".parse().unwrap()),
-            ..base_request()
-        };
-
-        assert_eq!(
-            request.validate_at(now()),
-            Err(AccessRequestWindowError::ExceedsMaxWindow)
-        );
+            assert_eq!(request.validate_at(now()), expected, "span {span:?}");
+        }
     }
 
     #[test]
@@ -249,26 +254,23 @@ mod tests {
     }
 
     #[test]
-    fn duration_seconds_of_exactly_24_hours_is_valid() {
-        let request = AccessRequestCreateRequest {
-            duration_seconds: NonZeroU32::new(86_400),
-            ..base_request()
-        };
+    fn duration_seconds_is_valid_up_to_the_ceiling_and_invalid_past_it() {
+        for (duration_seconds, expected) in [
+            // The automatic path faces the same ceiling, so a week has to survive here too.
+            (7 * 86_400, Ok(())),
+            (MAX_REQUEST_ACCESS_WINDOW_SECONDS, Ok(())),
+            (
+                MAX_REQUEST_ACCESS_WINDOW_SECONDS + 1,
+                Err(AccessRequestWindowError::ExceedsMaxWindow),
+            ),
+        ] {
+            let request = AccessRequestCreateRequest {
+                duration_seconds: NonZeroU32::new(duration_seconds),
+                ..base_request()
+            };
 
-        assert_eq!(request.validate_at(now()), Ok(()));
-    }
-
-    #[test]
-    fn duration_seconds_over_24_hours_is_invalid() {
-        let request = AccessRequestCreateRequest {
-            duration_seconds: NonZeroU32::new(86_401),
-            ..base_request()
-        };
-
-        assert_eq!(
-            request.validate_at(now()),
-            Err(AccessRequestWindowError::ExceedsMaxWindow)
-        );
+            assert_eq!(request.validate_at(now()), expected, "{duration_seconds}s");
+        }
     }
 
     #[test]
