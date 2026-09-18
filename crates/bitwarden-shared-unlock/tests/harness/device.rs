@@ -333,7 +333,9 @@ impl SimulatedDevice {
         );
     }
 
-    pub(super) fn tear_down(&self) {
+    /// Takes the process down for good: no later `boot` — including one a quirk task is already
+    /// inside — can bring it back.
+    pub(super) fn shut_down(&self) {
         self.0.lifetime.cancel();
         self.tear_down();
     }

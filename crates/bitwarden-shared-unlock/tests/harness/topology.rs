@@ -149,7 +149,7 @@ impl SharedUnlockTopology {
 impl Drop for SharedUnlockTopology {
     fn drop(&mut self) {
         for device in self.lock_devices().iter() {
-            device.tear_down();
+            device.shut_down();
         }
     }
 }
