@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
 use bitwarden_core::{Client, FromClient, client::ApiConfigurations};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     access_requests::AccessRequestsClient, access_rules::AccessRulesClient, leases::LeasesClient,
@@ -10,12 +8,12 @@ use crate::{
 
 /// Entry point for Privileged Access Management (PAM) operations.
 #[derive(Clone, FromClient)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct PamClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl PamClient {
     /// Access rule CRUD operations.
     pub fn access_rules(&self) -> AccessRulesClient {
