@@ -74,4 +74,20 @@ describe("user crypto initialization tests", () => {
 
     expect(await client.crypto().get_user_encryption_key()).toBeDefined();
   });
+
+  it("initializes the user account via client-managed state", async () => {
+    // The browser extension's rehydration path: an unlock copies the user key into the bridge, and
+    // a later client reads it back rather than re-deriving it from a factor.
+    const stateBridge = makeStateBridge();
+    const setupClient = makePasswordManagerClient(stateBridge);
+    await initializeCryptoDefault(setupClient);
+
+    const userKey = await setupClient.crypto().get_user_encryption_key();
+    expect(await stateBridge.get_user_key()).not.toBeNull();
+
+    const client = makePasswordManagerClient(stateBridge);
+    await initializeUserCrypto(client, { clientManagedState: {} });
+
+    expect(await client.crypto().get_user_encryption_key()).toEqual(userKey);
+  });
 });

@@ -30,10 +30,20 @@ export class KeyConnectorServer {
     return this.keyConnectorKeys.get(this.userIdFor(email)) ?? null;
   }
 
+  /** Drops the key stored for an account, as a deployment that has never seen it. */
+  forgetUserKey(email: string): void {
+    this.keyConnectorKeys.delete(this.userIdFor(email));
+  }
+
   routes(): Routes {
     return {
       "GET /user-keys": authenticatedRoute(this.db, (user) => this.getUserKey(user.userId)),
       "POST /user-keys": authenticatedRoute(this.db, (user, request) =>
+        this.setUserKey(user.userId, request.json<UserKeyBody>()),
+      ),
+      // Key connector has no upsert: a client that finds an existing key updates it with `PUT`,
+      // and only creates with `POST`. Both land in the same slot here.
+      "PUT /user-keys": authenticatedRoute(this.db, (user, request) =>
         this.setUserKey(user.userId, request.json<UserKeyBody>()),
       ),
     };
