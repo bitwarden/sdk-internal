@@ -70,9 +70,8 @@ pub(crate) async fn submit_import(
                     .target_folder
                     .as_ref()
                     .map(|t| (t.id, t.name.as_str()));
-                // Count only what was actually parsed, not the pre-existing destination
-                let folder_count = parsed.folders.len();
-                let folder_views = build_personal_folders(parsed.folders, target_folder);
+                let (folder_views, folder_count) =
+                    build_personal_folders(parsed.folders, target_folder);
                 let folder_models = folder_views
                     .into_iter()
                     .map(|v| -> Result<FolderWithIdRequestModel, ImportError> {
@@ -104,7 +103,7 @@ pub(crate) async fn submit_import(
             // Organization vault: groups stay personal folders; ciphers go to the target
             // collection.
             Some(organization_id) => {
-                let folder_views = build_personal_folders(parsed.folders, None);
+                let (folder_views, folder_count) = build_personal_folders(parsed.folders, None);
                 let folder_models = folder_views
                     .into_iter()
                     .map(|v| -> Result<FolderWithIdRequestModel, ImportError> {
@@ -112,7 +111,6 @@ pub(crate) async fn submit_import(
                         Ok((&folder).into())
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                let folder_count = folder_models.len();
 
                 let (collection_models, collection_relationships) = match options.target_collection
                 {
@@ -255,14 +253,18 @@ fn filter_restricted(
     (kept, relationships)
 }
 
-/// Builds the folder views to import. When a target folder is given it becomes folder 0 and the
-/// imported groups are nested beneath it as `"{target}/{group}"`.
+/// Builds the folder views to import, plus the count of folders actually parsed from the source
+/// (excluding the injected target). When a target folder is given it becomes folder 0 and the
+/// imported groups are nested beneath it as `"{target}/{group}"` — the returned count is always
+/// `names.len()`, regardless of whether a target was given, so callers can't accidentally report
+/// the merged list's length (which includes the pre-existing target) as an import count.
 fn build_personal_folders(
     names: Vec<String>,
     target: Option<(bitwarden_vault::FolderId, &str)>,
-) -> Vec<FolderView> {
+) -> (Vec<FolderView>, usize) {
+    let count = names.len();
     let revision_date = Utc::now();
-    match target {
+    let folders = match target {
         Some((id, target)) => {
             let mut folders = Vec::with_capacity(names.len() + 1);
             folders.push(FolderView {
@@ -285,7 +287,8 @@ fn build_personal_folders(
                 revision_date,
             })
             .collect(),
-    }
+    };
+    (folders, count)
 }
 
 /// Shifts existing relationships to account for the target folder at index 0 and assigns any
@@ -373,7 +376,8 @@ mod tests {
 
     #[test]
     fn build_personal_folders_without_target_preserves_names() {
-        let folders = build_personal_folders(vec!["A".into(), "A/B".into()], None);
+        let (folders, count) = build_personal_folders(vec!["A".into(), "A/B".into()], None);
+        assert_eq!(count, 2);
         assert_eq!(folders.len(), 2);
         assert!(folders.iter().all(|f| f.id.is_none()));
         assert_eq!(folders[0].name, "A");
@@ -383,7 +387,8 @@ mod tests {
     #[test]
     fn build_personal_folders_with_target_nests_under_it() {
         let target = FolderId::new(uuid::Uuid::new_v4());
-        let folders = build_personal_folders(vec!["A".into()], Some((target, "Target")));
+        let (folders, count) = build_personal_folders(vec!["A".into()], Some((target, "Target")));
+        assert_eq!(count, 1);
         assert_eq!(folders.len(), 2);
         assert_eq!(folders[0].id, Some(target));
         assert_eq!(folders[0].name, "Target");
@@ -391,17 +396,17 @@ mod tests {
         assert_eq!(folders[1].name, "Target/A");
     }
 
-    /// Guards the `submit_import` fix: the reported folder count must come from
-    /// `parsed.folders.len()` (captured before this call), not `build_personal_folders(...).len()`
-    /// — the latter is always one larger than what was actually parsed whenever a target folder is
-    /// given, since the target is injected as an extra entry regardless of what was parsed.
+    /// Guards the `submit_import` fix directly: this is the exact call `submit_import` makes to
+    /// get `ImportSummary.folders`, so this pins the real count, not a proxy for it. Reverting the
+    /// fix — reporting `folders.len()` instead of the returned count — would fail this test, since
+    /// the merged list still has the target at index 0 even when nothing was parsed.
     #[test]
-    fn build_personal_folders_with_target_and_no_parsed_folders_still_injects_target() {
+    fn build_personal_folders_count_excludes_injected_target_when_nothing_was_parsed() {
         let target = FolderId::new(uuid::Uuid::new_v4());
-        let parsed_folder_count = 0;
-        let folders = build_personal_folders(Vec::new(), Some((target, "Target")));
+        let (folders, count) = build_personal_folders(Vec::new(), Some((target, "Target")));
 
-        assert_eq!(folders.len(), parsed_folder_count + 1);
+        assert_eq!(folders.len(), 1);
+        assert_eq!(count, 0);
     }
 
     #[test]
