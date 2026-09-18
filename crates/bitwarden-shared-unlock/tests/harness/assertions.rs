@@ -12,6 +12,7 @@ use super::{
     TestUser,
     device::SimulatedDevice,
     logs::{CapturedEvent, TEST_MANUAL_LOCK, TopologyId, events_for, kind},
+    store::LockStateStore,
     topology::SharedUnlockTopology,
 };
 
@@ -79,8 +80,8 @@ pub(crate) fn assert_user_state(
         TargetLockState::Unlocked => user.unlocked(),
     };
 
-    for device in devices_holding(topology, user.id) {
-        let actual = device.store().peek(user.id);
+    for (device, store) in devices_holding(topology, user.id) {
+        let actual = store.peek(user.id);
         if actual == expected {
             continue;
         }
@@ -97,13 +98,18 @@ pub(crate) fn assert_user_state(
     }
 }
 
-/// The devices an assertion covers: booted, and holding an account for `user_id`. Empty means the
-/// scenario is asserting nothing, which is always a bug in the scenario.
-fn devices_holding(topology: &SharedUnlockTopology, user_id: UserId) -> Vec<SimulatedDevice> {
+/// The devices an assertion covers, each paired with the store: booted, and
+/// holding an account for `user_id`. Empty means the scenario is asserting nothing, which is always
+/// a bug in the scenario.
+fn devices_holding(
+    topology: &SharedUnlockTopology,
+    user_id: UserId,
+) -> Vec<(SimulatedDevice, LockStateStore)> {
     let devices: Vec<_> = topology
         .devices()
         .into_iter()
-        .filter(|device| device.has_peer() && device.store().knows(user_id))
+        .filter_map(|device| device.try_store().map(|store| (device, store)))
+        .filter(|(_, store)| store.knows(user_id))
         .collect();
 
     if devices.is_empty() {
@@ -128,19 +134,15 @@ async fn wait_for_topology_reaching_state(
         let devices = devices_holding(topology, user_id);
         let converged = devices
             .iter()
-            .all(|device| &device.store().peek(user_id) == expected);
+            .all(|(_, store)| &store.peek(user_id) == expected);
         if converged {
             return;
         }
         if Instant::now() >= deadline {
             let actual = devices
                 .iter()
-                .map(|device| {
-                    format!(
-                        "{}={}",
-                        device.name(),
-                        describe(&device.store().peek(user_id))
-                    )
+                .map(|(device, store)| {
+                    format!("{}={}", device.name(), describe(&store.peek(user_id)))
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -168,7 +170,7 @@ pub(crate) async fn wait_for_one_recorded_date(
     loop {
         let dates: Vec<(String, Option<u64>)> = devices_holding(topology, user_id)
             .iter()
-            .map(|device| (device.name().to_owned(), device.recorded_date(user_id)))
+            .map(|(device, _)| (device.name().to_owned(), device.recorded_date(user_id)))
             .collect();
 
         if let [(_, Some(first)), rest @ ..] = dates.as_slice()

@@ -117,6 +117,10 @@ pub(super) struct DeviceInner {
     transport: Arc<InMemoryIpcTransport>,
     topology: TopologyId,
     runtime: Mutex<Option<DeviceRuntime>>,
+    /// Cancelled once for good when the topology is dropped. Unlike the per-boot token this
+    /// outlives a reload, so a quirk task still inside `boot` cannot resurrect a torn-down peer
+    /// and leave it running for the rest of the test binary.
+    lifetime: CancellationToken,
     /// Depth from the top of the hierarchy, for start ordering.
     depth: AtomicUsize,
 }
@@ -157,6 +161,7 @@ impl SimulatedDevice {
             transport,
             topology,
             runtime: Mutex::new(None),
+            lifetime: CancellationToken::new(),
             depth: AtomicUsize::new(depth),
         }))
     }
@@ -193,6 +198,13 @@ impl SimulatedDevice {
             .and_then(|runtime| runtime.peer.recorded_changed_at(user_id))
     }
 
+    /// The driver store of the currently booted process, or `None` while it is restarting.
+    pub(crate) fn try_store(&self) -> Option<LockStateStore> {
+        self.lock_runtime()
+            .as_ref()
+            .map(|runtime| runtime.store.clone())
+    }
+
     pub(crate) fn has_peer(&self) -> bool {
         self.lock_runtime().is_some()
     }
@@ -200,6 +212,10 @@ impl SimulatedDevice {
     /// Builds the runtime: driver store, transport, IPC client, and peer. The peer is started so
     /// its receive loop and sync timer are running.
     pub(super) async fn boot(&self) {
+        if self.0.lifetime.is_cancelled() {
+            return;
+        }
+
         let store = LockStateStore::new(
             &self.0.name,
             self.0.leader.clone(),
@@ -260,6 +276,13 @@ impl SimulatedDevice {
             .await
             .expect("Peer should start");
 
+        // The topology can have been dropped while the two starts above were awaiting.
+        if self.0.lifetime.is_cancelled() {
+            token.cancel();
+            self.0.transport.unregister(&self.0.endpoint);
+            return;
+        }
+
         *self.lock_runtime() = Some(DeviceRuntime { store, peer, token });
     }
 
@@ -308,6 +331,11 @@ impl SimulatedDevice {
             None,
             "process back online",
         );
+    }
+
+    pub(super) fn tear_down(&self) {
+        self.0.lifetime.cancel();
+        self.tear_down();
     }
 
     pub(super) fn tear_down(&self) {
@@ -383,8 +411,12 @@ impl SimulatedDevice {
 
         if let Some(delay) = quirks.reload_after_lock {
             let device = self.clone();
+            let lifetime = self.0.lifetime.clone();
             tokio::spawn(async move {
                 sleep(delay).await;
+                if lifetime.is_cancelled() {
+                    return;
+                }
                 device.process_reload().await;
             });
         }
