@@ -19,11 +19,11 @@ struct Tree {
     topology: SharedUnlockTopology,
     browser_a: SimulatedDevice,
     web_a1: SimulatedDevice,
+    web_a2: SimulatedDevice,
     /// Not addressed directly by any test; asserted through the topology-wide wait.
     _desktop: SimulatedDevice,
     _cli: SimulatedDevice,
     _browser_b: SimulatedDevice,
-    _web_a2: SimulatedDevice,
 }
 
 async fn build_tree() -> Tree {
@@ -68,17 +68,18 @@ async fn build_tree() -> Tree {
         topology,
         browser_a,
         web_a1,
+        web_a2,
         _desktop: desktop,
         _cli: cli,
         _browser_b: browser_b,
-        _web_a2: web_a2,
     }
 }
 
 /// Unlocking the bottom leaf unlocks every branch, up and back down
 ///
 /// ```text
-/// web-a1 🔓 --> browser-a 🔓 --> desktop 🔓 --> cli / browser-b / web-a2 🔓
+/// web-a1 UNLOCKED --> browser-a UNLOCKED --> desktop UNLOCKED
+///     --> cli / browser-b / web-a2 UNLOCKED
 /// ```
 #[tokio::test]
 async fn unlock_web_routes_up_and_down_three_tiers() {
@@ -103,10 +104,13 @@ async fn unlock_web_routes_up_and_down_three_tiers() {
 /// because the desktop fans it back out.
 ///
 /// ```text
-///            desktop 🔒 --> 🔓
-///        /       |        \
-/// cli 🔒 --> 🔓  |  browser-b 🔒 --> 🔓
-///            browser-a 🔓
+///           browser-a UNLOCKED
+///               |
+///               v
+///           desktop LOCKED --> UNLOCKED
+///  +------------+------------+
+///  v                         v
+/// cli LOCKED --> UNLOCKED    browser-b LOCKED --> UNLOCKED
 /// ```
 #[tokio::test]
 async fn unlock_browser_unlocks_all_desktop_followers() {
@@ -116,4 +120,43 @@ async fn unlock_browser_unlocks_all_desktop_followers() {
     // 1. Unlock browser-a; all devices must become unlocked.
     tree.browser_a.manual_unlock(user.id, &user.key).await;
     wait_for_devices_reaching_state(TargetLockState::Unlocked, &tree.topology, &user).await;
+}
+
+/// A middle-tier browser that was offline for an unlock relays it to the whole tree on return
+///
+/// The V-shaped scenario with two tiers above the offline browser: its return carries the unlock
+/// down to its own web client *and* up to the desktop, which fans it out to the other branches.
+///
+/// ```text
+/// web-a1 UNLOCKED             web-a2 LOCKED --> UNLOCKED
+///    \  (1)                      ^
+///     x                         / (3)
+///     browser-a offline --> back online (2) LOCKED --> UNLOCKED
+///                                            |  (3)
+///                                            v
+///                                desktop --> cli / browser-b LOCKED --> UNLOCKED
+/// ```
+#[tokio::test]
+async fn returning_browser_relays_web_unlock_to_tree() {
+    let user = test_user(TestUserId::A);
+    let tree = build_tree().await;
+
+    // 1. Take browser-a offline, then unlock web-a1.
+    tree.browser_a.go_offline();
+    tree.web_a1.manual_unlock(user.id, &user.key).await;
+
+    // 2. Assert the unlock reached nobody. Sleeping out a couple of sync intervals first makes this
+    //    about a delivery that was attempted, not one that had not been attempted yet.
+    bitwarden_threading::time::sleep(fast_timing().sync_interval * 2).await;
+    assert_eq!(tree.web_a2.store().peek(user.id), user.locked());
+
+    // 3. Bring browser-a back as a fresh, locked process; web-a1's next retry reaches it, and the
+    //    unlock travels both down to web-a2 and up to the desktop.
+    tree.browser_a.come_online().await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &tree.topology, &user).await;
+
+    // 4. Assert no returning process's initial `Locked` relocked the tree a tick later.
+    let grace = grace(&tree.topology);
+    bitwarden_threading::time::sleep(grace).await;
+    assert_user_state(TargetLockState::Unlocked, &tree.topology, &user);
 }

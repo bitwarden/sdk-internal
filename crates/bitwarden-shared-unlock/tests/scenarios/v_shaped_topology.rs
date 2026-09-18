@@ -13,8 +13,7 @@ struct VShapedTopology {
     topology: SharedUnlockTopology,
     browser: SimulatedDevice,
     web_1: SimulatedDevice,
-    /// Not addressed directly by any test; asserted through the topology-wide wait.
-    _web_2: SimulatedDevice,
+    web_2: SimulatedDevice,
 }
 
 impl VShapedTopology {
@@ -52,7 +51,7 @@ impl VShapedTopology {
             topology,
             browser,
             web_1,
-            _web_2: web_2,
+            web_2,
         }
     }
 }
@@ -60,10 +59,10 @@ impl VShapedTopology {
 /// Unlocking one web client unlocks its sibling, via the browser between them
 ///
 /// ```text
-/// web-1 🔓    web-2 🔒 --> 🔓
-///     \   (1)   ^
-///      v       / (2)
-///      browser 🔒 --> 🔓
+/// web-1 UNLOCKED    web-2 LOCKED --> UNLOCKED
+///    \  (1)         ^
+///     v           / (2)
+///     browser LOCKED --> UNLOCKED
 /// ```
 #[tokio::test]
 async fn unlock_web_unlocks_sibling_web() {
@@ -79,12 +78,12 @@ async fn unlock_web_unlocks_sibling_web() {
 /// Locking one web client locks its sibling, via the browser between them
 ///
 /// ```text
-/// everyone 🔓 first, then web-1 locks
+/// everyone UNLOCKED first, then web-1 locks
 ///
-/// web-1 🔒    web-2 🔓 --> 🔒
-///     \   (1)   ^
-///      v       / (2)
-///      browser 🔓 --> 🔒
+/// web-1 LOCKED    web-2 UNLOCKED --> LOCKED
+///    \  (1)       ^
+///     v         / (2)
+///     browser UNLOCKED --> LOCKED
 /// ```
 #[tokio::test]
 async fn lock_web_locks_sibling_web() {
@@ -103,10 +102,10 @@ async fn lock_web_locks_sibling_web() {
 /// Unlocking the browser unlocks both web clients below it
 ///
 /// ```text
-/// web-1 🔒 --> 🔓    web-2 🔒 --> 🔓
-///          ^          ^
-///           \        /
-///            browser 🔓
+/// web-1 LOCKED --> UNLOCKED    web-2 LOCKED --> UNLOCKED
+///     ^                            ^
+///     |                            |
+///     +------ browser UNLOCKED ----+
 /// ```
 #[tokio::test]
 async fn unlock_browser_unlocks_both_webs() {
@@ -121,12 +120,12 @@ async fn unlock_browser_unlocks_both_webs() {
 /// Locking the browser locks both web clients below it
 ///
 /// ```text
-/// everyone 🔓 first, then the browser locks
+/// everyone UNLOCKED first, then the browser locks
 ///
-/// web-1 🔓 --> 🔒    web-2 🔓 --> 🔒
-///          ^          ^
-///           \        /
-///            browser 🔒
+/// web-1 UNLOCKED --> LOCKED    web-2 UNLOCKED --> LOCKED
+///     ^                            ^
+///     |                            |
+///     +------- browser LOCKED -----+
 /// ```
 #[tokio::test]
 async fn lock_browser_locks_both_webs() {
@@ -140,4 +139,37 @@ async fn lock_browser_locks_both_webs() {
     // 2. Lock the browser; all devices must become locked.
     topology.browser.manual_lock(user.id).await;
     wait_for_devices_reaching_state(TargetLockState::Locked, &topology.topology, &user).await;
+}
+
+/// A browser that was offline for an unlock relays it to the other tab on return
+///
+/// ```text
+/// web-1 UNLOCKED             web-2 LOCKED --> UNLOCKED
+///    \  (1)                     ^
+///     x                        / (3)
+///     browser offline --> back online (2) LOCKED --> UNLOCKED
+/// ```
+#[tokio::test]
+async fn returning_browser_relays_web_unlock_to_sibling() {
+    let user = test_user(TestUserId::A);
+    let topology = VShapedTopology::make().await;
+
+    // 1. Take the only path between the tabs offline, then unlock web-1.
+    topology.browser.go_offline();
+    topology.web_1.manual_unlock(user.id, &user.key).await;
+
+    // 2. Assert the unlock reached nobody. Sleeping out a couple of sync intervals first makes this
+    //    about a delivery that was attempted, not one that had not been attempted yet.
+    bitwarden_threading::time::sleep(fast_timing().sync_interval * 2).await;
+    assert_eq!(topology.web_2.store().peek(user.id), user.locked());
+
+    // 3. Bring the browser back as a fresh, locked process; web-1's next retry reaches it, and it
+    //    fans the unlock down to web-2.
+    topology.browser.come_online().await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology.topology, &user).await;
+
+    // 4. Assert the returning browser's initial `Locked` did not relock both tabs a tick later.
+    let grace = grace(&topology.topology);
+    bitwarden_threading::time::sleep(grace).await;
+    assert_user_state(TargetLockState::Unlocked, &topology.topology, &user);
 }

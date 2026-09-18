@@ -5,9 +5,9 @@ use crate::prelude::*;
 /// A restarted follower comes up locked and relearns the unlock from its leader
 ///
 /// ```text
-/// follower 🔓 --restart--> 🔒 --> 🔓
+/// follower UNLOCKED --restart--> LOCKED --> UNLOCKED
 ///     |
-/// leader 🔓
+/// leader UNLOCKED
 /// ```
 #[tokio::test]
 async fn restart_follower_adopts_leader_unlock() {
@@ -28,9 +28,9 @@ async fn restart_follower_adopts_leader_unlock() {
 /// A restarted leader comes up locked and relearns the unlock from its follower
 ///
 /// ```text
-/// follower 🔓
+/// follower UNLOCKED
 ///     |
-/// leader 🔓 --restart--> 🔒 --> 🔓
+/// leader UNLOCKED --restart--> LOCKED --> UNLOCKED
 /// ```
 #[tokio::test]
 async fn restart_leader_adopts_follower_unlock() {
@@ -52,9 +52,9 @@ async fn restart_leader_adopts_follower_unlock() {
 /// A restarted follower advertises `Locked`, which must not lock its leader
 ///
 /// ```text
-/// follower 🔓 --restart--> 🔒 (advertises Locked)
+/// follower UNLOCKED --restart--> LOCKED (advertises Locked)
 ///     |
-/// leader 🔓 --> stays 🔓
+/// leader UNLOCKED --> stays UNLOCKED
 /// ```
 #[tokio::test]
 async fn restart_follower_keeps_leader_unlocked() {
@@ -86,9 +86,9 @@ async fn restart_follower_keeps_leader_unlocked() {
 /// A restarted leader advertises `Locked`, which must not lock its follower
 ///
 /// ```text
-/// follower 🔓 --> stays 🔓
+/// follower UNLOCKED --> stays UNLOCKED
 ///     |
-/// leader 🔓 --restart--> 🔒 (advertises Locked)
+/// leader UNLOCKED --restart--> LOCKED (advertises Locked)
 /// ```
 #[tokio::test]
 async fn restart_leader_keeps_follower_unlocked() {

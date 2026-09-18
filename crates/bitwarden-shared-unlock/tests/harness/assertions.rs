@@ -157,23 +157,37 @@ async fn wait_for_topology_reaching_state(
     }
 }
 
-/// Waits until the topology has reported an event matching `predicate`. Preferable to sleeping a
-/// fixed amount and then asserting: these tests share a runtime, so when a given event lands
-/// varies.
-pub(crate) async fn wait_for_event(
+/// Waits until every device holding `user_id` has recorded the same date for it, and returns that
+/// date. Agreeing on the state is not enough: the side holding the older date re-advertises it on
+/// every tick forever.
+pub(crate) async fn wait_for_one_recorded_date(
     topology: &SharedUnlockTopology,
-    description: &str,
-    timeout: Duration,
-    predicate: impl Fn(&CapturedEvent) -> bool,
-) {
-    let deadline = Instant::now() + timeout;
+    user_id: UserId,
+) -> u64 {
+    let deadline = Instant::now() + CONVERGE_TIMEOUT;
     loop {
-        if events(topology.id()).iter().any(&predicate) {
-            return;
+        let dates: Vec<(String, Option<u64>)> = devices_holding(topology, user_id)
+            .iter()
+            .map(|device| (device.name().to_owned(), device.recorded_date(user_id)))
+            .collect();
+
+        if let [(_, Some(first)), rest @ ..] = dates.as_slice()
+            && rest.iter().all(|(_, date)| date == &Some(*first))
+        {
+            return *first;
         }
+
         if Instant::now() >= deadline {
+            let actual = dates
+                .iter()
+                .map(|(name, date)| format!("{name}={date:?}"))
+                .collect::<Vec<_>>()
+                .join(", ");
             fail(
-                format!("Timed out after {timeout:?} waiting for {description}"),
+                format!(
+                    "Timed out after {CONVERGE_TIMEOUT:?} waiting for one recorded date for user \
+                     {user_id}. Actual: {actual}"
+                ),
                 topology,
             );
         }

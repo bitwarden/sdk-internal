@@ -6,7 +6,7 @@ use crate::prelude::*;
 /// transition has time to be undone by a stale advertisement
 ///
 /// ```text
-/// follower 🔓 --> 🔒 --> 🔓 --> 🔒 ...
+/// follower UNLOCKED --> LOCKED --> UNLOCKED --> LOCKED ...
 ///     |
 /// leader follows, and neither side ever flips back on its own
 /// ```
@@ -34,9 +34,9 @@ async fn repeated_cycles_never_relock_spuriously() {
 /// vault timeout locks it
 ///
 /// ```text
-/// follower 🔓  (suppression must be renewed within one interval + grace)
+/// follower UNLOCKED  (suppression must be renewed within one interval + grace)
 ///     |
-/// leader 🔓 --sync--> follower
+/// leader UNLOCKED --sync--> follower
 /// ```
 #[tokio::test]
 async fn leader_keeps_syncing_while_lock_settles() {
@@ -63,7 +63,7 @@ async fn leader_keeps_syncing_while_lock_settles() {
 /// A user the leader has no account for stays unlocked on the follower that does
 ///
 /// ```text
-/// follower 🔓 C  --> stays 🔓
+/// follower UNLOCKED C  --> stays UNLOCKED
 ///     |
 /// leader (no account for C)
 /// ```

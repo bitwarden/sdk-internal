@@ -40,7 +40,7 @@ use bitwarden_encoding::B64;
 use bitwarden_shared_unlock::LockState;
 pub(crate) use client_type::ClientType;
 pub(crate) use device::{DeviceOptions, DeviceQuirks, SimulatedDevice};
-pub(crate) use logs::{REPLAYED_MANUAL_LOCK, kind, now_ms};
+pub(crate) use logs::{REPLAYED_MANUAL_LOCK, now_ms};
 pub(crate) use store::LockDelays;
 pub(crate) use topology::{SharedUnlockTopology, SimpleTopology};
 

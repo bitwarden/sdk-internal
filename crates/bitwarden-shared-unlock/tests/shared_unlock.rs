@@ -10,11 +10,10 @@ mod prelude {
 
     pub(crate) use super::{VAULT_URL, grace, harness};
     pub(crate) use crate::harness::{
-        CONVERGE_TIMEOUT, ClientType, DeviceOptions, DeviceQuirks, REPLAYED_MANUAL_LOCK,
-        SLOW_DELAYS, SharedUnlockTopology, SimpleTopology, TargetLockState, TestUserId,
-        assert_no_lock, assert_still_responsive, assert_user_state, count_unreachable,
-        events_matching, fast_timing, kind, test_user, wait_for_devices_reaching_state,
-        wait_for_event,
+        ClientType, DeviceOptions, DeviceQuirks, REPLAYED_MANUAL_LOCK, SLOW_DELAYS,
+        SharedUnlockTopology, SimpleTopology, TargetLockState, TestUserId, assert_no_lock,
+        assert_still_responsive, assert_user_state, count_unreachable, events_matching,
+        fast_timing, test_user, wait_for_devices_reaching_state, wait_for_one_recorded_date,
     };
 }
 

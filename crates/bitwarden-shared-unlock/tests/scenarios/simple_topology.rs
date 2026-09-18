@@ -11,9 +11,9 @@ use crate::prelude::*;
 /// Unlocking a follower unlocks its leader
 ///
 /// ```text
-/// follower 🔓
+/// follower UNLOCKED
 ///     |
-/// leader 🔒 --> 🔓
+/// leader LOCKED --> UNLOCKED
 /// ```
 #[tokio::test]
 async fn unlock_follower_unlocks_leader() {
@@ -28,11 +28,11 @@ async fn unlock_follower_unlocks_leader() {
 /// Locking a follower locks its leader
 ///
 /// ```text
-/// both 🔓 first, then the follower locks
+/// both UNLOCKED first, then the follower locks
 ///
-/// follower 🔒
+/// follower LOCKED
 ///     |
-/// leader 🔓 --> 🔒
+/// leader UNLOCKED --> LOCKED
 /// ```
 #[tokio::test]
 async fn lock_follower_locks_leader() {
@@ -51,9 +51,9 @@ async fn lock_follower_locks_leader() {
 /// Unlocking a leader unlocks its follower
 ///
 /// ```text
-/// follower 🔒 --> 🔓
+/// follower LOCKED --> UNLOCKED
 ///     |
-/// leader 🔓
+/// leader UNLOCKED
 /// ```
 #[tokio::test]
 async fn unlock_leader_unlocks_follower() {
@@ -68,11 +68,11 @@ async fn unlock_leader_unlocks_follower() {
 /// Locking a leader locks its follower
 ///
 /// ```text
-/// both 🔓 first, then the leader locks
+/// both UNLOCKED first, then the leader locks
 ///
-/// follower 🔓 --> 🔒
+/// follower UNLOCKED --> LOCKED
 ///     |
-/// leader 🔒
+/// leader LOCKED
 /// ```
 #[tokio::test]
 async fn lock_leader_locks_follower() {
@@ -91,9 +91,9 @@ async fn lock_leader_locks_follower() {
 /// Unlocking one user leaves another user on the same devices locked
 ///
 /// ```text
-/// follower 🔓 A / 🔒 B
+/// follower UNLOCKED A / LOCKED B
 ///     |
-/// leader 🔓 A / 🔒 B
+/// leader UNLOCKED A / LOCKED B
 /// ```
 #[tokio::test]
 async fn unlock_user_a_leaves_user_b_locked() {
