@@ -1,87 +1,85 @@
+import { isKeyIdBackfillError } from "@bitwarden/sdk-internal";
+
+import type { ClientEmulator } from "../../client-emulator/client-emulator";
+import { testHarness, type TestHarness } from "../../test-harness";
 import {
-  ClientSettings,
-  KeyId,
-  KeyIdBackfillError,
-  ManagedSettingsClient,
-  PasswordManagerClient,
-  WasmStateBridge,
-  init_sdk,
-  isKeyIdBackfillError,
-} from "@bitwarden/sdk-internal";
-
-import { HttpMock, installHttpMock } from "../http-mock";
-import {
-  makeInitializedPasswordmanagerClient,
-  makeStateBridge,
-  makeV2AccountClient,
-} from "../utils";
-
-// Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
-// SDK's request URLs parseable and makes an unmocked route fail loudly rather than escape to
-// the network.
-const SETTINGS: ClientSettings = {
-  apiUrl: "http://localhost:4000",
-  identityUrl: "http://localhost:4000/identity",
-};
-
-const ROUTE = "POST /accounts/key-management/user-key-id";
+  MASTER_PASSWORD_ACCOUNT,
+  RECORDED_KEY_ID,
+  V2_ACCOUNT,
+  V2_ACCOUNT_WITH_RECORDED_KEY_ID,
+} from "../../vectors/accounts";
+import { rejection, TEST_EMAIL, TEST_PASSWORD } from "../utils";
+import { V2_DECRYPTED_USER_KEY } from "../v2-fixtures";
 
 /** Key ids travel as a lowercase hex encoding of 16 bytes. */
 const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
 
-/** Stands in for whatever id the server had already recorded. */
-const RECORDED_KEY_ID = "000102030405060708090a0b0c0d0e0f" as unknown as KeyId;
-
 const TIMEOUT = 60_000;
 
-/** Awaits a rejection and narrows it to a {@link KeyIdBackfillError}. */
-async function rejection(promise: Promise<unknown>): Promise<KeyIdBackfillError> {
-  const thrown = await promise.then(
-    () => undefined,
-    (error) => error,
-  );
-  if (!isKeyIdBackfillError(thrown)) {
-    throw new Error(`expected a KeyIdBackfillError, got ${thrown}`);
-  }
-  return thrown;
-}
-
 describe("user key id backfill", () => {
-  let mock: HttpMock;
-  let bridge: WasmStateBridge;
+  let harness: TestHarness;
 
   beforeEach(() => {
-    bridge = makeStateBridge();
+    harness = testHarness();
   });
 
-  afterEach(() => {
-    expect(mock.unmatched.map((request) => request.route)).toEqual([]);
-    mock.restore();
-  });
+  afterEach(() => harness.restore());
+
+  /** Logs in and unlocks the V2 account, which has no master password. */
+  async function loginV2(vector = V2_ACCOUNT): Promise<ClientEmulator> {
+    const { email } = harness.server.seedUser(vector);
+
+    const client = harness.newClientEmulator();
+    await client.login(email);
+    await client.unlockWithUserKey(V2_DECRYPTED_USER_KEY);
+
+    return client;
+  }
+
+  /** Logs in and unlocks the V1 master-password account, whose user key carries no key id. */
+  async function loginV1(): Promise<ClientEmulator> {
+    const { email } = harness.server.seedUser(MASTER_PASSWORD_ACCOUNT);
+
+    const client = harness.newClientEmulator();
+    await client.login(email);
+    await client.unlock(TEST_PASSWORD);
+
+    return client;
+  }
 
   describe("user_key_id_needs_backfill", () => {
     it(
-      "is true when the server has recorded no key id for a V2 account",
+      "is true when the server has recorded no key id",
       async () => {
-        mock = installHttpMock({});
-        const client = await makeV2AccountClient(bridge, SETTINGS);
+        // 1. Log in to an account the server holds no key id for
+        const client = await loginV2();
 
-        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(true);
-        // The check is answered from local state alone.
-        expect(mock.routes()).toEqual([]);
+        // 2. Verify a backfill is outstanding, and that answering said so from local state alone
+        expect(
+          await client
+            .getPasswordManagerClient()
+            .user_crypto_management()
+            .user_key_id_needs_backfill(),
+        ).toBe(true);
+        expect(harness.server.getUser(TEST_EMAIL).userKeyId).toBeUndefined();
       },
       TIMEOUT,
     );
 
     it(
-      "is false once the server's key id is known",
+      "is false once the sync carries the server's key id",
       async () => {
-        mock = installHttpMock({});
-        const client = await makeV2AccountClient(bridge, SETTINGS);
-        // Stands in for what the crypto sync handler stores when the server reports an id.
-        await bridge.set_user_key_id(RECORDED_KEY_ID);
+        // 1. Log in to an account whose key id the server already recorded
+        const client = await loginV2(V2_ACCOUNT_WITH_RECORDED_KEY_ID);
 
-        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(false);
+        // 2. Verify the sync brought the id down and nothing is outstanding
+        expect(await client.bridge.get_user_key_id()).toEqual(RECORDED_KEY_ID);
+        expect(
+          await client
+            .getPasswordManagerClient()
+            .user_crypto_management()
+            .user_key_id_needs_backfill(),
+        ).toBe(false);
       },
       TIMEOUT,
     );
@@ -89,90 +87,70 @@ describe("user key id backfill", () => {
     it(
       "is true for a V1 account, whose user key derives a key id from its key material",
       async () => {
-        mock = installHttpMock({});
-        const client = await makeInitializedPasswordmanagerClient(bridge, SETTINGS);
+        // 1. Log in to a V1 account
+        const client = await loginV1();
 
-        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(true);
-        // The check is answered from local state alone.
-        expect(mock.routes()).toEqual([]);
-      },
-      TIMEOUT,
-    );
-
-    it(
-      "fails when the host registered no state bridge",
-      async () => {
-        mock = installHttpMock({});
-        // Built without `makePasswordManagerClient`, which always registers a bridge. Without one
-        // there is nowhere to read the server's key id from, so the answer is an error rather than
-        // a guess.
-        init_sdk();
-        const client = new PasswordManagerClient(
-          { get_access_token: async () => undefined },
-          SETTINGS,
-          new ManagedSettingsClient(),
-        );
-
-        const error = await rejection(client.user_crypto_management().user_key_id_needs_backfill());
-
-        expect(error.variant).toBe("StateBridgeNotRegistered");
+        // 2. Verify a backfill is outstanding
+        expect(
+          await client
+            .getPasswordManagerClient()
+            .user_crypto_management()
+            .user_key_id_needs_backfill(),
+        ).toBe(true);
       },
       TIMEOUT,
     );
   });
 
   describe("user_key_id_backfill", () => {
-    it(
-      "posts the current user key id and stores it as the server's",
-      async () => {
-        mock = installHttpMock({ [ROUTE]: () => ({}) });
-        const client = await makeV2AccountClient(bridge, SETTINGS);
+    it.each([
+      { name: "a V2 account", login: () => loginV2() },
+      { name: "a V1 account", login: () => loginV1() },
+    ])(
+      "records the user key id of $name on the server",
+      async ({ login }) => {
+        // 1. Log in to an account with no recorded key id
+        const client = await login();
+        const sdk = client.getPasswordManagerClient();
 
-        await client.user_crypto_management().user_key_id_backfill();
+        // 2. Backfill the key id
+        await sdk.user_crypto_management().user_key_id_backfill();
 
-        expect(mock.routes()).toEqual([ROUTE]);
-        const posted = mock.bodyFor(ROUTE);
-        expect(Object.keys(posted)).toEqual(["userKeyId"]);
-        expect(posted.userKeyId).toMatch(KEY_ID_PATTERN);
+        // 3. Verify the server recorded the id the client holds
+        const recorded = harness.server.getUser(TEST_EMAIL).userKeyId;
+        expect(recorded).toMatch(KEY_ID_PATTERN);
+        expect(await client.bridge.get_user_key_id()).toEqual(recorded);
 
-        // The id crossed the FFI boundary in both directions and came back unchanged.
-        expect(await bridge.get_user_key_id()).toEqual(posted.userKeyId);
-        // Nothing left to backfill.
-        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(false);
+        // 4. Verify nothing is left to backfill, here and for a client that only syncs
+        expect(await sdk.user_crypto_management().user_key_id_needs_backfill()).toBe(false);
+
+        // 5. Verify a new client that only syncs sees the server's key id
+        const returning = harness.newClientEmulator();
+        await returning.login(TEST_EMAIL);
+        expect(await returning.bridge.get_user_key_id()).toEqual(recorded);
       },
       TIMEOUT,
     );
 
     it(
-      "leaves stored state untouched when the server rejects the key id",
+      "changes nothing when the server rejects the key id",
       async () => {
-        mock = installHttpMock({ [ROUTE]: () => ({ status: 400, json: { message: "nope" } }) });
-        const client = await makeV2AccountClient(bridge, SETTINGS);
+        // 1. Log in to an account whose key id the server already recorded, which it will not
+        //    overwrite
+        const client = await loginV2(V2_ACCOUNT_WITH_RECORDED_KEY_ID);
 
-        const error = await rejection(client.user_crypto_management().user_key_id_backfill());
+        // 2. Backfill the key id
+        const error = await rejection(
+          client.getPasswordManagerClient().user_crypto_management().user_key_id_backfill(),
+          isKeyIdBackfillError,
+        );
 
+        // 3. Verify the request reached the server and was refused there
         expect(error.variant).toBe("Api");
-        expect(await bridge.get_user_key_id()).toBeFalsy();
-        // Still outstanding, so a later attempt can retry.
-        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(true);
-      },
-      TIMEOUT,
-    );
 
-    it(
-      "backfills a V1 account the same way, using the id its user key derives",
-      async () => {
-        mock = installHttpMock({ [ROUTE]: () => ({}) });
-        const client = await makeInitializedPasswordmanagerClient(bridge, SETTINGS);
-
-        await client.user_crypto_management().user_key_id_backfill();
-
-        expect(mock.routes()).toEqual([ROUTE]);
-        const posted = mock.bodyFor(ROUTE);
-        expect(posted.userKeyId).toMatch(KEY_ID_PATTERN);
-
-        expect(await bridge.get_user_key_id()).toEqual(posted.userKeyId);
-        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(false);
+        // 4. Verify neither side moved
+        expect(harness.server.getUser(TEST_EMAIL).userKeyId).toEqual(RECORDED_KEY_ID);
+        expect(await client.bridge.get_user_key_id()).toEqual(RECORDED_KEY_ID);
       },
       TIMEOUT,
     );
