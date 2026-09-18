@@ -1,20 +1,33 @@
 //! Token handler implementation for Bitwarden Secrets Manager authentication.
+//!
+//! This handler lives in `bitwarden-sm` rather than `bitwarden-auth` because
+//! [`renew_token`] must write to the SM state file via [`state::set`] after each
+//! credential exchange, and `bitwarden-auth` cannot depend on `bitwarden-sm`.
+//! The HTTP credential exchange is performed inline using [`AccessTokenRequest`],
+//! which calls `bitwarden_auth::send_identity_connect_request` directly.
 
 use std::sync::{Arc, RwLock};
 
+use bitwarden_auth::{
+    IdentityTokenResponse,
+    token_management::{MiddlewareExt, MiddlewareWrapper},
+};
 use bitwarden_core::{
     NotAuthenticatedError, OrganizationId,
     auth::{TokenHandler, login::LoginError},
-    client::login_method::ServiceAccountLoginMethod,
-    key_management::KeySlotIds,
+    key_management::{KeySlotIds, SymmetricKeySlotId},
 };
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 
-use super::middleware::{MiddlewareExt, MiddlewareWrapper};
+use crate::{
+    access_token_request::AccessTokenRequest,
+    service_account_login_method::ServiceAccountLoginMethod,
+    state::{self, ClientState},
+};
 
-/// Token handler for Bitwarden authentication.
+/// Token handler for Bitwarden Secrets Manager authentication.
 #[derive(Clone, Default)]
 pub struct SecretsManagerTokenHandler {
     inner: Arc<RwLock<SecretsManagerTokenHandlerInner>>,
@@ -57,14 +70,17 @@ impl TokenHandler for SecretsManagerTokenHandler {
         inner.access_token = Some(access_token);
         inner.expires_on = Some(Utc::now().timestamp() + expires_in as i64);
     }
-
-    async fn set_sm_login_method(&self, login_method: ServiceAccountLoginMethod) {
-        let mut inner = self.inner.write().expect("RwLock is not poisoned");
-        inner.login_method = Some(Arc::new(login_method));
-    }
 }
 
 impl SecretsManagerTokenHandler {
+    /// Store the Secrets Manager login method on the handler.
+    ///
+    /// SM tokens are not persisted, so the login method lives in-memory on the handler.
+    pub fn set_sm_login_method(&self, login_method: ServiceAccountLoginMethod) {
+        let mut inner = self.inner.write().expect("RwLock is not poisoned");
+        inner.login_method = Some(Arc::new(login_method));
+    }
+
     /// Get the organization ID associated with the current access token, if available.
     pub fn get_access_token_organization(&self) -> Option<OrganizationId> {
         let inner = self.inner.read().ok()?;
@@ -89,15 +105,41 @@ impl MiddlewareExt for SecretsManagerTokenHandler {
 
         let login_method = inner.login_method.ok_or(NotAuthenticatedError)?;
         let identity_config = inner.identity_config.ok_or(NotAuthenticatedError)?;
-        let key_store = inner.key_store.ok_or(NotAuthenticatedError)?;
 
-        let (access_token, refresh_token, expires_in) =
-            bitwarden_core::auth::renew::renew_sm_token_sdk_managed(
-                login_method.as_ref(),
-                identity_config,
-                key_store,
-            )
-            .await?;
+        let ServiceAccountLoginMethod::AccessToken {
+            access_token: sm_access_token,
+            organization_id,
+            state_file,
+        } = login_method.as_ref();
+
+        let res = AccessTokenRequest::new(
+            sm_access_token.access_token_id,
+            &sm_access_token.client_secret,
+        )
+        .send(&identity_config)
+        .await?;
+
+        let (access_token, refresh_token, expires_in) = match res {
+            IdentityTokenResponse::Refreshed(r) => (r.access_token, r.refresh_token, r.expires_in),
+            IdentityTokenResponse::Authenticated(r) => {
+                (r.access_token, r.refresh_token, r.expires_in)
+            }
+            IdentityTokenResponse::Payload(r) => (r.access_token, r.refresh_token, r.expires_in),
+        };
+
+        // Persist the renewed token to the SM state file: when the login method carries a state
+        // file and the Organization key slot is populated, rewrite the encrypted state file so a
+        // later cold start can reuse the token without a fresh login.
+        if let (Some(state_file), Some(key_store)) = (state_file, inner.key_store.as_ref()) {
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            if let Ok(enc_key) =
+                ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::Organization(*organization_id))
+            {
+                let client_state = ClientState::new(access_token.clone(), enc_key.to_base64());
+                let _ = state::set(state_file, sm_access_token, client_state);
+            }
+        }
 
         self.set_tokens(access_token.clone(), refresh_token, expires_in)
             .await;
@@ -110,24 +152,34 @@ mod tests {
     use std::str::FromStr;
 
     use bitwarden_api_api::apis::AuthRequired;
-    use bitwarden_core::{auth::AccessToken, client::login_method::ServiceAccountLoginMethod};
+    use bitwarden_auth::token_management::test_utils::*;
     use bitwarden_state::registry::StateRegistry;
     use wiremock::MockServer;
 
     use super::*;
-    use crate::token_management::test_utils::*;
+    use crate::access_token::AccessToken;
 
     fn service_account_login_method() -> ServiceAccountLoginMethod {
-        let access_token = AccessToken::from_str(
-            "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==",
-        )
-        .unwrap();
+        service_account_login_method_with_state(None)
+    }
+
+    fn service_account_login_method_with_state(
+        state_file: Option<std::path::PathBuf>,
+    ) -> ServiceAccountLoginMethod {
+        let access_token = test_access_token();
 
         ServiceAccountLoginMethod::AccessToken {
             access_token,
             organization_id: "00000000-0000-0000-0000-000000000001".parse().unwrap(),
-            state_file: None,
+            state_file,
         }
+    }
+
+    fn test_access_token() -> AccessToken {
+        AccessToken::from_str(
+            "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==",
+        )
+        .unwrap()
     }
 
     #[tokio::test]
@@ -136,9 +188,7 @@ mod tests {
         let identity_server = MockServer::start().await;
 
         let handler = SecretsManagerTokenHandler::default();
-        handler
-            .set_sm_login_method(service_account_login_method())
-            .await;
+        handler.set_sm_login_method(service_account_login_method());
         handler
             .set_tokens("original-token".to_string(), None, 3600)
             .await;
@@ -158,9 +208,7 @@ mod tests {
         let identity_server = start_renewal_server("renewed-token").await;
 
         let handler = SecretsManagerTokenHandler::default();
-        handler
-            .set_sm_login_method(service_account_login_method())
-            .await;
+        handler.set_sm_login_method(service_account_login_method());
         // expires_in=0 puts the token inside the renewal margin.
         handler
             .set_tokens("expired-token".to_string(), None, 0)
@@ -175,15 +223,78 @@ mod tests {
         assert_eq!(app_server.received_requests().await.unwrap().len(), 1);
     }
 
+    /// Regression (PM-25937): when a service account caches its session in a state file,
+    /// renewing an expired token must also rewrite that file. Otherwise the on-disk copy keeps
+    /// the old, expired token and the next cold start fails to reuse it. This test forces a
+    /// renewal and asserts the state file is rewritten.
+    #[tokio::test]
+    async fn renewal_rewrites_state_file() {
+        let app_server = start_app_server().await;
+        let identity_server = start_renewal_server("renewed-token").await;
+
+        let state_file = std::env::temp_dir().join(format!("bwsm-state-{}", uuid::Uuid::new_v4()));
+
+        let access_token = test_access_token();
+        // Seed the Organization slot — login writes the org encryption key there, so renewal
+        // must read from the same slot.
+        let user_key = access_token.encryption_key.clone();
+        // The state file is encrypted with the login method's access token encryption key.
+        let sm_access_token = test_access_token();
+
+        let handler = SecretsManagerTokenHandler::default();
+        let login_method = service_account_login_method_with_state(Some(state_file.clone()));
+        let ServiceAccountLoginMethod::AccessToken {
+            organization_id, ..
+        } = &login_method;
+        let organization_id = *organization_id;
+        handler.set_sm_login_method(login_method);
+        // expires_in=0 puts the token inside the renewal margin so a renewal is forced.
+        handler
+            .set_tokens("expired-token".to_string(), None, 0)
+            .await;
+
+        // Seed the Organization key slot — login writes the org encryption key there for SM
+        // sessions.
+        let key_store = KeyStore::<KeySlotIds>::default();
+        #[allow(deprecated)]
+        key_store
+            .context_mut()
+            .set_symmetric_key(SymmetricKeySlotId::Organization(organization_id), user_key)
+            .unwrap();
+
+        let registry = StateRegistry::new_with_memory_db();
+        let middleware = handler.initialize_middleware(
+            &registry,
+            bitwarden_api_api::Configuration::new(identity_server.uri()),
+            key_store,
+        );
+        let client = reqwest_middleware::ClientBuilder::new(bitwarden_api_api::new_http_client())
+            .with_arc(middleware)
+            .build();
+
+        let auth = send_auth_request(&client, &app_server).await;
+        assert_eq!(auth.as_deref(), Some("Bearer renewed-token"));
+
+        assert!(
+            state_file.exists(),
+            "state file was not rewritten on token renewal"
+        );
+
+        // The persisted state must decrypt to the renewed token.
+        let persisted = state::get(&state_file, &sm_access_token)
+            .expect("state file should decrypt with the SM access token key");
+        assert_eq!(persisted.token, "renewed-token");
+
+        let _ = std::fs::remove_file(&state_file);
+    }
+
     #[tokio::test]
     async fn retries_with_renewed_token_on_401() {
         let app_server = start_app_server_rejecting("stale-token").await;
         let identity_server = start_renewal_server("renewed-token").await;
 
         let handler = SecretsManagerTokenHandler::default();
-        handler
-            .set_sm_login_method(service_account_login_method())
-            .await;
+        handler.set_sm_login_method(service_account_login_method());
         // Locally-valid token forces renewal through the 401 retry path.
         handler
             .set_tokens("stale-token".to_string(), None, 3600)
@@ -221,9 +332,7 @@ mod tests {
         let identity_server = start_renewal_server_failing_then_succeeding("renewed-token").await;
 
         let handler = SecretsManagerTokenHandler::default();
-        handler
-            .set_sm_login_method(service_account_login_method())
-            .await;
+        handler.set_sm_login_method(service_account_login_method());
 
         let registry = StateRegistry::new_with_memory_db();
         let client = build_client(&handler, &registry, &identity_server);
@@ -248,17 +357,13 @@ mod tests {
 
     #[tokio::test]
     async fn concurrent_401s_trigger_a_single_renewal() {
-        // Locally-valid tokens, so renewal only happens via the 401 retry path. Coalescing should
-        // collapse the five retries into a single identity-server call.
         let app_server = start_app_server_rejecting("stale-token").await;
         let identity_server =
             start_renewal_server_with_delay("renewed-token", std::time::Duration::from_millis(100))
                 .await;
 
         let handler = SecretsManagerTokenHandler::default();
-        handler
-            .set_sm_login_method(service_account_login_method())
-            .await;
+        handler.set_sm_login_method(service_account_login_method());
         handler
             .set_tokens("stale-token".to_string(), None, 3600)
             .await;
@@ -274,15 +379,12 @@ mod tests {
     #[tokio::test]
     async fn concurrent_requests_trigger_a_single_renewal() {
         let app_server = start_app_server().await;
-        // Renewal delay so that concurrent renewals would overlap if not serialized.
         let identity_server =
             start_renewal_server_with_delay("renewed-token", std::time::Duration::from_millis(100))
                 .await;
 
         let handler = SecretsManagerTokenHandler::default();
-        handler
-            .set_sm_login_method(service_account_login_method())
-            .await;
+        handler.set_sm_login_method(service_account_login_method());
         handler
             .set_tokens("expired-token".to_string(), None, 0)
             .await;
