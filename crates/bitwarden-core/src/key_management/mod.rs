@@ -69,6 +69,8 @@ mod local_user_data_key_state;
 
 /// A temporary bridge to access KM-related state from within the SDK.
 #[cfg(feature = "internal")]
+mod trace;
+
 pub mod state_bridge;
 
 use crate::{OrganizationId, UserId};

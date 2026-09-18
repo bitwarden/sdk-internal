@@ -5,8 +5,12 @@ use bitwarden_core::Client;
 use bitwarden_core::client::persisted_state::{
     ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, SESSION_PROTECTED_USER_KEY,
 };
+#[cfg(feature = "cli")]
+use bitwarden_performance_tracking::PerformanceEventDescriptor;
 
 use crate::SessionKey;
+#[cfg(feature = "cli")]
+use crate::trace;
 
 /// The unlock factor used to unlock a rehydrated client.
 ///
@@ -53,6 +57,8 @@ impl UnlockClient {
     pub async fn generate_session_key(&self) -> Result<SessionKey, UnlockError> {
         use bitwarden_core::key_management::SymmetricKeySlotId;
 
+        let _event = session_key_entry("Generate").start();
+
         let (envelope, session_key) = {
             let key_store = self.client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
@@ -88,6 +94,10 @@ impl UnlockClient {
     #[cfg(feature = "cli")]
     pub async fn unlock(&self, unlock: UnlockMethod) -> Result<(), UnlockError> {
         let UnlockMethod::SessionKey(session_key) = unlock;
+
+        // Spans the key unwrap and both crypto initializations; the key derivation underneath is
+        // drawn separately on the `Slow Crypto` group.
+        let mut event = session_key_entry("Unlock").start();
 
         let state = self.client.platform().state();
 
@@ -164,6 +174,8 @@ impl UnlockClient {
                 UnlockError::Unknown
             })?;
 
+        let org_key_count = org_keys.len();
+
         self.client
             .internal
             .initialize_org_crypto(org_keys.into_iter().map(|k| (k.org_id, k.key)).collect())
@@ -171,6 +183,8 @@ impl UnlockClient {
                 tracing::error!("Failed to decrypt organization keys: {e}");
                 UnlockError::Unknown
             })?;
+
+        event.prop("organizations", org_key_count);
 
         Ok(())
     }
@@ -183,6 +197,8 @@ impl UnlockClient {
     /// key rather than mutate in-memory state.
     #[cfg(feature = "cli")]
     pub async fn invalidate_session_key(&self) -> Result<(), bitwarden_state::SettingsError> {
+        let _event = session_key_entry("Invalidate").start();
+
         self.client
             .platform()
             .state()
@@ -190,6 +206,12 @@ impl UnlockClient {
             .delete()
             .await
     }
+}
+
+/// Draws a session-key operation on the unlock track.
+#[cfg(feature = "cli")]
+fn session_key_entry(name: &'static str) -> PerformanceEventDescriptor {
+    PerformanceEventDescriptor::new(trace::GROUP, trace::SESSION_KEYS_TRACK, name)
 }
 
 /// Extension trait to add the unlock client to the main Bitwarden SDK client.

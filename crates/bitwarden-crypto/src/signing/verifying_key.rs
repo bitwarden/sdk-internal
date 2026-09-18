@@ -13,7 +13,9 @@ use coset::{
 };
 use ml_dsa::{MlDsa44, signature::Verifier};
 
-use super::{SignatureAlgorithm, ed25519_verifying_key, key_id, mldsa44_verifying_key};
+use super::{
+    SignatureAlgorithm, ed25519_verifying_key, key_id, mldsa44_verifying_key, signature_entry,
+};
 use crate::{
     CoseKeyBytes, CoseKeyThumbprint, CryptoError,
     content_format::CoseKeyContentFormat,
@@ -71,6 +73,15 @@ impl VerifyingKey {
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
     pub(super) fn verify_raw(&self, signature: &[u8], data: &[u8]) -> Result<(), CryptoError> {
+        let mut event = signature_entry(self.algorithm(), "Verify").start();
+
+        let result = self.verify_inner(signature, data);
+        event.record_result(&result);
+
+        result
+    }
+
+    fn verify_inner(&self, signature: &[u8], data: &[u8]) -> Result<(), CryptoError> {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => {
                 let sig = ed25519_dalek::Signature::from_bytes(
