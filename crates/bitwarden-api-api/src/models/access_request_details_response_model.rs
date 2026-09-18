@@ -137,6 +137,15 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub produced_lease_status: Option<models::AccessLeaseStatus>,
+    /// The produced lease's own end (UTC), or null when no lease exists. The authority for "how
+    /// long is left" — Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.
+    /// LeaseNotAfter is the submit-time activation window, which an extension never restamps.
+    #[serde(
+        rename = "producedLeaseNotAfter",
+        alias = "ProducedLeaseNotAfter",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub produced_lease_not_after: Option<String>,
     /// The parent lease if this is an extension request.
     #[serde(
         rename = "extensionOfLeaseId",
@@ -187,6 +196,7 @@ impl AccessRequestDetailsResponseModel {
             decisions: None,
             produced_lease_id: None,
             produced_lease_status: None,
+            produced_lease_not_after: None,
             extension_of_lease_id: None,
             requester_name: None,
             requester_email: None,

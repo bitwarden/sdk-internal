@@ -203,6 +203,12 @@ pub struct AccessRequestView {
     pub produced_lease_id: Option<AccessLeaseId>,
     /// The status of the produced lease at the time this view was fetched. None until activation.
     pub produced_lease_status: Option<AccessLeaseStatus>,
+    /// The produced lease's own end (UTC). None until activation.
+    ///
+    /// The authority for how long the access has left, unlike
+    /// [`lease_not_after`](Self::lease_not_after), which is the activation window pinned at submit:
+    /// an extension pushes the lease's end out in place and never restamps this request.
+    pub produced_lease_not_after: Option<DateTime<Utc>>,
     /// The parent lease this request extends, if it is an extension request. None otherwise.
     pub extension_of_lease_id: Option<AccessLeaseId>,
     /// The requester's display name, denormalized by the server. None only when the user could
@@ -261,6 +267,10 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
             decisions,
             produced_lease_id,
             produced_lease_status: response.produced_lease_status.map(AccessLeaseStatus::from),
+            produced_lease_not_after: response
+                .produced_lease_not_after
+                .map(|d| d.parse())
+                .transpose()?,
             extension_of_lease_id: response.extension_of_lease_id.map(AccessLeaseId::new),
             requester_name: response.requester_name,
             requester_email: response.requester_email,
