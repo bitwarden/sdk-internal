@@ -8,14 +8,14 @@ use bitwarden_api_api::models::{
     CipherRequestModel, CollectionWithIdRequestModel, FolderWithIdRequestModel,
     ImportCiphersRequestModel, ImportOrganizationCiphersRequestModel, Int32Int32KeyValuePair,
 };
-use bitwarden_collections::collection::{Collection, CollectionType, CollectionView};
-use bitwarden_core::{Client, NotAuthenticatedError};
+use bitwarden_collections::collection::{Collection, CollectionId, CollectionType, CollectionView};
+use bitwarden_core::{Client, NotAuthenticatedError, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey};
 use bitwarden_exporters::{CipherType, ImportingCipher, encrypt_import};
 use bitwarden_vault::{Folder, FolderView};
 use chrono::Utc;
 
-use crate::{CipherTypeCount, ImportError, ImportOptions, ImportSummary};
+use crate::{CipherTypeCount, ImportError, ImportOptions, ImportSummary, ImportTargetCollection};
 
 /// Format-agnostic parse result: the ciphers, the folder paths, and which cipher belongs to which
 /// folder (by index). Every importer parser produces this for the pipeline to submit.
@@ -100,10 +100,66 @@ pub(crate) async fn submit_import(
                     },
                 )
             }
-            // Organization vault: groups stay personal folders; ciphers go to the target
-            // collection.
+            // Organization vault: groups become collections if "My Items" not enabled
             Some(organization_id) => {
-                let (folder_views, folder_count) = build_personal_folders(parsed.folders, None);
+                let is_my_items = targets_my_items(options.target_collection.as_ref());
+
+                let (
+                    folder_views,
+                    folder_count,
+                    final_folder_relationships,
+                    collection_views,
+                    source_collection_count,
+                    final_collection_relationships,
+                ) = if is_my_items {
+                    let (folder_views, folder_count) = build_personal_folders(parsed.folders, None);
+                    let target = options
+                        .target_collection
+                        .as_ref()
+                        .expect("is_my_items implies target_collection is Some");
+                    let my_items = CollectionView {
+                        id: Some(target.id),
+                        organization_id,
+                        name: target.name.clone(),
+                        external_id: None,
+                        hide_passwords: false,
+                        read_only: false,
+                        manage: true,
+                        r#type: CollectionType::DefaultUserCollection,
+                    };
+                    let collection_relationships =
+                        (0..cipher_count).map(|c| (c, 0)).collect::<Vec<_>>();
+                    (
+                        folder_views,
+                        folder_count,
+                        folder_relationships,
+                        vec![my_items],
+                        0,
+                        collection_relationships,
+                    )
+                } else {
+                    let target = options
+                        .target_collection
+                        .as_ref()
+                        .map(|t| (t.id, t.name.as_str()));
+                    let (collection_views, source_collection_count) =
+                        build_org_collections(parsed.folders, organization_id, target);
+                    let collection_relationships = if target.is_some() {
+                        nest_relationships_under_target(folder_relationships, cipher_count)
+                    } else {
+                        // No target: brand-new top-level collections,
+                        folder_relationships
+                    };
+                    (
+                        Vec::new(),
+                        0,
+                        Vec::new(),
+                        collection_views,
+                        source_collection_count,
+                        collection_relationships,
+                    )
+                };
+
                 let folder_models = folder_views
                     .into_iter()
                     .map(|v| -> Result<FolderWithIdRequestModel, ImportError> {
@@ -112,54 +168,34 @@ pub(crate) async fn submit_import(
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                let (collection_models, collection_relationships) = match options.target_collection
-                {
-                    Some(target) => {
-                        // `hide_passwords`/`read_only`/`manage` are required to build the view
-                        // but aren't carried by `CollectionWithIdRequestModel` — they're not a
-                        // permission decision, just construction placeholders.
-                        let view = CollectionView {
-                            id: Some(target.id),
-                            organization_id,
-                            name: target.name,
-                            external_id: None,
-                            hide_passwords: false,
-                            read_only: false,
-                            manage: true,
-                            r#type: CollectionType::SharedCollection,
-                        };
+                let collection_models = collection_views
+                    .into_iter()
+                    .map(|v| -> Result<CollectionWithIdRequestModel, ImportError> {
                         let collection: Collection =
-                            view.encrypt_composite(&mut ctx, view.key_identifier())?;
-                        let relationships = (0..cipher_count).map(|c| (c, 0)).collect::<Vec<_>>();
-                        // The name is already encrypted; this is just the wire shape.
-                        let model = CollectionWithIdRequestModel {
+                            v.encrypt_composite(&mut ctx, v.key_identifier())?;
+                        Ok(CollectionWithIdRequestModel {
                             name: collection.name.to_string(),
                             external_id: collection.external_id.clone(),
                             groups: None,
                             users: None,
                             id: collection.id.map(Into::into),
-                        };
-                        (vec![model], relationships)
-                    }
-                    // No target: ciphers are submitted unassigned (the server enforces
-                    // permissions).
-                    None => (Vec::new(), Vec::new()),
-                };
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 let model = ImportOrganizationCiphersRequestModel {
                     collections: Some(collection_models),
                     ciphers: Some(cipher_models),
-                    collection_relationships: Some(to_kvp(&collection_relationships)),
+                    collection_relationships: Some(to_kvp(&final_collection_relationships)),
                     folders: Some(folder_models),
-                    folder_relationships: Some(to_kvp(&folder_relationships)),
+                    folder_relationships: Some(to_kvp(&final_folder_relationships)),
                 };
                 (
                     ImportPayload::Organization(organization_id.to_string(), model),
                     ImportSummary {
                         ciphers: cipher_type_counts,
                         folders: folder_count as u32,
-                        // ParsedImport carries no collection data
-                        collections: 0,
+                        collections: source_collection_count as u32,
                     },
                 )
             }
@@ -291,6 +327,52 @@ fn build_personal_folders(
     (folders, count)
 }
 
+/// True when the org-import target is the user's own "My items" collection
+fn targets_my_items(target_collection: Option<&ImportTargetCollection>) -> bool {
+    matches!(
+        target_collection.map(|t| &t.r#type),
+        Some(CollectionType::DefaultUserCollection)
+    )
+}
+
+/// Builds the collection views for an org import, plus the count of collections actually parsed
+/// from the source (excluding the injected target) — mirrors `build_personal_folders`, but for
+/// collections. When a target is given it becomes collection 0 and parsed groups are nested
+/// beneath it as `"{target}/{group}"`; with no target, every group becomes a brand-new
+/// top-level collection (submitted with no id, same as `build_personal_folders` submits new
+/// folders with no id — the server creates on an unmatched/empty id).
+fn build_org_collections(
+    names: Vec<String>,
+    organization_id: OrganizationId,
+    target: Option<(CollectionId, &str)>,
+) -> (Vec<CollectionView>, usize) {
+    let count = names.len();
+    let new_view = |id: Option<CollectionId>, name: String| CollectionView {
+        id,
+        organization_id,
+        name,
+        external_id: None,
+        hide_passwords: false,
+        read_only: false,
+        manage: true,
+        r#type: CollectionType::SharedCollection,
+    };
+    let collections = match target {
+        Some((id, target_name)) => {
+            let mut collections = Vec::with_capacity(names.len() + 1);
+            collections.push(new_view(Some(id), target_name.to_string()));
+            collections.extend(
+                names
+                    .into_iter()
+                    .map(|name| new_view(None, format!("{target_name}/{name}"))),
+            );
+            collections
+        }
+        None => names.into_iter().map(|name| new_view(None, name)).collect(),
+    };
+    (collections, count)
+}
+
 /// Shifts existing relationships to account for the target folder at index 0 and assigns any
 /// folder-less cipher to it.
 fn nest_relationships_under_target(
@@ -406,6 +488,65 @@ mod tests {
         let (folders, count) = build_personal_folders(Vec::new(), Some((target, "Target")));
 
         assert_eq!(folders.len(), 1);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn targets_my_items_true_only_for_default_user_collection() {
+        assert!(!targets_my_items(None));
+
+        let shared = ImportTargetCollection {
+            id: CollectionId::new(uuid::Uuid::new_v4()),
+            name: "Engineering".into(),
+            r#type: CollectionType::SharedCollection,
+        };
+        assert!(!targets_my_items(Some(&shared)));
+
+        let my_items = ImportTargetCollection {
+            id: CollectionId::new(uuid::Uuid::new_v4()),
+            name: "My items".into(),
+            r#type: CollectionType::DefaultUserCollection,
+        };
+        assert!(targets_my_items(Some(&my_items)));
+    }
+
+    #[test]
+    fn build_org_collections_without_target_creates_new_top_level_collections() {
+        let org_id = OrganizationId::new(uuid::Uuid::new_v4());
+        let (collections, count) =
+            build_org_collections(vec!["A".into(), "A/B".into()], org_id, None);
+
+        assert_eq!(count, 2);
+        assert_eq!(collections.len(), 2);
+        assert!(collections.iter().all(|c| c.id.is_none()));
+        assert!(collections.iter().all(|c| c.organization_id == org_id));
+        assert_eq!(collections[0].name, "A");
+        assert_eq!(collections[1].name, "A/B");
+    }
+
+    #[test]
+    fn build_org_collections_with_target_nests_under_it() {
+        let org_id = OrganizationId::new(uuid::Uuid::new_v4());
+        let target = CollectionId::new(uuid::Uuid::new_v4());
+        let (collections, count) =
+            build_org_collections(vec!["A".into()], org_id, Some((target, "Target")));
+
+        assert_eq!(count, 1);
+        assert_eq!(collections.len(), 2);
+        assert_eq!(collections[0].id, Some(target));
+        assert_eq!(collections[0].name, "Target");
+        assert_eq!(collections[1].id, None);
+        assert_eq!(collections[1].name, "Target/A");
+    }
+
+    #[test]
+    fn build_org_collections_count_excludes_injected_target_when_nothing_was_parsed() {
+        let org_id = OrganizationId::new(uuid::Uuid::new_v4());
+        let target = CollectionId::new(uuid::Uuid::new_v4());
+        let (collections, count) =
+            build_org_collections(Vec::new(), org_id, Some((target, "Target")));
+
+        assert_eq!(collections.len(), 1);
         assert_eq!(count, 0);
     }
 
