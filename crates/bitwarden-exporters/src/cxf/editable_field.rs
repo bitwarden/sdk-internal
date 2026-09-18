@@ -1,26 +1,50 @@
 use bitwarden_vault::FieldType;
 use credential_exchange_format::{
     EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldCountryCode,
-    EditableFieldDate, EditableFieldString, EditableFieldSubdivisionCode, EditableFieldValue,
-    EditableFieldWifiNetworkSecurityType, EditableFieldYearMonth,
+    EditableFieldDate, EditableFieldEmail, EditableFieldNumber, EditableFieldString,
+    EditableFieldSubdivisionCode, EditableFieldType as CxfEditableFieldType, EditableFieldValue,
+    EditableFieldWifiNetworkSecurityType, EditableFieldYearMonth, FieldType as CxfFieldType,
+    UnexpectedField,
 };
 
 use crate::Field;
 
-/// Helper function to create a Field from any EditableField type
-pub(super) fn create_field<T>(field: &T, overridden_name: Option<impl Into<String>>) -> Field
+/// Convert a CXF [`EditableField`] into a Bitwarden [`Field`].
+///
+/// The Bitwarden `FieldType` is derived from the value's runtime CXF type rather than from the
+/// statically-expected `T`, so an unexpected payload (e.g. a `boolean` where we expected a
+/// `string`) reports the type that actually arrived — keeping the resulting `Field` coherent.
+pub(super) fn create_field<T>(
+    field: &EditableField<T>,
+    overridden_name: Option<impl Into<String>>,
+) -> Field
 where
-    T: EditableFieldToField,
+    T: InnerFieldType + CxfEditableFieldType,
 {
-    let field_name = overridden_name
-        .map(Into::into)
-        .or_else(|| field.label().clone());
+    let value = match field.value.as_expected() {
+        Ok(t) => t.to_field_value(),
+        Err(unexpected) => unexpected.to_field_value(),
+    };
 
     Field {
-        name: field_name,
-        value: Some(field.field_value()),
-        r#type: T::FIELD_TYPE as u8,
+        name: overridden_name
+            .map(Into::into)
+            .or_else(|| field.label.clone()),
+        value: Some(value),
+        r#type: cxf_to_bitwarden_field_type(&field.value.field_type()) as u8,
         linked_id: None,
+    }
+}
+
+/// Map a CXF [`FieldType`](CxfFieldType) to Bitwarden's narrower [`FieldType`].
+///
+/// CXF distinguishes many semantic field types (Date, YearMonth, CountryCode, …) but Bitwarden's
+/// custom-fields model only has Text/Hidden/Boolean/Linked, so most CXF types collapse to Text.
+fn cxf_to_bitwarden_field_type(cxf_type: &CxfFieldType) -> FieldType {
+    match cxf_type {
+        CxfFieldType::ConcealedString => FieldType::Hidden,
+        CxfFieldType::Boolean => FieldType::Boolean,
+        _ => FieldType::Text,
     }
 }
 
@@ -29,7 +53,7 @@ pub(super) fn create_editable_field<T>(name: String, value: T) -> EditableField<
     EditableField {
         id: None,
         label: Some(name),
-        value,
+        value: value.into(),
         extensions: None,
     }
 }
@@ -73,111 +97,62 @@ pub(super) fn field_to_editable_field_value(field: Field) -> Option<EditableFiel
     }
 }
 
-/// Trait to define field type and value conversion for inner field types
-pub(super) trait InnerFieldType {
-    const FIELD_TYPE: FieldType;
-
-    fn to_field_value(&self) -> String;
-}
-
-impl InnerFieldType for EditableFieldString {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
+/// Bitwarden-side string formatting for a CXF inner field type.
+///
+/// Defaults to the upstream `Into<String>` (which produces the spec wire form), so most types only
+/// need a marker `impl InnerFieldType for X {}`. Override `to_field_value` only when the
+/// vault-facing form should differ from the wire form (e.g. WiFi security types).
+pub(super) trait InnerFieldType: Clone + Into<String> {
     fn to_field_value(&self) -> String {
-        self.0.clone()
+        self.clone().into()
     }
 }
 
-impl InnerFieldType for EditableFieldConcealedString {
-    const FIELD_TYPE: FieldType = FieldType::Hidden;
-
-    fn to_field_value(&self) -> String {
-        self.0.clone()
-    }
-}
-
-impl InnerFieldType for EditableFieldBoolean {
-    const FIELD_TYPE: FieldType = FieldType::Boolean;
-
-    fn to_field_value(&self) -> String {
-        self.0.to_string()
-    }
-}
+impl InnerFieldType for EditableFieldString {}
+impl InnerFieldType for EditableFieldConcealedString {}
+impl InnerFieldType for EditableFieldBoolean {}
+impl InnerFieldType for EditableFieldDate {}
+impl InnerFieldType for EditableFieldYearMonth {}
+impl InnerFieldType for EditableFieldCountryCode {}
+impl InnerFieldType for EditableFieldSubdivisionCode {}
+impl InnerFieldType for EditableFieldEmail {}
+impl InnerFieldType for EditableFieldNumber {}
 
 impl InnerFieldType for EditableFieldWifiNetworkSecurityType {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
     fn to_field_value(&self) -> String {
-        security_type_to_string(self).to_string()
+        use EditableFieldWifiNetworkSecurityType::*;
+        match self {
+            Unsecured => "Unsecured",
+            WpaPersonal => "WPA Personal",
+            Wpa2Personal => "WPA2 Personal",
+            Wpa3Personal => "WPA3 Personal",
+            Wep => "WEP",
+            Other(s) => s,
+            _ => "Unknown",
+        }
+        .to_string()
     }
 }
 
-impl InnerFieldType for EditableFieldCountryCode {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
+/// Unexpected payloads share the same string-formatting contract as the expected path. Dispatch
+/// each variant through its inner [`InnerFieldType::to_field_value`] so future overrides
+/// (currently only WiFi differs from upstream's `Into<String>`) apply uniformly to both paths.
+impl InnerFieldType for UnexpectedField {
     fn to_field_value(&self) -> String {
-        self.0.clone()
-    }
-}
-
-impl InnerFieldType for EditableFieldDate {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
-    fn to_field_value(&self) -> String {
-        self.0.to_string()
-    }
-}
-
-impl InnerFieldType for EditableFieldYearMonth {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
-    fn to_field_value(&self) -> String {
-        format!("{:04}-{:02}", self.year, self.month.number_from_month())
-    }
-}
-
-impl InnerFieldType for EditableFieldSubdivisionCode {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
-    fn to_field_value(&self) -> String {
-        self.0.clone()
-    }
-}
-
-/// Trait to convert CXP EditableField types to Bitwarden Field values and types
-pub(super) trait EditableFieldToField {
-    const FIELD_TYPE: FieldType;
-
-    fn field_value(&self) -> String;
-    fn label(&self) -> &Option<String>;
-}
-
-impl<T> EditableFieldToField for EditableField<T>
-where
-    T: InnerFieldType,
-{
-    const FIELD_TYPE: FieldType = T::FIELD_TYPE;
-
-    fn field_value(&self) -> String {
-        self.value.to_field_value()
-    }
-
-    fn label(&self) -> &Option<String> {
-        &self.label
-    }
-}
-
-/// Convert WiFi security type enum to human-readable string
-fn security_type_to_string(security_type: &EditableFieldWifiNetworkSecurityType) -> &str {
-    use EditableFieldWifiNetworkSecurityType::*;
-    match security_type {
-        Unsecured => "Unsecured",
-        WpaPersonal => "WPA Personal",
-        Wpa2Personal => "WPA2 Personal",
-        Wpa3Personal => "WPA3 Personal",
-        Wep => "WEP",
-        Other(s) => s,
-        _ => "Unknown",
+        match self {
+            UnexpectedField::String(v) => v.to_field_value(),
+            UnexpectedField::ConcealedString(v) => v.to_field_value(),
+            UnexpectedField::Boolean(v) => v.to_field_value(),
+            UnexpectedField::Date(v) => v.to_field_value(),
+            UnexpectedField::YearMonth(v) => v.to_field_value(),
+            UnexpectedField::SubdivisionCode(v) => v.to_field_value(),
+            UnexpectedField::CountryCode(v) => v.to_field_value(),
+            UnexpectedField::WifiNetworkSecurityType(v) => v.to_field_value(),
+            UnexpectedField::Email(v) => v.to_field_value(),
+            UnexpectedField::Number(v) => v.to_field_value(),
+            UnexpectedField::Unknown { value, .. } => value.clone(),
+            _ => self.clone().into(),
+        }
     }
 }
 
@@ -190,7 +165,7 @@ mod tests {
         let editable_field = EditableField {
             id: None,
             label: None,
-            value: EditableFieldString("Test Value".to_string()),
+            value: EditableFieldString("Test Value".to_string()).into(),
             extensions: None,
         };
 
@@ -212,7 +187,7 @@ mod tests {
         let editable_field = EditableField {
             id: None,
             label: None,
-            value: EditableFieldConcealedString("Secret123".to_string()),
+            value: EditableFieldConcealedString("Secret123".to_string()).into(),
             extensions: None,
         };
 
@@ -234,7 +209,7 @@ mod tests {
         let editable_field = EditableField {
             id: None,
             label: None,
-            value: EditableFieldBoolean(true),
+            value: EditableFieldBoolean(true).into(),
             extensions: None,
         };
 
@@ -256,7 +231,7 @@ mod tests {
         let editable_field = EditableField {
             id: None,
             label: None,
-            value: EditableFieldBoolean(false),
+            value: EditableFieldBoolean(false).into(),
             extensions: None,
         };
 
@@ -278,7 +253,7 @@ mod tests {
         let editable_field = EditableField {
             id: None,
             label: None,
-            value: EditableFieldWifiNetworkSecurityType::Wpa3Personal,
+            value: EditableFieldWifiNetworkSecurityType::Wpa3Personal.into(),
             extensions: None,
         };
 
@@ -296,34 +271,53 @@ mod tests {
     }
 
     #[test]
-    fn test_security_type_to_string() {
+    fn test_create_field_email() {
+        let editable_field = EditableField {
+            id: None,
+            label: None,
+            value: EditableFieldEmail("user@example.com".to_string()).into(),
+            extensions: None,
+        };
+
+        let field = create_field(&editable_field, Some("Email"));
+
         assert_eq!(
-            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Unsecured),
+            field,
+            Field {
+                name: Some("Email".to_string()),
+                value: Some("user@example.com".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_wifi_security_to_field_value() {
+        assert_eq!(
+            EditableFieldWifiNetworkSecurityType::Unsecured.to_field_value(),
             "Unsecured"
         );
         assert_eq!(
-            security_type_to_string(&EditableFieldWifiNetworkSecurityType::WpaPersonal),
+            EditableFieldWifiNetworkSecurityType::WpaPersonal.to_field_value(),
             "WPA Personal"
         );
         assert_eq!(
-            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Wpa2Personal),
+            EditableFieldWifiNetworkSecurityType::Wpa2Personal.to_field_value(),
             "WPA2 Personal"
         );
         assert_eq!(
-            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Wpa3Personal),
+            EditableFieldWifiNetworkSecurityType::Wpa3Personal.to_field_value(),
             "WPA3 Personal"
         );
         assert_eq!(
-            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Wep),
+            EditableFieldWifiNetworkSecurityType::Wep.to_field_value(),
             "WEP"
         );
-
-        let custom_security = "WPA2 Enterprise";
         assert_eq!(
-            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Other(
-                custom_security.to_string()
-            )),
-            custom_security
+            EditableFieldWifiNetworkSecurityType::Other("WPA2 Enterprise".to_string())
+                .to_field_value(),
+            "WPA2 Enterprise"
         );
     }
 
@@ -334,7 +328,7 @@ mod tests {
         let editable_field = EditableField {
             id: None,
             label: None,
-            value: EditableFieldDate(NaiveDate::from_ymd_opt(2025, 1, 15).unwrap()),
+            value: EditableFieldDate(NaiveDate::from_ymd_opt(2025, 1, 15).unwrap()).into(),
             extensions: None,
         };
 
@@ -361,7 +355,8 @@ mod tests {
             value: EditableFieldYearMonth {
                 year: 2025,
                 month: Month::December,
-            },
+            }
+            .into(),
             extensions: None,
         };
 
@@ -383,7 +378,7 @@ mod tests {
         let editable_field = EditableField {
             id: None,
             label: Some("Label From Field".to_string()),
-            value: EditableFieldString("Test Value".to_string()),
+            value: EditableFieldString("Test Value".to_string()).into(),
             extensions: None,
         };
 
@@ -400,12 +395,100 @@ mod tests {
         );
     }
 
+    /// When deserialization produces an `Expected::Unexpected` (e.g. a payload claims
+    /// `fieldType: boolean` for a slot statically typed as `string`), `create_field` should
+    /// preserve the raw string value AND report the actual incoming type.
+    #[test]
+    fn test_create_field_unexpected_type_reports_actual_type() {
+        let editable_field: EditableField<EditableFieldString> =
+            serde_json::from_value(serde_json::json!({
+                "fieldType": "boolean",
+                "value": "true",
+            }))
+            .unwrap();
+
+        let field = create_field(&editable_field, Some("Mismatched"));
+
+        assert_eq!(
+            field,
+            Field {
+                name: Some("Mismatched".to_string()),
+                value: Some("true".to_string()),
+                r#type: FieldType::Boolean as u8,
+                linked_id: None,
+            }
+        );
+    }
+
+    /// A `concealed-string` payload arriving in a `string` slot should surface as a Hidden field.
+    #[test]
+    fn test_create_field_unexpected_concealed_string_in_string_slot() {
+        let editable_field: EditableField<EditableFieldString> =
+            serde_json::from_value(serde_json::json!({
+                "fieldType": "concealed-string",
+                "value": "secret",
+            }))
+            .unwrap();
+
+        let field = create_field(&editable_field, Some("Hidden Surprise"));
+
+        assert_eq!(
+            field,
+            Field {
+                name: Some("Hidden Surprise".to_string()),
+                value: Some("secret".to_string()),
+                r#type: FieldType::Hidden as u8,
+                linked_id: None,
+            }
+        );
+    }
+
+    /// Unexpected payloads share the per-variant formatting with the expected path, so a
+    /// `WifiNetworkSecurityType` arriving in a `string` slot still renders in vault-display form
+    /// ("WPA3 Personal") rather than wire form ("wpa3-personal").
+    #[test]
+    fn test_create_field_unexpected_wifi_security_renders_in_vault_form() {
+        let editable_field: EditableField<EditableFieldString> =
+            serde_json::from_value(serde_json::json!({
+                "fieldType": "wifi-network-security-type",
+                "value": "wpa3-personal",
+            }))
+            .unwrap();
+
+        let field = create_field(&editable_field, Some("WiFi"));
+
+        assert_eq!(field.value, Some("WPA3 Personal".to_string()));
+    }
+
+    /// An `Unknown` CXF field type (e.g. one we don't model) should fall back to Text.
+    #[test]
+    fn test_create_field_unknown_cxf_type_falls_back_to_text() {
+        let editable_field: EditableField<EditableFieldString> =
+            serde_json::from_value(serde_json::json!({
+                "fieldType": "some-future-type",
+                "value": "future-value",
+            }))
+            .unwrap();
+
+        let field = create_field(&editable_field, Some("Future"));
+
+        assert_eq!(
+            field,
+            Field {
+                name: Some("Future".to_string()),
+                value: Some("future-value".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            }
+        );
+    }
+
     #[test]
     fn test_create_field_with_none_name_and_none_label() {
         let editable_field = EditableField {
             id: None,
             label: None,
-            value: EditableFieldString("Test Value".to_string()),
+            value: EditableFieldString("Test Value".to_string()).into(),
             extensions: None,
         };
 
