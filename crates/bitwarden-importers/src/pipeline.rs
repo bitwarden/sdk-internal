@@ -70,6 +70,8 @@ pub(crate) async fn submit_import(
                     .target_folder
                     .as_ref()
                     .map(|t| (t.id, t.name.as_str()));
+                // Count only what was actually parsed, not the pre-existing destination
+                let folder_count = parsed.folders.len();
                 let folder_views = build_personal_folders(parsed.folders, target_folder);
                 let folder_models = folder_views
                     .into_iter()
@@ -78,7 +80,6 @@ pub(crate) async fn submit_import(
                         Ok((&folder).into())
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                let folder_count = folder_models.len();
 
                 let relationships = if target_folder.is_some() {
                     nest_relationships_under_target(folder_relationships, cipher_count)
@@ -146,7 +147,6 @@ pub(crate) async fn submit_import(
                     // permissions).
                     None => (Vec::new(), Vec::new()),
                 };
-                let collection_count = collection_models.len();
 
                 let model = ImportOrganizationCiphersRequestModel {
                     collections: Some(collection_models),
@@ -160,7 +160,8 @@ pub(crate) async fn submit_import(
                     ImportSummary {
                         ciphers: cipher_type_counts,
                         folders: folder_count as u32,
-                        collections: collection_count as u32,
+                        // ParsedImport carries no collection data
+                        collections: 0,
                     },
                 )
             }
@@ -388,6 +389,19 @@ mod tests {
         assert_eq!(folders[0].name, "Target");
         assert_eq!(folders[1].id, None);
         assert_eq!(folders[1].name, "Target/A");
+    }
+
+    /// Guards the `submit_import` fix: the reported folder count must come from
+    /// `parsed.folders.len()` (captured before this call), not `build_personal_folders(...).len()`
+    /// — the latter is always one larger than what was actually parsed whenever a target folder is
+    /// given, since the target is injected as an extra entry regardless of what was parsed.
+    #[test]
+    fn build_personal_folders_with_target_and_no_parsed_folders_still_injects_target() {
+        let target = FolderId::new(uuid::Uuid::new_v4());
+        let parsed_folder_count = 0;
+        let folders = build_personal_folders(Vec::new(), Some((target, "Target")));
+
+        assert_eq!(folders.len(), parsed_folder_count + 1);
     }
 
     #[test]
