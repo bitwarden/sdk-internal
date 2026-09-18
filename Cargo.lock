@@ -1141,6 +1141,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-performance-tracking"
+version = "3.0.0"
+dependencies = [
+ "js-sys",
+ "tracing",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "3.0.0"
 dependencies = [
@@ -1622,6 +1631,7 @@ dependencies = [
  "bitwarden-member-administration",
  "bitwarden-organization-crypto",
  "bitwarden-organization-invite-link",
+ "bitwarden-performance-tracking",
  "bitwarden-pm",
  "bitwarden-policies",
  "bitwarden-random",
