@@ -22,7 +22,7 @@ pub enum HostId {
 ///
 /// Endpoints are categorized by their role in the connection topology:
 /// - **Host endpoints** ([`HostId`]): Connection hubs that can be addressed relationally or
-///   specifically. ([`BrowserBackground`](Endpoint::BrowserBackground))
+///   specifically. ([`BrowserBackground`](Endpoint::BrowserBackground), [`Cli`](Endpoint::Cli))
 /// - **Leaf endpoints**: Addressed by transport-assigned IDs. ([`Web`](Endpoint::Web),
 ///   [`BrowserForeground`](Endpoint::BrowserForeground))
 /// - **Singleton endpoints**: Exactly one instance globally, no ID needed.
@@ -48,6 +48,12 @@ pub enum Endpoint {
     },
     /// Browser background endpoint (service worker/background context).
     BrowserBackground {
+        /// Host identifier for addressing this endpoint.
+        id: HostId,
+    },
+    /// CLI endpoint. Each CLI invocation is its own process, so instances are
+    /// distinguished by a host identifier.
+    Cli {
         /// Host identifier for addressing this endpoint.
         id: HostId,
     },
@@ -85,6 +91,11 @@ pub enum Source {
         /// Host identifier for this endpoint.
         id: HostId,
     },
+    /// CLI source, identified by a host identifier.
+    Cli {
+        /// Host identifier for this endpoint.
+        id: HostId,
+    },
     /// Desktop renderer source (singleton).
     DesktopRenderer,
     /// Desktop main-process source (singleton).
@@ -112,6 +123,7 @@ impl From<Source> for Endpoint {
             },
             Source::BrowserForeground { id } => Endpoint::BrowserForeground { id },
             Source::BrowserBackground { id } => Endpoint::BrowserBackground { id },
+            Source::Cli { id } => Endpoint::Cli { id },
             Source::DesktopRenderer => Endpoint::DesktopRenderer,
             Source::DesktopMain => Endpoint::DesktopMain,
         }
