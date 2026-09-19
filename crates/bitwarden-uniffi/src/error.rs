@@ -4,6 +4,10 @@ use bitwarden_generators::{PassphraseError, PasswordError, PasswordRulesError, U
 pub type Result<T, E = BitwardenError> = std::result::Result<T, E>;
 pub type Error = BitwardenError;
 
+/// The single error type the UniFFI surface returns.
+///
+/// Every exported function in this crate must return it, through the crate's `Result<T>` alias.
+/// See [`bitwarden_uniffi_error`] for why.
 // Name is converted from *Error to *Exception, so we can't just name the enum Error because
 // Exception already exists
 #[derive(uniffi::Error, thiserror::Error, Debug)]

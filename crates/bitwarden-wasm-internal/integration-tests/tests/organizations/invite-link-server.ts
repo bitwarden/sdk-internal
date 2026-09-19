@@ -1,6 +1,6 @@
 // Happy-path stand-ins for the eight endpoints `InviteLinkClient` calls.
 
-import { Routes } from "../http-mock";
+import { Routes } from "../../server-emulator/http-mock";
 import {
   TEST_INVITE,
   TEST_ORGANIZATION_ID,
