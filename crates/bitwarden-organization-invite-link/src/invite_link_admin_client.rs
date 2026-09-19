@@ -66,86 +66,6 @@ impl InviteLinkAdminClient {
         Ok(())
     }
 
-    /// Creates a new organization invite and posts it to the server, returning the full
-    /// [`OrganizationInviteLink`] persisted by the server.
-    ///
-    /// # Security
-    /// Only the sealed invite is posted to the server; the invite secret is never sent. Use
-    /// [`InviteLinkAdminClient::get_invite_secret`] to recover the secret needed to reconstruct the
-    /// invite link.
-    #[deprecated(note = "Use `create`, which returns an `OrganizationInviteLinkView`, instead")]
-    pub async fn create_invite_link(
-        &self,
-        organization_id: OrganizationId,
-        allowed_domains: Vec<String>,
-        supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        let invite = self
-            .make_invite(organization_id, supports_confirmation)
-            .await?;
-
-        let response = self
-            .api_configurations
-            .api_client
-            .organization_invite_links_api()
-            .create(
-                organization_id.into(),
-                Some(CreateOrganizationInviteLinkRequestModel {
-                    allowed_domains,
-                    invite: String::from(&invite),
-                    supports_confirmation: invite.supports_confirmation(),
-                }),
-            )
-            .await?;
-
-        OrganizationInviteLink::try_from(response)
-    }
-
-    /// Refresh an existing invite link.
-    /// This generates a new code and secret.
-    #[deprecated(
-        note = "Use `create` or `refresh`, which returns an `OrganizationInviteLinkView`, instead"
-    )]
-    pub async fn refresh_invite_link(
-        &self,
-        organization_id: OrganizationId,
-        supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        let invite = self
-            .make_invite(organization_id, supports_confirmation)
-            .await?;
-
-        let response = self
-            .api_configurations
-            .api_client
-            .organization_invite_links_api()
-            .refresh(
-                organization_id.into(),
-                Some(RefreshOrganizationInviteLinkRequestModel {
-                    invite: String::from(&invite),
-                    supports_confirmation: invite.supports_confirmation(),
-                }),
-            )
-            .await?;
-
-        OrganizationInviteLink::try_from(response)
-    }
-
-    /// Using the organization key, recovers the [`InviteSecret`] from the invite carried in the
-    /// given [`OrganizationInviteLink`] so an admin can reconstruct the invite link.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(unchecked_return_type = "InviteSecret"))]
-    pub fn get_invite_secret(
-        &self,
-        organization_id: OrganizationId,
-        invite: Invite,
-    ) -> Result<InviteSecret, InviteLinkError> {
-        let mut ctx = self.key_store.context();
-        let org_key = SymmetricKeySlotId::Organization(organization_id);
-        let invite_key = invite.unseal_invite_key_with_organization_key(org_key, &mut ctx)?;
-        let invite_secret = invite.get_invite_secret(invite_key, &mut ctx)?;
-        Ok(invite_secret)
-    }
-
     /// Creates a new organization invite link.
     pub async fn create(
         &self,
@@ -279,6 +199,87 @@ impl InviteLinkAdminClient {
             .await?;
 
         OrganizationInviteLink::try_from(response)
+    }
+
+    /// Creates a new organization invite and posts it to the server, returning the full
+    /// [`OrganizationInviteLink`] persisted by the server.
+    ///
+    /// # Security
+    /// Only the sealed invite is posted to the server; the invite secret is never sent. Use
+    /// [`InviteLinkAdminClient::get_invite_secret`] to recover the secret needed to reconstruct the
+    /// invite link.
+    #[deprecated(note = "Use `create`, which returns an `OrganizationInviteLinkView`, instead")]
+    pub async fn create_invite_link(
+        &self,
+        organization_id: OrganizationId,
+        allowed_domains: Vec<String>,
+        supports_confirmation: bool,
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        let invite = self
+            .make_invite(organization_id, supports_confirmation)
+            .await?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .create(
+                organization_id.into(),
+                Some(CreateOrganizationInviteLinkRequestModel {
+                    allowed_domains,
+                    invite: String::from(&invite),
+                    supports_confirmation: invite.supports_confirmation(),
+                }),
+            )
+            .await?;
+
+        OrganizationInviteLink::try_from(response)
+    }
+
+    /// Refresh an existing invite link.
+    /// This generates a new code and secret.
+    #[deprecated(note = "Use `refresh`, which returns an `OrganizationInviteLinkView`, instead")]
+    pub async fn refresh_invite_link(
+        &self,
+        organization_id: OrganizationId,
+        supports_confirmation: bool,
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        let invite = self
+            .make_invite(organization_id, supports_confirmation)
+            .await?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .refresh(
+                organization_id.into(),
+                Some(RefreshOrganizationInviteLinkRequestModel {
+                    invite: String::from(&invite),
+                    supports_confirmation: invite.supports_confirmation(),
+                }),
+            )
+            .await?;
+
+        OrganizationInviteLink::try_from(response)
+    }
+
+    /// Using the organization key, recovers the [`InviteSecret`] from the invite carried in the
+    /// given [`OrganizationInviteLink`] so an admin can reconstruct the invite link.
+    #[deprecated(
+        note = "Use `create` or `refresh`, which returns an `OrganizationInviteLinkView`, instead"
+    )]
+    #[cfg_attr(feature = "wasm", wasm_bindgen(unchecked_return_type = "InviteSecret"))]
+    pub fn get_invite_secret(
+        &self,
+        organization_id: OrganizationId,
+        invite: Invite,
+    ) -> Result<InviteSecret, InviteLinkError> {
+        let mut ctx = self.key_store.context();
+        let org_key = SymmetricKeySlotId::Organization(organization_id);
+        let invite_key = invite.unseal_invite_key_with_organization_key(org_key, &mut ctx)?;
+        let invite_secret = invite.get_invite_secret(invite_key, &mut ctx)?;
+        Ok(invite_secret)
     }
 
     /// Helper function to make a new Invite to be included in a request model.
