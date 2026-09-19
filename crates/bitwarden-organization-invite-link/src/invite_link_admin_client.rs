@@ -314,7 +314,10 @@ impl InviteLinkAdminClient {
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {
-    use bitwarden_api_api::{apis::ApiClient, models::OrganizationInviteLinkResponseModel};
+    use bitwarden_api_api::{
+        apis::{ApiClient, ResponseContent},
+        models::OrganizationInviteLinkResponseModel,
+    };
     use bitwarden_core::{
         Client, client::ApiConfigurations, key_management::create_test_crypto_with_user_and_org_key,
     };
@@ -814,6 +817,52 @@ mod tests {
 
         let (_secret, invite, _org_public_key) = build_invite(&client, org_id);
         let result = client.set_invite_confirmation(org_id, invite, false).await;
+
+        assert!(matches!(result, Err(InviteLinkError::Api(_))));
+    }
+
+    #[tokio::test]
+    async fn get_returns_none_on_404() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_invite_links_api
+                    .expect_get()
+                    .returning(|_org| {
+                        Err(ApiError::Response(ResponseContent {
+                            status: StatusCode::NOT_FOUND,
+                            message: "not found".to_string(),
+                        }))
+                    })
+                    .once();
+            }),
+        );
+
+        let result = client.get(org_id).await.unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_surfaces_non_404_api_errors() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_invite_links_api
+                    .expect_get()
+                    .returning(|_org| {
+                        Err(ApiError::Response(ResponseContent {
+                            status: StatusCode::INTERNAL_SERVER_ERROR,
+                            message: "boom".to_string(),
+                        }))
+                    })
+                    .once();
+            }),
+        );
+
+        let result = client.get(org_id).await;
 
         assert!(matches!(result, Err(InviteLinkError::Api(_))));
     }
