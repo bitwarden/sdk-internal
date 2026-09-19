@@ -134,9 +134,9 @@ impl InviteLinkAdminClient {
         organization_id: OrganizationId,
         supports_confirmation: bool,
     ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
-        // Update the existing Invite blob rather than making a new one. We fetch this from the
-        // server so that the client doesn't have to handle the Invite blob directly to pass
-        // it back in.
+        // Update the existing Invite blob so we don't break the existing URL. We fetch this from
+        // the server so that the client doesn't have to handle the Invite blob directly to
+        // pass it back in - it stays fully internal to the SDK.
         let existing_link = self
             .api_configurations
             .api_client
