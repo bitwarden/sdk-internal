@@ -865,7 +865,10 @@ name = "bitwarden-ffi"
 version = "3.0.0"
 dependencies = [
  "bitwarden-ffi-macro",
+ "serde",
+ "serde_json",
  "trybuild",
+ "tsify",
  "wasm-bindgen",
 ]
 
