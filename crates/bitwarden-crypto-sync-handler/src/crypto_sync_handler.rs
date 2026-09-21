@@ -358,8 +358,6 @@ mod tests {
     const TEST_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
     const TEST_SALT: &str = "test@example.com";
     const TEST_USER_KEY_ID: &str = "000102030405060708090a0b0c0d0e0f";
-    /// A key id the account never had, so a stored one proves the replay was taken.
-    const REPLAYED_USER_KEY_ID: &str = "0f0e0d0c0b0a09080706050403020100";
 
     fn master_password_unlock(
         master_key_encrypted_user_key: Option<String>,
