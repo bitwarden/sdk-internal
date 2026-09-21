@@ -235,22 +235,19 @@ async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncDa
     state_bridge.set_account_cryptographic_state(incoming).await;
 }
 
-/// Whether the sync carries a state the account has already moved past.
+/// Whether the sync carries a state that constitutes a cryptographic downgrade
 ///
-/// A malicious or compromised server must not be able to move an account back to V1, which would
-/// silently drop the signed security state that V2 exists to protect.
+/// Currently, the only downgrade defined is a V2 -> V1 encryption downgrade
 async fn is_replayed_state(client: &Client, data: &CryptoSyncData) -> bool {
     let Some(incoming) = data.account_cryptographic_state.as_ref() else {
         return false;
     };
 
-    // This is necessary until all clients implement the state bridge.
-    let state_bridge = client.km_state_bridge();
-    if !state_bridge.is_bridge_registered() {
-        return false;
-    }
-
-    match state_bridge.get_account_cryptographic_state().await {
+    match client
+        .km_state_bridge()
+        .get_account_cryptographic_state()
+        .await
+    {
         Some(local) => is_v2_to_v1_downgrade(&local, incoming),
         None => false,
     }
