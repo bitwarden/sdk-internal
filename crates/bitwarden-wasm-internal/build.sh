@@ -72,4 +72,4 @@ fi
 # Typecheck the generated TypeScript definitions
 cd crates/bitwarden-wasm-internal/${NPM_FOLDER}
 npm ci
-npx tsc --noEmit --lib es2020,dom,ESNext.Disposable bitwarden_wasm_internal.d.ts
+npx tsc --noEmit --lib es2020,dom,ESNext.Disposable,ES2025.Float16 bitwarden_wasm_internal.d.ts
