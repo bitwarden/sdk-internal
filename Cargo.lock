@@ -877,7 +877,10 @@ name = "bitwarden-ffi"
 version = "3.0.0"
 dependencies = [
  "bitwarden-ffi-macro",
+ "serde",
+ "serde_json",
  "trybuild",
+ "tsify",
  "wasm-bindgen",
 ]
 
@@ -1061,6 +1064,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-member-administration"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-error",
+ "bitwarden-organizations",
+ "serde",
+ "thiserror",
+ "tsify",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-organization-crypto"
 version = "3.0.0"
 dependencies = [
@@ -1104,6 +1122,7 @@ name = "bitwarden-organizations"
 version = "3.0.0"
 dependencies = [
  "bitwarden-core",
+ "bitwarden-uuid",
  "chrono",
  "serde",
  "serde_repr",
@@ -1153,6 +1172,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-importers",
  "bitwarden-managed-settings",
+ "bitwarden-member-administration",
  "bitwarden-organization-invite-link",
  "bitwarden-pam",
  "bitwarden-policies",
@@ -1615,6 +1635,7 @@ dependencies = [
  "bitwarden-ipc",
  "bitwarden-logging",
  "bitwarden-managed-settings",
+ "bitwarden-member-administration",
  "bitwarden-organization-crypto",
  "bitwarden-organization-invite-link",
  "bitwarden-pm",

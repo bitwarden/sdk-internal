@@ -261,9 +261,13 @@ fn test_generate_passphrase_separator_space() {
         "Passphrase should contain spaces: {}",
         stdout
     );
+    let words: Vec<&str> = stdout.split(' ').collect();
+    assert_eq!(words.len(), 6, "Passphrase should have 6 words: {}", stdout);
     assert!(
-        !stdout.contains("space"),
-        "Passphrase should not contain literal 'space': {}",
+        words
+            .iter()
+            .all(|word| !word.is_empty() && word.chars().all(|c| c.is_ascii_alphabetic())),
+        "Separator keyword should not leak into the words: {}",
         stdout
     );
 }

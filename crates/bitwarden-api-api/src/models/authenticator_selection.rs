@@ -21,6 +21,12 @@ pub struct AuthenticatorSelection {
     )]
     pub authenticator_attachment: Option<models::AuthenticatorAttachment>,
     #[serde(
+        rename = "residentKey",
+        alias = "ResidentKey",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub resident_key: Option<models::ResidentKeyRequirement>,
+    #[serde(
         rename = "requireResidentKey",
         alias = "RequireResidentKey",
         skip_serializing_if = "Option::is_none"
@@ -38,6 +44,7 @@ impl AuthenticatorSelection {
     pub fn new() -> AuthenticatorSelection {
         AuthenticatorSelection {
             authenticator_attachment: None,
+            resident_key: None,
             require_resident_key: None,
             user_verification: None,
         }
