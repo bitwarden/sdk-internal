@@ -133,7 +133,7 @@ pub const SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5)
 /// leader.
 pub const VAULT_TIMEOUT_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(2);
 /// How long a peer may go without syncing before it is pruned and no longer synced to.
-pub const PEER_STALE_AFTER: std::time::Duration = std::time::Duration::from_secs(10);
+pub const PEER_STALE_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Represents the lock state of a user.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
