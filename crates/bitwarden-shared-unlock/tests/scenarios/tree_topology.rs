@@ -146,7 +146,8 @@ async fn returning_browser_relays_web_unlock_to_tree() {
 
     // 2. Assert the unlock reached nobody. Sleeping out a couple of sync intervals first makes this
     //    about a delivery that was attempted, not one that had not been attempted yet.
-    bitwarden_threading::time::sleep(fast_timing().sync_interval * 2).await;
+    let timing = fast_timing();
+    bitwarden_threading::time::sleep(timing.peer_stale_after + timing.sync_interval * 2).await;
     assert_eq!(tree.web_a2.store().peek(user.id), user.locked());
 
     // 3. Bring browser-a back as a fresh, locked process; web-a1's next retry reaches it, and the
