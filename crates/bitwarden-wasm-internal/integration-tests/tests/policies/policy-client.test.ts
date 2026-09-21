@@ -9,7 +9,7 @@ import {
   PolicyId,
 } from "@bitwarden/sdk-internal";
 
-import { asOrganizationId, asPolicyId, asUuid } from "../type-assertion-helpers";
+import { asOrganizationId, asPolicyId } from "../type-assertion-helpers";
 import { makePasswordManagerClient, makeStateBridge } from "../utils";
 
 // `filter_by_type` is a pure function with no crypto or network, so the client needs no unlock.
