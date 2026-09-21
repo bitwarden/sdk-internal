@@ -29,7 +29,7 @@ export class ClientEmulator {
   }
 
   /**
-   * Simulates a sync from server to client.
+   * Simulates a sync from server to client
    */
   async sync(email: string): Promise<void> {
     const user = this.server.getUser(email);
