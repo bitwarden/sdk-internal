@@ -73,7 +73,7 @@ impl OrganizationInviteLink {
 
         let invite_secret_str: String = (&invite_secret).into();
         let code = self.code;
-        let url_fragment = format!("/join/{org_id}/{code}?key={invite_secret_str}");
+        let url_fragment = format!("#/join/{org_id}/{code}?key={invite_secret_str}");
 
         Ok(OrganizationInviteLinkView {
             id: self.id,
@@ -102,7 +102,7 @@ pub struct OrganizationInviteLinkView {
     /// When the invite link was created.
     pub creation_date: DateTime<Utc>,
     /// The invite link URL fragment (to be appended on the web vault URL).
-    /// Example format: /join/{org_id}/{code}?key={key}
+    /// Example format: #/join/{org_id}/{code}?key={key}
     pub url_fragment: String,
 }
 

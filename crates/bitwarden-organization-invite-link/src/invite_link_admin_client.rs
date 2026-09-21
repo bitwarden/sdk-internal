@@ -568,9 +568,10 @@ mod tests {
             .await
             .unwrap();
 
-        // Fragment shape: /join/{org}/{code}?key={secret}. The org id and server-issued code are
+        // Fragment shape: #/join/{org}/{code}?key={secret}. The org id and server-issued code are
         // deterministic; the trailing secret must be a real, parseable `InviteSecret`.
-        let prefix = format!("/join/{org_id}/{code}?key=");
+        // The leading hash is security critical to avoid the key being sent to the server.
+        let prefix = format!("#/join/{org_id}/{code}?key=");
         let key = link
             .url_fragment
             .strip_prefix(&prefix)
