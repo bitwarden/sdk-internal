@@ -41,7 +41,7 @@ import {
   UserKeyIdRequest,
   type ChangeKdfRequest,
 } from "./dto";
-import type { CipherEntity, UserEntity } from "./entities";
+import type { CipherEntity, FolderEntity, UserEntity } from "./entities";
 import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_NOT_FOUND } from "./replies";
 
 export class ApiServer {
@@ -203,6 +203,30 @@ export class ApiServer {
       return error(HTTP_BAD_REQUEST, "master password unlock data required");
     }
 
+    // Every referenced item is resolved before a single write lands: a rejected rotation must not
+    // leave the account rotated on top of a half re-encrypted vault.
+    const ciphers: { posted: CipherRequest & { id: string }; stored: CipherEntity }[] = [];
+    for (const cipher of posted.accountData.ciphers ?? []) {
+      const stored = this.reachableCipher(user, cipher.id);
+      // A rotation re-encrypts under the new user key, so only the user's own ciphers belong
+      // here — an organization cipher stays under the organization key.
+      if (stored === undefined || stored.userId !== user.userId) {
+        return error(HTTP_NOT_FOUND, `no cipher ${cipher.id} to re-encrypt`);
+      }
+
+      ciphers.push({ posted: cipher, stored });
+    }
+
+    const folders: { posted: { id: string; name: string }; stored: FolderEntity }[] = [];
+    for (const folder of posted.accountData.folders ?? []) {
+      const stored = this.db.folders.get(folder.id);
+      if (stored === undefined || stored.userId !== user.userId) {
+        return error(HTTP_NOT_FOUND, `no folder ${folder.id} to re-encrypt`);
+      }
+
+      folders.push({ posted: folder, stored });
+    }
+
     user.accountCryptographicState = {
       V2: {
         private_key: asEncString(state.publicKeyEncryptionKeyPair.wrappedPrivateKey),
@@ -235,12 +259,7 @@ export class ApiServer {
     }
 
     const now = this.db.revisions.next();
-    for (const cipher of posted.accountData.ciphers ?? []) {
-      const stored = this.db.ciphers.get(cipher.id);
-      if (stored === undefined) {
-        return error(HTTP_NOT_FOUND, `no cipher ${cipher.id} to re-encrypt`);
-      }
-
+    for (const { posted: cipher, stored } of ciphers) {
       this.db.ciphers.update(cipher.id, {
         ...stored,
         cipher: CipherRequest.toCipher(cipher, stored.cipher, {
@@ -254,12 +273,7 @@ export class ApiServer {
       });
     }
 
-    for (const folder of posted.accountData.folders ?? []) {
-      const stored = this.db.folders.get(folder.id);
-      if (stored === undefined) {
-        return error(HTTP_NOT_FOUND, `no folder ${folder.id} to re-encrypt`);
-      }
-
+    for (const { posted: folder, stored } of folders) {
       this.db.folders.update(folder.id, {
         ...stored,
         folder: FolderRequest.toFolder(folder, folder.id, now),
