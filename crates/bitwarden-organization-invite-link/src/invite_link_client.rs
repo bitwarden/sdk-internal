@@ -23,22 +23,6 @@ pub struct InviteLinkClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-impl InviteLinkClient {
-    fn admin_client(&self) -> InviteLinkAdminClient {
-        InviteLinkAdminClient {
-            key_store: self.key_store.clone(),
-            api_configurations: self.api_configurations.clone(),
-        }
-    }
-
-    fn user_client(&self) -> InviteLinkUserClient {
-        InviteLinkUserClient {
-            key_store: self.key_store.clone(),
-            api_configurations: self.api_configurations.clone(),
-        }
-    }
-}
-
 // The deprecated redirects below call methods on the sub-clients (some of which are themselves
 // deprecated), and the `wasm_bindgen`-generated shims call the redirects; both would otherwise emit
 // deprecation warnings from generated code we cannot annotate individually.
@@ -47,12 +31,18 @@ impl InviteLinkClient {
 impl InviteLinkClient {
     /// Administrative (organization-key) invite link operations.
     pub fn admin(&self) -> InviteLinkAdminClient {
-        self.admin_client()
+        InviteLinkAdminClient {
+            key_store: self.key_store.clone(),
+            api_configurations: self.api_configurations.clone(),
+        }
     }
 
     /// Invitee (user) invite link operations.
     pub fn user(&self) -> InviteLinkUserClient {
-        self.user_client()
+        InviteLinkUserClient {
+            key_store: self.key_store.clone(),
+            api_configurations: self.api_configurations.clone(),
+        }
     }
 
     /// Creates a new organization invite and posts it to the server.
@@ -63,7 +53,7 @@ impl InviteLinkClient {
         allowed_domains: Vec<String>,
         supports_confirmation: bool,
     ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        self.admin_client()
+        self.admin()
             .create_invite_link(organization_id, allowed_domains, supports_confirmation)
             .await
     }
@@ -76,7 +66,7 @@ impl InviteLinkClient {
         organization_id: OrganizationId,
         supports_confirmation: bool,
     ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        self.admin_client()
+        self.admin()
             .refresh_invite_link(organization_id, supports_confirmation)
             .await
     }
@@ -90,7 +80,7 @@ impl InviteLinkClient {
         invite: Invite,
         supports_confirmation: bool,
     ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        self.admin_client()
+        self.admin()
             .set_invite_confirmation(organization_id, invite, supports_confirmation)
             .await
     }
@@ -106,8 +96,7 @@ impl InviteLinkClient {
         organization_id: OrganizationId,
         invite: Invite,
     ) -> Result<InviteSecret, InviteLinkError> {
-        self.admin_client()
-            .get_invite_secret(organization_id, invite)
+        self.admin().get_invite_secret(organization_id, invite)
     }
 
     /// Accepts an organization invite for the current user, optionally enrolling into account
@@ -122,7 +111,7 @@ impl InviteLinkClient {
         default_collection_name: String,
         enroll_into_account_recovery: bool,
     ) -> Result<(), InviteLinkError> {
-        self.user_client()
+        self.user()
             .accept_and_optionally_confirm(
                 organization_id,
                 code,
