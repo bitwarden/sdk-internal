@@ -124,6 +124,22 @@ export class ClientEmulator {
     this.client = await this.local.unlock({ decryptedKey: { decrypted_user_key: userKey } });
   }
 
+  /**
+   * Re-initializes an unlocked session onto the key material a sync just brought down, which is
+   * what a client does after another device upgrades the account to V2 — no lock required.
+   */
+  async reinit(): Promise<void> {
+    const accountCryptographicState = await this.local.bridge.get_account_cryptographic_state();
+    const upgradeToken = await this.local.bridge.get_v2_upgrade_token();
+    if (accountCryptographicState === null || upgradeToken === null) {
+      throw new Error("local state holds no upgraded key material; sync one down first");
+    }
+
+    await this.getPasswordManagerClient()
+      .crypto()
+      .reinit_user_crypto({ accountCryptographicState, upgradeToken });
+  }
+
   /** Drops the state a running process holds but a restarted one would not: a lock, not a logout. */
   async lock(): Promise<void> {
     await this.local.clearEphemeral();
