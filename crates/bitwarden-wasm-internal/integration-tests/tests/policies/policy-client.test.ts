@@ -6,7 +6,6 @@ import {
   OrganizationUserType,
   OrganizationUserStatusType,
   OrganizationId,
-  Uuid,
   PolicyId,
 } from "@bitwarden/sdk-internal";
 
