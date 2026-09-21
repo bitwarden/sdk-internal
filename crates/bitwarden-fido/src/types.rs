@@ -447,9 +447,10 @@ pub struct MakeCredentialResult {
     /// The credential's public key in SPKI DER form, as returned by
     /// [AuthenticatorAttestationResponse.getPublicKey()][get-public-key].
     ///
-    /// The key is also in [`attestation_object`][Self::attestation_object], COSE-encoded inside the
-    /// attested credential data. It is lifted out here because callers of this CTAP-level operation
-    /// need the WebAuthn-level form, and deriving it requires parsing the attestation object.
+    /// The key is also in [`attestation_object`][Self::attestation_object], COSE-encoded inside
+    /// the attested credential data. It is lifted out here because callers of this CTAP-level
+    /// operation need the WebAuthn-level form, and deriving it requires parsing the
+    /// attestation object.
     ///
     /// [get-public-key]: https://www.w3.org/TR/webauthn-3/#dom-authenticatorattestationresponse-getpublickey
     pub public_key: Vec<u8>,

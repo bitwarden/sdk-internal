@@ -112,7 +112,33 @@ extern "C" {
     ) -> Result<JsValue, JsValue>;
 
     #[wasm_bindgen(method, getter, catch)]
-    fn is_verification_enabled(this: &RawJsFido2UserInterface) -> Result<bool, JsValue>;
+    fn is_verification_enabled(this: &RawJsFido2UserInterface) -> Result<JsValue, JsValue>;
+}
+
+/// Read `is_verification_enabled` off the JavaScript object, failing towards verification.
+///
+/// The property is read as an untyped [JsValue] rather than a `bool` on purpose. A host that
+/// implements it as a *method* — the shape the Rust trait and the uniffi binding use — hands back a
+/// function object, which the boolean ABI would coerce to `false` without throwing: user
+/// verification skipped, silently. Anything that is not a boolean is therefore logged and treated
+/// as enabled, so a mistake costs an extra prompt rather than a weakened ceremony.
+fn read_verification_enabled(user_interface: &RawJsFido2UserInterface) -> bool {
+    match user_interface.is_verification_enabled() {
+        Ok(value) => value.as_bool().unwrap_or_else(|| {
+            tracing::error!(
+                "is_verification_enabled is not a boolean (it must be a property, not a method); \
+                 treating verification as enabled"
+            );
+            true
+        }),
+        Err(error) => {
+            tracing::error!(
+                ?error,
+                "is_verification_enabled threw; treating verification as enabled"
+            );
+            true
+        }
+    }
 }
 
 /// Adapts a JavaScript user interface to the [Fido2UserInterface] trait.
@@ -126,18 +152,7 @@ impl JsFido2UserInterface {
         // `is_verification_enabled` is synchronous on the trait, but once the JavaScript object is
         // handed to the runner it can only be reached through an async call. Read it here, while
         // still on the thread that constructed it, and answer from the cached value afterwards.
-        // A throwing implementation degrades to "not enabled", which weakens the ceremony, so it is
-        // logged rather than swallowed.
-        let verification_enabled = match user_interface.is_verification_enabled() {
-            Ok(enabled) => enabled,
-            Err(error) => {
-                tracing::error!(
-                    ?error,
-                    "is_verification_enabled threw; treating verification as disabled"
-                );
-                false
-            }
-        };
+        let verification_enabled = read_verification_enabled(&user_interface);
 
         Self {
             runner: ThreadBoundRunner::new(user_interface),

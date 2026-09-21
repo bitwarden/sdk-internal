@@ -73,10 +73,30 @@ describe("fido2 bridge", () => {
   it("accepts is_verification_enabled as a plain property", async () => {
     const fido2 = await makeFido2Client();
 
-    // Constructing the authenticator is what reads the property. A method would not satisfy
-    // the interface, so reaching a result at all is the assertion.
+    // Constructing the authenticator is what reads the property. Reaching a result at all is
+    // the assertion.
     const result = await fido2
-      .authenticator(makeUserInterface({ is_verification_enabled: false } as never), makeStore().store)
+      .authenticator(
+        makeUserInterface({ is_verification_enabled: false } as never),
+        makeStore().store,
+      )
+      .credentials_for_autofill();
+
+    expect(result).toEqual([]);
+  });
+
+  it("does not break when is_verification_enabled is implemented as a method", async () => {
+    const fido2 = await makeFido2Client();
+
+    // The interface declares a property, but the Rust trait and the uniffi binding both use a
+    // method, so a host may write one. The read must not trap or silently yield a value; the
+    // bridge logs and treats verification as enabled. Only the "does not break" half is
+    // observable here, since no autofill call consults verification.
+    const result = await fido2
+      .authenticator(
+        makeUserInterface({ is_verification_enabled: () => false } as never),
+        makeStore().store,
+      )
       .credentials_for_autofill();
 
     expect(result).toEqual([]);
