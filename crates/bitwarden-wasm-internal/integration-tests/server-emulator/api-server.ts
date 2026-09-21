@@ -37,6 +37,7 @@ import {
   KeyRotationDataResponse,
   MasterPasswordUnlockDataModel,
   RotateUserKeysRequest,
+  UnlockMethod,
   SyncResponse,
   UserKeyIdRequest,
   type ChangeKdfRequest,
@@ -199,7 +200,7 @@ export class ApiServer {
 
     const state = posted.wrappedAccountCryptographicState;
     const { unlockMethod, masterPasswordUnlockData } = posted.unlockMethodData;
-    if (unlockMethod === "MasterPassword" && masterPasswordUnlockData === undefined) {
+    if (unlockMethod === UnlockMethod.masterPassword && masterPasswordUnlockData === undefined) {
       return error(HTTP_BAD_REQUEST, "master password unlock data required");
     }
 

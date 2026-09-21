@@ -61,6 +61,8 @@ export class ClientEmulator {
                 masterKeyWrappedUserKey: asEncString(unlock.masterKeyEncryptedUserKey),
                 salt: unlock.salt,
                 kdf: toKdf(unlock.kdf),
+                containedKeyId:
+                  unlock.containedKeyId === undefined ? undefined : asKeyId(unlock.containedKeyId),
               },
         v2UpgradeToken:
           v2UpgradeToken === undefined
@@ -125,8 +127,7 @@ export class ClientEmulator {
   }
 
   /**
-   * Re-initializes an unlocked session onto the key material a sync just brought down, which is
-   * what a client does after another device upgrades the account to V2 — no lock required.
+   * Re-initializes an unlocked client after the cryptographic keys changed after a sync.
    */
   async reinit(): Promise<void> {
     const accountCryptographicState = await this.local.bridge.get_account_cryptographic_state();

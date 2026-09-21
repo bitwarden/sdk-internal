@@ -133,9 +133,13 @@ export class WrappedAccountCryptographicStateRequest {
   securityState!: SecurityStateRequest;
 }
 
+/** The server's numeric `UnlockMethod`. */
+export const UnlockMethod = { tde: 0, masterPassword: 1, keyConnector: 2 } as const;
+export type UnlockMethodValue = (typeof UnlockMethod)[keyof typeof UnlockMethod];
+
 /** `UnlockMethodRequestModel` — how the rotated user key is wrapped for the primary unlock. */
 export class UnlockMethodRequest {
-  unlockMethod!: "MasterPassword" | "KeyConnector" | "Tde";
+  unlockMethod!: UnlockMethodValue;
   masterPasswordUnlockData?: MasterPasswordUnlockDataModel;
   keyConnectorKeyWrappedUserKey?: string;
 }
