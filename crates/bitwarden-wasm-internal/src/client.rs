@@ -164,6 +164,11 @@ impl PasswordManagerClient {
         self.0.invite_link()
     }
 
+    /// Organization member administration operations.
+    pub fn organization_users_management(&self) -> OrganizationUsersManagementClient {
+        self.0.organization_users_management()
+    }
+
     /// Crypto cipher suite operations.
     pub fn crypto_cipher_suite(&self) -> CryptoCipherSuiteClient {
         self.0.crypto_cipher_suite()
