@@ -1,6 +1,5 @@
 import {
   SecureNoteType,
-  isDecryptError,
   type CipherViewType,
   type PasswordManagerClient,
 } from "@bitwarden/sdk-internal";
@@ -8,7 +7,7 @@ import {
 import type { ClientEmulator } from "../../client-emulator/client-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { MASTER_PASSWORD_ACCOUNT } from "../../vectors/accounts";
-import { rejection, TEST_EMAIL, TEST_PASSWORD } from "../utils";
+import { TEST_EMAIL, TEST_PASSWORD } from "../utils";
 
 const TIMEOUT = 120_000;
 
