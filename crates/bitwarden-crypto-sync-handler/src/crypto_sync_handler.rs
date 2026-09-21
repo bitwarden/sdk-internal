@@ -157,6 +157,13 @@ impl TryFrom<&bitwarden_api_api::models::UserDecryptionResponseModel> for Crypto
 
 /// Runs the key management sync work for the given sync data.
 async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
+    // A replayed payload is refused whole: taking its user decryption options would let the
+    // server swap out the key id and unlock data that belong to the state it just tried to undo.
+    if is_replayed_state(client, data).await {
+        warn!("WARNING: Refusing a V2 to V1 account cryptographic state downgrade.");
+        return;
+    }
+
     // Handlers MUST NOT fail, to avoid partial state writes
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
@@ -225,16 +232,28 @@ async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncDa
         return;
     }
 
-    // A malicious or compromised server must not be able to move an account back to V1, which
-    // would silently drop the signed security state that V2 exists to protect.
-    if let Some(local) = state_bridge.get_account_cryptographic_state().await
-        && is_v2_to_v1_downgrade(&local, incoming)
-    {
-        warn!("Refusing a V2 to V1 account cryptographic state downgrade; keeping the local state");
-        return;
+    state_bridge.set_account_cryptographic_state(incoming).await;
+}
+
+/// Whether the sync carries a state the account has already moved past.
+///
+/// A malicious or compromised server must not be able to move an account back to V1, which would
+/// silently drop the signed security state that V2 exists to protect.
+async fn is_replayed_state(client: &Client, data: &CryptoSyncData) -> bool {
+    let Some(incoming) = data.account_cryptographic_state.as_ref() else {
+        return false;
+    };
+
+    // This is necessary until all clients implement the state bridge.
+    let state_bridge = client.km_state_bridge();
+    if !state_bridge.is_bridge_registered() {
+        return false;
     }
 
-    state_bridge.set_account_cryptographic_state(incoming).await;
+    match state_bridge.get_account_cryptographic_state().await {
+        Some(local) => is_v2_to_v1_downgrade(&local, incoming),
+        None => false,
+    }
 }
 
 /// Whether the incoming state moves a locally V2 account back to V1.
@@ -339,6 +358,8 @@ mod tests {
     const TEST_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
     const TEST_SALT: &str = "test@example.com";
     const TEST_USER_KEY_ID: &str = "000102030405060708090a0b0c0d0e0f";
+    /// A key id the account never had, so a stored one proves the replay was taken.
+    const REPLAYED_USER_KEY_ID: &str = "0f0e0d0c0b0a09080706050403020100";
 
     fn master_password_unlock(
         master_key_encrypted_user_key: Option<String>,
@@ -534,7 +555,7 @@ mod tests {
             account_cryptographic_state: Some(incoming.clone()),
             ..Default::default()
         };
-        handle_account_cryptographic_state(client, &data).await;
+        handle_crypto_sync(client, &data).await;
         client
             .km_state_bridge()
             .get_account_cryptographic_state()

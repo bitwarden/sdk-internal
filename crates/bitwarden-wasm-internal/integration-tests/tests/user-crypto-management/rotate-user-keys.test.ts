@@ -15,6 +15,9 @@ const TIMEOUT = 120_000;
 
 const SECURE_NOTE: CipherViewType = { secureNote: { type: SecureNoteType.Generic } };
 
+const NOTE_NAME = "seeded before the rotation";
+const NOTE_CONTENT = "carried across the rotation";
+
 /** A key id the account never had, to tell "refused the downgrade" from "ignored the payload". */
 const REPLAYED_KEY_ID = asKeyId("0f0e0d0c0b0a09080706050403020100");
 
@@ -40,9 +43,20 @@ describe("rotate user keys", () => {
     });
   }
 
-  /** Seeds a V1 account, which is what a master-password account starts out as. */
-  function seedV1(): string {
-    return harness.server.seedUser(MASTER_PASSWORD_ACCOUNT).email;
+  /**
+   * Seeds a V1 account — what a master-password account starts out as — holding the one note the
+   * tests carry across the rotation. The client that seeded it is dropped; tests log in fresh.
+   */
+  async function seedV1(): Promise<string> {
+    // Will be replaced by test vectors
+    const { email } = harness.server.seedUser(MASTER_PASSWORD_ACCOUNT);
+
+    const seeding = harness.newClientEmulator();
+    await seeding.login(email);
+    await seeding.unlock(TEST_PASSWORD);
+    await createNote(seeding.getPasswordManagerClient());
+
+    return email;
   }
 
   /**
@@ -52,7 +66,8 @@ describe("rotate user keys", () => {
    * V2 here and the client that did it is dropped — a test starts from a fresh login either way.
    */
   async function seedV2(): Promise<string> {
-    const email = seedV1();
+    // Will be replaced by test vectors
+    const email = await seedV1();
 
     const upgrading = harness.newClientEmulator();
     await upgrading.login(email);
@@ -62,14 +77,14 @@ describe("rotate user keys", () => {
     return email;
   }
 
-  /** An item to carry across the rotation, which re-encrypts the vault under the new key. */
-  async function createNote(sdk: PasswordManagerClient, name: string): Promise<CipherView> {
-    return await sdk.vault().ciphers().create({
+  /** The item that has to survive a rotation, which re-encrypts the vault under the new key. */
+  function createNote(sdk: PasswordManagerClient): Promise<CipherView> {
+    return sdk.vault().ciphers().create({
       organizationId: undefined,
       collectionIds: [],
       folderId: undefined,
-      name,
-      notes: "carried across the rotation",
+      name: NOTE_NAME,
+      notes: NOTE_CONTENT,
       favorite: false,
       reprompt: 0,
       type: SECURE_NOTE,
@@ -77,20 +92,25 @@ describe("rotate user keys", () => {
     });
   }
 
-  /** Reads a created item back through a client, asserting the plaintext survived. */
-  async function assertVaultDecrypts(client: ClientEmulator, created: CipherView): Promise<void> {
+  /** Reads the seeded note back through a client, asserting the plaintext survived. */
+  async function assertVaultDecrypts(client: ClientEmulator): Promise<void> {
     // Will be replaced by test vectors + a full vault assert
-    const view = await client.getPasswordManagerClient().vault().ciphers().get(String(created.id));
+    const [cipher] = client.local.ciphers.dump();
+    if (cipher === undefined) {
+      throw new Error("the sync handed the client no ciphers");
+    }
 
-    expect(view.name).toBe(created.name);
-    expect(view.notes).toBe(created.notes);
+    const view = await client.getPasswordManagerClient().vault().ciphers().get(String(cipher.id));
+
+    expect(view.name).toBe(NOTE_NAME);
+    expect(view.notes).toBe(NOTE_CONTENT);
   }
 
   /**
    * A V1 account rotates up to V2: the vault is re-encrypted under a new user key, and both the
    * session that did it and a fresh login read it back.
    *
-   *   client  ──unlock(K1)──▶ note ──rotate──▶ K2 ──sync ─▶ reinit(K2) ──▶ reads
+   *   client  ──unlock(K1)────────▶ rotate──▶ K2 ──sync ─▶ reinit(K2) ──▶ reads
    *                                             │
    *   server  ────────────────────────────────  V1 ──▶ V2, vault re-encrypted to K2
    *                                             │
@@ -99,11 +119,10 @@ describe("rotate user keys", () => {
   it(
     "upgrades a V1 account to V2",
     async () => {
-      const email = seedV1();
+      const email = await seedV1();
       const client = harness.newClientEmulator();
       await client.login(email);
       await client.unlock(TEST_PASSWORD);
-      const created = await createNote(client.getPasswordManagerClient(), "before the upgrade");
 
       // 1. Rotate, asking for an upgrade token
       await rotate(client.getPasswordManagerClient(), "CreateIfNeeded");
@@ -112,13 +131,13 @@ describe("rotate user keys", () => {
       //    down the re-encrypted vault, then re-initialize onto the new key.
       await client.sync(email);
       await client.reinit();
-      await assertVaultDecrypts(client, created);
+      await assertVaultDecrypts(client);
 
       // 3. Verify a client that logs in reads the vault too
       const reloginClient = harness.newClientEmulator();
       await reloginClient.login(email);
       await reloginClient.unlock(TEST_PASSWORD);
-      await assertVaultDecrypts(reloginClient, created);
+      await assertVaultDecrypts(reloginClient);
     },
     TIMEOUT,
   );
@@ -127,7 +146,7 @@ describe("rotate user keys", () => {
    * A second rotation, starting from an account that is already V2. Nothing is upgraded, and the
    * vault still travels to the new key.
    *
-   *   client  ──unlock(K2)──▶ note ──rotate──▶ K3 ──sync ─▶ lock ─▶ unlock(K3) ──▶ reads
+   *   client  ──unlock(K2)────────▶ rotate──▶ K3 ──sync ─▶ lock ─▶ unlock(K3) ──▶ reads
    *                                             │
    *   server  ──────────────────────────────── V2 ──▶ V2, vault re-encrypted to K3
    *                                             │
@@ -140,10 +159,6 @@ describe("rotate user keys", () => {
       const client = harness.newClientEmulator();
       await client.login(email);
       await client.unlock(TEST_PASSWORD);
-      const created = await createNote(
-        client.getPasswordManagerClient(),
-        "before the second rotation",
-      );
 
       // 1. Rotate again, this time without an upgrade token
       await rotate(client.getPasswordManagerClient(), "Skip");
@@ -154,13 +169,13 @@ describe("rotate user keys", () => {
       await client.sync(email);
       await client.lock();
       await client.unlock(TEST_PASSWORD);
-      await assertVaultDecrypts(client, created);
+      await assertVaultDecrypts(client);
 
       // 3. Verify a client that logs in reads the vault too
       const reloginClient = harness.newClientEmulator();
       await reloginClient.login(email);
       await reloginClient.unlock(TEST_PASSWORD);
-      await assertVaultDecrypts(reloginClient, created);
+      await assertVaultDecrypts(reloginClient);
     },
     TIMEOUT,
   );
@@ -179,14 +194,10 @@ describe("rotate user keys", () => {
     "pin unlock still works after another device rotates",
     async () => {
       // 1. A device enrolled in PIN unlock, holding an envelope that survives a lock
-      const email = seedV1();
+      const email = await seedV1();
       const otherDevice = harness.newClientEmulator();
       await otherDevice.login(email);
       await otherDevice.unlock(TEST_PASSWORD);
-      const created = await createNote(
-        otherDevice.getPasswordManagerClient(),
-        "read again over the pin",
-      );
       await otherDevice
         .getPasswordManagerClient()
         .user_crypto_management()
@@ -208,7 +219,7 @@ describe("rotate user keys", () => {
       await otherDevice.unlockWith({ pinState: { pin: TEST_PIN } });
 
       // 5. Verify the vault reads, with the plaintext unchanged
-      await assertVaultDecrypts(otherDevice, created);
+      await assertVaultDecrypts(otherDevice);
     },
     TIMEOUT,
   );
@@ -228,14 +239,10 @@ describe("rotate user keys", () => {
     "second device can read the vault after the first device rotates",
     async () => {
       // 1. Two unlocked clients, and a rotation by the first
-      const email = seedV1();
+      const email = await seedV1();
       const client = harness.newClientEmulator();
       await client.login(email);
       await client.unlock(TEST_PASSWORD);
-      const created = await createNote(
-        client.getPasswordManagerClient(),
-        "read again after unlocking",
-      );
 
       const second = harness.newClientEmulator();
       await second.login(email);
@@ -251,7 +258,7 @@ describe("rotate user keys", () => {
       await second.reinit();
 
       // 3. Verify the vault reads again, with the plaintext unchanged
-      await assertVaultDecrypts(second, created);
+      await assertVaultDecrypts(second);
     },
     TIMEOUT,
   );
@@ -271,7 +278,7 @@ describe("rotate user keys", () => {
     "refuses a V1 state the server replays after the upgrade",
     async () => {
       // 1. Two unlocked devices on a V1 account, and the state the server holds for it
-      const email = seedV1();
+      const email = await seedV1();
       const rotatingDevice = harness.newClientEmulator();
       await rotatingDevice.login(email);
       await rotatingDevice.unlock(TEST_PASSWORD);
@@ -291,6 +298,7 @@ describe("rotate user keys", () => {
 
       const upgradedState = await rotatingDevice.bridge.get_account_cryptographic_state();
       expect(upgradedState).toHaveProperty("V2");
+      const upgradedKeyId = await rotatingDevice.bridge.get_user_key_id();
 
       // 3. The server replays the state it held before the upgrade
       const stored = harness.server.getUser(TEST_EMAIL);
@@ -303,6 +311,8 @@ describe("rotate user keys", () => {
       // 4. Verify neither device took the downgrade
       expect(await rotatingDevice.bridge.get_account_cryptographic_state()).toEqual(upgradedState);
       expect(await otherDevice.bridge.get_account_cryptographic_state()).toEqual(upgradedState);
+      expect(await rotatingDevice.bridge.get_user_key_id()).toEqual(upgradedKeyId);
+      expect(await otherDevice.bridge.get_user_key_id()).toEqual(upgradedKeyId);
     },
     TIMEOUT,
   );
