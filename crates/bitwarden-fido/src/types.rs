@@ -1140,8 +1140,49 @@ mod tests {
     use super::{
         AndroidClientData, GetAssertionExtensionsInput, GetAssertionExtensionsOutput,
         GetAssertionPrfInput, MakeCredentialExtensionsInput, MakeCredentialExtensionsOutput,
-        MakeCredentialPrfInput, PrfInputValues,
+        MakeCredentialPrfInput, PrfInputValues, public_key_der_and_algorithm,
     };
+
+    /// An ES256 key, the only kind this authenticator creates.
+    fn es256_key_for_testing() -> coset::CoseKey {
+        // Same hardcoded key the crypto module tests use.
+        let bytes = vec![
+            166, 1, 2, 3, 38, 32, 1, 33, 88, 32, 200, 30, 161, 146, 196, 121, 165, 149, 92, 232,
+            49, 48, 245, 253, 73, 234, 204, 3, 209, 153, 166, 77, 59, 232, 70, 16, 206, 77, 84,
+            156, 28, 77, 34, 88, 32, 82, 141, 165, 28, 241, 82, 31, 33, 183, 206, 29, 91, 93, 111,
+            216, 216, 26, 62, 211, 49, 191, 86, 238, 118, 241, 124, 131, 106, 214, 95, 170, 160,
+            35, 88, 32, 147, 171, 4, 49, 68, 170, 47, 51, 74, 211, 94, 40, 212, 244, 95, 55, 154,
+            92, 171, 241, 0, 55, 84, 151, 79, 244, 151, 198, 135, 45, 97, 238,
+        ];
+
+        <coset::CoseKey as coset::CborSerializable>::from_slice(bytes.as_slice()).unwrap()
+    }
+
+    #[test]
+    fn public_key_der_and_algorithm_encodes_es256() {
+        let (der, algorithm) =
+            public_key_der_and_algorithm(&es256_key_for_testing()).expect("ES256 must encode");
+
+        assert_eq!(algorithm, coset::iana::Algorithm::ES256 as i64);
+        // SPKI DER, not the raw COSE key: SEQUENCE header followed by the EC public key OID.
+        assert_eq!(der[0], 0x30);
+        assert!(
+            der.windows(9)
+                .any(|w| w == [0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01]),
+            "expected the id-ecPublicKey OID in {der:?}"
+        );
+    }
+
+    #[test]
+    fn public_key_der_and_algorithm_rejects_keys_it_cannot_encode() {
+        let mut no_algorithm = es256_key_for_testing();
+        no_algorithm.alg = None;
+        assert!(public_key_der_and_algorithm(&no_algorithm).is_none());
+
+        let mut text_algorithm = es256_key_for_testing();
+        text_algorithm.alg = Some(coset::Algorithm::Text("ES256".to_string()));
+        assert!(public_key_der_and_algorithm(&text_algorithm).is_none());
+    }
 
     /// Raw PRF input for testing.
     static TEST_SALT1_RAW_INPUT: &[u8] = b"salt1";
