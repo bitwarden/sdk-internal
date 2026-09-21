@@ -217,15 +217,8 @@ describe("rotate user keys", () => {
       await otherDevice.sync(email);
       await otherDevice.lock();
 
-      // 4. Verify the PIN still unlocks, over the envelope the rotation left behind
-      const envelope = await otherDevice.bridge.get_persistent_pin_envelope();
-      if (envelope === null) {
-        throw new Error("the lock dropped the persistent pin envelope");
-      }
-
-      await otherDevice.unlockWith({
-        pinEnvelope: { pin: TEST_PIN, pin_protected_user_key_envelope: envelope },
-      });
+      // 4. Verify the PIN still unlocks, over the envelope the rotation left in state
+      await otherDevice.unlockWith({ pinState: { pin: TEST_PIN } });
 
       // 5. Verify the vault reads, with the plaintext unchanged
       const view = await otherDevice
