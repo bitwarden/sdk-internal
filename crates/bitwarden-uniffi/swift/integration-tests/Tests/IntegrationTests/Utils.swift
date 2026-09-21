@@ -65,6 +65,7 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     private var masterpasswordUnlockData: MasterPasswordUnlockData?
     private var webauthnPrfUnlockData: WebAuthnPrfUnlockData?
     private var kdfConfig: Kdf?
+    private var v2EncryptedMigrationsGracePeriodStart: V2EncryptedMigrationsGracePeriodStart?
 
     func setUserKey(value: SymmetricCryptoKey) { userKey = value }
     func getUserKey() -> SymmetricCryptoKey? { userKey }
@@ -105,6 +106,10 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     func setKdfConfig(value: Kdf) { kdfConfig = value }
     func getKdfConfig() -> Kdf? { kdfConfig }
     func clearKdfConfig() { kdfConfig = nil }
+
+    func setV2EncryptedMigrationsGracePeriodStart(value: V2EncryptedMigrationsGracePeriodStart) { v2EncryptedMigrationsGracePeriodStart = value }
+    func getV2EncryptedMigrationsGracePeriodStart() -> V2EncryptedMigrationsGracePeriodStart? { v2EncryptedMigrationsGracePeriodStart }
+    func clearV2EncryptedMigrationsGracePeriodStart() { v2EncryptedMigrationsGracePeriodStart = nil }
 }
 
 final class MockTokenProvider: ClientManagedTokens {
@@ -115,7 +120,8 @@ final class MockTokenProvider: ClientManagedTokens {
 /// crypto state, mirroring `makeInitializedPasswordmanagerClient` from the WASM
 /// integration tests.
 func makeInitializedClient(stateBridge: InMemoryStateBridge) async throws -> Client {
-    let client = Client(tokenProvider: MockTokenProvider(), settings: nil)
+    // A fresh handle has no active profile, so no setting reads as administrator-forced.
+    let client = Client(tokenProvider: MockTokenProvider(), settings: nil, managedSettings: ManagedSettingsBindingClient())
     client.kmStateBridge().registerBridgeImpl(bridgeImpl: stateBridge)
 
     let req = InitUserCryptoRequest(
@@ -142,7 +148,7 @@ func makeInitializedClient(stateBridge: InMemoryStateBridge) async throws -> Cli
 /// (PBKDF2 600k, V1 wrapped account state). The resulting in-memory V1 user key
 /// is the one used to mint `VALID_UPGRADE_TOKEN_WRAPPED_UK*`.
 func makeV1InitializedClient(stateBridge: InMemoryStateBridge) async throws -> Client {
-    let client = Client(tokenProvider: MockTokenProvider(), settings: nil)
+    let client = Client(tokenProvider: MockTokenProvider(), settings: nil, managedSettings: ManagedSettingsBindingClient())
     client.kmStateBridge().registerBridgeImpl(bridgeImpl: stateBridge)
 
     let req = InitUserCryptoRequest(
@@ -168,7 +174,7 @@ func makeV1InitializedClient(stateBridge: InMemoryStateBridge) async throws -> C
 /// Builds a V2 `Client` matching the `test_bitwarden_com_account_v2` Rust fixture
 /// (Argon2id, V2 wrapped account state, user key seeded via `DecryptedKey`).
 func makeV2InitializedClient(stateBridge: InMemoryStateBridge) async throws -> Client {
-    let client = Client(tokenProvider: MockTokenProvider(), settings: nil)
+    let client = Client(tokenProvider: MockTokenProvider(), settings: nil, managedSettings: ManagedSettingsBindingClient())
     client.kmStateBridge().registerBridgeImpl(bridgeImpl: stateBridge)
 
     let req = InitUserCryptoRequest(

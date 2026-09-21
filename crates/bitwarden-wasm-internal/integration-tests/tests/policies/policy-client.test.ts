@@ -5,20 +5,20 @@ import {
   PolicyType,
   OrganizationUserType,
   OrganizationUserStatusType,
+  OrganizationId,
   Uuid,
 } from "@bitwarden/sdk-internal";
 
+import { asOrganizationId, asUuid } from "../type-assertion-helpers";
 import { makePasswordManagerClient, makeStateBridge } from "../utils";
 
 // `filter_by_type` is a pure function with no crypto or network, so the client needs no unlock.
 // The filtering *behavior* is covered comprehensively by the crate's Rust unit tests
 // (`PolicyClient::filter_by_type`). These integration tests exist only to prove FFI-specific concerns.
 
-const uuid = (s: string) => s as unknown as Uuid;
-
-const POLICY_ID = uuid("1c4d9d5a-0000-4000-8000-000000000000");
-const ORG_A = uuid("1c4d9d5a-0000-4000-8000-00000000000a");
-const ORG_B = uuid("1c4d9d5a-0000-4000-8000-00000000000b");
+const POLICY_ID = asUuid("1c4d9d5a-0000-4000-8000-000000000000");
+const ORG_A = asOrganizationId("1c4d9d5a-0000-4000-8000-00000000000a");
+const ORG_B = asOrganizationId("1c4d9d5a-0000-4000-8000-00000000000b");
 
 interface PolicyViewOptions {
   id?: Uuid;
@@ -28,7 +28,7 @@ interface PolicyViewOptions {
 }
 
 function policyView(
-  organizationId: Uuid,
+  organizationId: OrganizationId,
   type: PolicyType,
   options: PolicyViewOptions = {},
 ): PolicyView {
@@ -51,7 +51,10 @@ interface OrgContextOptions {
   isProviderUser?: boolean;
 }
 
-function orgContext(id: Uuid, options: OrgContextOptions = {}): OrganizationUserPolicyContext {
+function orgContext(
+  id: OrganizationId,
+  options: OrgContextOptions = {},
+): OrganizationUserPolicyContext {
   return {
     id,
     role: options.role ?? OrganizationUserType.User,
@@ -84,7 +87,7 @@ describe("PolicyClient", () => {
     });
 
     it("round-trips every PolicyView field unchanged", () => {
-      const id = uuid("1c4d9d5a-0000-4000-8000-0000000000ff");
+      const id = asUuid("1c4d9d5a-0000-4000-8000-0000000000ff");
       const data = JSON.stringify({ minComplexity: 3, minLength: 12 });
       const revisionDate = "2024-01-01T00:00:00.000Z";
 
@@ -126,8 +129,10 @@ describe("PolicyClient", () => {
   // `filter_by_type`, these tests prove the FFI round trip rather than re-proving the enforcement
   // logic (which is covered by the crate's Rust unit tests). The load-bearing new shape is the
   // `EnforcedPolicyErased` struct and the internally-tagged `PolicyDataType` union: unit variants
-  // cross as `{ type: "..." }`, and the data variant flattens `MasterPasswordPolicyResponse` beside
-  // the `type` discriminant.
+  // cross as `{ _policyType: "..." }`, and data variants flatten their `...PolicyData` struct beside
+  // the `_policyType` discriminant. The discriminant is `_policyType` (not `type`) specifically so
+  // it cannot collide with a policy data field named `type` (e.g. MaximumVaultTimeout) — see the
+  // dedicated round-trip test below.
 
   describe("get_enforced", () => {
     let client: PasswordManagerClient;
@@ -150,9 +155,9 @@ describe("PolicyClient", () => {
 
       expect(result.organizationId).toBe(ORG_A);
       expect(result.enforced).toBe(true);
-      expect(result.data.type).toBe("masterPassword");
-      // The `type` discriminant narrows to the flattened MasterPasswordPolicyResponse.
-      if (result.data.type === "masterPassword") {
+      expect(result.data._policyType).toBe("masterPassword");
+      // The `_policyType` discriminant narrows to the flattened MasterPasswordPolicyData.
+      if (result.data._policyType === "masterPassword") {
         expect(result.data.minComplexity).toBe(3);
         expect(result.data.minLength).toBe(12);
       }
@@ -162,14 +167,37 @@ describe("PolicyClient", () => {
       const result = client
         .policies()
         .get_enforced(
-          PolicyType.PasswordGenerator,
+          PolicyType.SingleOrg,
           ORG_A,
-          [policyView(ORG_A, PolicyType.PasswordGenerator)],
+          [policyView(ORG_A, PolicyType.SingleOrg)],
           [orgContext(ORG_A)],
         );
 
       expect(result.enforced).toBe(true);
-      expect(result.data.type).toBe("passwordGenerator");
+      expect(result.data._policyType).toBe("singleOrg");
+    });
+
+    it("round-trips a policy whose data has a `type` field without colliding with the discriminant", () => {
+      // MaximumVaultTimeout's data carries its own `type` key; the union discriminant is
+      // `_policyType`, so both must survive the FFI round trip independently.
+      const data = JSON.stringify({ type: "custom", minutes: 480, action: "logOut" });
+
+      const result = client
+        .policies()
+        .get_enforced(
+          PolicyType.MaximumVaultTimeout,
+          ORG_A,
+          [policyView(ORG_A, PolicyType.MaximumVaultTimeout, { data })],
+          [orgContext(ORG_A)],
+        );
+
+      expect(result.enforced).toBe(true);
+      expect(result.data._policyType).toBe("maximumVaultTimeout");
+      if (result.data._policyType === "maximumVaultTimeout") {
+        expect(result.data.type).toBe("custom");
+        expect(result.data.minutes).toBe(480);
+        expect(result.data.action).toBe("logOut");
+      }
     });
 
     it("returns a not-enforced default when no matching policy exists for the org", () => {
@@ -184,7 +212,7 @@ describe("PolicyClient", () => {
 
       expect(result.organizationId).toBe(ORG_B);
       expect(result.enforced).toBe(false);
-      expect(result.data.type).toBe("masterPassword");
+      expect(result.data._policyType).toBe("masterPassword");
     });
 
     it("does not enforce for a Revoked member and defaults the data (negative discriminant survives FFI)", () => {
@@ -201,8 +229,8 @@ describe("PolicyClient", () => {
 
       expect(result.enforced).toBe(false);
       // A non-enforced decision carries default data, so the parsed `minComplexity` is dropped.
-      expect(result.data.type).toBe("masterPassword");
-      if (result.data.type === "masterPassword") {
+      expect(result.data._policyType).toBe("masterPassword");
+      if (result.data._policyType === "masterPassword") {
         expect(result.data.minComplexity).toBeUndefined();
       }
     });
@@ -228,7 +256,7 @@ describe("PolicyClient", () => {
         );
 
       expect(result).toHaveLength(1);
-      expect(result[0].data.type).toBe("masterPassword");
+      expect(result[0].data._policyType).toBe("masterPassword");
       expect(result[0].enforced).toBe(true);
     });
 
@@ -238,10 +266,10 @@ describe("PolicyClient", () => {
         PolicyType.MaximumVaultTimeout,
         [
           policyView(ORG_A, PolicyType.MaximumVaultTimeout, {
-            id: uuid("1c4d9d5a-0000-4000-8000-0000000000a1"),
+            id: asUuid("1c4d9d5a-0000-4000-8000-0000000000a1"),
           }),
           policyView(ORG_B, PolicyType.MaximumVaultTimeout, {
-            id: uuid("1c4d9d5a-0000-4000-8000-0000000000b1"),
+            id: asUuid("1c4d9d5a-0000-4000-8000-0000000000b1"),
           }),
         ],
         [

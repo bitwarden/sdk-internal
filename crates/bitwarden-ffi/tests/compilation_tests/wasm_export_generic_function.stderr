@@ -1,0 +1,5 @@
+error: #[wasm_export] does not support generic functions; wasm_bindgen cannot export them
+ --> tests/compilation_tests/wasm_export_generic_function.rs:4:16
+  |
+4 | pub fn identity<T>(value: T) -> T {
+  |                ^

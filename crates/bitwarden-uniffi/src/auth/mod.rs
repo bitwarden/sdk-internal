@@ -1,3 +1,4 @@
+use bitwarden_auth::AuthClientExt;
 use bitwarden_core::auth::{
     AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
     password::MasterPasswordPolicyOptions,
@@ -8,8 +9,12 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 
-use crate::{auth::registration::RegistrationClient, error::Result};
+use crate::{
+    auth::{login::LoginClient, registration::RegistrationClient},
+    error::Result,
+};
 
+mod login;
 mod registration;
 
 #[derive(uniffi::Object)]
@@ -20,6 +25,11 @@ impl AuthClient {
     /// Client for initializing user account cryptography and unlock methods after JIT provisioning
     pub fn registration(&self) -> RegistrationClient {
         RegistrationClient(self.0.clone())
+    }
+
+    /// Client for login functionality
+    pub fn login(&self) -> LoginClient {
+        LoginClient(self.0.auth_new().login())
     }
 
     /// Calculate Password Strength
