@@ -46,6 +46,7 @@ export class ClientEmulator {
 
     const synced: SyncResponse = await response.json();
     const unlock = synced.userDecryption.masterPasswordUnlock;
+    const { v2UpgradeToken, userKeyId } = synced.userDecryption;
 
     const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
@@ -53,30 +54,22 @@ export class ClientEmulator {
     await locked.crypto_sync_handler().on_sync({
       accountCryptographicState: accountKeys.toAccountCryptographicState(),
       userDecryption: {
-        ...(unlock === undefined
-          ? {}
-          : {
-              masterPasswordUnlock: {
+        masterPasswordUnlock:
+          unlock === undefined
+            ? undefined
+            : {
                 masterKeyWrappedUserKey: asEncString(unlock.masterKeyEncryptedUserKey),
                 salt: unlock.salt,
                 kdf: toKdf(unlock.kdf),
               },
-            }),
-        ...(synced.userDecryption.v2UpgradeToken === undefined
-          ? {}
-          : {
-              v2UpgradeToken: {
-                wrapped_user_key_1: asEncString(
-                  synced.userDecryption.v2UpgradeToken.wrappedUserKey1,
-                ),
-                wrapped_user_key_2: asEncString(
-                  synced.userDecryption.v2UpgradeToken.wrappedUserKey2,
-                ),
+        v2UpgradeToken:
+          v2UpgradeToken === undefined
+            ? undefined
+            : {
+                wrapped_user_key_1: asEncString(v2UpgradeToken.wrappedUserKey1),
+                wrapped_user_key_2: asEncString(v2UpgradeToken.wrappedUserKey2),
               },
-            }),
-        ...(synced.userDecryption.userKeyId === undefined
-          ? {}
-          : { userKeyId: asKeyId(synced.userDecryption.userKeyId) }),
+        userKeyId: userKeyId === undefined ? undefined : asKeyId(userKeyId),
       },
     });
 
