@@ -115,7 +115,7 @@ impl CipherAdminClient {
         // be moved directly into the CompositeEncryptable implementation.
         if self.client.flags().get().await.enable_cipher_key_encryption {
             let key = view.key_identifier();
-            view.generate_cipher_key(&mut key_store.context(), key)?;
+            view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
         }
 
         let use_blob = should_use_blob_encryption(&key_store.context(), view.organization_id);
@@ -161,7 +161,7 @@ mod tests {
                             .cipher
                             .organization_id
                             .and_then(|id| id.parse().ok()),
-                        name: Some(request.cipher.name.clone()),
+                        name: request.cipher.name.clone(),
                         r#type: request.cipher.r#type,
                         creation_date: Some(
                             Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),

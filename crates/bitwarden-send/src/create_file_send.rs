@@ -63,6 +63,8 @@ pub struct CreateFileSendResponse {
     /// encrypted under the same send key recorded on the created send, and their length was used
     /// to populate `file_length` on the create request (matching the legacy client, which sends
     /// the encrypted buffer length so the server can enforce storage quotas up-front).
+    #[cfg_attr(feature = "wasm", tsify(type = "Uint8Array"))]
+    #[serde(with = "serde_bytes")]
     pub encrypted_file_buffer: Vec<u8>,
 }
 

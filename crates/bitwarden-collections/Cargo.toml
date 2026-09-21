@@ -32,5 +32,9 @@ uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 
+[dev-dependencies]
+bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
+tokio = { workspace = true, features = ["rt"] }
+
 [lints]
 workspace = true

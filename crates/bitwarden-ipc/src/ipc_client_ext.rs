@@ -4,12 +4,14 @@ use serde::{Serialize, de::DeserializeOwned};
 use crate::{
     RpcHandler,
     endpoint::Endpoint,
-    error::{RequestError, SubscribeError, TypedReceiveError},
+    error::{RequestError, SubscribeError},
     ipc_client::IpcClientTypedSubscription,
     ipc_client_trait::IpcClient,
-    message::{PayloadTypeName, TypedOutgoingMessage},
+    message::{OutgoingMessage, PayloadTypeName, TypedOutgoingMessage},
     rpc::{
-        error::RpcError, request::RpcRequest, request_message::RpcRequestMessage,
+        error::RpcError,
+        request::RpcRequest,
+        request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestMessage},
         response_message::IncomingRpcResponseMessage,
     },
     serde_utils,
@@ -89,50 +91,39 @@ pub trait IpcClientExt: IpcClient {
         Request::Response: Send,
     {
         async move {
-            let request_id = uuid::Uuid::new_v4().to_string();
+            let request_payload = RpcRequestMessage::new(request);
+
+            // Each request gets its own response topic, subscribed to before sending. The handler
+            // publishes its reply there, so this subscription receives exactly one message: the
+            // response to this request. A deserialization failure is therefore unambiguously a
+            // malformed response to this request.
             let mut response_subscription = self
-                .subscribe_typed::<IncomingRpcResponseMessage<Request::Response>>()
+                .subscribe(Some(request_payload.response_topic.clone()))
                 .await?;
 
-            let request_payload = RpcRequestMessage {
-                request,
-                request_id: request_id.clone(),
-                request_type: Request::NAME.to_owned(),
-            };
-
-            let message = TypedOutgoingMessage {
-                payload: request_payload,
+            // Requests are dispatched by a single fixed topic that the receiver matches on to route
+            // them to the handler registry.
+            let payload = serde_utils::to_vec(&request_payload)
+                .map_err(|e| RequestError::Rpc(RpcError::RequestSerialization(e.to_string())))?;
+            let message = OutgoingMessage {
+                payload,
                 destination,
-            }
-            .try_into()
-            .map_err(|e: serde_utils::DeserializeError| {
-                RequestError::Rpc(RpcError::RequestSerialization(e.to_string()))
-            })?;
+                topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
+            };
 
             self.send(message).await.map_err(RequestError::from)?;
 
-            let response = loop {
-                let received = match response_subscription
-                    .receive(cancellation_token.clone())
-                    .await
-                {
-                    Ok(received) => received,
-                    // Every RPC response shares a single payload type name, and therefore a single
-                    // topic, so this subscription also receives the responses belonging to other
-                    // requests that are in flight concurrently. Those do not necessarily
-                    // deserialize into this request's response type, so a typing error here is
-                    // expected: skip the message and keep waiting for our own response rather than
-                    // failing over a message that was never addressed to us.
-                    Err(TypedReceiveError::Typing(_)) => continue,
-                    Err(error) => return Err(RequestError::Receive(error)),
-                };
+            let received = response_subscription
+                .receive(cancellation_token)
+                .await
+                .map_err(|e| RequestError::Receive(e.into()))?;
 
-                if received.payload.request_id == request_id {
-                    break received;
-                }
-            };
+            let response: IncomingRpcResponseMessage<Request::Response> =
+                serde_utils::from_slice(&received.payload).map_err(|e| {
+                    RequestError::Rpc(RpcError::ResponseDeserialization(e.to_string()))
+                })?;
 
-            Ok(response.payload.result?)
+            Ok(response.result?)
         }
     }
 }

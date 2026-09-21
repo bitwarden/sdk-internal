@@ -83,12 +83,6 @@ pub struct OrganizationUserDetailsResponseModel {
     )]
     pub has_master_password: Option<bool>,
     #[serde(
-        rename = "managedByOrganization",
-        alias = "ManagedByOrganization",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub managed_by_organization: Option<bool>,
-    #[serde(
         rename = "claimedByOrganization",
         alias = "ClaimedByOrganization",
         skip_serializing_if = "Option::is_none"
@@ -137,7 +131,6 @@ impl OrganizationUserDetailsResponseModel {
             reset_password_enrolled: None,
             uses_key_connector: None,
             has_master_password: None,
-            managed_by_organization: None,
             claimed_by_organization: None,
             sso_external_id: None,
             collections: None,

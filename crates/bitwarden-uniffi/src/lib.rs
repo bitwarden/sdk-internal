@@ -21,7 +21,7 @@ pub mod platform;
 #[allow(missing_docs)]
 pub mod policies;
 #[allow(missing_docs)]
-pub mod tool;
+pub mod tools;
 mod uniffi_support;
 #[allow(missing_docs)]
 pub mod vault;
@@ -32,12 +32,13 @@ mod android_support;
 use crypto::CryptoClient;
 use error::{Error, Result};
 pub use log_callback::LogCallback;
+pub use managed_settings::ManagedSettingsBindingClient;
 use platform::PlatformClient;
 pub use platform::{
     AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
     ServerCommunicationConfigRepository, SsoCookieVendorConfig,
 };
-use tool::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
+use tools::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
 use vault::VaultClient;
 
 #[allow(missing_docs)]
@@ -47,10 +48,16 @@ pub struct Client(pub(crate) bitwarden_pm::PasswordManagerClient);
 #[uniffi::export(async_runtime = "tokio")]
 impl Client {
     /// Initialize a new instance of the SDK client
+    ///
+    /// `managed_settings` is the host-owned handle onto the operating system's Unified Endpoint
+    /// Management profile. The client shares its profile, so profiles pushed after construction
+    /// are visible here. Pass a fresh `ManagedSettingsBindingClient` where the host has no UEM
+    /// source.
     #[uniffi::constructor]
     pub fn new(
         token_provider: Arc<dyn ClientManagedTokens>,
         settings: Option<ClientSettings>,
+        managed_settings: Arc<ManagedSettingsBindingClient>,
     ) -> Self {
         init_logger(None, None);
         setup_error_converter();
@@ -61,6 +68,7 @@ impl Client {
         Self(bitwarden_pm::PasswordManagerClient::new_with_client_tokens(
             settings,
             token_provider,
+            &managed_settings.0,
         ))
     }
 
@@ -94,6 +102,15 @@ impl Client {
         VaultClient(self.0.vault())
     }
 
+    /// Collection related operations.
+    ///
+    /// This is registered directly on the top-level client in addition to being nested under
+    /// [`vault`](Self::vault). Once mobile clients have migrated to this accessor, the nested one
+    /// will be removed.
+    pub fn collections(&self) -> vault::collections::CollectionsClient {
+        vault::collections::CollectionsClient(self.0.collections())
+    }
+
     #[allow(missing_docs)]
     pub fn platform(&self) -> PlatformClient {
         PlatformClient(self.0.0.clone())
@@ -117,6 +134,11 @@ impl Client {
     /// Sends operations
     pub fn sends(&self) -> SendClient {
         SendClient(self.0.sends())
+    }
+
+    /// Send sync handler operations
+    pub fn send_sync_handler(&self) -> bitwarden_send::SendSyncHandlerClient {
+        self.0.send_sync_handler()
     }
 
     /// SSH operations
@@ -208,7 +230,7 @@ impl LogLevel {
 /// ```kotlin
 /// // Initialize with callback and trace-level logging before creating clients
 /// initLogger(FlightRecorderCallback(), LogLevel.TRACE)
-/// val client = Client(tokenProvider, settings)
+/// val client = Client(tokenProvider, settings, ManagedSettingsBindingClient())
 /// ```
 ///
 /// # Notes
@@ -328,7 +350,11 @@ mod tests {
         init_logger(Some(callback), None);
 
         // Create client
-        let _client = Client::new(Arc::new(MockTokenProvider), None);
+        let _client = Client::new(
+            Arc::new(MockTokenProvider),
+            None,
+            Arc::new(ManagedSettingsBindingClient::new()),
+        );
 
         // Trigger a log
         tracing::info!("test message from SDK");

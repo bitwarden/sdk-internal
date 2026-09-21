@@ -1,10 +1,11 @@
+use bitwarden_collections::collection_client::CollectionsClient;
 use bitwarden_core::{Client, FromClient};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
     AttachmentsClient, CipherRiskClient, CiphersClient, FoldersClient, PasswordHistoryClient,
-    TotpClient, collection_client::CollectionsClient,
+    TotpClient,
 };
 
 #[allow(missing_docs)]
@@ -52,10 +53,11 @@ impl VaultClient {
     }
 
     /// Collection related operations.
+    ///
+    /// This nested accessor is kept for backwards compatibility. New callers should prefer the
+    /// `collections()` accessor registered directly on the top-level Password Manager client.
     pub fn collections(&self) -> CollectionsClient {
-        CollectionsClient {
-            client: self.client.clone(),
-        }
+        CollectionsClient::from_client(&self.client)
     }
 
     /// Cipher risk evaluation operations.

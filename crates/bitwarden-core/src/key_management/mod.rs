@@ -42,6 +42,10 @@ use tsify::Tsify;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
 #[cfg(feature = "internal")]
+mod v2_encrypted_migrations_grace_period_start;
+#[cfg(feature = "internal")]
+pub use v2_encrypted_migrations_grace_period_start::V2EncryptedMigrationsGracePeriodStart;
+#[cfg(feature = "internal")]
 mod v2_upgrade_token;
 #[cfg(feature = "internal")]
 pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};

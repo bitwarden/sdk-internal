@@ -7,11 +7,16 @@ src/lib.rs
 src/models/account_keys_request_model.rs
 src/models/assertion_options.rs
 src/models/authentication_extensions_client_inputs.rs
+src/models/authentication_extensions_large_blob_inputs.rs
+src/models/authentication_extensions_prf_inputs.rs
+src/models/authentication_extensions_prf_values.rs
 src/models/authenticator_transport.rs
+src/models/credential_protection_policy.rs
 src/models/kdf_request_model.rs
 src/models/kdf_settings.rs
 src/models/kdf_type.rs
 src/models/keys_request_model.rs
+src/models/large_blob_support.rs
 src/models/master_password_authentication_data_request_model.rs
 src/models/master_password_unlock_data_request_model.rs
 src/models/mod.rs
@@ -21,6 +26,7 @@ src/models/password_prelogin_response_model.rs
 src/models/product_tier_type.rs
 src/models/product_type.rs
 src/models/public_key_credential_descriptor.rs
+src/models/public_key_credential_hint.rs
 src/models/public_key_credential_type.rs
 src/models/public_key_encryption_key_pair_request_model.rs
 src/models/register_finish_request_model.rs
@@ -30,6 +36,7 @@ src/models/register_start_open_org_invite_request_model.rs
 src/models/register_verification_email_clicked_request_model.rs
 src/models/security_state_model.rs
 src/models/signature_key_pair_request_model.rs
+src/models/string_authentication_extensions_prf_values_key_value_pair.rs
 src/models/trial_send_verification_email_request_model.rs
 src/models/user_verification_requirement.rs
 src/models/web_authn_login_assertion_options_response_model.rs
