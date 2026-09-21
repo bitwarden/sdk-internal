@@ -2,9 +2,11 @@ import {
   SecureNoteType,
   type CipherViewType,
   type PasswordManagerClient,
+  type CipherView,
 } from "@bitwarden/sdk-internal";
 
 import { testHarness, type TestHarness } from "../../test-harness";
+import type { ClientEmulator } from "../../client-emulator/client-emulator";
 import { asKeyId } from "../type-assertion-helpers";
 import { MASTER_PASSWORD_ACCOUNT } from "../../vectors/accounts";
 import { TEST_EMAIL, TEST_PASSWORD, TEST_PIN } from "../utils";
@@ -61,8 +63,8 @@ describe("rotate user keys", () => {
   }
 
   /** An item to carry across the rotation, which re-encrypts the vault under the new key. */
-  function createNote(sdk: PasswordManagerClient, name: string) {
-    return sdk.vault().ciphers().create({
+  async function createNote(sdk: PasswordManagerClient, name: string): Promise<CipherView> {
+    return await sdk.vault().ciphers().create({
       organizationId: undefined,
       collectionIds: [],
       folderId: undefined,
@@ -73,6 +75,15 @@ describe("rotate user keys", () => {
       type: SECURE_NOTE,
       fields: [],
     });
+  }
+
+  /** Reads a created item back through a client, asserting the plaintext survived. */
+  async function assertVaultDecrypts(client: ClientEmulator, created: CipherView): Promise<void> {
+    // Will be replaced by test vectors + a full vault assert
+    const view = await client.getPasswordManagerClient().vault().ciphers().get(String(created.id));
+
+    expect(view.name).toBe(created.name);
+    expect(view.notes).toBe(created.notes);
   }
 
   /**
@@ -101,25 +112,13 @@ describe("rotate user keys", () => {
       //    down the re-encrypted vault, then re-initialize onto the new key.
       await client.sync(email);
       await client.reinit();
-      const localView = await client
-        .getPasswordManagerClient()
-        .vault()
-        .ciphers()
-        .get(String(created.id));
-      expect(localView.name).toBe(created.name);
-      expect(localView.notes).toBe(created.notes);
+      await assertVaultDecrypts(client, created);
 
       // 3. Verify a client that logs in reads the vault too
       const reloginClient = harness.newClientEmulator();
       await reloginClient.login(email);
       await reloginClient.unlock(TEST_PASSWORD);
-      const reloginView = await reloginClient
-        .getPasswordManagerClient()
-        .vault()
-        .ciphers()
-        .get(String(created.id));
-      expect(reloginView.name).toBe(created.name);
-      expect(reloginView.notes).toBe(created.notes);
+      await assertVaultDecrypts(reloginClient, created);
     },
     TIMEOUT,
   );
@@ -155,25 +154,13 @@ describe("rotate user keys", () => {
       await client.sync(email);
       await client.lock();
       await client.unlock(TEST_PASSWORD);
-      const localView = await client
-        .getPasswordManagerClient()
-        .vault()
-        .ciphers()
-        .get(String(created.id));
-      expect(localView.name).toBe(created.name);
-      expect(localView.notes).toBe(created.notes);
+      await assertVaultDecrypts(client, created);
 
       // 3. Verify a client that logs in reads the vault too
       const reloginClient = harness.newClientEmulator();
       await reloginClient.login(email);
       await reloginClient.unlock(TEST_PASSWORD);
-      const reloginView = await reloginClient
-        .getPasswordManagerClient()
-        .vault()
-        .ciphers()
-        .get(String(created.id));
-      expect(reloginView.name).toBe(created.name);
-      expect(reloginView.notes).toBe(created.notes);
+      await assertVaultDecrypts(reloginClient, created);
     },
     TIMEOUT,
   );
@@ -221,13 +208,7 @@ describe("rotate user keys", () => {
       await otherDevice.unlockWith({ pinState: { pin: TEST_PIN } });
 
       // 5. Verify the vault reads, with the plaintext unchanged
-      const view = await otherDevice
-        .getPasswordManagerClient()
-        .vault()
-        .ciphers()
-        .get(String(created.id));
-      expect(view.name).toBe(created.name);
-      expect(view.notes).toBe(created.notes);
+      await assertVaultDecrypts(otherDevice, created);
     },
     TIMEOUT,
   );
@@ -270,13 +251,7 @@ describe("rotate user keys", () => {
       await second.reinit();
 
       // 3. Verify the vault reads again, with the plaintext unchanged
-      const view = await second
-        .getPasswordManagerClient()
-        .vault()
-        .ciphers()
-        .get(String(created.id));
-      expect(view.name).toBe(created.name);
-      expect(view.notes).toBe(created.notes);
+      await assertVaultDecrypts(second, created);
     },
     TIMEOUT,
   );
