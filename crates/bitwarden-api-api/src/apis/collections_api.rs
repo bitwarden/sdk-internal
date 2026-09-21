@@ -27,7 +27,12 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CollectionsApi: Send + Sync {
     /// DELETE /organizations/{orgId}/collections/{id}
-    async fn delete<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
+    async fn delete<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: &'a str,
+        collection: Option<models::Collection>,
+    ) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/collections
     async fn delete_many<'a>(
@@ -40,7 +45,8 @@ pub trait CollectionsApi: Send + Sync {
     async fn get<'a>(
         &self,
         org_id: uuid::Uuid,
-        id: uuid::Uuid,
+        id: &'a str,
+        collection: Option<models::Collection>,
     ) -> Result<models::CollectionResponseModel, Error>;
 
     /// GET /organizations/{orgId}/collections
@@ -71,7 +77,8 @@ pub trait CollectionsApi: Send + Sync {
     async fn get_users<'a>(
         &self,
         org_id: uuid::Uuid,
-        id: uuid::Uuid,
+        id: &'a str,
+        collection: Option<models::Collection>,
     ) -> Result<Vec<models::SelectionReadOnlyResponseModel>, Error>;
 
     /// POST /organizations/{orgId}/collections
@@ -92,7 +99,8 @@ pub trait CollectionsApi: Send + Sync {
     async fn put<'a>(
         &self,
         org_id: uuid::Uuid,
-        id: uuid::Uuid,
+        id: &'a str,
+        collection: Option<models::Collection>,
         update_collection_request_model: Option<models::UpdateCollectionRequestModel>,
     ) -> Result<models::CollectionResponseModel, Error>;
 }
@@ -110,7 +118,12 @@ impl CollectionsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CollectionsApi for CollectionsApiClient {
-    async fn delete<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
+    async fn delete<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: &'a str,
+        collection: Option<models::Collection>,
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -119,11 +132,15 @@ impl CollectionsApi for CollectionsApiClient {
             "{}/organizations/{orgId}/collections/{id}",
             local_var_configuration.base_path,
             orgId = org_id,
-            id = id
+            id = crate::apis::urlencode(id)
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = collection {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("collection", &serde_json::to_value(param_value)?)]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
@@ -155,7 +172,8 @@ impl CollectionsApi for CollectionsApiClient {
     async fn get<'a>(
         &self,
         org_id: uuid::Uuid,
-        id: uuid::Uuid,
+        id: &'a str,
+        collection: Option<models::Collection>,
     ) -> Result<models::CollectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
@@ -165,11 +183,15 @@ impl CollectionsApi for CollectionsApiClient {
             "{}/organizations/{orgId}/collections/{id}",
             local_var_configuration.base_path,
             orgId = org_id,
-            id = id
+            id = crate::apis::urlencode(id)
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = collection {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("collection", &serde_json::to_value(param_value)?)]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
@@ -259,7 +281,8 @@ impl CollectionsApi for CollectionsApiClient {
     async fn get_users<'a>(
         &self,
         org_id: uuid::Uuid,
-        id: uuid::Uuid,
+        id: &'a str,
+        collection: Option<models::Collection>,
     ) -> Result<Vec<models::SelectionReadOnlyResponseModel>, Error> {
         let local_var_configuration = &self.configuration;
 
@@ -269,11 +292,15 @@ impl CollectionsApi for CollectionsApiClient {
             "{}/organizations/{orgId}/collections/{id}/users",
             local_var_configuration.base_path,
             orgId = org_id,
-            id = id
+            id = crate::apis::urlencode(id)
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = collection {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("collection", &serde_json::to_value(param_value)?)]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
@@ -328,7 +355,8 @@ impl CollectionsApi for CollectionsApiClient {
     async fn put<'a>(
         &self,
         org_id: uuid::Uuid,
-        id: uuid::Uuid,
+        id: &'a str,
+        collection: Option<models::Collection>,
         update_collection_request_model: Option<models::UpdateCollectionRequestModel>,
     ) -> Result<models::CollectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
@@ -339,11 +367,15 @@ impl CollectionsApi for CollectionsApiClient {
             "{}/organizations/{orgId}/collections/{id}",
             local_var_configuration.base_path,
             orgId = org_id,
-            id = id
+            id = crate::apis::urlencode(id)
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = collection {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("collection", &serde_json::to_value(param_value)?)]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&update_collection_request_model);
 

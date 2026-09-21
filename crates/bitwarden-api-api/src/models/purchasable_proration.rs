@@ -14,6 +14,8 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PurchasableProration {
+    #[serde(rename = "reference", alias = "Reference")]
+    pub reference: Option<String>,
     #[serde(rename = "credit", alias = "Credit")]
     pub credit: f64,
     #[serde(rename = "charge", alias = "Charge")]
@@ -28,6 +30,7 @@ pub struct PurchasableProration {
 
 impl PurchasableProration {
     pub fn new(
+        reference: Option<String>,
         credit: f64,
         charge: f64,
         tax: f64,
@@ -35,6 +38,7 @@ impl PurchasableProration {
         months: i32,
     ) -> PurchasableProration {
         PurchasableProration {
+            reference,
             credit,
             charge,
             tax,

@@ -146,9 +146,10 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
             KdfType::__Unknown(_) => return Err(MasterPasswordError::KdfMalformed),
         };
 
-        let master_key_wrapped_user_key = require!(&response.master_key_encrypted_user_key)
-            .parse()
-            .map_err(|_| MasterPasswordError::EncryptionKeyMalformed)?;
+        let master_key_wrapped_user_key =
+            EncString::parse_strict(require!(&response.master_key_encrypted_user_key))
+                .map_err(|_| MasterPasswordError::EncryptionKeyMalformed)?;
+
         let salt = require!(&response.salt).clone();
         let contained_key_id = response
             .contained_key_id
