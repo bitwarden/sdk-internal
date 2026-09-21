@@ -6,6 +6,7 @@ import type {
   FolderId,
   KeyId,
   OrganizationId,
+  PolicyId,
   PublicKey,
   SendId,
   UnsignedSharedKey,
@@ -21,6 +22,7 @@ export const asSendId = (value: string): SendId => typeAssert(value);
 export const asUserId = (value: string): UserId => typeAssert(value);
 export const asCollectionId = (value: string): CollectionId => typeAssert(value);
 export const asOrganizationId = (value: string): OrganizationId => typeAssert(value);
+export const asPolicyId = (value: string): PolicyId => typeAssert(value);
 export const asKeyId = (value: string): KeyId => typeAssert(value);
 export const asEncString = (value: string): EncString => typeAssert(value);
 export const asB64 = (value: string): B64 => typeAssert(value);

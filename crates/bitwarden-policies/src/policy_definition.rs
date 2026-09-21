@@ -242,11 +242,7 @@ mod tests {
         }
     }
 
-    fn policy_view(
-        organization_id: OrganizationId,
-        policy_type: PolicyType,
-        enabled: bool,
-    ) -> Policy {
+    fn policy(organization_id: OrganizationId, policy_type: PolicyType, enabled: bool) -> Policy {
         Policy {
             id: PolicyId::new_v4(),
             organization_id,
@@ -288,21 +284,21 @@ mod tests {
         #[test]
         fn enforced_for_confirmed_member() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, true)];
+            let views = [policy(org, PolicyType::SingleOrg, true)];
             assert!(is_enforced(org, &views, &[confirmed_member(org)]));
         }
 
         #[test]
         fn not_enforced_when_policy_disabled() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, false)];
+            let views = [policy(org, PolicyType::SingleOrg, false)];
             assert!(!is_enforced(org, &views, &[confirmed_member(org)]));
         }
 
         #[test]
         fn not_enforced_when_org_disabled() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, true)];
+            let views = [policy(org, PolicyType::SingleOrg, true)];
             let ctx = OrganizationUserPolicyContext {
                 enabled: false,
                 ..confirmed_member(org)
@@ -313,7 +309,7 @@ mod tests {
         #[test]
         fn not_enforced_when_use_policies_false() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, true)];
+            let views = [policy(org, PolicyType::SingleOrg, true)];
             let ctx = OrganizationUserPolicyContext {
                 use_policies: false,
                 ..confirmed_member(org)
@@ -324,7 +320,7 @@ mod tests {
         #[test]
         fn not_enforced_for_exempt_role() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, true)];
+            let views = [policy(org, PolicyType::SingleOrg, true)];
             for (label, role) in [
                 ("Owner", OrganizationUserType::Owner),
                 ("Admin", OrganizationUserType::Admin),
@@ -343,7 +339,7 @@ mod tests {
         #[test]
         fn not_enforced_for_non_applicable_status() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, true)];
+            let views = [policy(org, PolicyType::SingleOrg, true)];
             for (label, status) in [
                 ("Invited", OrganizationUserStatusType::Invited),
                 ("Revoked", OrganizationUserStatusType::Revoked),
@@ -363,7 +359,7 @@ mod tests {
         #[test]
         fn enforced_for_applicable_status() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, true)];
+            let views = [policy(org, PolicyType::SingleOrg, true)];
             for (label, status) in [
                 ("Accepted", OrganizationUserStatusType::Accepted),
                 ("Confirmed", OrganizationUserStatusType::Confirmed),
@@ -382,7 +378,7 @@ mod tests {
         #[test]
         fn not_enforced_for_provider_user() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, true)];
+            let views = [policy(org, PolicyType::SingleOrg, true)];
             let ctx = OrganizationUserPolicyContext {
                 is_provider_user: true,
                 ..confirmed_member(org)
@@ -394,21 +390,21 @@ mod tests {
         fn wrong_policy_type_is_not_enforced() {
             let org = OrganizationId::new_v4();
             // A view for a different policy type must not resolve for TestPolicy.
-            let views = [policy_view(org, PolicyType::PasswordGenerator, true)];
+            let views = [policy(org, PolicyType::PasswordGenerator, true)];
             assert!(!is_enforced(org, &views, &[confirmed_member(org)]));
         }
 
         #[test]
         fn missing_org_context_enforces_enabled_policy_by_default() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, true)];
+            let views = [policy(org, PolicyType::SingleOrg, true)];
             assert!(is_enforced(org, &views, &[]));
         }
 
         #[test]
         fn missing_org_context_does_not_enforce_disabled_policy() {
             let org = OrganizationId::new_v4();
-            let views = [policy_view(org, PolicyType::SingleOrg, false)];
+            let views = [policy(org, PolicyType::SingleOrg, false)];
             assert!(!is_enforced(org, &views, &[]));
         }
 
@@ -532,8 +528,8 @@ mod tests {
             let org_a = OrganizationId::new_v4();
             let org_b = OrganizationId::new_v4();
             let views = [
-                policy_view(org_a, PolicyType::SingleOrg, true),
-                policy_view(org_b, PolicyType::SingleOrg, true),
+                policy(org_a, PolicyType::SingleOrg, true),
+                policy(org_b, PolicyType::SingleOrg, true),
             ];
             // org_a's member is a subject User; org_b's is an exempt Owner.
             let contexts = [
@@ -575,8 +571,8 @@ mod tests {
             // Matching policy for org_a only. org_b has a different policy and org_c has no
             // policies.
             let views = [
-                policy_view(org_a, PolicyType::SingleOrg, true),
-                policy_view(org_b, PolicyType::MasterPassword, true),
+                policy(org_a, PolicyType::SingleOrg, true),
+                policy(org_b, PolicyType::MasterPassword, true),
             ];
 
             let contexts = [

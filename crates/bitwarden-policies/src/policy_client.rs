@@ -44,14 +44,14 @@ impl PolicyClient {
     pub fn get_all_enforced_erased(
         &self,
         policy_type: PolicyType,
-        // TODO: policy_views and ctx should come from state rather than being specified by the
+        // TODO: policies and ctx should come from state rather than being specified by the
         // caller
-        policy_views: Vec<Policy>,
+        policies: Vec<Policy>,
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
     ) -> Vec<PolicyDecisionErased> {
         policy_type
             .resolve_policy()
-            .get_all_enforced_erased(&policy_views, &organization_user_policy_contexts)
+            .get_all_enforced_erased(&policies, &organization_user_policy_contexts)
     }
 
     /// Evaluate enforcement of the given policy type for a single organization,
@@ -64,14 +64,14 @@ impl PolicyClient {
         &self,
         policy_type: PolicyType,
         organization_id: OrganizationId,
-        // TODO: policy_views and ctx should come from state rather than being specified by the
+        // TODO: policies and ctx should come from state rather than being specified by the
         // caller
-        policy_views: Vec<Policy>,
+        policies: Vec<Policy>,
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
     ) -> PolicyDecisionErased {
         policy_type.resolve_policy().get_enforced_erased(
             organization_id,
-            &policy_views,
+            &policies,
             &organization_user_policy_contexts,
         )
     }
@@ -115,12 +115,12 @@ impl PolicyClient {
     fn get_all_enforced<P: PolicyDefinition>(
         &self,
         policy: P,
-        // TODO: policy_views and ctx should come from state rather than being specified by the
+        // TODO: policies and ctx should come from state rather than being specified by the
         // caller
-        policy_views: &[Policy],
+        policies: &[Policy],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],
     ) -> Vec<PolicyDecision<P>> {
-        policy.get_all_enforced(policy_views, organization_user_policy_contexts)
+        policy.get_all_enforced(policies, organization_user_policy_contexts)
     }
 
     /// Evaluate enforcement of the given policy for a single organization,
@@ -129,16 +129,12 @@ impl PolicyClient {
         &self,
         policy: P,
         organization_id: OrganizationId,
-        // TODO: policy_views and ctx should come from state rather than being specified by the
+        // TODO: policies and ctx should come from state rather than being specified by the
         // caller
-        policy_views: &[Policy],
+        policies: &[Policy],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],
     ) -> PolicyDecision<P> {
-        policy.get_enforced(
-            organization_id,
-            policy_views,
-            organization_user_policy_contexts,
-        )
+        policy.get_enforced(organization_id, policies, organization_user_policy_contexts)
     }
 }
 
@@ -163,7 +159,7 @@ mod tests {
         MasterPasswordPolicy, MasterPasswordPolicyData, PolicyId, policy_type::PolicyDataType,
     };
 
-    fn policy_view(
+    fn policy(
         organization_id: OrganizationId,
         policy_type: PolicyType,
         data: Option<&str>,
@@ -196,7 +192,7 @@ mod tests {
         #[test]
         fn returns_typed_decision() {
             let org_id = OrganizationId::new_v4();
-            let views = [policy_view(
+            let views = [policy(
                 org_id,
                 PolicyType::MasterPassword,
                 Some(r#"{"minComplexity":3,"minLength":12}"#),
@@ -225,7 +221,7 @@ mod tests {
         #[test]
         fn returns_one_decision_per_view() {
             let org_id = OrganizationId::new_v4();
-            let views = [policy_view(
+            let views = [policy(
                 org_id,
                 PolicyType::MasterPassword,
                 Some(r#"{"minComplexity":3}"#),
@@ -248,7 +244,7 @@ mod tests {
         #[test]
         fn returns_erased_decision() {
             let org_id = OrganizationId::new_v4();
-            let views = vec![policy_view(
+            let views = vec![policy(
                 org_id,
                 PolicyType::MasterPassword,
                 Some(r#"{"minComplexity":3}"#),
@@ -276,7 +272,7 @@ mod tests {
         #[test]
         fn unit_variant_carries_no_data() {
             let org_id = OrganizationId::new_v4();
-            let views = vec![policy_view(org_id, PolicyType::SingleOrg, None)];
+            let views = vec![policy(org_id, PolicyType::SingleOrg, None)];
             let contexts = vec![confirmed_member(org_id)];
 
             let result = PolicyClient::new().get_enforced_erased(
@@ -318,7 +314,7 @@ mod tests {
         #[test]
         fn returns_one_decision_per_view() {
             let org_id = OrganizationId::new_v4();
-            let views = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+            let views = vec![policy(org_id, PolicyType::MasterPassword, None)];
             let contexts = vec![confirmed_member(org_id)];
 
             let results = PolicyClient::new().get_all_enforced_erased(
@@ -341,8 +337,8 @@ mod tests {
             let org_a = OrganizationId::new_v4();
             let org_b = OrganizationId::new_v4();
             let views = vec![
-                policy_view(org_a, PolicyType::MaximumVaultTimeout, None),
-                policy_view(org_b, PolicyType::MaximumVaultTimeout, None),
+                policy(org_a, PolicyType::MaximumVaultTimeout, None),
+                policy(org_b, PolicyType::MaximumVaultTimeout, None),
             ];
             // org_a's member is a subject User; org_b's member is an Owner, who is exempt
             // from MaximumVaultTimeout.
@@ -393,13 +389,10 @@ mod tests {
         }
 
         /// A disabled `Policy` for the gate that drops disabled policies.
-        fn disabled_policy_view(
-            organization_id: OrganizationId,
-            policy_type: PolicyType,
-        ) -> Policy {
+        fn disabled_policy(organization_id: OrganizationId, policy_type: PolicyType) -> Policy {
             Policy {
                 enabled: false,
-                ..policy_view(organization_id, policy_type, None)
+                ..policy(organization_id, policy_type, None)
             }
         }
 
@@ -407,8 +400,8 @@ mod tests {
         fn keeps_a_matching_enabled_policy_and_filters_to_the_requested_type() {
             let org_id = OrganizationId::new_v4();
             let policies = vec![
-                policy_view(org_id, PolicyType::MasterPassword, None),
-                policy_view(org_id, PolicyType::PasswordGenerator, None),
+                policy(org_id, PolicyType::MasterPassword, None),
+                policy(org_id, PolicyType::PasswordGenerator, None),
             ];
 
             let result = filter(
@@ -424,7 +417,7 @@ mod tests {
         #[test]
         fn returns_empty_when_no_policy_of_the_requested_type_exists() {
             let org_id = OrganizationId::new_v4();
-            let policies = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+            let policies = vec![policy(org_id, PolicyType::MasterPassword, None)];
 
             let result = filter(
                 policies,
@@ -438,7 +431,7 @@ mod tests {
         #[test]
         fn drops_a_disabled_policy() {
             let org_id = OrganizationId::new_v4();
-            let policies = vec![disabled_policy_view(org_id, PolicyType::MasterPassword)];
+            let policies = vec![disabled_policy(org_id, PolicyType::MasterPassword)];
 
             let result = filter(
                 policies,
@@ -452,7 +445,7 @@ mod tests {
         #[test]
         fn drops_the_policy_when_the_organization_is_disabled() {
             let org_id = OrganizationId::new_v4();
-            let policies = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+            let policies = vec![policy(org_id, PolicyType::MasterPassword, None)];
             let orgs = vec![OrganizationUserPolicyContext {
                 enabled: false,
                 ..confirmed_member(org_id)
@@ -466,7 +459,7 @@ mod tests {
         #[test]
         fn drops_the_policy_when_the_organization_does_not_support_policies() {
             let org_id = OrganizationId::new_v4();
-            let policies = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+            let policies = vec![policy(org_id, PolicyType::MasterPassword, None)];
             let orgs = vec![OrganizationUserPolicyContext {
                 use_policies: false,
                 ..confirmed_member(org_id)
@@ -480,7 +473,7 @@ mod tests {
         #[test]
         fn drops_the_policy_for_a_provider_user() {
             let org_id = OrganizationId::new_v4();
-            let policies = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+            let policies = vec![policy(org_id, PolicyType::MasterPassword, None)];
             let orgs = vec![OrganizationUserPolicyContext {
                 is_provider_user: true,
                 ..confirmed_member(org_id)
@@ -500,7 +493,7 @@ mod tests {
                 OrganizationUserStatusType::Staged,
             ] {
                 let label = format!("expected {status:?} to be dropped");
-                let policies = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+                let policies = vec![policy(org_id, PolicyType::MasterPassword, None)];
                 let orgs = vec![OrganizationUserPolicyContext {
                     status,
                     ..confirmed_member(org_id)
@@ -520,7 +513,7 @@ mod tests {
                 OrganizationUserStatusType::Confirmed,
             ] {
                 let label = format!("expected {status:?} to be kept");
-                let policies = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+                let policies = vec![policy(org_id, PolicyType::MasterPassword, None)];
                 let orgs = vec![OrganizationUserPolicyContext {
                     status,
                     ..confirmed_member(org_id)
@@ -536,7 +529,7 @@ mod tests {
         fn enforces_the_policy_by_default_when_the_org_is_absent_from_the_contexts() {
             let org_a = OrganizationId::new_v4();
             let org_b = OrganizationId::new_v4();
-            let policies = vec![policy_view(org_a, PolicyType::MasterPassword, None)];
+            let policies = vec![policy(org_a, PolicyType::MasterPassword, None)];
 
             // Only a context for a different org is provided.
             let result = filter(
@@ -551,7 +544,7 @@ mod tests {
         #[test]
         fn enforces_the_policy_by_default_when_the_contexts_are_empty() {
             let org_id = OrganizationId::new_v4();
-            let policies = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+            let policies = vec![policy(org_id, PolicyType::MasterPassword, None)];
 
             let result = filter(policies, vec![], PolicyType::MasterPassword);
 
@@ -562,7 +555,7 @@ mod tests {
         fn applies_master_password_to_an_owner() {
             // MasterPasswordPolicy has no exempt roles, so it applies even to an Owner.
             let org_id = OrganizationId::new_v4();
-            let policies = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+            let policies = vec![policy(org_id, PolicyType::MasterPassword, None)];
             let orgs = vec![OrganizationUserPolicyContext {
                 role: OrganizationUserType::Owner,
                 ..confirmed_member(org_id)
@@ -576,7 +569,7 @@ mod tests {
         #[test]
         fn exempts_an_owner_from_maximum_vault_timeout() {
             let org_id = OrganizationId::new_v4();
-            let policies = vec![policy_view(org_id, PolicyType::MaximumVaultTimeout, None)];
+            let policies = vec![policy(org_id, PolicyType::MaximumVaultTimeout, None)];
             let orgs = vec![OrganizationUserPolicyContext {
                 role: OrganizationUserType::Owner,
                 ..confirmed_member(org_id)
@@ -592,7 +585,7 @@ mod tests {
             let org_id = OrganizationId::new_v4();
             for role in [OrganizationUserType::Admin, OrganizationUserType::User] {
                 let label = format!("expected {role:?} to be subject");
-                let policies = vec![policy_view(org_id, PolicyType::MaximumVaultTimeout, None)];
+                let policies = vec![policy(org_id, PolicyType::MaximumVaultTimeout, None)];
                 let orgs = vec![OrganizationUserPolicyContext {
                     role,
                     ..confirmed_member(org_id)
@@ -609,11 +602,7 @@ mod tests {
             let org_id = OrganizationId::new_v4();
             for role in [OrganizationUserType::Owner, OrganizationUserType::Admin] {
                 let label = format!("expected {role:?} to be exempt");
-                let policies = vec![policy_view(
-                    org_id,
-                    PolicyType::TwoFactorAuthentication,
-                    None,
-                )];
+                let policies = vec![policy(org_id, PolicyType::TwoFactorAuthentication, None)];
                 let orgs = vec![OrganizationUserPolicyContext {
                     role,
                     ..confirmed_member(org_id)
@@ -628,11 +617,7 @@ mod tests {
         #[test]
         fn two_factor_authentication_applies_to_a_regular_user_via_default_impl() {
             let org_id = OrganizationId::new_v4();
-            let policies = vec![policy_view(
-                org_id,
-                PolicyType::TwoFactorAuthentication,
-                None,
-            )];
+            let policies = vec![policy(org_id, PolicyType::TwoFactorAuthentication, None)];
 
             let result = filter(
                 policies,
@@ -650,8 +635,8 @@ mod tests {
             let org_a = OrganizationId::new_v4();
             let org_b = OrganizationId::new_v4();
             let policies = vec![
-                policy_view(org_a, PolicyType::MaximumVaultTimeout, None),
-                policy_view(org_b, PolicyType::MaximumVaultTimeout, None),
+                policy(org_a, PolicyType::MaximumVaultTimeout, None),
+                policy(org_b, PolicyType::MaximumVaultTimeout, None),
             ];
             let orgs = vec![
                 confirmed_member(org_a),
