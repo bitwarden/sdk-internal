@@ -250,13 +250,12 @@ async fn is_replayed_state(client: &Client, data: &CryptoSyncData) -> bool {
         return false;
     };
 
-    match (&local, incoming) {
-        (
-            WrappedAccountCryptographicState::V2 { .. },
-            WrappedAccountCryptographicState::V1 { .. },
-        ) => true,
-        _ => false,
+    if is_v2_to_v1_downgrade(&local, incoming) {
+        return true;
     }
+
+    // If we define more downgrade types in the future, check them here.
+    false
 }
 
 /// Whether the incoming state moves a locally V2 account back to V1.
