@@ -242,14 +242,20 @@ async fn is_replayed_state(client: &Client, data: &CryptoSyncData) -> bool {
     let Some(incoming) = data.account_cryptographic_state.as_ref() else {
         return false;
     };
-
-    match client
+    let Some(local) = client
         .km_state_bridge()
         .get_account_cryptographic_state()
         .await
-    {
-        Some(local) => is_v2_to_v1_downgrade(&local, incoming),
-        None => false,
+    else {
+        return false;
+    };
+
+    match (&local, incoming) {
+        (
+            WrappedAccountCryptographicState::V2 { .. },
+            WrappedAccountCryptographicState::V1 { .. },
+        ) => true,
+        _ => false,
     }
 }
 
