@@ -44,6 +44,9 @@ pub enum CryptoError {
     #[error("EncString error, {0}")]
     EncString(#[from] EncStringParseError),
 
+    #[error("The encrypted string is malformed and cannot be decrypted")]
+    UnparseableEncString,
+
     #[error("Rsa error, {0}")]
     Rsa(#[from] RsaError),
 

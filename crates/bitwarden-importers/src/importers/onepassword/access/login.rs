@@ -245,7 +245,7 @@ mod tests {
             "userAuth": {
                 "method": "SRPg-4096",
                 "alg": "PBES2g-HS256",
-                "iterations": 10,
+                "iterations": 100000,
                 "salt": "c2FsdHNhbHRzYWx0",
             },
         })
@@ -321,7 +321,7 @@ mod tests {
             SrpInfo::new(
                 "SRPg-4096".into(),
                 "PBES2g-HS256".into(),
-                10,
+                100000,
                 b"saltsaltsalt".to_vec(),
             )
             .expect("supported parameters")
