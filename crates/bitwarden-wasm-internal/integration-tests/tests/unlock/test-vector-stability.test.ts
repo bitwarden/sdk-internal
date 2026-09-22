@@ -1,5 +1,6 @@
 import type { InitUserCryptoMethod } from "@bitwarden/sdk-internal";
 
+import { LoginMethod } from "../../client-emulator/client-emulator";
 import { validateVault } from "../../client-emulator/validate";
 import { testHarness } from "../../test-harness";
 import { loadUserVectors, type UserVector } from "../../vectors/load";
@@ -16,7 +17,7 @@ async function validateVector(vector: UserVector, method: InitUserCryptoMethod):
   try {
     const { email, seed } = harness.server.seedUserTestVector(vector);
     const client = harness.newClientEmulator();
-    await client.login(email);
+    await client.login(email, LoginMethod.ForceLogin);
     await client.unlockWith(method);
 
     // Nothing has been written, so nothing may differ — not even the fields a write would restamp.

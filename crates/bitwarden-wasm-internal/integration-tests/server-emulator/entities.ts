@@ -39,6 +39,11 @@ export interface UserEntity {
   userKeyId?: KeyId;
   /** `null` for an account with no master password. */
   masterPasswordUnlock: StoredMasterPasswordUnlock | null;
+  /**
+   * The master password authentication hash the identity service expects, or `null` for an account
+   * with no master password.
+   */
+  masterPasswordAuthenticationHash: string | null;
   /** Set while a V1 to V2 upgrade is outstanding; served in the account's decryption options. */
   upgradeToken?: V2UpgradeToken;
   /** Organization keys sealed to this account, keyed by organization id. */
