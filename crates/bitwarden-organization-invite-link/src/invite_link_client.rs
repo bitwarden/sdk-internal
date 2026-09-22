@@ -22,7 +22,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::OrganizationInviteLink;
+use crate::{OrganizationInviteLink, accept_error::map_accept_error};
 
 /// Errors returned from [`InviteLinkClient`] operations.
 #[bitwarden_error(flat)]
@@ -48,6 +48,55 @@ pub enum InviteLinkError {
     /// public key bound into the invite.
     #[error("Account recovery public key does not match the invite's bound organization key")]
     RecoveryKeyMismatch,
+
+    // Server-reported failures when accepting or confirming an invite link, mapped from the
+    // server's error responses in the `accept_error` module.
+    /// The invite link does not exist, its code does not match, or the organization is disabled.
+    #[error("The invite link was not found")]
+    LinkNotFound,
+    /// The organization's plan does not support invite links.
+    #[error("The organization's plan does not support invite links")]
+    InviteLinkNotAvailable,
+    /// The invite link does not support self-confirmation.
+    #[error("The invite link does not support confirmation")]
+    InviteLinkConfirmationNotSupported,
+    /// The user's email domain is not in the invite link's allowed domains.
+    #[error("The user's email domain is not allowed by the invite link")]
+    EmailDomainNotAllowed,
+    /// Provider users cannot join organizations via invite links.
+    #[error("Provider users cannot join organizations via invite link")]
+    ProviderUsersCannotJoin,
+    /// The user's access to the organization has been revoked.
+    #[error("The user's access to the organization has been revoked")]
+    OrganizationAccessRevoked,
+    /// The user is already a confirmed member of the organization.
+    #[error("The user is already a member of the organization")]
+    AlreadyOrganizationMember,
+    /// The organization has no available seats.
+    #[error("The organization has no available seats")]
+    OrganizationHasNoAvailableSeats,
+    /// The server was unable to add a seat for the user.
+    #[error("Unable to add a seat for the user")]
+    SeatAddFailed,
+    /// The organization requires account recovery enrollment, but no reset password key was sent.
+    #[error("Account recovery enrollment is required")]
+    ResetPasswordKeyRequired,
+    /// The organization's Single Organization policy requires the user to leave all other
+    /// organizations first.
+    #[error("The user must leave all other organizations before joining")]
+    MemberOfAnotherOrganization,
+    /// The user belongs to another organization whose Single Organization policy forbids joining.
+    #[error("A Single Organization policy prevents joining")]
+    SingleOrganizationPolicy,
+    /// The organization requires two-step login, which the user has not enabled.
+    #[error("Two-step login is required to join the organization")]
+    TwoFactorRequiredForMembership,
+    /// The user is already an admin of a free organization.
+    #[error("The user can only be an admin of one free organization")]
+    OnlyOneFreeOrganizationAdminAllowed,
+    /// The server returned a validation error code this SDK version does not recognize.
+    #[error("Unrecognized invite link error code `{0}`")]
+    Unknown(String),
 }
 
 /// Client for organization invite link cryptographic and network operations.
@@ -185,6 +234,13 @@ impl InviteLinkClient {
     /// Accepts an organization invite for the current user, optionally enrolling into account
     /// recovery (when `enroll_into_account_recovery` is set) and — when the invite supports
     /// confirmation — self-confirming.
+    ///
+    /// # Errors
+    /// Server-reported failures are mapped onto typed variants: a `404` from any of the acceptance
+    /// endpoints becomes [`InviteLinkError::LinkNotFound`], and a `400` validation problem becomes
+    /// the variant matching its error code (or [`InviteLinkError::Unknown`] for an unrecognized
+    /// code). Responses in the legacy error format carry no code and remain
+    /// [`InviteLinkError::Api`].
     pub async fn accept_and_optionally_confirm(
         &self,
         organization_id: OrganizationId,
@@ -222,7 +278,8 @@ impl InviteLinkClient {
                 organization_id: organization_id.into(),
                 code,
             }))
-            .await?;
+            .await
+            .map_err(map_accept_error)?;
 
         let invite: Invite = require!(invite_response.invite).parse()?;
 
@@ -287,16 +344,14 @@ impl InviteLinkClient {
 
         let organization_users_api = self.api_configurations.api_client.organization_users_api();
         match request {
-            PendingPost::Confirm(model) => {
-                organization_users_api
-                    .confirm_invite_link(Some(model))
-                    .await?
-            }
-            PendingPost::Accept(model) => {
-                organization_users_api
-                    .accept_invite_link(Some(model))
-                    .await?
-            }
+            PendingPost::Confirm(model) => organization_users_api
+                .confirm_invite_link(Some(model))
+                .await
+                .map_err(map_accept_error)?,
+            PendingPost::Accept(model) => organization_users_api
+                .accept_invite_link(Some(model))
+                .await
+                .map_err(map_accept_error)?,
         }
 
         Ok(())
@@ -368,6 +423,7 @@ mod tests {
     };
 
     use super::*;
+    use crate::accept_error::tests::response_error;
 
     fn make_client(org_id: OrganizationId, api_client: ApiClient) -> InviteLinkClient {
         let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -1008,5 +1064,115 @@ mod tests {
             .await;
 
         assert!(matches!(result, Err(InviteLinkError::RecoveryKeyMismatch)));
+    }
+
+    /// Runs `accept_and_optionally_confirm` against a confirmable invite whose confirm request
+    /// fails with the given status and body.
+    async fn accept_with_confirm_failure(status: u16, body: &'static str) -> InviteLinkError {
+        let org_id = OrganizationId::new_v4();
+        let invite_cell = Arc::new(std::sync::Mutex::new(None::<String>));
+        let invite_mock = invite_cell.clone();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| {
+                mock.organization_users_api
+                    .expect_get_invite()
+                    .returning(move |_model| {
+                        Ok(OrganizationInviteResponseModel {
+                            invite: invite_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+                mock.organization_users_api
+                    .expect_confirm_invite_link()
+                    .returning(move |_model| Err(response_error(status, body)))
+                    .once();
+            }),
+        );
+
+        let (secret, invite, _org_public_key) = build_invite(&client, org_id);
+        *invite_cell.lock().unwrap() = Some(String::from(&invite));
+
+        client
+            .accept_and_optionally_confirm(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                secret,
+                "Default".to_string(),
+                false,
+            )
+            .await
+            .unwrap_err()
+    }
+
+    #[tokio::test]
+    async fn confirm_maps_validation_code_to_variant() {
+        let error = accept_with_confirm_failure(
+            400,
+            r#"{"type":"validation_error","status":400,"errors":{"code":[{"type":"already_organization_member","detail":"You're already a member of Acme."}]}}"#,
+        )
+        .await;
+
+        assert!(matches!(error, InviteLinkError::AlreadyOrganizationMember));
+    }
+
+    #[tokio::test]
+    async fn confirm_maps_not_found_to_link_not_found() {
+        let error = accept_with_confirm_failure(
+            404,
+            r#"{"message":"Invite link not found.","object":"error"}"#,
+        )
+        .await;
+
+        assert!(matches!(error, InviteLinkError::LinkNotFound));
+    }
+
+    #[tokio::test]
+    async fn confirm_maps_unmapped_code_to_unknown() {
+        let error = accept_with_confirm_failure(
+            400,
+            r#"{"type":"validation_error","status":400,"errors":{"code":[{"type":"some_future_code","detail":"Something new."}]}}"#,
+        )
+        .await;
+
+        assert!(matches!(error, InviteLinkError::Unknown(code) if code == "some_future_code"));
+    }
+
+    #[tokio::test]
+    async fn confirm_keeps_legacy_error_as_api_error() {
+        let error = accept_with_confirm_failure(
+            400,
+            r#"{"message":"You're already a member of Acme.","object":"error"}"#,
+        )
+        .await;
+
+        assert!(matches!(error, InviteLinkError::Api(_)));
+    }
+
+    #[tokio::test]
+    async fn get_invite_not_found_maps_to_link_not_found() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_users_api
+                    .expect_get_invite()
+                    .returning(|_model| Err(response_error(404, "")))
+                    .once();
+            }),
+        );
+        let (secret, _invite, _org_public_key) = build_invite(&client, org_id);
+
+        let result = client
+            .accept_and_optionally_confirm(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                secret,
+                "Default".to_string(),
+                false,
+            )
+            .await;
+
+        assert!(matches!(result, Err(InviteLinkError::LinkNotFound)));
     }
 }

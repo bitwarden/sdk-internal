@@ -1097,6 +1097,7 @@ dependencies = [
  "bitwarden-organization-crypto",
  "chrono",
  "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tsify",
