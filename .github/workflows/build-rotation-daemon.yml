@@ -58,6 +58,7 @@ jobs:
             binary: bw-rotation-daemon.exe
             installer: Install-RotationDaemon.ps1
             templates: bw-rotation-daemon-launcher.ps1
+            rustflags: "-C target-feature=+crt-static"
 
     steps:
       - name: Checkout
@@ -91,7 +92,7 @@ jobs:
       - name: Build
         run: cargo build -p bitwarden-rotation-daemon --release --locked --target ${{ matrix.target }}
         env:
-          RUSTFLAGS: "-D warnings"
+          RUSTFLAGS: "-D warnings ${{ matrix.rustflags }}"
 
       - name: Smoke test binary
         env:
