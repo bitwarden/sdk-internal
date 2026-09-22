@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Account Recovery Administration policy.
 pub struct ResetPasswordPolicy;
 
-impl Policy for ResetPasswordPolicy {
+impl PolicyDefinition for ResetPasswordPolicy {
     type Data = ResetPasswordPolicyData;
 
     fn policy_type(&self) -> PolicyType {
