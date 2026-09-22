@@ -1,6 +1,6 @@
 {
   "uuid": "QTRB3RZGRRE67KBZU76TTXE55Q",
-  "name": "LastPass Ruby",
+  "name": "Example User",
   "type": "I",
   "state": "A",
   "avatar": "",
@@ -15,10 +15,10 @@
     "createdAt": "2026-04-01T18:14:27Z",
     "updatedAt": "2026-08-16T10:56:42Z",
     "lastAuthAt": "2026-08-31T20:58:52Z",
-    "email": "lastpass.ruby+01-april-2026@gmail.com",
-    "firstName": "LastPass Ruby",
-    "lastName": "",
-    "name": "LastPass Ruby",
+    "email": "user@example.com",
+    "firstName": "Example",
+    "lastName": "User",
+    "name": "Example User",
     "attrVersion": 12,
     "keysetVersion": 12,
     "state": "A",
@@ -26,7 +26,7 @@
     "avatar": "",
     "language": "en",
     "accountKeyFormat": "A3",
-    "accountKeyUuid": "9RVQ2J",
+    "accountKeyUuid": "ABCDEF",
     "keysets": [
       {
         "uuid": "vkpeayor2tsxlnxo5vahqz2jee",
@@ -35,7 +35,7 @@
         "encSymKey": {
           "alg": "PBES2g-HS256",
           "cty": "b5+jwk+json",
-          "data": "EUfHdnMpEmywEzVw4su5eG4uvrnKM7_Hj_8sdDA_B27uqSByjJLRXYRNfEL-p2LvFN-3tTP7y_AX7wBLix9NEJDP-1Tgo82fPWVyJ1ORwhc00Nr8j7-DqprT2wA3d-Tpkw-rk-S1qgkMFOpiT0ld1G6QuNcc1nYrG0VyrHwww9s2vF_lueB6989DlLIBZp2hHKAJ0EP1-A7Sb1dBj7e00DPe6lfsZQjP3iI0ybI",
+          "data": "UvvQ5j555FJ3tu-Sw1A4n4OCCByfUz04UZlJshK2wHCV7ZArBhfn-hrf7EK4uJI-KBIijLMGK79n6iAgqAgdihQ8mtkaK-GxdEsLlMtRLDob5vCh9I4J2hyhD5T9vaOUogJXgZcNzrWs9twXzhRh0J-jdNpkHWvr23mBc0_mDawg-qMv6Vccr5YgkjX45sgaffoc0XBBcbSlakxtb9sFuTSNdG-_45vx-eEf9Ig",
           "enc": "A256GCM",
           "iv": "Lfa_bA7rzDNghfia",
           "kid": "mp",
@@ -223,10 +223,10 @@
   "users": [
     {
       "uuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
-      "firstName": "LastPass Ruby",
-      "lastName": "",
-      "name": "LastPass Ruby",
-      "email": "lastpass.ruby+01-april-2026@gmail.com",
+      "firstName": "Example",
+      "lastName": "User",
+      "name": "Example User",
+      "email": "user@example.com",
       "avatar": "",
       "state": "A",
       "type": "R"
@@ -674,7 +674,7 @@
     "settings": {}
   },
   "invite": {
-    "inviteSecret": "V7LCITMYLJGTFHRW5GCV2FFLC4"
+    "inviteSecret": "ABCDEFGHJKLMNPQRSTVWXYZ234"
   },
   "counts": {
     "users": 1,

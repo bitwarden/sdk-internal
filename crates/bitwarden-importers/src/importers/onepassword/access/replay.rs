@@ -5,7 +5,8 @@
 //! with a known session key and serving them from a mock host means the real client does the
 //! decrypting and parsing, so these tests exercise production code rather than a parallel loader.
 //!
-//! The account is a disposable one kept for exactly this purpose, so its credentials live here.
+//! The capture came from a disposable account. `fixtures/scripts/reencrypt.mjs` then re-sealed its
+//! master keyset under the made-up credentials below, so nothing here opens a real account.
 
 use bitwarden_api_base::new_http_client;
 use wiremock::{Mock, MockServer, ResponseTemplate, matchers};
@@ -21,9 +22,9 @@ use super::{
     sign_in::{SignInAddress, SignInDomain},
 };
 
-const USERNAME: &str = "lastpass.ruby+01-april-2026@gmail.com";
-const PASSWORD: &str = "what's a password?";
-const ACCOUNT_KEY: &str = "A3-9RVQ2J-EJMXAS-KHSXJ-6M9PJ-3W8WD-E4DRY";
+const USERNAME: &str = "user@example.com";
+const PASSWORD: &str = "password";
+const ACCOUNT_KEY: &str = "A3-ABCDEF-GHJKLM-NPQRS-TVWXY-Z2345-6789A";
 
 /// The vaults the capture covers, paired with their items response.
 const VAULTS: [(&str, &str); 2] = [
