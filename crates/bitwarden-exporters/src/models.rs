@@ -274,6 +274,7 @@ mod tests {
 
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let view = CipherView {
+            partial: false,
             r#type: CipherType::Login,
             login: Some(LoginView {
                 username: Some("test_username".to_string()),
@@ -330,6 +331,7 @@ mod tests {
 
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let cipher_view = CipherView {
+            partial: false,
             r#type: CipherType::Login,
             login: Some(LoginView {
                 username: Some("test_username".to_string()),

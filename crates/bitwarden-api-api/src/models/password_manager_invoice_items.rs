@@ -14,8 +14,12 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PasswordManagerInvoiceItems {
-    #[serde(rename = "seats", alias = "Seats")]
-    pub seats: Box<models::InvoicePreviewItem>,
+    #[serde(
+        rename = "seats",
+        alias = "Seats",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub seats: Option<Box<models::InvoicePreviewItem>>,
     #[serde(
         rename = "additionalStorage",
         alias = "AdditionalStorage",
@@ -31,9 +35,9 @@ pub struct PasswordManagerInvoiceItems {
 }
 
 impl PasswordManagerInvoiceItems {
-    pub fn new(seats: models::InvoicePreviewItem) -> PasswordManagerInvoiceItems {
+    pub fn new() -> PasswordManagerInvoiceItems {
         PasswordManagerInvoiceItems {
-            seats: Box::new(seats),
+            seats: None,
             additional_storage: None,
             prorations: None,
         }

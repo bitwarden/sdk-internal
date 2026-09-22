@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_collections::collection::CollectionId;
+use bitwarden_collections::collection::{CollectionId, CollectionType};
 use bitwarden_core::OrganizationId;
 use bitwarden_vault::{CipherType as VaultCipherType, FolderId};
 
@@ -64,7 +64,9 @@ pub struct ImportTargetFolder {
     pub name: String,
 }
 
-/// An existing organization collection to assign an org import to.
+/// An existing organization collection to assign an org import to. `type` distinguishes the
+/// "My items" default collection (import.rs converts groups to personal folders instead of
+/// nested collections) from a normal shared collection.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -75,6 +77,7 @@ pub struct ImportTargetFolder {
 pub struct ImportTargetCollection {
     pub id: CollectionId,
     pub name: String,
+    pub r#type: CollectionType,
 }
 
 /// Counts of what an import submitted to the server, broken down by cipher type so the client can

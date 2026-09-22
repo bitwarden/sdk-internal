@@ -6,6 +6,7 @@ uniffi::setup_scaffolding!();
 mod uniffi_support;
 
 mod organization_domains_client;
+use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 pub use organization_domains_client::{
     ClaimedDomain, OrganizationDomainsClient, OrganizationDomainsClientExt,
@@ -18,6 +19,8 @@ use tsify::Tsify;
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
+
+uuid_newtype!(pub OrganizationUserId);
 
 /// The membership status of a user within an organization.
 #[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]

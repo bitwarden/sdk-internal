@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// OrganizationDomainMiniResponseModelListResponseModel : A paginated list response wrapper.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationDomainMiniResponseModelListResponseModel {
     #[serde(
@@ -36,7 +35,6 @@ pub struct OrganizationDomainMiniResponseModelListResponseModel {
 }
 
 impl OrganizationDomainMiniResponseModelListResponseModel {
-    /// A paginated list response wrapper.
     pub fn new() -> OrganizationDomainMiniResponseModelListResponseModel {
         OrganizationDomainMiniResponseModelListResponseModel {
             object: None,

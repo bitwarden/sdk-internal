@@ -268,6 +268,7 @@ pub(crate) mod test_support {
 
     pub(crate) fn create_shell_cipher_view(cipher_type: CipherType) -> CipherView {
         CipherView {
+            partial: false,
             id: None,
             organization_id: None,
             folder_id: None,

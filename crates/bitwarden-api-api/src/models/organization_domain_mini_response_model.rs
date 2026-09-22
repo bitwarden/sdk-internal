@@ -12,6 +12,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// OrganizationDomainMiniResponseModel : A slim view of an organization's claimed domain,
+/// containing only the domain name and whether it has been verified. It deliberately omits the DNS
+/// verification token and the domain verification job metadata exposed by
+/// Bit.Api.AdminConsole.Models.Response.Organizations.OrganizationDomainResponseModel, so it can be
+/// returned to members who administer the organization without granting them visibility into its
+/// SSO configuration.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationDomainMiniResponseModel {
     #[serde(
@@ -35,6 +41,12 @@ pub struct OrganizationDomainMiniResponseModel {
 }
 
 impl OrganizationDomainMiniResponseModel {
+    /// A slim view of an organization's claimed domain, containing only the domain name and whether
+    /// it has been verified. It deliberately omits the DNS verification token and the domain
+    /// verification job metadata exposed by
+    /// Bit.Api.AdminConsole.Models.Response.Organizations.OrganizationDomainResponseModel, so it
+    /// can be returned to members who administer the organization without granting them visibility
+    /// into its SSO configuration.
     pub fn new() -> OrganizationDomainMiniResponseModel {
         OrganizationDomainMiniResponseModel {
             object: None,
