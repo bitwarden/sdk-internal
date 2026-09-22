@@ -229,8 +229,24 @@ function Stop-DaemonTask {
     Fail "'$TaskName' is still running after 10s. Stop it and re-run the installer."
 }
 
+function Get-ExitCodeHint {
+    param([int] $ExitCode)
+
+    switch ($ExitCode) {
+        -1073741515 {  # 0xC0000135 STATUS_DLL_NOT_FOUND
+            'A DLL it imports is missing. Install the x64 "Microsoft Visual C++ ' +
+            '2015-2022 Redistributable" and run this again.'
+        }
+        -1073741701 {  # 0xC000007B STATUS_INVALID_IMAGE_FORMAT
+            'That binary is for another architecture. Unpack the archive built for ' +
+            'x86_64-pc-windows-msvc.'
+        }
+        default { $null }
+    }
+}
+
 # Copies the bundled binary into place after checking it runs here. Those are the two
-# checks CI runs after building, and they catch an archive for the wrong architecture
+# checks CI runs after building, and they catch a binary that cannot start on this host
 # now rather than as a task that will not stay running.
 function Install-DaemonBinary {
     Write-Step 'Binary'
@@ -241,14 +257,23 @@ function Install-DaemonBinary {
             '       Run the script from the unpacked release archive.')
     }
 
-    & $bundled --version 2>&1 | Out-Null
+    $probe = & $bundled --version 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Fail ("$bundled does not run on this host. Check you unpacked the archive built " +
-            'for x86_64-pc-windows-msvc.')
+        $message = ("$bundled does not run on this host " +
+            ("(exit {0} / 0x{0:X8})." -f $LASTEXITCODE))
+        $hint = Get-ExitCodeHint $LASTEXITCODE
+        if ($hint) { $message += "`n         $hint" }
+        if ($probe) { $message += "`n         It printed: $($probe -join '; ')" }
+        Fail $message
     }
-    $version = (& $bundled --version 2>&1 | Select-Object -First 1)
-    & $bundled run --help 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { Fail "$bundled does not accept 'run --help'; is it really $BinaryName?" }
+    $version = $probe | Select-Object -First 1
+
+    $probe = & $bundled run --help 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Fail ("$bundled does not accept 'run --help' " +
+            ("(exit {0} / 0x{0:X8}); is it really ${BinaryName}?" -f $LASTEXITCODE) +
+            $(if ($probe) { "`n         It printed: $($probe -join '; ')" }))
+    }
 
     # Nothing has to stop if the installed binary is already this build, which is the
     # usual case when another daemon on this host came from the same archive.
