@@ -10,6 +10,7 @@ import { KeyConnectorServer } from "./key-connector-server";
 import { API_URL, IDENTITY_URL, KEY_CONNECTOR_URL } from "./urls";
 
 import { asEncString, asOrganizationId } from "../tests/type-assertion-helpers";
+import { loadUserVectors, toSeedAccount, userVector, type UserVector } from "../vectors/load";
 
 import type {
   Cipher,
@@ -51,7 +52,6 @@ export interface SeedAccount {
   /** Plaintext the account is defined by, and which must therefore never reach the server. */
   rawCryptographicState: {
     userKey: string;
-    masterKey: string | null;
     privateKey: string;
     publicKey: string;
     verifyingKey?: string | null;
@@ -106,6 +106,14 @@ export interface SeededAccount {
   email: string;
   ciphers(): Cipher[];
   folders(): Folder[];
+}
+
+/** A seeded account, alongside the vector it was seeded from. */
+export interface SeededTestVector extends SeededAccount {
+  /** The vector, for the password and the plaintext it records. */
+  vector: UserVector;
+  /** The seed account the vector produced, for asserting what the account decrypts to. */
+  seed: SeedAccount;
 }
 
 export class ServerEmulator {
@@ -170,6 +178,22 @@ export class ServerEmulator {
       ciphers: () => this.api.vaultFor(user).ciphers,
       folders: () => this.api.vaultFor(user).folders,
     };
+  }
+
+  /**
+   * Seeds a committed user vector, by name or by the vector itself.
+   *
+   * `modify` rewrites the seed account before it is stored, for a test that needs an account the
+   * vector does not record — a server that has not stored a key id yet, say.
+   */
+  seedUserTestVector(
+    vector: UserVector | string,
+    modify: (account: SeedAccount) => SeedAccount = (account) => account,
+  ): SeededTestVector {
+    const resolved = typeof vector === "string" ? userVector(loadUserVectors(), vector) : vector;
+    const seed = modify(toSeedAccount(resolved));
+
+    return { vector: resolved, seed, ...this.seedUser(seed) };
   }
 
   /**

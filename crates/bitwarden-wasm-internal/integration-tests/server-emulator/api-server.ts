@@ -26,7 +26,7 @@ const PBKDF2_MIN_ITERATIONS = 600_000;
 const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
 import { Database } from "./database";
 import {
-  AccountKeysResponse,
+  KeysResponse,
   type CipherCreateRequest,
   CipherRequest,
   CipherResponse,
@@ -54,7 +54,7 @@ export class ApiServer {
         json: SyncResponse.forUser(user, this.vaultFor(user)),
       })),
       "GET /accounts/keys": authenticatedRoute(this.db, (user) => ({
-        json: AccountKeysResponse.fromUser(user),
+        json: KeysResponse.fromUser(user),
       })),
 
       "POST /accounts/kdf": authenticatedRoute(this.db, (user, request) =>

@@ -1,22 +1,38 @@
-import {
-  SecureNoteType,
-  type CipherViewType,
-  type PasswordManagerClient,
-  type CipherView,
-} from "@bitwarden/sdk-internal";
+import type { PasswordManagerClient } from "@bitwarden/sdk-internal";
 
-import { testHarness, type TestHarness } from "../../test-harness";
 import type { ClientEmulator } from "../../client-emulator/client-emulator";
+import { IGNORED_FIELDS, validateVault } from "../../client-emulator/validate";
+import type { SeededTestVector } from "../../server-emulator/server-emulator";
+import { testHarness, type TestHarness } from "../../test-harness";
+import { loadUserVectors, userVector, unlockMethodName, type UserVector } from "../../vectors/load";
+import { testVectors } from "../../vectors/test-vectors";
 import { asKeyId } from "../type-assertion-helpers";
-import { MASTER_PASSWORD_ACCOUNT } from "../../vectors/accounts";
-import { TEST_EMAIL, TEST_PASSWORD, TEST_PIN } from "../utils";
+import { TEST_PIN } from "../utils";
 
 const TIMEOUT = 120_000;
 
-const SECURE_NOTE: CipherViewType = { secureNote: { type: SecureNoteType.Generic } };
+const V1_VECTOR = userVector(loadUserVectors(), "v1-pbkdf2-min-iterations");
+const V2_VECTOR = userVector(loadUserVectors(), "v2-pbkdf2-blob");
 
-const NOTE_NAME = "seeded before the rotation";
-const NOTE_CONTENT = "carried across the rotation";
+const ROTATED_FIELDS = [...IGNORED_FIELDS, "key"];
+
+/**
+ * - `v1-pbkdf2-password` carries V0 and V1 attachments. The SDK refuses to rotate until those are
+ *   re-uploaded, which is the documented precondition rather than a failure.
+ */
+const NOT_ROTATABLE = ["v1-pbkdf2-password"];
+
+/**
+ * Whether a vector can rotate by password, and is not in {@link NOT_ROTATABLE}. The other unlock
+ * methods rotate through {@link KeyRotationMethod} variants of their own, which this suite does
+ * not drive.
+ */
+const rotatable = (vector: UserVector): boolean =>
+  !NOT_ROTATABLE.includes(vector.name) &&
+  vector.unlockMethods.some((method) => unlockMethodName(method) === "masterPasswordUnlock");
+
+/** Enough consecutive rotations that a second one cannot pass by reusing the first one's state. */
+const ROTATION_COUNT = 3;
 
 /** A key id the account never had, to tell "refused the downgrade" from "ignored the payload". */
 const REPLAYED_KEY_ID = asKeyId("0f0e0d0c0b0a09080706050403020100");
@@ -31,12 +47,13 @@ describe("rotate user keys", () => {
   afterEach(() => harness.restore());
 
   /** Rotates with the account's password, either upgrading to V2 or carrying V2 forward. */
-  function rotate(
+  async function rotate(
     sdk: PasswordManagerClient,
+    password: string,
     upgradeTokenAction: "CreateIfNeeded" | "Skip",
   ): Promise<void> {
-    return sdk.user_crypto_management().rotate_user_keys({
-      key_rotation_method: { Password: { password: TEST_PASSWORD } },
+    await sdk.user_crypto_management().rotate_user_keys({
+      key_rotation_method: { Password: { password } },
       trusted_emergency_access_public_keys: [],
       trusted_organization_public_keys: [],
       upgrade_token_action: upgradeTokenAction,
@@ -44,66 +61,13 @@ describe("rotate user keys", () => {
   }
 
   /**
-   * Seeds a V1 account — what a master-password account starts out as — holding the one note the
-   * tests carry across the rotation. The client that seeded it is dropped; tests log in fresh.
-   */
-  async function seedV1(): Promise<string> {
-    // Will be replaced by test vectors
-    const { email } = harness.server.seedUser(MASTER_PASSWORD_ACCOUNT);
-
-    const seeding = harness.newClientEmulator();
-    await seeding.login(email);
-    await seeding.unlock(TEST_PASSWORD);
-    await createNote(seeding.getPasswordManagerClient());
-
-    return email;
-  }
-
-  /**
-   * Seeds a V2 account.
+   * Asserts the whole recorded vault still decrypts, item for item.
    *
-   * No seed vector holds a V2 account that unlocks with a master password, so one is rotated up to
-   * V2 here and the client that did it is dropped — a test starts from a fresh login either way.
+   * A rotation re-encrypts every item under the new user key, so this is the assertion that it
+   * carried the plaintext across rather than merely leaving something readable behind.
    */
-  async function seedV2(): Promise<string> {
-    // Will be replaced by test vectors
-    const email = await seedV1();
-
-    const upgrading = harness.newClientEmulator();
-    await upgrading.login(email);
-    await upgrading.unlock(TEST_PASSWORD);
-    await rotate(upgrading.getPasswordManagerClient(), "CreateIfNeeded");
-
-    return email;
-  }
-
-  /** The item that has to survive a rotation, which re-encrypts the vault under the new key. */
-  function createNote(sdk: PasswordManagerClient): Promise<CipherView> {
-    return sdk.vault().ciphers().create({
-      organizationId: undefined,
-      collectionIds: [],
-      folderId: undefined,
-      name: NOTE_NAME,
-      notes: NOTE_CONTENT,
-      favorite: false,
-      reprompt: 0,
-      type: SECURE_NOTE,
-      fields: [],
-    });
-  }
-
-  /** Reads the seeded note back through a client, asserting the plaintext survived. */
-  async function assertVaultDecrypts(client: ClientEmulator): Promise<void> {
-    // Will be replaced by test vectors + a full vault assert
-    const [cipher] = client.local.ciphers.dump();
-    if (cipher === undefined) {
-      throw new Error("the sync handed the client no ciphers");
-    }
-
-    const view = await client.getPasswordManagerClient().vault().ciphers().get(String(cipher.id));
-
-    expect(view.name).toBe(NOTE_NAME);
-    expect(view.notes).toBe(NOTE_CONTENT);
+  function assertVaultDecrypts(client: ClientEmulator, seeded: SeededTestVector): Promise<void> {
+    return validateVault(client, seeded.seed, ROTATED_FIELDS);
   }
 
   /**
@@ -119,25 +83,25 @@ describe("rotate user keys", () => {
   it(
     "upgrades a V1 account to V2",
     async () => {
-      const email = await seedV1();
+      const seeded = harness.server.seedUserTestVector(V1_VECTOR);
       const client = harness.newClientEmulator();
-      await client.login(email);
-      await client.unlock(TEST_PASSWORD);
+      await client.login(seeded.email);
+      await client.unlock(V1_VECTOR.account.password);
 
       // 1. Rotate, asking for an upgrade token
-      await rotate(client.getPasswordManagerClient(), "CreateIfNeeded");
+      await rotate(client.getPasswordManagerClient(), V1_VECTOR.account.password, "CreateIfNeeded");
 
       // 2. Verify the rotating client still reads the vault, over the key it rotated to: sync
       //    down the re-encrypted vault, then re-initialize onto the new key.
-      await client.sync(email);
+      await client.sync(seeded.email);
       await client.reinit();
-      await assertVaultDecrypts(client);
+      await assertVaultDecrypts(client, seeded);
 
       // 3. Verify a client that logs in reads the vault too
       const reloginClient = harness.newClientEmulator();
-      await reloginClient.login(email);
-      await reloginClient.unlock(TEST_PASSWORD);
-      await assertVaultDecrypts(reloginClient);
+      await reloginClient.login(seeded.email);
+      await reloginClient.unlock(V1_VECTOR.account.password);
+      await assertVaultDecrypts(reloginClient, seeded);
     },
     TIMEOUT,
   );
@@ -155,27 +119,78 @@ describe("rotate user keys", () => {
   it(
     "rotates an already-V2 account",
     async () => {
-      const email = await seedV2();
+      const seeded = harness.server.seedUserTestVector(V2_VECTOR);
       const client = harness.newClientEmulator();
-      await client.login(email);
-      await client.unlock(TEST_PASSWORD);
+      await client.login(seeded.email);
+      await client.unlock(V2_VECTOR.account.password);
 
       // 1. Rotate again, this time without an upgrade token
-      await rotate(client.getPasswordManagerClient(), "Skip");
+      await rotate(client.getPasswordManagerClient(), V2_VECTOR.account.password, "Skip");
 
       // 2. Verify the rotating client still reads the vault, over the key it rotated to. A
       //    V2 to V2 rotation issues no upgrade token, so there is nothing to re-initialize from:
       //    the session restarts instead, syncing the re-encrypted vault and unlocking onto K3.
-      await client.sync(email);
+      await client.sync(seeded.email);
       await client.lock();
-      await client.unlock(TEST_PASSWORD);
-      await assertVaultDecrypts(client);
+      await client.unlock(V2_VECTOR.account.password);
+      await assertVaultDecrypts(client, seeded);
 
       // 3. Verify a client that logs in reads the vault too
       const reloginClient = harness.newClientEmulator();
-      await reloginClient.login(email);
-      await reloginClient.unlock(TEST_PASSWORD);
-      await assertVaultDecrypts(reloginClient);
+      await reloginClient.login(seeded.email);
+      await reloginClient.unlock(V2_VECTOR.account.password);
+      await assertVaultDecrypts(reloginClient, seeded);
+    },
+    TIMEOUT,
+  );
+
+  /**
+   * Every rotatable account survives being rotated repeatedly.
+   *
+   *   K0 ──rotate──▶ K1 ──rotate──▶ K2 ──rotate──▶ K3 ──▶ vault still decrypts, fresh login reads it
+   */
+  testVectors.eachUser()(
+    `%s survives ${ROTATION_COUNT} consecutive rotations`,
+    async (_name, vector) => {
+      if (!rotatable(vector)) {
+        return;
+      }
+
+      const seeded = harness.server.seedUserTestVector(vector);
+      const client = harness.newClientEmulator();
+      await client.login(seeded.email);
+      await client.unlock(vector.account.password);
+
+      // 1. Rotate repeatedly, restarting the session onto each new key before the next one. The
+      //    user key is read back every round, so a rotation that left the key untouched is caught
+      //    here rather than by the vault assertion below, which a no-op rotation would also pass.
+      const userKeys = [await client.getPasswordManagerClient().crypto().get_user_encryption_key()];
+
+      for (let round = 0; round < ROTATION_COUNT; round++) {
+        await rotate(client.getPasswordManagerClient(), vector.account.password, "CreateIfNeeded");
+
+        await client.sync(seeded.email);
+        await client.lock();
+        await client.unlock(vector.account.password);
+
+        userKeys.push(await client.getPasswordManagerClient().crypto().get_user_encryption_key());
+      }
+
+      // 2. Verify every round produced a key of its own
+      expect(new Set(userKeys).size).toBe(userKeys.length);
+
+      // 3. Verify the account ended up V2, whichever version it started at
+      expect(await client.bridge.get_account_cryptographic_state()).toHaveProperty("V2");
+
+      // 4. Verify the vault still decrypts to what the vector records, over the last key
+      await assertVaultDecrypts(client, seeded);
+
+      // 5. Verify a client that logs in fresh reads it too, so the rotations left the server
+      //    holding a consistent account and not just this session
+      const reloginClient = harness.newClientEmulator();
+      await reloginClient.login(seeded.email);
+      await reloginClient.unlock(vector.account.password);
+      await assertVaultDecrypts(reloginClient, seeded);
     },
     TIMEOUT,
   );
@@ -194,10 +209,10 @@ describe("rotate user keys", () => {
     "pin unlock still works after another device rotates",
     async () => {
       // 1. A device enrolled in PIN unlock, holding an envelope that survives a lock
-      const email = await seedV1();
+      const seeded = harness.server.seedUserTestVector(V1_VECTOR);
       const otherDevice = harness.newClientEmulator();
-      await otherDevice.login(email);
-      await otherDevice.unlock(TEST_PASSWORD);
+      await otherDevice.login(seeded.email);
+      await otherDevice.unlock(V1_VECTOR.account.password);
       await otherDevice
         .getPasswordManagerClient()
         .user_crypto_management()
@@ -206,20 +221,24 @@ describe("rotate user keys", () => {
 
       // 2. A second device upgrades the user to v2 encryption
       const rotatingDevice = harness.newClientEmulator();
-      await rotatingDevice.login(email);
-      await rotatingDevice.unlock(TEST_PASSWORD);
-      await rotate(rotatingDevice.getPasswordManagerClient(), "CreateIfNeeded");
+      await rotatingDevice.login(seeded.email);
+      await rotatingDevice.unlock(V1_VECTOR.account.password);
+      await rotate(
+        rotatingDevice.getPasswordManagerClient(),
+        V1_VECTOR.account.password,
+        "CreateIfNeeded",
+      );
 
       // 3. The other device picks the rotation up the way a push notification would, then
       //    restarts onto the new key
-      await otherDevice.sync(email);
+      await otherDevice.sync(seeded.email);
       await otherDevice.lock();
 
       // 4. Verify the PIN still unlocks, over the envelope the rotation left in state
       await otherDevice.unlockWith({ pinState: { pin: TEST_PIN } });
 
       // 5. Verify the vault reads, with the plaintext unchanged
-      await assertVaultDecrypts(otherDevice);
+      await assertVaultDecrypts(otherDevice, seeded);
     },
     TIMEOUT,
   );
@@ -239,26 +258,25 @@ describe("rotate user keys", () => {
     "second device can read the vault after the first device rotates",
     async () => {
       // 1. Two unlocked clients, and a rotation by the first
-      const email = await seedV1();
+      const seeded = harness.server.seedUserTestVector(V1_VECTOR);
       const client = harness.newClientEmulator();
-      await client.login(email);
-      await client.unlock(TEST_PASSWORD);
-
+      await client.login(seeded.email);
+      await client.unlock(V1_VECTOR.account.password);
       const second = harness.newClientEmulator();
-      await second.login(email);
-      await second.unlock(TEST_PASSWORD);
+      await second.login(seeded.email);
+      await second.unlock(V1_VECTOR.account.password);
 
-      await rotate(client.getPasswordManagerClient(), "CreateIfNeeded");
+      await rotate(client.getPasswordManagerClient(), V1_VECTOR.account.password, "CreateIfNeeded");
       // Sync is triggered by a push notification usually. In this case we do it manually
       // because push notifications are not implemented in the emulator.
-      await second.sync(email);
+      await second.sync(seeded.email);
 
       // 2. The second session re-initializes onto the key material the sync brought down, which
       //    is what a client does instead of tearing itself down and unlocking again
       await second.reinit();
 
       // 3. Verify the vault reads again, with the plaintext unchanged
-      await assertVaultDecrypts(second);
+      await assertVaultDecrypts(second, seeded);
     },
     TIMEOUT,
   );
@@ -278,19 +296,22 @@ describe("rotate user keys", () => {
     "refuses a V1 state the server replays after the upgrade",
     async () => {
       // 1. Two unlocked devices on a V1 account, and the state the server holds for it
-      const email = await seedV1();
+      const { email } = harness.server.seedUserTestVector(V1_VECTOR);
       const rotatingDevice = harness.newClientEmulator();
       await rotatingDevice.login(email);
-      await rotatingDevice.unlock(TEST_PASSWORD);
-
+      await rotatingDevice.unlock(V1_VECTOR.account.password);
       const otherDevice = harness.newClientEmulator();
       await otherDevice.login(email);
-      await otherDevice.unlock(TEST_PASSWORD);
+      await otherDevice.unlock(V1_VECTOR.account.password);
 
-      const v1State = harness.server.getUser(TEST_EMAIL).accountCryptographicState;
+      const v1State = harness.server.getUser(email).accountCryptographicState;
 
       // 2. One device upgrades the account, and both pick the upgrade up
-      await rotate(rotatingDevice.getPasswordManagerClient(), "CreateIfNeeded");
+      await rotate(
+        rotatingDevice.getPasswordManagerClient(),
+        V1_VECTOR.account.password,
+        "CreateIfNeeded",
+      );
       await rotatingDevice.sync(email);
       await rotatingDevice.reinit();
       await otherDevice.sync(email);
@@ -301,7 +322,7 @@ describe("rotate user keys", () => {
       const upgradedKeyId = await rotatingDevice.bridge.get_user_key_id();
 
       // 3. The server replays the state it held before the upgrade
-      const stored = harness.server.getUser(TEST_EMAIL);
+      const stored = harness.server.getUser(email);
       stored.accountCryptographicState = v1State;
       stored.userKeyId = REPLAYED_KEY_ID;
 
