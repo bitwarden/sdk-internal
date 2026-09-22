@@ -89,6 +89,8 @@ export interface UserVector {
     organizationKeys?: Record<string, string>;
   };
   unlockMethods: InitUserCryptoMethod[];
+  /** Absent for an account with no master password. */
+  masterPasswordAuthenticationHash?: string;
   rawCryptographicState: RawCryptographicStateVector;
   vault: VaultVector;
 }
@@ -195,6 +197,9 @@ export function toSeedAccount(vector: UserVector): SeedAccount {
         : { organizationKeys: vector.account.organizationKeys }),
     },
     unlockMethods: vector.unlockMethods,
+    ...(vector.masterPasswordAuthenticationHash === undefined
+      ? {}
+      : { masterPasswordAuthenticationHash: vector.masterPasswordAuthenticationHash }),
     rawCryptographicState: {
       userKey: raw.userKey,
       privateKey: raw.privateKey,

@@ -168,6 +168,8 @@ export class ApiServer {
 
     user.masterPasswordUnlock = MasterPasswordUnlockDataModel.toStored(posted.unlockData);
     user.kdf = user.masterPasswordUnlock.kdf;
+    user.masterPasswordAuthenticationHash =
+      posted.authenticationData.masterPasswordAuthenticationHash;
     this.db.revisions.next();
     return {};
   }

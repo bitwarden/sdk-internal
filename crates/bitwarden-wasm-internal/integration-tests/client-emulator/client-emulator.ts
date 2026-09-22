@@ -3,6 +3,7 @@
 
 import type {
   InitUserCryptoMethod,
+  LoginRequest,
   PasswordManagerClient,
   WasmStateBridge,
 } from "@bitwarden/sdk-internal";
@@ -14,7 +15,27 @@ import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
 
 import { LocalState, SETTINGS } from "./local-state";
 
-import { makePasswordManagerClient } from "../tests/utils";
+import { makePasswordManagerClient, makeStateBridge } from "../tests/utils";
+
+/** How a client gets to the point where it may sync an account down. */
+export enum LoginMethod {
+  /** Prelogin, then the password grant — what a real password client does. */
+  Password = "password",
+
+  /** Skips authentication entirely, for accounts for that real login is not implemented. Note this only works when using the emulator */
+  ForceLogin = "force-login",
+}
+
+/** The device a test logs in from. Identity records it; nothing here depends on the values. */
+const LOGIN_REQUEST: LoginRequest = {
+  clientId: "web",
+  device: {
+    deviceType: "SDK",
+    deviceIdentifier: "integration-test-device",
+    deviceName: "Integration Tests",
+    devicePushToken: undefined,
+  },
+};
 
 export class ClientEmulator {
   readonly local = new LocalState();
@@ -86,9 +107,40 @@ export class ClientEmulator {
     await this.local.seedVault(this.server.api.vaultFor(user));
   }
 
-  /** Syncs a seeded account down — what a login does. Leaves the client locked. */
-  async login(email: string): Promise<void> {
+  /**
+   * Logs an account in and syncs it down. Leaves the client locked.
+   *
+   * {@link LoginMethod.Password} authenticates against the identity emulator first and so needs
+   * the account's password; {@link LoginMethod.ForceLogin} goes straight to the sync.
+   */
+  async login(email: string, method: LoginMethod, password?: string): Promise<void> {
+    if (method === LoginMethod.Password) {
+      if (password === undefined) {
+        throw new Error(`a password login for ${email} needs a password`);
+      }
+
+      await this.authenticate(email, password);
+    }
+
     await this.sync(email);
+  }
+
+  /**
+   * Prelogin, then the password grant.
+   *
+   * The login client is unauthenticated and carries no account, so it runs on a bridge of its own
+   * rather than this client's state.
+   */
+  private async authenticate(email: string, password: string): Promise<void> {
+    const login = makePasswordManagerClient(makeStateBridge(), SETTINGS).auth().login();
+
+    const preloginResponse = await login.get_password_prelogin(email);
+    await login.login_via_password({
+      loginRequest: LOGIN_REQUEST,
+      email,
+      password,
+      preloginResponse,
+    });
   }
 
   /**
