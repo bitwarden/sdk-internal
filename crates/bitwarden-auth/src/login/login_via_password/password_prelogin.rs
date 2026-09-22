@@ -60,7 +60,7 @@ mod tests {
 
     use bitwarden_api_api::ResponseContent;
     use bitwarden_api_identity::models::KdfType;
-    use bitwarden_core::{ClientSettings, DeviceType};
+    use bitwarden_core::{Client, ClientSettings, DeviceType};
     use bitwarden_crypto::Kdf;
     use bitwarden_test::start_api_mock;
     use wiremock::{Mock, ResponseTemplate, matchers};
@@ -81,7 +81,7 @@ mod tests {
             bitwarden_client_version: None,
             bitwarden_package_type: None,
         };
-        LoginClient::new(settings)
+        LoginClient::new(Client::new(Some(settings)))
     }
 
     fn mock_default_pbkdf2_iterations() -> NonZeroU32 {
