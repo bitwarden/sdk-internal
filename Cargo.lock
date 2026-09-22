@@ -1188,6 +1188,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-organizations",
+ "bitwarden-uuid",
  "chrono",
  "serde",
  "serde_json",

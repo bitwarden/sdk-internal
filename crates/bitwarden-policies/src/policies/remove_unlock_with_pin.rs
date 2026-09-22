@@ -1,11 +1,11 @@
 use bitwarden_organizations::OrganizationUserType;
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Remove Unlock with PIN policy.
 pub struct RemoveUnlockWithPinPolicy;
 
-impl Policy for RemoveUnlockWithPinPolicy {
+impl PolicyDefinition for RemoveUnlockWithPinPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {
