@@ -20,6 +20,12 @@ export interface AutotypeDriver {
      * the enabled state was successful or not.
      */
     set_autotype_enabled(enabled: boolean): Promise<boolean>;
+
+    /**
+     * Set the keyboard shortcut. Returns a boolean representing
+     * if setting the shortcut was successful or not.
+     */
+    set_autotype_keyboard_shortcut(shortcut: string[]): Promise<boolean>;
 }
 "#;
 
@@ -34,6 +40,14 @@ extern "C" {
     async fn set_autotype_enabled(
         this: &RawJsAutotypeDriver,
         enabled: bool,
+    ) -> Result<JsValue, JsValue>;
+
+    /// Set the autotype keyboard shortcut. Returns a boolean
+    /// representing if setting the shortcut was successful or not.
+    #[wasm_bindgen(method, catch)]
+    async fn set_autotype_keyboard_shortcut(
+        this: &RawJsAutotypeDriver,
+        shortcut: Vec<String>,
     ) -> Result<JsValue, JsValue>;
 }
 
@@ -57,6 +71,25 @@ impl JsAutotypeDriver {
             .run_in_thread(move |driver| async move {
                 driver
                     .set_autotype_enabled(enabled)
+                    .await
+                    .ok()
+                    .and_then(|value| value.as_bool())
+                    .unwrap_or(false)
+            })
+            .await
+            .unwrap_or(false)
+    }
+
+    /// Asks the driver to change the keyboard shortcut, returning whether the change was applied.
+    ///
+    /// The shortcut is passed through untouched: the driver owns what counts as a valid
+    /// combination, and reports an unusable one as `false`. Failures fold into `false` the same
+    /// way [`Self::set_autotype_enabled`] does.
+    async fn set_autotype_keyboard_shortcut(&self, shortcut: Vec<String>) -> bool {
+        self.runner
+            .run_in_thread(move |driver| async move {
+                driver
+                    .set_autotype_keyboard_shortcut(shortcut)
                     .await
                     .ok()
                     .and_then(|value| value.as_bool())
@@ -109,22 +142,72 @@ impl RpcHandler for AutotypeSetEnabledHandler {
     }
 }
 
-/// Registers a handler so that the client responds to [`AutotypeSetEnabledRequest`]s by driving
-/// the platform Autotype implementation through the supplied [`RawJsAutotypeDriver`].
+/// A request asking the receiving client to change the keyboard shortcut Autotype is triggered by.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutotypeSetKeyboardShortcutRequest {
+    /// The shortcut to use, as its individual keys — modifiers first, the base key last. Carried
+    /// through unvalidated; the receiving client decides what it accepts.
+    pub shortcut: Vec<String>,
+}
+
+/// A response to an [`AutotypeSetKeyboardShortcutRequest`].
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct AutotypeSetKeyboardShortcutResponse {
+    /// Whether the requested keyboard shortcut was applied.
+    pub success: bool,
+}
+
+impl RpcRequest for AutotypeSetKeyboardShortcutRequest {
+    type Response = AutotypeSetKeyboardShortcutResponse;
+
+    const NAME: &str = "AutotypeSetKeyboardShortcutRequest";
+}
+
+/// An [`RpcHandler`] that applies the requested shortcut through a [`RawJsAutotypeDriver`].
+struct AutotypeSetKeyboardShortcutHandler {
+    driver: JsAutotypeDriver,
+}
+
+impl AutotypeSetKeyboardShortcutHandler {
+    fn new(driver: JsAutotypeDriver) -> Self {
+        Self { driver }
+    }
+}
+
+impl RpcHandler for AutotypeSetKeyboardShortcutHandler {
+    type Request = AutotypeSetKeyboardShortcutRequest;
+
+    async fn handle(&self, request: Self::Request) -> AutotypeSetKeyboardShortcutResponse {
+        AutotypeSetKeyboardShortcutResponse {
+            success: self
+                .driver
+                .set_autotype_keyboard_shortcut(request.shortcut)
+                .await,
+        }
+    }
+}
+
+/// Registers the handlers so that the client responds to Autotype requests by driving the platform
+/// Autotype implementation through the supplied [`RawJsAutotypeDriver`].
 ///
-/// This belongs within the desktop main process, which owns the global shortcut.
-#[wasm_bindgen(js_name = autotypeRegisterSetEnabledHandler)]
-pub async fn autotype_register_set_enabled_handler(
-    ipc_client: &JsIpcClient,
-    driver: RawJsAutotypeDriver,
-) {
+/// This belongs within the desktop main process, which owns the global shortcut. Every handler
+/// shares one runner, so all of them reach the same driver instance.
+#[wasm_bindgen(js_name = autotypeRegisterHandlers)]
+pub async fn autotype_register_handlers(ipc_client: &JsIpcClient, driver: RawJsAutotypeDriver) {
     let runner = ThreadBoundRunner::new(driver);
 
     ipc_client
         .client
         .register_rpc_handler(AutotypeSetEnabledHandler::new(JsAutotypeDriver::new(
-            runner,
+            runner.clone(),
         )))
+        .await;
+    ipc_client
+        .client
+        .register_rpc_handler(AutotypeSetKeyboardShortcutHandler::new(
+            JsAutotypeDriver::new(runner),
+        ))
         .await;
 }
 
@@ -140,6 +223,24 @@ pub async fn autotype_request_set_enabled(
         .client
         .request(
             AutotypeSetEnabledRequest { enabled },
+            Endpoint::DesktopMain,
+            abort_signal.map(|signal| signal.to_cancellation_token()),
+        )
+        .await
+}
+
+/// Sends an `AutotypeSetKeyboardShortcutRequest` to the desktop main process and reports whether
+/// the requested shortcut was applied.
+#[wasm_bindgen(js_name = autotypeRequestSetKeyboardShortcut)]
+pub async fn autotype_request_set_keyboard_shortcut(
+    ipc_client: &JsIpcClient,
+    shortcut: Vec<String>,
+    abort_signal: Option<AbortSignal>,
+) -> Result<AutotypeSetKeyboardShortcutResponse, RequestError> {
+    ipc_client
+        .client
+        .request(
+            AutotypeSetKeyboardShortcutRequest { shortcut },
             Endpoint::DesktopMain,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
