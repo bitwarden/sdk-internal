@@ -15,6 +15,11 @@ use crate::{
 pub struct StateRegistry {
     database: SystemDatabase,
     client_managed: AnyMap,
+    /// Dev-only index of per-type get/set/list shims backing the generic debug
+    /// browse. Populated at registration (both client- and SDK-managed), where
+    /// the concrete type is known. See [`crate::debug`].
+    #[cfg(feature = "debug-capabilities")]
+    pub(crate) debug: crate::debug::DebugRegistry,
 }
 
 impl std::fmt::Debug for StateRegistry {
@@ -40,6 +45,8 @@ impl StateRegistry {
         StateRegistry {
             database: SystemDatabase::Memory(MemoryDatabase::new()),
             client_managed: AnyMap::new(),
+            #[cfg(feature = "debug-capabilities")]
+            debug: crate::debug::DebugRegistry::new(),
         }
     }
 
@@ -49,10 +56,16 @@ impl StateRegistry {
         migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
         let database = SystemDatabase::initialize(configuration, migrations.clone()).await?;
-        Ok(StateRegistry {
+        let registry = StateRegistry {
             database,
             client_managed: AnyMap::new(),
-        })
+            #[cfg(feature = "debug-capabilities")]
+            debug: crate::debug::DebugRegistry::new(),
+        };
+        // Capture debug shims for every SDK-managed type declared in the migrations.
+        #[cfg(feature = "debug-capabilities")]
+        registry.debug.register_migrations(&migrations);
+        Ok(registry)
     }
 
     /// Get a handle to a setting by its type-safe key.
@@ -64,6 +77,8 @@ impl StateRegistry {
     /// Registers a client-managed repository into the map, associating it with its type.
     pub fn register_client_managed<T: RepositoryItem>(&self, value: Arc<dyn Repository<T>>) {
         self.client_managed.insert(value);
+        #[cfg(feature = "debug-capabilities")]
+        self.debug.register::<T>();
     }
 
     /// Retrieves a client-managed repository from the map given its type.

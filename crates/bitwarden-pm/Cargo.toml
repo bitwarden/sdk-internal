@@ -16,6 +16,8 @@ keywords.workspace = true
 
 [features]
 cli = ["bitwarden-unlock/cli"]
+# Dev-only debug-capability tree rooted on the top-level client.
+debug-capabilities = ["bitwarden-core/debug-capabilities"]
 no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
 uniffi = [
     "bitwarden-collections/uniffi",
