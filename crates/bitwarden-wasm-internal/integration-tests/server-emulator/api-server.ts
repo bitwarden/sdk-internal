@@ -36,6 +36,7 @@ import {
   KeyRegenerationRequest,
   KeyRotationDataResponse,
   MasterPasswordUnlockDataModel,
+  type ProfileOrganizationResponse,
   RotateUserKeysRequest,
   UnlockMethod,
   SyncResponse,
@@ -51,7 +52,7 @@ export class ApiServer {
   routes(): Routes {
     return {
       "GET /sync": authenticatedRoute(this.db, (user) => ({
-        json: SyncResponse.forUser(user, this.vaultFor(user)),
+        json: SyncResponse.forUser(user, this.vaultFor(user), this.organizationsFor(user)),
       })),
       "GET /accounts/keys": authenticatedRoute(this.db, (user) => ({
         json: KeysResponse.fromUser(user),
@@ -132,6 +133,28 @@ export class ApiServer {
         .filter((entity) => entity.userId === user.userId)
         .map((entity) => entity.folder),
     };
+  }
+
+  /**
+   * The organizations `user` is a member of, each with the organization key sealed to them.
+   *
+   * Two seeding styles reach the same place: a vector may record the sealed keys on the account
+   * itself, or {@link ServerEmulator.seedOrganization} may record a membership row. A membership
+   * row wins, since it is the organization's own record of what it sealed.
+   */
+  private organizationsFor(user: UserEntity): ProfileOrganizationResponse[] {
+    const sealed = new Map(Object.entries(user.organizationKeys));
+
+    for (const organization of this.db.organizations.all()) {
+      const member = organization.members.find((candidate) => candidate.userId === user.userId);
+      if (member === undefined) {
+        continue;
+      }
+
+      sealed.set(organization.organizationId, member.organizationKeySealedToMember);
+    }
+
+    return [...sealed].map(([id, key]) => ({ object: "profileOrganization", id, key }));
   }
 
   /** Whether `user` owns the cipher or is a member of the organization that does. */

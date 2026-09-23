@@ -2,18 +2,26 @@
 // account into it — a sync from the server, and an unlock.
 
 import type {
+  ClientSettings,
   InitUserCryptoMethod,
+  Kdf,
+  LoginClient,
   LoginRequest,
   PasswordManagerClient,
   WasmStateBridge,
 } from "@bitwarden/sdk-internal";
 
-import { AccountKeysResponse, toKdf, type SyncResponse } from "../server-emulator/dto";
+import {
+  AccountKeysResponse,
+  CipherResponse,
+  FolderResponse,
+  toKdf,
+  type SyncResponse,
+} from "../server-emulator/dto";
 import type { ServerEmulator } from "../server-emulator/server-emulator";
-import { API_URL } from "../server-emulator/urls";
 import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
 
-import { LocalState, SETTINGS } from "./local-state";
+import { LocalState } from "./local-state";
 
 import { makePasswordManagerClient, makeStateBridge } from "../tests/utils";
 
@@ -27,7 +35,7 @@ export enum LoginMethod {
 }
 
 /** The device a test logs in from. Identity records it; nothing here depends on the values. */
-const LOGIN_REQUEST: LoginRequest = {
+export const LOGIN_REQUEST: LoginRequest = {
   clientId: "web",
   device: {
     deviceType: "SDK",
@@ -38,11 +46,23 @@ const LOGIN_REQUEST: LoginRequest = {
 };
 
 export class ClientEmulator {
-  readonly local = new LocalState();
+  readonly local: LocalState;
 
   private client: PasswordManagerClient | undefined;
 
-  constructor(private readonly server: ServerEmulator) {}
+  private preloginKdf: Kdf | undefined;
+
+  /**
+   * @param settings where the SDK points, which is also where this client's own requests go.
+   * @param server the emulator, when there is one. Only {@link LoginMethod.ForceLogin} needs it.
+   */
+  constructor(
+    private readonly settings: ClientSettings,
+    private readonly server?: ServerEmulator,
+    private readonly loginRequest: LoginRequest = LOGIN_REQUEST,
+  ) {
+    this.local = new LocalState(settings);
+  }
 
   /** The state bridge this client persists to. */
   get bridge(): WasmStateBridge {
@@ -50,28 +70,32 @@ export class ClientEmulator {
   }
 
   /**
-   * Simulates a sync from server to client
+   * Simulates a sync from server to client.
+   *
+   * Everything comes off the response: the account this client belongs to is whichever one its
+   * token authenticates, not something the caller names.
    */
-  async sync(email: string): Promise<void> {
-    const user = this.server.getUser(email);
-
-    this.local.setIdentity({ userId: user.userId, email: user.email });
-    this.local.organizationKeys = user.organizationKeys;
-
-    const response = await fetch(`${API_URL}/sync`, {
-      headers: { Authorization: `Bearer ${user.userId}` },
+  async sync(): Promise<void> {
+    const response = await fetch(`${this.settings.apiUrl}/sync?excludeDomains=true`, {
+      headers: { Authorization: `Bearer ${this.local.token}` },
     });
     if (!response.ok) {
-      throw new Error(`sync for ${email} answered ${response.status}`);
+      throw new Error(`sync answered ${response.status}: ${await response.text()}`);
     }
 
     const synced: SyncResponse = await response.json();
+
+    this.local.setIdentity({ userId: synced.profile.id, email: synced.profile.email });
+    this.local.organizationKeys = Object.fromEntries(
+      synced.profile.organizations.map((organization) => [organization.id, organization.key]),
+    );
+
     const unlock = synced.userDecryption.masterPasswordUnlock;
     const { v2UpgradeToken, userKeyId } = synced.userDecryption;
 
     const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
-    const locked = makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
+    const locked = makePasswordManagerClient(this.local.bridge, this.settings, this.local.token);
     await locked.crypto_sync_handler().on_sync({
       accountCryptographicState: accountKeys.toAccountCryptographicState(),
       userDecryption: {
@@ -99,12 +123,23 @@ export class ClientEmulator {
     // Quirk, the crypto sync handler writes the kdf only when the account has no master-password
     // but clients always write it. The KDF a real client learns at `POST /accounts/prelogin`.
     if (unlock === undefined) {
-      await this.local.bridge.set_kdf_config(user.kdf);
+      if (this.preloginKdf === undefined) {
+        throw new Error(
+          "the synced account has no master-password unlock data and no prelogin KDF",
+        );
+      }
+
+      await this.local.bridge.set_kdf_config(this.preloginKdf);
     }
 
-    // The vault the server would serve this account, not the whole database: an account's local
-    // state must not hold items a sync could never hand it.
-    await this.local.seedVault(this.server.api.vaultFor(user));
+    await this.local.seedVault({
+      ciphers: await Promise.all(
+        synced.ciphers.map(async (cipher) =>
+          CipherResponse.toCipher(cipher, (await this.local.ciphers.get(cipher.id)) ?? undefined),
+        ),
+      ),
+      folders: synced.folders.map(FolderResponse.toFolder),
+    });
   }
 
   /**
@@ -120,9 +155,18 @@ export class ClientEmulator {
       }
 
       await this.authenticate(email, password);
+    } else {
+      if (this.server === undefined) {
+        throw new Error(`${method} needs the server emulator; a real server cannot mint a token`);
+      }
+
+      // Prelogin still runs: it is unauthenticated, so a client with no master password reaches it
+      // too, and it is the only place an account learns its KDF.
+      this.preloginKdf = (await this.loginClient().get_password_prelogin(email)).kdf;
+      this.local.setAccessToken(this.server.identity.issueToken(email));
     }
 
-    await this.sync(email);
+    await this.sync();
   }
 
   /**
@@ -132,15 +176,23 @@ export class ClientEmulator {
    * rather than this client's state.
    */
   private async authenticate(email: string, password: string): Promise<void> {
-    const login = makePasswordManagerClient(makeStateBridge(), SETTINGS).auth().login();
+    const login = this.loginClient();
 
     const preloginResponse = await login.get_password_prelogin(email);
-    await login.login_via_password({
-      loginRequest: LOGIN_REQUEST,
+    const response = await login.login_via_password({
+      loginRequest: this.loginRequest,
       email,
       password,
       preloginResponse,
     });
+
+    this.preloginKdf = preloginResponse.kdf;
+    this.local.setAccessToken(response.Authenticated.accessToken);
+  }
+
+  /** An unauthenticated login client, which carries no account and so runs on a bridge of its own. */
+  private loginClient(): LoginClient {
+    return makePasswordManagerClient(makeStateBridge(), this.settings).auth().login();
   }
 
   /**

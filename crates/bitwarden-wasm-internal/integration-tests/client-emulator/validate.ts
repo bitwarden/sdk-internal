@@ -1,4 +1,4 @@
-import type { SeedAccount } from "../server-emulator/server-emulator";
+import type { SeedVault } from "../server-emulator/server-emulator";
 
 import type { ClientEmulator } from "./client-emulator";
 
@@ -10,10 +10,13 @@ export const IGNORED_FIELDS = ["revisionDate", "creationDate"] as const;
  *
  * `ignore` names the fields to drop before comparing, and defaults to {@link IGNORED_FIELDS}.
  * A test that has written nothing can pass `[]` to hold the account to every field it started with.
+ *
+ * Only the recorded vault is read, so `seed` is a whole {@link SeedAccount} for a seeded account
+ * and just the vault for a live one, whose plaintext is captured rather than committed.
  */
 export async function validateVault(
   client: ClientEmulator,
-  seed: SeedAccount,
+  seed: { vault?: SeedVault },
   ignore: readonly string[] = IGNORED_FIELDS,
 ): Promise<void> {
   const sdk = client.getPasswordManagerClient();
@@ -67,7 +70,7 @@ export function expectPlaintextEqual(
  * serde_json converts a Rust `None` to `null` while serde_wasm_bindgen converts it to `undefined`,
  * so a raw comparison fails on every optional field while proving nothing.
  */
-function normalize(value: unknown, ignore: readonly string[]): unknown {
+export function normalize(value: unknown, ignore: readonly string[]): unknown {
   if (value === null || value === undefined) {
     return undefined;
   }
