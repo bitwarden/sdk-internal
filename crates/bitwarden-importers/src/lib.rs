@@ -25,6 +25,16 @@ mod pipeline;
 // TODO: Remove once the importer consumes the module directly.
 #[cfg(feature = "test-utils")]
 pub use importers::onepassword::access as onepassword_access;
+/// The 1Password conversion step: downloaded vaults to the [`ParsedImport`] the pipeline
+/// submits.
+///
+/// Exposed only under the `test-utils` feature, so the CLI can print what a real account
+/// converts to. Not part of this crate's supported API, and no stability is promised.
+// TODO: Remove once the importer consumes the module directly.
+#[cfg(feature = "test-utils")]
+pub use importers::onepassword::convert as onepassword_convert;
+#[cfg(feature = "test-utils")]
+pub use pipeline::ParsedImport;
 
 /// Destination options for a vault import.
 ///
