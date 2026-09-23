@@ -14,11 +14,20 @@ repository.workspace = true
 license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
+[features]
+# Holds what the macro expansions name. An adopting crate forwards its own `wasm` feature here.
+wasm = ["dep:tsify", "dep:wasm-bindgen"]
+
 [dependencies]
 bitwarden-ffi-macro = { workspace = true }
+tsify = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
 trybuild = "1.0.101"
+tsify = { workspace = true }
 wasm-bindgen = { workspace = true }
 
 [lints]
