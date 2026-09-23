@@ -33,7 +33,7 @@ use super::{
     cipher_permissions::CipherPermissions,
     drivers_license, field, identity,
     local_data::{LocalData, LocalDataView},
-    login::LoginListView,
+    login::{LoginListView, LoginUri, LoginUriView},
     passport, secure_note, ssh_key,
 };
 use crate::{
@@ -331,6 +331,13 @@ pub struct Cipher {
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
     pub data: Option<String>,
+
+    /// Raw JSON envelope for a server-restricted (PAM-gated) cipher: only contains a sub-set of
+    /// non sensitive fields, all other fields are withheld by the server. Its presence marks the
+    /// cipher restricted; the decrypt path parses only these allowlisted fields and produces a
+    /// view with `partial = true`, never reading the secret payloads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub partial_data: Option<String>,
 }
 
 /// Represents the result of re-wrapping a cipher key, which can be needed when changing the
@@ -478,6 +485,15 @@ pub struct CipherView {
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
+
+    /// True when this view was produced from a server-restricted (PAM-gated) cipher. Only a
+    /// sub-set of fields are populated; every secret field is absent. See
+    /// [`Cipher::partial_data`].
+    /// Such a view is fail-closed against re-encryption: passing it to any encrypt path returns
+    /// [`bitwarden_crypto::CryptoError::EncryptRestrictedView`] rather than silently stripping
+    /// secrets.
+    #[serde(default)]
+    pub partial: bool,
 }
 
 #[allow(missing_docs)]
@@ -571,6 +587,11 @@ pub struct CipherListView {
 
     pub local_data: Option<LocalDataView>,
 
+    /// True when this view was produced from a server-restricted (PAM-gated) cipher. Only a
+    /// sub-set of fields are populated. See [`Cipher::partial_data`].
+    #[serde(default)]
+    pub partial: bool,
+
     /// Decrypted cipher notes for search indexing.
     #[cfg(feature = "wasm")]
     pub notes: Option<String>,
@@ -658,12 +679,20 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<Cipher, CryptoError> {
+        // Fail closed: a restricted (partial) view has all secret fields stripped; re-encrypting it
+        // would overwrite the item's secrets with empty values. See
+        // `decrypt_restricted_cipher_view`.
+        if self.partial {
+            return Err(CryptoError::EncryptRestrictedView);
+        }
+
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         let mut cipher_view = self.clone();
         cipher_view.generate_checksums();
 
         Ok(Cipher {
+            partial_data: None,
             id: cipher_view.id,
             organization_id: cipher_view.organization_id,
             folder_id: cipher_view.folder_id,
@@ -732,6 +761,7 @@ pub(crate) fn lenient_decrypt_cipher_view(
         );
 
     let mut view = CipherView {
+        partial: false,
         id: cipher.id,
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
@@ -1177,6 +1207,7 @@ impl CipherView {
         };
 
         Ok(CipherListView {
+            partial: false,
             id: self.id,
             organization_id: self.organization_id,
             folder_id: self.folder_id,
@@ -1441,6 +1472,7 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
     let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
 
     Ok(CipherListView {
+        partial: false,
         id: cipher.id,
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
@@ -1539,6 +1571,210 @@ impl IdentifyKey<SymmetricKeySlotId> for Cipher {
     }
 }
 
+/// The server's reduced payload for a restricted (PAM-gated) cipher, produced by
+/// `PartialCipherData.Strip` on the server.
+///
+/// This struct is the single authoritative allowlist for what a gated view may expose: the
+/// encrypted name and, for logins, the encrypted URIs — nothing else. It is deliberately NOT
+/// `deny_unknown_fields`: the server may decide to include additional non sensitive fields in the
+/// future; these are silently dropped by the allowlist rather than surfaced onto the view or
+/// failing the parse.
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct RestrictedCipherData {
+    name: Option<EncString>,
+    uris: Option<Vec<LoginUri>>,
+}
+
+/// Decrypt the restricted `name`. An absent field is legitimate and stays empty in both modes; a
+/// field that is present but fails to decrypt is a real decryption failure (wrong key / corruption
+/// / tampering) — it propagates in strict mode and degrades to empty in lenient mode.
+fn decrypt_restricted_name(
+    restricted: &RestrictedCipherData,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    ciphers_key: SymmetricKeySlotId,
+    strict: bool,
+) -> Result<String, CryptoError> {
+    let Some(name) = restricted.name.as_ref() else {
+        return Ok(String::new());
+    };
+    if strict {
+        name.decrypt(ctx, ciphers_key)
+    } else {
+        Ok(name.decrypt(ctx, ciphers_key).ok().unwrap_or_default())
+    }
+}
+
+/// Decrypt the restricted login `uris`. Absent → `None` in both modes; present-but-undecryptable →
+/// error in strict mode, `None` in lenient mode. See [`decrypt_restricted_name`].
+fn decrypt_restricted_uris(
+    restricted: &RestrictedCipherData,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    ciphers_key: SymmetricKeySlotId,
+    strict: bool,
+) -> Result<Option<Vec<LoginUriView>>, CryptoError> {
+    if strict {
+        restricted.uris.decrypt(ctx, ciphers_key)
+    } else {
+        Ok(restricted.uris.decrypt(ctx, ciphers_key).ok().flatten())
+    }
+}
+
+/// Decrypt a restricted (PAM-gated) cipher into a [`CipherView`].
+///
+/// Parses `partial_data` and decrypts ONLY the allowlisted fields — the name and, for logins,
+/// the URIs. It never reads the cipher's secret payloads (`login.password`, `card`, …), which
+/// the server withholds anyway. Fail-closed: a malformed envelope always degrades to empty
+/// rather than un-gating the row (the view is always `partial = true`). A field that is present
+/// but fails to decrypt degrades to empty in lenient mode, but propagates as an error under
+/// strict decryption (`strict = true`).
+fn decrypt_restricted_cipher_view(
+    cipher: &Cipher,
+    raw: &str,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricKeySlotId,
+    strict: bool,
+) -> Result<CipherView, CryptoError> {
+    let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
+    let restricted: RestrictedCipherData = serde_json::from_str(raw).unwrap_or_default();
+
+    let name = decrypt_restricted_name(&restricted, ctx, ciphers_key, strict)?;
+
+    // Only logins carry URIs; expose them so the partial view can render a domain
+    // (favicon / launch). Every other login field stays absent.
+    let login = if matches!(cipher.r#type, CipherType::Login) {
+        Some(LoginView {
+            username: None,
+            password: None,
+            password_revision_date: None,
+            uris: decrypt_restricted_uris(&restricted, ctx, ciphers_key, strict)?,
+            totp: None,
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        })
+    } else {
+        None
+    };
+
+    let mut view = CipherView {
+        id: cipher.id,
+        organization_id: cipher.organization_id,
+        folder_id: cipher.folder_id,
+        collection_ids: cipher.collection_ids.clone(),
+        // A restricted view is never re-encrypted (the encrypt paths fail closed on `partial`),
+        // so it carries no cipher key.
+        key: None,
+        name,
+        notes: None,
+        r#type: cipher.r#type,
+        login,
+        identity: None,
+        card: None,
+        secure_note: None,
+        ssh_key: None,
+        bank_account: None,
+        drivers_license: None,
+        passport: None,
+        favorite: cipher.favorite,
+        reprompt: cipher.reprompt,
+        organization_use_totp: cipher.organization_use_totp,
+        edit: cipher.edit,
+        permissions: cipher.permissions,
+        view_password: cipher.view_password,
+        local_data: cipher.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
+        attachments: None,
+        attachment_decryption_failures: None,
+        fields: None,
+        password_history: None,
+        creation_date: cipher.creation_date,
+        deleted_date: cipher.deleted_date,
+        revision_date: cipher.revision_date,
+        archived_date: cipher.archived_date,
+        partial: true,
+    };
+
+    // Drop URIs whose checksum doesn't validate — guards against a tampering server, mirroring
+    // the full decrypt paths (same gate as `lenient_decrypt_cipher_view`).
+    if cipher.key.is_some()
+        || ctx.get_security_state_version() >= MINIMUM_ENFORCE_ICON_URI_HASH_VERSION
+    {
+        view.remove_invalid_checksums();
+    }
+
+    Ok(view)
+}
+
+/// Decrypt a restricted (PAM-gated) cipher into a [`CipherListView`]. See
+/// [`decrypt_restricted_cipher_view`] for the allowlist and fail-closed contract. The type
+/// discriminant is preserved (so the row keeps its icon) but every type payload is empty apart
+/// from a login's URIs.
+fn decrypt_restricted_cipher_list_view(
+    cipher: &Cipher,
+    raw: &str,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricKeySlotId,
+    strict: bool,
+) -> Result<CipherListView, CryptoError> {
+    let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
+    let restricted: RestrictedCipherData = serde_json::from_str(raw).unwrap_or_default();
+
+    let name = decrypt_restricted_name(&restricted, ctx, ciphers_key, strict)?;
+
+    let r#type = match cipher.r#type {
+        CipherType::Login => CipherListViewType::Login(LoginListView {
+            fido2_credentials: None,
+            has_fido2: false,
+            username: None,
+            totp: None,
+            uris: decrypt_restricted_uris(&restricted, ctx, ciphers_key, strict)?,
+        }),
+        CipherType::SecureNote => CipherListViewType::SecureNote,
+        CipherType::Card => CipherListViewType::Card(CardListView { brand: None }),
+        CipherType::Identity => CipherListViewType::Identity,
+        CipherType::SshKey => CipherListViewType::SshKey,
+        CipherType::BankAccount => CipherListViewType::BankAccount(BankAccountListView {
+            account_number: None,
+            account_type: None,
+        }),
+        CipherType::Passport => CipherListViewType::Passport,
+        CipherType::DriversLicense => CipherListViewType::DriversLicense,
+    };
+
+    Ok(CipherListView {
+        id: cipher.id,
+        organization_id: cipher.organization_id,
+        folder_id: cipher.folder_id,
+        collection_ids: cipher.collection_ids.clone(),
+        // A restricted view is never re-encrypted (the encrypt paths fail closed on `partial`),
+        // so it carries no cipher key.
+        key: None,
+        name,
+        subtitle: String::new(),
+        r#type,
+        favorite: cipher.favorite,
+        reprompt: cipher.reprompt,
+        organization_use_totp: cipher.organization_use_totp,
+        edit: cipher.edit,
+        permissions: cipher.permissions,
+        view_password: cipher.view_password,
+        attachments: 0,
+        has_old_attachments: false,
+        creation_date: cipher.creation_date,
+        deleted_date: cipher.deleted_date,
+        revision_date: cipher.revision_date,
+        archived_date: cipher.archived_date,
+        copyable_fields: vec![],
+        local_data: cipher.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
+        partial: true,
+        #[cfg(feature = "wasm")]
+        notes: None,
+        #[cfg(feature = "wasm")]
+        fields: None,
+        #[cfg(feature = "wasm")]
+        attachment_names: None,
+    })
+}
+
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
     #[bitwarden_logging::instrument(err, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
     fn decrypt(
@@ -1546,6 +1782,15 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
+        if let Some(raw) = &self.partial_data {
+            // Partial (PAM-gated) data is only ever produced for organization ciphers. Refuse the
+            // restricted path for a personal cipher so a user item can never be exposed through the
+            // weaker partial format. Fail closed.
+            if self.organization_id.is_none() {
+                return Err(CryptoError::RestrictedCipherRequiresOrganization);
+            }
+            return decrypt_restricted_cipher_view(self, raw, ctx, key, false);
+        }
         match try_parse_blob(self) {
             Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key).map_err(CryptoError::from),
             None => lenient_decrypt_cipher_view(self, ctx, key),
@@ -1559,6 +1804,15 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
+        if let Some(raw) = &self.partial_data {
+            // Partial (PAM-gated) data is only ever produced for organization ciphers. Refuse the
+            // restricted path for a personal cipher so a user item can never be exposed through the
+            // weaker partial format. Fail closed.
+            if self.organization_id.is_none() {
+                return Err(CryptoError::RestrictedCipherRequiresOrganization);
+            }
+            return decrypt_restricted_cipher_list_view(self, raw, ctx, key, false);
+        }
         match try_parse_blob(self) {
             Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key)?.to_list_view(ctx, key),
             None => lenient_decrypt_cipher_list_view(self, ctx, key),
@@ -1607,6 +1861,13 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
+        if let Some(raw) = &self.0.partial_data {
+            // See the org-gate note in the non-strict `Decryptable for Cipher` impl.
+            if self.0.organization_id.is_none() {
+                return Err(CryptoError::RestrictedCipherRequiresOrganization);
+            }
+            return decrypt_restricted_cipher_view(&self.0, raw, ctx, key, true);
+        }
         match try_parse_blob(&self.0) {
             Some(sealed) => {
                 decrypt_blob_cipher(&self.0, &sealed, ctx, key).map_err(CryptoError::from)
@@ -1634,6 +1895,7 @@ fn strict_decrypt_cipher_view(
         );
 
     let mut view = CipherView {
+        partial: false,
         id: cipher.id,
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
@@ -1711,6 +1973,13 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
+        if let Some(raw) = &self.0.partial_data {
+            // See the org-gate note in the non-strict `Decryptable for Cipher` impl.
+            if self.0.organization_id.is_none() {
+                return Err(CryptoError::RestrictedCipherRequiresOrganization);
+            }
+            return decrypt_restricted_cipher_list_view(&self.0, raw, ctx, key, true);
+        }
         match try_parse_blob(&self.0) {
             Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx, key)?.to_list_view(ctx, key),
             None => strict_decrypt_cipher_list_view(&self.0, ctx, key),
@@ -1728,6 +1997,7 @@ fn strict_decrypt_cipher_list_view(
     let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
 
     Ok(CipherListView {
+        partial: false,
         id: cipher.id,
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
@@ -1879,6 +2149,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
 
     fn try_from(cipher: CipherDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
+            partial_data: cipher.partial_data,
             id: cipher.id.map(CipherId::new),
             organization_id: cipher.organization_id.map(OrganizationId::new),
             folder_id: cipher.folder_id.map(FolderId::new),
@@ -2012,6 +2283,7 @@ impl From<CipherRepromptType> for bitwarden_api_api::models::CipherRepromptType 
 impl PartialCipher for CipherResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         Ok(Cipher {
+            partial_data: self.partial_data,
             collection_ids: cipher
                 .as_ref()
                 .map(|c| c.collection_ids.clone())
@@ -2067,6 +2339,7 @@ impl PartialCipher for CipherMiniResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         let cipher = cipher.as_ref();
         Ok(Cipher {
+            partial_data: self.partial_data,
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             key: EncString::try_from_optional(self.key)?,
@@ -2127,6 +2400,7 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         let cipher = cipher.as_ref();
         Ok(Cipher {
+            partial_data: self.partial_data,
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             key: EncString::try_from_optional(self.key)?,
@@ -2195,7 +2469,7 @@ mod tests {
     use bitwarden_core::key_management::{
         create_test_crypto_with_user_and_org_key, create_test_crypto_with_user_key,
     };
-    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::{Fido2Credential, PasswordHistoryView, login::Fido2CredentialListView};
@@ -2209,9 +2483,36 @@ mod tests {
     const TEST_CIPHER_NAME: &str = "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=";
     const TEST_UUID: &str = "fd411a1a-fec8-4070-985d-0e6560860e69";
 
+    /// Fixed org id + key for the restricted-cipher test vectors (partials are always org-owned).
+    const RESTRICTED_ORG_UUID: &str = "3cf0d3ba-3ded-4bf3-a51c-b03fd9ac6e07";
+    const RESTRICTED_ORG_KEY_B64: &str =
+        "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==";
+
+    /// `partial_data` vectors: EncStrings encrypted once under [`RESTRICTED_ORG_KEY_B64`] and
+    /// pinned, so decrypt runs against fixed ciphertext and the format can't silently break.
+    const RESTRICTED_LOGIN_ENVELOPE: &str = r#"{"name":"2.qip4DSwdOzU2KwY3jgDjUg==|CsGRQgTwAzmszz+dkk5xIg==|rmW/mlnHq2MulR9uNKclD+1UBFLfOimedkq5tPRSLOc=","uris":[{"uri":"2.2na8mpfA1B1OBTUHkDz+fw==|yTWB1nEf3EHIZgsDINM8JnTYyxf7KVZvXraIGAVOiEg=|i2swsODSjEMRaYNnBHAigdphZBBUg2lkPNo763fX12w=","uriChecksum":null,"match":null}]}"#;
+    /// [`RESTRICTED_LOGIN_ENVELOPE`] plus an extra `password` field the allowlist must drop.
+    const RESTRICTED_LOGIN_ENVELOPE_WITH_PASSWORD: &str = r#"{"name":"2.qip4DSwdOzU2KwY3jgDjUg==|CsGRQgTwAzmszz+dkk5xIg==|rmW/mlnHq2MulR9uNKclD+1UBFLfOimedkq5tPRSLOc=","uris":[{"uri":"2.2na8mpfA1B1OBTUHkDz+fw==|yTWB1nEf3EHIZgsDINM8JnTYyxf7KVZvXraIGAVOiEg=|i2swsODSjEMRaYNnBHAigdphZBBUg2lkPNo763fX12w=","uriChecksum":null,"match":null}],"password":"2.cKf+VYTb7KF2ITGLDmGzig==|zC66OfcYpUB8V6jLB6GQvQ==|hnDFyYCAf6RPD4lPmXZCzEWzXwniRyFnCVrO0KZMPlc="}"#;
+    const RESTRICTED_SECURE_NOTE_ENVELOPE: &str = r#"{"name":"2.EwVjyRAgPmUvRpyT68lbjQ==|73O9id1+DZevAB3K+2fXnA==|OoJhN3p9UgjQ4yk55OUBZ4nYQMlFcf9wTHPxrOPhQVI="}"#;
+    const RESTRICTED_CARD_ENVELOPE: &str = r#"{"name":"2.HF21EOZVqF3eyeZtEgxaCg==|zuChVgXPqxipFE6zOBUBXQ==|gxyvw0+gMf5Grxk8EAhpLCBeXdA0kvea2maJmpLIUIw="}"#;
+
+    /// Key store for the restricted-cipher vectors: [`RESTRICTED_ORG_KEY_B64`] under
+    /// [`RESTRICTED_ORG_UUID`] (the user key is unused — restricted decrypt is org-keyed).
+    fn restricted_test_key_store() -> (OrganizationId, KeyStore<KeySlotIds>) {
+        let org: OrganizationId = RESTRICTED_ORG_UUID.parse().unwrap();
+        let org_key: SymmetricCryptoKey = RESTRICTED_ORG_KEY_B64.to_string().try_into().unwrap();
+        let key_store = create_test_crypto_with_user_and_org_key(
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            org,
+            org_key,
+        );
+        (org, key_store)
+    }
+
     fn generate_cipher() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
+            partial: false,
             r#type: CipherType::Login,
             login: Some(LoginView {
                 username: Some("test_username".to_string()),
@@ -2275,12 +2576,231 @@ mod tests {
         }
     }
 
+    /// Builds a server-restricted (PAM-gated) cipher: no top-level secret fields, only the
+    /// `partial_data` envelope. Org-owned, since partials always are.
+    fn restricted_cipher(
+        organization_id: OrganizationId,
+        r#type: CipherType,
+        partial_data: String,
+    ) -> Cipher {
+        Cipher {
+            partial_data: Some(partial_data),
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: Some(organization_id),
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: None,
+            notes: None,
+            r#type,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: None,
+        }
+    }
+
+    #[test]
+    fn test_decrypt_restricted_cipher_list_view_login() {
+        let (org, key_store) = restricted_test_key_store();
+        let cipher = restricted_cipher(
+            org,
+            CipherType::Login,
+            RESTRICTED_LOGIN_ENVELOPE.to_string(),
+        );
+        let view: CipherListView = key_store.decrypt(&cipher).unwrap();
+
+        assert!(view.partial);
+        assert_eq!(view.name, "Restricted Name".to_string());
+        assert!(view.subtitle.is_empty());
+        assert!(view.copyable_fields.is_empty());
+        assert_eq!(view.attachments, 0);
+        match view.r#type {
+            CipherListViewType::Login(login) => {
+                assert_eq!(
+                    login.uris.unwrap()[0].uri.as_deref(),
+                    Some("https://example.com")
+                );
+                assert_eq!(login.username, None);
+                assert_eq!(login.totp, None);
+                assert!(!login.has_fido2);
+            }
+            other => panic!("expected Login list view, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_decrypt_restricted_cipher_view_login_omits_secrets() {
+        let (org, key_store) = restricted_test_key_store();
+        // A rogue/over-sharing server also stuffs an encrypted password into the envelope; the
+        // allowlist (`RestrictedCipherData`) must ignore anything outside name + uris.
+        let cipher = restricted_cipher(
+            org,
+            CipherType::Login,
+            RESTRICTED_LOGIN_ENVELOPE_WITH_PASSWORD.to_string(),
+        );
+        let view: CipherView = key_store.decrypt(&cipher).unwrap();
+
+        assert!(view.partial);
+        assert_eq!(view.name, "Restricted Name".to_string());
+        let login = view
+            .login
+            .expect("login populated so the view can render a domain");
+        assert_eq!(
+            login.uris.unwrap()[0].uri.as_deref(),
+            Some("https://example.com")
+        );
+        assert_eq!(login.username, None);
+        assert_eq!(login.password, None);
+        assert_eq!(login.totp, None);
+        assert_eq!(view.notes, None);
+        assert!(view.card.is_none());
+    }
+
+    #[test]
+    fn test_decrypt_restricted_non_login_name_only() {
+        let (org, key_store) = restricted_test_key_store();
+        let cipher = restricted_cipher(
+            org,
+            CipherType::SecureNote,
+            RESTRICTED_SECURE_NOTE_ENVELOPE.to_string(),
+        );
+
+        let list: CipherListView = key_store.decrypt(&cipher).unwrap();
+        assert!(list.partial);
+        assert_eq!(list.name, "Gated Note".to_string());
+        assert_eq!(list.r#type, CipherListViewType::SecureNote);
+
+        let view: CipherView = key_store.decrypt(&cipher).unwrap();
+        assert!(view.partial);
+        assert_eq!(view.name, "Gated Note".to_string());
+        assert!(view.login.is_none());
+        assert!(view.secure_note.is_none());
+    }
+
+    #[test]
+    fn test_decrypt_restricted_malformed_envelope_fails_closed() {
+        let (org, key_store) = restricted_test_key_store();
+        // A malformed envelope must not un-gate the row: it stays partial, just nameless.
+        let cipher = restricted_cipher(org, CipherType::Login, "not valid json".to_string());
+
+        let list: CipherListView = key_store.decrypt(&cipher).unwrap();
+        assert!(list.partial);
+        assert!(list.name.is_empty());
+
+        let view: CipherView = key_store.decrypt(&cipher).unwrap();
+        assert!(view.partial);
+        assert!(view.name.is_empty());
+
+        // A malformed envelope is a wire-shape problem, not a crypto failure: lenient even in
+        // strict mode.
+        let strict_view: CipherView = key_store.decrypt(&StrictDecrypt(cipher.clone())).unwrap();
+        assert!(strict_view.partial);
+        assert!(strict_view.name.is_empty());
+    }
+
+    #[test]
+    fn test_decrypt_restricted_works_in_strict_mode() {
+        let (org, key_store) = restricted_test_key_store();
+        // A Card with no card payload would hit `MissingField("card")` under strict decrypt —
+        // the restricted branch must short-circuit before that.
+        let cipher = restricted_cipher(org, CipherType::Card, RESTRICTED_CARD_ENVELOPE.to_string());
+
+        let list: CipherListView = key_store.decrypt(&StrictDecrypt(cipher.clone())).unwrap();
+        assert!(list.partial);
+        assert_eq!(list.name, "Restricted Card".to_string());
+        assert_eq!(
+            list.r#type,
+            CipherListViewType::Card(CardListView { brand: None })
+        );
+
+        let view: CipherView = key_store.decrypt(&StrictDecrypt(cipher)).unwrap();
+        assert!(view.partial);
+        assert!(view.card.is_none());
+    }
+
+    #[test]
+    fn test_decrypt_restricted_strict_propagates_field_decrypt_error() {
+        let (org, key_store) = restricted_test_key_store();
+        // Encrypt a name under an UNRELATED key so it is present in the envelope but cannot be
+        // decrypted with the organization key.
+        let wrong_key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+        let bad_name = "boom"
+            .to_string()
+            .encrypt(&mut wrong_key_store.context(), SymmetricKeySlotId::User)
+            .unwrap();
+        let envelope = serde_json::json!({ "name": bad_name }).to_string();
+        let cipher = restricted_cipher(org, CipherType::Login, envelope);
+
+        // Lenient degrades to an empty name, still gated.
+        let view: CipherView = key_store.decrypt(&cipher).unwrap();
+        assert!(view.partial);
+        assert!(view.name.is_empty());
+
+        // Strict surfaces the present-but-undecryptable field as an error (both view and list).
+        let view_result: Result<CipherView, CryptoError> =
+            key_store.decrypt(&StrictDecrypt(cipher.clone()));
+        assert!(view_result.is_err());
+        let list_result: Result<CipherListView, CryptoError> =
+            key_store.decrypt(&StrictDecrypt(cipher));
+        assert!(list_result.is_err());
+    }
+
+    #[test]
+    fn test_decrypt_restricted_non_org_cipher_fails_closed() {
+        // A personal cipher carrying `partial_data` must fail closed, never take the restricted
+        // path.
+        let (org, key_store) = restricted_test_key_store();
+        let cipher = Cipher {
+            organization_id: None,
+            ..restricted_cipher(
+                org,
+                CipherType::SecureNote,
+                RESTRICTED_SECURE_NOTE_ENVELOPE.to_string(),
+            )
+        };
+
+        let view_result: Result<CipherView, CryptoError> = key_store.decrypt(&cipher);
+        assert!(matches!(
+            view_result.unwrap_err(),
+            CryptoError::RestrictedCipherRequiresOrganization
+        ));
+
+        let list_result: Result<CipherListView, CryptoError> = key_store.decrypt(&cipher);
+        assert!(matches!(
+            list_result.unwrap_err(),
+            CryptoError::RestrictedCipherRequiresOrganization
+        ));
+    }
+
     #[test]
     fn test_decrypt_cipher_list_view() {
         let key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
         let key_store = create_test_crypto_with_user_key(key);
 
         let cipher = Cipher {
+            partial_data: None,
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -2330,6 +2850,7 @@ mod tests {
         assert_eq!(
             view,
             CipherListView {
+                partial: false,
                 id: cipher.id,
                 organization_id: cipher.organization_id,
                 folder_id: cipher.folder_id,
@@ -2592,6 +3113,48 @@ mod tests {
             strict_result.is_err(),
             "Strict decryption should fail when login username is encrypted with a different key"
         );
+    }
+
+    #[test]
+    fn test_encrypt_legacy_fails_closed_for_partial_view() {
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+
+        let mut view = generate_cipher();
+        view.partial = true;
+
+        let result = key_store.encrypt(EncryptMode::Legacy(view));
+        assert!(matches!(result, Err(CryptoError::EncryptRestrictedView)));
+    }
+
+    #[test]
+    fn test_encrypt_blob_fails_closed_for_partial_view() {
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+
+        let mut view = generate_cipher();
+        view.partial = true;
+
+        let result = key_store.encrypt(EncryptMode::Blob(view));
+        assert!(matches!(result, Err(CryptoError::EncryptRestrictedView)));
+    }
+
+    #[test]
+    fn test_encrypt_succeeds_for_non_partial_view() {
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+
+        // Control: the same shape of view, but with `partial: false`, must still encrypt
+        // successfully — proving the guard is specific to `partial` rather than some other
+        // difference between test fixtures.
+        let view = generate_cipher();
+        assert!(!view.partial);
+
+        let result = key_store.encrypt(EncryptMode::Legacy(view));
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -3139,6 +3702,7 @@ mod tests {
     #[test]
     fn test_populate_cipher_types_login_with_valid_data() {
         let mut cipher = Cipher {
+            partial_data: None,
             id: Some(TEST_UUID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -3188,6 +3752,7 @@ mod tests {
     #[test]
     fn test_populate_cipher_types_secure_note() {
         let mut cipher = Cipher {
+            partial_data: None,
             id: Some(TEST_UUID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -3231,6 +3796,7 @@ mod tests {
     #[test]
     fn test_populate_cipher_types_card() {
         let mut cipher = Cipher {
+            partial_data: None,
             id: Some(TEST_UUID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -3298,6 +3864,7 @@ mod tests {
     #[test]
     fn test_populate_cipher_types_identity() {
         let mut cipher = Cipher {
+            partial_data: None,
             id: Some(TEST_UUID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -3458,6 +4025,7 @@ mod tests {
     #[test]
     fn test_populate_cipher_types_ssh_key() {
         let mut cipher = Cipher {
+            partial_data: None,
             id: Some(TEST_UUID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -3508,6 +4076,7 @@ mod tests {
     #[test]
     fn test_populate_cipher_types_with_null_data() {
         let mut cipher = Cipher {
+            partial_data: None,
             id: Some(TEST_UUID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -3551,6 +4120,7 @@ mod tests {
     #[test]
     fn test_populate_cipher_types_with_invalid_json() {
         let mut cipher = Cipher {
+            partial_data: None,
             id: Some(TEST_UUID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -3612,6 +4182,7 @@ mod tests {
             .unwrap();
 
         let cipher = Cipher {
+            partial_data: None,
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -3864,6 +4435,68 @@ mod tests {
             cipher.view_password,
             "view_password should default to true for CipherMiniDetailsResponseModel"
         );
+    }
+
+    /// PAM gating is authoritative from the server response: `merge_with_cipher` takes
+    /// `partial_data` from the response, so it gates when the response carries the restricted
+    /// envelope and un-gates when it does not — regardless of the local cipher's prior state.
+    #[test]
+    fn test_merge_takes_partial_data_from_response() {
+        use chrono::Utc;
+
+        let org: OrganizationId = RESTRICTED_ORG_UUID.parse().unwrap();
+        // A local cipher that is currently PAM-gated; the response's gating must win over it.
+        let local_restricted = || {
+            Some(restricted_cipher(
+                org,
+                CipherType::Login,
+                RESTRICTED_LOGIN_ENVELOPE.to_string(),
+            ))
+        };
+        let now = Utc::now().to_rfc3339();
+
+        macro_rules! assert_gating_from_response {
+            ($model:ident) => {{
+                let base = $model {
+                    id: Some(TEST_UUID.parse().unwrap()),
+                    organization_id: Some(org.to_string().parse().unwrap()),
+                    r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                    creation_date: Some(now.clone()),
+                    revision_date: Some(now.clone()),
+                    ..Default::default()
+                };
+
+                // A full response (no `partial_data`) un-gates a locally-restricted cipher.
+                assert_eq!(
+                    base.clone()
+                        .merge_with_cipher(local_restricted())
+                        .unwrap()
+                        .partial_data,
+                    None,
+                    concat!(stringify!($model), ": full response must un-gate"),
+                );
+
+                // A restricted response gates the row even when the local cipher was full.
+                let restricted = $model {
+                    partial_data: Some(RESTRICTED_LOGIN_ENVELOPE.to_string()),
+                    ..base
+                };
+                assert_eq!(
+                    restricted
+                        .merge_with_cipher(None)
+                        .unwrap()
+                        .partial_data
+                        .as_deref(),
+                    Some(RESTRICTED_LOGIN_ENVELOPE),
+                    concat!(stringify!($model), ": restricted response must gate"),
+                );
+            }};
+        }
+
+        assert_gating_from_response!(CipherResponseModel);
+        assert_gating_from_response!(CipherDetailsResponseModel);
+        assert_gating_from_response!(CipherMiniResponseModel);
+        assert_gating_from_response!(CipherMiniDetailsResponseModel);
     }
 
     // ---------- Cipher Decryptable dispatch + CipherView::to_list_view ----------

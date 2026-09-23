@@ -1,9 +1,9 @@
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Activate Autofill policy.
 pub struct ActivateAutofillPolicy;
 
-impl Policy for ActivateAutofillPolicy {
+impl PolicyDefinition for ActivateAutofillPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {

@@ -397,6 +397,7 @@ mod tests {
 
     fn test_cipher() -> Cipher {
         Cipher {
+            partial_data: None,
             id: Some("358f2b2b-9326-4e5e-94a8-b18100bb0908".parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -443,6 +444,7 @@ mod tests {
     fn test_cipher_view() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
+            partial: false,
             r#type: CipherType::Login,
             login: Some(crate::LoginView {
                 username: Some("test_username".to_string()),
@@ -515,6 +517,7 @@ mod tests {
             .vault()
             .ciphers()
             .decrypt_list(vec![Cipher {
+                partial_data: None,
                 id: Some("a1569f46-0797-4d3f-b859-b181009e2e49".parse().unwrap()),
                 organization_id: Some("1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap()),
                 folder_id: None,

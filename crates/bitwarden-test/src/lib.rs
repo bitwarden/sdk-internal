@@ -6,4 +6,7 @@ pub use api::*;
 mod repository;
 pub use repository::*;
 
+mod setting;
+pub use setting::*;
+
 pub mod play;
