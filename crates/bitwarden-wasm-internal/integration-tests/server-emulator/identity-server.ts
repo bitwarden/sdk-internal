@@ -60,7 +60,25 @@ export class IdentityServer {
       return oauth2Error(HTTP_BAD_REQUEST, "invalid_grant", "invalid_username_or_password");
     }
 
-    return { json: TokenResponse.forUser(user) };
+    return { json: TokenResponse.forUser(user, this.issueToken(user.email)) };
+  }
+
+  /**
+   * An access token for an account, without going through the password grant.
+   *
+   * For a test that drives an account real login cannot reach. A client against a real server has
+   * no equivalent, so this is emulator-only.
+   */
+  issueToken(email: string): string {
+    const user = this.userFor(email);
+    if (user === undefined) {
+      throw new Error(`no seeded account with email ${email}`);
+    }
+
+    const token = this.db.sessions.newId();
+    this.db.sessions.set(token, user.userId);
+
+    return token;
   }
 
   /** The seeded account with this email, addressed as the rest of the harness does. */

@@ -546,6 +546,50 @@ export class CipherResponse {
       archivedDate: cipher.archivedDate ?? null,
     };
   }
+
+  /**
+   * A served cipher as a client holds it: the inverse of {@link CipherResponse.fromCipher}.
+   *
+   * `localData` is the one field of `Cipher` with no wire representation — it is a client's own
+   * record of when it last used the item, so a sync neither carries it nor clears it.
+   */
+  static toCipher(response: CipherResponse, previous?: Cipher): Cipher {
+    return {
+      id: asCipherId(response.id),
+      organizationId:
+        response.organizationId === null ? undefined : asOrganizationId(response.organizationId),
+      folderId: response.folderId === null ? undefined : asFolderId(response.folderId),
+      collectionIds: response.collectionIds.map(asCollectionId),
+      type: response.type,
+      name: optionalEnc(response.name),
+      notes: optionalEnc(response.notes),
+      login: response.login,
+      card: response.card,
+      identity: response.identity,
+      secureNote: response.secureNote,
+      sshKey: response.sshKey,
+      bankAccount: response.bankAccount,
+      driversLicense: response.driversLicense,
+      passport: response.passport,
+      fields: response.fields,
+      passwordHistory: response.passwordHistory,
+      attachments: response.attachments,
+      permissions: response.permissions,
+      data: response.data,
+      key: optionalEnc(response.key),
+      favorite: response.favorite,
+      reprompt: response.reprompt,
+      organizationUseTotp: response.organizationUseTotp,
+      edit: response.edit,
+      viewPassword: response.viewPassword,
+      creationDate: response.creationDate,
+      revisionDate: response.revisionDate,
+      deletedDate: response.deletedDate ?? undefined,
+      archivedDate: response.archivedDate ?? undefined,
+
+      localData: previous?.localData,
+    };
+  }
 }
 
 /** `FolderRequestModel` — the body of `POST /folders` and `PUT /folders/:id`. */
@@ -569,6 +613,15 @@ export class FolderResponse {
       id: asString(folder.id ?? ""),
       name: folder.name,
       revisionDate: folder.revisionDate,
+    };
+  }
+
+  /** A served folder as a client holds it: the inverse of {@link FolderResponse.fromFolder}. */
+  static toFolder(response: FolderResponse): Folder {
+    return {
+      id: asFolderId(response.id),
+      name: asEncString(response.name),
+      revisionDate: response.revisionDate,
     };
   }
 }
@@ -634,11 +687,11 @@ export class TokenResponse {
   // camelCase alias, so the key has to be PascalCase to be read at all.
   UserDecryptionOptions!: { MasterPasswordUnlock?: MasterPasswordUnlockResponse };
 
-  static forUser(user: UserEntity): TokenResponse {
+  static forUser(user: UserEntity, accessToken: string): TokenResponse {
     const unlock = user.masterPasswordUnlock;
 
     return {
-      access_token: user.userId,
+      access_token: accessToken,
       expires_in: TOKEN_LIFETIME_SECONDS,
       token_type: "Bearer",
       scope: "api offline_access",
@@ -719,6 +772,18 @@ export class KeysResponse {
 }
 
 /** The subset of `ProfileResponseModel` the SDK reads. */
+/**
+ * `ProfileOrganizationResponseModel` — one organization the account is a member of.
+ *
+ * `key` is the organization key sealed to the account's public key, which is the only way a client
+ * ever learns it: a member unseals it at unlock and initializes organization crypto from it.
+ */
+export class ProfileOrganizationResponse {
+  object!: "profileOrganization";
+  id!: string;
+  key!: string;
+}
+
 export class ProfileResponse {
   object!: "profile";
   id!: string;
@@ -726,11 +791,11 @@ export class ProfileResponse {
   key!: string | null;
   privateKey!: string | null;
   securityStamp!: string | null;
-  organizations!: [];
+  organizations!: ProfileOrganizationResponse[];
   /** The account's cryptographic state, which a rotation reads the current keys from. */
   accountKeys!: AccountKeysResponse;
 
-  static fromUser(user: UserEntity): ProfileResponse {
+  static fromUser(user: UserEntity, organizations: ProfileOrganizationResponse[]): ProfileResponse {
     return {
       object: "profile",
       id: user.userId,
@@ -738,7 +803,7 @@ export class ProfileResponse {
       key: user.masterPasswordUnlock?.masterKeyWrappedUserKey ?? null,
       privateKey: AccountKeysResponse.wrappedPrivateKeyOf(user),
       securityStamp: null,
-      organizations: [],
+      organizations,
       accountKeys: AccountKeysResponse.fromUser(user),
     };
   }
@@ -756,10 +821,14 @@ export class SyncResponse {
   sends!: [];
 
   /** `GET /sync` for one account, over the vault the caller can reach. */
-  static forUser(user: UserEntity, vault: { ciphers: Cipher[]; folders: Folder[] }): SyncResponse {
+  static forUser(
+    user: UserEntity,
+    vault: { ciphers: Cipher[]; folders: Folder[] },
+    organizations: ProfileOrganizationResponse[],
+  ): SyncResponse {
     return {
       object: "sync",
-      profile: ProfileResponse.fromUser(user),
+      profile: ProfileResponse.fromUser(user, organizations),
       userDecryption: UserDecryptionResponse.fromUser(user),
       folders: vault.folders.map(FolderResponse.fromFolder),
       collections: [],

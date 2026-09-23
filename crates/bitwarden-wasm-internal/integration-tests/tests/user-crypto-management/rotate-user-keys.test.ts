@@ -1,5 +1,3 @@
-import type { PasswordManagerClient } from "@bitwarden/sdk-internal";
-
 import { LoginMethod, type ClientEmulator } from "../../client-emulator/client-emulator";
 import { IGNORED_FIELDS, validateVault } from "../../client-emulator/validate";
 import type { SeededTestVector } from "../../server-emulator/server-emulator";
@@ -8,6 +6,7 @@ import { loadUserVectors, userVector, unlockMethodName, type UserVector } from "
 import { testVectors } from "../../vectors/test-vectors";
 import { asKeyId } from "../type-assertion-helpers";
 import { TEST_PIN } from "../utils";
+import { rotateByPassword as rotate } from "./rotate-helpers";
 
 const TIMEOUT = 120_000;
 
@@ -46,20 +45,6 @@ describe("rotate user keys", () => {
 
   afterEach(() => harness.restore());
 
-  /** Rotates with the account's password, either upgrading to V2 or carrying V2 forward. */
-  async function rotate(
-    sdk: PasswordManagerClient,
-    password: string,
-    upgradeTokenAction: "CreateIfNeeded" | "Skip",
-  ): Promise<void> {
-    await sdk.user_crypto_management().rotate_user_keys({
-      key_rotation_method: { Password: { password } },
-      trusted_emergency_access_public_keys: [],
-      trusted_organization_public_keys: [],
-      upgrade_token_action: upgradeTokenAction,
-    });
-  }
-
   /**
    * Asserts the whole recorded vault still decrypts, item for item.
    *
@@ -93,7 +78,7 @@ describe("rotate user keys", () => {
 
       // 2. Verify the rotating client still reads the vault, over the key it rotated to: sync
       //    down the re-encrypted vault, then re-initialize onto the new key.
-      await client.sync(seeded.email);
+      await client.sync();
       await client.reinit();
       await assertVaultDecrypts(client, seeded);
 
@@ -130,7 +115,7 @@ describe("rotate user keys", () => {
       // 2. Verify the rotating client still reads the vault, over the key it rotated to. A
       //    V2 to V2 rotation issues no upgrade token, so there is nothing to re-initialize from:
       //    the session restarts instead, syncing the re-encrypted vault and unlocking onto K3.
-      await client.sync(seeded.email);
+      await client.sync();
       await client.lock();
       await client.unlock(V2_VECTOR.account.password);
       await assertVaultDecrypts(client, seeded);
@@ -169,7 +154,7 @@ describe("rotate user keys", () => {
       for (let round = 0; round < ROTATION_COUNT; round++) {
         await rotate(client.getPasswordManagerClient(), vector.account.password, "CreateIfNeeded");
 
-        await client.sync(seeded.email);
+        await client.sync();
         await client.lock();
         await client.unlock(vector.account.password);
 
@@ -231,7 +216,7 @@ describe("rotate user keys", () => {
 
       // 3. The other device picks the rotation up the way a push notification would, then
       //    restarts onto the new key
-      await otherDevice.sync(seeded.email);
+      await otherDevice.sync();
       await otherDevice.lock();
 
       // 4. Verify the PIN still unlocks, over the envelope the rotation left in state
@@ -269,7 +254,7 @@ describe("rotate user keys", () => {
       await rotate(client.getPasswordManagerClient(), V1_VECTOR.account.password, "CreateIfNeeded");
       // Sync is triggered by a push notification usually. In this case we do it manually
       // because push notifications are not implemented in the emulator.
-      await second.sync(seeded.email);
+      await second.sync();
 
       // 2. The second session re-initializes onto the key material the sync brought down, which
       //    is what a client does instead of tearing itself down and unlocking again
@@ -312,9 +297,9 @@ describe("rotate user keys", () => {
         V1_VECTOR.account.password,
         "CreateIfNeeded",
       );
-      await rotatingDevice.sync(email);
+      await rotatingDevice.sync();
       await rotatingDevice.reinit();
-      await otherDevice.sync(email);
+      await otherDevice.sync();
       await otherDevice.reinit();
 
       const upgradedState = await rotatingDevice.bridge.get_account_cryptographic_state();
@@ -326,8 +311,8 @@ describe("rotate user keys", () => {
       stored.accountCryptographicState = v1State;
       stored.userKeyId = REPLAYED_KEY_ID;
 
-      await rotatingDevice.sync(email);
-      await otherDevice.sync(email);
+      await rotatingDevice.sync();
+      await otherDevice.sync();
 
       // 4. Verify neither device took the downgrade
       expect(await rotatingDevice.bridge.get_account_cryptographic_state()).toEqual(upgradedState);
