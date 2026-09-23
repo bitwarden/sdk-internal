@@ -1,4 +1,4 @@
-//! Invariant test suite for the IPC framework.
+//! Behavior test suite for the IPC framework.
 //!
 //! Each test encodes one property of the framework. A passing test means the property currently
 //! holds; an `#[ignore]`d test documents a property that is currently violated, and its `ignore`

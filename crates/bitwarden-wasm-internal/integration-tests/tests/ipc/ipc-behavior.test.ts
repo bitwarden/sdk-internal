@@ -21,7 +21,7 @@ import {
 } from "../utils";
 
 /**
- * Boundary invariants for the IPC framework, exercised across the real Rust/WASM/JS divide (these
+ * Boundary behavior of the IPC framework, exercised across the real Rust/WASM/JS divide (these
  * cannot be reproduced by the native Rust tests, which run on multi-threaded tokio rather than the
  * single-threaded wasm executor with non-Send JS objects).
  */
