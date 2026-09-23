@@ -157,6 +157,16 @@ export class ApiServer {
     if (posted.masterPasswordHash === "") {
       return error(HTTP_BAD_REQUEST, "master password hash required");
     }
+
+    // Proof of possession: the posted hash is under the old KDF, as is the stored one until the
+    // assignment below. Accounts seeded without a hash skip the check.
+    if (
+      user.masterPasswordAuthenticationHash !== null &&
+      posted.masterPasswordHash !== user.masterPasswordAuthenticationHash
+    ) {
+      return error(HTTP_BAD_REQUEST, "invalid master password hash");
+    }
+
     if (user.masterPasswordUnlock === null) {
       return error(HTTP_BAD_REQUEST, "account has no master password");
     }
