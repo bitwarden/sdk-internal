@@ -1,9 +1,9 @@
 //! Invariant test suite for the IPC framework.
 //!
-//! Each test encodes one property the framework is meant to guarantee. A passing test means the
-//! invariant currently holds; an `#[ignore]`d test documents an invariant that is currently
-//! violated, and its `ignore` reason explains the gap and where it lives. Run the documented gaps
-//! with `cargo test -p bitwarden-ipc --lib -- --ignored`.
+//! Each test encodes one property of the framework. A passing test means the property currently
+//! holds; an `#[ignore]`d test documents a property that is currently violated, and its `ignore`
+//! reason explains the gap and where it lives. Run the documented gaps with
+//! `cargo test -p bitwarden-ipc --lib -- --ignored`.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -35,9 +35,8 @@ impl RpcRequest for SumRequest {
     const NAME: &str = "SumRequest";
 }
 
-/// INVARIANT (delivery + correlation): with many requests of the *same type* in flight at
-/// once, each receives exactly its own response. Strengthens the two-request case already covered
-/// in `ipc_client::tests`.
+/// With many requests of the *same type* in flight at once, each receives exactly its own
+/// response. Strengthens the two-request case already covered in `ipc_client::tests`.
 #[tokio::test]
 async fn many_concurrent_same_type_requests_each_receive_their_own_response() {
     const N: i32 = 6;
@@ -125,10 +124,10 @@ impl SessionRepository<NoiseCryptoProviderState> for FailingSessionRepository {
     }
 }
 
-/// INVARIANT (robustness): a failure in the session store surfaces as a `SendError`, not a
-/// panic. The `CryptoProvider` trait docs promise exactly this.
+/// A failure in the session store should surface as a `SendError`, not a panic. The
+/// `CryptoProvider` trait docs promise exactly this.
 #[tokio::test]
-#[ignore = "INVARIANT VIOLATED: NoiseCryptoProvider calls .expect() on every SessionRepository op \
+#[ignore = "Currently violated: NoiseCryptoProvider calls .expect() on every SessionRepository op \
             (crypto_provider.rs:163,212,225,253,278,295,311,362,393,410). A failing client-managed \
             session store panics; in WASM that aborts the whole module instead of returning a \
             SendError. Latent today because production uses in-memory sessions \
@@ -159,11 +158,11 @@ async fn session_store_failure_surfaces_error_instead_of_crashing() {
     );
 }
 
-/// INVARIANT (concurrency): a send that stalls (a handshake to an unreachable peer) must not
-/// block sends to *other* peers. Hub backends (browser-background, desktop-main) share one client
-/// across many peers, so head-of-line blocking here stalls unrelated traffic.
+/// A send that stalls (a handshake to an unreachable peer) must not block sends to *other*
+/// peers. Hub backends (browser-background, desktop-main) share one client across many peers, so
+/// head-of-line blocking here stalls unrelated traffic.
 #[tokio::test]
-#[ignore = "INVARIANT VIOLATED: NoiseCryptoProvider::send holds a single per-client mutex \
+#[ignore = "Currently violated: NoiseCryptoProvider::send holds a single per-client mutex \
             (crypto_state_guard, crypto_provider.rs:205) across the whole send, including a \
             handshake that blocks up to HANDSHAKE_TIMEOUT_SECS (2s). Two sends to different peers \
             are fully serialized, so this test takes ~4s instead of ~2s. Un-ignore when send \
@@ -213,8 +212,8 @@ async fn independent_sends_are_not_serialized_behind_a_slow_handshake() {
     );
 }
 
-/// INVARIANT (concurrency + crypto): concurrent encrypted sends to the same peer are all
-/// delivered and decryptable; crypto_state_guard prevents nonce reuse under concurrency.
+/// Concurrent encrypted sends to the same peer are all delivered and decryptable;
+/// crypto_state_guard prevents nonce reuse under concurrency.
 #[tokio::test]
 async fn concurrent_encrypted_sends_all_decrypt_without_nonce_reuse() {
     const K: u8 = 10;
@@ -270,10 +269,10 @@ async fn concurrent_encrypted_sends_all_decrypt_without_nonce_reuse() {
     );
 }
 
-/// CONTRACT: the framework does not filter incoming messages by destination. It delivers every
-/// received message to matching-topic subscribers and relies on the communication backend to only
-/// hand it messages addressed to this endpoint (as the production transports do). This pins the
-/// contract so that adding or removing framework-level destination filtering is a conscious change.
+/// The framework does not filter incoming messages by destination. It delivers every received
+/// message to matching-topic subscribers and relies on the communication backend to only hand it
+/// messages addressed to this endpoint (as the production transports do). This pins that behavior
+/// so that adding or removing framework-level destination filtering is a conscious change.
 #[tokio::test]
 async fn framework_does_not_filter_incoming_by_destination() {
     let comm = TestCommunicationBackend::new();
@@ -307,8 +306,8 @@ async fn framework_does_not_filter_incoming_by_destination() {
     );
 }
 
-/// CONTRACT: a subscription only receives messages published *after* it is created; messages
-/// that arrived before `subscribe()` are not replayed (documented on `IpcClientSubscription`).
+/// A subscription only receives messages published *after* it is created; messages that arrived
+/// before `subscribe()` are not replayed (documented on `IpcClientSubscription`).
 #[tokio::test]
 async fn subscription_does_not_replay_messages_published_before_it_existed() {
     let comm = TestCommunicationBackend::new();
@@ -351,8 +350,8 @@ async fn subscription_does_not_replay_messages_published_before_it_existed() {
     );
 }
 
-/// CONTRACT: a request whose cancellation token fires returns promptly with an error instead
-/// of hanging forever, even when no response ever arrives.
+/// A request whose cancellation token fires returns promptly with an error instead of hanging
+/// forever, even when no response ever arrives.
 #[tokio::test]
 async fn request_returns_when_its_cancellation_token_fires() {
     use bitwarden_threading::cancellation_token::CancellationToken;
