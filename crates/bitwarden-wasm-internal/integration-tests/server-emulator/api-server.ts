@@ -4,7 +4,13 @@ import type { Cipher, Folder } from "@bitwarden/sdk-internal";
 
 import type { MockReply, Routes } from "./http-mock";
 
-import { asKeyId, asString } from "../tests/type-assertion-helpers";
+import {
+  asEncString,
+  asKeyId,
+  asSignedPublicKey,
+  asSignedSecurityState,
+  asString,
+} from "../tests/type-assertion-helpers";
 
 import { authenticatedRoute } from "./authentication";
 
@@ -27,12 +33,16 @@ import {
   FolderRequest,
   FolderResponse,
   KdfType,
+  KeyRegenerationRequest,
+  KeyRotationDataResponse,
   MasterPasswordUnlockDataModel,
+  RotateUserKeysRequest,
+  UnlockMethod,
   SyncResponse,
   UserKeyIdRequest,
   type ChangeKdfRequest,
 } from "./dto";
-import type { CipherEntity, UserEntity } from "./entities";
+import type { CipherEntity, FolderEntity, UserEntity } from "./entities";
 import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_NOT_FOUND } from "./replies";
 
 export class ApiServer {
@@ -53,6 +63,20 @@ export class ApiServer {
 
       "POST /accounts/key-management/user-key-id": authenticatedRoute(this.db, (user, request) =>
         this.recordUserKeyId(user, request.json<UserKeyIdRequest>()),
+      ),
+
+      "POST /accounts/key-management/regenerate-keys": authenticatedRoute(
+        this.db,
+        (user, request) => this.regenerateKeys(user, request.json<KeyRegenerationRequest>()),
+      ),
+
+      "GET /accounts/key-management/key-rotation-data": authenticatedRoute(this.db, () => ({
+        json: KeyRotationDataResponse.empty(),
+      })),
+
+      "POST /accounts/key-management/rotate-user-keys": authenticatedRoute(
+        this.db,
+        (user, request) => this.rotateUserKeys(user, request.json<RotateUserKeysRequest>()),
       ),
 
       "POST /ciphers": authenticatedRoute(this.db, (user, request) =>
@@ -145,6 +169,118 @@ export class ApiServer {
     user.masterPasswordUnlock = MasterPasswordUnlockDataModel.toStored(posted.unlockData);
     user.kdf = user.masterPasswordUnlock.kdf;
     this.db.revisions.next();
+    return {};
+  }
+
+  /**
+   * Replaces a V1 account's public key encryption key pair.
+   *
+   * Only V1 accounts regenerate: a V2 account's public key is bound into its signed security
+   * state, so it cannot be swapped out on its own.
+   */
+  private regenerateKeys(user: UserEntity, posted: KeyRegenerationRequest): MockReply {
+    if (!("V1" in user.accountCryptographicState)) {
+      return error(HTTP_BAD_REQUEST, "only a V1 account regenerates its key pair");
+    }
+
+    user.accountCryptographicState = {
+      V1: { private_key: asEncString(posted.userKeyEncryptedUserPrivateKey) },
+    };
+    user.publicKey = posted.userPublicKey;
+    this.db.revisions.next();
+
+    return {};
+  }
+
+  private rotateUserKeys(user: UserEntity, posted: RotateUserKeysRequest): MockReply {
+    const newUserKeyId = posted.newUserKeyId;
+    if (newUserKeyId === undefined || !KEY_ID_PATTERN.test(newUserKeyId)) {
+      return error(HTTP_BAD_REQUEST, `malformed new key id ${newUserKeyId}`);
+    }
+
+    const state = posted.wrappedAccountCryptographicState;
+    const { unlockMethod, masterPasswordUnlockData } = posted.unlockMethodData;
+    if (unlockMethod === UnlockMethod.masterPassword && masterPasswordUnlockData === undefined) {
+      return error(HTTP_BAD_REQUEST, "master password unlock data required");
+    }
+
+    // Every referenced item is resolved before a single write lands: a rejected rotation must not
+    // leave the account rotated on top of a half re-encrypted vault.
+    const ciphers: { posted: CipherRequest & { id: string }; stored: CipherEntity }[] = [];
+    for (const cipher of posted.accountData.ciphers ?? []) {
+      const stored = this.reachableCipher(user, cipher.id);
+      // A rotation re-encrypts under the new user key, so only the user's own ciphers belong
+      // here — an organization cipher stays under the organization key.
+      if (stored === undefined || stored.userId !== user.userId) {
+        return error(HTTP_NOT_FOUND, `no cipher ${cipher.id} to re-encrypt`);
+      }
+
+      ciphers.push({ posted: cipher, stored });
+    }
+
+    const folders: { posted: { id: string; name: string }; stored: FolderEntity }[] = [];
+    for (const folder of posted.accountData.folders ?? []) {
+      const stored = this.db.folders.get(folder.id);
+      if (stored === undefined || stored.userId !== user.userId) {
+        return error(HTTP_NOT_FOUND, `no folder ${folder.id} to re-encrypt`);
+      }
+
+      folders.push({ posted: folder, stored });
+    }
+
+    user.accountCryptographicState = {
+      V2: {
+        private_key: asEncString(state.publicKeyEncryptionKeyPair.wrappedPrivateKey),
+        signing_key: asEncString(state.signatureKeyPair.wrappedSigningKey),
+        security_state: asSignedSecurityState(state.securityState.securityState),
+        signed_public_key:
+          state.publicKeyEncryptionKeyPair.signedPublicKey === undefined
+            ? undefined
+            : asSignedPublicKey(state.publicKeyEncryptionKeyPair.signedPublicKey),
+      },
+    };
+    user.publicKey = state.publicKeyEncryptionKeyPair.publicKey;
+    user.verifyingKey = state.signatureKeyPair.verifyingKey;
+    user.securityVersion = state.securityState.securityVersion;
+    user.userKeyId = asKeyId(newUserKeyId);
+
+    if (masterPasswordUnlockData !== undefined) {
+      user.masterPasswordUnlock = MasterPasswordUnlockDataModel.toStored(masterPasswordUnlockData);
+    }
+
+    // An upgrade token is only produced by a V1 to V2 rotation; a later rotation clears it.
+    const token = posted.unlockData.v2UpgradeToken;
+    if (token === undefined) {
+      delete user.upgradeToken;
+    } else {
+      user.upgradeToken = {
+        wrapped_user_key_1: asEncString(token.wrappedUserKey1),
+        wrapped_user_key_2: asEncString(token.wrappedUserKey2),
+      };
+    }
+
+    const now = this.db.revisions.next();
+    for (const { posted: cipher, stored } of ciphers) {
+      this.db.ciphers.update(cipher.id, {
+        ...stored,
+        cipher: CipherRequest.toCipher(cipher, stored.cipher, {
+          id: cipher.id,
+          organizationId: stored.organizationId,
+          creationDate: stored.cipher.creationDate,
+          revisionDate: now,
+          deletedDate: stored.cipher.deletedDate ?? null,
+          collectionIds: stored.cipher.collectionIds.map(asString),
+        }),
+      });
+    }
+
+    for (const { posted: folder, stored } of folders) {
+      this.db.folders.update(folder.id, {
+        ...stored,
+        folder: FolderRequest.toFolder(folder, folder.id, now),
+      });
+    }
+
     return {};
   }
 

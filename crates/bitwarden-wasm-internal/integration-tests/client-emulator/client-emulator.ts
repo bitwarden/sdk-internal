@@ -2,13 +2,15 @@
 // account into it — a sync from the server, and an unlock.
 
 import type {
-  CryptoSyncData,
   InitUserCryptoMethod,
   PasswordManagerClient,
   WasmStateBridge,
 } from "@bitwarden/sdk-internal";
 
+import { AccountKeysResponse, toKdf, type SyncResponse } from "../server-emulator/dto";
 import type { ServerEmulator } from "../server-emulator/server-emulator";
+import { API_URL } from "../server-emulator/urls";
+import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
 
 import { LocalState, SETTINGS } from "./local-state";
 
@@ -35,29 +37,47 @@ export class ClientEmulator {
     this.local.setIdentity({ userId: user.userId, email: user.email });
     this.local.organizationKeys = user.organizationKeys;
 
-    const data: CryptoSyncData = {
-      accountCryptographicState: user.accountCryptographicState,
-      userDecryption: {
-        ...(user.masterPasswordUnlock === null
-          ? {}
-          : {
-              masterPasswordUnlock: {
-                masterKeyWrappedUserKey: user.masterPasswordUnlock.masterKeyWrappedUserKey,
-                salt: user.masterPasswordUnlock.salt,
-                kdf: user.masterPasswordUnlock.kdf,
-              },
-            }),
-        v2UpgradeToken: user.upgradeToken,
-        userKeyId: user.userKeyId,
-      },
-    };
+    const response = await fetch(`${API_URL}/sync`, {
+      headers: { Authorization: `Bearer ${user.userId}` },
+    });
+    if (!response.ok) {
+      throw new Error(`sync for ${email} answered ${response.status}`);
+    }
+
+    const synced: SyncResponse = await response.json();
+    const unlock = synced.userDecryption.masterPasswordUnlock;
+    const { v2UpgradeToken, userKeyId } = synced.userDecryption;
+
+    const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
     const locked = makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
-    await locked.crypto_sync_handler().on_sync(data);
+    await locked.crypto_sync_handler().on_sync({
+      accountCryptographicState: accountKeys.toAccountCryptographicState(),
+      userDecryption: {
+        masterPasswordUnlock:
+          unlock === undefined
+            ? undefined
+            : {
+                masterKeyWrappedUserKey: asEncString(unlock.masterKeyEncryptedUserKey),
+                salt: unlock.salt,
+                kdf: toKdf(unlock.kdf),
+                containedKeyId:
+                  unlock.containedKeyId === undefined ? undefined : asKeyId(unlock.containedKeyId),
+              },
+        v2UpgradeToken:
+          v2UpgradeToken === undefined
+            ? undefined
+            : {
+                wrapped_user_key_1: asEncString(v2UpgradeToken.wrappedUserKey1),
+                wrapped_user_key_2: asEncString(v2UpgradeToken.wrappedUserKey2),
+              },
+        userKeyId: userKeyId === undefined ? undefined : asKeyId(userKeyId),
+      },
+    });
 
     // Quirk, the crypto sync handler writes the kdf only when the account has no master-password
-    // but clients always write it.
-    if (user.masterPasswordUnlock === null) {
+    // but clients always write it. The KDF a real client learns at `POST /accounts/prelogin`.
+    if (unlock === undefined) {
       await this.local.bridge.set_kdf_config(user.kdf);
     }
 
@@ -104,6 +124,21 @@ export class ClientEmulator {
   /** Unlocks from a user key the client already holds, as a keyless login leaves it. */
   async unlockWithUserKey(userKey: string): Promise<void> {
     this.client = await this.local.unlock({ decryptedKey: { decrypted_user_key: userKey } });
+  }
+
+  /**
+   * Re-initializes an unlocked client after the cryptographic keys changed after a sync.
+   */
+  async reinit(): Promise<void> {
+    const accountCryptographicState = await this.local.bridge.get_account_cryptographic_state();
+    const upgradeToken = await this.local.bridge.get_v2_upgrade_token();
+    if (accountCryptographicState === null || upgradeToken === null) {
+      throw new Error("local state holds no upgraded key material; sync one down first");
+    }
+
+    await this.getPasswordManagerClient()
+      .crypto()
+      .reinit_user_crypto({ accountCryptographicState, upgradeToken });
   }
 
   /** Drops the state a running process holds but a restarted one would not: a lock, not a logout. */
