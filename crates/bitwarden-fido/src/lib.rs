@@ -159,7 +159,7 @@ pub fn fill_with_credential(
     let key_value = B64Url::from(cose_key_to_pkcs8(&value.key)?).to_string();
 
     Ok(Fido2CredentialFullView {
-        credential_id: guid_bytes_to_string(&cred_id)?,
+        credential_id: credential_id_bytes_to_string(&cred_id),
         key_type: "public-key".to_owned(),
         key_algorithm: "ECDSA".to_owned(),
         key_curve: "P-256".to_owned(),
@@ -211,7 +211,7 @@ pub(crate) fn try_from_credential_full(
     let user_handle = B64Url::from(user.id.to_vec()).to_string();
 
     Ok(Fido2CredentialFullView {
-        credential_id: guid_bytes_to_string(&cred_id)?,
+        credential_id: credential_id_bytes_to_string(&cred_id),
         key_type: "public-key".to_owned(),
         key_algorithm: "ECDSA".to_owned(),
         key_curve: "P-256".to_owned(),
@@ -239,6 +239,16 @@ pub fn guid_bytes_to_string(source: &[u8]) -> Result<String, InvalidInputLengthE
         return Err(InvalidInputLengthError);
     }
     Ok(uuid::Uuid::from_bytes(source.try_into().expect("Invalid length")).to_string())
+}
+
+/// Encodes a credential ID for storage. This is the inverse of [`string_to_guid_bytes`]:
+/// 16-byte IDs are stored as a UUID string, and any other length (for example credential IDs
+/// imported from other providers) is stored as `b64.<base64url>`.
+pub(crate) fn credential_id_bytes_to_string(source: &[u8]) -> String {
+    match guid_bytes_to_string(source) {
+        Ok(uuid) => uuid,
+        Err(InvalidInputLengthError) => format!("b64.{}", B64Url::from(source)),
+    }
 }
 
 #[allow(missing_docs)]
@@ -309,6 +319,16 @@ mod tests {
                 213, 72, 130, 110, 121, 180, 219, 64, 163, 216, 17, 17, 111, 126, 131, 73
             ]
         );
+    }
+
+    #[test]
+    fn credential_id_round_trips_for_any_length() {
+        for id in [vec![1u8; 16], vec![2u8; 32], vec![3u8; 64]] {
+            let stored = super::credential_id_bytes_to_string(&id);
+            assert_eq!(super::string_to_guid_bytes(&stored).unwrap(), id);
+        }
+        // 16-byte IDs keep the existing UUID representation
+        assert!(!super::credential_id_bytes_to_string(&[1u8; 16]).starts_with("b64."));
     }
 
     #[test]

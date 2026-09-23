@@ -784,11 +784,19 @@ mod tests {
     ];
 
     fn create_test_cipher(ctx: &mut KeyStoreContext<KeySlotIds>) -> CipherView {
+        create_test_cipher_with(ctx, TEST_FIDO_CREDENTIAL_ID, "0")
+    }
+
+    fn create_test_cipher_with(
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        credential_id: &str,
+        counter: &str,
+    ) -> CipherView {
         let key = SymmetricKeySlotId::User;
         let key_value = B64Url::from(TEST_FIDO_P256_KEY).to_string();
 
         let fido2_credential = Fido2Credential {
-            credential_id: TEST_FIDO_CREDENTIAL_ID.encrypt(ctx, key).unwrap(),
+            credential_id: credential_id.encrypt(ctx, key).unwrap(),
             key_type: "public-key".to_string().encrypt(ctx, key).unwrap(),
             key_algorithm: "ECDSA".to_string().encrypt(ctx, key).unwrap(),
             key_curve: "P-256".to_string().encrypt(ctx, key).unwrap(),
@@ -796,7 +804,7 @@ mod tests {
             rp_id: TEST_FIDO_RP_ID.encrypt(ctx, key).unwrap(),
             user_handle: Some(TEST_FIDO_USER_HANDLE.encrypt(ctx, key).unwrap()),
             user_name: None,
-            counter: "0".to_string().encrypt(ctx, key).unwrap(),
+            counter: counter.to_string().encrypt(ctx, key).unwrap(),
             rp_name: None,
             user_display_name: None,
             discoverable: "true".to_string().encrypt(ctx, key).unwrap(),
@@ -906,5 +914,62 @@ mod tests {
             result.extensions.prf.is_none(),
             "PRF should not be evaluated"
         );
+    }
+
+    /// A passkey imported from another provider keeps its original credential ID,
+    /// stored as `b64.<base64url>` because it is not a 16-byte UUID. If such a
+    /// credential also carries a non-zero signature counter, the authenticator
+    /// increments the counter and calls `update_credential`, which must be able to
+    /// round-trip the non-UUID credential ID.
+    #[tokio::test]
+    async fn test_assertion_with_non_uuid_credential_id_and_nonzero_counter() {
+        let client = Client::new(None);
+        // Updating the counter re-encrypts the cipher, which requires a user ID
+        client
+            .internal
+            .init_user_id("060000fb-0922-4dd3-b170-6e15cb5df8c8".parse().unwrap())
+            .await
+            .unwrap();
+        let user_key: SymmetricCryptoKey =
+            "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q=="
+                .to_string()
+                .try_into()
+                .unwrap();
+        #[allow(deprecated)]
+        client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .set_symmetric_key(SymmetricKeySlotId::User, user_key)
+            .unwrap();
+
+        // 32-byte credential ID, as commonly produced by other authenticators
+        let raw_id = [7u8; 32];
+        let stored_id = format!("b64.{}", B64Url::from(raw_id.as_slice()));
+
+        let cipher = {
+            let mut ctx = client.internal.get_key_store().context();
+            create_test_cipher_with(&mut ctx, &stored_id, "5")
+        };
+
+        let user_interface = MockUserInterface;
+        let credential_store = MockCredentialStore { cipher };
+        let mut authenticator =
+            Fido2Authenticator::new(&client, &user_interface, &credential_store);
+
+        let request = GetAssertionRequest {
+            rp_id: TEST_FIDO_RP_ID.to_string(),
+            client_data_hash: vec![0u8; 32],
+            allow_list: None,
+            options: Options {
+                rk: false,
+                uv: UV::Preferred,
+            },
+            extensions: None,
+        };
+
+        let result = authenticator.get_assertion(request).await;
+        assert!(result.is_ok(), "assertion failed: {:?}", result.err());
+        assert_eq!(result.unwrap().credential_id, raw_id.to_vec());
     }
 }
