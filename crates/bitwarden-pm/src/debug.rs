@@ -1,17 +1,18 @@
 //! Dev-only debug-capability tree, rooted on [`PasswordManagerClient`].
 //!
-//! A parallel tree to the public client tree: it mirrors the client hierarchy
-//! but exposes only debug capabilities, and it authors nothing itself. Each node
-//! hands back a capability handle that lives in the crate owning the underlying
-//! state (so that crate's internals are reachable), the same way the real
-//! [`PasswordManagerClient`] hands back sub-clients it did not author. Compiled
+//! Mirrors the public client tree, but each node exposes only debug
+//! capabilities. A node hands back a handle authored in the crate that owns the
+//! state it reaches into, so that crate's internals stay reachable. Compiled
 //! only under the `debug-capabilities` feature.
 
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::PasswordManagerClient;
 
 /// Root of the debug-capability tree. Routes to per-crate capability handles.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct DebugClient {
     client: Client,
 }
@@ -25,10 +26,11 @@ impl PasswordManagerClient {
     }
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl DebugClient {
     /// Persisted-state debug capabilities (browse the SDK's state registry).
-    /// Authored in `bitwarden-core`, where the state registry lives.
-    pub fn state(&self) -> bitwarden_core::debug::StateDebug {
-        bitwarden_core::debug::StateDebug::new(self.client.clone())
+    /// Authored in `bitwarden-state`, where the registry lives.
+    pub fn state(&self) -> bitwarden_state::debug::StateDebug {
+        bitwarden_state::debug::StateDebug::new(self.client.internal.state_registry())
     }
 }

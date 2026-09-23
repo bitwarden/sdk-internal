@@ -184,8 +184,8 @@ impl PasswordManagerClient {
     /// tree. Available only when built with the `debug-capabilities` feature,
     /// which must never be enabled in production.
     #[cfg(feature = "debug-capabilities")]
-    pub fn debug(&self) -> crate::debug::DebugClient {
-        crate::debug::DebugClient::new(self.0.debug())
+    pub fn debug(&self) -> bitwarden_pm::debug::DebugClient {
+        self.0.debug()
     }
 }
 

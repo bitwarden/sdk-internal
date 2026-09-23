@@ -23,9 +23,8 @@ normal = [
 
 [features]
 internal = ["dep:zxcvbn"]
-# Dev-only debug capabilities that reach past the public API into internal
-# state (generic browse over the SDK's state registry). Never enable in
-# production.
+# Dev-only: exposes a shared handle to the state registry so the debug browse
+# (authored in bitwarden-state) can reach it. Never enable in production.
 debug-capabilities = ["bitwarden-state/debug-capabilities"]
 no-memory-hardening = [
     "bitwarden-crypto/no-memory-hardening",
