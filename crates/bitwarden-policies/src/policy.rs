@@ -33,3 +33,5 @@ pub struct Policy {
     /// When the policy was last modified.
     pub revision_date: Option<DateTime<Utc>>,
 }
+
+bitwarden_state::register_repository_item!(PolicyId => Policy, "Policy");
