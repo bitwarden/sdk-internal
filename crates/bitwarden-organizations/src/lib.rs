@@ -5,13 +5,8 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
-mod organization_domains_client;
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
-pub use organization_domains_client::{
-    ClaimedDomain, OrganizationDomainsClient, OrganizationDomainsClientExt,
-    OrganizationDomainsError,
-};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]

@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use bitwarden_api_api::models::OrganizationDomainMiniResponseModel;
-use bitwarden_core::{ApiError, Client, FromClient, OrganizationId, client::ApiConfigurations};
+use bitwarden_core::{
+    ApiError, Client, FromClient, MissingFieldError, OrganizationId, client::ApiConfigurations,
+    require,
+};
 use bitwarden_error::bitwarden_error;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -17,33 +16,12 @@ pub enum OrganizationDomainsError {
     /// A network request to the server failed.
     #[error(transparent)]
     Api(#[from] ApiError),
+    /// The server response was missing a required field.
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
 }
 
-/// A domain claimed by an organization.
-///
-/// This is the slim view of a claimed domain: it carries no DNS verification token and no
-/// verification job metadata, so it is safe to expose to members who administer the organization
-/// without granting them visibility into its SSO configuration.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[serde(rename_all = "camelCase")]
-pub struct ClaimedDomain {
-    /// The claimed domain name, for example `example.com`.
-    pub domain_name: String,
-    /// Whether the organization has proven ownership of the domain via its DNS TXT record.
-    pub verified: bool,
-}
-
-impl From<OrganizationDomainMiniResponseModel> for ClaimedDomain {
-    fn from(response: OrganizationDomainMiniResponseModel) -> Self {
-        ClaimedDomain {
-            domain_name: response.domain_name.unwrap_or_default(),
-            verified: response.verified_date.is_some(),
-        }
-    }
-}
-
-/// Client for reading an organization's claimed domains.
+/// Client for reading an organization's verified domains.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
 pub struct OrganizationDomainsClient {
@@ -52,17 +30,20 @@ pub struct OrganizationDomainsClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl OrganizationDomainsClient {
-    /// Returns every domain the organization has claimed, along with whether each one has been
-    /// verified.
+    /// Returns the names of every domain the organization has claimed and verified, for example
+    /// `example.com`.
+    ///
+    /// Domains that have been claimed but not yet verified are excluded, since the organization has
+    /// not proven ownership of them.
     ///
     /// Requires the Manage Users or Manage SSO permission. Prefer this over the full domains
     /// endpoint when the DNS verification token and verification job metadata are not needed: the
     /// full endpoint requires Manage SSO, and calling it without that permission returns a 401
     /// that clients treat as an invalid access token, logging the user out.
-    pub async fn get_claimed_domains(
+    pub async fn get_verified_domains(
         &self,
         organization_id: OrganizationId,
-    ) -> Result<Vec<ClaimedDomain>, OrganizationDomainsError> {
+    ) -> Result<Vec<String>, OrganizationDomainsError> {
         let response = self
             .api_configurations
             .api_client
@@ -70,12 +51,11 @@ impl OrganizationDomainsClient {
             .get_all_mini(organization_id.into())
             .await?;
 
-        Ok(response
-            .data
-            .unwrap_or_default()
+        require!(response.data)
             .into_iter()
-            .map(ClaimedDomain::from)
-            .collect())
+            .filter(|domain| domain.verified_date.is_some())
+            .map(|domain| Ok(require!(domain.domain_name)))
+            .collect()
     }
 }
 
@@ -94,7 +74,11 @@ impl OrganizationDomainsClientExt for Client {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{
-        apis::ApiClient, models::OrganizationDomainMiniResponseModelListResponseModel,
+        apis::ApiClient,
+        models::{
+            OrganizationDomainMiniResponseModel,
+            OrganizationDomainMiniResponseModelListResponseModel,
+        },
     };
     use bitwarden_core::client::ApiConfigurations;
 
@@ -116,7 +100,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_claimed_domains_maps_verification_status() {
+    async fn get_verified_domains_excludes_unverified_domains() {
         let client = client_with(OrganizationDomainMiniResponseModelListResponseModel {
             object: Some("list".to_string()),
             data: Some(vec![
@@ -135,27 +119,15 @@ mod tests {
         });
 
         let domains = client
-            .get_claimed_domains(OrganizationId::new_v4())
+            .get_verified_domains(OrganizationId::new_v4())
             .await
             .unwrap();
 
-        assert_eq!(
-            domains,
-            vec![
-                ClaimedDomain {
-                    domain_name: "verified.com".to_string(),
-                    verified: true,
-                },
-                ClaimedDomain {
-                    domain_name: "unverified.com".to_string(),
-                    verified: false,
-                },
-            ]
-        );
+        assert_eq!(domains, vec!["verified.com".to_string()]);
     }
 
     #[tokio::test]
-    async fn get_claimed_domains_returns_empty_when_the_org_has_none() {
+    async fn get_verified_domains_returns_empty_when_the_org_has_none() {
         let client = client_with(OrganizationDomainMiniResponseModelListResponseModel {
             object: Some("list".to_string()),
             data: Some(vec![]),
@@ -163,10 +135,46 @@ mod tests {
         });
 
         let domains = client
-            .get_claimed_domains(OrganizationId::new_v4())
+            .get_verified_domains(OrganizationId::new_v4())
             .await
             .unwrap();
 
         assert!(domains.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_verified_domains_errors_when_data_is_missing() {
+        let client = client_with(OrganizationDomainMiniResponseModelListResponseModel {
+            object: Some("list".to_string()),
+            data: None,
+            continuation_token: None,
+        });
+
+        let result = client.get_verified_domains(OrganizationId::new_v4()).await;
+
+        assert!(matches!(
+            result,
+            Err(OrganizationDomainsError::MissingField(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn get_verified_domains_errors_when_a_verified_domain_name_is_missing() {
+        let client = client_with(OrganizationDomainMiniResponseModelListResponseModel {
+            object: Some("list".to_string()),
+            data: Some(vec![OrganizationDomainMiniResponseModel {
+                object: Some("organizationDomainMini".to_string()),
+                domain_name: None,
+                verified_date: Some("2026-09-15T00:00:00Z".to_string()),
+            }]),
+            continuation_token: None,
+        });
+
+        let result = client.get_verified_domains(OrganizationId::new_v4()).await;
+
+        assert!(matches!(
+            result,
+            Err(OrganizationDomainsError::MissingField(_))
+        ));
     }
 }
