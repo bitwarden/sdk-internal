@@ -106,4 +106,5 @@ export class Database {
   readonly ciphers = new Table<CipherEntity>(new SequentialUuidGenerator("ciphers"));
   readonly folders = new Table<FolderEntity>(new SequentialUuidGenerator("folders"));
   readonly sends = new Table<Send>(new SequentialUuidGenerator("sends"));
+  readonly sessions = new Table<string>(new SequentialUuidGenerator("sessions"));
 }
