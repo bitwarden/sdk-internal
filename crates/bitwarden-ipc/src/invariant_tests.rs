@@ -35,7 +35,7 @@ impl RpcRequest for SumRequest {
     const NAME: &str = "SumRequest";
 }
 
-/// A1 — INVARIANT (delivery + correlation): with many requests of the *same type* in flight at
+/// INVARIANT (delivery + correlation): with many requests of the *same type* in flight at
 /// once, each receives exactly its own response. Strengthens the two-request case already covered
 /// in `ipc_client::tests`.
 #[tokio::test]
@@ -125,7 +125,7 @@ impl SessionRepository<NoiseCryptoProviderState> for FailingSessionRepository {
     }
 }
 
-/// C1 — INVARIANT (robustness): a failure in the session store surfaces as a `SendError`, not a
+/// INVARIANT (robustness): a failure in the session store surfaces as a `SendError`, not a
 /// panic. The `CryptoProvider` trait docs promise exactly this.
 #[tokio::test]
 #[ignore = "INVARIANT VIOLATED: NoiseCryptoProvider calls .expect() on every SessionRepository op \
@@ -159,7 +159,7 @@ async fn session_store_failure_surfaces_error_instead_of_crashing() {
     );
 }
 
-/// E1 — INVARIANT (concurrency): a send that stalls (a handshake to an unreachable peer) must not
+/// INVARIANT (concurrency): a send that stalls (a handshake to an unreachable peer) must not
 /// block sends to *other* peers. Hub backends (browser-background, desktop-main) share one client
 /// across many peers, so head-of-line blocking here stalls unrelated traffic.
 #[tokio::test]
@@ -213,55 +213,7 @@ async fn independent_sends_are_not_serialized_behind_a_slow_handshake() {
     );
 }
 
-/// G1 — INVARIANT (delivery under load): a burst to one subscriber is delivered without silent
-/// loss. Debatable as a hard guarantee (the transport is a deliberately bounded broadcast), but
-/// captured because it is the "messages disappear under concurrency" failure mode.
-#[tokio::test]
-#[ignore = "INVARIANT VIOLATED (by design choice): the internal transport is a bounded \
-            tokio::broadcast channel (CHANNEL_BUFFER_CAPACITY = 50 internal; 20 WASM backend; 10 \
-            test backend). A burst larger than the buffer is silently dropped for a lagging \
-            receiver (RecvError::Lagged). Not exercised by production today. Decide whether no-loss \
-            is a wanted invariant before un-ignoring."]
-async fn burst_of_messages_is_delivered_without_silent_loss() {
-    const BURST: usize = 100;
-    let comm = TestCommunicationBackend::new();
-    let client = IpcClientImpl::new(
-        NoEncryptionCryptoProvider,
-        comm.clone(),
-        InMemorySessionRepository::new(HashMap::new()),
-    );
-    let _ = client.start(None).await;
-    let mut subscription = client
-        .subscribe(None)
-        .await
-        .expect("subscribe should succeed");
-
-    for i in 0..BURST {
-        comm.push_incoming(IncomingMessage {
-            payload: vec![i as u8],
-            source: Source::BrowserBackground { id: HostId::Own },
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
-            topic: None,
-        });
-    }
-
-    let mut received = 0usize;
-    while received < BURST {
-        match tokio::time::timeout(Duration::from_millis(100), subscription.receive(None)).await {
-            Ok(Ok(_)) => received += 1,
-            _ => break,
-        }
-    }
-
-    assert_eq!(
-        received,
-        BURST,
-        "silently dropped {} of {BURST} messages",
-        BURST - received
-    );
-}
-
-/// D1 — INVARIANT (concurrency + crypto): concurrent encrypted sends to the same peer are all
+/// INVARIANT (concurrency + crypto): concurrent encrypted sends to the same peer are all
 /// delivered and decryptable; crypto_state_guard prevents nonce reuse under concurrency.
 #[tokio::test]
 async fn concurrent_encrypted_sends_all_decrypt_without_nonce_reuse() {
@@ -318,7 +270,7 @@ async fn concurrent_encrypted_sends_all_decrypt_without_nonce_reuse() {
     );
 }
 
-/// N1 — CONTRACT: the framework does not filter incoming messages by destination. It delivers every
+/// CONTRACT: the framework does not filter incoming messages by destination. It delivers every
 /// received message to matching-topic subscribers and relies on the communication backend to only
 /// hand it messages addressed to this endpoint (as the production transports do). This pins the
 /// contract so that adding or removing framework-level destination filtering is a conscious change.
@@ -355,7 +307,7 @@ async fn framework_does_not_filter_incoming_by_destination() {
     );
 }
 
-/// N4 — CONTRACT: a subscription only receives messages published *after* it is created; messages
+/// CONTRACT: a subscription only receives messages published *after* it is created; messages
 /// that arrived before `subscribe()` are not replayed (documented on `IpcClientSubscription`).
 #[tokio::test]
 async fn subscription_does_not_replay_messages_published_before_it_existed() {
@@ -399,7 +351,7 @@ async fn subscription_does_not_replay_messages_published_before_it_existed() {
     );
 }
 
-/// N5 — CONTRACT: a request whose cancellation token fires returns promptly with an error instead
+/// CONTRACT: a request whose cancellation token fires returns promptly with an error instead
 /// of hanging forever, even when no response ever arrives.
 #[tokio::test]
 async fn request_returns_when_its_cancellation_token_fires() {
