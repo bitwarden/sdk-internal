@@ -5,6 +5,8 @@ mod crypto_provider;
 pub mod discover;
 mod endpoint;
 mod error;
+#[cfg(test)]
+mod invariant_tests;
 mod ipc_client;
 mod ipc_client_ext;
 mod ipc_client_trait;
