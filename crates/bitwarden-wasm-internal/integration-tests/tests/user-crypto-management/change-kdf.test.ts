@@ -1,5 +1,6 @@
 import { Kdf, isChangeKdfError } from "@bitwarden/sdk-internal";
 
+import { LoginMethod } from "../../client-emulator/client-emulator";
 import { validateVault } from "../../client-emulator/validate";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { loadUserVectors, unlockMethodName, userVector, type UserVector } from "../../vectors/load";
@@ -41,7 +42,7 @@ describe("change kdf", () => {
 
         const seeded = harness.server.seedUserTestVector(vector);
         const client = harness.newClientEmulator();
-        await client.login(seeded.email);
+        await client.login(seeded.email, LoginMethod.Password, vector.account.password);
         await client.unlock(vector.account.password);
 
         const passwordManagerClient = client.getPasswordManagerClient();
@@ -59,7 +60,7 @@ describe("change kdf", () => {
 
         // 3. Verify server state is fine: Sync from new client and unlock
         const reloginClient = harness.newClientEmulator();
-        await reloginClient.login(seeded.email);
+        await reloginClient.login(seeded.email, LoginMethod.Password, password);
         await reloginClient.unlock(password);
         const reloginSdk = reloginClient.getPasswordManagerClient();
 
@@ -97,11 +98,11 @@ describe("change kdf", () => {
       // 1. Two unlocked clients, and a kdf change by the first
       const seeded = harness.server.seedUserTestVector(V1_VECTOR);
       const client = harness.newClientEmulator();
-      await client.login(seeded.email);
+      await client.login(seeded.email, LoginMethod.Password, V1_VECTOR.account.password);
       await client.unlock(V1_VECTOR.account.password);
 
       const second = harness.newClientEmulator();
-      await second.login(seeded.email);
+      await second.login(seeded.email, LoginMethod.Password, V1_VECTOR.account.password);
       await second.unlock(V1_VECTOR.account.password);
 
       await client
@@ -130,7 +131,7 @@ describe("change kdf", () => {
       async () => {
         const seeded = harness.server.seedUserTestVector(V1_VECTOR);
         const client = harness.newClientEmulator();
-        await client.login(seeded.email);
+        await client.login(seeded.email, LoginMethod.Password, V1_VECTOR.account.password);
         await client.unlock(V1_VECTOR.account.password);
 
         // 1. Change the KDF to settings the SDK must refuse before asking the server
