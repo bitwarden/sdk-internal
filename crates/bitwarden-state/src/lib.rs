@@ -9,11 +9,13 @@ pub mod repository;
 /// This module provides a registry for managing repositories of different types.
 pub mod registry;
 
-/// Type-safe settings repository for storing application configuration and state.
+/// Type-safe settings API for storing application configuration and state.
 pub mod settings;
 
 pub(crate) mod any_map;
+pub(crate) mod persist;
 pub(crate) mod sdk_managed;
 
+pub use persist::Persist;
 pub use sdk_managed::{DatabaseConfiguration, DatabaseError};
-pub use settings::{Key, Setting, SettingItem, SettingsError};
+pub use settings::{Key, Setting, SettingItem, SettingTrait, SettingsError};
