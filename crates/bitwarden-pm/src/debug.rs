@@ -6,6 +6,7 @@
 //! only under the `debug-capabilities` feature.
 
 use bitwarden_core::Client;
+use bitwarden_state::debug::StateRegistryDebugExt as _;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -31,6 +32,6 @@ impl DebugClient {
     /// Persisted-state debug capabilities (browse the SDK's state registry).
     /// Authored in `bitwarden-state`, where the registry lives.
     pub fn state(&self) -> bitwarden_state::debug::StateDebug {
-        bitwarden_state::debug::StateDebug::new(self.client.internal.state_registry())
+        self.client.internal.state_registry().debug()
     }
 }

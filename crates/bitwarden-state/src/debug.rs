@@ -1,17 +1,21 @@
 //! Dev-only generic debug browse over the registry's repositories.
 //!
-//! [`StateDebug`] is the exposed handle: a typed browse over every registered
-//! repository, addressed by string type name and key, for automated tooling
-//! that needs to reach state the type-safe public API does not expose
-//! generically. It reads through a parallel index of per-type get/set/list
-//! shims, captured where each type is still known (client-managed registration
-//! and the SDK-managed migration path) and dispatched by the repository's
-//! string name. Compiled only under the `debug-capabilities` feature; never ship
-//! in production.
+//! [`StateDebug`](crate::debug::StateDebug) is the exposed handle: a typed
+//! browse over every registered repository, addressed by string type name and
+//! key, for automated tooling that needs to reach state the type-safe public API
+//! does not expose generically. It reads through a parallel index of per-type
+//! get/set/list shims, captured where each type is still known (client-managed
+//! registration and the SDK-managed migration path) and dispatched by the
+//! repository's string name. Compiled only under the `debug-capabilities`
+//! feature; never ship in production.
 
 use std::{
-    any::TypeId, collections::HashMap, future::Future, pin::Pin, str::FromStr,
-    sync::Arc, sync::RwLock,
+    any::TypeId,
+    collections::HashMap,
+    future::Future,
+    pin::Pin,
+    str::FromStr,
+    sync::{Arc, RwLock},
 };
 
 use serde_json::Value;
@@ -35,9 +39,25 @@ pub struct StateDebug {
 }
 
 impl StateDebug {
-    /// Wrap the owning registry handle. Built by the debug-tree root.
-    pub fn new(registry: Arc<StateRegistry>) -> Self {
+    /// Wrap the owning registry handle. Reached through [`StateRegistryDebugExt`].
+    pub(crate) fn new(registry: Arc<StateRegistry>) -> Self {
         Self { registry }
+    }
+}
+
+/// Yields the debug handle for a state registry.
+///
+/// Implemented on `Arc<StateRegistry>` (not `StateRegistry`) because the handle
+/// owns its registry, so nothing borrows across the FFI boundary. The debug tree
+/// gets the shared registry from the client and calls this.
+pub trait StateRegistryDebugExt {
+    /// Debug browse over this registry.
+    fn debug(&self) -> StateDebug;
+}
+
+impl StateRegistryDebugExt for Arc<StateRegistry> {
+    fn debug(&self) -> StateDebug {
+        StateDebug::new(self.clone())
     }
 }
 
@@ -65,24 +85,26 @@ impl StateDebug {
     }
 
     /// Write one item by type name and string key. `value` is the item as a JSON
-    /// string. No-ops on an unknown type, a bad key, or a value that does not
-    /// deserialize.
-    pub async fn set(&self, type_name: String, key: String, value: String) {
+    /// string. Returns `true` if the write landed; `false` on a bad JSON string,
+    /// an unknown type, a bad key, a value that does not deserialize, or a failed
+    /// write, so a caller (e.g. a seeding harness) can tell a no-op from a write.
+    pub async fn set(&self, type_name: String, key: String, value: String) -> bool {
         let Ok(value) = serde_json::from_str::<Value>(&value) else {
-            return;
+            return false;
         };
-        self.registry.debug_set(&type_name, &key, value).await;
+        self.registry.debug_set(&type_name, &key, value).await
     }
 }
 
-/// A future borrowing the registry, boxed so it can cross a fn pointer.
-type DebugFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+/// A future borrowing the registry, boxed so it can cross a fn pointer. `Send`
+/// so the handle's async methods can run on a multi-threaded runtime (uniffi).
+type DebugFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 /// Shim: list a repository's values as JSON.
 type DebugListFn = for<'a> fn(&'a StateRegistry) -> DebugFuture<'a, Vec<Value>>;
 /// Shim: read one item by string key as JSON.
 type DebugGetFn = for<'a> fn(&'a StateRegistry, &'a str) -> DebugFuture<'a, Option<Value>>;
-/// Shim: write one item by string key.
-type DebugSetFn = for<'a> fn(&'a StateRegistry, &'a str, Value) -> DebugFuture<'a, ()>;
+/// Shim: write one item by string key. Reports whether the write landed.
+type DebugSetFn = for<'a> fn(&'a StateRegistry, &'a str, Value) -> DebugFuture<'a, bool>;
 
 /// Monomorphized get/set/list shims for one repository type, so the registry can
 /// offer generic string-addressed access without naming the type. Captured at
@@ -186,11 +208,12 @@ impl StateRegistry {
         (repo.get)(self, key).await
     }
 
-    /// Write one item by type name and string key. No-ops on an unknown type, a
-    /// bad key, or a value that does not deserialize.
-    pub(crate) async fn debug_set(&self, type_name: &str, key: &str, value: Value) {
-        if let Some(repo) = self.debug.named(type_name) {
-            (repo.set)(self, key, value).await;
+    /// Write one item by type name and string key. Returns `false` on an unknown
+    /// type, a bad key, a value that does not deserialize, or a failed write.
+    pub(crate) async fn debug_set(&self, type_name: &str, key: &str, value: Value) -> bool {
+        match self.debug.named(type_name) {
+            Some(repo) => (repo.set)(self, key, value).await,
+            None => false,
         }
     }
 }
@@ -216,16 +239,17 @@ async fn get_repo<T: RepositoryItem>(registry: &StateRegistry, key: &str) -> Opt
     serde_json::to_value(&value).ok()
 }
 
-/// Write one item to the `T` repository at its string key. No-ops on a bad key
-/// or a value that does not deserialize to `T`.
-async fn set_repo<T: RepositoryItem>(registry: &StateRegistry, key: &str, value: Value) {
+/// Write one item to the `T` repository at its string key. Returns `false` on a
+/// bad key, a value that does not deserialize to `T`, or a failed write.
+async fn set_repo<T: RepositoryItem>(registry: &StateRegistry, key: &str, value: Value) -> bool {
     let Ok(key) = <T::Key as FromStr>::from_str(key) else {
-        return;
+        return false;
     };
     let Ok(value) = serde_json::from_value::<T>(value) else {
-        return;
+        return false;
     };
-    if let Ok(repository) = registry.get::<T>() {
-        let _ = repository.set(key, value).await;
+    match registry.get::<T>() {
+        Ok(repository) => repository.set(key, value).await.is_ok(),
+        Err(_) => false,
     }
 }

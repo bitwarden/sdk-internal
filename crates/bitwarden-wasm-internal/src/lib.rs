@@ -15,7 +15,7 @@ pub use bitwarden_organization_invite_link::*;
 pub use bitwarden_server_communication_config::wasm::*;
 pub use bitwarden_shared_unlock::wasm::*;
 pub use client::PasswordManagerClient;
-#[cfg(feature = "debug-capabilities")]
-pub use {bitwarden_pm::debug::DebugClient, bitwarden_state::debug::StateDebug};
 pub use flight_recorder::FlightRecorderClient;
 pub use init::init_sdk;
+#[cfg(feature = "debug-capabilities")]
+pub use {bitwarden_pm::debug::DebugClient, bitwarden_state::debug::StateDebug};
