@@ -15,6 +15,10 @@ pub enum OnePasswordError {
     #[error("invalid credentials")]
     BadCredentials,
 
+    /// The sign-in subdomain is not a valid DNS label.
+    #[error("invalid sign-in address: {0}")]
+    InvalidSignInAddress(String),
+
     /// The requested resource was not found (1Password code 117).
     #[error("not found")]
     NotFound,
