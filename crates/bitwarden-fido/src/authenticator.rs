@@ -877,10 +877,6 @@ mod tests {
         }
     }
 
-    /// TODO(PM-30510): Even though we forward the extensions to the
-    /// authenticator, we have disabled the configuration.
-    /// When we implement PRF, this test should be updated to test that PRF _is_
-    /// evaluated when PRF extension input is received.
     async fn create_test_client() -> Client {
         let client = Client::new(None);
 
@@ -908,6 +904,10 @@ mod tests {
         client
     }
 
+    /// TODO(PM-30510): Even though we forward the extensions to the
+    /// authenticator, we have disabled the configuration.
+    /// When we implement PRF, this test should be updated to test that PRF _is_
+    /// evaluated when PRF extension input is received.
     #[tokio::test]
     async fn test_prf_is_not_evaluated() {
         let client = create_test_client().await;
