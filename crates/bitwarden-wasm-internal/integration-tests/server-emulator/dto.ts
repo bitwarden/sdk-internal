@@ -224,6 +224,7 @@ export const CIPHER_FIELD_SOURCE = {
   creationDate: "server",
   revisionDate: "server",
   deletedDate: "server",
+  partialData: "server",
 } as const satisfies Record<keyof Cipher, "request" | "previous" | "server">;
 
 /** Fields the server, not the client, decides the value of. */

@@ -146,17 +146,14 @@ mod tests {
     use bitwarden_api_api::apis::ApiClient;
     use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
-    use bitwarden_state::SettingItem;
-    use bitwarden_test::MemoryRepository;
+    use bitwarden_test::{MemoryRepository, MemorySetting};
     use uuid::uuid;
 
     use super::*;
     use crate::{AuthType, Send, SendId, SendTextView, SendType, SendView};
 
     fn make_pending_setting() -> Setting<Vec<SendId>> {
-        let repository: Arc<dyn Repository<SettingItem>> =
-            Arc::new(MemoryRepository::<SettingItem>::default());
-        Setting::new(repository, PENDING_SEND_DELETIONS)
+        MemorySetting::create()
     }
 
     async fn make_store_with_send(

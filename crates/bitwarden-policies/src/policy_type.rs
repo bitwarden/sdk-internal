@@ -7,7 +7,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{policies::*, policy::ErasedPolicy};
+use crate::{policies::*, policy_definition::ErasedPolicy};
 
 /// The type of an organization policy.
 ///
