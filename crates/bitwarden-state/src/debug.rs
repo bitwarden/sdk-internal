@@ -188,6 +188,16 @@ impl DebugRegistry {
 /// Generic browse over registered repositories, addressed by type name. Backs
 /// [`StateDebug`]; bypasses the type-safe public API.
 impl StateRegistry {
+    /// Register debug shims for the SDK-managed types declared in `migrations`.
+    ///
+    /// [`new_with_db`](Self::new_with_db) already does this, but the memory-backed
+    /// registry the wasm and mobile bindings build does not go through it, so
+    /// without this call the browse would only see client-managed types. Idempotent
+    /// (shims are keyed by type).
+    pub fn debug_register_migrations(&self, migrations: &RepositoryMigrations) {
+        self.debug.register_migrations(migrations);
+    }
+
     /// Names of every registered repository (client- and SDK-managed).
     pub(crate) fn debug_types(&self) -> Vec<String> {
         self.debug.names()
@@ -251,5 +261,43 @@ async fn set_repo<T: RepositoryItem>(registry: &StateRegistry, key: &str, value:
     match registry.get::<T>() {
         Ok(repository) => repository.set(key, value).await.is_ok(),
         Err(_) => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::{Deserialize, Serialize};
+    use serde_json::json;
+
+    use super::*;
+    use crate::{
+        register_repository_item,
+        repository::{RepositoryMigrationStep, RepositoryMigrations},
+    };
+
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
+    struct SdkOnlyItem {
+        value: String,
+    }
+    register_repository_item!(String => SdkOnlyItem, "SdkOnlyItem");
+
+    /// A type that is only ever SDK-managed (declared in migrations, never
+    /// registered client-managed) is invisible to the browse until its migration
+    /// shims are registered, and then reads and writes through the memory-backed
+    /// registry the wasm and mobile bindings use.
+    #[tokio::test]
+    async fn debug_register_migrations_exposes_sdk_managed_types() {
+        let registry = StateRegistry::new_with_memory_db();
+        assert!(!registry.debug_types().contains(&"SdkOnlyItem".to_string()));
+
+        let migrations =
+            RepositoryMigrations::new(vec![RepositoryMigrationStep::Add(SdkOnlyItem::data())]);
+        registry.debug_register_migrations(&migrations);
+        assert!(registry.debug_types().contains(&"SdkOnlyItem".to_string()));
+
+        let value = json!({ "value": "hello" });
+        assert!(registry.debug_set("SdkOnlyItem", "k1", value.clone()).await);
+        assert_eq!(registry.debug_get("SdkOnlyItem", "k1").await, Some(value));
+        assert_eq!(registry.debug_list("SdkOnlyItem").await.len(), 1);
     }
 }
