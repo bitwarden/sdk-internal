@@ -1,7 +1,7 @@
-//! Integration test validating basic callback functionality.
+//! Integration test validating that the callback works with the platform logger disabled.
 //!
-//! Verifies that registered callbacks receive log events with correct data structure
-//! including level, target, and message fields.
+//! A host that records the callback events itself turns the platform logger off to avoid
+//! recording every event twice. Events must still reach the callback.
 
 use std::sync::{Arc, Mutex};
 
@@ -21,7 +21,7 @@ impl bitwarden_core::auth::ClientManagedTokens for MockTokenProvider {
     }
 }
 
-/// Test callback implementation that captures logs
+/// Test callback that captures logs
 struct TestCallback {
     logs: Arc<Mutex<Vec<(LogLevel, String, String)>>>,
 }
@@ -37,40 +37,25 @@ impl LogCallback for TestCallback {
 }
 
 #[test]
-fn test_callback_happy_path() {
-    // Verify callback receives logs with correct data
+fn test_callback_receives_logs_without_platform_logger() {
     let logs = Arc::new(Mutex::new(Vec::new()));
     let callback = Arc::new(TestCallback { logs: logs.clone() });
 
-    // Initialize logger with callback
-    init_logger(Some(callback), None, true);
+    init_logger(Some(callback), None, false);
 
-    // Create client
     let _client = Client::new(
         Arc::new(MockTokenProvider),
         None,
         Arc::new(ManagedSettingsBindingClient::new()),
     );
 
-    // Trigger SDK logging
-    tracing::info!("integration test message");
+    tracing::info!("platform logger disabled message");
 
-    // Verify callback received the log
     let captured = logs.lock().expect("Failed to lock logs mutex");
-    assert!(!captured.is_empty(), "Callback should receive logs");
-
-    // Find our specific log message (tests run in parallel so may have logs from other tests)
     let our_log = captured
         .iter()
-        .find(|(_, _, msg)| msg.contains("integration test message"))
-        .expect("Should find our integration test message");
+        .find(|(_, _, msg)| msg.contains("platform logger disabled message"))
+        .expect("Should find our test message");
 
-    // Validate log data structure
-    let (level, target, message) = our_log;
-    assert_eq!(*level, LogLevel::Info, "Log level should be INFO");
-    assert!(!target.is_empty(), "Target should not be empty");
-    assert!(
-        message.contains("integration test message"),
-        "Message should contain logged text"
-    );
+    assert_eq!(our_log.0, LogLevel::Info);
 }
