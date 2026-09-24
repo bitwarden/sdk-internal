@@ -89,13 +89,13 @@ pub trait LogCallback: Send + Sync {
     /// Called when SDK emits a log entry
     ///
     /// # Parameters
-    /// - level: Log level string ("TRACE", "DEBUG", "INFO", "WARN", "ERROR")
+    /// - level: Log level (`LogLevel` enum)
     /// - target: Module that emitted log (e.g., "bitwarden_core::auth")
     /// - message: The formatted log message
     ///
     /// # Returns
     /// Result<()> - Return errors rather than panicking
-    fn on_log(&self, level: String, target: String, message: String) -> Result<()>;
+    fn on_log(&self, level: LogLevel, target: String, message: String) -> Result<()>;
 }
 ```
 
@@ -120,6 +120,13 @@ let client = Client(
 ```
 
 Skip `initLogger()` to use only platform loggers (oslog/logcat).
+
+If the callback already forwards events to oslog or logcat, pass `platformLogger = false` so the SDK
+doesn't log each event a second time:
+
+```kotlin
+initLogger(FlightRecorderCallback(), platformLogger = false)
+```
 
 ### Thread Safety Requirements
 
@@ -160,9 +167,9 @@ operations. Follow these patterns:
 The SDK sends all INFO+ logs to the callback. Mobile teams filter based on requirements:
 
 ```kotlin
-override fun onLog(level: String, target: String, message: String) {
+override fun onLog(level: LogLevel, target: String, message: String) {
     // Example: Only forward WARN and ERROR to Flight Recorder
-    if (level == "WARN" || level == "ERROR") {
+    if (level == LogLevel.WARN || level == LogLevel.ERROR) {
         logQueue.offer(LogEntry(level, target, message))
     }
     // INFO logs are ignored
