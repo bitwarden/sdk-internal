@@ -131,11 +131,9 @@ impl FromStr for LegacyCompatSymmetricKeyEnvelope {
             return SymmetricKeyEnvelope::from_str(s).map(Self::SymmetricKeyEnvelope);
         }
 
-        EncString::parse_strict(s)
-            .map(Self::EncString)
-            .map_err(|_| {
-                SymmetricKeyEnvelopeError::Parsing("Failed to parse EncString".to_string())
-            })
+        // Lax parsing: malformed EncStrings become `EncString::Unparseable`, preserving the raw
+        // value on re-serialization. They fail on unseal instead.
+        Ok(Self::EncString(EncString::from(s)))
     }
 }
 
@@ -488,7 +486,19 @@ mod tests {
 
     #[test]
     fn test_unparseable_input_errors() {
-        assert!(LegacyCompatSymmetricKeyEnvelope::from_str("9.garbage").is_err());
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+
+        // Malformed EncStrings parse laxly, round-trip unchanged, and fail on unseal.
+        let unparseable = LegacyCompatSymmetricKeyEnvelope::from_str("9.garbage").unwrap();
+        assert_eq!(String::from(unparseable.clone()), "9.garbage");
+        assert!(
+            unparseable
+                .unseal(wrapping_key, NAMESPACE, &mut ctx)
+                .is_err()
+        );
+
         assert!(LegacyCompatSymmetricKeyEnvelope::from_str("not base64!").is_err());
     }
 }
