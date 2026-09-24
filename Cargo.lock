@@ -946,6 +946,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-exporters",
  "bitwarden-random",
+ "bitwarden-ssh",
  "bitwarden-vault",
  "cbc",
  "chrono",
