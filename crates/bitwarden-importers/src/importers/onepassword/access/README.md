@@ -24,9 +24,9 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
   400, so no new account can be created on it. `fixtures/master-key-vectors.json` covers the
   derivation for both algorithms instead
 - Only the credentials and the keys are zeroed. The decrypted vault data is not
-- The replay tests run on an account captured into `../fixtures`, re-keyed to the fake credentials
-  in `replay.rs`. After a recapture, run `node scripts/reencrypt.mjs <keysets|account>` from there
-  on each response, passing the real account's credentials as `--old-*`
+- The replay tests run on an account captured into `fixtures/account`, re-keyed to the fake
+  credentials in `replay.rs`. After a recapture, run `node scripts/reencrypt.mjs <keysets|account>`
+  from `fixtures` on each response, passing the real account's credentials as `--old-*`
 
 ## TODO
 

@@ -2,6 +2,5 @@
 exclude:
   paths:
     - crates/bitwarden-importers/src/importers/onepassword/access/fixtures
-    - crates/bitwarden-importers/src/importers/onepassword/fixtures
     # A #[cfg(test)] module that replays the captured account, so it holds its credentials.
     - crates/bitwarden-importers/src/importers/onepassword/access/replay.rs

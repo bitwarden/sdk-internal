@@ -6,8 +6,8 @@
 // The envelope keeps its IV and the file keeps its formatting, so the diff is the re-sealed
 // `data` plus the fields that name the account's owner.
 //
-//   node scripts/reencrypt.mjs keysets --old-email … --old-password … --old-secret-key … keysets-response.json
-//   node scripts/reencrypt.mjs account --old-email … --old-password … --old-secret-key … account-response.json
+//   node scripts/reencrypt.mjs keysets --old-email … --old-password … --old-secret-key … account/keysets-response.json
+//   node scripts/reencrypt.mjs account --old-email … --old-password … --old-secret-key … account/account-response.json
 //
 // The `--new-*` options default to the credentials replay.rs uses.
 
