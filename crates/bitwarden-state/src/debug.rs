@@ -8,6 +8,12 @@
 //! registration and the SDK-managed migration path) and dispatched by the
 //! repository's string name. Compiled only under the `debug-capabilities`
 //! feature; never ship in production.
+//!
+//! The registration logic is covered by the unit test below (run under
+//! `--all-features`). CI never builds the feature into a wasm/mobile artifact,
+//! so the generated binding surface is verified by hand:
+//! `crates/bitwarden-wasm-internal/build.sh -d`, then the integration-tests
+//! `debug().state()` browse.
 
 use std::{
     any::TypeId,
