@@ -4,7 +4,7 @@
 //! the SDK is fully implemented. When porting functionality from `client` the mobile clients should
 //! be updated to consume the regular code paths and in this module should eventually disappear.
 
-#[cfg(feature = "uniffi")]
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
 mod reinit_user_crypto;
 use std::collections::HashMap;
 
@@ -21,9 +21,9 @@ use bitwarden_crypto::{
 use bitwarden_crypto::{SymmetricKeyAlgorithm, safe::PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
-#[cfg(feature = "uniffi")]
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
 pub(super) use reinit_user_crypto::reinit_user_crypto;
-#[cfg(feature = "uniffi")]
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
 pub use reinit_user_crypto::{ReinitUserCryptoError, ReinitUserCryptoRequest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
