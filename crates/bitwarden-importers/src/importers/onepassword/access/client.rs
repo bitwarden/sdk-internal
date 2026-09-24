@@ -48,19 +48,7 @@ impl Client {
     ) -> Result<Vec<Vault>, OnePasswordError> {
         let account_key = AccountKey::parse(&credentials.account_key)?;
         let session = self.login(credentials, &account_key, ui).await?;
-        let (keychain, vaults) = unlock(credentials, &account_key, &session).await?;
-
-        let mut downloaded = Vec::with_capacity(vaults.len());
-        for info in &vaults {
-            downloaded.push(Vault {
-                id: info.id.clone(),
-                name: info.name.clone(),
-                description: info.description.clone(),
-                items: download_vault_items(&info.id, &keychain, &session).await?,
-            });
-        }
-
-        Ok(downloaded)
+        download_vaults(credentials, &account_key, &session).await
     }
 
     /// Runs the login sequence, retrying the whole thing when the server rejects a TOTP code.
@@ -106,6 +94,30 @@ impl Client {
 
         Err(OnePasswordError::TwoFactorFailed)
     }
+}
+
+/// Unlocks the account's keys and downloads every vault the session can open.
+///
+/// Split out of [`Client::download_all_vaults`] so the fixture replay can drive the real download
+/// over captured responses without performing the login exchange.
+pub(super) async fn download_vaults(
+    credentials: &Credentials,
+    account_key: &AccountKey,
+    session: &Session,
+) -> Result<Vec<Vault>, OnePasswordError> {
+    let (keychain, vaults) = unlock(credentials, account_key, session).await?;
+
+    let mut downloaded = Vec::with_capacity(vaults.len());
+    for info in &vaults {
+        downloaded.push(Vault {
+            id: info.id.clone(),
+            name: info.name.clone(),
+            description: info.description.clone(),
+            items: download_vault_items(&info.id, &keychain, session).await?,
+        });
+    }
+
+    Ok(downloaded)
 }
 
 /// A vault the account can open, with its attributes already decrypted.

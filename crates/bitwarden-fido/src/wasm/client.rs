@@ -6,10 +6,10 @@ use super::{
     user_interface::{JsFido2UserInterface, RawJsFido2UserInterface},
 };
 use crate::{
-    ClientData, ClientFido2, CredentialsForAutofillError, DecryptFido2AutofillCredentialsError,
-    Fido2ClientError, Fido2CredentialAutofillView, GetAssertionError, GetAssertionRequest,
-    GetAssertionResult, MakeCredentialError, MakeCredentialRequest, MakeCredentialResult, Origin,
-    PublicKeyCredentialAuthenticatorAssertionResponse,
+    ClientData, ClientFido2, CredentialsForAutofillError, Fido2ClientError,
+    Fido2CredentialAutofillView, GetAssertionError, GetAssertionRequest, GetAssertionResult,
+    GetFido2AutofillCredentialsError, MakeCredentialError, MakeCredentialRequest,
+    MakeCredentialResult, Origin, PublicKeyCredentialAuthenticatorAssertionResponse,
     PublicKeyCredentialAuthenticatorAttestationResponse, SilentlyDiscoverCredentialsError,
 };
 
@@ -52,12 +52,12 @@ impl WasmFido2Client {
         WasmFido2WebAuthnClient(self.authenticator(user_interface, credential_store))
     }
 
-    /// Decrypt the FIDO2 credentials in a cipher into the form used for autofill.
-    pub fn decrypt_fido2_autofill_credentials(
+    /// Get the FIDO2 credentials in a cipher in the form used for autofill.
+    pub fn get_fido2_autofill_credentials(
         &self,
         cipher_view: CipherView,
-    ) -> Result<Vec<Fido2CredentialAutofillView>, DecryptFido2AutofillCredentialsError> {
-        self.0.decrypt_fido2_autofill_credentials(cipher_view)
+    ) -> Result<Vec<Fido2CredentialAutofillView>, GetFido2AutofillCredentialsError> {
+        self.0.get_fido2_autofill_credentials(cipher_view)
     }
 }
 

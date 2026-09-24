@@ -90,9 +90,7 @@ function makeVaultStore(client: PasswordManagerClient) {
       observed.push({ ids, userHandle: user_handle });
       const views = await Promise.all(saved.map((c) => ciphers.decrypt(c)));
       return views.filter((view) =>
-        // `rpId` is only readable once the credential is decrypted: the `fido2Credentials` on a
-        // CipherView are still the encrypted type.
-        ciphers.decrypt_fido2_credentials(view).some((cred) => cred.rpId === rp_id),
+        view.login?.fido2Credentials?.some((cred) => cred.rpId === rp_id),
       );
     },
     all_credentials: async () => ciphers.decrypt_list(saved),

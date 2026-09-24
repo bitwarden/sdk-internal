@@ -269,18 +269,16 @@ impl<'a> Fido2Authenticator<'a> {
         rp_id: String,
         user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
-        let key_store = self.client.internal.get_key_store();
         let result = self
             .credential_store
             .find_credentials(None, rp_id, user_handle)
             .await?;
 
-        let mut ctx = key_store.context();
         result
             .into_iter()
             .map(
                 |cipher| -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
-                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher, &mut ctx)?)
+                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher)?)
                 },
             )
             .flatten_ok()
@@ -334,8 +332,6 @@ impl<'a> Fido2Authenticator<'a> {
     pub(super) fn get_selected_credential(
         &self,
     ) -> Result<SelectedCredential, GetSelectedCredentialError> {
-        let key_store = self.client.internal.get_key_store();
-
         let cipher = self
             .selected_cipher
             .lock()
@@ -343,7 +339,7 @@ impl<'a> Fido2Authenticator<'a> {
             .clone()
             .ok_or(GetSelectedCredentialError::NoSelectedCredential)?;
 
-        let creds = cipher.decrypt_fido2_credentials(&mut key_store.context())?;
+        let creds = cipher.get_fido2_credentials();
 
         let credential = creds
             .first()
@@ -408,13 +404,11 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 })
                 .collect();
 
-            let key_store = this.authenticator.client.internal.get_key_store();
-
             // When using the credential for authentication we have to ask the user to pick one.
             if this.create_credential {
                 Ok(creds
                     .into_iter()
-                    .map(|c| CipherViewContainer::new(c, &mut key_store.context()))
+                    .map(CipherViewContainer::new)
                     .collect::<Result<_, _>>()?)
             } else {
                 let picked = this
@@ -430,10 +424,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                     .expect("Mutex is not poisoned")
                     .replace(picked.clone());
 
-                Ok(vec![CipherViewContainer::new(
-                    picked,
-                    &mut key_store.context(),
-                )?])
+                Ok(vec![CipherViewContainer::new(picked)?])
             }
         }
 
@@ -488,9 +479,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .clone()
                 .ok_or(InnerError::NoSelectedCredential)?;
 
-            let key_store = this.authenticator.client.internal.get_key_store();
-
-            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
+            selected.set_new_fido2_credentials(vec![cred])?;
 
             // Store the updated credential for later use
             this.authenticator
@@ -562,10 +551,8 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             let cred = fill_with_credential(&selected.credential, cred)?;
 
-            let key_store = this.authenticator.client.internal.get_key_store();
-
             let mut selected = selected.cipher;
-            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
+            selected.set_new_fido2_credentials(vec![cred])?;
 
             // Store the updated credential for later use
             this.authenticator
@@ -689,15 +676,12 @@ fn map_ui_hint(hint: UiHint<'_, CipherViewContainer>) -> UiHint<'_, CipherView> 
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use bitwarden_core::{
-        Client,
-        key_management::{KeySlotIds, SymmetricKeySlotId},
-    };
-    use bitwarden_crypto::{KeyStoreContext, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_core::{Client, key_management::SymmetricKeySlotId};
+    use bitwarden_crypto::SymmetricCryptoKey;
     use bitwarden_encoding::B64Url;
     use bitwarden_vault::{
         CipherListView, CipherRepromptType, CipherType, CipherView, EncryptionContext,
-        Fido2Credential, Fido2CredentialNewView, LoginView,
+        Fido2CredentialNewView, Fido2CredentialView, LoginView,
     };
     use passkey::authenticator::UiHint;
 
@@ -813,23 +797,22 @@ mod tests {
         0x84, 0x05, 0x71,
     ];
 
-    fn create_test_cipher(ctx: &mut KeyStoreContext<KeySlotIds>) -> CipherView {
-        let key = SymmetricKeySlotId::User;
+    fn create_test_cipher() -> CipherView {
         let key_value = B64Url::from(TEST_FIDO_P256_KEY).to_string();
 
-        let fido2_credential = Fido2Credential {
-            credential_id: TEST_FIDO_CREDENTIAL_ID.encrypt(ctx, key).unwrap(),
-            key_type: "public-key".to_string().encrypt(ctx, key).unwrap(),
-            key_algorithm: "ECDSA".to_string().encrypt(ctx, key).unwrap(),
-            key_curve: "P-256".to_string().encrypt(ctx, key).unwrap(),
-            key_value: key_value.encrypt(ctx, key).unwrap(),
-            rp_id: TEST_FIDO_RP_ID.encrypt(ctx, key).unwrap(),
-            user_handle: Some(TEST_FIDO_USER_HANDLE.encrypt(ctx, key).unwrap()),
+        let fido2_credential = Fido2CredentialView {
+            credential_id: TEST_FIDO_CREDENTIAL_ID.to_string(),
+            key_type: "public-key".to_string(),
+            key_algorithm: "ECDSA".to_string(),
+            key_curve: "P-256".to_string(),
+            key_value,
+            rp_id: TEST_FIDO_RP_ID.to_string(),
+            user_handle: Some(TEST_FIDO_USER_HANDLE.to_string()),
             user_name: None,
-            counter: "0".to_string().encrypt(ctx, key).unwrap(),
+            counter: "0".to_string(),
             rp_name: None,
             user_display_name: None,
-            discoverable: "true".to_string().encrypt(ctx, key).unwrap(),
+            discoverable: "true".to_string(),
             creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
         };
 
@@ -912,10 +895,7 @@ mod tests {
     async fn test_prf_is_not_evaluated() {
         let client = create_test_client().await;
 
-        let cipher = {
-            let mut ctx = client.internal.get_key_store().context();
-            create_test_cipher(&mut ctx)
-        };
+        let cipher = create_test_cipher();
 
         let user_interface = MockUserInterface::default();
         let credential_store = MockCredentialStore { cipher };
@@ -964,16 +944,12 @@ mod tests {
 
         // The creation path is handed a cipher with no passkey on it yet; the authenticator adds
         // one and saves it back.
-        let cipher = {
-            let mut ctx = client.internal.get_key_store().context();
-            let mut cipher = create_test_cipher(&mut ctx);
-            cipher
-                .login
-                .as_mut()
-                .expect("the test cipher is a login")
-                .fido2_credentials = None;
-            cipher
-        };
+        let mut cipher = create_test_cipher();
+        cipher
+            .login
+            .as_mut()
+            .expect("the test cipher is a login")
+            .fido2_credentials = None;
 
         let user_interface = MockUserInterface {
             new_credential_cipher: Some(cipher.clone()),
