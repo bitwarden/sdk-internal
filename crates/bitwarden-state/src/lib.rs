@@ -9,6 +9,11 @@ pub mod repository;
 /// This module provides a registry for managing repositories of different types.
 pub mod registry;
 
+/// Dev-only generic debug browse over registered repositories. Compiled only
+/// under the `debug-capabilities` feature; never ship in production.
+#[cfg(feature = "debug-capabilities")]
+pub mod debug;
+
 /// Type-safe settings API for storing application configuration and state.
 pub mod settings;
 

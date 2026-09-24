@@ -23,6 +23,9 @@ normal = [
 
 [features]
 internal = ["dep:zxcvbn"]
+# Dev-only: exposes a shared handle to the state registry so the debug browse
+# (authored in bitwarden-state) can reach it. Never enable in production.
+debug-capabilities = ["bitwarden-state/debug-capabilities"]
 no-memory-hardening = [
     "bitwarden-crypto/no-memory-hardening",
 ] # Disable memory hardening features

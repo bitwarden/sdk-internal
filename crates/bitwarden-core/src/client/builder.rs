@@ -178,7 +178,7 @@ impl ClientBuilder {
                 security_state: RwLock::new(None),
                 #[cfg(feature = "internal")]
                 state_bridge: StateBridge::new(),
-                state_registry,
+                state_registry: Arc::new(state_registry),
                 managed_profile,
             }),
         };

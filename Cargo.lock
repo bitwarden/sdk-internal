@@ -1376,6 +1376,8 @@ dependencies = [
  "tracing",
  "tsify",
  "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
 ]
 

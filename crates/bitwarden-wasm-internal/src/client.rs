@@ -178,6 +178,15 @@ impl PasswordManagerClient {
     pub fn gov_mode(&self) -> bool {
         self.0.0.gov_mode()
     }
+
+    /// Dev-only debug capabilities that reach past the public API into internal
+    /// state, for automated tooling. Rooted debug tree mirroring the client
+    /// tree. Available only when built with the `debug-capabilities` feature,
+    /// which must never be enabled in production.
+    #[cfg(feature = "debug-capabilities")]
+    pub fn debug(&self) -> bitwarden_pm::debug::DebugClient {
+        self.0.debug()
+    }
 }
 
 #[bitwarden_error(basic)]
