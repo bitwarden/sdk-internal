@@ -28,8 +28,10 @@ mod bulk_update_collections;
 
 pub use admin::GetAssignedOrgCiphersAdminError;
 mod create;
+pub use create::CipherCreateRequest;
 mod delete;
 mod edit;
+pub use edit::{CipherEditRequest, CipherPartialEditRequest};
 mod get;
 mod move_many;
 mod restore;
