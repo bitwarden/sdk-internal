@@ -393,13 +393,6 @@ pub struct ProfileOrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub is_admin_initiated: Option<bool>,
-    /// Obsolete property for backward compatibility
-    #[serde(
-        rename = "userIsManagedByOrganization",
-        alias = "UserIsManagedByOrganization",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub user_is_managed_by_organization: Option<bool>,
 }
 
 impl ProfileOrganizationResponseModel {
@@ -472,7 +465,6 @@ impl ProfileOrganizationResponseModel {
             family_sponsorship_valid_until: None,
             family_sponsorship_to_delete: None,
             is_admin_initiated: None,
-            user_is_managed_by_organization: None,
         }
     }
 }

@@ -1,0 +1,110 @@
+{
+    "sections": [
+        {
+            "name": "Section_l2bagl3iupehvr7jvrc62mjhee",
+            "title": "Section1",
+            "fields": [
+                {
+                    "t": "otp1",
+                    "v": "blahblahblah",
+                    "k": "concealed",
+                    "n": "TOTP_q5u5xxcc4rmokuco2qkkbarrom"
+                },
+                {
+                    "t": "otp2",
+                    "v": "pfpfpfpfpf",
+                    "k": "concealed",
+                    "n": "TOTP_ahr55l6iut7azxlplq4tdm5q6u"
+                },
+                {
+                    "t": "email1",
+                    "v": "blah@email.com",
+                    "k": "email",
+                    "n": "pzekjqeac6jdqlqpwbknvj3asm"
+                },
+                {
+                    "t": "sign in with1",
+                    "v": {
+                        "provider": "github"
+                    },
+                    "k": "ssoLogin",
+                    "n": "dlonqn76xyeqyp6dgh6ofrwsky"
+                },
+                {
+                    "t": "phone1",
+                    "v": "123456567",
+                    "k": "phone",
+                    "n": "cgcfjq6sv2fueff2phpujsstxe"
+                },
+                {
+                    "t": "date1",
+                    "v": 1694692860,
+                    "k": "date",
+                    "n": "7yrnhnetvserrkytvv6qxxiaqy"
+                }
+            ]
+        },
+        {
+            "name": "Section_4hckr3r222l3l7kzoyo7aqcsoq",
+            "title": "Section2",
+            "fields": [
+                {
+                    "t": "otp1",
+                    "v": "pfpfpfpfpf",
+                    "k": "concealed",
+                    "n": "TOTP_d5nkqmsaeog4aioa5qnsfmifpe"
+                },
+                {
+                    "t": "otp2",
+                    "v": "1234567890",
+                    "k": "concealed",
+                    "n": "TOTP_tue2sn3mp7567vyvtuzk72f4am"
+                },
+                {
+                    "t": "url2",
+                    "v": "https://blah.com",
+                    "k": "URL",
+                    "n": "lwflmcxuoxkeicly3tm5fsoeoi"
+                },
+                {
+                    "t": "date2",
+                    "k": "date",
+                    "n": "myx5fzoq3dq5wle4wzvvavsza4"
+                },
+                {
+                    "t": "",
+                    "v": {
+                        "street": "main st",
+                        "city": "ville",
+                        "country": "vi",
+                        "zip": "12345",
+                        "state": "ca"
+                    },
+                    "k": "address",
+                    "n": "nhzzd6nu73fn7sl4gjmwa5fxxu"
+                },
+                {
+                    "t": "mo/ye",
+                    "v": 202112,
+                    "k": "monthYear",
+                    "n": "kwkr32jrtllqhexeedk7tofpca"
+                }
+            ]
+        }
+    ],
+    "fields": [
+        {
+            "name": "username",
+            "value": "",
+            "type": "T",
+            "designation": "username"
+        },
+        {
+            "name": "password",
+            "value": "",
+            "type": "P",
+            "designation": "password"
+        }
+    ],
+    "notesPlain": ""
+}

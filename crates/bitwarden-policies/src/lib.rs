@@ -5,17 +5,24 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
-pub mod filter;
-mod master_password_policy_response;
 mod models;
+mod policies;
+mod policy;
 mod policy_client;
-pub mod policy_overrides;
+mod policy_definition;
 mod policy_type;
-mod registry;
 
-pub use filter::Policy;
-pub use master_password_policy_response::MasterPasswordPolicyResponse;
-pub use models::{OrganizationUserPolicyContext, PolicyView};
+pub use models::{OrganizationUserPolicyContext, PolicyDecisionErased};
+// Policy structs will be referenced by other crates once this starts being used
+#[allow(unused)]
+pub(crate) use policies::*;
+pub use policies::{
+    AutomaticAppLogInPolicyData, FillAssistPolicyData, MasterPasswordPolicyData,
+    MaximumVaultTimeoutPolicyData, OrganizationDataOwnershipPolicyData,
+    OrganizationUserNotificationPolicyData, PasswordGeneratorPolicyData, PasswordGeneratorType,
+    ResetPasswordPolicyData, SendOptionsPolicyData, VaultTimeoutAction, VaultTimeoutType,
+};
+pub use policy::{Policy, PolicyId};
 pub use policy_client::{PoliciesClientExt, PolicyClient};
-pub use policy_overrides::*;
-pub use policy_type::PolicyType;
+pub(crate) use policy_definition::PolicyDefinition;
+pub use policy_type::{PolicyDataType, PolicyType};

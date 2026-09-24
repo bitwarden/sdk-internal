@@ -1,7 +1,6 @@
 use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, IdentifyKey, KeyStoreContext,
-    PrimitiveEncryptable,
 };
 use bitwarden_logging::instrument;
 use thiserror::Error;
@@ -36,15 +35,15 @@ impl From<BlobEncryptionError> for CryptoError {
     }
 }
 
-/// Seals a `CipherView` into an opaque blob string, using `wrapping_key` as
-/// the outer key that protects the cipher's wrapped CEK.
+/// Seals a `CipherView` into an opaque blob string under the given `cipher_key` slot.
+/// The caller is responsible for loading the key slot before calling (e.g. via
+/// `CipherView::load_cipher_key_slot`); this avoids allocating a duplicate slot.
 fn seal_cipher(
     view: &CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
-    wrapping_key: SymmetricKeySlotId,
+    cipher_key: SymmetricKeySlotId,
 ) -> Result<String, BlobEncryptionError> {
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
-    let blob = CipherBlobLatest::from_cipher_view(view, ctx, cipher_key)?;
+    let blob = CipherBlobLatest::from_cipher_view(view)?;
     seal_blob_content(blob, cipher_key, ctx)
 }
 
@@ -93,27 +92,37 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
     ctx: &mut KeyStoreContext<KeySlotIds>,
     wrapping_key: SymmetricKeySlotId,
 ) -> Result<Cipher, BlobEncryptionError> {
-    if view.key.is_none() {
-        view.generate_cipher_key(ctx, wrapping_key)?;
+    // Fail closed: a restricted (partial) view has all secret fields stripped; re-encrypting it
+    // would overwrite the item's secrets with empty values. See `decrypt_restricted_cipher_view`.
+    if view.partial {
+        return Err(BlobEncryptionError::Crypto(
+            CryptoError::EncryptRestrictedView,
+        ));
     }
 
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
+    if view.key.is_none() {
+        view.upgrade_to_cipher_key_encryption(ctx)?;
+    }
 
-    let sealed_string = seal_cipher(view, ctx, wrapping_key)?;
+    let cipher_key = view.load_cipher_key_slot(ctx, wrapping_key)?;
+
+    let sealed_string = seal_cipher(view, ctx, cipher_key)?;
 
     let attachments = view.attachments.encrypt_composite(ctx, cipher_key)?;
     let local_data = view.local_data.encrypt_composite(ctx, cipher_key)?;
 
-    // TODO: Remove this field once the server no longer requires it
-    let name = "".encrypt(ctx, cipher_key)?;
-
     Ok(Cipher {
+        partial_data: None,
         // Metadata
         id: view.id,
         organization_id: view.organization_id,
         folder_id: view.folder_id,
         collection_ids: view.collection_ids.clone(),
-        key: view.key.clone(),
+        key: view
+            .key
+            .as_ref()
+            .map(|_| ctx.wrap_symmetric_key(wrapping_key, cipher_key))
+            .transpose()?,
         r#type: view.r#type,
         favorite: view.favorite,
         reprompt: view.reprompt,
@@ -132,8 +141,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
         local_data,
 
         // Obsolete fields — sensitive data lives in the blob
-        // TODO: Remove `name` once the server no longer requires it
-        name: Some(name),
+        name: None,
         notes: None,
         login: None,
         identity: None,
@@ -175,12 +183,18 @@ pub(crate) fn decrypt_blob_cipher(
     let local_data = cipher.local_data.decrypt(ctx, cipher_key).ok().flatten();
 
     let mut view = CipherView {
+        partial: false,
         // Metadata
         id: cipher.id,
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
-        key: cipher.key.clone(),
+        key: if cipher.key.is_some() {
+            #[allow(deprecated)]
+            Some(ctx.dangerous_get_symmetric_key(cipher_key)?.clone())
+        } else {
+            None
+        },
         r#type: cipher.r#type,
         favorite: cipher.favorite,
         reprompt: cipher.reprompt,
@@ -213,14 +227,14 @@ pub(crate) fn decrypt_blob_cipher(
         password_history: None,
     };
 
-    blob.apply_to_cipher_view(&mut view, ctx, cipher_key)?;
+    blob.apply_to_cipher_view(&mut view)?;
 
     Ok(view)
 }
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::IdentifyKey;
+    use bitwarden_crypto::{IdentifyKey, PrimitiveEncryptable};
     use uuid::Uuid;
 
     use super::*;
@@ -250,6 +264,7 @@ mod tests {
             )
             .unwrap();
         Cipher {
+            partial_data: None,
             id: None,
             organization_id: None,
             folder_id: None,
@@ -310,13 +325,18 @@ mod tests {
         view.secure_note = Some(SecureNoteView {
             r#type: SecureNoteType::Generic,
         });
-        view.generate_cipher_key(&mut ctx, view.key_identifier())
-            .unwrap();
+        view.upgrade_to_cipher_key_encryption(&mut ctx).unwrap();
 
-        let sealed_string = seal_cipher(&view, &mut ctx, view.key_identifier()).unwrap();
+        let cipher_key = view
+            .load_cipher_key_slot(&mut ctx, view.key_identifier())
+            .unwrap();
+        let sealed_string = seal_cipher(&view, &mut ctx, cipher_key).unwrap();
 
         let mut cipher = make_test_cipher_with_data(&mut ctx, Some(sealed_string));
-        cipher.key = view.key.clone();
+        if let Some(key) = &view.key {
+            let slot = ctx.add_local_symmetric_key(key.clone());
+            cipher.key = Some(ctx.wrap_symmetric_key(view.key_identifier(), slot).unwrap());
+        }
 
         let view = decrypt_blob_cipher(
             &cipher,

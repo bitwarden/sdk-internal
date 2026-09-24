@@ -141,6 +141,7 @@ mod tests {
                 kdf: current_kdf,
                 master_key_wrapped_user_key: TEST_WRAPPED_USER_KEY.parse().unwrap(),
                 salt: TEST_EMAIL.to_string(),
+                contained_key_id: None,
             })
             .await;
     }

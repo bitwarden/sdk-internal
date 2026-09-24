@@ -495,10 +495,12 @@ fn send_edit_malformed_json_is_rejected_before_auth() {
 }
 
 #[test]
-fn send_get_output_returns_not_implemented_error() {
-    // --output for file Sends needs the decrypt-file pipeline, which isn't wired yet.
-    // Supplying it should fail loudly *before* the auth check + network call rather than
-    // silently writing JSON to stdout while the requested file path goes uncreated.
+fn send_get_rejects_the_removed_output_flag() {
+    // `--output` for file Sends needs the decrypt-file pipeline, which isn't wired yet — the
+    // flag used to be declared but unconditionally errored (an always-erroring flag with no
+    // working path), which was more confusing than not accepting it at all. Removed rather than
+    // implemented as a stub: clap itself now rejects it before any of our code runs, which also
+    // pre-empts the auth check even more directly than the removed custom gate did.
     let output = bw()
         .args([
             "send",
@@ -514,12 +516,12 @@ fn send_get_output_returns_not_implemented_error() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--output") && stderr.contains("not yet implemented"),
-        "expected `--output ... not yet implemented` error, got:\n{stderr}"
+        stderr.contains("unexpected argument") && stderr.contains("--output"),
+        "expected clap to reject the removed `--output` flag, got:\n{stderr}"
     );
     assert!(
         !stderr.contains("not logged in"),
-        "--output check should pre-empt the auth check; got:\n{stderr}"
+        "the arg-parse rejection should pre-empt the auth check; got:\n{stderr}"
     );
 }
 

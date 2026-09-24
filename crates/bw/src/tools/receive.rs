@@ -10,10 +10,20 @@
 //!
 //! Both `bw receive <url>` and `bw send receive <url>` are the same command; their arg structs
 //! are field-identical and both funnel into [`run_receive`].
+//!
+//! **PM-40120:** the legacy CLI's version of this bug mints against its configured environment
+//! but can leak the resulting real token to an attacker-controlled host on a follow-up fetch.
+//! The decided fix (2026-08-17) is that a Send access token must never be requested from
+//! anywhere but the server named in the Send link itself. [`resolve_urls`] already does this
+//! unconditionally for both the API and identity origin, so the mint and fetch here always
+//! target the same resolved host and a token can never cross the kind of domain boundary
+//! PM-40120 tracked. A link naming an attacker-controlled host still sends that host a password
+//! hash if the user proceeds — but per the decided fix, that's the token's only valid target,
+//! not a leak to a second, different host.
 
 use bitwarden_auth::send_access::{
-    SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest, SendEmailCredentials,
-    SendEmailOtpCredentials, SendPasswordCredentials,
+    SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
+    SendEmailCredentials, SendEmailOtpCredentials, SendPasswordCredentials,
     api::{
         SendAccessTokenApiErrorResponse, SendAccessTokenInvalidGrantError,
         SendAccessTokenInvalidRequestError,
@@ -26,6 +36,7 @@ use color_eyre::eyre::{Context as _, Result, bail, eyre};
 use inquire::{Password, Text, validator::Validation};
 use url::Url;
 
+use super::send_access_token_cache;
 use crate::{
     platform::{ConfigFile, read_config_json},
     render::{CommandOutput, CommandResult},
@@ -78,7 +89,9 @@ pub(crate) struct ReceiveInputs {
     pub full_object: bool,
 }
 
-/// Entry point shared by [`super::ReceiveArgs`] and [`super::send::SendReceiveArgs`].
+/// Entry point for [`super::ReceiveArgs`]'s `BwCommand` impl, reached both from the top-level
+/// `bw receive` command and from `SendCommands::Receive` (`bw send receive`), which reuses the
+/// same arg struct rather than a hand-synced copy.
 pub(crate) async fn run_receive(inputs: ReceiveInputs) -> CommandResult {
     let url = Url::parse(&inputs.url).wrap_err("Failed to parse the provided Send url")?;
     let (send_id, key_b64) = parse_send_url(&url)?;
@@ -89,13 +102,40 @@ pub(crate) async fn run_receive(inputs: ReceiveInputs) -> CommandResult {
     let access_key = SendAccessKey::from_url_b64(&key_b64)
         .map_err(|_| eyre!("Failed to parse url, the url provided is not a valid Send url"))?;
 
-    let (api_url, identity_url) = resolve_urls(&url, read_config_json().ok().flatten().as_ref());
+    let (api_url, identity_url, trusted) =
+        resolve_urls(&url, read_config_json().ok().flatten().as_ref());
+    // The cache key is the resolved host, never a separately configured environment — see
+    // `send_access_token_cache`'s module doc for why that distinction matters. Only engaged for
+    // a trusted host at all; see `resolve_urls`'s doc for why untrusted hosts are excluded
+    // entirely rather than relying on the key alone.
+    let cache_host = format!("{api_url}|{identity_url}");
     let client = PasswordManagerClient::new(Some(
         get_host_platform_info().to_client_settings(api_url, identity_url),
     ));
 
-    let token = attempt_access(&client, &send_id, &access_key, &inputs).await?;
-    render_access(&client, &access_key, token, &inputs).await
+    if trusted && let Some(token) = send_access_token_cache::get(&cache_host, &send_id) {
+        return match render_access(&client, &access_key, token, &inputs).await {
+            Ok(output) => Ok(output),
+            Err(err) => {
+                // The cache believed this token was still valid but the server disagreed
+                // (clock skew, or revocation before natural expiry) — don't leave a bad entry
+                // behind for the next invocation to hit the same way.
+                send_access_token_cache::evict(&cache_host, &send_id);
+                Err(err)
+            }
+        };
+    }
+
+    let token_response = attempt_access(&client, &send_id, &access_key, &inputs).await?;
+    if trusted {
+        send_access_token_cache::set(
+            &cache_host,
+            &send_id,
+            &token_response.token,
+            token_response.expires_at,
+        );
+    }
+    render_access(&client, &access_key, token_response.token, &inputs).await
 }
 
 /// Extract `(send_id, url_b64_key)` from the last two `#`-fragment segments.
@@ -119,25 +159,41 @@ fn parse_send_url(url: &Url) -> Result<(String, String)> {
     Ok((id.to_string(), key.to_string()))
 }
 
-/// Resolve the API and identity base URLs to talk to for a given Send link.
+/// Resolve the API and identity base URLs to talk to for a given Send link, plus whether that
+/// host is trusted.
 ///
-/// Both are needed: the send-access token is minted at `{identity}/connect/token` and the send
-/// itself is read from `{api}`. Precedence:
+/// Both URLs are needed: the send-access token is minted at `{identity}/connect/token` and the
+/// send itself is read from `{api}`. Precedence:
 ///
-/// 1. A known Bitwarden cloud host (exact match — see [`CLOUD_HOSTS`]).
+/// 1. A known Bitwarden cloud host (exact match — see [`CLOUD_HOSTS`]). Trusted.
 /// 2. The locally configured deployment (`bw config server`) when the link's origin matches it —
-///    explicit `api`/`identity` overrides win, otherwise the base is suffixed.
+///    explicit `api`/`identity` overrides win, otherwise the base is suffixed. Trusted.
 /// 3. Otherwise `<origin>/api` + `<origin>/identity`, the single-domain self-host convention and
-///    the legacy CLI's final fallback.
+///    the legacy CLI's final fallback. Not trusted.
+///
+/// The trust flag gates the send-access-token cache ([`send_access_token_cache`]): only a
+/// trusted host's token gets persisted to disk at all, matching the corresponding TS client fix
+/// (which caches only for configured and trusted domains). This is a stricter rule than
+/// correctness alone requires — [`send_access_token_cache`]'s `(resolved_host, send_id)` key
+/// already prevents a token from being looked up under a different host than the one it was
+/// minted against — but it keeps this CLI from ever writing a persistent, on-disk credential for
+/// an arbitrary, untrusted Send-link host, not just from misusing one it already wrote.
 ///
 /// Pure so the precedence can be unit-tested without a client or a config file on disk.
-fn resolve_urls(url: &Url, config: Option<&ConfigFile>) -> (String, String) {
+///
+/// See the module-level PM-40120 note: this unconditional host resolution — always the link's
+/// own host, never a separately configured environment.
+fn resolve_urls(url: &Url, config: Option<&ConfigFile>) -> (String, String, bool) {
     if let Some(host) = url.host_str()
         && let Some(region) = CLOUD_HOSTS
             .iter()
             .find(|region| region.hosts.contains(&host))
     {
-        return (region.api_url.to_string(), region.identity_url.to_string());
+        return (
+            region.api_url.to_string(),
+            region.identity_url.to_string(),
+            true,
+        );
     }
 
     let origin = url.origin().ascii_serialization();
@@ -152,10 +208,10 @@ fn resolve_urls(url: &Url, config: Option<&ConfigFile>) -> (String, String) {
         let api = trimmed(config.api.as_deref()).unwrap_or_else(|| format!("{base}/api"));
         let identity =
             trimmed(config.identity.as_deref()).unwrap_or_else(|| format!("{base}/identity"));
-        return (api, identity);
+        return (api, identity, true);
     }
 
-    (format!("{origin}/api"), format!("{origin}/identity"))
+    (format!("{origin}/api"), format!("{origin}/identity"), false)
 }
 
 /// `true` when `configured` denotes the same origin as `origin` (already an ASCII origin
@@ -180,15 +236,17 @@ fn trimmed(value: Option<&str>) -> Option<String> {
 /// typed `send_access_error_type` the server returns.
 ///
 /// Legacy wraps every token request in a 3-attempt retry loop (`getTokenWithRetry`) for a
-/// `{kind: "expired"}` case that only exists because browser/extension storage caches tokens
-/// between calls. `bw receive` is a single-shot process with no token cache — the token is minted
-/// and consumed inside this one invocation — so there is nothing to expire and no retry here.
+/// `{kind: "expired"}` case tied to its persistent send-access-token cache, itself keyed on
+/// `sendId` alone with no host component — part of what PM-40120 tracks. This port's own cache
+/// ([`send_access_token_cache`]) is keyed on `(resolved_host, send_id)` instead, and evicts
+/// rather than retries on a rejected cached token (see [`run_receive`]), so there's no
+/// multi-attempt loop to replicate here.
 async fn attempt_access(
     client: &PasswordManagerClient,
     send_id: &str,
     access_key: &SendAccessKey,
     inputs: &ReceiveInputs,
-) -> Result<String> {
+) -> Result<SendAccessTokenResponse> {
     match request_token(client, send_id, None).await {
         Ok(token) => Ok(token),
         Err(err) => match invalid_request_type(&err) {
@@ -215,7 +273,7 @@ async fn access_with_password(
     send_id: &str,
     access_key: &SendAccessKey,
     inputs: &ReceiveInputs,
-) -> Result<String> {
+) -> Result<SendAccessTokenResponse> {
     let password = resolve_password(inputs)?;
     let credentials = SendAccessCredentials::Password(SendPasswordCredentials {
         password_hash_b64: access_key.hash_password_b64(&password),
@@ -235,7 +293,10 @@ async fn access_with_password(
 
 /// Email-OTP-protected Sends: the email request is what makes the server send the code, so the
 /// expected outcome of the first call is an `email_and_otp_required` error, not a token.
-async fn access_with_email_otp(client: &PasswordManagerClient, send_id: &str) -> Result<String> {
+async fn access_with_email_otp(
+    client: &PasswordManagerClient,
+    send_id: &str,
+) -> Result<SendAccessTokenResponse> {
     if !can_interact() {
         return Err(eyre!(
             "Email verification required. Run in interactive mode."
@@ -279,7 +340,7 @@ async fn request_token(
     client: &PasswordManagerClient,
     send_id: &str,
     credentials: Option<SendAccessCredentials>,
-) -> Result<String, SendAccessTokenError> {
+) -> Result<SendAccessTokenResponse, SendAccessTokenError> {
     client
         .auth()
         .send_access()
@@ -288,10 +349,13 @@ async fn request_token(
             send_access_credentials: credentials,
         })
         .await
-        .map(|response| response.token)
 }
 
-/// The `send_access_error_type` of an `invalid_request` response, if that's what this is.
+/// Extracts the typed `send_access_error_type` from an `invalid_request` response, or `None`
+/// if `err` isn't that shape. `attempt_access` and `access_with_email_otp` both need to branch
+/// on this one sub-field of a deeply nested error enum; centralizing the match here keeps
+/// those call sites down to a single `Some(...) => ...` comparison instead of repeating the
+/// full pattern.
 fn invalid_request_type(err: &SendAccessTokenError) -> Option<&SendAccessTokenInvalidRequestError> {
     match err {
         SendAccessTokenError::Expected(SendAccessTokenApiErrorResponse::InvalidRequest {
@@ -302,7 +366,8 @@ fn invalid_request_type(err: &SendAccessTokenError) -> Option<&SendAccessTokenIn
     }
 }
 
-/// The `send_access_error_type` of an `invalid_grant` response, if that's what this is.
+/// Same idea as [`invalid_request_type`], but for the `invalid_grant` response shape (used to
+/// detect an unknown Send id or an invalid password hash).
 fn invalid_grant_type(err: &SendAccessTokenError) -> Option<&SendAccessTokenInvalidGrantError> {
     match err {
         SendAccessTokenError::Expected(SendAccessTokenApiErrorResponse::InvalidGrant {
@@ -602,14 +667,18 @@ mod tests {
     #[test]
     fn cloud_send_and_vault_hosts_map_to_their_region() {
         for host in ["send.bitwarden.com", "vault.bitwarden.com"] {
-            let (api, identity) = resolve_urls(&parse(&format!("https://{host}/#id/key")), None);
+            let (api, identity, trusted) =
+                resolve_urls(&parse(&format!("https://{host}/#id/key")), None);
             assert_eq!(api, "https://api.bitwarden.com");
             assert_eq!(identity, "https://identity.bitwarden.com");
+            assert!(trusted, "a known cloud host must be trusted");
         }
         for host in ["send.bitwarden.eu", "vault.bitwarden.eu"] {
-            let (api, identity) = resolve_urls(&parse(&format!("https://{host}/#id/key")), None);
+            let (api, identity, trusted) =
+                resolve_urls(&parse(&format!("https://{host}/#id/key")), None);
             assert_eq!(api, "https://api.bitwarden.eu");
             assert_eq!(identity, "https://identity.bitwarden.eu");
+            assert!(trusted, "a known cloud host must be trusted");
         }
     }
 
@@ -623,24 +692,33 @@ mod tests {
             "evil-send.bitwarden.com.attacker.example",
             "notsend.bitwarden.com.evil.tld",
         ] {
-            let (api, identity) = resolve_urls(&parse(&format!("https://{host}/#id/key")), None);
+            let (api, identity, trusted) =
+                resolve_urls(&parse(&format!("https://{host}/#id/key")), None);
             assert_eq!(api, format!("https://{host}/api"));
             assert_eq!(identity, format!("https://{host}/identity"));
+            assert!(!trusted, "a lookalike host must not be trusted");
         }
     }
 
     #[test]
     fn unknown_host_falls_back_to_the_single_domain_convention() {
-        let (api, identity) = resolve_urls(&parse("https://vault.example.com/#/send/id/key"), None);
+        let (api, identity, trusted) =
+            resolve_urls(&parse("https://vault.example.com/#/send/id/key"), None);
         assert_eq!(api, "https://vault.example.com/api");
         assert_eq!(identity, "https://vault.example.com/identity");
+        assert!(
+            !trusted,
+            "an unknown, unconfigured host must not be trusted"
+        );
     }
 
     #[test]
     fn a_non_default_port_is_preserved_in_the_fallback() {
-        let (api, identity) = resolve_urls(&parse("https://localhost:8080/#/send/id/key"), None);
+        let (api, identity, trusted) =
+            resolve_urls(&parse("https://localhost:8080/#/send/id/key"), None);
         assert_eq!(api, "https://localhost:8080/api");
         assert_eq!(identity, "https://localhost:8080/identity");
+        assert!(!trusted);
     }
 
     #[test]
@@ -649,12 +727,13 @@ mod tests {
             server: Some("https://bw.example.com".to_string()),
             ..Default::default()
         };
-        let (api, identity) = resolve_urls(
+        let (api, identity, trusted) = resolve_urls(
             &parse("https://bw.example.com/#/send/id/key"),
             Some(&config),
         );
         assert_eq!(api, "https://bw.example.com/api");
         assert_eq!(identity, "https://bw.example.com/identity");
+        assert!(trusted, "the locally configured deployment must be trusted");
     }
 
     #[test]
@@ -663,12 +742,13 @@ mod tests {
             web_vault: Some("https://vault.example.com/".to_string()),
             ..Default::default()
         };
-        let (api, identity) = resolve_urls(
+        let (api, identity, trusted) = resolve_urls(
             &parse("https://vault.example.com/#/send/id/key"),
             Some(&config),
         );
         assert_eq!(api, "https://vault.example.com/api");
         assert_eq!(identity, "https://vault.example.com/identity");
+        assert!(trusted);
     }
 
     /// A split-domain self-host configured via `bw config server --api/--identity` must use
@@ -681,12 +761,13 @@ mod tests {
             identity: Some("https://identity.example.com/".to_string()),
             ..Default::default()
         };
-        let (api, identity) = resolve_urls(
+        let (api, identity, trusted) = resolve_urls(
             &parse("https://vault.example.com/#/send/id/key"),
             Some(&config),
         );
         assert_eq!(api, "https://api.example.com");
         assert_eq!(identity, "https://identity.example.com");
+        assert!(trusted);
     }
 
     /// A configured deployment must not hijack a link that points somewhere else — receiving a
@@ -698,17 +779,23 @@ mod tests {
             api: Some("https://api.example.com".to_string()),
             ..Default::default()
         };
-        let (api, identity) =
+        let (api, identity, trusted) =
             resolve_urls(&parse("https://send.bitwarden.com/#id/key"), Some(&config));
         assert_eq!(api, "https://api.bitwarden.com");
         assert_eq!(identity, "https://identity.bitwarden.com");
+        assert!(trusted);
 
-        let (api, identity) = resolve_urls(
+        let (api, identity, trusted) = resolve_urls(
             &parse("https://other.example.com/#/send/id/key"),
             Some(&config),
         );
         assert_eq!(api, "https://other.example.com/api");
         assert_eq!(identity, "https://other.example.com/identity");
+        assert!(
+            !trusted,
+            "an origin that matches neither the cloud table nor the configured deployment \
+             must not be trusted"
+        );
     }
 
     // ---- password_from_args ----

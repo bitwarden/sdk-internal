@@ -69,14 +69,16 @@ async fn export(client: &Client, folders: Vec<Folder>, ciphers: Vec<Cipher>) {
 #### Import
 
 [`ExporterClient::import_cxf`] parses a CXF JSON string into [`ImportingCipher`] values, encrypts
-each one via the `KeyStore`, and returns `Vec<Cipher>` ready for storage.
+each one via the `KeyStore`, and returns `Vec<EncryptionContext>` ready for storage. Each entry
+pairs the encrypted cipher with the user it was encrypted for and the id of the key it was wrapped
+under.
 
 ```rust,no_run
 use bitwarden_core::Client;
 use bitwarden_exporters::ExporterClientExt;
 
 fn import(client: &Client, cxf_payload: String) {
-    let ciphers = client
+    let encrypted = client
         .exporters()
         .import_cxf(cxf_payload)
         .unwrap();

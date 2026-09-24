@@ -1,6 +1,6 @@
 use bitwarden_collections::collection::Collection;
 use bitwarden_core::Client;
-use bitwarden_vault::{Cipher, Folder};
+use bitwarden_vault::{Cipher, EncryptionContext, Folder};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -61,7 +61,10 @@ impl ExporterClient {
     ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally, the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
-    pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>, ExportError> {
+    ///
+    /// Each returned [`EncryptionContext`] carries the encrypted cipher along with the user it was
+    /// encrypted for and the id of the key it was wrapped under.
+    pub fn import_cxf(&self, payload: String) -> Result<Vec<EncryptionContext>, ExportError> {
         import_cxf(&self.client, payload)
     }
 }

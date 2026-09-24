@@ -52,7 +52,7 @@ impl<'de> Deserialize<'de> for SecureNoteType {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -152,6 +152,7 @@ mod tests {
 
     fn create_cipher_for_note(note: SecureNote) -> Cipher {
         Cipher {
+            partial_data: None,
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,
             folder_id: None,

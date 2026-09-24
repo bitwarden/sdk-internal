@@ -1,10 +1,15 @@
-use bitwarden_api_api::{apis::ApiClient, models};
-use bitwarden_core::ApiError;
+use bitwarden_api_api::{
+    apis::ApiClient,
+    models::{self, SendEncryptionType},
+};
+use bitwarden_core::{ApiError, key_management::KeySlotIds};
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable as _, SymmetricCryptoKey, derive_shareable_key,
+    CryptoError, Decryptable, EncString, KeyDecryptable as _, KeyStore, SymmetricCryptoKey,
+    derive_shareable_key,
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_error::bitwarden_error;
+use bitwarden_vault::{Cipher, CipherView};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -16,18 +21,19 @@ use zeroize::Zeroizing;
 
 use crate::{SendParseError, SendType, send::SEND_ITERATIONS, send_client::SendClient};
 
-/// Length in bytes of the raw Send key carried in a Send URL fragment. Fixed by
-/// `SendView::encrypt_composite`, which generates exactly 16 bytes for a new send.
-const SEND_KEY_LEN: usize = 16;
+/// Length in bytes of the raw Send key carried in a Send URL fragment. `pub(crate)` so
+/// `SendView::encrypt_composite` (`send.rs`) can generate keys of exactly this length,
+/// enforcing the relationship at compile time instead of relying on a test to catch drift.
+pub(crate) const SEND_KEY_LEN: usize = 16;
 
 // ===== Public output types (returned to callers) =====
 
 /// View of a send's accessible content, returned after a successful send access call.
-/// Name, text, and file fields are encrypted and must be decrypted client-side using the
-/// key derived from the URL fragment.
+/// Name, text, file, and item fields are encrypted and must be decrypted client-side
+/// using the key derived from the URL fragment.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendAccessResponse {
     /// The send access ID
     pub id: Option<String>,
@@ -40,6 +46,8 @@ pub struct SendAccessResponse {
     pub text: Option<SendAccessTextResponse>,
     /// File metadata (if type is File)
     pub file: Option<SendAccessFileResponse>,
+    /// Item metadata (if type is Item)
+    pub data: Option<SendAccessItemResponse>,
     /// When the send expires.
     pub expiration_date: Option<DateTime<Utc>>,
     /// The creator's identifier (email), if not hidden
@@ -72,6 +80,17 @@ pub struct SendAccessFileResponse {
     pub size_name: Option<String>,
 }
 
+/// Encrypted item metadata of an item send.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+pub struct SendAccessItemResponse {
+    /// The version of encryption used to encrypt the item data
+    pub encryption_version: Option<SendEncryptionType>,
+    /// The encrypted item data
+    pub data: Option<String>,
+}
+
 /// File download URL data returned from a send file access call.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -89,8 +108,9 @@ pub struct SendFileDownloadData {
 /// [`SendAccessKey::decrypt_response`].
 ///
 /// Mirrors the legacy CLI's `SendAccessResponse` output shape (`apps/cli`) so that a
-/// JSON dump of a received send stays recognizable to existing scripts, with two
-/// additions the wire response already carries (`expirationDate`, `creatorIdentifier`).
+/// JSON dump of a received send stays recognizable to existing scripts, with two additions:
+/// `expirationDate` and `creatorIdentifier` are already present on the raw
+/// `SendAccessResponse` the server returns, but the legacy CLI's output shape drops them.
 ///
 /// `text`/`file` are kept as independent `Option`s rather than collapsed into an enum with
 /// associated data: `type_` is `Option<SendType>` on the wire and an unrecognized or absent
@@ -112,6 +132,8 @@ pub struct SendAccessView {
     pub text: Option<SendAccessTextView>,
     /// Decrypted file metadata (if type is File)
     pub file: Option<SendAccessFileView>,
+    /// Decrypted item content (if type is Item)
+    pub data: Option<SendAccessItemView>,
     /// When the send expires.
     pub expiration_date: Option<DateTime<Utc>>,
     /// The creator's identifier (email), if not hidden
@@ -144,6 +166,15 @@ pub struct SendAccessFileView {
     pub size_name: Option<String>,
 }
 
+/// Decrypted item metadata of an item send.
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+pub struct SendAccessItemView {
+    /// The decrypted Cipher data
+    pub data: Option<CipherView>,
+}
+
 // ===== Error types =====
 
 /// Error returned when the key from a send URL fragment cannot be turned into a
@@ -168,6 +199,9 @@ pub enum SendAccessDecryptError {
     /// decrypt it (wrong key, or a tampered response).
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    /// The key could not be derived from the URL fragment
+    #[error(transparent)]
+    Key(#[from] SendAccessKeyError),
 }
 
 // ===== Anonymous access key =====
@@ -180,10 +214,12 @@ pub enum SendAccessDecryptError {
 /// The key is opaque by design: callers need to *use* it three ways (hash a password,
 /// decrypt a response, decrypt a downloaded blob) but never need to *see* it.
 pub struct SendAccessKey {
-    /// The raw fragment key. Retained because the send password hash is salted with the
-    /// *unstretched* key, not with [`Self::key`].
+    /// The raw fragment key, exactly as decoded from the URL — not run through the KDF that
+    /// derives [`Self::key`] below. Retained because the send password hash is salted with
+    /// these raw bytes, not with the derived key.
     secret: Zeroizing<[u8; SEND_KEY_LEN]>,
-    /// The stretched send key that actually encrypts the send's fields and file blob.
+    /// The send's actual symmetric key, derived from `secret` via `derive_shareable_key`.
+    /// This is what encrypts the send's fields and file blob.
     key: SymmetricCryptoKey,
 }
 
@@ -253,6 +289,29 @@ impl SendAccessKey {
             }),
             None => None,
         };
+        let data = match response.data {
+            Some(d) => {
+                let key_store: KeyStore<KeySlotIds> = KeyStore::default();
+                let mut ctx = key_store.context_mut();
+                let key = ctx.add_local_symmetric_key(self.key.clone());
+                let Some(data) = d.data else {
+                    return Err(SendAccessDecryptError::Crypto(CryptoError::MissingField(
+                        "data",
+                    )));
+                };
+                let cipher = serde_json::from_str::<Cipher>(data.as_str());
+                match cipher {
+                    Ok(c) => {
+                        let cipher_view: CipherView = c.decrypt(&mut ctx, key)?;
+                        Some(SendAccessItemView {
+                            data: Some(cipher_view),
+                        })
+                    }
+                    Err(_) => None,
+                }
+            }
+            None => None,
+        };
 
         Ok(SendAccessView {
             id: response.id,
@@ -260,6 +319,7 @@ impl SendAccessKey {
             name: self.decrypt_optional(response.name)?,
             text,
             file,
+            data,
             expiration_date: response.expiration_date,
             creator_identifier: response.creator_identifier,
         })
@@ -353,6 +413,10 @@ impl TryFrom<models::SendAccessResponseModel> for SendAccessResponse {
                 size: f.size,
                 size_name: f.size_name,
             }),
+            data: r.data.map(|dat| SendAccessItemResponse {
+                encryption_version: dat.encryption_version,
+                data: dat.data,
+            }),
             expiration_date: r.expiration_date.map(|s| s.parse()).transpose()?,
             creator_identifier: r.creator_identifier,
         })
@@ -391,6 +455,20 @@ impl SendClient {
     ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
         let config = self.client.internal.get_api_configurations();
         get_file_download_data(&config.api_client, &file_id, &access_token).await
+    }
+
+    /// Decrypt a [`SendAccessResponse`] into a [`SendAccessView`].
+    ///
+    /// `key_b64` is the URL-safe-base64 send key from the trailing segment of the send URL
+    /// fragment (16 bytes when decoded) — the same form [`SendAccessKey::from_url_b64`] accepts
+    ///
+    /// This is a temporary function to support the transition to fully using the SDK for Send logic
+    pub fn decrypt_send_access(
+        key_b64: String,
+        response: SendAccessResponse,
+    ) -> Result<SendAccessView, SendAccessDecryptError> {
+        let access_key = SendAccessKey::from_url_b64(key_b64.as_str())?;
+        access_key.decrypt_response(response)
     }
 }
 
@@ -569,13 +647,16 @@ mod tests {
     // ===== SendAccessKey =====
 
     mod send_access_key {
+        //! Tests for [`SendAccessKey`]: URL-fragment key parsing/derivation, password hashing,
+        //! and decrypting a [`SendAccessResponse`] into a [`SendAccessView`].
+
         use bitwarden_core::key_management::create_test_crypto_with_user_key;
         use bitwarden_crypto::{OctetStreamBytes, PrimitiveEncryptable as _, SymmetricCryptoKey};
 
         use crate::{
-            Send, SendAccessFileResponse, SendAccessKey, SendAccessKeyError, SendAccessResponse,
-            SendAccessTextResponse, SendAuthType, SendFileView, SendTextView, SendType, SendView,
-            access::SEND_KEY_LEN,
+            Send, SendAccessDecryptError, SendAccessFileResponse, SendAccessKey,
+            SendAccessKeyError, SendAccessResponse, SendAccessTextResponse, SendAuthType,
+            SendClient, SendFileView, SendTextView, SendType, SendView,
         };
 
         /// The url-safe-base64 form of a 16-byte send key, as it appears in the trailing
@@ -614,6 +695,7 @@ mod tests {
                     text: Some(text.to_owned()),
                     hidden: false,
                 }),
+                data: None,
                 max_access_count: None,
                 access_count: 0,
                 disabled: false,
@@ -626,17 +708,10 @@ mod tests {
             }
         }
 
-        /// The load-bearing test for this whole flow: a send encrypted through the
-        /// authenticated key-store path must be decryptable by a key derived *only* from the
-        /// URL fragment. This pins [`SendAccessKey::from_url_b64`]'s derivation
-        /// (`derive_shareable_key(secret, "send", Some("send"))`) byte-for-byte against
-        /// [`Send::derive_shareable_key`]. If the two ever drift, every `bw receive`
-        /// silently fails to decrypt.
-        #[test]
-        fn decrypts_ciphertext_produced_by_the_authenticated_path() {
-            let send = encrypt_send(text_send_view("This is a test", "Test"));
-
-            let response = SendAccessResponse {
+        /// Build the wire-format [`SendAccessResponse`] the server would return for a
+        /// text send encrypted by [`encrypt_send`].
+        fn text_send_response(send: &Send) -> SendAccessResponse {
+            SendAccessResponse {
                 id: Some("access-id".to_owned()),
                 type_: Some(SendType::Text),
                 name: Some(send.name.to_string()),
@@ -649,9 +724,22 @@ mod tests {
                     hidden: false,
                 }),
                 file: None,
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
-            };
+            }
+        }
+
+        /// The load-bearing test for this whole flow: a send encrypted through the
+        /// authenticated key-store path must be decryptable by a key derived *only* from the
+        /// URL fragment. This pins [`SendAccessKey::from_url_b64`]'s derivation
+        /// (`derive_shareable_key(secret, "send", Some("send"))`) byte-for-byte against
+        /// [`Send::derive_shareable_key`]. If the two ever drift, every `bw receive`
+        /// silently fails to decrypt.
+        #[test]
+        fn decrypts_ciphertext_produced_by_the_authenticated_path() {
+            let send = encrypt_send(text_send_view("This is a test", "Test"));
+            let response = text_send_response(&send);
 
             let access_key = SendAccessKey::from_url_b64(URL_KEY).expect("key parses");
             let view = access_key.decrypt_response(response).expect("decrypts");
@@ -688,6 +776,7 @@ mod tests {
                     size: file.size.clone(),
                     size_name: file.size_name.clone(),
                 }),
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
@@ -823,6 +912,7 @@ mod tests {
                     hidden: true,
                 }),
                 file: None,
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
@@ -846,6 +936,7 @@ mod tests {
                 name: Some(send.name.to_string()),
                 text: None,
                 file: None,
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
@@ -864,20 +955,13 @@ mod tests {
                 name: Some("this is not an EncString".to_owned()),
                 text: None,
                 file: None,
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
 
             let access_key = SendAccessKey::from_url_b64(URL_KEY).expect("key parses");
             assert!(access_key.decrypt_response(response).is_err());
-        }
-
-        #[test]
-        fn send_key_len_matches_the_generated_send_key_length() {
-            // `SendView::encrypt_composite` generates a 16-byte key for new sends; this
-            // constant must track that or `from_url_b64` would reject real send URLs.
-            let generated = bitwarden_crypto::generate_random_bytes::<[u8; SEND_KEY_LEN]>();
-            assert_eq!(generated.len(), SEND_KEY_LEN);
         }
 
         /// The `--fullObject` JSON dump is a user-facing contract; pin its camelCase wire
@@ -896,6 +980,7 @@ mod tests {
                     size: Some("11".to_owned()),
                     size_name: Some("11 B".to_owned()),
                 }),
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
@@ -905,6 +990,41 @@ mod tests {
             assert_eq!(json["file"]["fileName"], serde_json::json!("secrets.txt"));
             assert_eq!(json["file"]["sizeName"], serde_json::json!("11 B"));
             assert_eq!(json["creatorIdentifier"], serde_json::Value::Null);
+        }
+
+        #[test]
+        fn decrypt_send_access_success() {
+            let send = encrypt_send(text_send_view("This is a test", "Test"));
+            let view =
+                SendClient::decrypt_send_access(URL_KEY.to_owned(), text_send_response(&send))
+                    .expect("decrypts");
+
+            assert_eq!(view.name.as_deref(), Some("Test"));
+            assert_eq!(
+                view.text.expect("text present").text.as_deref(),
+                Some("This is a test")
+            );
+        }
+
+        #[test]
+        fn decrypt_send_access_malformed_b64() {
+            let response = SendAccessResponse {
+                id: Some("access-id".to_owned()),
+                type_: Some(SendType::Text),
+                name: Some("Test".to_owned()),
+                text: None,
+                file: None,
+                data: None,
+                expiration_date: None,
+                creator_identifier: None,
+            };
+
+            let result = SendClient::decrypt_send_access("not valid base64!".to_owned(), response);
+
+            assert!(matches!(
+                result.unwrap_err(),
+                SendAccessDecryptError::Key(SendAccessKeyError::InvalidEncoding)
+            ));
         }
     }
 }

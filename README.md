@@ -477,7 +477,8 @@ A suggested workflow for incorporating server API changes into the SDK would be:
 2. Merge `server` changes to `main`.
 3. Trigger the `Update API Bindings` workflow in `sdk-internal` to open a pull request with the
    updated API bindings.
-4. Review and merge that pull request to `sdk-internal` `main` branch.
+4. Review and merge that pull request to `sdk-internal` `main` branch. Address any breaking changes
+   to existing SDK contracts in this pull request as well.
 5. Pull in `sdk-internal` `main` into your feature branch for SDK work.
 6. Consume new API models in SDK code.
 

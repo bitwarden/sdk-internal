@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_collections::collection::CollectionId;
+use bitwarden_collections::collection::{CollectionId, CollectionType};
 use bitwarden_core::OrganizationId;
 use bitwarden_vault::{CipherType as VaultCipherType, FolderId};
 
@@ -15,7 +15,26 @@ mod import;
 mod importer_client;
 pub use importer_client::{ImporterClient, ImporterClientExt};
 mod importers;
+pub(crate) use importers::keeper;
 mod pipeline;
+
+/// The 1Password access module: log in to an account and download its vaults.
+///
+/// Exposed only under the `test-utils` feature, for the out-of-tree CLI that drives it against
+/// a real account. Not part of this crate's supported API, and no stability is promised.
+// TODO: Remove once the importer consumes the module directly.
+#[cfg(feature = "test-utils")]
+pub use importers::onepassword::access as onepassword_access;
+/// The 1Password conversion step: downloaded vaults to the [`ParsedImport`] the pipeline
+/// submits.
+///
+/// Exposed only under the `test-utils` feature, so the CLI can print what a real account
+/// converts to. Not part of this crate's supported API, and no stability is promised.
+// TODO: Remove once the importer consumes the module directly.
+#[cfg(feature = "test-utils")]
+pub use importers::onepassword::convert as onepassword_convert;
+#[cfg(feature = "test-utils")]
+pub use pipeline::ParsedImport;
 
 /// Destination options for a vault import.
 ///
@@ -55,7 +74,9 @@ pub struct ImportTargetFolder {
     pub name: String,
 }
 
-/// An existing organization collection to assign an org import to.
+/// An existing organization collection to assign an org import to. `type` distinguishes the
+/// "My items" default collection (import.rs converts groups to personal folders instead of
+/// nested collections) from a normal shared collection.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -66,6 +87,7 @@ pub struct ImportTargetFolder {
 pub struct ImportTargetCollection {
     pub id: CollectionId,
     pub name: String,
+    pub r#type: CollectionType,
 }
 
 /// Counts of what an import submitted to the server, broken down by cipher type so the client can

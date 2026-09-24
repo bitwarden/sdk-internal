@@ -1,106 +1,176 @@
-import { UserId } from "@bitwarden/sdk-internal";
+/**
+ * Boundary tests for the shared-unlock WASM surface.
+ *
+ * The protocol itself is covered in Rust, in `bitwarden-shared-unlock/tests`.
+ * This test suite just tests basic wasm functionality / crossing the FFI boundary.
+ */
 import {
-  sleep,
-  setupSharedUnlockPair,
-  reloadFollower,
-  reloadLeader,
-  testSymmetricKey,
-} from "../utils";
+  IpcClient,
+  SharedUnlockDriver,
+  SharedUnlockPeer,
+  SymmetricKey,
+  UserId,
+  init_sdk,
+} from "@bitwarden/sdk-internal";
+
+import { makeMockTransportPair, testSymmetricKey } from "../utils";
 
 const USER_A = "00000000-0000-0000-0000-000000000001" as unknown as UserId;
 const USER_KEY = testSymmetricKey(0x11);
-const USER_A_LOCKED_STATE = new Map([[USER_A, undefined]]);
-const USER_A_UNLOCKED_STATE = new Map([[USER_A, USER_KEY]]);
-const UNLOCK_EVENT = { ManualUnlock: { user_id: USER_A, user_key: USER_KEY } };
-const LOCK_EVENT = { ManualLock: { user_id: USER_A } };
 
-describe("shared unlock ipc", () => {
-  it("unlocks the leader when the follower reports a manual unlock", async () => {
-    const { follower, leaderDriver: leaderHandle } = await setupSharedUnlockPair({
-      leader: { initialStates: USER_A_LOCKED_STATE },
-      follower: { initialStates: USER_A_LOCKED_STATE },
-    });
+/** Matches `SYNC_INTERVAL` in `bitwarden-shared-unlock/src/lib.rs`. */
+const SYNC_INTERVAL_MS = 5000;
 
-    await follower.handle_device_event(UNLOCK_EVENT);
-    await sleep(20);
-    expect(leaderHandle.getUserKey(USER_A)).toBe(USER_KEY);
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+interface MockDriver {
+  driver: SharedUnlockDriver;
+  /** `undefined` means locked. */
+  getUserKey(): SymmetricKey | undefined;
+  suppressions: number[];
+}
+
+/**
+ * Minimal `SharedUnlockDriver` implementation. Every method here exists to be called across the
+ * binding, so an adapter that stops marshalling one of them shows up as a failure below.
+ */
+function makeDriver(
+  clientName: "browser" | "desktop",
+  initialKey: SymmetricKey | undefined,
+): MockDriver {
+  let key = initialKey;
+  const suppressions: number[] = [];
+
+  return {
+    driver: {
+      lock_user: async () => {
+        key = undefined;
+      },
+      unlock_user: async (_user_id, user_key) => {
+        key = user_key;
+      },
+      list_users: async () => [USER_A],
+      suppress_vault_timeout: async (_user_id, suppression_duration) => {
+        suppressions.push(suppression_duration);
+      },
+      get_client_name: async () => clientName,
+      get_vault_url: async () => undefined,
+    },
+    getUserKey: () => key,
+    suppressions,
+  };
+}
+
+/**
+ * A browser peer that syncs up to a desktop peer. `get_client_name` is what feeds
+ * `discover_leader`, so the desktop reporting `"desktop"` is what makes it the top of the hierarchy.
+ */
+async function setupPair(options: {
+  leaderKey: SymmetricKey | undefined;
+  followerKey: SymmetricKey | undefined;
+}) {
+  init_sdk();
+
+  const [followerBackend, leaderBackend] = makeMockTransportPair(
+    { BrowserBackground: { id: "Own" } },
+    "DesktopRenderer",
+  );
+
+  const leaderIpc = IpcClient.newWithSdkInMemorySessions(leaderBackend);
+  const followerIpc = IpcClient.newWithSdkInMemorySessions(followerBackend);
+  await leaderIpc.start();
+  await followerIpc.start();
+
+  const leaderDriver = makeDriver("desktop", options.leaderKey);
+  const followerDriver = makeDriver("browser", options.followerKey);
+
+  const leader = new SharedUnlockPeer(leaderIpc, leaderDriver.driver);
+  const follower = new SharedUnlockPeer(followerIpc, followerDriver.driver);
+
+  // A peer sends nothing for a user until told which clients that user may be shared with: the
+  // desktop leader serves the browser below it, the browser follower syncs up to the desktop.
+  leader.set_destinations(USER_A, ["Browser"]);
+  follower.set_destinations(USER_A, ["Desktop"]);
+
+  const leaderAbort = new AbortController();
+  const followerAbort = new AbortController();
+  await leader.start(leaderAbort);
+  await follower.start(followerAbort);
+
+  return {
+    leader,
+    follower,
+    leaderDriver,
+    followerDriver,
+    cleanup: () => {
+      leaderAbort.abort();
+      followerAbort.abort();
+    },
+  };
+}
+
+/** Polls, because how quickly a sync lands depends on where in the tick it is reported. */
+async function waitForKey(
+  read: () => SymmetricKey | undefined,
+  expected: SymmetricKey | undefined,
+  timeoutMs = 20000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  const describe = (key: SymmetricKey | undefined) => (key === undefined ? "locked" : "unlocked");
+
+  for (;;) {
+    if (read() === expected) {
+      return;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `Timed out after ${timeoutMs}ms waiting for ${describe(expected)}; it is ${describe(read())}`,
+      );
+    }
+    await delay(25);
+  }
+}
+
+describe("shared unlock wasm bindings", () => {
+  let cleanup: (() => void) | undefined;
+
+  afterEach(async () => {
+    cleanup?.();
+    cleanup = undefined;
+    await delay(100);
   });
 
-  it("locks the leader when the follower reports a manual lock", async () => {
-    const { follower, leaderDriver: leaderHandle } = await setupSharedUnlockPair({
-      leader: { initialStates: USER_A_UNLOCKED_STATE },
-      follower: { initialStates: USER_A_UNLOCKED_STATE },
+  it("constructs and starts a peer over the generated bindings", async () => {
+    const pair = await setupPair({ leaderKey: undefined, followerKey: undefined });
+    cleanup = pair.cleanup;
+
+    expect(pair.leader).toBeInstanceOf(SharedUnlockPeer);
+    expect(pair.follower).toBeInstanceOf(SharedUnlockPeer);
+  }, 30000);
+
+  it("shares unlock from follower to leader", async () => {
+    const pair = await setupPair({ leaderKey: undefined, followerKey: undefined });
+    cleanup = pair.cleanup;
+
+    await pair.follower.handle_device_event({
+      ManualUnlock: { user_id: USER_A, user_key: USER_KEY },
     });
 
-    await follower.handle_device_event(LOCK_EVENT);
-    await sleep(20);
-    expect(leaderHandle.getUserKey(USER_A)).toBeUndefined();
-  });
+    await waitForKey(() => pair.leaderDriver.getUserKey(), USER_KEY);
+  }, 30000);
 
-  it("unlocks the follower when the leader reports a manual unlock", async () => {
-    const { leader, followerDriver: followerHandle } = await setupSharedUnlockPair({
-      leader: { initialStates: USER_A_LOCKED_STATE },
-      follower: { initialStates: USER_A_LOCKED_STATE },
-    });
+  it("calls suppress_vault_timeout with a duration in milliseconds", async () => {
+    const pair = await setupPair({ leaderKey: undefined, followerKey: undefined });
+    cleanup = pair.cleanup;
 
-    await leader.handle_device_event(UNLOCK_EVENT);
-    await sleep(20);
-    expect(followerHandle.getUserKey(USER_A)).toBe(USER_KEY);
-  });
+    await delay(SYNC_INTERVAL_MS + 1000);
 
-  it("locks the follower when the leader reports a manual lock", async () => {
-    const { leader, followerDriver: followerHandle } = await setupSharedUnlockPair({
-      leader: { initialStates: USER_A_UNLOCKED_STATE },
-      follower: { initialStates: USER_A_UNLOCKED_STATE },
-    });
-
-    await leader.handle_device_event(LOCK_EVENT);
-    await sleep(20);
-    expect(followerHandle.getUserKey(USER_A)).toBeUndefined();
-  });
-
-  it("reconnects after process-reloading a follower", async () => {
-    const pair = await setupSharedUnlockPair({
-      leader: { initialStates: USER_A_UNLOCKED_STATE },
-      follower: { initialStates: USER_A_UNLOCKED_STATE },
-    });
-    await sleep(20);
-    expect(pair.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
-    expect(pair.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
-
-    const reloaded = await reloadFollower(pair, {
-      follower: { initialStates: USER_A_LOCKED_STATE },
-    });
-    await sleep(20);
-
-    expect(reloaded.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
-    expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
-  });
-
-  it("reconnects after process-reloading the leader", async () => {
-    const pair = await setupSharedUnlockPair({
-      leader: { initialStates: USER_A_UNLOCKED_STATE },
-      follower: { initialStates: USER_A_UNLOCKED_STATE },
-    });
-    await sleep(20);
-    expect(pair.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
-    expect(pair.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
-
-    const reloaded = await reloadLeader(pair, {
-      leader: { initialStates: USER_A_LOCKED_STATE },
-    });
-    // Wait for heartbeat
-    // Note: Currently, there is two heartbeats necessary; Basically:
-    // - Leader reloads, has no crypto state, follower still has crypto session A
-    // - Follower sends heartbeat 1 with session A, leader doesn't recognize session A, sends crypto state invalidated back
-    // - Follower performs handshake, now both follower and leader have crypto session B
-    // - Follower sends heartbeat 2 with session B, leader sets up unlock sharing session
-    // - As of here, a unlock event will work.
-    //
-    // This could be fixed differently on the crypto layer in the future
-    await sleep(5000);
-
-    expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
-    expect(reloaded.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
-  }, 15000);
+    expect(pair.followerDriver.suppressions.length).toBeGreaterThan(0);
+    for (const suppression of pair.followerDriver.suppressions) {
+      expect(typeof suppression).toBe("number");
+      expect(suppression).toBeGreaterThan(0);
+    }
+  }, 30000);
 });

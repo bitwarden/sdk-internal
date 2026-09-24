@@ -1,23 +1,21 @@
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::sync::Arc;
 
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::{
+    any_map::AnyMap,
+    persist::Persist,
     repository::{Repository, RepositoryItem, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
-    settings::{Key, Setting, SettingItem},
+    settings::{Key, Setting},
 };
 
 /// A registry that contains repositories for different types of items.
 /// These repositories can be either managed by the client or by the SDK itself.
 pub struct StateRegistry {
     database: SystemDatabase,
-    client_managed: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
+    client_managed: AnyMap,
 }
 
 impl std::fmt::Debug for StateRegistry {
@@ -42,7 +40,7 @@ impl StateRegistry {
     pub fn new_with_memory_db() -> Self {
         StateRegistry {
             database: SystemDatabase::Memory(MemoryDatabase::new()),
-            client_managed: RwLock::new(HashMap::new()),
+            client_managed: AnyMap::new(),
         }
     }
 
@@ -54,32 +52,23 @@ impl StateRegistry {
         let database = SystemDatabase::initialize(configuration, migrations.clone()).await?;
         Ok(StateRegistry {
             database,
-            client_managed: RwLock::new(HashMap::new()),
+            client_managed: AnyMap::new(),
         })
     }
 
     /// Get a handle to a setting by its type-safe key.
-    pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
-        let repo = self.get::<SettingItem>()?;
-        Ok(Setting::new(repo, key))
+    pub fn setting<T: Persist>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
+        Ok(Setting::new(self.database.get_setting::<T>(key.name)))
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
     pub fn register_client_managed<T: RepositoryItem>(&self, value: Arc<dyn Repository<T>>) {
-        self.client_managed
-            .write()
-            .expect("RwLock should not be poisoned")
-            .insert(TypeId::of::<T>(), Box::new(value));
+        self.client_managed.insert(value);
     }
 
     /// Retrieves a client-managed repository from the map given its type.
     fn get_client_managed<T: RepositoryItem>(&self) -> Option<Arc<dyn Repository<T>>> {
-        self.client_managed
-            .read()
-            .expect("RwLock should not be poisoned")
-            .get(&TypeId::of::<T>())
-            .and_then(|boxed| boxed.downcast_ref::<Arc<dyn Repository<T>>>())
-            .map(Arc::clone)
+        self.client_managed.get()
     }
 
     /// Retrieves a SDK-managed repository from the database.
@@ -119,10 +108,7 @@ impl StateRegistry {
     pub async fn wipe(&self) -> Result<(), DatabaseError> {
         // Clear client-managed first so a failure in the persistent-store wipe
         // still releases the in-memory Arc references.
-        self.client_managed
-            .write()
-            .expect("RwLock should not be poisoned")
-            .clear();
+        self.client_managed.clear();
         self.database.wipe().await
     }
 }
@@ -176,6 +162,9 @@ mod tests {
     struct TestB(String);
     #[derive(PartialEq, Eq, Debug)]
     struct TestC(Vec<u8>);
+    /// A second implementation for the same item type as [`TestA`].
+    #[derive(PartialEq, Eq, Debug)]
+    struct TestD(usize);
     #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
     struct TestItem<T>(T);
 
@@ -186,6 +175,7 @@ mod tests {
     impl_repository!(TestA, TestItem<usize>);
     impl_repository!(TestB, TestItem<String>);
     impl_repository!(TestC, TestItem<Vec<u8>>);
+    impl_repository!(TestD, TestItem<usize>);
 
     #[tokio::test]
     async fn test_state_registry() {
@@ -309,5 +299,91 @@ mod tests {
         // Delete and confirm gone
         setting.delete().await.unwrap();
         assert_eq!(setting.get().await.unwrap(), None::<String>);
+    }
+
+    #[tokio::test]
+    async fn test_settings_are_isolated_by_key() {
+        use crate::register_setting_key;
+        register_setting_key!(const THEME: String = "test_theme");
+        register_setting_key!(const LOCALE: String = "test_locale");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let theme = registry.setting(THEME).unwrap();
+        let locale = registry.setting(LOCALE).unwrap();
+
+        theme.update("dark".to_string()).await.unwrap();
+        locale.update("en-US".to_string()).await.unwrap();
+
+        theme.delete().await.unwrap();
+        assert_eq!(theme.get().await.unwrap(), None::<String>);
+        assert_eq!(locale.get().await.unwrap(), Some("en-US".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_setting_is_stored_in_the_setting_table_as_bare_json() {
+        use crate::{register_setting_key, settings::SettingItem};
+
+        #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+        struct Config {
+            theme: String,
+        }
+        register_setting_key!(const CONFIG: Config = "test_config");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let value = Config {
+            theme: "dark".to_string(),
+        };
+        let expected = serde_json::to_value(&value).unwrap();
+        registry
+            .setting(CONFIG)
+            .unwrap()
+            .update(value)
+            .await
+            .unwrap();
+
+        // Storage contract for existing databases: settings live in the `Setting` table,
+        // addressed by key name, holding the bare serialized value.
+        assert_eq!(SettingItem::NAME, "Setting");
+        let raw: SettingItem = registry
+            .database
+            .get::<SettingItem>("test_config")
+            .await
+            .unwrap()
+            .expect("setting is present");
+        assert_eq!(raw.0, expected);
+    }
+
+    #[tokio::test]
+    async fn test_setting_reports_closed_after_wipe() {
+        use crate::{register_setting_key, settings::SettingsError};
+        register_setting_key!(const TEST_SETTING: String = "test_wiped_setting");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let setting = registry.setting(TEST_SETTING).unwrap();
+        setting.update("hello".to_string()).await.unwrap();
+
+        registry.wipe().await.unwrap();
+
+        assert!(matches!(
+            setting.get().await,
+            Err(SettingsError::Database(DatabaseError::Closed))
+        ));
+        assert!(matches!(
+            setting.update("bye".to_string()).await,
+            Err(SettingsError::Database(DatabaseError::Closed))
+        ));
+    }
+
+    /// The concrete implementation is erased by the coercion to `Arc<dyn Repository<T>>`, so two
+    /// implementations of the same item type share a slot and the later registration wins.
+    #[tokio::test]
+    async fn test_register_client_managed_replaces_previous_implementation() {
+        let registry = StateRegistry::new_with_memory_db();
+
+        registry.register_client_managed(Arc::new(TestA(1)));
+        registry.register_client_managed(Arc::new(TestD(2)));
+
+        let repo = registry.get_client_managed::<TestItem<usize>>().unwrap();
+        assert_eq!(repo.get(String::new()).await.unwrap(), Some(TestItem(2)));
     }
 }

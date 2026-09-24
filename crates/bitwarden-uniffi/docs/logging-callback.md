@@ -106,13 +106,17 @@ Call `initLogger()` once before creating clients:
 ```kotlin
 // Kotlin
 initLogger(FlightRecorderCallback())
-val client = Client(tokenProvider, settings)
+val client = Client(tokenProvider, settings, ManagedSettingsBindingClient())
 ```
 
 ```swift
 // Swift
 initLogger(callback: FlightRecorderCallback())
-let client = try Client(tokenProvider: tokenProvider, settings: settings)
+let client = Client(
+    tokenProvider: tokenProvider,
+    settings: settings,
+    managedSettings: ManagedSettingsBindingClient()
+)
 ```
 
 Skip `initLogger()` to use only platform loggers (oslog/logcat).

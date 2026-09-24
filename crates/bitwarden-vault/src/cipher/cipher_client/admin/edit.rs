@@ -45,6 +45,9 @@ pub enum EditCipherAdminError {
     Uuid(#[from] uuid::Error),
     #[error(transparent)]
     Decrypt(#[from] DecryptError),
+    /// `edit` was handed a partial view as the original.
+    #[error("Editing a PAM-gated cipher requires a full original; the supplied view is partial")]
+    PartialOriginal,
 }
 
 // `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
@@ -67,14 +70,20 @@ async fn edit_cipher(
     let folder_id = request.folder_id;
     let favorite = request.favorite;
 
+    // A partial original has every secret field stripped: password history diffed against it
+    // would drop the item's real history. The encrypt of the merge original below would also
+    // refuse it (EncryptRestrictedView), but only incidentally — fail clearly and first.
+    if original_cipher_view.partial {
+        return Err(EditCipherAdminError::PartialOriginal);
+    }
+
     let mut view: CipherView = convert_request_to_cipher_view(request);
     view.update_password_history(&original_cipher_view);
 
     // TODO: Once this flag is removed, the key generation logic should be
     // moved directly into the CompositeEncryptable implementation.
     if view.key.is_none() && enable_cipher_key_encryption {
-        let key = view.key_identifier();
-        view.generate_cipher_key(&mut key_store.context(), key)?;
+        view.upgrade_to_cipher_key_encryption(&mut key_store.context())?;
     }
 
     // Admin endpoints operate on organization-owned ciphers, which aren't
@@ -214,6 +223,7 @@ mod tests {
 
     fn generate_test_cipher() -> CipherView {
         CipherView {
+            partial: false,
             id: Some(TEST_CIPHER_ID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -275,7 +285,7 @@ mod tests {
                     Ok(CipherMiniResponseModel {
                         object: Some("cipher".to_string()),
                         id: Some(cipher_id.into()),
-                        name: Some(body.name),
+                        name: body.name,
                         r#type: body.r#type,
                         organization_id: body
                             .organization_id
@@ -391,6 +401,41 @@ mod tests {
         // The edited name lives inside the blob, so recovering it proves the
         // echoed blob was used rather than the stale original.
         assert_eq!(result.name, "New Cipher Name");
+    }
+
+    /// A partial original has every secret field stripped, so building on it would drop the
+    /// item's real password history. The guard must fire before any request is built.
+    #[tokio::test]
+    async fn test_edit_refuses_a_partial_original() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeySlotId::User,
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+        );
+
+        // Deliberately no `expect_put_admin`: the guard has to fire before any request is built.
+        let api_client = ApiClient::new_mocked(|_mock| {});
+
+        let mut original_cipher_view = generate_test_cipher();
+        original_cipher_view.partial = true;
+        let cipher_view = original_cipher_view.clone();
+        // `CipherEditRequest` carries no `partial` field, so only the original view can gate.
+        let request: CipherEditRequest = cipher_view.try_into().unwrap();
+
+        let result = edit_cipher(
+            &store,
+            &api_client,
+            TEST_USER_ID.parse().unwrap(),
+            original_cipher_view,
+            request,
+            false,
+            false,
+            false,
+        )
+        .await;
+
+        assert!(matches!(result, Err(EditCipherAdminError::PartialOriginal)));
     }
 
     #[tokio::test]
