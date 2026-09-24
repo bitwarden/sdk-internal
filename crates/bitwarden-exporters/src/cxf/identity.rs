@@ -97,15 +97,13 @@ pub(super) fn passport_to_identity(passport: PassportCredential) -> (Identity, V
 pub(super) fn person_name_to_identity(person_name: PersonNameCredential) -> (Identity, Vec<Field>) {
     // Construct complete last name from surnamePrefix, surname, and surname2
     let last_name = [
-        person_name.surname_prefix.as_ref(),
-        person_name.surname.as_ref(),
-        person_name.surname2.as_ref(),
+        person_name.surname_prefix.clone(),
+        person_name.surname.clone(),
+        person_name.surname2.clone(),
     ]
     .into_iter()
     .flatten()
-    .map(|field| field.value.0.clone())
-    .collect::<Vec<_>>()
-    .into_iter()
+    .map(String::from)
     .reduce(|acc, part| format!("{acc} {part}"));
 
     let identity = Identity {
@@ -251,8 +249,9 @@ where
 fn split_name(
     full_name: &Option<EditableField<EditableFieldString>>,
 ) -> (Option<String>, Option<String>) {
-    full_name.as_ref().map_or((None, None), |name| {
-        let parts: Vec<&str> = name.value.0.split_whitespace().collect();
+    full_name.clone().map_or((None, None), |name| {
+        let name = String::from(name);
+        let parts: Vec<&str> = name.split_whitespace().collect();
         match parts.as_slice() {
             [] => (None, None),
             [first] => (Some(first.to_string()), None),
@@ -491,7 +490,7 @@ mod tests {
     #[test]
     fn test_split_name_empty_string() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("".to_string()),
+            value: EditableFieldString("".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -504,7 +503,7 @@ mod tests {
     #[test]
     fn test_split_name_whitespace_only() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("   \t\n  ".to_string()),
+            value: EditableFieldString("   \t\n  ".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -517,7 +516,7 @@ mod tests {
     #[test]
     fn test_split_name_single_name() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("John".to_string()),
+            value: EditableFieldString("John".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -530,7 +529,7 @@ mod tests {
     #[test]
     fn test_split_name_single_name_with_whitespace() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("  John  ".to_string()),
+            value: EditableFieldString("  John  ".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -543,7 +542,7 @@ mod tests {
     #[test]
     fn test_split_name_first_last() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("John Doe".to_string()),
+            value: EditableFieldString("John Doe".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -556,7 +555,7 @@ mod tests {
     #[test]
     fn test_split_name_first_middle_last() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("John Michael Doe".to_string()),
+            value: EditableFieldString("John Michael Doe".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -569,7 +568,7 @@ mod tests {
     #[test]
     fn test_split_name_multiple_middle_names() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("John Michael Andrew Doe".to_string()),
+            value: EditableFieldString("John Michael Andrew Doe".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -582,7 +581,7 @@ mod tests {
     #[test]
     fn test_split_name_complex_surname() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("Jane van der Berg".to_string()),
+            value: EditableFieldString("Jane van der Berg".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -595,7 +594,7 @@ mod tests {
     #[test]
     fn test_split_name_hyphenated_surname() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("Mary Smith-Johnson".to_string()),
+            value: EditableFieldString("Mary Smith-Johnson".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -608,7 +607,7 @@ mod tests {
     #[test]
     fn test_split_name_extra_whitespace() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("  John   Michael   Doe  ".to_string()),
+            value: EditableFieldString("  John   Michael   Doe  ".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -621,7 +620,7 @@ mod tests {
     #[test]
     fn test_split_name_special_characters() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("José María González".to_string()),
+            value: EditableFieldString("José María González".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -634,7 +633,7 @@ mod tests {
     #[test]
     fn test_split_name_single_character_names() {
         let full_name = Some(EditableField {
-            value: EditableFieldString("A B C".to_string()),
+            value: EditableFieldString("A B C".to_string()).into(),
             label: None,
             id: None,
             extensions: None,
@@ -675,11 +674,61 @@ mod tests {
 
         // Check PersonName credential
         if let Credential::PersonName(person_name) = &credentials[0] {
-            assert_eq!(person_name.title.as_ref().unwrap().value.0, "Dr.");
-            assert_eq!(person_name.given.as_ref().unwrap().value.0, "John");
-            assert_eq!(person_name.given2.as_ref().unwrap().value.0, "Michael");
-            assert_eq!(person_name.surname.as_ref().unwrap().value.0, "Doe");
-            assert_eq!(person_name.credentials.as_ref().unwrap().value.0, "PhD");
+            assert_eq!(
+                person_name
+                    .title
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "Dr."
+            );
+            assert_eq!(
+                person_name
+                    .given
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "John"
+            );
+            assert_eq!(
+                person_name
+                    .given2
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "Michael"
+            );
+            assert_eq!(
+                person_name
+                    .surname
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "Doe"
+            );
+            assert_eq!(
+                person_name
+                    .credentials
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "PhD"
+            );
         } else {
             panic!("Expected PersonName credential");
         }
@@ -687,14 +736,64 @@ mod tests {
         // Check Address credential
         if let Credential::Address(address) = &credentials[1] {
             assert_eq!(
-                address.street_address.as_ref().unwrap().value.0,
+                address
+                    .street_address
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "123 Main St\nApt 456"
             );
-            assert_eq!(address.city.as_ref().unwrap().value.0, "Anytown");
-            assert_eq!(address.territory.as_ref().unwrap().value.0, "CA");
-            assert_eq!(address.country.as_ref().unwrap().value.0, "US");
-            assert_eq!(address.tel.as_ref().unwrap().value.0, "+1234567890");
-            assert_eq!(address.postal_code.as_ref().unwrap().value.0, "12345");
+            assert_eq!(
+                address
+                    .city
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "Anytown"
+            );
+            assert_eq!(
+                address
+                    .territory
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "CA"
+            );
+            assert_eq!(
+                address
+                    .country
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "US"
+            );
+            assert_eq!(
+                address.tel.as_ref().unwrap().value.as_expected().unwrap().0,
+                "+1234567890"
+            );
+            assert_eq!(
+                address
+                    .postal_code
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "12345"
+            );
         } else {
             panic!("Expected Address credential");
         }
@@ -702,11 +801,25 @@ mod tests {
         // Check Passport credential
         if let Credential::Passport(passport) = &credentials[2] {
             assert_eq!(
-                passport.passport_number.as_ref().unwrap().value.0,
+                passport
+                    .passport_number
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "P123456789"
             );
             assert_eq!(
-                passport.full_name.as_ref().unwrap().value.0,
+                passport
+                    .full_name
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "John Michael Doe"
             );
             assert_eq!(
@@ -715,23 +828,72 @@ mod tests {
                     .as_ref()
                     .unwrap()
                     .value
+                    .as_expected()
+                    .unwrap()
                     .0,
                 "123-45-6789"
             );
-            assert_eq!(passport.issuing_country.as_ref().unwrap().value.0, "US");
+            assert_eq!(
+                passport
+                    .issuing_country
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "US"
+            );
         } else {
             panic!("Expected Passport credential");
         }
 
         // Check DriversLicense credential
         if let Credential::DriversLicense(license) = &credentials[3] {
-            assert_eq!(license.license_number.as_ref().unwrap().value.0, "DL123456");
             assert_eq!(
-                license.full_name.as_ref().unwrap().value.0,
+                license
+                    .license_number
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "DL123456"
+            );
+            assert_eq!(
+                license
+                    .full_name
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "John Michael Doe"
             );
-            assert_eq!(license.territory.as_ref().unwrap().value.0, "CA");
-            assert_eq!(license.country.as_ref().unwrap().value.0, "US");
+            assert_eq!(
+                license
+                    .territory
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "CA"
+            );
+            assert_eq!(
+                license
+                    .country
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "US"
+            );
         } else {
             panic!("Expected DriversLicense credential");
         }
@@ -739,11 +901,25 @@ mod tests {
         // Check IdentityDocument credential
         if let Credential::IdentityDocument(identity_doc) = &credentials[4] {
             assert_eq!(
-                identity_doc.identification_number.as_ref().unwrap().value.0,
+                identity_doc
+                    .identification_number
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "123-45-6789"
             );
             assert_eq!(
-                identity_doc.full_name.as_ref().unwrap().value.0,
+                identity_doc
+                    .full_name
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "John Michael Doe"
             );
         } else {
@@ -758,7 +934,10 @@ mod tests {
             let email_field = &custom_fields.fields[0];
             if let EditableFieldValue::String(email_field) = email_field {
                 assert_eq!(email_field.label.as_ref().unwrap(), "Email");
-                assert_eq!(email_field.value.0, "john@example.com");
+                assert_eq!(
+                    email_field.value.as_expected().unwrap().0,
+                    "john@example.com"
+                );
             } else {
                 panic!("Expected email field to be of type String");
             }
@@ -767,7 +946,7 @@ mod tests {
             let username_field = &custom_fields.fields[1];
             if let EditableFieldValue::String(username_field) = username_field {
                 assert_eq!(username_field.label.as_ref().unwrap(), "Username");
-                assert_eq!(username_field.value.0, "johndoe");
+                assert_eq!(username_field.value.as_expected().unwrap().0, "johndoe");
             } else {
                 panic!("Expected username field to be of type String");
             }
@@ -790,8 +969,28 @@ mod tests {
         assert_eq!(credentials.len(), 1);
 
         if let Credential::PersonName(person_name) = &credentials[0] {
-            assert_eq!(person_name.given.as_ref().unwrap().value.0, "Jane");
-            assert_eq!(person_name.surname.as_ref().unwrap().value.0, "Smith");
+            assert_eq!(
+                person_name
+                    .given
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "Jane"
+            );
+            assert_eq!(
+                person_name
+                    .surname
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "Smith"
+            );
             assert!(person_name.title.is_none());
             assert!(person_name.given2.is_none());
         } else {
@@ -815,14 +1014,34 @@ mod tests {
 
         // Check PersonName credential
         if let Credential::PersonName(person_name) = &credentials[0] {
-            assert_eq!(person_name.given.as_ref().unwrap().value.0, "Alice");
+            assert_eq!(
+                person_name
+                    .given
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "Alice"
+            );
         } else {
             panic!("Expected PersonName credential");
         }
 
         // Check Address credential
         if let Credential::Address(address) = &credentials[1] {
-            assert_eq!(address.territory.as_ref().unwrap().value.0, "NY");
+            assert_eq!(
+                address
+                    .territory
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "NY"
+            );
         } else {
             panic!("Expected Address credential");
         }
@@ -830,11 +1049,38 @@ mod tests {
         // Check DriversLicense credential
         if let Credential::DriversLicense(license) = &credentials[2] {
             assert_eq!(
-                license.license_number.as_ref().unwrap().value.0,
+                license
+                    .license_number
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "LIC123456"
             );
-            assert_eq!(license.full_name.as_ref().unwrap().value.0, "Alice");
-            assert_eq!(license.territory.as_ref().unwrap().value.0, "NY");
+            assert_eq!(
+                license
+                    .full_name
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "Alice"
+            );
+            assert_eq!(
+                license
+                    .territory
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "NY"
+            );
         } else {
             panic!("Expected DriversLicense credential");
         }
@@ -855,10 +1101,27 @@ mod tests {
 
         if let Credential::IdentityDocument(identity_doc) = &credentials[1] {
             assert_eq!(
-                identity_doc.identification_number.as_ref().unwrap().value.0,
+                identity_doc
+                    .identification_number
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "987-65-4321"
             );
-            assert_eq!(identity_doc.full_name.as_ref().unwrap().value.0, "Bob");
+            assert_eq!(
+                identity_doc
+                    .full_name
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "Bob"
+            );
         } else {
             panic!("Expected IdentityDocument credential");
         }

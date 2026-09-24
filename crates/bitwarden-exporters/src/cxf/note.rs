@@ -7,7 +7,7 @@ use credential_exchange_format::NoteCredential;
 ///
 /// That's why we only have this small utility function and tests here.
 pub(super) fn extract_note_content(note: &NoteCredential) -> String {
-    note.content.value.0.clone()
+    String::from(note.content.clone())
 }
 
 #[cfg(test)]
