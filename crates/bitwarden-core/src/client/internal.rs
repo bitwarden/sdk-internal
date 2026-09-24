@@ -301,7 +301,10 @@ impl InternalClient {
 
         // Note: The actual key does not get logged unless the crypto crate has the
         // dangerous-crypto-debug feature enabled, so this is safe
-        info!("Setting user key with ID {:?}", user_key_id);
+        info!(
+            "Setting user key with ID {:?}",
+            ctx.get_symmetric_key_id(user_key_id)
+        );
 
         // The key store should not already have any keys initialized
         if ctx.has_symmetric_key(SymmetricKeySlotId::User)
