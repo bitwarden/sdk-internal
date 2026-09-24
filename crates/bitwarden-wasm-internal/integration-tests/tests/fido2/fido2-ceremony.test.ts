@@ -123,7 +123,6 @@ function makeApprovingUserInterface() {
         checkUserResult: { userPresent: true, userVerified: true },
       };
     },
-    is_verification_enabled: true,
   } as unknown as Fido2UserInterface;
 
   return { ui, calls };

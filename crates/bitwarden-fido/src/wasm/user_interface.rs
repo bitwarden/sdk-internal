@@ -79,9 +79,6 @@ export interface Fido2UserInterface {
     check_user(options: CheckUserOptions, hint: Fido2UiHint): Promise<CheckUserResult>;
     pick_credential_for_authentication(available_credentials: CipherView[]): Promise<CipherView>;
     check_user_and_pick_credential_for_creation(options: CheckUserOptions, new_credential: Fido2CredentialNewView): Promise<CheckUserAndPickCredentialForCreationResult>;
-    // Read once, when the authenticator is built. Later changes are not observed, so this is a
-    // property rather than a method.
-    readonly is_verification_enabled: boolean;
 }
 "#;
 
@@ -110,53 +107,17 @@ extern "C" {
         options: JsValue,
         new_credential: JsValue,
     ) -> Result<JsValue, JsValue>;
-
-    #[wasm_bindgen(method, getter, catch)]
-    fn is_verification_enabled(this: &RawJsFido2UserInterface) -> Result<JsValue, JsValue>;
-}
-
-/// Read `is_verification_enabled` off the JavaScript object, failing towards verification.
-///
-/// The property is read as an untyped [JsValue] rather than a `bool` on purpose. A host that
-/// implements it as a *method* — the shape the Rust trait and the uniffi binding use — hands back a
-/// function object, which the boolean ABI would coerce to `false` without throwing: user
-/// verification skipped, silently. Anything that is not a boolean is therefore logged and treated
-/// as enabled, so a mistake costs an extra prompt rather than a weakened ceremony.
-fn read_verification_enabled(user_interface: &RawJsFido2UserInterface) -> bool {
-    match user_interface.is_verification_enabled() {
-        Ok(value) => value.as_bool().unwrap_or_else(|| {
-            tracing::error!(
-                "is_verification_enabled is not a boolean (it must be a property, not a method); \
-                 treating verification as enabled"
-            );
-            true
-        }),
-        Err(error) => {
-            tracing::error!(
-                ?error,
-                "is_verification_enabled threw; treating verification as enabled"
-            );
-            true
-        }
-    }
 }
 
 /// Adapts a JavaScript user interface to the [Fido2UserInterface] trait.
 pub(super) struct JsFido2UserInterface {
     runner: ThreadBoundRunner<RawJsFido2UserInterface>,
-    verification_enabled: bool,
 }
 
 impl JsFido2UserInterface {
     pub(super) fn new(user_interface: RawJsFido2UserInterface) -> Self {
-        // `is_verification_enabled` is synchronous on the trait, but once the JavaScript object is
-        // handed to the runner it can only be reached through an async call. Read it here, while
-        // still on the thread that constructed it, and answer from the cached value afterwards.
-        let verification_enabled = read_verification_enabled(&user_interface);
-
         Self {
             runner: ThreadBoundRunner::new(user_interface),
-            verification_enabled,
         }
     }
 }
@@ -216,7 +177,9 @@ impl Fido2UserInterface for JsFido2UserInterface {
             .await?
     }
 
+    /// Always `true`, rather than asked of the host: every Bitwarden client enables user
+    /// verification.
     fn is_verification_enabled(&self) -> bool {
-        self.verification_enabled
+        true
     }
 }
