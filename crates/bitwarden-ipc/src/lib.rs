@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+#[cfg(test)]
+mod behavior_tests;
 mod constants;
 mod crypto_provider;
 pub mod discover;
