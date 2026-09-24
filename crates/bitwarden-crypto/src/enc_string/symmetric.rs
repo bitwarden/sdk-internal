@@ -438,6 +438,18 @@ impl EncString {
             EncString::Unparseable { .. } => None,
         }
     }
+
+    /// The key ID of the key this [EncString] was encrypted with. Only
+    /// [EncString::Cose_Encrypt0_B64] carries one; [None] for all other variants, or if the COSE
+    /// message is malformed.
+    pub fn encrypted_by_key_id(&self) -> Option<KeyId> {
+        let EncString::Cose_Encrypt0_B64 { data } = self else {
+            return None;
+        };
+
+        let msg = coset::CoseEncrypt0::from_slice(data).ok()?;
+        KeyId::try_from(msg.protected.header.key_id.as_slice()).ok()
+    }
 }
 
 impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
