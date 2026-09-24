@@ -15,8 +15,9 @@ impl ClientType {
     /// The endpoint this device is addressed at.
     pub(super) fn endpoint(&self, instance: i32, name: &str) -> Endpoint {
         match self {
-            // `Endpoint` has no CLI variant, so `DesktopMain` stands in for one.
-            ClientType::Cli => Endpoint::DesktopMain,
+            ClientType::Cli => Endpoint::Cli {
+                id: HostId::Id(instance),
+            },
             ClientType::Desktop => Endpoint::DesktopRenderer,
             ClientType::Browser => Endpoint::BrowserBackground {
                 id: HostId::Id(instance),
@@ -32,7 +33,9 @@ impl ClientType {
     /// origin, which is what its leader validates.
     pub(super) fn source(&self, instance: i32, name: &str, vault_url: Option<&str>) -> Source {
         match self {
-            ClientType::Cli => Source::DesktopMain,
+            ClientType::Cli => Source::Cli {
+                id: HostId::Id(instance),
+            },
             ClientType::Desktop => Source::DesktopRenderer,
             ClientType::Browser => Source::BrowserBackground {
                 id: HostId::Id(instance),
