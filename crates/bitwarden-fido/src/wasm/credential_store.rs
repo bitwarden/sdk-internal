@@ -10,7 +10,7 @@ const CREDENTIAL_STORE_CUSTOM_TS_TYPE: &'static str = r#"
 export interface Fido2CredentialStore {
     // Byte arrays cross as `number[]`, not `Uint8Array`: `serde_wasm_bindgen` only emits a
     // `Uint8Array` for `serialize_bytes`, and these are plain `Vec<u8>`.
-    find_credentials(ids: number[][] | undefined, rip_id: string, user_handle: number[] | undefined): Promise<CipherView[]>;
+    find_credentials(ids: number[][] | undefined, rp_id: string, user_handle: number[] | undefined): Promise<CipherView[]>;
     all_credentials(): Promise<CipherListView[]>;
     save_credential(cred: EncryptionContext): Promise<void>;
 }
@@ -22,13 +22,11 @@ extern "C" {
     #[wasm_bindgen(js_name = Fido2CredentialStore, typescript_type = "Fido2CredentialStore")]
     pub type RawJsFido2CredentialStore;
 
-    /// `rip_id` is misspelled to match [Fido2CredentialStore::find_credentials]. Renaming it here
-    /// would silently stop matching the JavaScript object.
     #[wasm_bindgen(method, catch)]
     async fn find_credentials(
         this: &RawJsFido2CredentialStore,
         ids: JsValue,
-        rip_id: String,
+        rp_id: String,
         user_handle: JsValue,
     ) -> Result<JsValue, JsValue>;
 
@@ -60,13 +58,13 @@ impl Fido2CredentialStore for JsFido2CredentialStore {
     async fn find_credentials(
         &self,
         ids: Option<Vec<Vec<u8>>>,
-        rip_id: String,
+        rp_id: String,
         user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<CipherView>, Fido2CallbackError> {
         self.runner
             .run_in_thread(move |store| async move {
                 let credentials = store
-                    .find_credentials(to_js(&ids)?, rip_id, to_js(&user_handle)?)
+                    .find_credentials(to_js(&ids)?, rp_id, to_js(&user_handle)?)
                     .await
                     .map_err(js_error)?;
                 from_js(credentials)
