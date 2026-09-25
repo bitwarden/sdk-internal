@@ -1088,6 +1088,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-organization-domains"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-error",
+ "thiserror",
+ "tokio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-organization-invite-link"
 version = "3.0.0"
 dependencies = [
@@ -1164,6 +1177,7 @@ dependencies = [
  "bitwarden-importers",
  "bitwarden-managed-settings",
  "bitwarden-member-administration",
+ "bitwarden-organization-domains",
  "bitwarden-organization-invite-link",
  "bitwarden-pam",
  "bitwarden-policies",
