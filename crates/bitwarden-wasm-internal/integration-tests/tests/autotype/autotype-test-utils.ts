@@ -1,5 +1,6 @@
 import {
   AutotypeDriver,
+  AutotypeRunningApp,
   IpcClient,
   autotypeRegisterHandlers,
   init_sdk,
@@ -14,6 +15,19 @@ import { makeMockTransportPair } from "../utils";
 export interface MockAutotypeDriverOptions {
   setEnabled: (enabled: boolean) => Promise<boolean>;
   setKeyboardShortcut: (shortcut: string[]) => Promise<boolean>;
+  // Typed loosely so a test can return a malformed payload, which is exactly what the SDK's
+  // deserialization is being asked to survive.
+  listRunningApps: () => Promise<unknown>;
+}
+
+/**
+ * Recorded calls per channel. `list_running_apps` takes no arguments, so a count is all there is
+ * to record for it.
+ */
+export interface MockAutotypeDriverCalls {
+  enabledCalls: boolean[];
+  shortcutCalls: string[][];
+  listRunningAppsCalls: number;
 }
 
 /**
@@ -23,15 +37,25 @@ export interface MockAutotypeDriverOptions {
  */
 export function makeMockAutotypeDriver(
   options: Partial<MockAutotypeDriverOptions> = {},
-): AutotypeDriver & { enabledCalls: boolean[]; shortcutCalls: string[][] } {
-  const { setEnabled = async () => true, setKeyboardShortcut = async () => true } = options;
+): AutotypeDriver & MockAutotypeDriverCalls {
+  const {
+    setEnabled = async () => true,
+    setKeyboardShortcut = async () => true,
+    listRunningApps = async () => [],
+  } = options;
 
   const enabledCalls: boolean[] = [];
   const shortcutCalls: string[][] = [];
+  // A counter rather than an array, so it needs a getter — a plain number property would be
+  // snapshotted at construction and never update.
+  let listRunningAppsCalls = 0;
 
   return {
     enabledCalls,
     shortcutCalls,
+    get listRunningAppsCalls() {
+      return listRunningAppsCalls;
+    },
     set_autotype_enabled: async (enabled: boolean) => {
       enabledCalls.push(enabled);
       return setEnabled(enabled);
@@ -39,6 +63,10 @@ export function makeMockAutotypeDriver(
     set_autotype_keyboard_shortcut: async (shortcut: string[]) => {
       shortcutCalls.push(shortcut);
       return setKeyboardShortcut(shortcut);
+    },
+    list_running_apps: async () => {
+      listRunningAppsCalls += 1;
+      return (await listRunningApps()) as AutotypeRunningApp[];
     },
   };
 }

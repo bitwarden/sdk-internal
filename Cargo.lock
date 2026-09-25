@@ -597,6 +597,7 @@ dependencies = [
  "bitwarden-ipc",
  "bitwarden-threading",
  "serde",
+ "tracing",
  "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
