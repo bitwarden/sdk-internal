@@ -70,6 +70,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
     // merge; `Utc::now()` is a safe placeholder.
     let now = chrono::Utc::now();
     CipherView {
+        partial: false,
         id: None,
         organization_id: r.organization_id,
         folder_id: r.folder_id,
@@ -179,8 +180,7 @@ impl CiphersClient {
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the CompositeEncryptable implementation.
         if self.client.flags().get().await.enable_cipher_key_encryption {
-            let key = view.key_identifier();
-            view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
+            view.upgrade_to_cipher_key_encryption(&mut key_store.context())?;
         }
 
         let use_blob = self.should_use_blob_encryption(view.organization_id);

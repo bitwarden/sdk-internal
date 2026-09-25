@@ -146,6 +146,7 @@
         "tracing",
         "tracing-subscriber",
         "tsify",
+        "tsify-macros",
         "uniffi",
         "uniffi_core",
         "uniffi_macros",

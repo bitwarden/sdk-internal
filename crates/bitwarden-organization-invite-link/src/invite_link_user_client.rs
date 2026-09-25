@@ -1,0 +1,533 @@
+use std::sync::Arc;
+
+use bitwarden_api_api::models::{
+    AcceptOrganizationInviteLinkRequestModel, ConfirmOrganizationInviteLinkRequestModel,
+    GetOrganizationInviteLinkStatusRequestModel, GetOrganizationInviteRequestModel,
+    OrganizationInviteLinkValidateEmailDomainRequestModel,
+};
+use bitwarden_core::{
+    FromClient, OrganizationId,
+    client::ApiConfigurations,
+    key_management::{KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId},
+    require,
+};
+use bitwarden_crypto::{
+    CoseKeyThumbprintExt, KeyStore, PrimitiveEncryptable, PublicKey, SpkiPublicKeyBytes,
+    UnsignedSharedKey,
+};
+use bitwarden_encoding::B64;
+use bitwarden_organization_crypto::invite::{Invite, InviteSecret};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+use crate::{InviteLinkError, OrganizationInviteLinkStatusView};
+
+/// Client for organization invite link invitee (user) operations: checking link status, validating
+/// email eligibility, and accepting or self-confirming an invite.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[derive(FromClient)]
+pub struct InviteLinkUserClient {
+    pub(crate) key_store: KeyStore<KeySlotIds>,
+    pub(crate) api_configurations: Arc<ApiConfigurations>,
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl InviteLinkUserClient {
+    /// Retrieves the status of an invite link.
+    /// Used to verify basic availability before attempting to accept.
+    pub async fn get_status(
+        &self,
+        organization_id: OrganizationId,
+        code: String,
+    ) -> Result<OrganizationInviteLinkStatusView, InviteLinkError> {
+        let code =
+            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::ParseFailure("code"))?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .get_status(Some(GetOrganizationInviteLinkStatusRequestModel {
+                organization_id: organization_id.into(),
+                code,
+            }))
+            .await?;
+
+        OrganizationInviteLinkStatusView::try_from(response)
+    }
+
+    /// Returns whether the given email address is in the allowed domains for an invite link.
+    pub async fn is_email_allowed(
+        &self,
+        organization_id: OrganizationId,
+        code: String,
+        email: String,
+    ) -> Result<bool, InviteLinkError> {
+        let code =
+            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::ParseFailure("code"))?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .validate_email_domain(Some(
+                OrganizationInviteLinkValidateEmailDomainRequestModel {
+                    organization_id: organization_id.into(),
+                    code,
+                    email,
+                },
+            ))
+            .await?;
+
+        Ok(require!(response.is_allowed))
+    }
+
+    /// Accepts an organization invite for the current user, optionally enrolling into account
+    /// recovery (when `enroll_into_account_recovery` is set) and — when the invite supports
+    /// confirmation — self-confirming.
+    pub async fn accept_and_optionally_confirm(
+        &self,
+        organization_id: OrganizationId,
+        code: String,
+        invite_secret: InviteSecret,
+        default_collection_name: String,
+        enroll_into_account_recovery: bool,
+    ) -> Result<(), InviteLinkError> {
+        let code =
+            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::ParseFailure("code"))?;
+
+        // When enrolling into account recovery, fetch the organization's public key (which is the
+        // account-recovery public key) from the server.
+        let recovery_public_key = if enroll_into_account_recovery {
+            let response = self
+                .api_configurations
+                .api_client
+                .organizations_api()
+                .get_public_key(&organization_id.to_string())
+                .await?;
+            Some(
+                require!(response.public_key)
+                    .parse::<B64>()
+                    .map_err(|_| InviteLinkError::ParseFailure("public_key"))?,
+            )
+        } else {
+            None
+        };
+
+        let invite_response = self
+            .api_configurations
+            .api_client
+            .organization_users_api()
+            .get_invite(Some(GetOrganizationInviteRequestModel {
+                organization_id: organization_id.into(),
+                code,
+            }))
+            .await?;
+
+        let invite: Invite = require!(invite_response.invite).parse()?;
+
+        // Confine the (non-Send) key store context to a synchronous scope; it produces the owned
+        // request payload consumed after the `.await`s below.
+        let request = {
+            let mut ctx = self.key_store.context();
+
+            // Recover the invite key from the invite secret the invitee holds.
+            let invite_key =
+                invite.unseal_invite_key_with_invite_secret(&invite_secret, &mut ctx)?;
+
+            // Enroll into account recovery when requested. Verify the account-recovery public key
+            // against the organization public-key thumbprint bound into the invite before
+            // enrolling: a substituted recovery key would not match, so the organization key cannot
+            // be captured by an attacker-supplied key. Then encapsulate the user key to it.
+            let reset_password_key = match &recovery_public_key {
+                Some(recovery_public_key) => {
+                    let recovery_public_key =
+                        PublicKey::from_der(&SpkiPublicKeyBytes::from(recovery_public_key))?;
+                    let bound_thumbprint =
+                        invite.get_public_key_thumbprint(invite_key, &mut ctx)?;
+                    if bound_thumbprint != recovery_public_key.thumbprint()? {
+                        return Err(InviteLinkError::RecoveryKeyMismatch);
+                    }
+                    Some(
+                        UnsignedSharedKey::encapsulate(
+                            SymmetricKeySlotId::User,
+                            &recovery_public_key,
+                            &ctx,
+                        )?
+                        .to_string(),
+                    )
+                }
+                None => None,
+            };
+
+            if invite.supports_confirmation() {
+                // Self-confirm: recover the organization key and encapsulate it to the user.
+                let org_key = invite.unseal_organization_key(invite_key, &mut ctx)?;
+                let user_public_key = ctx.get_public_key(PrivateKeySlotId::UserPrivateKey)?;
+                let org_user_key =
+                    UnsignedSharedKey::encapsulate(org_key, &user_public_key, &ctx)?.to_string();
+                let default_user_collection_name = default_collection_name
+                    .encrypt(&mut ctx, org_key)?
+                    .to_string();
+                PendingPost::Confirm(ConfirmOrganizationInviteLinkRequestModel {
+                    organization_id: organization_id.into(),
+                    code,
+                    org_user_key,
+                    reset_password_key,
+                    default_user_collection_name,
+                })
+            } else {
+                PendingPost::Accept(AcceptOrganizationInviteLinkRequestModel {
+                    organization_id: organization_id.into(),
+                    code,
+                    reset_password_key,
+                })
+            }
+        };
+
+        let organization_users_api = self.api_configurations.api_client.organization_users_api();
+        match request {
+            PendingPost::Confirm(model) => {
+                organization_users_api
+                    .confirm_invite_link(Some(model))
+                    .await?
+            }
+            PendingPost::Accept(model) => {
+                organization_users_api
+                    .accept_invite_link(Some(model))
+                    .await?
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// A prepared invite acceptance request, built while the key store context is held and posted once
+/// it has been dropped.
+enum PendingPost {
+    Confirm(ConfirmOrganizationInviteLinkRequestModel),
+    Accept(AcceptOrganizationInviteLinkRequestModel),
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_api_api::{
+        apis::ApiClient,
+        models::{
+            OrganizationInviteLinkSsoResponseModel, OrganizationInviteLinkStatusResponseModel,
+            OrganizationInviteLinkValidateEmailDomainResponseModel,
+            OrganizationInviteResponseModel, OrganizationPublicKeyResponseModel,
+        },
+    };
+    use bitwarden_core::{
+        client::ApiConfigurations, key_management::create_test_crypto_with_user_and_org_key,
+    };
+    use bitwarden_crypto::{
+        PublicKeyEncryptionAlgorithm, SymmetricCryptoKey, SymmetricKeyAlgorithm,
+    };
+
+    use super::*;
+
+    fn make_client(org_id: OrganizationId, api_client: ApiClient) -> InviteLinkUserClient {
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let key_store = create_test_crypto_with_user_and_org_key(user_key, org_id, org_key);
+        // Give the store a user private key so the confirmation branch can derive a user public
+        // key.
+        {
+            let mut ctx = key_store.context_mut();
+            let local = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+            ctx.persist_private_key(local, PrivateKeySlotId::UserPrivateKey)
+                .expect("persisting the user private key should work");
+        }
+        InviteLinkUserClient {
+            key_store,
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+        }
+    }
+
+    /// Builds an invite + its secret and the organization public key it binds, all consistent with
+    /// the client's org key.
+    fn build_invite(
+        client: &InviteLinkUserClient,
+        org_id: OrganizationId,
+    ) -> (InviteSecret, Invite, B64) {
+        let mut ctx = client.key_store.context();
+        let org_key = SymmetricKeySlotId::Organization(org_id);
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let org_public_key = B64::from(
+            ctx.get_public_key(private_key)
+                .unwrap()
+                .to_der()
+                .unwrap()
+                .as_ref(),
+        );
+        let wrapped = ctx.wrap_private_key(org_key, private_key).unwrap();
+        let (secret, invite) = Invite::make_for_private_key(org_key, &wrapped, &mut ctx).unwrap();
+        (secret, invite, org_public_key)
+    }
+
+    #[tokio::test]
+    async fn accept_and_confirm_succeeds_for_confirmable_invite() {
+        let org_id = OrganizationId::new_v4();
+        // `get_public_key` returns the base64 key held in this cell, and `get_invite` returns the
+        // serialized invite; both are filled after the invite is generated below.
+        let recovery = Arc::new(std::sync::Mutex::new(None::<String>));
+        let invite_cell = Arc::new(std::sync::Mutex::new(None::<String>));
+        let recovery_mock = recovery.clone();
+        let invite_mock = invite_cell.clone();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| {
+                mock.organizations_api
+                    .expect_get_public_key()
+                    .returning(move |_id| {
+                        Ok(OrganizationPublicKeyResponseModel {
+                            object: None,
+                            public_key: recovery_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+                mock.organization_users_api
+                    .expect_get_invite()
+                    .returning(move |_model| {
+                        Ok(OrganizationInviteResponseModel {
+                            invite: invite_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+                mock.organization_users_api
+                    .expect_confirm_invite_link()
+                    .returning(|_model| Ok(()))
+                    .once();
+            }),
+        );
+
+        let (secret, invite, org_public_key) = build_invite(&client, org_id);
+        assert!(invite.supports_confirmation());
+        // The recovery public key returned by the "server" matches the invite's bound org key.
+        *recovery.lock().unwrap() = Some(String::from(&org_public_key));
+        *invite_cell.lock().unwrap() = Some(String::from(&invite));
+
+        client
+            .accept_and_optionally_confirm(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                secret,
+                "Default".to_string(),
+                true,
+            )
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn accept_without_enrollment_confirms_without_recovery_key() {
+        let org_id = OrganizationId::new_v4();
+        // Without enrollment the recovery key is never fetched, so only `get_invite` and
+        // `confirm_invite_link` run.
+        let invite_cell = Arc::new(std::sync::Mutex::new(None::<String>));
+        let invite_mock = invite_cell.clone();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| {
+                mock.organization_users_api
+                    .expect_get_invite()
+                    .returning(move |_model| {
+                        Ok(OrganizationInviteResponseModel {
+                            invite: invite_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+                mock.organization_users_api
+                    .expect_confirm_invite_link()
+                    .returning(|_model| Ok(()))
+                    .once();
+            }),
+        );
+
+        let (secret, invite, _org_public_key) = build_invite(&client, org_id);
+        *invite_cell.lock().unwrap() = Some(String::from(&invite));
+        client
+            .accept_and_optionally_confirm(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                secret,
+                "Default".to_string(),
+                false,
+            )
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn accept_without_confirmation_posts_acceptance() {
+        let org_id = OrganizationId::new_v4();
+        let invite_cell = Arc::new(std::sync::Mutex::new(None::<String>));
+        let invite_mock = invite_cell.clone();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| {
+                mock.organization_users_api
+                    .expect_get_invite()
+                    .returning(move |_model| {
+                        Ok(OrganizationInviteResponseModel {
+                            invite: invite_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+                mock.organization_users_api
+                    .expect_accept_invite_link()
+                    .returning(|_model| Ok(()))
+                    .once();
+            }),
+        );
+
+        // An invite with confirmation disabled routes to the acceptance branch.
+        let (secret, mut invite, _org_public_key) = build_invite(&client, org_id);
+        invite.disable_confirmation();
+        assert!(!invite.supports_confirmation());
+        *invite_cell.lock().unwrap() = Some(String::from(&invite));
+
+        client
+            .accept_and_optionally_confirm(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                secret,
+                "Default".to_string(),
+                false,
+            )
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn accept_with_mismatched_recovery_key_fails() {
+        let org_id = OrganizationId::new_v4();
+        let recovery = Arc::new(std::sync::Mutex::new(None::<String>));
+        let invite_cell = Arc::new(std::sync::Mutex::new(None::<String>));
+        let recovery_mock = recovery.clone();
+        let invite_mock = invite_cell.clone();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| {
+                mock.organizations_api
+                    .expect_get_public_key()
+                    .returning(move |_id| {
+                        Ok(OrganizationPublicKeyResponseModel {
+                            object: None,
+                            public_key: recovery_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+                mock.organization_users_api
+                    .expect_get_invite()
+                    .returning(move |_model| {
+                        Ok(OrganizationInviteResponseModel {
+                            invite: invite_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+            }),
+        );
+
+        let (secret, invite, _org_public_key) = build_invite(&client, org_id);
+        *invite_cell.lock().unwrap() = Some(String::from(&invite));
+        // The "server" returns an unrelated public key that must not match the invite's bound
+        // thumbprint.
+        let unrelated_public_key = {
+            let mut ctx = client.key_store.context();
+            let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+            B64::from(
+                ctx.get_public_key(private_key)
+                    .unwrap()
+                    .to_der()
+                    .unwrap()
+                    .as_ref(),
+            )
+        };
+        *recovery.lock().unwrap() = Some(String::from(&unrelated_public_key));
+
+        let result = client
+            .accept_and_optionally_confirm(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                secret,
+                "Default".to_string(),
+                true,
+            )
+            .await;
+
+        assert!(matches!(result, Err(InviteLinkError::RecoveryKeyMismatch)));
+    }
+
+    #[tokio::test]
+    async fn get_status_returns_mapped_view() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_invite_links_api
+                    .expect_get_status()
+                    .returning(|_model| {
+                        Ok(OrganizationInviteLinkStatusResponseModel {
+                            object: None,
+                            organization_name: Some("Test Org".to_string()),
+                            links_enabled: Some(true),
+                            seats_available: Some(true),
+                            supports_confirmation: Some(true),
+                            sso: Some(Box::new(OrganizationInviteLinkSsoResponseModel {
+                                object: None,
+                                org_sso_id: Some("sso-id".to_string()),
+                                required: Some(true),
+                            })),
+                        })
+                    })
+                    .once();
+            }),
+        );
+
+        let status = client
+            .get_status(org_id, uuid::Uuid::new_v4().to_string())
+            .await
+            .unwrap();
+
+        assert_eq!(status.organization_name, "Test Org");
+        assert!(status.links_enabled);
+        assert!(status.seats_available);
+        assert!(status.supports_confirmation);
+        let sso = status.sso.expect("sso should be present");
+        assert_eq!(sso.org_sso_id.as_deref(), Some("sso-id"));
+        assert!(sso.required);
+    }
+
+    #[tokio::test]
+    async fn is_email_allowed_returns_is_allowed() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_invite_links_api
+                    .expect_validate_email_domain()
+                    .returning(|_model| {
+                        Ok(OrganizationInviteLinkValidateEmailDomainResponseModel {
+                            is_allowed: Some(true),
+                        })
+                    })
+                    .once();
+            }),
+        );
+
+        let allowed = client
+            .is_email_allowed(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                "user@example.com".to_string(),
+            )
+            .await
+            .unwrap();
+
+        assert!(allowed);
+    }
+}
