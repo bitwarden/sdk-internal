@@ -6,18 +6,20 @@ edited manually.
 
 ## File Organization
 
-Each `.rs` file corresponds to a Keeper protobuf message package:
+Each `.rs` file is generated from a corresponding Keeper protobuf source file. Modules are named
+after their proto package names (not file names):
 
-- `authentication.rs` — Keeper login request/response messages
-- `breach_watch.rs` — Breach watch notification messages
-- `enterprise.rs` — Enterprise account and user management messages
-- `graph_sync.rs` — Graph database sync protocol messages
-- `notification_center.rs` — Push notification metadata and structure
-- `push.rs` — Push notification message types
-- `records.rs` — Vault record and folder definitions (primary importer use)
-- `sso_cloud.rs` — Single sign-on cloud integration messages
-- `tokens.rs` — Token and credential management messages
-- `vault.rs` — Vault sync and data structure messages
+- `authentication.rs` (from `api-request.proto`) — Keeper login request/response messages
+- `breach_watch.rs` (from `breachwatch.proto`) — Breach watch notification messages
+- `enterprise.rs` (from `enterprise.proto`) — Enterprise account and user management messages
+- `graph_sync.rs` (from `graph-sync.proto`) — Graph database sync protocol messages
+- `notification_center.rs` (from `notification-center.proto`) — Push notification metadata and
+  structure
+- `push.rs` (from `push.proto`) — Push notification message types
+- `records.rs` (from `record.proto`) — Vault record and folder definitions (primary importer use)
+- `sso_cloud.rs` (from `ssocloud.proto`) — Single sign-on cloud integration messages
+- `tokens.rs` (from `client.proto`) — Breach watch and password breach detection messages
+- `vault.rs` (from `sync-down.proto`) — Vault sync and data structure messages
 
 ## Regenerating from `.proto` Files
 

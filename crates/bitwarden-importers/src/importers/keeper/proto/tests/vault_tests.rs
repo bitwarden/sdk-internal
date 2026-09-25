@@ -317,7 +317,6 @@ fn sync_down_response() {
         thumbnail_size: 0,
     };
 
-    println!("{:?}", decoded);
     assert_eq!(
         decoded.continuation_token,
         [
