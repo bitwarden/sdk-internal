@@ -22,9 +22,10 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{OrganizationInviteLink, accept_error::map_accept_error};
+use crate::{OrganizationInviteLink, server_error::map_server_error};
 
-/// Errors returned from [`InviteLinkClient`] operations.
+/// Errors returned from [`InviteLinkClient`] admin operations (creating, refreshing, and updating
+/// invite links, and recovering the invite secret).
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum InviteLinkError {
@@ -34,7 +35,28 @@ pub enum InviteLinkError {
     /// A network request to the server failed.
     #[error(transparent)]
     Api(#[from] ApiError),
-    /// A low-level cryptographic operation (key wrapping, encapsulation, or public-key parsing)
+    /// A low-level cryptographic operation (key wrapping or encapsulation) failed.
+    #[error(transparent)]
+    Crypto(#[from] CryptoError),
+    /// A required field was missing from a server response.
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
+    /// A value was present but malformed and could not be parsed.
+    #[error("Failed to parse `{0}`")]
+    ParseFailure(&'static str),
+}
+
+/// Errors returned from [`InviteLinkClient::accept_and_optionally_confirm`].
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum AcceptInviteLinkError {
+    /// A cryptographic invite operation (unsealing the invite key or organization key) failed.
+    #[error(transparent)]
+    Invite(#[from] InviteKeyBundleError),
+    /// A network request to the server failed.
+    #[error(transparent)]
+    Api(#[from] ApiError),
+    /// A low-level cryptographic operation (key encapsulation, encryption, or public-key parsing)
     /// failed.
     #[error(transparent)]
     Crypto(#[from] CryptoError),
@@ -50,7 +72,7 @@ pub enum InviteLinkError {
     RecoveryKeyMismatch,
 
     // Server-reported failures when accepting or confirming an invite link, mapped from the
-    // server's error responses in the `accept_error` module.
+    // server's error responses in the `server_error` module.
     /// The invite link does not exist, its code does not match, or the organization is disabled.
     #[error("The invite link was not found")]
     LinkNotFound,
@@ -240,10 +262,10 @@ impl InviteLinkClient {
     ///
     /// # Errors
     /// Server-reported failures are mapped onto typed variants: a `404` from any of the acceptance
-    /// endpoints becomes [`InviteLinkError::LinkNotFound`], and a `400` validation problem becomes
-    /// the variant matching its error code (or [`InviteLinkError::Unknown`] for an unrecognized
-    /// code). Responses in the legacy error format carry no code and remain
-    /// [`InviteLinkError::Api`].
+    /// endpoints becomes [`AcceptInviteLinkError::LinkNotFound`], and a `400` validation problem
+    /// becomes the variant matching its error code (or [`AcceptInviteLinkError::Unknown`] for
+    /// an unrecognized code). Responses in the legacy error format carry no code and remain
+    /// [`AcceptInviteLinkError::Api`].
     pub async fn accept_and_optionally_confirm(
         &self,
         organization_id: OrganizationId,
@@ -251,9 +273,9 @@ impl InviteLinkClient {
         invite_secret: InviteSecret,
         default_collection_name: String,
         enroll_into_account_recovery: bool,
-    ) -> Result<(), InviteLinkError> {
-        let code =
-            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::ParseFailure("code"))?;
+    ) -> Result<(), AcceptInviteLinkError> {
+        let code = uuid::Uuid::parse_str(&code)
+            .map_err(|_| AcceptInviteLinkError::ParseFailure("code"))?;
 
         // When enrolling into account recovery, fetch the organization's public key (which is the
         // account-recovery public key) from the server.
@@ -267,7 +289,7 @@ impl InviteLinkClient {
             Some(
                 require!(response.public_key)
                     .parse::<B64>()
-                    .map_err(|_| InviteLinkError::ParseFailure("public_key"))?,
+                    .map_err(|_| AcceptInviteLinkError::ParseFailure("public_key"))?,
             )
         } else {
             None
@@ -282,7 +304,7 @@ impl InviteLinkClient {
                 code,
             }))
             .await
-            .map_err(map_accept_error)?;
+            .map_err(map_server_error)?;
 
         let invite: Invite = require!(invite_response.invite).parse()?;
 
@@ -306,7 +328,7 @@ impl InviteLinkClient {
                     let bound_thumbprint =
                         invite.get_public_key_thumbprint(invite_key, &mut ctx)?;
                     if bound_thumbprint != recovery_public_key.thumbprint()? {
-                        return Err(InviteLinkError::RecoveryKeyMismatch);
+                        return Err(AcceptInviteLinkError::RecoveryKeyMismatch);
                     }
                     Some(
                         UnsignedSharedKey::encapsulate(
@@ -350,11 +372,11 @@ impl InviteLinkClient {
             PendingPost::Confirm(model) => organization_users_api
                 .confirm_invite_link(Some(model))
                 .await
-                .map_err(map_accept_error)?,
+                .map_err(map_server_error)?,
             PendingPost::Accept(model) => organization_users_api
                 .accept_invite_link(Some(model))
                 .await
-                .map_err(map_accept_error)?,
+                .map_err(map_server_error)?,
         }
 
         Ok(())
@@ -426,7 +448,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::accept_error::tests::response_error;
+    use crate::server_error::tests::response_error;
 
     fn make_client(org_id: OrganizationId, api_client: ApiClient) -> InviteLinkClient {
         let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -1066,12 +1088,15 @@ mod tests {
             )
             .await;
 
-        assert!(matches!(result, Err(InviteLinkError::RecoveryKeyMismatch)));
+        assert!(matches!(
+            result,
+            Err(AcceptInviteLinkError::RecoveryKeyMismatch)
+        ));
     }
 
     /// Runs `accept_and_optionally_confirm` against a confirmable invite whose confirm request
     /// fails with the given status and body.
-    async fn accept_with_confirm_failure(status: u16, body: &'static str) -> InviteLinkError {
+    async fn accept_with_confirm_failure(status: u16, body: &'static str) -> AcceptInviteLinkError {
         let org_id = OrganizationId::new_v4();
         let invite_cell = Arc::new(std::sync::Mutex::new(None::<String>));
         let invite_mock = invite_cell.clone();
@@ -1116,7 +1141,10 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(error, InviteLinkError::AlreadyOrganizationMember));
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::AlreadyOrganizationMember
+        ));
     }
 
     #[tokio::test]
@@ -1127,7 +1155,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(error, InviteLinkError::LinkNotFound));
+        assert!(matches!(error, AcceptInviteLinkError::LinkNotFound));
     }
 
     #[tokio::test]
@@ -1138,7 +1166,9 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(error, InviteLinkError::Unknown(code) if code == "some_future_code"));
+        assert!(
+            matches!(error, AcceptInviteLinkError::Unknown(code) if code == "some_future_code")
+        );
     }
 
     #[tokio::test]
@@ -1149,7 +1179,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(error, InviteLinkError::Api(_)));
+        assert!(matches!(error, AcceptInviteLinkError::Api(_)));
     }
 
     #[tokio::test]
@@ -1176,6 +1206,6 @@ mod tests {
             )
             .await;
 
-        assert!(matches!(result, Err(InviteLinkError::LinkNotFound)));
+        assert!(matches!(result, Err(AcceptInviteLinkError::LinkNotFound)));
     }
 }

@@ -1,5 +1,5 @@
-//! Maps server error responses from the invite link acceptance endpoints onto typed
-//! [`InviteLinkError`] variants.
+//! Maps server error responses from the invite link endpoints (fetching the invite, accepting, and
+//! confirming) onto typed [`AcceptInviteLinkError`] variants.
 //!
 //! Servers that expose stable error codes answer a failed acceptance or confirmation with an
 //! RFC 7807 validation problem on `400`:
@@ -14,15 +14,15 @@
 //!
 //! Older servers (and endpoints not yet migrated) answer with the legacy `ErrorResponseModel`
 //! (`{ "message": "...", ... }`), which carries no code. Those responses are left as
-//! [`InviteLinkError::Api`] so existing clients that inspect the raw response keep working. A `404`
-//! always maps to [`InviteLinkError::LinkNotFound`], regardless of body shape.
+//! [`AcceptInviteLinkError::Api`] so existing clients that inspect the raw response keep working. A
+//! `404` always maps to [`AcceptInviteLinkError::LinkNotFound`], regardless of body shape.
 
 use std::collections::HashMap;
 
 use bitwarden_core::ApiError;
 use serde::Deserialize;
 
-use crate::InviteLinkError;
+use crate::AcceptInviteLinkError;
 
 /// The subset of the server's RFC 7807 validation problem needed to extract error codes.
 #[derive(Deserialize)]
@@ -36,22 +36,22 @@ struct ValidationErrorCode {
     code: String,
 }
 
-/// Maps an error from an invite link acceptance endpoint (fetching the invite, accepting, or
-/// confirming) onto an [`InviteLinkError`].
+/// Maps an error from an invite link endpoint (fetching the invite, accepting, or confirming) onto
+/// an [`AcceptInviteLinkError`].
 ///
 /// Only use this for those endpoints: a `404` is interpreted as the invite link not existing.
-pub(crate) fn map_accept_error(error: ApiError) -> InviteLinkError {
+pub(crate) fn map_server_error(error: ApiError) -> AcceptInviteLinkError {
     let ApiError::Response(content) = &error else {
-        return InviteLinkError::Api(error);
+        return AcceptInviteLinkError::Api(error);
     };
 
     match content.status.as_u16() {
-        404 => InviteLinkError::LinkNotFound,
+        404 => AcceptInviteLinkError::LinkNotFound,
         400 => match first_validation_code(&content.message) {
             Some(code) => from_code(code),
-            None => InviteLinkError::Api(error),
+            None => AcceptInviteLinkError::Api(error),
         },
-        _ => InviteLinkError::Api(error),
+        _ => AcceptInviteLinkError::Api(error),
     }
 }
 
@@ -67,27 +67,31 @@ fn first_validation_code(body: &str) -> Option<String> {
         .map(|error| error.code)
 }
 
-fn from_code(code: String) -> InviteLinkError {
+fn from_code(code: String) -> AcceptInviteLinkError {
     match code.as_str() {
-        "invite_link_not_available" => InviteLinkError::InviteLinkNotAvailable,
+        "invite_link_not_available" => AcceptInviteLinkError::InviteLinkNotAvailable,
         "invite_link_confirmation_not_supported" => {
-            InviteLinkError::InviteLinkConfirmationNotSupported
+            AcceptInviteLinkError::InviteLinkConfirmationNotSupported
         }
-        "email_not_verified" => InviteLinkError::EmailNotVerified,
-        "email_domain_not_allowed" => InviteLinkError::EmailDomainNotAllowed,
-        "provider_users_cannot_join" => InviteLinkError::ProviderUsersCannotJoin,
-        "organization_access_revoked" => InviteLinkError::OrganizationAccessRevoked,
-        "already_organization_member" => InviteLinkError::AlreadyOrganizationMember,
-        "organization_has_no_available_seats" => InviteLinkError::OrganizationHasNoAvailableSeats,
-        "seat_add_failed" => InviteLinkError::SeatAddFailed,
-        "reset_password_key_required" => InviteLinkError::ResetPasswordKeyRequired,
-        "member_of_another_organization" => InviteLinkError::MemberOfAnotherOrganization,
-        "single_organization_policy" => InviteLinkError::SingleOrganizationPolicy,
-        "two_factor_required_for_membership" => InviteLinkError::TwoFactorRequiredForMembership,
+        "email_not_verified" => AcceptInviteLinkError::EmailNotVerified,
+        "email_domain_not_allowed" => AcceptInviteLinkError::EmailDomainNotAllowed,
+        "provider_users_cannot_join" => AcceptInviteLinkError::ProviderUsersCannotJoin,
+        "organization_access_revoked" => AcceptInviteLinkError::OrganizationAccessRevoked,
+        "already_organization_member" => AcceptInviteLinkError::AlreadyOrganizationMember,
+        "organization_has_no_available_seats" => {
+            AcceptInviteLinkError::OrganizationHasNoAvailableSeats
+        }
+        "seat_add_failed" => AcceptInviteLinkError::SeatAddFailed,
+        "reset_password_key_required" => AcceptInviteLinkError::ResetPasswordKeyRequired,
+        "member_of_another_organization" => AcceptInviteLinkError::MemberOfAnotherOrganization,
+        "single_organization_policy" => AcceptInviteLinkError::SingleOrganizationPolicy,
+        "two_factor_required_for_membership" => {
+            AcceptInviteLinkError::TwoFactorRequiredForMembership
+        }
         "only_one_free_organization_admin_allowed" => {
-            InviteLinkError::OnlyOneFreeOrganizationAdminAllowed
+            AcceptInviteLinkError::OnlyOneFreeOrganizationAdminAllowed
         }
-        _ => InviteLinkError::Unknown(code),
+        _ => AcceptInviteLinkError::Unknown(code),
     }
 }
 
@@ -110,8 +114,8 @@ pub(crate) mod tests {
         )
     }
 
-    fn map(status: u16, body: &str) -> InviteLinkError {
-        map_accept_error(response_error(status, body))
+    fn map(status: u16, body: &str) -> AcceptInviteLinkError {
+        map_server_error(response_error(status, body))
     }
 
     #[test]
@@ -136,7 +140,10 @@ pub(crate) mod tests {
         for (property, code) in cases {
             let error = map(400, &validation_problem(property, code));
             assert!(
-                !matches!(error, InviteLinkError::Unknown(_) | InviteLinkError::Api(_)),
+                !matches!(
+                    error,
+                    AcceptInviteLinkError::Unknown(_) | AcceptInviteLinkError::Api(_)
+                ),
                 "`{code}` should map to a typed variant, got {error:?}"
             );
         }
@@ -148,7 +155,10 @@ pub(crate) mod tests {
             400,
             &validation_problem("code", "already_organization_member"),
         );
-        assert!(matches!(error, InviteLinkError::AlreadyOrganizationMember));
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::AlreadyOrganizationMember
+        ));
     }
 
     #[test]
@@ -157,13 +167,15 @@ pub(crate) mod tests {
             400,
             &validation_problem("organizationId", "email_not_verified"),
         );
-        assert!(matches!(error, InviteLinkError::EmailNotVerified));
+        assert!(matches!(error, AcceptInviteLinkError::EmailNotVerified));
     }
 
     #[test]
     fn maps_unmapped_code_to_unknown() {
         let error = map(400, &validation_problem("code", "some_future_code"));
-        assert!(matches!(error, InviteLinkError::Unknown(code) if code == "some_future_code"));
+        assert!(
+            matches!(error, AcceptInviteLinkError::Unknown(code) if code == "some_future_code")
+        );
     }
 
     #[test]
@@ -172,12 +184,12 @@ pub(crate) mod tests {
             404,
             r#"{"message":"Invite link not found.","validationErrors":null,"exceptionMessage":null,"exceptionStackTrace":null,"innerExceptionMessage":null,"object":"error"}"#,
         );
-        assert!(matches!(error, InviteLinkError::LinkNotFound));
+        assert!(matches!(error, AcceptInviteLinkError::LinkNotFound));
     }
 
     #[test]
     fn maps_not_found_with_empty_body() {
-        assert!(matches!(map(404, ""), InviteLinkError::LinkNotFound));
+        assert!(matches!(map(404, ""), AcceptInviteLinkError::LinkNotFound));
     }
 
     #[test]
@@ -186,7 +198,10 @@ pub(crate) mod tests {
             400,
             r#"{"message":"You're already a member of Acme.","validationErrors":null,"object":"error"}"#,
         );
-        assert!(matches!(error, InviteLinkError::Api(ApiError::Response(_))));
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::Api(ApiError::Response(_))
+        ));
     }
 
     #[test]
@@ -196,7 +211,10 @@ pub(crate) mod tests {
             400,
             r#"{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","status":400,"errors":{"Code":["The Code field is required."]}}"#,
         );
-        assert!(matches!(error, InviteLinkError::Api(ApiError::Response(_))));
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::Api(ApiError::Response(_))
+        ));
     }
 
     #[test]
@@ -205,12 +223,15 @@ pub(crate) mod tests {
             500,
             &validation_problem("code", "already_organization_member"),
         );
-        assert!(matches!(error, InviteLinkError::Api(ApiError::Response(_))));
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::Api(ApiError::Response(_))
+        ));
     }
 
     #[test]
     fn keeps_transport_errors_as_api_error() {
-        let error = map_accept_error(ApiError::from(std::io::Error::other("boom")));
-        assert!(matches!(error, InviteLinkError::Api(ApiError::Io(_))));
+        let error = map_server_error(ApiError::from(std::io::Error::other("boom")));
+        assert!(matches!(error, AcceptInviteLinkError::Api(ApiError::Io(_))));
     }
 }
