@@ -1298,6 +1298,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-api-base",
+ "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-generators",
