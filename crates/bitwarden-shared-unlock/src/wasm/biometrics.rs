@@ -67,6 +67,8 @@ extern "C" {
     async fn authenticate_biometrics(this: &RawJsBiometricsDriver) -> Result<JsValue, JsValue>;
 }
 
+bitwarden_ffi::impl_wire_object!(RawJsBiometricsDriver);
+
 pub(super) struct JsBiometricsUnlock {
     runner: ThreadBoundRunner<RawJsBiometricsDriver>,
 }

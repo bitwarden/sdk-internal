@@ -66,6 +66,8 @@ extern "C" {
     ) -> Result<(), JsValue>;
 }
 
+bitwarden_ffi::impl_wire_object!(RawJsSharedUnlockDriver);
+
 pub(super) struct JsSharedUnlockDriver {
     runner: ThreadBoundRunner<RawJsSharedUnlockDriver>,
 }

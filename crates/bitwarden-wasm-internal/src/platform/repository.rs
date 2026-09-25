@@ -154,6 +154,8 @@ macro_rules! create_wasm_repositories {
             )+
         }
 
+        ::bitwarden_ffi::impl_wire_object!($container_name);
+
         impl $container_name {
             pub fn register_all(self, client: &bitwarden_core::platform::StateClient) {
                 $(

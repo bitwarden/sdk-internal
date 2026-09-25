@@ -905,6 +905,7 @@ dependencies = [
  "bitwarden-ffi-macro",
  "serde",
  "serde_json",
+ "thiserror",
  "trybuild",
  "tsify",
  "wasm-bindgen",
@@ -1114,6 +1115,7 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "bitwarden-ffi",
  "bitwarden-random",
  "bitwarden-sensitive-value",
  "rand 0.10.2",
@@ -1327,6 +1329,7 @@ dependencies = [
 name = "bitwarden-sensitive-value"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-ffi",
  "serde",
  "serde_json",
  "uniffi",
@@ -1339,6 +1342,7 @@ version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-threading",
  "http",
  "js-sys",
@@ -1515,6 +1519,7 @@ version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
+ "bitwarden-ffi",
  "console_error_panic_hook",
  "gloo-timers",
  "js-sys",

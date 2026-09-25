@@ -88,6 +88,8 @@ extern "C" {
     pub async fn receive(this: &JsCommunicationBackendSender) -> Result<JsValue, JsValue>;
 }
 
+bitwarden_ffi::impl_wire_object!(JsCommunicationBackendSender);
+
 /// JavaScript implementation of the `CommunicationBackend` trait for IPC communication.
 #[wasm_bindgen(js_name = IpcCommunicationBackend)]
 pub struct JsCommunicationBackend {

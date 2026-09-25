@@ -56,6 +56,8 @@ extern "C" {
     ) -> Result<(), JsValue>;
 }
 
+bitwarden_ffi::impl_wire_object!(RawJsServerCommunicationConfigRepository);
+
 /// Thread-safe JavaScript implementation of ServerCommunicationConfigRepository
 ///
 /// This wrapper ensures the JavaScript repository can be safely used across

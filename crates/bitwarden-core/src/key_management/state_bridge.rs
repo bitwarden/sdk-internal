@@ -95,6 +95,9 @@ extern "C" {
 }
 
 #[cfg(target_arch = "wasm32")]
+bitwarden_ffi::impl_wire_object!(RawWasmStateBridge);
+
+#[cfg(target_arch = "wasm32")]
 use bitwarden_threading::ThreadBoundRunner;
 
 #[cfg(target_arch = "wasm32")]

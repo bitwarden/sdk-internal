@@ -5,8 +5,6 @@ use bitwarden_encoding::{B64, FromStrVisitor, NotB64EncodedError};
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     Aes256GcmKey, CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CoseKeyView, CryptoError, EncString,
@@ -386,24 +384,7 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type DataEnvelope = Tagged<string, "DataEnvelope">;
 "#;
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for DataEnvelope {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for DataEnvelope {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-
-        let s = unsafe { String::from_abi(abi) };
-        Self::from_str(&s).unwrap_throw()
-    }
-}
+bitwarden_ffi::impl_wire_string!(DataEnvelope, parse = |wire: String| wire.parse());
 
 fn pad_cbor(data: &[u8]) -> Result<Vec<u8>, CryptoError> {
     let mut data = data.to_vec();

@@ -23,8 +23,6 @@ use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::{
     CipherSuite, ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext,
@@ -646,40 +644,11 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type PasswordProtectedKeyEnvelope = Tagged<string, "PasswordProtectedKeyEnvelope">;
 "#;
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for PasswordProtectedKeyEnvelope {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for PasswordProtectedKeyEnvelope {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-        let string = unsafe { String::from_abi(abi) };
-        PasswordProtectedKeyEnvelope::from_str(&string).unwrap_throw()
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl OptionFromWasmAbi for PasswordProtectedKeyEnvelope {
-    fn is_none(abi: &Self::Abi) -> bool {
-        <String as OptionFromWasmAbi>::is_none(abi)
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl IntoWasmAbi for PasswordProtectedKeyEnvelope {
-    type Abi = <String as IntoWasmAbi>::Abi;
-
-    fn into_abi(self) -> Self::Abi {
-        let string: String = self.into();
-        string.into_abi()
-    }
-}
+bitwarden_ffi::impl_wire_string!(
+    PasswordProtectedKeyEnvelope,
+    parse = |wire: String| wire.parse(),
+    format = String::from,
+);
 
 #[cfg(feature = "wasm")]
 impl TryFrom<wasm_bindgen::JsValue> for PasswordProtectedKeyEnvelope {

@@ -38,6 +38,8 @@ extern "C" {
     pub async fn remove(this: &RawJsSessionRepository, endpoint: Endpoint) -> Result<(), JsValue>;
 }
 
+bitwarden_ffi::impl_wire_object!(RawJsSessionRepository);
+
 /// Thread safe JavaScript implementation of the `SessionRepository` trait for IPC sessions.
 pub struct JsSessionRepository(ThreadBoundRunner<RawJsSessionRepository>);
 
