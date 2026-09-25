@@ -73,6 +73,7 @@ fn from_code(code: String) -> InviteLinkError {
         "invite_link_confirmation_not_supported" => {
             InviteLinkError::InviteLinkConfirmationNotSupported
         }
+        "email_not_verified" => InviteLinkError::EmailNotVerified,
         "email_domain_not_allowed" => InviteLinkError::EmailDomainNotAllowed,
         "provider_users_cannot_join" => InviteLinkError::ProviderUsersCannotJoin,
         "organization_access_revoked" => InviteLinkError::OrganizationAccessRevoked,
@@ -118,6 +119,7 @@ pub(crate) mod tests {
         let cases = [
             ("code", "invite_link_not_available"),
             ("code", "invite_link_confirmation_not_supported"),
+            ("organizationId", "email_not_verified"),
             ("code", "email_domain_not_allowed"),
             ("code", "provider_users_cannot_join"),
             ("code", "organization_access_revoked"),
@@ -147,6 +149,15 @@ pub(crate) mod tests {
             &validation_problem("code", "already_organization_member"),
         );
         assert!(matches!(error, InviteLinkError::AlreadyOrganizationMember));
+    }
+
+    #[test]
+    fn maps_email_not_verified() {
+        let error = map(
+            400,
+            &validation_problem("organizationId", "email_not_verified"),
+        );
+        assert!(matches!(error, InviteLinkError::EmailNotVerified));
     }
 
     #[test]

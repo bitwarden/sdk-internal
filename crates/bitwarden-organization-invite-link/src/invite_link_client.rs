@@ -60,6 +60,9 @@ pub enum InviteLinkError {
     /// The invite link does not support self-confirmation.
     #[error("The invite link does not support confirmation")]
     InviteLinkConfirmationNotSupported,
+    /// The user must verify their email address before joining the organization.
+    #[error("The user's email address is not verified")]
+    EmailNotVerified,
     /// The user's email domain is not in the invite link's allowed domains.
     #[error("The user's email domain is not allowed by the invite link")]
     EmailDomainNotAllowed,
