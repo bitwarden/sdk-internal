@@ -1096,6 +1096,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-organization-crypto",
  "chrono",
+ "http",
  "serde",
  "serde_json",
  "thiserror",

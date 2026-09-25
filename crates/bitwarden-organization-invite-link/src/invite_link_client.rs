@@ -448,7 +448,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::server_error::tests::response_error;
+    use crate::validation_problem::tests::response_error;
 
     fn make_client(org_id: OrganizationId, api_client: ApiClient) -> InviteLinkClient {
         let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);

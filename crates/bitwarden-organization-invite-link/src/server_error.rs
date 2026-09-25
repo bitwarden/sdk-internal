@@ -1,54 +1,15 @@
 //! Maps server error responses from the invite link endpoints (fetching the invite, accepting, and
 //! confirming) onto typed [`AcceptInviteLinkError`] variants.
 //!
-//! Servers that expose stable error codes answer a failed acceptance or confirmation with an
-//! RFC 7807 validation problem on `400`:
-//!
-//! ```json
-//! {
-//!   "type": "validation_error",
-//!   "status": 400,
-//!   "errors": { "code": [{ "type": "already_organization_member", "detail": "..." }] }
-//! }
-//! ```
-//!
-//! Older servers (and endpoints not yet migrated) answer with the legacy `ErrorResponseModel`
-//! (`{ "message": "...", ... }`), which carries no code. Those responses are left as
-//! [`AcceptInviteLinkError::Api`] so existing clients that inspect the raw response keep working. A
-//! `404` always maps to [`AcceptInviteLinkError::LinkNotFound`], regardless of body shape.
-
-use std::collections::HashMap;
+//! A `400` [`ValidationProblem`] maps to the variant matching its error code. Responses in the
+//! legacy error format carry no code and are left as [`AcceptInviteLinkError::Api`] so existing
+//! clients that inspect the raw response keep working. A `404` always maps to
+//! [`AcceptInviteLinkError::LinkNotFound`], regardless of body shape.
 
 use bitwarden_core::ApiError;
-use serde::Deserialize;
+use http::StatusCode;
 
-use crate::AcceptInviteLinkError;
-
-/// The subset of the server's RFC 7807 validation problem needed to extract error codes.
-#[derive(Deserialize)]
-struct ValidationProblem {
-    errors: HashMap<String, Vec<ValidationErrorCode>>,
-}
-
-#[derive(Deserialize)]
-struct ValidationErrorCode {
-    #[serde(rename = "type")]
-    code: String,
-}
-
-impl ValidationProblem {
-    /// Returns the first error code from a validation problem body, or `None` if the body is not a
-    /// validation problem (e.g. the legacy error format).
-    fn first_code(body: &str) -> Option<String> {
-        let problem: Self = serde_json::from_str(body).ok()?;
-        problem
-            .errors
-            .into_values()
-            .flatten()
-            .next()
-            .map(|error| error.code)
-    }
-}
+use crate::{AcceptInviteLinkError, validation_problem::ValidationProblem};
 
 impl AcceptInviteLinkError {
     /// Maps an error from an invite link endpoint (fetching the invite, accepting, or confirming)
@@ -56,17 +17,16 @@ impl AcceptInviteLinkError {
     ///
     /// Only use this for those endpoints: a `404` is interpreted as the invite link not existing.
     pub(crate) fn from_api_error(error: ApiError) -> Self {
-        let ApiError::Response(content) = &error else {
-            return Self::Api(error);
-        };
+        if let ApiError::Response(content) = &error
+            && content.status == StatusCode::NOT_FOUND
+        {
+            return Self::LinkNotFound;
+        }
 
-        match content.status.as_u16() {
-            404 => Self::LinkNotFound,
-            400 => match ValidationProblem::first_code(&content.message) {
-                Some(code) => Self::from_code(code),
-                None => Self::Api(error),
-            },
-            _ => Self::Api(error),
+        match ValidationProblem::from_api_error(&error).and_then(ValidationProblem::into_first_code)
+        {
+            Some(code) => Self::from_code(code),
+            None => Self::Api(error),
         }
     }
 
@@ -92,23 +52,9 @@ impl AcceptInviteLinkError {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
-    use bitwarden_api_api::ResponseContent;
-
+mod tests {
     use super::*;
-
-    pub(crate) fn response_error(status: u16, body: &str) -> ApiError {
-        ApiError::Response(ResponseContent {
-            status: status.try_into().expect("valid status code"),
-            message: body.to_string(),
-        })
-    }
-
-    fn validation_problem(property: &str, code: &str) -> String {
-        format!(
-            r#"{{"type":"validation_error","title":"One or more validation errors occurred.","status":400,"errors":{{"{property}":[{{"type":"{code}","detail":"Some detail."}}]}}}}"#
-        )
-    }
+    use crate::validation_problem::tests::{response_error, validation_problem};
 
     fn map(status: u16, body: &str) -> AcceptInviteLinkError {
         AcceptInviteLinkError::from_api_error(response_error(status, body))
