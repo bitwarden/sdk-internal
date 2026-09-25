@@ -36,62 +36,58 @@ struct ValidationErrorCode {
     code: String,
 }
 
-/// Maps an error from an invite link endpoint (fetching the invite, accepting, or confirming) onto
-/// an [`AcceptInviteLinkError`].
-///
-/// Only use this for those endpoints: a `404` is interpreted as the invite link not existing.
-pub(crate) fn map_server_error(error: ApiError) -> AcceptInviteLinkError {
-    let ApiError::Response(content) = &error else {
-        return AcceptInviteLinkError::Api(error);
-    };
-
-    match content.status.as_u16() {
-        404 => AcceptInviteLinkError::LinkNotFound,
-        400 => match first_validation_code(&content.message) {
-            Some(code) => from_code(code),
-            None => AcceptInviteLinkError::Api(error),
-        },
-        _ => AcceptInviteLinkError::Api(error),
+impl ValidationProblem {
+    /// Returns the first error code from a validation problem body, or `None` if the body is not a
+    /// validation problem (e.g. the legacy error format).
+    fn first_code(body: &str) -> Option<String> {
+        let problem: Self = serde_json::from_str(body).ok()?;
+        problem
+            .errors
+            .into_values()
+            .flatten()
+            .next()
+            .map(|error| error.code)
     }
 }
 
-/// Returns the first error code from a validation problem body, or `None` if the body is not a
-/// validation problem (e.g. the legacy error format).
-fn first_validation_code(body: &str) -> Option<String> {
-    let problem: ValidationProblem = serde_json::from_str(body).ok()?;
-    problem
-        .errors
-        .into_values()
-        .flatten()
-        .next()
-        .map(|error| error.code)
-}
+impl AcceptInviteLinkError {
+    /// Maps an error from an invite link endpoint (fetching the invite, accepting, or confirming)
+    /// onto an [`AcceptInviteLinkError`].
+    ///
+    /// Only use this for those endpoints: a `404` is interpreted as the invite link not existing.
+    pub(crate) fn from_api_error(error: ApiError) -> Self {
+        let ApiError::Response(content) = &error else {
+            return Self::Api(error);
+        };
 
-fn from_code(code: String) -> AcceptInviteLinkError {
-    match code.as_str() {
-        "invite_link_not_available" => AcceptInviteLinkError::InviteLinkNotAvailable,
-        "invite_link_confirmation_not_supported" => {
-            AcceptInviteLinkError::InviteLinkConfirmationNotSupported
+        match content.status.as_u16() {
+            404 => Self::LinkNotFound,
+            400 => match ValidationProblem::first_code(&content.message) {
+                Some(code) => Self::from_code(code),
+                None => Self::Api(error),
+            },
+            _ => Self::Api(error),
         }
-        "email_not_verified" => AcceptInviteLinkError::EmailNotVerified,
-        "email_domain_not_allowed" => AcceptInviteLinkError::EmailDomainNotAllowed,
-        "provider_users_cannot_join" => AcceptInviteLinkError::ProviderUsersCannotJoin,
-        "organization_access_revoked" => AcceptInviteLinkError::OrganizationAccessRevoked,
-        "already_organization_member" => AcceptInviteLinkError::AlreadyOrganizationMember,
-        "organization_has_no_available_seats" => {
-            AcceptInviteLinkError::OrganizationHasNoAvailableSeats
+    }
+
+    fn from_code(code: String) -> Self {
+        match code.as_str() {
+            "invite_link_not_available" => Self::InviteLinkNotAvailable,
+            "invite_link_confirmation_not_supported" => Self::InviteLinkConfirmationNotSupported,
+            "email_not_verified" => Self::EmailNotVerified,
+            "email_domain_not_allowed" => Self::EmailDomainNotAllowed,
+            "provider_users_cannot_join" => Self::ProviderUsersCannotJoin,
+            "organization_access_revoked" => Self::OrganizationAccessRevoked,
+            "already_organization_member" => Self::AlreadyOrganizationMember,
+            "organization_has_no_available_seats" => Self::OrganizationHasNoAvailableSeats,
+            "seat_add_failed" => Self::SeatAddFailed,
+            "reset_password_key_required" => Self::ResetPasswordKeyRequired,
+            "member_of_another_organization" => Self::MemberOfAnotherOrganization,
+            "single_organization_policy" => Self::SingleOrganizationPolicy,
+            "two_factor_required_for_membership" => Self::TwoFactorRequiredForMembership,
+            "only_one_free_organization_admin_allowed" => Self::OnlyOneFreeOrganizationAdminAllowed,
+            _ => Self::Unknown(code),
         }
-        "seat_add_failed" => AcceptInviteLinkError::SeatAddFailed,
-        "reset_password_key_required" => AcceptInviteLinkError::ResetPasswordKeyRequired,
-        "member_of_another_organization" => AcceptInviteLinkError::MemberOfAnotherOrganization,
-        "single_organization_policy" => AcceptInviteLinkError::SingleOrganizationPolicy,
-        "two_factor_required_for_membership" => {
-            AcceptInviteLinkError::TwoFactorRequiredForMembership
-        }
-        "only_one_free_organization_admin_allowed" => {
-            AcceptInviteLinkError::OnlyOneFreeOrganizationAdminAllowed
-        }
-        _ => AcceptInviteLinkError::Unknown(code),
     }
 }
 
@@ -115,7 +111,7 @@ pub(crate) mod tests {
     }
 
     fn map(status: u16, body: &str) -> AcceptInviteLinkError {
-        map_server_error(response_error(status, body))
+        AcceptInviteLinkError::from_api_error(response_error(status, body))
     }
 
     #[test]
@@ -231,7 +227,8 @@ pub(crate) mod tests {
 
     #[test]
     fn keeps_transport_errors_as_api_error() {
-        let error = map_server_error(ApiError::from(std::io::Error::other("boom")));
+        let error =
+            AcceptInviteLinkError::from_api_error(ApiError::from(std::io::Error::other("boom")));
         assert!(matches!(error, AcceptInviteLinkError::Api(ApiError::Io(_))));
     }
 }

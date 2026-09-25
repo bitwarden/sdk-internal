@@ -22,7 +22,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{OrganizationInviteLink, server_error::map_server_error};
+use crate::OrganizationInviteLink;
 
 /// Errors returned from [`InviteLinkClient`] admin operations (creating, refreshing, and updating
 /// invite links, and recovering the invite secret).
@@ -304,7 +304,7 @@ impl InviteLinkClient {
                 code,
             }))
             .await
-            .map_err(map_server_error)?;
+            .map_err(AcceptInviteLinkError::from_api_error)?;
 
         let invite: Invite = require!(invite_response.invite).parse()?;
 
@@ -372,11 +372,11 @@ impl InviteLinkClient {
             PendingPost::Confirm(model) => organization_users_api
                 .confirm_invite_link(Some(model))
                 .await
-                .map_err(map_server_error)?,
+                .map_err(AcceptInviteLinkError::from_api_error)?,
             PendingPost::Accept(model) => organization_users_api
                 .accept_invite_link(Some(model))
                 .await
-                .map_err(map_server_error)?,
+                .map_err(AcceptInviteLinkError::from_api_error)?,
         }
 
         Ok(())
