@@ -43,10 +43,8 @@ pub enum MakeCredentialError {
     PublicKeyCredentialParameters(#[from] PublicKeyCredentialParametersError),
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnumError),
-    #[error("Missing attested_credential_data")]
-    MissingAttestedCredentialData,
-    #[error("The created credential's public key algorithm is not supported")]
-    UnsupportedPublicKeyAlgorithm,
+    #[error(transparent)]
+    WebAuthnEntity(#[from] WebAuthnEntityError),
     #[error("make_credential error: {0}")]
     Other(String),
 }
@@ -176,26 +174,7 @@ impl<'a> Fido2Authenticator<'a> {
             Err(e) => return Err(MakeCredentialError::Other(format!("{e:?}"))),
         };
 
-        let attestation_object = response.as_webauthn_bytes().to_vec();
-        let authenticator_data = response.auth_data.to_vec();
-        let attested_credential_data = response
-            .auth_data
-            .attested_credential_data
-            .ok_or(MakeCredentialError::MissingAttestedCredentialData)?;
-        let credential_id = attested_credential_data.credential_id().to_vec();
-        let (public_key, public_key_algorithm) =
-            public_key_der_and_algorithm(&attested_credential_data.key)
-                .ok_or(MakeCredentialError::UnsupportedPublicKeyAlgorithm)?;
-        let extensions = response.unsigned_extension_outputs.into();
-
-        Ok(MakeCredentialResult {
-            authenticator_data,
-            attestation_object,
-            credential_id,
-            extensions,
-            public_key,
-            public_key_algorithm,
-        })
+        Ok(response.try_into()?)
     }
 
     #[allow(missing_docs)]
