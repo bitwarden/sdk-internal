@@ -1,6 +1,9 @@
 use bitwarden_vault::{CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView};
 use passkey::authenticator::UiHint;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
@@ -41,7 +44,7 @@ pub trait Fido2CredentialStore: Send + Sync {
     async fn find_credentials(
         &self,
         ids: Option<Vec<Vec<u8>>>,
-        rip_id: String,
+        rp_id: String,
         user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<CipherView>, Fido2CallbackError>;
 
@@ -51,16 +54,20 @@ pub trait Fido2CredentialStore: Send + Sync {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CheckUserOptions {
     pub require_presence: bool,
     pub require_verification: Verification,
 }
 
 #[allow(missing_docs)]
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum Verification {
     Discouraged,
     Preferred,
@@ -68,6 +75,9 @@ pub enum Verification {
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CheckUserResult {
     pub user_present: bool,
     pub user_verified: bool,
