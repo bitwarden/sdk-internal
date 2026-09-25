@@ -1100,6 +1100,7 @@ dependencies = [
  "chrono",
  "http",
  "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tsify",

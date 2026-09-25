@@ -20,7 +20,7 @@ use bitwarden_organization_crypto::invite::{Invite, InviteSecret};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{InviteLinkError, OrganizationInviteLinkStatusView};
+use crate::{AcceptInviteLinkError, InviteLinkError, OrganizationInviteLinkStatusView};
 
 /// Client for organization invite link invitee (user) operations: checking link status, validating
 /// email eligibility, and accepting or self-confirming an invite.
@@ -85,6 +85,13 @@ impl InviteLinkUserClient {
     /// Accepts an organization invite for the current user, optionally enrolling into account
     /// recovery (when `enroll_into_account_recovery` is set) and — when the invite supports
     /// confirmation — self-confirming.
+    ///
+    /// # Errors
+    /// Server-reported failures are mapped onto typed variants: a `404` from any of the acceptance
+    /// endpoints becomes [`AcceptInviteLinkError::LinkNotFound`], and a `400` validation
+    /// problem becomes the variant matching its error code (or
+    /// [`AcceptInviteLinkError::Unknown`] for an unrecognized code). Responses in the
+    /// legacy error format carry no code and remain [`AcceptInviteLinkError::Api`].
     pub async fn accept_and_optionally_confirm(
         &self,
         organization_id: OrganizationId,
@@ -92,9 +99,9 @@ impl InviteLinkUserClient {
         invite_secret: InviteSecret,
         default_collection_name: String,
         enroll_into_account_recovery: bool,
-    ) -> Result<(), InviteLinkError> {
-        let code =
-            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::ParseFailure("code"))?;
+    ) -> Result<(), AcceptInviteLinkError> {
+        let code = uuid::Uuid::parse_str(&code)
+            .map_err(|_| AcceptInviteLinkError::ParseFailure("code"))?;
 
         // When enrolling into account recovery, fetch the organization's public key (which is the
         // account-recovery public key) from the server.
@@ -108,7 +115,7 @@ impl InviteLinkUserClient {
             Some(
                 require!(response.public_key)
                     .parse::<B64>()
-                    .map_err(|_| InviteLinkError::ParseFailure("public_key"))?,
+                    .map_err(|_| AcceptInviteLinkError::ParseFailure("public_key"))?,
             )
         } else {
             None
@@ -122,7 +129,8 @@ impl InviteLinkUserClient {
                 organization_id: organization_id.into(),
                 code,
             }))
-            .await?;
+            .await
+            .map_err(AcceptInviteLinkError::from_api_error)?;
 
         let invite: Invite = require!(invite_response.invite).parse()?;
 
@@ -146,7 +154,7 @@ impl InviteLinkUserClient {
                     let bound_thumbprint =
                         invite.get_public_key_thumbprint(invite_key, &mut ctx)?;
                     if bound_thumbprint != recovery_public_key.thumbprint()? {
-                        return Err(InviteLinkError::RecoveryKeyMismatch);
+                        return Err(AcceptInviteLinkError::RecoveryKeyMismatch);
                     }
                     Some(
                         UnsignedSharedKey::encapsulate(
@@ -187,16 +195,14 @@ impl InviteLinkUserClient {
 
         let organization_users_api = self.api_configurations.api_client.organization_users_api();
         match request {
-            PendingPost::Confirm(model) => {
-                organization_users_api
-                    .confirm_invite_link(Some(model))
-                    .await?
-            }
-            PendingPost::Accept(model) => {
-                organization_users_api
-                    .accept_invite_link(Some(model))
-                    .await?
-            }
+            PendingPost::Confirm(model) => organization_users_api
+                .confirm_invite_link(Some(model))
+                .await
+                .map_err(AcceptInviteLinkError::from_api_error)?,
+            PendingPost::Accept(model) => organization_users_api
+                .accept_invite_link(Some(model))
+                .await
+                .map_err(AcceptInviteLinkError::from_api_error)?,
         }
 
         Ok(())
@@ -228,6 +234,7 @@ mod tests {
     };
 
     use super::*;
+    use crate::validation_problem::tests::response_error;
 
     fn make_client(org_id: OrganizationId, api_client: ApiClient) -> InviteLinkUserClient {
         let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -459,7 +466,10 @@ mod tests {
             )
             .await;
 
-        assert!(matches!(result, Err(InviteLinkError::RecoveryKeyMismatch)));
+        assert!(matches!(
+            result,
+            Err(AcceptInviteLinkError::RecoveryKeyMismatch)
+        ));
     }
 
     #[tokio::test]
@@ -529,5 +539,120 @@ mod tests {
             .unwrap();
 
         assert!(allowed);
+    }
+
+    /// Runs `accept_and_optionally_confirm` against a confirmable invite whose confirm request
+    /// fails with the given status and body.
+    async fn accept_with_confirm_failure(status: u16, body: &'static str) -> AcceptInviteLinkError {
+        let org_id = OrganizationId::new_v4();
+        let invite_cell = Arc::new(std::sync::Mutex::new(None::<String>));
+        let invite_mock = invite_cell.clone();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| {
+                mock.organization_users_api
+                    .expect_get_invite()
+                    .returning(move |_model| {
+                        Ok(OrganizationInviteResponseModel {
+                            invite: invite_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+                mock.organization_users_api
+                    .expect_confirm_invite_link()
+                    .returning(move |_model| Err(response_error(status, body)))
+                    .once();
+            }),
+        );
+
+        let (secret, invite, _org_public_key) = build_invite(&client, org_id);
+        *invite_cell.lock().unwrap() = Some(String::from(&invite));
+
+        client
+            .accept_and_optionally_confirm(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                secret,
+                "Default".to_string(),
+                false,
+            )
+            .await
+            .unwrap_err()
+    }
+
+    #[tokio::test]
+    async fn confirm_maps_validation_code_to_variant() {
+        let error = accept_with_confirm_failure(
+            400,
+            r#"{"type":"validation_error","status":400,"errors":{"code":[{"type":"already_organization_member","detail":"You're already a member of Acme."}]}}"#,
+        )
+        .await;
+
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::AlreadyOrganizationMember
+        ));
+    }
+
+    #[tokio::test]
+    async fn confirm_maps_not_found_to_link_not_found() {
+        let error = accept_with_confirm_failure(
+            404,
+            r#"{"message":"Invite link not found.","object":"error"}"#,
+        )
+        .await;
+
+        assert!(matches!(error, AcceptInviteLinkError::LinkNotFound));
+    }
+
+    #[tokio::test]
+    async fn confirm_maps_unmapped_code_to_unknown() {
+        let error = accept_with_confirm_failure(
+            400,
+            r#"{"type":"validation_error","status":400,"errors":{"code":[{"type":"some_future_code","detail":"Something new."}]}}"#,
+        )
+        .await;
+
+        assert!(
+            matches!(error, AcceptInviteLinkError::Unknown(code) if code == "some_future_code")
+        );
+    }
+
+    #[tokio::test]
+    async fn confirm_keeps_legacy_error_as_api_error() {
+        let error = accept_with_confirm_failure(
+            400,
+            r#"{"message":"You're already a member of Acme.","object":"error"}"#,
+        )
+        .await;
+
+        assert!(matches!(error, AcceptInviteLinkError::Api(_)));
+    }
+
+    #[tokio::test]
+    async fn get_invite_not_found_maps_to_link_not_found() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_users_api
+                    .expect_get_invite()
+                    .returning(|_model| Err(response_error(404, "")))
+                    .once();
+            }),
+        );
+        let (secret, _invite, _org_public_key) = build_invite(&client, org_id);
+
+        let result = client
+            .accept_and_optionally_confirm(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                secret,
+                "Default".to_string(),
+                false,
+            )
+            .await;
+
+        assert!(matches!(result, Err(AcceptInviteLinkError::LinkNotFound)));
     }
 }

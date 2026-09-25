@@ -1,0 +1,180 @@
+//! Maps server error responses from the invite link endpoints (fetching the invite, accepting, and
+//! confirming) onto typed [`AcceptInviteLinkError`] variants.
+//!
+//! A `400` [`ValidationProblem`] maps to the variant matching its error code. Responses in the
+//! legacy error format carry no code and are left as [`AcceptInviteLinkError::Api`] so existing
+//! clients that inspect the raw response keep working. A `404` always maps to
+//! [`AcceptInviteLinkError::LinkNotFound`], regardless of body shape.
+
+use bitwarden_core::ApiError;
+use http::StatusCode;
+
+use crate::{AcceptInviteLinkError, validation_problem::ValidationProblem};
+
+impl AcceptInviteLinkError {
+    /// Maps an error from an invite link endpoint (fetching the invite, accepting, or confirming)
+    /// onto an [`AcceptInviteLinkError`].
+    ///
+    /// Only use this for those endpoints: a `404` is interpreted as the invite link not existing.
+    pub(crate) fn from_api_error(error: ApiError) -> Self {
+        if let ApiError::Response(content) = &error
+            && content.status == StatusCode::NOT_FOUND
+        {
+            return Self::LinkNotFound;
+        }
+
+        match ValidationProblem::from_api_error(&error).and_then(ValidationProblem::into_first_code)
+        {
+            Some(code) => Self::from_code(code),
+            None => Self::Api(error),
+        }
+    }
+
+    fn from_code(code: String) -> Self {
+        match code.as_str() {
+            "invite_link_not_available" => Self::InviteLinkNotAvailable,
+            "invite_link_confirmation_not_supported" => Self::InviteLinkConfirmationNotSupported,
+            "email_not_verified" => Self::EmailNotVerified,
+            "email_domain_not_allowed" => Self::EmailDomainNotAllowed,
+            "provider_users_cannot_join" => Self::ProviderUsersCannotJoin,
+            "organization_access_revoked" => Self::OrganizationAccessRevoked,
+            "already_organization_member" => Self::AlreadyOrganizationMember,
+            "organization_has_no_available_seats" => Self::OrganizationHasNoAvailableSeats,
+            "seat_add_failed" => Self::SeatAddFailed,
+            "reset_password_key_required" => Self::ResetPasswordKeyRequired,
+            "member_of_another_organization" => Self::MemberOfAnotherOrganization,
+            "single_organization_policy" => Self::SingleOrganizationPolicy,
+            "two_factor_required_for_membership" => Self::TwoFactorRequiredForMembership,
+            "only_one_free_organization_admin_allowed" => Self::OnlyOneFreeOrganizationAdminAllowed,
+            _ => Self::Unknown(code),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::validation_problem::tests::{response_error, validation_problem};
+
+    fn map(status: u16, body: &str) -> AcceptInviteLinkError {
+        AcceptInviteLinkError::from_api_error(response_error(status, body))
+    }
+
+    #[test]
+    fn maps_every_known_code() {
+        let cases = [
+            ("code", "invite_link_not_available"),
+            ("code", "invite_link_confirmation_not_supported"),
+            ("organizationId", "email_not_verified"),
+            ("code", "email_domain_not_allowed"),
+            ("code", "provider_users_cannot_join"),
+            ("code", "organization_access_revoked"),
+            ("code", "already_organization_member"),
+            ("code", "organization_has_no_available_seats"),
+            ("code", "seat_add_failed"),
+            ("resetPasswordKey", "reset_password_key_required"),
+            ("organizationId", "member_of_another_organization"),
+            ("organizationId", "single_organization_policy"),
+            ("organizationId", "two_factor_required_for_membership"),
+            ("organizationId", "only_one_free_organization_admin_allowed"),
+        ];
+
+        for (property, code) in cases {
+            let error = map(400, &validation_problem(property, code));
+            assert!(
+                !matches!(
+                    error,
+                    AcceptInviteLinkError::Unknown(_) | AcceptInviteLinkError::Api(_)
+                ),
+                "`{code}` should map to a typed variant, got {error:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn maps_already_organization_member() {
+        let error = map(
+            400,
+            &validation_problem("code", "already_organization_member"),
+        );
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::AlreadyOrganizationMember
+        ));
+    }
+
+    #[test]
+    fn maps_email_not_verified() {
+        let error = map(
+            400,
+            &validation_problem("organizationId", "email_not_verified"),
+        );
+        assert!(matches!(error, AcceptInviteLinkError::EmailNotVerified));
+    }
+
+    #[test]
+    fn maps_unmapped_code_to_unknown() {
+        let error = map(400, &validation_problem("code", "some_future_code"));
+        assert!(
+            matches!(error, AcceptInviteLinkError::Unknown(code) if code == "some_future_code")
+        );
+    }
+
+    #[test]
+    fn maps_not_found_with_legacy_body() {
+        let error = map(
+            404,
+            r#"{"message":"Invite link not found.","validationErrors":null,"exceptionMessage":null,"exceptionStackTrace":null,"innerExceptionMessage":null,"object":"error"}"#,
+        );
+        assert!(matches!(error, AcceptInviteLinkError::LinkNotFound));
+    }
+
+    #[test]
+    fn maps_not_found_with_empty_body() {
+        assert!(matches!(map(404, ""), AcceptInviteLinkError::LinkNotFound));
+    }
+
+    #[test]
+    fn keeps_legacy_bad_request_as_api_error() {
+        let error = map(
+            400,
+            r#"{"message":"You're already a member of Acme.","validationErrors":null,"object":"error"}"#,
+        );
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::Api(ApiError::Response(_))
+        ));
+    }
+
+    #[test]
+    fn keeps_model_binding_problem_as_api_error() {
+        // ASP.NET's default validation problem uses plain strings rather than error codes.
+        let error = map(
+            400,
+            r#"{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","status":400,"errors":{"Code":["The Code field is required."]}}"#,
+        );
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::Api(ApiError::Response(_))
+        ));
+    }
+
+    #[test]
+    fn keeps_other_statuses_as_api_error() {
+        let error = map(
+            500,
+            &validation_problem("code", "already_organization_member"),
+        );
+        assert!(matches!(
+            error,
+            AcceptInviteLinkError::Api(ApiError::Response(_))
+        ));
+    }
+
+    #[test]
+    fn keeps_transport_errors_as_api_error() {
+        let error =
+            AcceptInviteLinkError::from_api_error(ApiError::from(std::io::Error::other("boom")));
+        assert!(matches!(error, AcceptInviteLinkError::Api(ApiError::Io(_))));
+    }
+}
