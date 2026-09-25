@@ -1,9 +1,9 @@
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Require Single Sign-On policy.
 pub struct RequireSsoPolicy;
 
-impl Policy for RequireSsoPolicy {
+impl PolicyDefinition for RequireSsoPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {
