@@ -11,3 +11,4 @@
 //! exposed surface can be record/folder-level operations rather than raw byte arrays.
 
 pub(crate) mod crypto;
+pub(crate) mod proto;
