@@ -490,7 +490,8 @@ pub struct CipherView {
     /// secret field absent. See [`Cipher::partial_data`].
     ///
     /// Fail-closed: re-encrypting it returns
-    /// [`bitwarden_crypto::CryptoError::EncryptRestrictedView`] rather than silently stripping secrets.
+    /// [`bitwarden_crypto::CryptoError::EncryptRestrictedView`] rather than silently stripping
+    /// secrets.
     #[serde(default)]
     pub partial: bool,
 }

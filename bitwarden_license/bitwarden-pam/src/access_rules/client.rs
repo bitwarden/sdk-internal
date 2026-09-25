@@ -108,8 +108,9 @@ impl AccessRulesClient {
     /// Affected ciphers aren't named: decrypting one needs the caller's own vault key, which an
     /// admin outside the warned collection lacks. Collections are nameable without it.
     ///
-    /// Errors surface as [`Api`](AccessRuleError::Api), not [`NotFound`](AccessRuleError::NotFound):
-    /// this endpoint never 404s a missing rule, so any 404 is infrastructural.
+    /// Errors surface as [`Api`](AccessRuleError::Api), not
+    /// [`NotFound`](AccessRuleError::NotFound): this endpoint never 404s a missing rule, so any
+    /// 404 is infrastructural.
     pub async fn bypassable_ciphers(
         &self,
         organization_id: OrganizationId,

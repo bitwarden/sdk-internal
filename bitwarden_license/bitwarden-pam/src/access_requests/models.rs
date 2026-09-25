@@ -206,8 +206,9 @@ pub struct AccessRequestView {
     /// The produced lease's own end (UTC). None until activation.
     ///
     /// The authority for how long the access has left, unlike
-    /// [`lease_not_after`](Self::lease_not_after), which is the activation window pinned at submit:
-    /// an extension pushes the lease's end out in place and never restamps this request.
+    /// [`lease_not_after`](Self::lease_not_after), which is the activation window pinned at
+    /// submit: an extension pushes the lease's end out in place and never restamps this
+    /// request.
     pub produced_lease_not_after: Option<DateTime<Utc>>,
     /// The parent lease this request extends, if it is an extension request. None otherwise.
     pub extension_of_lease_id: Option<AccessLeaseId>,
@@ -332,7 +333,8 @@ pub struct AccessPreCheckView {
     /// A hint, not a gate: the server re-checks it under a lock at start.
     pub can_start_lease: bool,
     /// End time of the lease holding the slot, for a retry time instead of polling. Absent
-    /// while [`can_start_lease`](Self::can_start_lease) holds; carries no holder identity by design.
+    /// while [`can_start_lease`](Self::can_start_lease) holds; carries no holder identity by
+    /// design.
     pub slot_frees_at: Option<DateTime<Utc>>,
 }
 
