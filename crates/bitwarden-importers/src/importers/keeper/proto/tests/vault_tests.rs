@@ -1,8 +1,10 @@
 use prost::Message;
 
 use crate::keeper::proto::{
-    enterprise::BackupKeyType::EncryptedByDataKey,
-    records::{RecordKeyType::EncryptedByDataKeyGcm, TimerNotificationType::NotificationOff},
+    records::{
+        RecordKeyType::{EncryptedByDataKey, EncryptedByDataKeyGcm},
+        TimerNotificationType::NotificationOff,
+    },
     vault::{CacheStatus::Keep, *},
 };
 
