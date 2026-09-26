@@ -15,6 +15,11 @@ if [ ! -d "$PROTO_DIR" ]; then
     exit 1
 fi
 
+if ! command -v "${PROTOC:-protoc}" > /dev/null 2>&1; then
+    echo "Error: protoc not found. prost-build requires the Protocol Buffers compiler on PATH (or set PROTOC)."
+    exit 1
+fi
+
 echo "Regenerating Keeper protobuf Rust code..."
 echo "  Proto files: $PROTO_DIR"
 echo "  Output dir:  $OUT_DIR"
