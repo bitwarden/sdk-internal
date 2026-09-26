@@ -48,6 +48,8 @@ use subtle::{Choice, ConstantTimeEq};
 use thiserror::Error;
 use zeroize::Zeroizing;
 
+use crate::organization_private_key::OrganizationPrivateKey;
+
 /// Length, in bytes, of the raw invite secret. 32 bytes provides 256 bits of entropy, which is why
 /// the invite secret is safe to use directly as a [`HighEntropySecret`].
 const INVITE_SECRET_LEN: usize = 32;
@@ -439,11 +441,14 @@ impl Invite {
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<(InviteSecret, Invite), InviteKeyBundleError> {
         // Derive the organization public-key thumbprint from the wrapped private key.
-        let private_key_id = ctx
-            .unwrap_private_key(organization_key, wrapped_organization_private_key)
-            .map_err(|_| InviteKeyBundleError::InvalidPrivateKey)?;
-        let thumbprint = ctx
-            .get_public_key(private_key_id)
+        let organization_private_key = OrganizationPrivateKey::unwrap_with_organization_key(
+            organization_key,
+            wrapped_organization_private_key,
+            ctx,
+        )
+        .map_err(|_| InviteKeyBundleError::InvalidPrivateKey)?;
+        let thumbprint = organization_private_key
+            .public_key(ctx)
             .map_err(|_| InviteKeyBundleError::InvalidPrivateKey)?
             .thumbprint()
             .map_err(|_| InviteKeyBundleError::InvalidPrivateKey)?;

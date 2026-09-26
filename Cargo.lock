@@ -775,6 +775,8 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-member-administration",
+ "bitwarden-organizations",
  "bitwarden-sync",
  "serde",
  "thiserror",
@@ -782,6 +784,7 @@ dependencies = [
  "tracing",
  "tsify",
  "uniffi",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -1059,11 +1062,16 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-organization-crypto",
  "bitwarden-organizations",
  "serde",
  "thiserror",
+ "tokio",
+ "tracing",
  "tsify",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
