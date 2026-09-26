@@ -47,6 +47,7 @@ bitwarden-sync = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }
 data-encoding = { workspace = true }
+fancy-regex = { workspace = true }
 futures = { workspace = true }
 hmac = { workspace = true }
 percent-encoding = ">=2.1, <3.0"

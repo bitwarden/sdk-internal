@@ -87,6 +87,8 @@ ciborium = ">=0.2.2, <0.3"
 crypto-bigint = { version = "0.7.5", features = ["alloc"], default-features = false }
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = "3.0.0-pre.7" }
+# Pinned: the uri_matcher shape rules and limits were measured against this exact version.
+fancy-regex = "=0.18.0"
 futures = ">=0.3.31, <0.4"
 hkdf = "0.13.0"
 hmac = "0.13.0"

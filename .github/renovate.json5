@@ -80,7 +80,7 @@
 
     // ========================= Team review assignment =========================
     {
-      matchPackageNames: ["passkey", "passkey-client"],
+      matchPackageNames: ["fancy-regex", "passkey", "passkey-client"],
       commitMessagePrefix: "[deps] Autofill:",
       reviewers: ["team:team-autofill-dev"],
     },

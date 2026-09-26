@@ -29,3 +29,10 @@ pub use vault_client::{VaultClient, VaultClientExt};
 mod totp_client;
 
 pub use totp_client::TotpClient;
+mod uri_matcher;
+pub use uri_matcher::{
+    MAX_EXPENSIVE_NODES, MAX_PATTERN_LENGTH, MAX_TARGET_LENGTH, UriMatcherError,
+    try_uri_regex_match, uri_regex_matches, uri_regex_matches_batch, validate_uri_regex,
+};
+mod uri_matcher_client;
+pub use uri_matcher_client::{UriMatchResults, UriMatcherClient};
