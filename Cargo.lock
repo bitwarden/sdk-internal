@@ -1592,6 +1592,7 @@ dependencies = [
  "bitwarden-uuid",
  "chrono",
  "data-encoding",
+ "fancy-regex 0.18.0",
  "futures",
  "hmac 0.13.0",
  "percent-encoding",

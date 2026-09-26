@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     AttachmentsClient, CipherRiskClient, CiphersClient, FoldersClient, PasswordHistoryClient,
-    TotpClient,
+    TotpClient, UriMatcherClient,
 };
 
 #[allow(missing_docs)]
@@ -48,6 +48,11 @@ impl VaultClient {
     /// TOTP related operations.
     pub fn totp(&self) -> TotpClient {
         TotpClient
+    }
+
+    /// Regular-expression URI matching operations.
+    pub fn uri_matcher(&self) -> UriMatcherClient {
+        UriMatcherClient
     }
 
     /// Collection related operations.

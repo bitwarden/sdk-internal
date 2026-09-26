@@ -63,4 +63,20 @@ impl VaultClient {
     ) -> Result<TotpResponse> {
         Ok(self.0.totp().generate_totp_cipher_view(view, time)?)
     }
+
+    /// Returns whether `target` matches the regular-expression URI `pattern`, case-insensitively.
+    /// Invalid, oversized, and too-expensive patterns never match.
+    pub fn uri_regex_matches(&self, pattern: String, target: String) -> bool {
+        self.0.uri_matcher().matches(&pattern, &target)
+    }
+
+    /// Evaluates each regular-expression URI pattern against `target`, one result per pattern.
+    pub fn uri_regex_matches_batch(&self, patterns: Vec<String>, target: String) -> Vec<bool> {
+        self.0.uri_matcher().matches_batch(patterns, &target).0
+    }
+
+    /// Checks whether `pattern` can be saved as a regular-expression URI match rule.
+    pub fn validate_uri_regex(&self, pattern: String) -> Result<()> {
+        Ok(self.0.uri_matcher().validate(&pattern)?)
+    }
 }

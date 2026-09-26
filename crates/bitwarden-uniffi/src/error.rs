@@ -68,6 +68,8 @@ pub enum BitwardenError {
     #[error(transparent)]
     Totp(#[from] bitwarden_vault::TotpError),
     #[error(transparent)]
+    UriMatcher(#[from] bitwarden_vault::UriMatcherError),
+    #[error(transparent)]
     Decrypt(#[from] bitwarden_vault::DecryptError),
     #[error(transparent)]
     DecryptFile(#[from] bitwarden_vault::DecryptFileError),
