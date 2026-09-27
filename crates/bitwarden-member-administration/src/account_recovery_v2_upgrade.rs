@@ -32,7 +32,7 @@
 //! posted without a key, which completes the upgrade and drops a key that no longer opens the
 //! member's vault. A retry would read the same malformed account recovery key or upgrade token and
 //! fail again, so the membership would otherwise stay pending on every sync. A membership with no
-//! id or user key id is skipped and reported again on the next sync.
+//! user key id is skipped and reported again on the next sync.
 
 use bitwarden_api_api::models::{
     OrganizationUserPendingV2UpgradeResponseModel, OrganizationUserV2UpgradeRequestModel,
@@ -181,20 +181,17 @@ impl OrganizationUsersManagementClient {
                 .filter_map(|membership| {
                     // The key id is sent back unchanged, because the server checks it against the
                     // member's user row.
-                    let (Some(organization_user_id), Some(user_key_id)) = (
-                        membership.organization_user_id,
-                        membership.user_key_id.clone(),
-                    ) else {
+                    let Some(user_key_id) = membership.user_key_id.clone() else {
                         warn!(
                             %organization_id,
-                            organization_user_id = ?membership.organization_user_id,
-                            "Skipping a membership without an id or a user key id"
+                            organization_user_id = %membership.organization_user_id,
+                            "Skipping a membership without a user key id"
                         );
                         return None;
                     };
 
                     let mut upgrade = OrganizationUserV2UpgradeRequestModel::new(
-                        organization_user_id,
+                        membership.organization_user_id,
                         user_key_id,
                     );
                     upgrade.account_recovery_key = account_recovery_key(
@@ -251,7 +248,7 @@ fn account_recovery_key(
             .map_err(|_| {
                 AccountRecoveryV2UpgradeError::MalformedMembership("accountRecoveryKey")
             })?;
-    let upgrade_token = V2UpgradeToken::try_from(require!(membership.v2_upgrade_token.as_deref()))?;
+    let upgrade_token = V2UpgradeToken::try_from(&*membership.v2_upgrade_token)?;
 
     let v1_user_key =
         account_recovery_key.decapsulate_member_user_key(organization_private_key, ctx)?;
@@ -380,13 +377,13 @@ mod tests {
             (
                 OrganizationUserPendingV2UpgradeResponseModel {
                     object: None,
-                    organization_user_id: Some(uuid::Uuid::new_v4()),
+                    organization_user_id: uuid::Uuid::new_v4(),
                     user_key_id: Some(user_key_id.to_string()),
                     account_recovery_key: Some(account_recovery_key.to_string()),
-                    v2_upgrade_token: Some(Box::new(V2UpgradeTokenResponseModel {
+                    v2_upgrade_token: Box::new(V2UpgradeTokenResponseModel {
                         wrapped_user_key1: Some(token.wrapped_user_key_1.to_string()),
                         wrapped_user_key2: Some(token.wrapped_user_key_2.to_string()),
-                    })),
+                    }),
                 },
                 expected,
             )
@@ -506,7 +503,7 @@ mod tests {
         };
         assert_eq!(
             upgrade.organization_user_id,
-            membership.organization_user_id.unwrap()
+            membership.organization_user_id
         );
         assert_eq!(upgrade.user_key_id, membership.user_key_id.clone().unwrap());
         assert_eq!(
@@ -549,16 +546,8 @@ mod tests {
 
         // An unrelated token's wrapped key, which this member's V1 user key cannot open.
         let (other, _) = fixture.pending_membership();
-        tampered
-            .v2_upgrade_token
-            .as_mut()
-            .unwrap()
-            .wrapped_user_key2 = other
-            .v2_upgrade_token
-            .as_ref()
-            .unwrap()
-            .wrapped_user_key2
-            .clone();
+        tampered.v2_upgrade_token.wrapped_user_key2 =
+            other.v2_upgrade_token.wrapped_user_key2.clone();
 
         let wrapped_private_key = fixture.wrapped_private_key.clone();
         let organization = TestOrganization {
@@ -591,7 +580,7 @@ mod tests {
         assert_eq!(tampered_upgrade.account_recovery_key, None);
         assert_eq!(
             intact_upgrade.organization_user_id,
-            intact.organization_user_id.unwrap()
+            intact.organization_user_id
         );
         assert_eq!(
             organization.decapsulate(intact_upgrade.account_recovery_key.as_ref().unwrap()),
