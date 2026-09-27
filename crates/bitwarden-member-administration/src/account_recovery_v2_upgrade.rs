@@ -5,11 +5,34 @@
 //! member no prompt. The rotation writes a V2 upgrade token to the membership instead, and the
 //! organization keeps an account recovery key that wraps the member's V1 user key.
 //!
-//! An organization admin decapsulates that V1 user key, reads the V2 user key out of the token,
-//! and encapsulates it to the organization as the new account recovery key.
+//! The token carries both user keys, each one wrapped with the other, so opening the V1 user key
+//! yields the V2 one:
 //!
-//! Every pending membership is upgraded, also the ones whose new account recovery key cannot be
-//! produced.
+//! ```text
+//! OrganizationPrivateKey -> AccountRecoveryKey   -> V1 user key
+//! V1 user key            -> V2UpgradeToken       -> V2 user key
+//! V2 user key            +  OrganizationPublicKey -> new AccountRecoveryKey
+//! ```
+//!
+//! Every sync, an admin runs
+//! [`OrganizationUsersManagementClient::upgrade_pending_account_recovery_keys`]
+//! for each organization whose key it holds. Per membership it:
+//!
+//! 1. decapsulates the stored account recovery key into the member's V1 user key,
+//! 2. unwraps the V2 user key from the upgrade token, which cross-validates both halves,
+//! 3. compares the key id of that user key with the one the server reported,
+//! 4. encapsulates the V2 user key to the organization.
+//!
+//! The server reports the user key id and can name any key. It holds none of the member's user
+//! keys, so step 3 takes the key id of the user key the client recovered and compares it against
+//! the reported one. A mismatch means the membership names a user key the upgrade token does not
+//! carry.
+//!
+//! Every pending membership is posted, including the ones that failed a step above. Those are
+//! posted without a key, which completes the upgrade and drops a key that no longer opens the
+//! member's vault. A retry would read the same malformed account recovery key or upgrade token and
+//! fail again, so the membership would otherwise stay pending on every sync. A membership with no
+//! id or user key id is skipped and reported again on the next sync.
 
 use bitwarden_api_api::models::{
     OrganizationUserPendingV2UpgradeResponseModel, OrganizationUserV2UpgradeRequestModel,
