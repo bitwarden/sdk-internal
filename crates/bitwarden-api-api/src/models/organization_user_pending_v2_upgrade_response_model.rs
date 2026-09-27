@@ -22,43 +22,32 @@ pub struct OrganizationUserPendingV2UpgradeResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    #[serde(
-        rename = "organizationUserId",
-        alias = "OrganizationUserId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub organization_user_id: Option<uuid::Uuid>,
+    #[serde(rename = "organizationUserId", alias = "OrganizationUserId")]
+    pub organization_user_id: uuid::Uuid,
     /// The key id of the member's current user key. Return it unchanged with the re-wrapped key.
-    #[serde(
-        rename = "userKeyId",
-        alias = "UserKeyId",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(rename = "userKeyId", alias = "UserKeyId")]
     pub user_key_id: Option<String>,
     /// The member's V1 user key wrapped with the organization's public key.
-    #[serde(
-        rename = "accountRecoveryKey",
-        alias = "AccountRecoveryKey",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(rename = "accountRecoveryKey", alias = "AccountRecoveryKey")]
     pub account_recovery_key: Option<String>,
-    #[serde(
-        rename = "v2UpgradeToken",
-        alias = "V2UpgradeToken",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub v2_upgrade_token: Option<Box<models::V2UpgradeTokenResponseModel>>,
+    #[serde(rename = "v2UpgradeToken", alias = "V2UpgradeToken")]
+    pub v2_upgrade_token: Box<models::V2UpgradeTokenResponseModel>,
 }
 
 impl OrganizationUserPendingV2UpgradeResponseModel {
     /// A membership whose account recovery key still wraps the member's V1 user key.
-    pub fn new() -> OrganizationUserPendingV2UpgradeResponseModel {
+    pub fn new(
+        organization_user_id: uuid::Uuid,
+        user_key_id: Option<String>,
+        account_recovery_key: Option<String>,
+        v2_upgrade_token: models::V2UpgradeTokenResponseModel,
+    ) -> OrganizationUserPendingV2UpgradeResponseModel {
         OrganizationUserPendingV2UpgradeResponseModel {
             object: None,
-            organization_user_id: None,
-            user_key_id: None,
-            account_recovery_key: None,
-            v2_upgrade_token: None,
+            organization_user_id,
+            user_key_id,
+            account_recovery_key,
+            v2_upgrade_token: Box::new(v2_upgrade_token),
         }
     }
 }

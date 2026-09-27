@@ -27,12 +27,20 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationUsersKeysApi: Send + Sync {
     /// GET /organizations/{orgId}/users/keys/pending-v2-upgrades
+    /// A V1 to V2 upgrade rotation cannot re-wrap the account recovery key, because that requires
+    /// the member to trust the organization's public key and the upgrade does not prompt the
+    /// member. The rotation leaves a V2 upgrade token on the membership instead. Account recovery
+    /// gives the admin the member's V1 user key, so the admin unwraps the V2 user key from the
+    /// token and re-wraps the account recovery key with it.
     async fn get_pending_v2_upgrades<'a>(
         &self,
         org_id: uuid::Uuid,
     ) -> Result<models::OrganizationUserPendingV2UpgradeResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/keys/v2-upgrades
+    /// A V2 upgrade token does not always contain a usable user key. The admin then sends no key,
+    /// which unenrolls the member from account recovery and clears the token. The member keeps
+    /// their vault, and the organization's enrollment policy prompts them to enroll again.
     /// Every membership is written, or none of them are.
     async fn post_v2_upgrades<'a>(
         &self,
@@ -56,6 +64,11 @@ impl OrganizationUsersKeysApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationUsersKeysApi for OrganizationUsersKeysApiClient {
+    /// A V1 to V2 upgrade rotation cannot re-wrap the account recovery key, because that requires
+    /// the member to trust the organization's public key and the upgrade does not prompt the
+    /// member. The rotation leaves a V2 upgrade token on the membership instead. Account recovery
+    /// gives the admin the member's V1 user key, so the admin unwraps the V2 user key from the
+    /// token and re-wraps the account recovery key with it.
     async fn get_pending_v2_upgrades<'a>(
         &self,
         org_id: uuid::Uuid,
@@ -77,6 +90,9 @@ impl OrganizationUsersKeysApi for OrganizationUsersKeysApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
+    /// A V2 upgrade token does not always contain a usable user key. The admin then sends no key,
+    /// which unenrolls the member from account recovery and clears the token. The member keeps
+    /// their vault, and the organization's enrollment policy prompts them to enroll again.
     /// Every membership is written, or none of them are.
     async fn post_v2_upgrades<'a>(
         &self,
