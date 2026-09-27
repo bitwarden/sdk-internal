@@ -26,10 +26,10 @@ pub struct OrganizationUserPendingV2UpgradeResponseModel {
     pub organization_user_id: uuid::Uuid,
     /// The key id of the member's current user key. Return it unchanged with the re-wrapped key.
     #[serde(rename = "userKeyId", alias = "UserKeyId")]
-    pub user_key_id: Option<String>,
+    pub user_key_id: String,
     /// The member's V1 user key wrapped with the organization's public key.
     #[serde(rename = "accountRecoveryKey", alias = "AccountRecoveryKey")]
-    pub account_recovery_key: Option<String>,
+    pub account_recovery_key: String,
     #[serde(rename = "v2UpgradeToken", alias = "V2UpgradeToken")]
     pub v2_upgrade_token: Box<models::V2UpgradeTokenResponseModel>,
 }
@@ -38,8 +38,8 @@ impl OrganizationUserPendingV2UpgradeResponseModel {
     /// A membership whose account recovery key still wraps the member's V1 user key.
     pub fn new(
         organization_user_id: uuid::Uuid,
-        user_key_id: Option<String>,
-        account_recovery_key: Option<String>,
+        user_key_id: String,
+        account_recovery_key: String,
         v2_upgrade_token: models::V2UpgradeTokenResponseModel,
     ) -> OrganizationUserPendingV2UpgradeResponseModel {
         OrganizationUserPendingV2UpgradeResponseModel {

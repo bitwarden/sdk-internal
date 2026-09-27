@@ -31,8 +31,7 @@
 //! Every pending membership is posted, including the ones that failed a step above. Those are
 //! posted without a key, which completes the upgrade and drops a key that no longer opens the
 //! member's vault. A retry would read the same malformed account recovery key or upgrade token and
-//! fail again, so the membership would otherwise stay pending on every sync. A membership with no
-//! user key id is skipped and reported again on the next sync.
+//! fail again, so the membership would otherwise stay pending on every sync.
 
 use bitwarden_api_api::models::{
     OrganizationUserPendingV2UpgradeResponseModel, OrganizationUserV2UpgradeRequestModel,
@@ -178,45 +177,28 @@ impl OrganizationUsersManagementClient {
 
             pending
                 .iter()
-                .filter_map(|membership| {
+                .map(|membership| {
                     // The key id is sent back unchanged, because the server checks it against the
                     // member's user row.
-                    let Some(user_key_id) = membership.user_key_id.clone() else {
-                        warn!(
-                            %organization_id,
-                            organization_user_id = %membership.organization_user_id,
-                            "Skipping a membership without a user key id"
-                        );
-                        return None;
-                    };
-
                     let mut upgrade = OrganizationUserV2UpgradeRequestModel::new(
                         membership.organization_user_id,
-                        user_key_id,
+                        membership.user_key_id.clone(),
                     );
-                    upgrade.account_recovery_key = account_recovery_key(
-                        &organization_private_key,
-                        membership,
-                        &upgrade.user_key_id,
-                        &mut ctx,
-                    )
-                    .inspect_err(|e| {
-                        warn!(
-                            %organization_id,
-                            organization_user_id = %upgrade.organization_user_id,
-                            "Upgrading a membership without an account recovery key: {e}"
-                        );
-                    })
-                    .ok();
+                    upgrade.account_recovery_key =
+                        account_recovery_key(&organization_private_key, membership, &mut ctx)
+                            .inspect_err(|e| {
+                                warn!(
+                                    %organization_id,
+                                    organization_user_id = %upgrade.organization_user_id,
+                                    "Upgrading a membership without an account recovery key: {e}"
+                                );
+                            })
+                            .ok();
 
-                    Some(upgrade)
+                    upgrade
                 })
                 .collect::<Vec<_>>()
         };
-
-        if upgrades.is_empty() {
-            return Ok(());
-        }
 
         self.api_configurations
             .api_client
@@ -236,18 +218,16 @@ impl OrganizationUsersManagementClient {
 fn account_recovery_key(
     organization_private_key: &OrganizationPrivateKey<KeySlotIds>,
     membership: &OrganizationUserPendingV2UpgradeResponseModel,
-    reported_user_key_id: &str,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<String, AccountRecoveryV2UpgradeError> {
-    let user_key_id: KeyId = reported_user_key_id
+    let user_key_id: KeyId = membership
+        .user_key_id
         .parse()
         .map_err(|_| AccountRecoveryV2UpgradeError::MalformedMembership("userKeyId"))?;
-    let account_recovery_key: AccountRecoveryKey =
-        require!(membership.account_recovery_key.as_ref())
-            .parse()
-            .map_err(|_| {
-                AccountRecoveryV2UpgradeError::MalformedMembership("accountRecoveryKey")
-            })?;
+    let account_recovery_key: AccountRecoveryKey = membership
+        .account_recovery_key
+        .parse()
+        .map_err(|_| AccountRecoveryV2UpgradeError::MalformedMembership("accountRecoveryKey"))?;
     let upgrade_token = V2UpgradeToken::try_from(&*membership.v2_upgrade_token)?;
 
     let v1_user_key =
@@ -378,8 +358,8 @@ mod tests {
                 OrganizationUserPendingV2UpgradeResponseModel {
                     object: None,
                     organization_user_id: uuid::Uuid::new_v4(),
-                    user_key_id: Some(user_key_id.to_string()),
-                    account_recovery_key: Some(account_recovery_key.to_string()),
+                    user_key_id: user_key_id.to_string(),
+                    account_recovery_key: account_recovery_key.to_string(),
                     v2_upgrade_token: Box::new(V2UpgradeTokenResponseModel {
                         wrapped_user_key1: Some(token.wrapped_user_key_1.to_string()),
                         wrapped_user_key2: Some(token.wrapped_user_key_2.to_string()),
@@ -505,7 +485,7 @@ mod tests {
             upgrade.organization_user_id,
             membership.organization_user_id
         );
-        assert_eq!(upgrade.user_key_id, membership.user_key_id.clone().unwrap());
+        assert_eq!(upgrade.user_key_id, membership.user_key_id);
         assert_eq!(
             organization.decapsulate(upgrade.account_recovery_key.as_ref().unwrap()),
             expected_v2_user_key
@@ -594,7 +574,7 @@ mod tests {
 
         let fixture = TestOrganization::new(ApiClient::new_mocked(|_| {}));
         let (mut broken, _) = fixture.pending_membership();
-        broken.account_recovery_key = Some("not an enc string".to_string());
+        broken.account_recovery_key = "not an enc string".to_string();
 
         let wrapped_private_key = fixture.wrapped_private_key.clone();
         let organization = TestOrganization {
@@ -634,7 +614,7 @@ mod tests {
 
         let fixture = TestOrganization::new(ApiClient::new_mocked(|_| {}));
         let (mut stale, _) = fixture.pending_membership();
-        stale.user_key_id = Some(UNRELATED_USER_KEY_ID.to_string());
+        stale.user_key_id = UNRELATED_USER_KEY_ID.to_string();
 
         let wrapped_private_key = fixture.wrapped_private_key.clone();
         let organization = TestOrganization {
@@ -668,11 +648,14 @@ mod tests {
         assert_eq!(upgrade.account_recovery_key, None);
     }
 
+    /// A membership the server reports with a key id that is not a key id at all.
     #[tokio::test]
-    async fn test_membership_without_a_user_key_id_is_skipped_and_nothing_is_posted() {
+    async fn test_membership_with_a_malformed_user_key_id_is_posted_without_a_key() {
+        let posted: PostedUpgrades = Arc::default();
+
         let fixture = TestOrganization::new(ApiClient::new_mocked(|_| {}));
-        let (mut unidentified, _) = fixture.pending_membership();
-        unidentified.user_key_id = None;
+        let (mut unparseable, _) = fixture.pending_membership();
+        unparseable.user_key_id = "not a key id".to_string();
 
         let wrapped_private_key = fixture.wrapped_private_key.clone();
         let organization = TestOrganization {
@@ -681,19 +664,29 @@ mod tests {
                 api_configurations: Arc::new(ApiConfigurations::from_api_client(
                     ApiClient::new_mocked(|mock| {
                         expect_get_private_key(mock, wrapped_private_key);
-                        expect_pending(mock, vec![unidentified]);
+                        mock_api(vec![unparseable.clone()], posted.clone())(mock);
                     }),
                 )),
             },
             ..fixture
         };
 
-        // The mock declares no `post_v2_upgrades`, so posting would fail the test.
         organization
             .client
             .upgrade_pending_account_recovery_keys(organization.organization_id)
             .await
             .unwrap();
+
+        let posted = posted
+            .lock()
+            .unwrap()
+            .clone()
+            .expect("an upgrade is posted");
+        let [upgrade] = posted.as_slice() else {
+            panic!("exactly one upgrade is posted, got {}", posted.len());
+        };
+        assert_eq!(upgrade.user_key_id, "not a key id");
+        assert_eq!(upgrade.account_recovery_key, None);
     }
 
     /// A private key the organization key cannot unwrap.
