@@ -16,9 +16,6 @@ pub enum OrganizationPrivateKeyError {
     /// The key could not be opened with the organization's private key
     #[error("Unable to decapsulate the key")]
     DecapsulationFailed,
-    /// The key could not be encapsulated to the organization's public key
-    #[error("Unable to encapsulate the key")]
-    EncapsulationFailed,
 }
 
 /// The organization's private key, unwrapped into the key store context.
@@ -62,18 +59,6 @@ impl<Ids: KeySlotIds> OrganizationPrivateKey<Ids> {
             .decapsulate(self.private_key_id, ctx)
             .map_err(|_| OrganizationPrivateKeyError::DecapsulationFailed)
     }
-
-    /// Encapsulates a key to the organization's public key.
-    pub fn encapsulate_key(
-        &self,
-        key: Ids::Symmetric,
-        ctx: &KeyStoreContext<Ids>,
-    ) -> Result<UnsignedSharedKey, OrganizationPrivateKeyError> {
-        let public_key = self.public_key(ctx)?;
-
-        UnsignedSharedKey::encapsulate(key, &public_key, ctx)
-            .map_err(|_| OrganizationPrivateKeyError::EncapsulationFailed)
-    }
 }
 
 #[cfg(test)]
@@ -94,27 +79,6 @@ mod tests {
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         ctx.wrap_private_key(TestSymmKey::Organization, private_key)
             .unwrap()
-    }
-
-    #[test]
-    fn test_encapsulated_key_decapsulates_to_the_same_key() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let wrapped_private_key = make_organization_key_pair(&mut ctx);
-        let organization_private_key = OrganizationPrivateKey::unwrap_with_organization_key(
-            TestSymmKey::Organization,
-            &wrapped_private_key,
-            &mut ctx,
-        )
-        .unwrap();
-
-        let key = ctx.make_symmetric_key(Aes256CbcHmac);
-        let encapsulated_key = organization_private_key.encapsulate_key(key, &ctx).unwrap();
-        let recovered = organization_private_key
-            .decapsulate_key(&encapsulated_key, &mut ctx)
-            .unwrap();
-
-        ctx.assert_symmetric_keys_equal(key, recovered);
     }
 
     #[test]
@@ -163,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn test_public_key_matches_the_unwrapped_private_key() {
+    fn test_a_key_encapsulated_to_the_public_key_decapsulates_to_the_same_key() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
         let wrapped_private_key = make_organization_key_pair(&mut ctx);

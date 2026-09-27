@@ -1541,6 +1541,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-logging",
+ "bitwarden-organization-crypto",
  "bitwarden-send",
  "bitwarden-test",
  "bitwarden-vault",

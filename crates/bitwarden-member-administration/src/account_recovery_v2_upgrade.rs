@@ -20,10 +20,10 @@ use bitwarden_core::{
     key_management::{KeySlotIds, SymmetricKeySlotId, V2UpgradeToken, V2UpgradeTokenError},
     require,
 };
-use bitwarden_crypto::{EncString, KeyId, KeyStoreContext, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, KeyId, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
 use bitwarden_organization_crypto::{
-    account_recovery::{decapsulate_member_user_key, encapsulate_member_user_key},
+    account_recovery::{AccountRecoveryKey, AccountRecoveryKeyError},
     organization_private_key::{OrganizationPrivateKey, OrganizationPrivateKeyError},
 };
 use bitwarden_organizations::{OrganizationUserType, Permissions};
@@ -59,9 +59,12 @@ pub enum AccountRecoveryV2UpgradeError {
     /// The organization key is not in the key store.
     #[error("The organization key is not available")]
     OrganizationKeyMissing,
-    /// The organization's private key could not decapsulate or encapsulate a user key.
+    /// The organization's private key could not be unwrapped.
     #[error(transparent)]
     Crypto(#[from] OrganizationPrivateKeyError),
+    /// The member's account recovery key could not be opened or produced.
+    #[error(transparent)]
+    AccountRecoveryKey(#[from] AccountRecoveryKeyError),
 }
 
 /// Whether the account can read the organization's private key and set members' account recovery
@@ -219,7 +222,7 @@ fn account_recovery_key(
     let user_key_id: KeyId = reported_user_key_id
         .parse()
         .map_err(|_| AccountRecoveryV2UpgradeError::MalformedMembership("userKeyId"))?;
-    let account_recovery_key: UnsignedSharedKey =
+    let account_recovery_key: AccountRecoveryKey =
         require!(membership.account_recovery_key.as_ref())
             .parse()
             .map_err(|_| {
@@ -228,7 +231,7 @@ fn account_recovery_key(
     let upgrade_token = V2UpgradeToken::try_from(require!(membership.v2_upgrade_token.as_deref()))?;
 
     let v1_user_key =
-        decapsulate_member_user_key(organization_private_key, &account_recovery_key, ctx)?;
+        account_recovery_key.decapsulate_member_user_key(organization_private_key, ctx)?;
     // Unwrapping cross-validates both halves of the token, so a tampered token fails here.
     let v2_user_key = upgrade_token.unwrap_v2(v1_user_key, ctx)?;
 
@@ -241,7 +244,9 @@ fn account_recovery_key(
         return Err(AccountRecoveryV2UpgradeError::UserKeyIdMismatch);
     }
 
-    Ok(encapsulate_member_user_key(organization_private_key, v2_user_key, ctx)?.to_string())
+    let organization_public_key = organization_private_key.public_key(ctx)?;
+
+    Ok(AccountRecoveryKey::encapsulate(v2_user_key, &organization_public_key, ctx)?.to_string())
 }
 
 #[cfg(test)]
@@ -333,8 +338,12 @@ mod tests {
             let token = V2UpgradeToken::create::<KeySlotIds>(v1_user_key, v2_user_key, &ctx)
                 .expect("the token wraps each user key with the other");
 
-            let account_recovery_key =
-                encapsulate_member_user_key(&organization_private_key, v1_user_key, &ctx).unwrap();
+            let account_recovery_key = AccountRecoveryKey::encapsulate(
+                v1_user_key,
+                &organization_private_key.public_key(&ctx).unwrap(),
+                &ctx,
+            )
+            .unwrap();
 
             // After the upgrade the member's current user key is the V2 one.
             let user_key_id = ctx.get_symmetric_key_id(v2_user_key).unwrap();
@@ -364,12 +373,11 @@ mod tests {
         fn decapsulate(&self, account_recovery_key: &str) -> SymmetricCryptoKey {
             let mut ctx = self.client.key_store.context();
             let organization_private_key = self.organization_private_key(&mut ctx);
-            let key_id = decapsulate_member_user_key(
-                &organization_private_key,
-                &account_recovery_key.parse().unwrap(),
-                &mut ctx,
-            )
-            .unwrap();
+            let key_id = account_recovery_key
+                .parse::<AccountRecoveryKey>()
+                .unwrap()
+                .decapsulate_member_user_key(&organization_private_key, &mut ctx)
+                .unwrap();
 
             #[allow(deprecated)]
             ctx.dangerous_get_symmetric_key(key_id).unwrap().clone()
