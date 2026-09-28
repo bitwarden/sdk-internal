@@ -27,8 +27,8 @@ echo "  Output dir:  $OUT_DIR"
 # Create output directory if it doesn't exist
 mkdir -p "$OUT_DIR"
 
-# Use cargo-run-bin to invoke prost-build via a temporary Rust build script.
-# Since we removed the permanent build.rs, we use a one-shot tool approach.
+# Invoke prost-build through the standalone helper crate in support/protobuf. prost-build is a
+# library rather than a CLI, so it can't be pinned in [workspace.metadata.bin] and run via `cargo bin`.
 cargo run --quiet --manifest-path support/protobuf/Cargo.toml --bin build-keeper-proto -- "$PROTO_DIR" "$OUT_DIR"
 
 # Format generated code to match rustfmt settings in rustfmt.toml
