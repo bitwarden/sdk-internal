@@ -254,7 +254,8 @@ mod tests {
         let start = Instant::now();
         let result = f();
         let elapsed = start.elapsed();
-        assert!(elapsed < BUDGET, "took {elapsed:?}");
+        // Coverage builds are instrumented and too slow for wall-clock limits to mean anything.
+        assert!(cfg!(coverage) || elapsed < BUDGET, "took {elapsed:?}");
         result
     }
 

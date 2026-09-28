@@ -187,6 +187,8 @@ unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(dylint_lib, values("bitwarden_lints"))',
     # Set by CI on non-commercial builds; see bitwarden_license/bitwarden-commercial-marker.
     'cfg(bitwarden_ensure_non_commercial)',
+    # Set by cargo-llvm-cov in the coverage job.
+    'cfg(coverage)',
 ] }
 
 [workspace.metadata.dylint]

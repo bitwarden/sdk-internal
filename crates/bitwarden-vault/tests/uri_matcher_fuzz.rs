@@ -194,8 +194,9 @@ fn assert_fast(rng: &mut Rng, pattern: &str, context: &str) {
         let start = Instant::now();
         let _ = try_uri_regex_match(pattern, &target);
         let elapsed = start.elapsed();
+        // Coverage builds are instrumented and too slow for wall-clock limits to mean anything.
         assert!(
-            elapsed < EVALUATION_LIMIT,
+            cfg!(coverage) || elapsed < EVALUATION_LIMIT,
             "{context}: {pattern:?} took {elapsed:?} on a {}-byte {kind} target",
             target.len()
         );
