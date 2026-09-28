@@ -2,8 +2,7 @@
 //!
 //! Minimal by design: connector settings live in the TOML config file (`--config <PATH>` or
 //! `BWAC_CONFIG`), not CLI flags. `BWAC_API_URL`/`BWAC_IDENTITY_URL` override the file's URLs;
-//! `BWAC_TOKEN` supplies the token. Configuration loading, which resolves that precedence,
-//! arrives with the connector's config module.
+//! `BWAC_TOKEN` supplies the token. See [`crate::config::Config::from_cli`] for precedence.
 //!
 //! The connector token is never a CLI argument, since `argv` is visible via `ps` and
 //! `/proc/<pid>/cmdline`, and never accepted in the config file; only `BWAC_TOKEN`.
