@@ -222,9 +222,10 @@ mod tests {
             username: "user@example.com".into(),
             password: "password".into(),
             account_key: "A3-RTN9SA-DY9445Y5FF96X6E7B5GPFA95R9".into(),
-            sign_in_address: SignInAddress::new("my", SignInDomain::Global)
-                .expect("a valid subdomain"),
-            device_uuid: "device-uuid".into(),
+            sign_in_address: SignInAddress {
+                subdomain: "my".into(),
+                domain: SignInDomain::Global,
+            },
         }
     }
 

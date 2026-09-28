@@ -7,6 +7,7 @@ use super::sign_in::SignInAddress;
 /// The credentials for a password + Secret Key login.
 ///
 /// Deliberately not `Debug`: it holds the master password and Secret Key.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Clone)]
 pub struct Credentials {
     /// The account's email address.
@@ -17,13 +18,20 @@ pub struct Credentials {
     pub account_key: String,
     /// Where the account signs in, such as `my.1password.com`.
     pub sign_in_address: SignInAddress,
-    /// The device id for this import. See `device::generate_device_uuid`.
-    pub device_uuid: String,
 }
 
-impl Drop for Credentials {
-    fn drop(&mut self) {
+impl Zeroize for Credentials {
+    fn zeroize(&mut self) {
         self.password.zeroize();
         self.account_key.zeroize();
+    }
+}
+
+// UniFFI records are lowered by moving out their fields, which Rust does not allow for a type that
+// implements `Drop`. The access client owns the lowered record in a zeroizing guard instead.
+#[cfg(not(feature = "uniffi"))]
+impl Drop for Credentials {
+    fn drop(&mut self) {
+        self.zeroize();
     }
 }
