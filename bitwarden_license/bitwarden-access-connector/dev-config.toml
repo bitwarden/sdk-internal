@@ -4,8 +4,8 @@
 # BWRD_TOKEN.
 #
 # Run with:
-#   BWRD_TOKEN="<token>" cargo run -p bitwarden-rotation-daemon -- run \
-#     --config bitwarden_license/bitwarden-rotation-daemon/dev-config.toml
+#   BWRD_TOKEN="<token>" cargo run -p bitwarden-access-connector -- run \
+#     --config bitwarden_license/bitwarden-access-connector/dev-config.toml
 
 # All remaining fields are optional (built-in defaults apply).
 # poll_interval      = 15    # seconds; minimum 15
