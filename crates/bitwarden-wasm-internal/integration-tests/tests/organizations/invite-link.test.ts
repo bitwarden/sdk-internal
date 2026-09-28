@@ -1,4 +1,9 @@
-import { ClientSettings, PasswordManagerClient } from "@bitwarden/sdk-internal";
+import {
+  AcceptInviteLinkError,
+  ClientSettings,
+  PasswordManagerClient,
+  isAcceptInviteLinkError,
+} from "@bitwarden/sdk-internal";
 
 import { HttpMock, installHttpMock } from "../../server-emulator/http-mock";
 import {
@@ -7,8 +12,21 @@ import {
   TEST_INVITE_SECRET,
   TEST_ORGANIZATION_ID,
 } from "../org-fixtures";
-import { makeOrgAccountClient, makeOrgInitializedClient, makeStateBridge } from "../utils";
-import { CREATION_DATE, LINK_CODE, LINK_ID, ROUTES, inviteLinkRoutes } from "./invite-link-server";
+import {
+  makeOrgAccountClient,
+  makeOrgInitializedClient,
+  makeStateBridge,
+  rejection,
+} from "../utils";
+import {
+  CREATION_DATE,
+  LINK_CODE,
+  LINK_ID,
+  ROUTES,
+  inviteLinkRoutes,
+  legacyError,
+  validationProblem,
+} from "./invite-link-server";
 import { fromUuid } from "../type-assertion-helpers";
 
 // Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
@@ -350,6 +368,119 @@ describe("invite link client", () => {
       expect(Object.keys(posted).sort()).toEqual(["code", "organizationId", "resetPasswordKey"]);
       expect(typeof posted.resetPasswordKey).toBe("string");
       expect(posted).not.toHaveProperty("orgUserKey");
+    });
+
+    describe("failures", () => {
+      // The server error code each typed variant is mapped from, and the property the server
+      // reports it under. Typing the variant column against `AcceptInviteLinkError["variant"]` makes
+      // `tsc` fail if a variant ever stops crossing the boundary as its own flat string.
+      const SERVER_ERRORS: [property: string, code: string, AcceptInviteLinkError["variant"]][] = [
+        ["code", "invite_link_not_available", "InviteLinkNotAvailable"],
+        ["code", "invite_link_confirmation_not_supported", "InviteLinkConfirmationNotSupported"],
+        ["organizationId", "email_not_verified", "EmailNotVerified"],
+        ["code", "email_domain_not_allowed", "EmailDomainNotAllowed"],
+        ["code", "provider_users_cannot_join", "ProviderUsersCannotJoin"],
+        ["code", "organization_access_revoked", "OrganizationAccessRevoked"],
+        ["code", "already_organization_member", "AlreadyOrganizationMember"],
+        ["code", "organization_has_no_available_seats", "OrganizationHasNoAvailableSeats"],
+        ["code", "seat_add_failed", "SeatAddFailed"],
+        ["resetPasswordKey", "reset_password_key_required", "ResetPasswordKeyRequired"],
+        ["organizationId", "member_of_another_organization", "MemberOfAnotherOrganization"],
+        ["organizationId", "single_organization_policy", "SingleOrganizationPolicy"],
+        ["organizationId", "two_factor_required_for_membership", "TwoFactorRequiredForMembership"],
+        [
+          "organizationId",
+          "only_one_free_organization_admin_allowed",
+          "OnlyOneFreeOrganizationAdminAllowed",
+        ],
+      ];
+
+      const accept = () =>
+        invitee
+          .invite_link()
+          .accept_and_optionally_confirm(
+            TEST_ORGANIZATION_ID,
+            LINK_CODE,
+            TEST_INVITE_SECRET,
+            COLLECTION_NAME,
+            false,
+          );
+
+      it("rejects with LinkNotFound when the server cannot find the invite", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.getInvite]: () => legacyError(404, "Invite link not found."),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.name).toBe("AcceptInviteLinkError");
+        expect(error.variant).toBe("LinkNotFound");
+        // Nothing is posted once the invite cannot be fetched.
+        expect(mock.routes()).toEqual([ROUTES.getInvite]);
+      });
+
+      it.each(SERVER_ERRORS)(
+        "maps `%s: %s` from the confirm endpoint to %s",
+        async (property, code, variant) => {
+          mock = installHttpMock({
+            ...inviteLinkRoutes(),
+            [ROUTES.confirm]: () => validationProblem(property, code),
+          });
+
+          const error = await rejection(accept(), isAcceptInviteLinkError);
+
+          expect(error.name).toBe("AcceptInviteLinkError");
+          expect(error.variant).toBe(variant);
+        },
+      );
+
+      it("maps errors from the accept endpoint when the invite does not support confirmation", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION as unknown as string }),
+          [ROUTES.accept]: () => validationProblem("code", "already_organization_member"),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.variant).toBe("AlreadyOrganizationMember");
+        expect(mock.routes()).toEqual([ROUTES.getInvite, ROUTES.accept]);
+      });
+
+      it("maps errors from fetching the invite", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.getInvite]: () => validationProblem("code", "invite_link_not_available"),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.variant).toBe("InviteLinkNotAvailable");
+      });
+
+      it("rejects with Unknown for an error code this SDK version does not recognize", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.confirm]: () => validationProblem("code", "some_future_code"),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.variant).toBe("Unknown");
+        // The unrecognized code is carried in the message so it can still be logged.
+        expect(error.message).toContain("some_future_code");
+      });
+
+      it("keeps a legacy error response as Api", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.confirm]: () => legacyError(400, "You're already a member of Acme."),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.variant).toBe("Api");
+      });
     });
   });
 

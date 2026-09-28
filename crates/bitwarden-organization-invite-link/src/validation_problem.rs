@@ -14,7 +14,7 @@
 //! Older servers (and endpoints not yet migrated) answer with the legacy `ErrorResponseModel`
 //! (`{ "message": "...", ... }`), which carries no code and is not a validation problem.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use bitwarden_core::ApiError;
 use http::StatusCode;
@@ -23,7 +23,7 @@ use serde::Deserialize;
 /// The subset of the server's RFC 7807 validation problem needed to extract error codes.
 #[derive(Deserialize)]
 pub(crate) struct ValidationProblem {
-    errors: HashMap<String, Vec<ValidationErrorCode>>,
+    errors: BTreeMap<String, Vec<ValidationErrorCode>>,
 }
 
 #[derive(Deserialize)]
@@ -47,6 +47,9 @@ impl ValidationProblem {
     }
 
     /// Returns the first error code in the problem, or `None` if it carries no errors.
+    ///
+    /// Properties are visited in alphabetical order, so the result is deterministic when the
+    /// server reports errors under more than one property.
     pub(crate) fn into_first_code(self) -> Option<String> {
         self.errors
             .into_values()
@@ -83,6 +86,14 @@ pub(crate) mod tests {
     fn parses_first_code() {
         let code = first_code(400, &validation_problem("code", "some_code"));
         assert_eq!(code.as_deref(), Some("some_code"));
+    }
+
+    #[test]
+    fn parses_first_code_deterministically_across_properties() {
+        let body = r#"{"type":"validation_error","status":400,"errors":{"resetPasswordKey":[{"type":"second_code"}],"code":[{"type":"first_code"}]}}"#;
+        for _ in 0..16 {
+            assert_eq!(first_code(400, body).as_deref(), Some("first_code"));
+        }
     }
 
     #[test]
