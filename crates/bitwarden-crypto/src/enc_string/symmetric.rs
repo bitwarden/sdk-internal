@@ -195,6 +195,17 @@ impl EncString {
         Self::parse_known_format(s).ok_or(CryptoError::UnparseableEncString)
     }
 
+    /// The id of the key this [EncString] was encrypted with, read from the COSE protected header.
+    /// [None] for the legacy types, which carry no key id, or if the header holds none.
+    pub fn key_id(&self) -> Option<KeyId> {
+        let EncString::Cose_Encrypt0_B64 { data } = self else {
+            return None;
+        };
+
+        let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).ok()?;
+        KeyId::try_from(msg.protected.header.key_id.as_slice()).ok()
+    }
+
     /// Synthetic sugar for mapping `Option<String>` to `Result<Option<EncString>>`
     pub fn try_from_optional(s: Option<String>) -> Result<Option<EncString>, CryptoError> {
         s.map(|s| s.parse()).transpose()
@@ -588,6 +599,19 @@ mod tests {
         });
 
         plaintext.encrypt_with_key(&key).expect("encryption works")
+    }
+
+    #[test]
+    fn test_key_id_of_cose_enc_string() {
+        let enc_string = encrypt_with_xaes("Test key id");
+        assert_eq!(enc_string.key_id(), Some([0u8; KEY_ID_SIZE].into()));
+    }
+
+    #[test]
+    fn test_key_id_of_legacy_enc_string_is_none() {
+        let enc_string =
+            EncString::encrypt_aes256_hmac(b"Test key id", &derive_symmetric_key("test")).unwrap();
+        assert_eq!(enc_string.key_id(), None);
     }
 
     #[test]
