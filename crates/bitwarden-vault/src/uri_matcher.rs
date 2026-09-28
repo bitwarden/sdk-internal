@@ -1,11 +1,6 @@
 //! Regular-expression URI matching with bounded pattern size and execution time, using
 //! [`fancy_regex`] plus the shape restrictions in [`check_shape`].
 
-use std::{
-    collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex, MutexGuard, PoisonError},
-};
-
 use bitwarden_error::bitwarden_error;
 use chrono::{TimeDelta, Utc};
 use fancy_regex::{
@@ -29,10 +24,8 @@ const BACKTRACK_LIMIT: usize = 10_000;
 const DELEGATE_SIZE_LIMIT: usize = 1 << 20;
 /// Approximate lazy DFA cache size for each part delegated to the `regex` crate.
 const DELEGATE_DFA_SIZE_LIMIT: usize = 1 << 20;
-/// Time after which [`UriMatcher::matches_batch`] stops evaluating further patterns.
+/// Time after which [`uri_regex_matches_batch`] stops evaluating further patterns.
 const BATCH_TIME_BUDGET: TimeDelta = TimeDelta::milliseconds(100);
-/// Number of compiled patterns kept in memory.
-const CACHE_CAPACITY: usize = 128;
 
 /// Reasons a regular-expression URI pattern cannot be used. Messages never include the pattern or
 /// target, since both are vault data.
@@ -61,130 +54,88 @@ pub enum UriMatcherError {
     MatchLimitExceeded,
 }
 
-/// Evaluates regular-expression URI match rules, caching compiled patterns until
-/// [`UriMatcher::clear`] or drop. Holders clear it on lock and logout, since patterns are vault
-/// data.
-#[derive(Default)]
-pub struct UriMatcher {
-    cache: Mutex<PatternCache>,
+/// Returns whether `target` matches `pattern`, case-insensitively. Invalid, oversized, and
+/// too-expensive patterns never match.
+pub fn uri_regex_matches(pattern: &str, target: &str) -> bool {
+    try_uri_regex_match(pattern, target).unwrap_or(false)
 }
 
-impl UriMatcher {
-    /// Returns whether `target` matches `pattern`, case-insensitively. Invalid, oversized, and
-    /// too-expensive patterns never match.
-    pub fn matches(&self, pattern: &str, target: &str) -> bool {
-        self.try_match(pattern, target).unwrap_or(false)
+/// Like [`uri_regex_matches`], but reports why a pattern could not be evaluated.
+pub fn try_uri_regex_match(pattern: &str, target: &str) -> Result<bool, UriMatcherError> {
+    if target.len() > MAX_TARGET_LENGTH {
+        return Err(UriMatcherError::TargetTooLong);
+    }
+    let regex = compile(&parse(pattern)?, pattern)?;
+    regex.is_match(target).map_err(map_regex_error)
+}
+
+/// Evaluates each pattern against `target`, one result per pattern. Patterns reached after 100 ms
+/// never match, so many expensive patterns together can't block the caller either.
+///
+/// Nothing is cached between calls, since compiled patterns can be large and hold vault data.
+pub fn uri_regex_matches_batch<S: AsRef<str>>(patterns: &[S], target: &str) -> Vec<bool> {
+    let deadline = Utc::now() + BATCH_TIME_BUDGET;
+    let mut results = vec![false; patterns.len()];
+    if target.len() > MAX_TARGET_LENGTH {
+        return results;
     }
 
-    /// Like [`UriMatcher::matches`], but reports why a pattern could not be evaluated.
-    pub fn try_match(&self, pattern: &str, target: &str) -> Result<bool, UriMatcherError> {
-        if target.len() > MAX_TARGET_LENGTH {
-            return Err(UriMatcherError::TargetTooLong);
-        }
-        let compiled = self.cached_compile(pattern)?;
-        compiled.regex.is_match(target).map_err(map_regex_error)
-    }
-
-    /// Evaluates each pattern against `target`, one result per pattern. Patterns reached after
-    /// 100 ms never match, so many expensive patterns together can't block the caller either.
-    pub fn matches_batch<S: AsRef<str>>(&self, patterns: &[S], target: &str) -> Vec<bool> {
-        let deadline = Utc::now() + BATCH_TIME_BUDGET;
-        let mut results = vec![false; patterns.len()];
-        if target.len() > MAX_TARGET_LENGTH {
+    // Linear patterns are evaluated as they're reached; the rest wait, compile included, so they
+    // can't use up the budget meant for linear ones.
+    let mut backtracking = Vec::new();
+    for (i, pattern) in patterns.iter().enumerate() {
+        if Utc::now() >= deadline {
             return results;
         }
-
-        // Linear patterns are evaluated as they're reached; the rest wait, compile included, so
-        // they can't use up the budget meant for linear ones. Uncached ones are classified by
-        // parsing.
-        let mut backtracking = Vec::new();
-        for (i, pattern) in patterns.iter().enumerate() {
-            if Utc::now() >= deadline {
-                return results;
-            }
-            let pattern = pattern.as_ref();
-            let linear = match self.cached(pattern) {
-                Some(Ok(compiled)) => compiled.linear,
-                Some(Err(_)) => continue,
-                None => parses_as_linear(pattern),
-            };
-            if linear {
-                results[i] = self.matches(pattern, target);
-            } else {
-                backtracking.push(i);
-            }
+        let Ok(expr) = parse(pattern.as_ref()) else {
+            continue;
+        };
+        if is_linear(&expr) {
+            results[i] = evaluate(&expr, pattern.as_ref(), target);
+        } else {
+            backtracking.push((i, expr));
         }
-        for i in backtracking {
-            if Utc::now() >= deadline {
-                break;
-            }
-            results[i] = self.matches(patterns[i].as_ref(), target);
+    }
+    for (i, expr) in backtracking {
+        if Utc::now() >= deadline {
+            break;
         }
-        results
+        results[i] = evaluate(&expr, patterns[i].as_ref(), target);
     }
-
-    /// Drops every cached pattern.
-    pub fn clear(&self) {
-        *self.lock_cache() = PatternCache::default();
-    }
-
-    fn lock_cache(&self) -> MutexGuard<'_, PatternCache> {
-        self.cache.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    fn cached(&self, pattern: &str) -> Option<CacheEntry> {
-        self.lock_cache().get(pattern)
-    }
-
-    fn cached_compile(&self, pattern: &str) -> CacheEntry {
-        // Checked before the cache so oversized patterns are never stored.
-        if pattern.chars().count() > MAX_PATTERN_LENGTH {
-            return Err(UriMatcherError::PatternTooLong);
-        }
-        if let Some(entry) = self.cached(pattern) {
-            return entry;
-        }
-
-        // Compiled without the lock held, so one caller's compile doesn't stall the others.
-        let entry = compile(pattern).map(Arc::new);
-        self.lock_cache().insert(pattern, entry.clone());
-        entry
-    }
+    results
 }
 
 /// Checks that `pattern` is short enough, has a supported shape, and compiles, for save-time
 /// errors.
 pub fn validate_uri_regex(pattern: &str) -> Result<(), UriMatcherError> {
-    // Bypasses the cache so validating each keystroke does not evict patterns in use.
-    compile(pattern).map(|_| ())
+    compile(&parse(pattern)?, pattern).map(|_| ())
 }
 
-/// A compiled pattern, and whether the `regex` crate runs it without fancy-regex's backtracking.
-struct CompiledPattern {
-    regex: Regex,
-    linear: bool,
+fn evaluate(expr: &Expr, pattern: &str, target: &str) -> bool {
+    compile(expr, pattern).is_ok_and(|regex| regex.is_match(target).unwrap_or(false))
 }
 
-fn compile(pattern: &str) -> Result<CompiledPattern, UriMatcherError> {
+fn parse(pattern: &str) -> Result<Expr, UriMatcherError> {
     if pattern.chars().count() > MAX_PATTERN_LENGTH {
         return Err(UriMatcherError::PatternTooLong);
     }
-    let tree = Expr::parse_tree(pattern).map_err(map_regex_error)?;
-    if check_shape(&tree.expr)? > MAX_EXPENSIVE_NODES {
+    Expr::parse_tree(pattern)
+        .map(|tree| tree.expr)
+        .map_err(map_regex_error)
+}
+
+/// Compiles `pattern`, whose parsed form is `expr`, if it has a supported shape.
+fn compile(expr: &Expr, pattern: &str) -> Result<Regex, UriMatcherError> {
+    if check_shape(expr)? > MAX_EXPENSIVE_NODES {
         return Err(UriMatcherError::PatternTooComplex);
     }
-
-    let regex = RegexBuilder::new(pattern)
+    RegexBuilder::new(pattern)
         .case_insensitive(true)
         .backtrack_limit(BACKTRACK_LIMIT)
         .delegate_size_limit(DELEGATE_SIZE_LIMIT)
         .delegate_dfa_size_limit(DELEGATE_DFA_SIZE_LIMIT)
         .build()
-        .map_err(map_regex_error)?;
-    Ok(CompiledPattern {
-        regex,
-        linear: is_linear(&tree.expr),
-    })
+        .map_err(map_regex_error)
 }
 
 /// Anchors the `regex` crate handles itself; word boundaries force fancy-regex's backtracking.
@@ -196,12 +147,6 @@ fn is_linear_assertion(assertion: &Assertion) -> bool {
             | Assertion::StartLine { .. }
             | Assertion::EndLine { .. }
     )
-}
-
-/// Classifies `pattern` without compiling it; unparseable patterns count as not linear.
-fn parses_as_linear(pattern: &str) -> bool {
-    pattern.chars().count() <= MAX_PATTERN_LENGTH
-        && Expr::parse_tree(pattern).is_ok_and(|tree| is_linear(&tree.expr))
 }
 
 /// Whether fancy-regex hands all of `expr` to the linear-time `regex` crate. Mirrors fancy-regex's
@@ -297,35 +242,6 @@ fn max_width(expr: &Expr) -> Option<usize> {
     }
 }
 
-type CacheEntry = Result<Arc<CompiledPattern>, UriMatcherError>;
-
-/// Bounded first-in, first-out cache of compiled patterns, including ones that failed to compile.
-#[derive(Default)]
-struct PatternCache {
-    entries: HashMap<Arc<str>, CacheEntry>,
-    order: VecDeque<Arc<str>>,
-}
-
-impl PatternCache {
-    fn get(&self, pattern: &str) -> Option<CacheEntry> {
-        self.entries.get(pattern).cloned()
-    }
-
-    fn insert(&mut self, pattern: &str, entry: CacheEntry) {
-        if self.entries.contains_key(pattern) {
-            return;
-        }
-        if self.order.len() >= CACHE_CAPACITY
-            && let Some(oldest) = self.order.pop_front()
-        {
-            self.entries.remove(&oldest);
-        }
-        let key: Arc<str> = Arc::from(pattern);
-        self.order.push_back(key.clone());
-        self.entries.insert(key, entry);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::{Duration, Instant};
@@ -333,18 +249,6 @@ mod tests {
     use super::*;
 
     const BUDGET: Duration = Duration::from_millis(250);
-
-    fn uri_regex_matches(pattern: &str, target: &str) -> bool {
-        UriMatcher::default().matches(pattern, target)
-    }
-
-    fn try_uri_regex_match(pattern: &str, target: &str) -> Result<bool, UriMatcherError> {
-        UriMatcher::default().try_match(pattern, target)
-    }
-
-    fn uri_regex_matches_batch<S: AsRef<str>>(patterns: &[S], target: &str) -> Vec<bool> {
-        UriMatcher::default().matches_batch(patterns, target)
-    }
 
     fn assert_within_budget<T>(f: impl FnOnce() -> T) -> T {
         let start = Instant::now();
@@ -579,11 +483,11 @@ mod tests {
             r"(a|b)*c{2,5}",
         ];
         for pattern in linear {
-            assert!(compile(pattern).expect("valid").linear, "{pattern}");
+            assert!(is_linear(&parse(pattern).expect("valid")), "{pattern}");
         }
 
         for pattern in [r"(a)\1", r"(?=a)", r"(?<!a)b"] {
-            assert!(!compile(pattern).expect("valid").linear, "{pattern}");
+            assert!(!is_linear(&parse(pattern).expect("valid")), "{pattern}");
         }
     }
 
@@ -640,49 +544,6 @@ mod tests {
         let target = "a".repeat(MAX_TARGET_LENGTH + 1);
         let results = assert_within_budget(|| uri_regex_matches_batch(&["a", "^a"], &target));
         assert_eq!(results, vec![false, false]);
-    }
-
-    #[test]
-    fn clear_drops_cached_patterns() {
-        let matcher = UriMatcher::default();
-        assert!(matcher.matches("^a", "abc"));
-        assert!(matcher.cached("^a").is_some());
-
-        matcher.clear();
-
-        assert!(matcher.cached("^a").is_none());
-        assert!(matcher.matches("^a", "abc"));
-    }
-
-    #[test]
-    fn matchers_do_not_share_cached_patterns() {
-        let first = UriMatcher::default();
-        assert!(first.matches("^a", "abc"));
-
-        assert!(UriMatcher::default().cached("^a").is_none());
-    }
-
-    #[test]
-    fn cache_is_bounded_and_keeps_answers_correct() {
-        let mut cache = PatternCache::default();
-        for i in 0..CACHE_CAPACITY + 10 {
-            let pattern = format!("^{i}$");
-            cache.insert(&pattern, compile(&pattern).map(Arc::new));
-            let compiled = cache.get(&pattern).expect("cached").expect("valid pattern");
-            assert!(
-                compiled
-                    .regex
-                    .is_match(&i.to_string())
-                    .expect("no runtime error")
-            );
-        }
-        assert_eq!(cache.entries.len(), CACHE_CAPACITY);
-        assert_eq!(cache.order.len(), CACHE_CAPACITY);
-
-        cache.insert("(", compile("(").map(Arc::new));
-        cache.insert("(", compile("(").map(Arc::new));
-        assert!(cache.get("(").expect("cached").is_err());
-        assert_eq!(cache.order.len(), CACHE_CAPACITY);
     }
 
     #[test]

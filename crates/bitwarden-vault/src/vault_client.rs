@@ -50,9 +50,9 @@ impl VaultClient {
         TotpClient
     }
 
-    /// Regular-expression URI matching operations. Each call returns a client with its own cache.
+    /// Regular-expression URI matching operations.
     pub fn uri_matcher(&self) -> UriMatcherClient {
-        UriMatcherClient::default()
+        UriMatcherClient
     }
 
     /// Collection related operations.
