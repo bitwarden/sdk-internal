@@ -10,7 +10,6 @@ pub use client::Client;
 mod credentials;
 pub use credentials::Credentials;
 mod device;
-pub use device::generate_device_uuid;
 mod error;
 pub use error::OnePasswordError;
 mod identity;

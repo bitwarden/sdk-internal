@@ -16,13 +16,17 @@ mod importer_client;
 pub use importer_client::{ImporterClient, ImporterClientExt};
 mod importers;
 pub(crate) use importers::keeper;
+pub use importers::onepassword::access::{
+    Credentials, SignInAddress, SignInDomain, TotpResult as OnePasswordTotpResult,
+    TwoFactorUi as OnePasswordTwoFactorUi,
+};
 mod pipeline;
 
 /// The 1Password access module: log in to an account and download its vaults.
 ///
 /// Exposed only under the `test-utils` feature, for the out-of-tree CLI that drives it against
 /// a real account. Not part of this crate's supported API, and no stability is promised.
-// TODO: Remove once the importer consumes the module directly.
+// TODO: Remove once the out-of-tree CLI is retired.
 #[cfg(feature = "test-utils")]
 pub use importers::onepassword::access as onepassword_access;
 /// The 1Password conversion step: downloaded vaults to the [`ParsedImport`] the pipeline
@@ -30,7 +34,7 @@ pub use importers::onepassword::access as onepassword_access;
 ///
 /// Exposed only under the `test-utils` feature, so the CLI can print what a real account
 /// converts to. Not part of this crate's supported API, and no stability is promised.
-// TODO: Remove once the importer consumes the module directly.
+// TODO: Remove once the out-of-tree CLI is retired.
 #[cfg(feature = "test-utils")]
 pub use importers::onepassword::convert as onepassword_convert;
 #[cfg(feature = "test-utils")]
