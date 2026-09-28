@@ -25,18 +25,15 @@ fn main() {
     prost_build::Config::new()
         .out_dir(&out_dir)
         .compile_protos(
-            &[
-                proto_dir.join("api-request.proto"),
-                proto_dir.join("breachwatch.proto"),
-                proto_dir.join("client.proto"),
-                proto_dir.join("enterprise.proto"),
-                proto_dir.join("graph-sync.proto"),
-                proto_dir.join("notification-center.proto"),
-                proto_dir.join("push.proto"),
-                proto_dir.join("record.proto"),
-                proto_dir.join("ssocloud.proto"),
-                proto_dir.join("sync-down.proto"),
-            ],
+            &{
+                let mut protos: Vec<_> = std::fs::read_dir(&proto_dir)
+                    .expect("Failed to read proto directory")
+                    .map(|entry| entry.expect("Failed to read proto directory entry").path())
+                    .filter(|path| path.extension().is_some_and(|ext| ext == "proto"))
+                    .collect();
+                protos.sort();
+                protos
+            },
             &[proto_dir],
         )
         .expect("Failed to compile protobufs");
