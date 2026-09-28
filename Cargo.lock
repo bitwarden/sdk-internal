@@ -1394,39 +1394,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bitwarden-rotation-daemon"
-version = "3.0.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bitwarden-api-api",
- "bitwarden-api-base",
- "bitwarden-core",
- "bitwarden-crypto",
- "bitwarden-encoding",
- "bitwarden-generators",
- "bitwarden-sensitive-value",
- "bitwarden-threading",
- "chrono",
- "clap",
- "http",
- "reqwest",
- "reqwest-middleware",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "tokio",
- "toml 0.9.12+spec-1.1.0",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
- "wiremock",
- "zeroize",
-]
-
-[[package]]
 name = "bitwarden-send"
 version = "4.0.0"
 dependencies = [

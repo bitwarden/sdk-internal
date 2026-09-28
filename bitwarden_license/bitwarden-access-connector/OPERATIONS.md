@@ -766,7 +766,7 @@ Logs go to stderr, filtered by `RUST_LOG` (default `info`):
 
 ```sh
 RUST_LOG=debug bw-rotation-daemon run --config /etc/bwrd/config.toml
-RUST_LOG=bitwarden_rotation_daemon=trace,info bw-rotation-daemon run --config /etc/bwrd/config.toml
+RUST_LOG=bitwarden_access_connector=trace,info bw-rotation-daemon run --config /etc/bwrd/config.toml
 ```
 
 At `info` you get one line per lifecycle milestone. At `debug` you additionally get poll ticks,
@@ -874,12 +874,12 @@ Internal notes for working on the crate itself.
 
 ```sh
 # Build and test
-cargo test -p bitwarden-rotation-daemon --all-features
+cargo test -p bitwarden-access-connector --all-features
 cargo check --all-features --all-targets
 
 # Run against a local server
-BWRD_TOKEN="…" cargo run -p bitwarden-rotation-daemon -- run \
-  --config bitwarden_license/bitwarden-rotation-daemon/dev-config.toml
+BWRD_TOKEN="…" cargo run -p bitwarden-access-connector -- run \
+  --config bitwarden_license/bitwarden-access-connector/dev-config.toml
 ```
 
 `dev-config.toml` points at the dev proxy on `https://localhost:8080`.
@@ -891,7 +891,7 @@ token template locally. It handles a plaintext organisation key and is **not for
 
 ```sh
 export BWRD_ORG_KEY_B64="<base64 org key>"
-cargo run -p bitwarden-rotation-daemon --example register -- --name my-daemon
+cargo run -p bitwarden-access-connector --example register -- --name my-daemon
 ```
 
 ### References
