@@ -89,8 +89,11 @@ async fn share_ciphers_bulk(
         results.push(cipher)
     }
 
-    // A now-gated cipher can be missing from `cipher_minis` even on success (withheld by the
-    // server); evict the stale pre-share copy rather than let it linger.
+    // The server applies the share, then withholds a now-gated cipher from the write-return when
+    // the calling client can't render the partial shape — so a requested id can legitimately be
+    // missing from `cipher_minis` even though the share succeeded. The local pre-share copy is
+    // stale (still personal-owned, full secrets), so evict it rather than let it linger until the
+    // next sync restores the cipher in its gated shape.
     if !withheld_ids.is_empty() {
         repository
             .remove_bulk(withheld_ids.into_iter().collect())
@@ -716,7 +719,7 @@ mod tests {
     }
 
     /// A bulk-share write-return can be PAM-gated the same as any other write: secrets withheld,
-    /// `partial_data` set. Persisting the response must keep that gate; dropping `partial_data`
+    /// `partial_data` set. Persisting the response must keep that gate — dropping `partial_data`
     /// on merge would leave a husk in the repository that looks like an ungated, secret-free
     /// cipher.
     #[tokio::test]
@@ -846,9 +849,10 @@ mod tests {
         assert_eq!(stored_cipher.folder_id, original_folder_id);
     }
 
-    /// The write-return can omit a cipher the share nonetheless applied to: the server strips
-    /// a now-gated cipher for a caller that can't render the partial shape. The stale
-    /// pre-share copy (personal-owned, full secrets) must be evicted, not left for the next sync.
+    /// The write-return can omit a cipher the share nonetheless applied to: the server strips a
+    /// now-gated cipher from the response when the caller can't render the partial shape. The
+    /// stale pre-share copy (personal-owned, full secrets) must not outlive a share the server
+    /// confirmed — it has to be evicted, not left for the next sync to (maybe) clean up.
     #[tokio::test]
     async fn test_share_ciphers_bulk_evicts_a_stripped_write_return() {
         let returned_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
