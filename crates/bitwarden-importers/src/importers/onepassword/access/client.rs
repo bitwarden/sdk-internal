@@ -1,5 +1,7 @@
 //! The entry point: log in, unlock the account's keys, download its vaults.
 
+use zeroize::Zeroizing;
+
 use super::{
     account_key::AccountKey,
     credentials::Credentials,
@@ -43,12 +45,14 @@ impl Client {
     /// An import takes the whole account, so there is no vault selection.
     pub async fn download_all_vaults(
         &self,
-        credentials: &Credentials,
+        credentials: Credentials,
         ui: &dyn TwoFactorUi,
     ) -> Result<Vec<Vault>, OnePasswordError> {
+        let mut credentials = Zeroizing::new(credentials);
+        credentials.sign_in_address.normalize()?;
         let account_key = AccountKey::parse(&credentials.account_key)?;
-        let session = self.login(credentials, &account_key, ui).await?;
-        download_vaults(credentials, &account_key, &session).await
+        let session = self.login(&credentials, &account_key, ui).await?;
+        download_vaults(&credentials, &account_key, &session).await
     }
 
     /// Runs the login sequence, retrying the whole thing when the server rejects a TOTP code.
@@ -61,7 +65,8 @@ impl Client {
         account_key: &AccountKey,
         ui: &dyn TwoFactorUi,
     ) -> Result<Session, OnePasswordError> {
-        let client_info = ClientInfo::for_desktop(&credentials.device_uuid);
+        let device_uuid = super::device::generate_device_uuid();
+        let client_info = ClientInfo::for_desktop(&device_uuid);
         let rest = RestClient::new(
             self.http.clone(),
             format!("https://{}/api", credentials.sign_in_address),
@@ -112,7 +117,6 @@ pub(super) async fn download_vaults(
         downloaded.push(Vault {
             id: info.id.clone(),
             name: info.name.clone(),
-            description: info.description.clone(),
             items: download_vault_items(&info.id, &keychain, session).await?,
         });
     }
@@ -124,7 +128,6 @@ pub(super) async fn download_vaults(
 struct VaultInfo {
     id: String,
     name: String,
-    description: String,
 }
 
 /// Decrypts the account keysets and every accessible vault key.
@@ -168,7 +171,6 @@ async fn unlock(
         vaults.push(VaultInfo {
             id: vault.uuid.clone(),
             name: attributes.name.unwrap_or_default(),
-            description: attributes.desc.unwrap_or_default(),
         });
     }
 

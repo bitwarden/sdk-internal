@@ -18,7 +18,7 @@ keywords.workspace = true
 [features]
 # Re-exports the 1Password access and convert modules so the out-of-tree CLI can drive them
 # against a real account. Never enable in production builds.
-# TODO: Remove once the importer consumes the module directly.
+# TODO: Remove once the out-of-tree CLI is retired.
 test-utils = []
 uniffi = [
     "dep:uniffi",

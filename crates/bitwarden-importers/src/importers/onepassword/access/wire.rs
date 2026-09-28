@@ -243,7 +243,6 @@ pub(super) struct VaultAccess {
 #[derive(Deserialize)]
 pub(super) struct VaultAttributes {
     pub name: Option<String>,
-    pub desc: Option<String>,
 }
 
 /// A page of vault items. The last page is marked `batchComplete`.
@@ -273,7 +272,6 @@ pub(super) struct VaultItem {
 #[derive(Deserialize)]
 pub struct VaultItemOverview {
     pub title: Option<String>,
-    pub ainfo: Option<String>,
     pub url: Option<String>,
     #[serde(rename = "URLs")]
     pub urls: Option<Vec<VaultItemUrl>>,
@@ -283,8 +281,6 @@ pub struct VaultItemOverview {
 /// A URL entry in an item overview.
 #[derive(Deserialize)]
 pub struct VaultItemUrl {
-    #[serde(rename = "l")]
-    pub name: Option<String>,
     #[serde(rename = "u")]
     pub url: Option<String>,
 }
@@ -298,15 +294,6 @@ pub struct VaultItemDetails {
     pub sections: Option<Vec<VaultItemSection>>,
     /// The secret of a Password-category item, which carries no `fields`.
     pub password: Option<String>,
-    #[serde(rename = "passwordHistory")]
-    pub password_history: Option<Vec<VaultItemPasswordHistory>>,
-}
-
-/// A superseded password and the unix time it was replaced, oldest first.
-#[derive(Deserialize)]
-pub struct VaultItemPasswordHistory {
-    pub value: Option<String>,
-    pub time: Option<i64>,
 }
 
 /// A designation-based login field (username/password).
@@ -320,14 +307,9 @@ pub struct VaultItemField {
     pub kind: Option<String>,
 }
 
-/// A titled section of fields.
+/// A section of fields. Bitwarden custom fields are a flat list, so only the fields are read.
 #[derive(Deserialize)]
 pub struct VaultItemSection {
-    /// The section's stable id, such as `Section_l2bagl3iupehvr7jvrc62mjhee`.
-    #[serde(rename = "name")]
-    pub id: Option<String>,
-    #[serde(rename = "title")]
-    pub name: Option<String>,
     pub fields: Option<Vec<VaultItemSectionField>>,
 }
 
@@ -344,23 +326,11 @@ pub struct VaultItemSectionField {
     pub kind: Option<String>,
     #[serde(rename = "a")]
     pub attributes: Option<VaultItemFieldAttributes>,
-    /// Keyboard hints for the 1Password UI, of no use to an import.
-    #[serde(rename = "inputTraits")]
-    pub input_traits: Option<VaultItemInputTraits>,
-}
-
-/// How the 1Password UI should present a field's editor.
-#[derive(Debug, Deserialize)]
-pub struct VaultItemInputTraits {
-    pub autocapitalization: Option<String>,
-    pub keyboard: Option<String>,
-    pub correction: Option<String>,
 }
 
 /// Extra attributes on a section field.
 #[derive(Deserialize)]
 pub struct VaultItemFieldAttributes {
-    pub guarded: Option<String>,
     #[serde(rename = "sshKeyAttributes")]
     pub ssh_key: Option<SshKeyAttributes>,
 }
@@ -373,15 +343,4 @@ pub struct SshKeyAttributes {
     #[serde(rename = "publicKey")]
     pub public_key: Option<String>,
     pub fingerprint: Option<String>,
-    #[serde(rename = "keyType")]
-    pub key_type: Option<SshKeyType>,
-}
-
-/// An SSH key's type and, for RSA, its bit length.
-#[derive(Debug, Deserialize)]
-pub struct SshKeyType {
-    #[serde(rename = "t")]
-    pub kind: String,
-    #[serde(rename = "c", default)]
-    pub bits: i64,
 }
