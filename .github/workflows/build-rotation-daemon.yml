@@ -1,4 +1,4 @@
-# Builds the `bw-rotation-daemon` binary (bitwarden_license/bitwarden-rotation-daemon) in release
+# Builds the `bw-rotation-daemon` binary (bitwarden_license/bitwarden-access-connector) in release
 # mode for each supported platform and uploads it as a workflow artifact, so the daemon can be
 # picked up for QA / self-hosted testing without a local Rust toolchain.
 #
@@ -90,7 +90,7 @@ jobs:
           key: rotation-daemon-${{ matrix.target }}
 
       - name: Build
-        run: cargo build -p bitwarden-rotation-daemon --release --locked --target ${{ matrix.target }}
+        run: cargo build -p bitwarden-access-connector --release --locked --target ${{ matrix.target }}
         env:
           RUSTFLAGS: "-D warnings ${{ matrix.rustflags }}"
 
@@ -106,13 +106,13 @@ jobs:
       # running it; each platform uses the interpreter the script will actually run under.
       - name: Check the bundled installer parses - shell
         if: endsWith(matrix.installer, '.sh')
-        run: bash -n "bitwarden_license/bitwarden-rotation-daemon/scripts/${{ matrix.installer }}"
+        run: bash -n "bitwarden_license/bitwarden-access-connector/scripts/${{ matrix.installer }}"
 
       - name: Check the bundled installer parses - PowerShell
         if: endsWith(matrix.installer, '.ps1')
         shell: powershell
         run: |
-          $path = "bitwarden_license\bitwarden-rotation-daemon\scripts\${{ matrix.installer }}"
+          $path = "bitwarden_license\bitwarden-access-connector\scripts\${{ matrix.installer }}"
           $errors = $null
           $tokens = $null
           [void] [System.Management.Automation.Language.Parser]::ParseFile(
@@ -135,14 +135,14 @@ jobs:
               -e 's|@BINARY_PATH@|/bin/true|g' \
               -e 's|@CONFIG_FILE@|/etc/bwrd/config.toml|g' \
               -e 's|@STATE_DIR@|/var/lib/bwrd|g' \
-              bitwarden_license/bitwarden-rotation-daemon/scripts/templates/bw-rotation-daemon.service.in \
+              bitwarden_license/bitwarden-access-connector/scripts/templates/bw-rotation-daemon.service.in \
               > /tmp/bw-rotation-daemon.service
           systemd-analyze verify /tmp/bw-rotation-daemon.service
 
       - name: Check the launchd plist template
         if: startsWith(matrix.os, 'macos')
         run: |
-          cp bitwarden_license/bitwarden-rotation-daemon/scripts/templates/launchd.plist.in \
+          cp bitwarden_license/bitwarden-access-connector/scripts/templates/launchd.plist.in \
               /tmp/bw-rotation-daemon.plist
           plutil -lint /tmp/bw-rotation-daemon.plist
 
@@ -150,13 +150,13 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb')); print(sys.argv[1], 'is valid TOML')" \
-              bitwarden_license/bitwarden-rotation-daemon/scripts/templates/config.toml.in
+              bitwarden_license/bitwarden-access-connector/scripts/templates/config.toml.in
 
       - name: Check the launcher template parses
         if: endsWith(matrix.templates, '.ps1')
         shell: powershell
         run: |
-          $path = "bitwarden_license\bitwarden-rotation-daemon\scripts\templates\${{ matrix.templates }}"
+          $path = "bitwarden_license\bitwarden-access-connector\scripts\templates\${{ matrix.templates }}"
           $errors = $null
           $tokens = $null
           [void] [System.Management.Automation.Language.Parser]::ParseFile(
@@ -175,7 +175,7 @@ jobs:
       - name: Package binary, installer, and templates
         env:
           BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
-          SCRIPTS: bitwarden_license/bitwarden-rotation-daemon/scripts
+          SCRIPTS: bitwarden_license/bitwarden-access-connector/scripts
           ARCHIVE: bw-rotation-daemon-${{ matrix.target }}.tar.gz
         run: |
           # Staged into one directory first: the pieces come from different places, and a
