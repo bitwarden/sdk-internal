@@ -62,9 +62,11 @@ pub(crate) enum UnlockError {
 pub(crate) enum MigrationFailed {
     /// Vault is locked
     Locked,
-    /// The encrypted PIN is under a previous V2 user key, which cannot be recovered.
+    /// The encrypted PIN is under a key other than the user key, which cannot be recovered.
     /// V2 -> V2 key rotation is not currently supported here.
-    V2KeyRotationUnsupported,
+    UnrecoverablePinKey,
+    /// The encrypted PIN uses an unknown encryption algorithm.
+    UnsupportedPinEncryption,
     /// V1 -> V2 migration is required but no V2 upgrade token is stored.
     MissingV2UpgradeToken,
     /// A PIN envelope is stored but no encrypted PIN to re-enroll it with.
@@ -76,7 +78,7 @@ pub(crate) enum MigrationFailed {
 }
 
 /// What [`PinLockSystem::migrate_pin_envelope_if_needed`] should do with the PIN enrollment,
-/// decided from the encrypted PIN's key id alone.
+/// decided from the encrypted PIN alone.
 #[derive(Debug, PartialEq, Eq)]
 enum PinMigrationAction {
     /// The encrypted PIN is under the current user key. Nothing to do.
@@ -88,20 +90,32 @@ enum PinMigrationAction {
     Failed(MigrationFailed),
 }
 
-/// Decides what to do with the PIN enrollment.
+/// Decides what to do with the PIN enrollment, from the algorithms of the encrypted PIN and the
+/// user key.
 ///
-/// V1 (AES-CBC-HMAC) encrypted PINs carry no key id; V2 (COSE) encrypted PINs carry the id of
-/// the key they were encrypted with.
+/// - A V1 (AES-CBC-HMAC) PIN under a V2 user key is a V1 -> V2 upgrade.
+/// - Otherwise the PIN must be under the user key itself. A key id, when the PIN carries one, must
+///   match; V1 PINs may carry none.
 fn classify_encrypted_pin(
+    pin_algorithm: Option<SymmetricKeyAlgorithm>,
     pin_key_id: Option<&KeyId>,
-    current_user_key_id: &KeyId,
-    user_key_is_v1: bool,
+    user_key_algorithm: SymmetricKeyAlgorithm,
+    user_key_id: &KeyId,
 ) -> PinMigrationAction {
+    let Some(pin_algorithm) = pin_algorithm else {
+        return PinMigrationAction::Failed(MigrationFailed::UnsupportedPinEncryption);
+    };
+
+    let pin_is_v1 = pin_algorithm == SymmetricKeyAlgorithm::Aes256CbcHmac;
+    let user_key_is_v1 = user_key_algorithm == SymmetricKeyAlgorithm::Aes256CbcHmac;
+    if pin_is_v1 && !user_key_is_v1 {
+        return PinMigrationAction::MigrateV1ToV2;
+    }
+
     match pin_key_id {
-        None if user_key_is_v1 => PinMigrationAction::UpToDate,
-        None => PinMigrationAction::MigrateV1ToV2,
-        Some(pin_key_id) if pin_key_id == current_user_key_id => PinMigrationAction::UpToDate,
-        Some(_) => PinMigrationAction::Failed(MigrationFailed::V2KeyRotationUnsupported),
+        Some(pin_key_id) if pin_key_id == user_key_id => PinMigrationAction::UpToDate,
+        None if pin_is_v1 => PinMigrationAction::UpToDate,
+        _ => PinMigrationAction::Failed(MigrationFailed::UnrecoverablePinKey),
     }
 }
 
@@ -191,22 +205,21 @@ impl PinLockSystem<'_> {
             .ok_or(MigrationFailed::MissingEncryptedPin)?;
 
         // Scoped so the context is dropped before the awaits below.
-        let (current_user_key_id, user_key_is_v1) = {
+        let (user_key_id, user_key_algorithm) = {
             let ctx = self.key_store().context();
             (
                 ctx.get_symmetric_key_id(SymmetricKeySlotId::User)
                     .ok_or(MigrationFailed::Locked)?,
-                matches!(
-                    ctx.get_symmetric_key_algorithm(SymmetricKeySlotId::User),
-                    Ok(SymmetricKeyAlgorithm::Aes256CbcHmac)
-                ),
+                ctx.get_symmetric_key_algorithm(SymmetricKeySlotId::User)
+                    .map_err(|_| MigrationFailed::Locked)?,
             )
         };
 
         match classify_encrypted_pin(
+            encrypted_pin.algorithm(),
             encrypted_pin.key_id().as_ref(),
-            &current_user_key_id,
-            user_key_is_v1,
+            user_key_algorithm,
+            &user_key_id,
         ) {
             PinMigrationAction::UpToDate => return Ok(()),
             PinMigrationAction::Failed(error) => return Err(error),
@@ -1034,6 +1047,42 @@ mod tests {
         }
     }
 
+    /// Legacy compat encryption gives V1 PINs a key id. It is the algorithm, not a missing key id,
+    /// that marks a PIN as V1.
+    #[test]
+    fn classify_v1_pin_with_key_id() {
+        let user_key_id = KeyId::from([1; 16]);
+        let other_key_id = KeyId::from([2; 16]);
+
+        assert_eq!(
+            classify_encrypted_pin(
+                Some(SymmetricKeyAlgorithm::Aes256CbcHmac),
+                Some(&other_key_id),
+                SymmetricKeyAlgorithm::XAes256Gcm,
+                &user_key_id
+            ),
+            PinMigrationAction::MigrateV1ToV2,
+        );
+        assert_eq!(
+            classify_encrypted_pin(
+                Some(SymmetricKeyAlgorithm::Aes256CbcHmac),
+                Some(&user_key_id),
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+                &user_key_id
+            ),
+            PinMigrationAction::UpToDate,
+        );
+        assert_eq!(
+            classify_encrypted_pin(
+                Some(SymmetricKeyAlgorithm::Aes256CbcHmac),
+                Some(&other_key_id),
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+                &user_key_id
+            ),
+            PinMigrationAction::Failed(MigrationFailed::UnrecoverablePinKey),
+        );
+    }
+
     /// The encrypted PIN is under a previous V2 user key, which nothing can recover.
     #[tokio::test]
     async fn migrate_v2_pin_with_rotated_user_key_fails() {
@@ -1053,7 +1102,7 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
         assert_eq!(
             system.migrate_pin_envelope_if_needed().await,
-            Err(MigrationFailed::V2KeyRotationUnsupported),
+            Err(MigrationFailed::UnrecoverablePinKey),
         );
     }
 
