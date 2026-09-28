@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use bitwarden_vault::{MAX_TARGET_LENGTH, try_uri_regex_match, validate_uri_regex};
+use bitwarden_vault::{MAX_TARGET_LENGTH, UriMatcher, validate_uri_regex};
 
 /// Native per-evaluation limit, leaving headroom under the 250 ms budget in slower WASM builds.
 const EVALUATION_LIMIT: Duration = Duration::from_millis(100);
@@ -189,10 +189,10 @@ fn uses_backtracking_engine(pattern: &str) -> bool {
 }
 
 /// Panics unless `pattern` evaluates within [`EVALUATION_LIMIT`] on every adversarial target.
-fn assert_fast(rng: &mut Rng, pattern: &str, context: &str) {
+fn assert_fast(matcher: &UriMatcher, rng: &mut Rng, pattern: &str, context: &str) {
     for (kind, target) in targets(rng) {
         let start = Instant::now();
-        let _ = try_uri_regex_match(pattern, &target);
+        let _ = matcher.try_match(pattern, &target);
         let elapsed = start.elapsed();
         assert!(
             elapsed < EVALUATION_LIMIT,
@@ -205,6 +205,7 @@ fn assert_fast(rng: &mut Rng, pattern: &str, context: &str) {
 /// Checks `accepted_target` accepted patterns from `seed`, panicking with a reproducible message.
 fn fuzz(seed: u64, accepted_target: usize) {
     let mut rng = Rng(seed.max(1));
+    let matcher = UriMatcher::default();
     let mut accepted = 0;
     let mut accepted_backtracking = 0;
 
@@ -229,7 +230,7 @@ fn fuzz(seed: u64, accepted_target: usize) {
         if uses_backtracking_engine(&pattern) {
             accepted_backtracking += 1;
         }
-        assert_fast(&mut rng, &pattern, &format!("seed {seed}"));
+        assert_fast(&matcher, &mut rng, &pattern, &format!("seed {seed}"));
     }
 
     assert_eq!(
@@ -245,8 +246,9 @@ fn fuzz(seed: u64, accepted_target: usize) {
 #[test]
 fn regressions_are_rejected_or_fast() {
     let mut rng = Rng(1);
+    let matcher = UriMatcher::default();
     for pattern in REGRESSIONS {
-        assert_fast(&mut rng, pattern, "regression");
+        assert_fast(&matcher, &mut rng, pattern, "regression");
     }
 }
 
