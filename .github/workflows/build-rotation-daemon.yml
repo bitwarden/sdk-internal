@@ -1,4 +1,4 @@
-# Builds the `bw-rotation-daemon` binary (bitwarden_license/bitwarden-access-connector) in release
+# Builds the `bwac` binary (bitwarden_license/bitwarden-access-connector) in release
 # mode for each supported platform and uploads it as a workflow artifact, so the daemon can be
 # picked up for QA / self-hosted testing without a local Rust toolchain.
 #
@@ -31,7 +31,7 @@ defaults:
 
 jobs:
   build:
-    name: Build bw-rotation-daemon - ${{ matrix.target }}
+    name: Build bwac - ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -40,24 +40,24 @@ jobs:
         include:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            binary: bw-rotation-daemon
+            binary: bwac
             installer: install-rotation-daemon.sh
             templates: "*.in"
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            binary: bw-rotation-daemon
+            binary: bwac
             installer: install-rotation-daemon.sh
             templates: "*.in"
           - os: macos-14
             target: aarch64-apple-darwin
-            binary: bw-rotation-daemon
+            binary: bwac
             installer: install-rotation-daemon.sh
             templates: "*.in"
           - os: windows-2022
             target: x86_64-pc-windows-msvc
-            binary: bw-rotation-daemon.exe
+            binary: bwac.exe
             installer: Install-RotationDaemon.ps1
-            templates: bw-rotation-daemon-launcher.ps1
+            templates: bwac-launcher.ps1
             rustflags: "-C target-feature=+crt-static"
 
     steps:
@@ -135,16 +135,16 @@ jobs:
               -e 's|@BINARY_PATH@|/bin/true|g' \
               -e 's|@CONFIG_FILE@|/etc/bwrd/config.toml|g' \
               -e 's|@STATE_DIR@|/var/lib/bwrd|g' \
-              bitwarden_license/bitwarden-access-connector/scripts/templates/bw-rotation-daemon.service.in \
-              > /tmp/bw-rotation-daemon.service
-          systemd-analyze verify /tmp/bw-rotation-daemon.service
+              bitwarden_license/bitwarden-access-connector/scripts/templates/bwac.service.in \
+              > /tmp/bwac.service
+          systemd-analyze verify /tmp/bwac.service
 
       - name: Check the launchd plist template
         if: startsWith(matrix.os, 'macos')
         run: |
           cp bitwarden_license/bitwarden-access-connector/scripts/templates/launchd.plist.in \
-              /tmp/bw-rotation-daemon.plist
-          plutil -lint /tmp/bw-rotation-daemon.plist
+              /tmp/bwac.plist
+          plutil -lint /tmp/bwac.plist
 
       - name: Check the config template
         if: startsWith(matrix.os, 'ubuntu')
@@ -176,7 +176,7 @@ jobs:
         env:
           BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
           SCRIPTS: bitwarden_license/bitwarden-access-connector/scripts
-          ARCHIVE: bw-rotation-daemon-${{ matrix.target }}.tar.gz
+          ARCHIVE: bwac-${{ matrix.target }}.tar.gz
         run: |
           # Staged into one directory first: the pieces come from different places, and a
           # single `tar -C` can only enter one of them. The installer reads templates/
@@ -191,8 +191,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: bw-rotation-daemon-${{ matrix.target }}
-          path: bw-rotation-daemon-${{ matrix.target }}.tar.gz
+          name: bwac-${{ matrix.target }}
+          path: bwac-${{ matrix.target }}.tar.gz
           if-no-files-found: error
 
   ci-pass:
