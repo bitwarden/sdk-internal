@@ -32,6 +32,7 @@ performance-tracing = []
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-autotype = { workspace = true, features = ["wasm"] }
 bitwarden-commercial-vault = { workspace = true, optional = true, features = [
     "wasm",
 ] }
