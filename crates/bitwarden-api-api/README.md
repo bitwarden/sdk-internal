@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`343b7a47c37be4eb21b1fc5702fdbab1e1cffb05`](https://github.com/bitwarden/server/commit/343b7a47c37be4eb21b1fc5702fdbab1e1cffb05)
+  [`aa786fc9cd3803f48e79f15067e910e99d768b69`](https://github.com/bitwarden/server/commit/aa786fc9cd3803f48e79f15067e910e99d768b69)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -583,6 +583,8 @@ All URIs are relative to *https://api.bitwarden.com*
 | _TwoFactorApi_                               | [**put_yubi_key**](docs/TwoFactorApi.md#two_factor_put_yubi_key)                                                                                                 | **PUT** /two-factor/yubikey                                                                              |
 | _TwoFactorApi_                               | [**send_email_login**](docs/TwoFactorApi.md#two_factor_send_email_login)                                                                                         | **POST** /two-factor/send-email-login                                                                    |
 | _TwoFactorApi_                               | [**send_email_setup**](docs/TwoFactorApi.md#two_factor_send_email_setup)                                                                                         | **POST** /two-factor/send-email                                                                          | This endpoint is only used to set-up email two factor authentication. The client must first call `get-email` to obtain a user-verification token, then replay that token here.                                                                                                                                                                                                                                                                                                                                                  |
+| _UserSubscriptionsApi_                       | [**get_account_subscription_preview**](docs/UserSubscriptionsApi.md#get_account_subscription_preview)                                                            | **GET** /account/billing/subscription/preview                                                            |
+| _UserSubscriptionsApi_                       | [**get_account_subscription_upgrade_preview**](docs/UserSubscriptionsApi.md#get_account_subscription_upgrade_preview)                                            | **GET** /account/billing/subscription/upgrade/preview                                                    |
 | _UsersApi_                                   | [**get_account_keys**](docs/UsersApi.md#users_get_account_keys)                                                                                                  | **GET** /users/{id}/keys                                                                                 |
 | _UsersApi_                                   | [**get_public_key**](docs/UsersApi.md#users_get_public_key)                                                                                                      | **GET** /users/{id}/public-key                                                                           |
 | _WebAuthnApi_                                | [**assertion_options**](docs/WebAuthnApi.md#web_authn_assertion_options)                                                                                         | **POST** /webauthn/assertion-options                                                                     |
@@ -753,6 +755,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [DropPasswordHealthReportApplicationRequest](docs/DropPasswordHealthReportApplicationRequest.md)
 - [EmailRequestModel](docs/EmailRequestModel.md)
 - [EmailTokenRequestModel](docs/EmailTokenRequestModel.md)
+- [EmergencyAccessAcceptRequestModel](docs/EmergencyAccessAcceptRequestModel.md)
 - [EmergencyAccessGranteeDetailsResponseModel](docs/EmergencyAccessGranteeDetailsResponseModel.md)
 - [EmergencyAccessGranteeDetailsResponseModelListResponseModel](docs/EmergencyAccessGranteeDetailsResponseModelListResponseModel.md)
 - [EmergencyAccessGrantorDetailsResponseModel](docs/EmergencyAccessGrantorDetailsResponseModel.md)
