@@ -1,8 +1,12 @@
 //! WASM bindings for the Flight Recorder.
 
+use bitwarden_ipc::{Endpoint, RequestError, wasm::JsIpcClient};
 use bitwarden_logging::{
-    FlightRecorderEvent, flight_recorder_count, read_flight_recorder, write_flight_recorder,
+    FlightRecorderEvent, flight_recorder_count,
+    ipc::{FlightRecorderCollectorRole, read_flight_recorder_aggregated},
+    write_flight_recorder,
 };
+use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
 
 use crate::init::{LogLevel, convert_level};
 
@@ -21,12 +25,17 @@ impl FlightRecorderClient {
         Self
     }
 
-    /// Read all events currently in the Flight Recorder buffer.
-    pub fn read(&self) -> Vec<FlightRecorderEvent> {
-        read_flight_recorder()
+    /// Read the Flight Recorder events for this client.
+    ///
+    /// In a context with forwarding enabled, requests the collector's events and appends this
+    /// context's IPC events and events not yet sent. If the collector cannot be reached or does
+    /// not answer before `abort_signal` fires, or within 5 seconds without a signal, only this
+    /// context's events are returned. Elsewhere, reads the local buffer.
+    pub async fn read(&self, abort_signal: Option<AbortSignal>) -> Vec<FlightRecorderEvent> {
+        read_flight_recorder_aggregated(abort_signal.map(|s| s.to_cancellation_token())).await
     }
 
-    /// Get the current event count without reading event contents.
+    /// Get the number of events in this context's buffer without reading their contents.
     pub fn count(&self) -> usize {
         flight_recorder_count()
     }
@@ -44,9 +53,33 @@ impl FlightRecorderClient {
             target,
             message,
             fields: Default::default(),
+            process: None,
         };
         write_flight_recorder(event, level);
     }
+}
+
+/// Make this context a Flight Recorder forwarder: send captured events, including those captured
+/// so far, to the collector at `destination`. Events from the IPC stack itself stay local. Only
+/// the first call has effect.
+#[bitwarden_ffi::wasm_export(js_name = enableFlightRecorderForwarding)]
+pub fn enable_flight_recorder_forwarding(ipc_client: &JsIpcClient, destination: Endpoint) {
+    bitwarden_logging::ipc::enable_flight_recorder_forwarding(
+        ipc_client.client.clone(),
+        destination,
+    );
+}
+
+/// Make this context the Flight Recorder collector for its client, storing events from its
+/// forwarders and answering their read requests.
+#[bitwarden_ffi::wasm_export(js_name = enableFlightRecorderCollection)]
+pub async fn enable_flight_recorder_collection(
+    ipc_client: &JsIpcClient,
+    role: FlightRecorderCollectorRole,
+) -> Result<(), RequestError> {
+    bitwarden_logging::ipc::enable_flight_recorder_collection(ipc_client.client.clone(), role)
+        .await
+        .map_err(RequestError::from)
 }
 
 impl Default for FlightRecorderClient {

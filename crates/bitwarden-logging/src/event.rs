@@ -24,6 +24,11 @@ pub struct FlightRecorderEvent {
     /// Structured fields from the tracing event.
     #[cfg_attr(feature = "wasm", tsify(type = "Record<string, string>"))]
     pub fields: HashMap<String, String>,
+    /// Process that produced the event (e.g. "browser-popup", "desktop-main"). Set by the
+    /// collecting context; `None` for events not yet attributed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub process: Option<String>,
 }
 
 impl From<&tracing::Event<'_>> for FlightRecorderEvent {
@@ -37,6 +42,7 @@ impl From<&tracing::Event<'_>> for FlightRecorderEvent {
             target: event.metadata().target().to_string(),
             message: visitor.message,
             fields: visitor.fields,
+            process: None,
         }
     }
 }
@@ -53,6 +59,7 @@ mod tests {
             target: "test::module".to_string(),
             message: "Test message".to_string(),
             fields: HashMap::new(),
+            process: None,
         };
 
         let json = serde_json::to_string(&event).expect("should serialize");
@@ -78,10 +85,29 @@ mod tests {
             target: "test".to_string(),
             message: "hello".to_string(),
             fields,
+            process: None,
         };
 
         let json = serde_json::to_string(&event).expect("should serialize");
         assert!(json.contains("\"user_id\":\"abc-123\""));
         assert!(json.contains("\"action\":\"login\""));
+    }
+
+    #[test]
+    fn test_event_without_process_omits_field() {
+        let event = FlightRecorderEvent {
+            timestamp: 0,
+            level: "INFO".to_string(),
+            target: "test".to_string(),
+            message: "hello".to_string(),
+            fields: HashMap::new(),
+            process: None,
+        };
+
+        let json = serde_json::to_string(&event).expect("should serialize");
+        assert!(!json.contains("process"));
+        let deserialized: FlightRecorderEvent =
+            serde_json::from_str(&json).expect("should deserialize");
+        assert_eq!(deserialized.process, None);
     }
 }
