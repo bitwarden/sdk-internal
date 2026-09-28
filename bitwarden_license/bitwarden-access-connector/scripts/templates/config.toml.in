@@ -1,4 +1,4 @@
-# bw-rotation-daemon configuration. The installer writes this once and never touches
+# bwac configuration. The installer writes this once and never touches
 # it again; edit it and restart the service.
 #
 # Secrets do not belong here. The daemon treats a config containing a token as a

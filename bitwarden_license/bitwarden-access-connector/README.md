@@ -2,15 +2,15 @@
 
 Bitwarden PAM credential rotation daemon.
 
-This crate provides the `bw-rotation-daemon` binary. It continuously rotates PAM-managed credentials
-by polling the Bitwarden server for claimable rotation jobs, executing each job (resolve credentials
-→ generate password → rotate in the target system → verify → write re-encrypted vault cipher →
-optionally terminate sessions → report outcome), and then returning to the poll loop.
+This crate provides the `bwac` binary. It continuously rotates PAM-managed credentials by polling
+the Bitwarden server for claimable rotation jobs, executing each job (resolve credentials → generate
+password → rotate in the target system → verify → write re-encrypted vault cipher → optionally
+terminate sessions → report outcome), and then returning to the poll loop.
 
 ## Usage
 
 ```
-bw-rotation-daemon run [--config <PATH>]
+bwac run [--config <PATH>]
 ```
 
 All daemon settings live in the TOML configuration file (see
@@ -127,8 +127,8 @@ Log output is written to stderr. The log level is controlled by the `RUST_LOG` e
 (same syntax as `tracing-subscriber`'s `EnvFilter`):
 
 ```sh
-RUST_LOG=debug bw-rotation-daemon run --config /etc/bwrd/config.toml
-RUST_LOG=bitwarden_access_connector=trace,info bw-rotation-daemon run --config /etc/bwrd/config.toml
+RUST_LOG=debug bwac run --config /etc/bwrd/config.toml
+RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwrd/config.toml
 ```
 
 The default level (`info`) produces one log line per lifecycle milestone; `RUST_LOG=debug` adds
