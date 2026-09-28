@@ -1,4 +1,4 @@
-# bitwarden-rotation-daemon
+# bitwarden-access-connector
 
 Bitwarden PAM credential rotation daemon.
 
@@ -128,7 +128,7 @@ Log output is written to stderr. The log level is controlled by the `RUST_LOG` e
 
 ```sh
 RUST_LOG=debug bw-rotation-daemon run --config /etc/bwrd/config.toml
-RUST_LOG=bitwarden_rotation_daemon=trace,info bw-rotation-daemon run --config /etc/bwrd/config.toml
+RUST_LOG=bitwarden_access_connector=trace,info bw-rotation-daemon run --config /etc/bwrd/config.toml
 ```
 
 The default level (`info`) produces one log line per lifecycle milestone; `RUST_LOG=debug` adds

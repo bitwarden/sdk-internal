@@ -495,8 +495,34 @@ checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
 name = "bitwarden-access-connector"
 version = "4.0.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
+ "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-commercial-marker",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-generators",
+ "bitwarden-sensitive-value",
+ "bitwarden-threading",
+ "chrono",
  "clap",
+ "http",
+ "reqwest",
+ "reqwest-middleware",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+ "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -1288,39 +1314,6 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-test",
-]
-
-[[package]]
-name = "bitwarden-rotation-daemon"
-version = "3.0.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bitwarden-api-api",
- "bitwarden-api-base",
- "bitwarden-core",
- "bitwarden-crypto",
- "bitwarden-encoding",
- "bitwarden-generators",
- "bitwarden-sensitive-value",
- "bitwarden-threading",
- "chrono",
- "clap",
- "http",
- "reqwest",
- "reqwest-middleware",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "tokio",
- "toml 0.9.12+spec-1.1.0",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
- "wiremock",
- "zeroize",
 ]
 
 [[package]]

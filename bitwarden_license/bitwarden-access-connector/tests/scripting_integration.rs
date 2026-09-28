@@ -13,7 +13,7 @@
 //! `#[ignore]`d because they need `pwsh` on `PATH`; run them with:
 //!
 //! ```text
-//! cargo test -p bitwarden-rotation-daemon --all-features -- --ignored
+//! cargo test -p bitwarden-access-connector --all-features -- --ignored
 //! ```
 
 mod common;
@@ -155,7 +155,7 @@ async fn run_daemon_with_env(
     let cancel_clone = cancel.clone();
     let cfg = make_cfg(api.uri(), identity.uri(), script_root);
     let handle =
-        tokio::spawn(async move { bitwarden_rotation_daemon::run(cfg, cancel_clone).await });
+        tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
     tokio::time::sleep(settle).await;
     cancel.cancel();
