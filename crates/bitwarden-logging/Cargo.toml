@@ -16,21 +16,38 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
-wasm = ["bitwarden-ffi/wasm", "dep:tsify", "dep:wasm-bindgen"]
+wasm = [
+    "bitwarden-ffi/wasm",
+    "bitwarden-ipc?/wasm",
+    "bitwarden-threading?/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+]
+# Forwarding and collection of events over bitwarden-ipc. Only enabled by the WASM bindings.
+ipc = [
+    "dep:bitwarden-ipc",
+    "dep:bitwarden-threading",
+    "dep:tokio",
+]
 
 [dependencies]
 bitwarden-ffi = { workspace = true }
+bitwarden-ipc = { workspace = true, optional = true }
 bitwarden-logging-macro = { workspace = true }
+bitwarden-threading = { workspace = true, optional = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+tokio = { workspace = true, features = ["sync"], optional = true }
 tracing-subscriber = { workspace = true }
 tsify = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
+bitwarden-ipc = { workspace = true, features = ["test-support"] }
 criterion = "0.8.0"
+tokio = { workspace = true, features = ["macros", "rt", "sync", "test-util", "time"] }
 trybuild = "1.0.101"
 
 [[bench]]

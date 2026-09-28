@@ -65,6 +65,23 @@ impl<T> CircularBuffer<T> {
             .len()
     }
 
+    /// The maximum number of items the buffer holds.
+    #[inline]
+    #[must_use]
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Remove and return all items, oldest first.
+    #[must_use]
+    pub fn take_all(&self) -> Vec<T> {
+        self.buffer
+            .lock()
+            .expect("CircularBuffer mutex poisoned")
+            .drain(..)
+            .collect()
+    }
+
     /// Check if the buffer is empty.
     #[inline]
     #[must_use]
