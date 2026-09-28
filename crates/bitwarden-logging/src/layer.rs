@@ -5,15 +5,20 @@ use std::sync::Arc;
 use tracing::{Event, Subscriber};
 use tracing_subscriber::{Layer, layer::Context};
 
-use crate::{CircularBuffer, FlightRecorderConfig, FlightRecorderEvent};
+use crate::{
+    CircularBuffer, FlightRecorderConfig, FlightRecorderEvent, LocalBufferSink, sink::SinkSlot,
+    suppress::is_suppressed,
+};
 
-/// A tracing subscriber layer that captures log events into a circular buffer.
+/// A tracing subscriber layer that captures log events into the active sink.
 ///
-/// This layer intercepts tracing events and stores them in a thread-safe
-/// buffer for later export. Events from the `bitwarden_logging` target
-/// are filtered out to prevent infinite recursion.
+/// The sink starts as a [`LocalBufferSink`] over the layer's buffer. Events from the
+/// `bitwarden_logging` target, and events emitted inside
+/// [`without_flight_recorder`](crate::without_flight_recorder), are filtered out to prevent
+/// infinite recursion.
 pub struct FlightRecorderLayer {
     buffer: Arc<CircularBuffer<FlightRecorderEvent>>,
+    sink: SinkSlot,
     level: tracing::Level,
 }
 
@@ -31,8 +36,10 @@ impl FlightRecorderLayer {
     #[must_use]
     pub fn new(config: FlightRecorderConfig) -> Self {
         let buffer = Arc::new(CircularBuffer::new(config.buffer_size));
+        let sink = SinkSlot::new(Arc::new(LocalBufferSink::new(Arc::clone(&buffer))));
         Self {
             buffer,
+            sink,
             level: config.level,
         }
     }
@@ -42,6 +49,10 @@ impl FlightRecorderLayer {
     /// This can be used to access the buffer for reading captured events.
     pub fn buffer(&self) -> Arc<CircularBuffer<FlightRecorderEvent>> {
         Arc::clone(&self.buffer)
+    }
+
+    pub(crate) fn sink(&self) -> SinkSlot {
+        self.sink.clone()
     }
 }
 
@@ -62,7 +73,11 @@ where
             return;
         }
 
-        self.buffer.push(event.into());
+        if is_suppressed() {
+            return;
+        }
+
+        self.sink.push(event.into());
     }
 }
 
@@ -137,6 +152,25 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert_eq!(events[0].level, "INFO");
         assert_eq!(events[1].level, "WARN");
+    }
+
+    #[tokio::test]
+    async fn test_layer_skips_suppressed_events() {
+        let config = FlightRecorderConfig::default();
+        let layer = FlightRecorderLayer::new(config);
+        let buffer = layer.buffer();
+
+        let subscriber = tracing_subscriber::registry().with(layer);
+        let _guard = tracing::subscriber::set_default(subscriber);
+        crate::without_flight_recorder(async {
+            tracing::info!(target: "any_crate", "should be skipped");
+        })
+        .await;
+        tracing::info!(target: "any_crate", "should be captured");
+
+        let events = buffer.read();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].message, "should be captured");
     }
 
     #[test]
