@@ -29,6 +29,4 @@ pub use sign_in::{SignInAddress, SignInDomain};
 mod srp;
 mod two_factor;
 pub use two_factor::{TotpResult, TwoFactorUi};
-// The DTO fields are named after the JSON keys they carry; documenting each one adds nothing.
-#[allow(missing_docs)]
 pub mod wire;
