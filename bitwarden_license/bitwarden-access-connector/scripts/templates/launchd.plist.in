@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  bw-rotation-daemon. Mode 0600 because EnvironmentVariables holds the daemon token.
+  bwac. Mode 0600 because EnvironmentVariables holds the daemon token.
 
   Per-target credentials go in that dict, keyed by target system UUID: uppercase the
   UUID, replace hyphens with underscores, append the suffix (TENANT_ID, CLIENT_ID and

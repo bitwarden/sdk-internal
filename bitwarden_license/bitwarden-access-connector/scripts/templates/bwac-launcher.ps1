@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <#
-    Launcher for bw-rotation-daemon, written by Install-RotationDaemon.ps1.
+    Launcher for bwac, written by Install-RotationDaemon.ps1.
 
     It exists for two reasons.
 
