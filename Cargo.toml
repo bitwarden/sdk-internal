@@ -84,6 +84,7 @@ chrono = { version = ">=0.4.34, <0.5", features = [
     "std",
 ], default-features = false }
 ciborium = ">=0.2.2, <0.3"
+clap = { version = ">=4.5.4, <5", features = ["derive"] }
 crypto-bigint = { version = "0.7.5", features = ["alloc"], default-features = false }
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = "3.0.0-pre.7" }

@@ -107,6 +107,7 @@
         "cbc",
         "ciborium",
         "chrono",
+        "clap",
         "data-encoding",
         "dylint-link",
         "dylint_linting",
