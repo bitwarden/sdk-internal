@@ -8,7 +8,7 @@
 //! with an unlock.
 
 use bitwarden_crypto::{
-    Decryptable, KeyId, KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm,
+    Decryptable, EncString, KeyId, KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace},
 };
 use serde::{Deserialize, Serialize};
@@ -205,7 +205,7 @@ impl PinLockSystem<'_> {
             .get_persistent_pin_envelope()
             .await
         else {
-            return Ok(());
+            return self.migrate_afu_pin_if_needed().await;
         };
 
         let envelope_key_id = envelope
@@ -292,6 +292,50 @@ impl PinLockSystem<'_> {
             .map_err(|_| MigrationFailed::Reenrollment)?;
 
         Ok(())
+    }
+
+    /// Brings an AfterFirstUnlock PIN in line with the current user key.
+    ///
+    /// Such a PIN has no persistent envelope, only the encrypted PIN. After a V2 upgrade that PIN
+    /// is still encrypted with the V1 user key (an AES-CBC-HMAC `EncString`), which the V2 user
+    /// key cannot decrypt. It is decrypted via the V1 key from the upgrade token and re-enrolled.
+    async fn migrate_afu_pin_if_needed(&self) -> Result<(), MigrationFailed> {
+        let Some(encrypted_pin) = self.client.km_state_bridge().get_encrypted_pin().await else {
+            return Ok(());
+        };
+
+        // Only a V1 encrypted PIN under a V2 user key needs migrating.
+        let user_key_algorithm = self
+            .key_store()
+            .context()
+            .get_symmetric_key_algorithm(SymmetricKeySlotId::User)
+            .map_err(|_| MigrationFailed::Locked)?;
+        let pin_is_v1 = matches!(encrypted_pin, EncString::Aes256Cbc_HmacSha256_B64 { .. });
+        if user_key_algorithm == SymmetricKeyAlgorithm::Aes256CbcHmac || !pin_is_v1 {
+            return Ok(());
+        }
+
+        let token = self
+            .client
+            .km_state_bridge()
+            .get_v2_upgrade_token()
+            .await
+            .ok_or(MigrationFailed::MissingV2UpgradeToken)?;
+
+        // The unwrapped V1 key only lives in this context, so it is scoped with the decryption.
+        let pin: String = {
+            let mut ctx = self.key_store().context_mut();
+            let v1_slot = token
+                .unwrap_v1(SymmetricKeySlotId::User, &mut ctx)
+                .map_err(|_| MigrationFailed::PinDecryption)?;
+            encrypted_pin
+                .decrypt(&mut ctx, v1_slot)
+                .map_err(|_| MigrationFailed::PinDecryption)?
+        };
+
+        self.set_pin(pin, PinLockType::AfterFirstUnlock)
+            .await
+            .map_err(|_| MigrationFailed::Reenrollment)
     }
 
     /// Refreshes in-memory PIN unlock material after a successful non-PIN unlock.
@@ -1456,5 +1500,111 @@ mod tests {
         system.on_unlock().await;
 
         assert_pin_fully_unenrolled(&client).await;
+    }
+
+    // ------------------------------------------------------------------------------------
+    // AfterFirstUnlock PIN migration
+    //
+    // An AfterFirstUnlock PIN has no persistent envelope, only the encrypted PIN, which a V1 -> V2
+    // upgrade leaves encrypted under the V1 user key.
+    // ------------------------------------------------------------------------------------
+
+    /// The encrypted PIN is re-enrolled under the V2 user key, keeping the AfterFirstUnlock mode.
+    #[tokio::test]
+    async fn migrate_afu_pin_with_v2_user_key_reencrypts_pin() {
+        let pin = "1234";
+        let (client, state) = fresh_v1_state_with_v2_user_key(pin);
+        let bridge = client.km_state_bridge();
+        bridge.set_encrypted_pin(&state.encrypted_pin).await;
+        bridge.set_v2_upgrade_token(&state.token).await;
+
+        let user_key_id = user_key_id(&client);
+        let system = PinLockSystem::with_client(&client);
+        system
+            .migrate_pin_envelope_if_needed()
+            .await
+            .expect("migration succeeds");
+
+        let encrypted_pin = bridge
+            .get_encrypted_pin()
+            .await
+            .expect("encrypted pin present after migration");
+        let ephemeral = bridge
+            .get_ephemeral_pin_envelope()
+            .await
+            .expect("ephemeral envelope present after migration");
+
+        assert_eq!(decrypt_encrypted_pin(&client, &encrypted_pin), pin);
+        assert_envelope_wraps_user_key(&client, &ephemeral, pin, &user_key_id);
+        assert!(bridge.get_persistent_pin_envelope().await.is_none());
+        assert_eq!(
+            system.get_pin_lock_type().await,
+            Some(PinLockType::AfterFirstUnlock),
+        );
+    }
+
+    #[tokio::test]
+    async fn migrate_afu_pin_with_v2_user_key_without_token_fails() {
+        let pin = "1234";
+        let (client, state) = fresh_v1_state_with_v2_user_key(pin);
+        client
+            .km_state_bridge()
+            .set_encrypted_pin(&state.encrypted_pin)
+            .await;
+        // Intentionally omit set_v2_upgrade_token.
+
+        let system = PinLockSystem::with_client(&client);
+        assert_eq!(
+            system.migrate_pin_envelope_if_needed().await,
+            Err(MigrationFailed::MissingV2UpgradeToken),
+        );
+    }
+
+    /// The encrypted PIN already is under the V2 user key.
+    #[tokio::test]
+    async fn migrate_up_to_date_afu_pin_is_noop() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+
+        let bridge = client.km_state_bridge();
+        let encrypted_pin_before = bridge
+            .get_encrypted_pin()
+            .await
+            .expect("encrypted pin present")
+            .to_string();
+
+        system
+            .migrate_pin_envelope_if_needed()
+            .await
+            .expect("migration succeeds");
+
+        let encrypted_pin_after = bridge
+            .get_encrypted_pin()
+            .await
+            .expect("encrypted pin still present")
+            .to_string();
+        assert_eq!(encrypted_pin_before, encrypted_pin_after);
+    }
+
+    /// After a restart, unlocking onto the upgraded key makes the PIN available again.
+    #[tokio::test]
+    async fn on_unlock_restores_afu_pin_after_upgrade() {
+        let pin = "1234";
+        let (client, state) = fresh_v1_state_with_v2_user_key(pin);
+        let bridge = client.km_state_bridge();
+        bridge.set_encrypted_pin(&state.encrypted_pin).await;
+        bridge.set_v2_upgrade_token(&state.token).await;
+
+        let system = PinLockSystem::with_client(&client);
+        assert_eq!(system.get_pin_status().await, PinUnlockStatus::NeedsUnlock);
+
+        system.on_unlock().await;
+
+        assert_eq!(system.get_pin_status().await, PinUnlockStatus::Available);
+        assert!(system.unlock(pin).await.is_ok());
     }
 }
