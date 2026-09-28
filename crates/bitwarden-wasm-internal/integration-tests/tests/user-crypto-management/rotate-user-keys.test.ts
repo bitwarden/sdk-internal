@@ -196,52 +196,74 @@ describe("rotate user keys", () => {
   );
 
   /**
-   * An upgrade rotation carries PIN unlock across: the upgrade token migrates the PIN envelope, so
-   * the other device still unlocks with the same PIN once the rotation reaches it.
+   * An upgrade rotation carries PIN unlock across, for either lock type and either way a device
+   * picks the upgrade up. The upgrade token migrates the PIN enrollment to the new key.
    *
-   *   other    ──unlock(K1)─▶ set_pin ────────────┬── sync ─▶ lock ─▶ unlock(PIN) ──▶ reads
-   *                                               │
-   *   server   ─────────────────────────── K1 ──▶ K2, vault re-encrypted, token issued
-   *                                               │
-   *   rotating ──unlock(K1)──────────────────rotate ─┘
+   *   device   ──unlock(K1)─▶ set_pin ─┬── sync ─▶ [reinit(K2)] ─▶ restart ─▶ unlock(PIN) ──▶ reads
+   *                                    │
+   *   server   ────────────────── K1 ──▶ K2, vault re-encrypted, token issued
+   *                                    │
+   *   rotating ──unlock(K1)──────── rotate
+   *
+   * - `BeforeFirstUnlock` keeps a persistent envelope, so the PIN unlocks straight after restart.
+   * - `AfterFirstUnlock` keeps only the encrypted PIN; a password unlock rebuilds the envelope.
+   * - `reinit` picks the upgrade up in the running session; `restart` only on the next unlock.
    */
-  it(
-    "pin unlock still works after another device rotates",
-    async () => {
-      // 1. A device enrolled in PIN unlock, holding an envelope that survives a lock
-      const seeded = harness.server.seedUserTestVector(V1_VECTOR);
-      const otherDevice = harness.newClientEmulator();
-      await otherDevice.login(seeded.email);
-      await otherDevice.unlock(V1_VECTOR.account.password);
-      await otherDevice
-        .getPasswordManagerClient()
-        .user_crypto_management()
-        .pin_settings()
-        .set_pin(TEST_PIN, "BeforeFirstUnlock");
+  for (const lockType of ["BeforeFirstUnlock", "AfterFirstUnlock"] as const) {
+    for (const pickup of ["reinit", "restart"] as const) {
+      // PM-44163: the AfterFirstUnlock encrypted PIN is never migrated off the V1 key.
+      const test = lockType === "AfterFirstUnlock" ? it.failing : it;
 
-      // 2. A second device upgrades the user to v2 encryption
-      const rotatingDevice = harness.newClientEmulator();
-      await rotatingDevice.login(seeded.email);
-      await rotatingDevice.unlock(V1_VECTOR.account.password);
-      await rotate(
-        rotatingDevice.getPasswordManagerClient(),
-        V1_VECTOR.account.password,
-        "CreateIfNeeded",
+      test(
+        `${lockType} pin unlock survives an upgrade picked up by ${pickup}`,
+        async () => {
+          // 1. A device enrolled in PIN unlock
+          const seeded = harness.server.seedUserTestVector(V1_VECTOR);
+          const device = harness.newClientEmulator();
+          await device.login(seeded.email);
+          await device.unlock(V1_VECTOR.account.password);
+          await device
+            .getPasswordManagerClient()
+            .user_crypto_management()
+            .pin_settings()
+            .set_pin(TEST_PIN, lockType);
+
+          // 2. A second device upgrades the user to v2 encryption
+          const rotatingDevice = harness.newClientEmulator();
+          await rotatingDevice.login(seeded.email);
+          await rotatingDevice.unlock(V1_VECTOR.account.password);
+          await rotate(
+            rotatingDevice.getPasswordManagerClient(),
+            V1_VECTOR.account.password,
+            "CreateIfNeeded",
+          );
+
+          // 3. The first device picks the upgrade up the way a push notification would
+          await device.sync(seeded.email);
+          if (pickup === "reinit") {
+            await device.reinit();
+          }
+
+          // 4. Restart. An AfterFirstUnlock PIN needs another unlock method first.
+          await device.lock();
+          if (lockType === "AfterFirstUnlock") {
+            await device.unlock(V1_VECTOR.account.password);
+          }
+
+          // 5. Verify the PIN is available and unlocks
+          const pinSettings = () =>
+            device.getPasswordManagerClient().user_crypto_management().pin_settings();
+          expect(await pinSettings().get_status()).toBe("Available");
+          await device.unlockWith({ pinState: { pin: TEST_PIN } });
+
+          // 6. Verify the PIN enrollment moved to the new key, and the vault reads
+          expect(await pinSettings().get_pin()).toBe(TEST_PIN);
+          await assertVaultDecrypts(device, seeded);
+        },
+        TIMEOUT,
       );
-
-      // 3. The other device picks the rotation up the way a push notification would, then
-      //    restarts onto the new key
-      await otherDevice.sync(seeded.email);
-      await otherDevice.lock();
-
-      // 4. Verify the PIN still unlocks, over the envelope the rotation left in state
-      await otherDevice.unlockWith({ pinState: { pin: TEST_PIN } });
-
-      // 5. Verify the vault reads, with the plaintext unchanged
-      await assertVaultDecrypts(otherDevice, seeded);
-    },
-    TIMEOUT,
-  );
+    }
+  }
 
   /**
    * A second session, unlocked before the rotation, is left holding the old user key. It only
