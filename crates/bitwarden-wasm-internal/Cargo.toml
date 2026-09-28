@@ -49,7 +49,7 @@ bitwarden-emergency-access = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
 bitwarden-ffi = { workspace = true, features = ["wasm"] }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
-bitwarden-logging = { workspace = true, features = ["wasm"] }
+bitwarden-logging = { workspace = true, features = ["ipc", "wasm"] }
 bitwarden-managed-settings = { workspace = true, features = ["wasm"] }
 bitwarden-member-administration = { workspace = true, features = ["wasm"] }
 # This dependency is not used directly, but we need to include it in order to
