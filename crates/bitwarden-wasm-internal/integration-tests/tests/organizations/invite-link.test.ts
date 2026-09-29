@@ -439,8 +439,8 @@ describe("invite link client", () => {
         const error = await rejection(accept(), isAcceptInviteLinkError);
 
         expect(error.variant).toBe("Unknown");
-        // The unrecognized code is carried in the message so it can still be logged.
-        expect(error.message).toContain("some_future_code");
+        // The server's English description is surfaced for display rather than the raw code.
+        expect(error.message).toBe("Some detail.");
       });
 
       it("keeps a legacy error response as Api", async () => {

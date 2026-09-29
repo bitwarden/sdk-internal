@@ -90,8 +90,9 @@ impl InviteLinkUserClient {
     /// Server-reported failures are mapped onto typed variants: a `404` from any of the acceptance
     /// endpoints becomes [`AcceptInviteLinkError::LinkNotFound`], and a `400` validation
     /// problem becomes the variant matching its error code (or
-    /// [`AcceptInviteLinkError::Unknown`] for an unrecognized code). Responses in the
-    /// legacy error format carry no code and remain [`AcceptInviteLinkError::Api`].
+    /// [`AcceptInviteLinkError::Unknown`], carrying the server's English description, for an
+    /// unrecognized code). Responses in the legacy error format carry no code and remain
+    /// [`AcceptInviteLinkError::Api`].
     pub async fn accept_and_optionally_confirm(
         &self,
         organization_id: OrganizationId,
@@ -614,7 +615,7 @@ mod tests {
         .await;
 
         assert!(
-            matches!(error, AcceptInviteLinkError::Unknown(code) if code == "some_future_code")
+            matches!(error, AcceptInviteLinkError::Unknown(detail) if detail == "Something new.")
         );
     }
 

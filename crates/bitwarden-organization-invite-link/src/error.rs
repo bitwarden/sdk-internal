@@ -5,7 +5,7 @@ use bitwarden_organization_crypto::invite::InviteKeyBundleError;
 use http::StatusCode;
 use thiserror::Error;
 
-use crate::validation_problem::ValidationProblem;
+use crate::validation_problem::{ValidationError, ValidationProblem};
 
 /// Errors returned from invite link client operations, except accepting an invite (see
 /// [`AcceptInviteLinkError`]).
@@ -106,10 +106,15 @@ pub enum AcceptInviteLinkError {
     /// The user is already an admin of a free organization.
     #[error("The user can only be an admin of one free organization")]
     OnlyOneFreeOrganizationAdminAllowed,
-    /// The server returned a validation error code this SDK version does not recognize.
-    #[error("Unrecognized invite link error code `{0}`")]
+    /// The server returned a validation error code this SDK version does not recognize. Carries
+    /// the server's human-readable English description of the error, suitable for display; the
+    /// unrecognized code itself is logged.
+    #[error("{0}")]
     Unknown(String),
 }
+
+/// Displayed for an unrecognized error code when the server provides no `detail` for it.
+const UNKNOWN_ERROR_FALLBACK_DETAIL: &str = "An unexpected error occurred.";
 
 impl AcceptInviteLinkError {
     /// Maps an error from an invite link endpoint (fetching the invite, accepting, or confirming)
@@ -128,15 +133,16 @@ impl AcceptInviteLinkError {
             return Self::LinkNotFound;
         }
 
-        match ValidationProblem::from_api_error(&error).and_then(ValidationProblem::into_first_code)
+        match ValidationProblem::from_api_error(&error)
+            .and_then(ValidationProblem::into_first_error)
         {
-            Some(code) => Self::from_code(code),
+            Some(error) => Self::from_validation_error(error),
             None => Self::Api(error),
         }
     }
 
-    fn from_code(code: String) -> Self {
-        match code.as_str() {
+    fn from_validation_error(error: ValidationError) -> Self {
+        match error.code.as_str() {
             "invite_link_not_available" => Self::InviteLinkNotAvailable,
             "invite_link_confirmation_not_supported" => Self::InviteLinkConfirmationNotSupported,
             "email_not_verified" => Self::EmailNotVerified,
@@ -151,7 +157,14 @@ impl AcceptInviteLinkError {
             "single_organization_policy" => Self::SingleOrganizationPolicy,
             "two_factor_required_for_membership" => Self::TwoFactorRequiredForMembership,
             "only_one_free_organization_admin_allowed" => Self::OnlyOneFreeOrganizationAdminAllowed,
-            _ => Self::Unknown(code),
+            code => {
+                tracing::warn!(code, "Unrecognized invite link error code");
+                Self::Unknown(
+                    error
+                        .detail
+                        .unwrap_or_else(|| UNKNOWN_ERROR_FALLBACK_DETAIL.to_owned()),
+                )
+            }
         }
     }
 }
@@ -218,10 +231,22 @@ mod tests {
     }
 
     #[test]
-    fn maps_unmapped_code_to_unknown() {
+    fn maps_unmapped_code_to_unknown_with_detail() {
         let error = map(400, &validation_problem("code", "some_future_code"));
         assert!(
-            matches!(error, AcceptInviteLinkError::Unknown(code) if code == "some_future_code")
+            matches!(&error, AcceptInviteLinkError::Unknown(detail) if detail == "Some detail.")
+        );
+        assert_eq!(error.to_string(), "Some detail.");
+    }
+
+    #[test]
+    fn maps_unmapped_code_without_detail_to_unknown_with_fallback() {
+        let error = map(
+            400,
+            r#"{"type":"validation_error","status":400,"errors":{"code":[{"type":"some_future_code"}]}}"#,
+        );
+        assert!(
+            matches!(error, AcceptInviteLinkError::Unknown(detail) if detail == UNKNOWN_ERROR_FALLBACK_DETAIL)
         );
     }
 

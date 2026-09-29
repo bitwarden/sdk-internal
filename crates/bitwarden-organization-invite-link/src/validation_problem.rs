@@ -23,13 +23,18 @@ use serde::Deserialize;
 /// The subset of the server's RFC 7807 validation problem needed to extract error codes.
 #[derive(Deserialize)]
 pub(crate) struct ValidationProblem {
-    errors: BTreeMap<String, Vec<ValidationErrorCode>>,
+    errors: BTreeMap<String, Vec<ValidationError>>,
 }
 
-#[derive(Deserialize)]
-struct ValidationErrorCode {
+/// A single error reported in a [`ValidationProblem`].
+#[derive(Debug, Deserialize)]
+pub(crate) struct ValidationError {
+    /// The stable, machine-readable error code.
     #[serde(rename = "type")]
-    code: String,
+    pub(crate) code: String,
+    /// A human-readable English description of the error, suitable for display when the code is
+    /// not recognized.
+    pub(crate) detail: Option<String>,
 }
 
 impl ValidationProblem {
@@ -46,16 +51,12 @@ impl ValidationProblem {
         serde_json::from_str(&content.message).ok()
     }
 
-    /// Returns the first error code in the problem, or `None` if it carries no errors.
+    /// Returns the first error in the problem, or `None` if it carries no errors.
     ///
     /// Properties are visited in alphabetical order, so the result is deterministic when the
     /// server reports errors under more than one property.
-    pub(crate) fn into_first_code(self) -> Option<String> {
-        self.errors
-            .into_values()
-            .flatten()
-            .next()
-            .map(|error| error.code)
+    pub(crate) fn into_first_error(self) -> Option<ValidationError> {
+        self.errors.into_values().flatten().next()
     }
 }
 
@@ -78,14 +79,30 @@ pub(crate) mod tests {
         )
     }
 
+    fn first_error(status: u16, body: &str) -> Option<ValidationError> {
+        ValidationProblem::from_api_error(&response_error(status, body))?.into_first_error()
+    }
+
     fn first_code(status: u16, body: &str) -> Option<String> {
-        ValidationProblem::from_api_error(&response_error(status, body))?.into_first_code()
+        first_error(status, body).map(|error| error.code)
     }
 
     #[test]
-    fn parses_first_code() {
-        let code = first_code(400, &validation_problem("code", "some_code"));
-        assert_eq!(code.as_deref(), Some("some_code"));
+    fn parses_first_error() {
+        let error = first_error(400, &validation_problem("code", "some_code")).unwrap();
+        assert_eq!(error.code, "some_code");
+        assert_eq!(error.detail.as_deref(), Some("Some detail."));
+    }
+
+    #[test]
+    fn parses_error_without_detail() {
+        let error = first_error(
+            400,
+            r#"{"type":"validation_error","status":400,"errors":{"code":[{"type":"some_code"}]}}"#,
+        )
+        .unwrap();
+        assert_eq!(error.code, "some_code");
+        assert_eq!(error.detail, None);
     }
 
     #[test]
