@@ -1,9 +1,6 @@
-//! Maps a 1Password category onto a typed Bitwarden cipher, reporting what it read.
-//!
-//! Only Login has a mapping so far. The remaining categories fall back to a secure note, which
-//! loses nothing: [`super::field`] keeps every field they carry.
+//! The Login category, and the pieces every category that lands on a login shares.
 
-use bitwarden_exporters::{CipherType, Login, LoginUri, SecureNote, SecureNoteType};
+use bitwarden_exporters::{Login, LoginUri};
 use itertools::Itertools;
 
 use super::{
@@ -21,7 +18,7 @@ pub(super) fn login(overview: &VaultItemOverview, details: &VaultItemDetails) ->
     let mut login = Login {
         username: designation(details, "username"),
         password: designation(details, "password"),
-        login_uris: login_uris(overview),
+        login_uris: login_uris(website_addresses(overview)),
         totp: totp.as_ref().map(|(_, secret)| secret.clone()),
         fido2_credentials: None,
     };
@@ -33,15 +30,6 @@ pub(super) fn login(overview: &VaultItemOverview, details: &VaultItemDetails) ->
     };
 
     (login, claimed)
-}
-
-pub(super) fn secure_note() -> (CipherType, Claimed) {
-    (
-        CipherType::SecureNote(Box::new(SecureNote {
-            r#type: SecureNoteType::Generic,
-        })),
-        Claimed::default(),
-    )
 }
 
 /// Reads the item's first one-time password, with the position of the field it came from. A
@@ -64,18 +52,22 @@ pub(super) fn first_totp(details: &VaultItemDetails) -> Option<(usize, String)> 
         })
 }
 
-/// Collects the item's website addresses. 1Password keeps the primary one in `url` and repeats it
-/// in `URLs`, so identical addresses collapse into a single URI.
-fn login_uris(overview: &VaultItemOverview) -> Vec<LoginUri> {
-    let all = overview.url.iter().chain(
+/// The item's website addresses. 1Password keeps the primary one in `url` and repeats it in
+/// `URLs`.
+pub(super) fn website_addresses(overview: &VaultItemOverview) -> impl Iterator<Item = &str> {
+    overview.url.as_deref().into_iter().chain(
         overview
             .urls
             .iter()
             .flatten()
-            .filter_map(|url| url.url.as_ref()),
-    );
+            .filter_map(|url| url.url.as_deref()),
+    )
+}
 
-    all.filter_map(|url| non_blank(url))
+/// Turns addresses into login URIs, collapsing an address given twice into a single URI.
+pub(super) fn login_uris<'a>(addresses: impl Iterator<Item = &'a str>) -> Vec<LoginUri> {
+    addresses
+        .filter_map(non_blank)
         .unique()
         .map(|uri| LoginUri {
             uri: Some(uri.to_string()),

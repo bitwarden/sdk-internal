@@ -4,17 +4,20 @@
 //! so these tests see exactly what an import would. Synthetic details cover the shapes the capture
 //! has no example of.
 
-use bitwarden_exporters::{CipherType, ImportingCipher, Login};
+use bitwarden_exporters::{Card, CipherType, Identity, ImportingCipher, Login, SshKey};
 
 use super::{
-    category::{first_totp, login},
+    card::{card, card_brand},
     claimed::Claimed,
     convert,
+    credential::password,
     field::{HIDDEN_FIELD, fields_from_details},
+    identity::identity,
+    login::{first_totp, login},
+    ssh_key::ssh_key,
 };
 use crate::{
     importers::onepassword::access::{
-        model::ItemCategory,
         replay::download_captured_account,
         wire::{VaultItemDetails, VaultItemOverview},
     },
@@ -39,6 +42,27 @@ fn login_of(cipher: &ImportingCipher) -> &Login {
     match &cipher.r#type {
         CipherType::Login(login) => login,
         other => panic!("{} is a {other}, expected a login", cipher.name),
+    }
+}
+
+fn card_of(cipher: &ImportingCipher) -> &Card {
+    match &cipher.r#type {
+        CipherType::Card(card) => card,
+        other => panic!("{} is a {other}, expected a card", cipher.name),
+    }
+}
+
+fn identity_of(cipher: &ImportingCipher) -> &Identity {
+    match &cipher.r#type {
+        CipherType::Identity(identity) => identity,
+        other => panic!("{} is a {other}, expected an identity", cipher.name),
+    }
+}
+
+fn ssh_key_of(cipher: &ImportingCipher) -> &SshKey {
+    match &cipher.r#type {
+        CipherType::SshKey(key) => key,
+        other => panic!("{} is a {other}, expected an ssh key", cipher.name),
     }
 }
 
@@ -100,6 +124,47 @@ fn section_field(kind: &str, value: serde_json::Value) -> serde_json::Value {
             {"n": "id", "t": "the field", "k": kind, "v": value}
         ]}]
     })
+}
+
+/// An ed25519 key in the form 1Password stores it and one in the form OpenSSH writes it.
+const PKCS8_KEY: &str = "-----BEGIN PRIVATE KEY-----\n\
+    MFECAQEwBQYDK2VwBCIEIDY6/OAdDr3PbDss9NsLXK4CxiKUvz5/R9uvjtIzj4Sz\n\
+    gSEAxsxm1xpZ/4lKIRYm0JrJ5gRZUh7H24/YT/0qGVGzPa0=\n\
+    -----END PRIVATE KEY-----\n";
+const OPENSSH_KEY: &str = "-----BEGIN OPENSSH PRIVATE KEY-----\n\
+    b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\n\
+    QyNTUxOQAAACAyQo22TXXNqvF+L8jUSSNeu8UqrsDjvf9pwIwDC9ML6gAAAJDSHpL60h6S\n\
+    +gAAAAtzc2gtZWQyNTUxOQAAACAyQo22TXXNqvF+L8jUSSNeu8UqrsDjvf9pwIwDC9ML6g\n\
+    AAAECLdlFLIJbEiFo/f0ROdXMNZAPHGPNhvbbftaPsUZEjaDJCjbZNdc2q8X4vyNRJI167\n\
+    xSquwOO9/2nAjAML0wvqAAAAB3Rlc3RrZXkBAgMEBQY=\n\
+    -----END OPENSSH PRIVATE KEY-----\n";
+
+/// A key backed by a security key, which the vault has no way to use.
+const SK_KEY: &str = "-----BEGIN OPENSSH PRIVATE KEY-----\n\
+    b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAASgAAABpzay1zc2\n\
+    gtZWQyNTUxOUBvcGVuc3NoLmNvbQAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n\
+    AAAAAAAAAARzc2g6AAAAiHneT6B53k+gAAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY2\n\
+    9tAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABHNzaDoAAAAAEAAA\n\
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAE3NrLXRlc3RAZXhhbXBsZS5jb20BAgMEBQY=\n\
+    -----END OPENSSH PRIVATE KEY-----\n";
+
+/// An SSH key field the way 1Password sends it: the value repeats the private key, and the public
+/// key and fingerprint are only in the attributes.
+fn ssh_field(id: &str, private_key: &str) -> serde_json::Value {
+    serde_json::json!({
+        "n": id, "t": "private key", "k": "sshKey", "v": private_key,
+        "a": {"sshKeyAttributes": {
+            "privateKey": private_key,
+            "publicKey": "ssh-ed25519 AAAA stored",
+            "fingerprint": "SHA256:stored",
+        }},
+    })
+}
+
+fn ssh_details(private_key: &str) -> VaultItemDetails {
+    details_from_json(serde_json::json!({
+        "sections": [{"fields": [ssh_field("private_key", private_key)]}]
+    }))
 }
 
 #[tokio::test]
@@ -408,13 +473,12 @@ fn a_date_lands_on_the_same_day_from_either_side_of_utc() {
     }
 }
 
-/// 1Password stores a month/year as `202811`, which no reader would guess at.
+/// 1Password stores a month/year as `202401`, which no reader would guess at.
 #[tokio::test]
 async fn a_month_year_renders_as_year_and_month() {
     let parsed = converted().await;
     let fields = fields_of(cipher(&parsed, "Card: monthYear expiry, CVV and PIN"));
 
-    assert!(fields.contains(&(0, "expiry date", "2028-11")));
     assert!(fields.contains(&(0, "valid from", "2024-01")));
 }
 
@@ -459,24 +523,405 @@ async fn an_attachment_keeps_only_its_name() {
     );
 }
 
-/// Only Login has a mapping so far. Everything else arrives as a note whose fields carry the
-/// whole item, rather than failing the import or vanishing.
+/// Every category built around a credential lands on the same three login slots, each reading
+/// the ids its own template uses.
 #[tokio::test]
-async fn every_other_category_becomes_a_secure_note() {
-    let vaults = download_captured_account().await;
-    let others: Vec<String> = vaults
-        .iter()
-        .flat_map(|vault| &vault.items)
-        .filter(|item| item.category != ItemCategory::Login)
-        .map(|item| item.overview.title.clone().expect("a title"))
-        .collect();
-    assert_eq!(others.len(), 15);
+async fn a_credential_category_becomes_a_login() {
+    let parsed = converted().await;
 
-    let parsed = convert(vaults);
-    for title in others {
+    let server = login_of(cipher(
+        &parsed,
+        "Server: credentials plus two extra sections",
+    ));
+    assert_eq!(server.username.as_deref(), Some("root"));
+    assert_eq!(server.password.as_deref(), Some("serverpass"));
+    assert_eq!(uris(server), ["https://server.example.com"]);
+
+    let email = login_of(cipher(&parsed, "Email account: POP and SMTP credentials"));
+    assert_eq!(email.username.as_deref(), Some("mail@example.com"));
+    assert_eq!(email.password.as_deref(), Some("pop-secret"));
+    assert_eq!(uris(email), ["https://mail.example.com"]);
+}
+
+/// A database is reachable by its host, which is not a URL until the shared sanitizer makes it
+/// one. A router's address is an IP, which becomes plain http.
+#[tokio::test]
+async fn a_host_or_an_ip_becomes_the_login_address() {
+    let parsed = converted().await;
+
+    let database = login_of(cipher(&parsed, "Database: host, port and credentials"));
+    assert_eq!(database.username.as_deref(), Some("dbuser"));
+    assert_eq!(uris(database), ["https://db.example.com"]);
+
+    let router = login_of(cipher(
+        &parsed,
+        "Wireless router: base station and network passwords",
+    ));
+    assert_eq!(uris(router), ["http://192.168.1.1"]);
+}
+
+/// A router has no account name, and its own password is the base station's. The wireless key
+/// is a field of its own and stays with the item.
+#[tokio::test]
+async fn a_wireless_router_keeps_its_second_password() {
+    let parsed = converted().await;
+    let cipher = cipher(
+        &parsed,
+        "Wireless router: base station and network passwords",
+    );
+
+    assert_eq!(login_of(cipher).username, None);
+    assert_eq!(login_of(cipher).password.as_deref(), Some("admin-secret"));
+
+    let fields = fields_of(cipher);
+    assert!(fields.contains(&(1, "wireless network password", "wifi-secret")));
+    assert!(fields.contains(&(1, "attached storage password", "disk-secret")));
+    assert!(fields.contains(&(0, "network name", "TestNet")));
+}
+
+/// 1Password stores its whole category template on every item, so most fields arrive empty.
+/// The API credential has seven: three fill login slots, three were filled in by hand, and the
+/// empty one is gone.
+#[tokio::test]
+async fn an_item_keeps_only_the_fields_it_filled_in() {
+    let parsed = converted().await;
+    let cipher = cipher(&parsed, "API credential: concealed value and two dates");
+    let login = login_of(cipher);
+
+    assert_eq!(login.username.as_deref(), Some("svc-account"));
+    assert_eq!(login.password.as_deref(), Some("sk-test-abc123xyz"));
+    assert_eq!(uris(login), ["https://api.example.com"]);
+    assert_eq!(
+        fields_of(cipher),
+        [
+            (0, "filename", "service-account.json"),
+            (0, "valid from", "2026-01-05"),
+            (0, "expires", "2027-06-30"),
+        ]
+    );
+}
+
+/// A Password item has no fields at all: its secret is in the details.
+#[tokio::test]
+async fn a_password_item_takes_its_secret_from_the_details() {
+    let parsed = converted().await;
+    let cipher = cipher(&parsed, "Password: secret in details plus a custom section");
+    let login = login_of(cipher);
+
+    assert_eq!(login.username, None);
+    assert_eq!(login.password.as_deref(), Some("Sup3rS3cret!"));
+    assert_eq!(
+        fields_of(cipher),
+        [
+            (0, "plain note", "a text field on a password item"),
+            (1, "hidden value", "s3cret-on-a-password-item"),
+        ]
+    );
+}
+
+/// A Password item can carry website addresses like a login, and the login it becomes needs them
+/// to autofill. The captured one has none.
+#[test]
+fn a_password_item_keeps_its_website_addresses() {
+    let overview: VaultItemOverview = serde_json::from_value(serde_json::json!({
+        "url": "https://vault.example.com",
+        "URLs": [
+            {"u": "https://vault.example.com"},
+            {"l": "admin", "u": "admin.example.com"},
+        ],
+    }))
+    .expect("valid overview");
+
+    let (login, _) = password(&overview, &details_from_json(serde_json::json!({})));
+
+    assert_eq!(
+        uris(&login),
+        ["https://vault.example.com", "https://admin.example.com"]
+    );
+}
+
+#[tokio::test]
+async fn an_identity_fills_the_slots_bitwarden_has() {
+    let parsed = converted().await;
+    let cipher = cipher(
+        &parsed,
+        "Identity: name, phones, birth date and internet details",
+    );
+    let identity = identity_of(cipher);
+
+    assert_eq!(identity.first_name.as_deref(), Some("Jane"));
+    assert_eq!(identity.middle_name.as_deref(), Some("Q"));
+    assert_eq!(identity.last_name.as_deref(), Some("Tester"));
+    assert_eq!(identity.company.as_deref(), Some("Test Corp"));
+    assert_eq!(identity.email.as_deref(), Some("jane.tester@example.com"));
+    assert_eq!(identity.phone.as_deref(), Some("+1 555 0100"));
+    assert_eq!(identity.username.as_deref(), Some("jane.tester"));
+
+    // 1Password's template is far wider than Bitwarden's, so the rest rides along.
+    let fields = fields_of(cipher);
+    assert!(fields.contains(&(0, "birth date", "1990-03-15")));
+    assert!(fields.contains(&(0, "job title", "Senior Tester")));
+    assert!(fields.contains(&(0, "cell", "+1 555 0102")));
+    assert!(fields.contains(&(0, "skype", "jane.tester")));
+    // The claimed ones are not repeated.
+    assert!(!fields.iter().any(|(_, name, _)| *name == "first name"));
+    assert!(!fields.iter().any(|(_, name, _)| *name == "email"));
+}
+
+/// 1Password keeps the whole address in one field. Its five parts each have a slot, so none of
+/// them is left to become a custom field. The captured account has no filled address: the
+/// 1Password CLI cannot write one.
+#[test]
+fn an_identity_address_fills_the_address_slots() {
+    let details = details_from_json(serde_json::json!({
+        "sections": [{"name": "address", "title": "Address", "fields": [
+            {"n": "address", "t": "address", "k": "address", "v": {
+                "street": "221B Baker Street",
+                "city": "London",
+                "state": "Greater London",
+                "zip": "NW1 6XE",
+                "country": "gb",
+            }}
+        ]}]
+    }));
+
+    let (identity, claimed) = identity(&details);
+
+    assert_eq!(identity.address1.as_deref(), Some("221B Baker Street"));
+    assert_eq!(identity.city.as_deref(), Some("London"));
+    assert_eq!(identity.state.as_deref(), Some("Greater London"));
+    assert_eq!(identity.postal_code.as_deref(), Some("NW1 6XE"));
+    assert_eq!(identity.country.as_deref(), Some("gb"));
+    assert_eq!(rendered(&details, &claimed), []);
+}
+
+/// A part with no slot would be lost with the claim, so such an address stays whole in the
+/// custom fields. A part that is not text still fills its slot.
+#[test]
+fn an_identity_address_is_claimed_only_when_every_part_has_a_slot() {
+    let address = |parts: serde_json::Value| {
+        details_from_json(serde_json::json!({
+            "sections": [{"fields": [{"n": "address", "t": "address", "k": "address", "v": parts}]}]
+        }))
+    };
+
+    let numeric_zip = address(serde_json::json!({"street": "Main St", "zip": 12345}));
+    let (mapped, claimed) = identity(&numeric_zip);
+    assert_eq!(mapped.postal_code.as_deref(), Some("12345"));
+    assert_eq!(rendered(&numeric_zip, &claimed), []);
+
+    let unknown_part = address(serde_json::json!({"street": "Main St", "region": "North"}));
+    let (mapped, claimed) = identity(&unknown_part);
+    assert_eq!(mapped.address1, None);
+    assert_eq!(
+        rendered(&unknown_part, &claimed),
+        [
+            (0, "street".to_string(), "Main St".to_string()),
+            (0, "region".to_string(), "North".to_string()),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_card_fills_its_typed_slots() {
+    let parsed = converted().await;
+    let cipher = cipher(&parsed, "Card: monthYear expiry, CVV and PIN");
+    let card = card_of(cipher);
+
+    assert_eq!(card.cardholder_name.as_deref(), Some("Jane Q. Tester"));
+    assert_eq!(card.number.as_deref(), Some("4111111111111111"));
+    assert_eq!(card.code.as_deref(), Some("123"));
+    // 1Password sends `202811`, which Bitwarden keeps as two values.
+    assert_eq!(card.exp_month.as_deref(), Some("11"));
+    assert_eq!(card.exp_year.as_deref(), Some("2028"));
+    // The item leaves its card type empty, so there is no brand to map.
+    assert_eq!(card.brand, None);
+
+    // Everything the card type has no room for stays with the item.
+    let fields = fields_of(cipher);
+    assert!(fields.contains(&(0, "valid from", "2024-01")));
+    assert!(fields.contains(&(1, "PIN", "1357")));
+    assert!(fields.contains(&(0, "interest rate", "19.9%")));
+    assert!(!fields.iter().any(|(_, name, _)| *name == "number"));
+    assert!(!fields.iter().any(|(_, name, _)| *name == "expiry date"));
+}
+
+/// 1Password writes its own card type ids, so `mc` has to become `Mastercard` rather than
+/// reaching the vault as it stands. An id with no Bitwarden brand keeps its own field.
+#[test]
+fn a_card_type_maps_onto_a_bitwarden_brand() {
+    assert_eq!(card_brand("visa").as_deref(), Some("Visa"));
+    assert_eq!(card_brand("mc").as_deref(), Some("Mastercard"));
+    assert_eq!(card_brand("americanexpress").as_deref(), Some("Amex"));
+    assert_eq!(card_brand("diners").as_deref(), Some("Diners Club"));
+    assert_eq!(card_brand("jcb").as_deref(), Some("JCB"));
+
+    let details = details_from_json(serde_json::json!({
+        "sections": [{"fields": [
+            {"n": "type", "t": "type", "k": "cctype", "v": "mercadolivre"}
+        ]}]
+    }));
+    let (card, claimed) = card(&details);
+
+    assert_eq!(card.brand, None);
+    assert_eq!(
+        rendered(&details, &claimed),
+        [(0, "type".to_string(), "mercadolivre".to_string())]
+    );
+}
+
+/// The public key and the fingerprint are only ever in the field's attributes, so a mapping that
+/// read the value alone would lose both. The captured key is PKCS#8 and arrives as OpenSSH, with
+/// the fingerprint 1Password showed.
+#[tokio::test]
+async fn an_ssh_key_takes_its_material_from_the_field_attributes() {
+    let parsed = converted().await;
+    let cipher = cipher(&parsed, "SSH key: ed25519 with a custom section");
+    let key = ssh_key_of(cipher);
+
+    assert!(
+        key.private_key
+            .starts_with("-----BEGIN OPENSSH PRIVATE KEY-----")
+    );
+    assert!(key.public_key.starts_with("ssh-ed25519 "));
+    assert_eq!(
+        key.fingerprint,
+        "SHA256:FlyEkMObqGorzjukxrU4+K89uD9ODaeeQUVMvQDGnk8"
+    );
+    // The key field was claimed; the item's own section survives beside it.
+    assert_eq!(
+        fields_of(cipher),
+        [(0, "purpose", "deploy key for the test host")]
+    );
+}
+
+#[tokio::test]
+async fn an_rsa_key_maps_the_same_way() {
+    let parsed = converted().await;
+    let key = ssh_key_of(cipher(&parsed, "SSH key: RSA 4096"));
+
+    assert!(key.public_key.starts_with("ssh-rsa "));
+    assert_eq!(
+        key.fingerprint,
+        "SHA256:iykJ4i2Txk1Owsd9HT6cf5+n546m+q1Ikr4LtapwFBY"
+    );
+}
+
+/// 1Password stores a private key as PKCS#8, which neither the SSH agent nor Credential Exchange
+/// reads, so a key arrives in OpenSSH form whichever way it was stored.
+#[test]
+fn a_key_in_either_form_becomes_a_usable_openssh_key() {
+    for private_key in [PKCS8_KEY, OPENSSH_KEY] {
+        let details = ssh_details(private_key);
+        let (key, claimed) = ssh_key(&details).expect("an ssh key");
+
         assert!(
-            matches!(cipher(&parsed, &title).r#type, CipherType::SecureNote(_)),
-            "{title} has a mapping now, give it a test of its own"
+            key.private_key
+                .starts_with("-----BEGIN OPENSSH PRIVATE KEY-----")
+        );
+        assert!(bitwarden_ssh::export_pkcs8_der_key(&key.private_key).is_ok());
+        assert!(key.public_key.starts_with("ssh-ed25519 "));
+        assert!(key.fingerprint.starts_with("SHA256:"));
+        // The key field is spoken for, so none of its material is repeated.
+        assert_eq!(rendered(&details, &claimed), []);
+    }
+}
+
+/// A key in a form the vault cannot use stays a note, with its material in the fields rather than
+/// lost. The value repeats the private key and is not kept twice.
+#[test]
+fn a_key_the_vault_cannot_use_keeps_its_material_in_the_note() {
+    for private_key in ["not a key", SK_KEY] {
+        let details = ssh_details(private_key);
+
+        assert!(ssh_key(&details).is_none());
+        assert_eq!(
+            rendered(&details, &Claimed::default()),
+            [
+                (1, "private key".to_string(), private_key.to_string()),
+                (
+                    0,
+                    "public key".to_string(),
+                    "ssh-ed25519 AAAA stored".to_string()
+                ),
+                (0, "fingerprint".to_string(), "SHA256:stored".to_string()),
+            ]
+        );
+    }
+}
+
+/// The template's own key field arrives empty when the key sits in a section of its own, and a
+/// key the vault cannot use must not hide one it can.
+#[test]
+fn the_first_usable_key_is_taken_and_the_rest_stay_in_the_fields() {
+    let details = details_from_json(serde_json::json!({
+        "sections": [{"fields": [
+            {"n": "private_key", "k": "sshKey", "a": {"sshKeyAttributes": {}}},
+            ssh_field("old_key", "not a key"),
+            ssh_field("new_key", PKCS8_KEY),
+        ]}]
+    }));
+
+    let (_, claimed) = ssh_key(&details).expect("an ssh key");
+
+    assert_eq!(
+        rendered(&details, &claimed),
+        [
+            (1, "private key".to_string(), "not a key".to_string()),
+            (
+                0,
+                "public key".to_string(),
+                "ssh-ed25519 AAAA stored".to_string()
+            ),
+            (0, "fingerprint".to_string(), "SHA256:stored".to_string()),
+        ]
+    );
+}
+
+/// 1Password repeats the private key in the field's value. A value that is anything else holds
+/// more than the attributes do, so it is neither claimed with the key nor skipped as a repeat.
+#[test]
+fn an_ssh_value_that_is_not_the_key_is_kept() {
+    let usable_key_beside_something_else = details_from_json(serde_json::json!({
+        "sections": [{"fields": [{
+            "n": "private_key", "t": "private key", "k": "sshKey", "v": "something else",
+            "a": {"sshKeyAttributes": {"privateKey": PKCS8_KEY}},
+        }]}]
+    }));
+    assert!(ssh_key(&usable_key_beside_something_else).is_none());
+    assert_eq!(
+        rendered(&usable_key_beside_something_else, &Claimed::default()),
+        [
+            (1, "private key".to_string(), PKCS8_KEY.to_string()),
+            (1, "private key".to_string(), "something else".to_string()),
+        ]
+    );
+
+    let no_key_in_the_attributes = details_from_json(serde_json::json!({
+        "sections": [{"fields": [{
+            "n": "private_key", "t": "private key", "k": "sshKey", "v": 12345,
+            "a": {"sshKeyAttributes": {}},
+        }]}]
+    }));
+    assert_eq!(
+        rendered(&no_key_in_the_attributes, &Claimed::default()),
+        [(1, "private key".to_string(), "12345".to_string())]
+    );
+}
+
+/// A category without a mapping arrives as a note whose fields carry the whole item.
+#[tokio::test]
+async fn an_unmapped_category_stays_a_secure_note() {
+    let parsed = converted().await;
+
+    for name in [
+        "Bank account: concealed PIN and branch section",
+        "Passport: three date fields and text",
+        "Document: uploaded text file",
+    ] {
+        assert!(
+            matches!(cipher(&parsed, name).r#type, CipherType::SecureNote(_)),
+            "{name} is not a secure note"
         );
     }
 }

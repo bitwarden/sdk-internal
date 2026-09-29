@@ -6,25 +6,25 @@ use super::wire::{VaultItemDetails, VaultItemOverview};
 
 /// A decrypted vault with its items.
 pub struct Vault {
-    /// The vault's 1Password uuid.
+    /// The vault's 1Password uuid. The import goes by name.
+    #[allow(dead_code)]
     pub id: String,
     /// The vault's display name.
     pub name: String,
-    /// The vault's description, empty when unset.
-    pub description: String,
     /// Every item in the vault except the trashed ones.
     pub items: Vec<Item>,
 }
 
 /// A decrypted item: its identity plus both payloads exactly as 1Password sends them.
 pub struct Item {
-    /// The item's 1Password uuid.
+    /// The item's 1Password uuid. The server assigns imported ciphers their own.
+    #[allow(dead_code)]
     pub id: String,
     /// The item's category, derived from its template id.
     pub category: ItemCategory,
-    /// The decrypted `encOverview`: title, subtitle, websites, tags.
+    /// The decrypted `encOverview`: title, websites, tags.
     pub overview: VaultItemOverview,
-    /// The decrypted `encDetails`: login fields, sections, note, password history.
+    /// The decrypted `encDetails`: login fields, sections, note.
     pub details: VaultItemDetails,
 }
 

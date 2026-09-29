@@ -1,7 +1,7 @@
 //! How an item's fields are addressed: walking them, reading one by name, and recording which a
 //! category mapping already took.
 
-use super::value::non_blank;
+use super::value::{non_blank, render_value};
 use crate::importers::onepassword::access::wire::{VaultItemDetails, VaultItemSectionField};
 
 /// What a category mapping already read, so the leftover pass does not repeat it.
@@ -12,6 +12,32 @@ pub(super) struct Claimed {
     /// Positions of consumed section fields, as [`section_fields`] numbers them. An id would not
     /// do: a mapping picks one field, and only its position says which.
     pub(super) fields: Vec<usize>,
+}
+
+impl Claimed {
+    /// Reads the section field with this id and claims it, provided `read` makes something of it.
+    /// A field `read` turns down stays for the leftover pass.
+    pub(super) fn take<'a, T>(
+        &mut self,
+        details: &'a VaultItemDetails,
+        id: &str,
+        read: impl FnOnce(&'a VaultItemSectionField) -> Option<T>,
+    ) -> Option<T> {
+        let (position, field) = section_fields(details)
+            .enumerate()
+            .find(|(_, field)| field.id.as_deref() == Some(id))?;
+        let value = read(field)?;
+        self.fields.push(position);
+        Some(value)
+    }
+
+    /// Reads the section field with this id as the text the leftover pass would have made of it,
+    /// and claims it.
+    pub(super) fn take_text(&mut self, details: &VaultItemDetails, id: &str) -> Option<String> {
+        self.take(details, id, |field| {
+            render_value(field.kind.as_deref(), field.value.as_ref()?)
+        })
+    }
 }
 
 /// Every section field of an item, flattened in the order 1Password sent them. A mapping and the
