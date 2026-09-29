@@ -249,8 +249,10 @@ fn is_v2_to_v1_downgrade(
 }
 
 /// Client for the key management work that runs on every sync.
+///
+/// Exposed over UniFFI through a wrapper in `bitwarden-uniffi`, which reports argument conversion
+/// failures as errors.
 #[derive(Clone)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CryptoSyncHandlerClient {
     client: Client,
@@ -263,7 +265,6 @@ impl CryptoSyncHandlerClient {
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-#[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl CryptoSyncHandlerClient {
     /// Runs the key management sync work. Call this after each sync, once the user's cryptographic
     /// state has been applied.

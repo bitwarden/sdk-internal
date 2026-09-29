@@ -12,6 +12,8 @@ pub mod auth;
 #[allow(missing_docs)]
 pub mod crypto;
 #[allow(missing_docs)]
+pub mod crypto_sync_handler;
+#[allow(missing_docs)]
 pub mod error;
 mod log_callback;
 #[allow(missing_docs)]
@@ -30,6 +32,7 @@ pub mod vault;
 mod android_support;
 
 use crypto::CryptoClient;
+use crypto_sync_handler::CryptoSyncHandlerClient;
 use error::{Error, Result};
 pub use log_callback::LogCallback;
 pub use managed_settings::ManagedSettingsBindingClient;
@@ -93,8 +96,8 @@ impl Client {
     }
 
     /// Key management operations that run on every sync.
-    pub fn crypto_sync_handler(&self) -> bitwarden_crypto_sync_handler::CryptoSyncHandlerClient {
-        self.0.crypto_sync_handler()
+    pub fn crypto_sync_handler(&self) -> CryptoSyncHandlerClient {
+        CryptoSyncHandlerClient(self.0.crypto_sync_handler())
     }
 
     /// Vault item operations
