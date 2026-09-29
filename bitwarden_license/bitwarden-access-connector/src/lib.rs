@@ -68,7 +68,7 @@ pub async fn run(
 /// Shared mutex that serialises all tests mutating process-environment variables.
 ///
 /// `std::env::set_var` / `remove_var` are `unsafe` in Rust 2024, since concurrent mutation is
-/// UB in a multi-threaded process. Tests touching any environment variable (e.g. `BWRD_TOKEN`)
+/// UB in a multi-threaded process. Tests touching any environment variable (e.g. `BWAC_TOKEN`)
 /// must hold this lock for the mutable window; different test modules share this process-wide
 /// lock to coordinate across threads.
 #[cfg(test)]

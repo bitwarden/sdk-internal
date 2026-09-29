@@ -52,7 +52,7 @@
 
 	<key>EnvironmentVariables</key>
 	<dict>
-		<key>BWRD_TOKEN</key>
+		<key>BWAC_TOKEN</key>
 		<string>@TOKEN@</string>
 	</dict>
 </dict>

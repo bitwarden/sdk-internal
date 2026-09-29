@@ -20,10 +20,10 @@ All daemon settings live in the TOML configuration file (see
 
 | Variable            | Purpose                                                        |
 | ------------------- | -------------------------------------------------------------- |
-| `BWRD_TOKEN`        | Daemon access token (required)                                 |
-| `BWRD_CONFIG`       | Path to the TOML configuration file (equivalent to `--config`) |
-| `BWRD_API_URL`      | Bitwarden API server URL (overrides the config file)           |
-| `BWRD_IDENTITY_URL` | Bitwarden identity server URL (overrides the config file)      |
+| `BWAC_TOKEN`        | Daemon access token (required)                                 |
+| `BWAC_CONFIG`       | Path to the TOML configuration file (equivalent to `--config`) |
+| `BWAC_API_URL`      | Bitwarden API server URL (overrides the config file)           |
+| `BWAC_IDENTITY_URL` | Bitwarden identity server URL (overrides the config file)      |
 | `RUST_LOG`          | Log filter directives; default `info` (e.g. `RUST_LOG=debug`)  |
 
 ### Flags and options
@@ -35,27 +35,27 @@ All daemon settings live in the TOML configuration file (see
 ### Token security
 
 The daemon token contains the org-key encryption key. It is **never** accepted as a plain `--token`
-argument — argv is visible via `ps`/`/proc/<pid>/cmdline`. Supply it via the `BWRD_TOKEN`
+argument — argv is visible via `ps`/`/proc/<pid>/cmdline`. Supply it via the `BWAC_TOKEN`
 environment variable only.
 
-After reading `BWRD_TOKEN` at startup, the daemon removes it from the process environment so that
+After reading `BWAC_TOKEN` at startup, the daemon removes it from the process environment so that
 child processes (e.g. custom scripts) cannot inherit the token value.
 
 ### Configuration file
 
 The daemon is configured from a TOML file. Specify the file with `--config <PATH>` or the
-`BWRD_CONFIG` environment variable. The server URLs may additionally be overridden with the
-`BWRD_API_URL` / `BWRD_IDENTITY_URL` environment variables.
+`BWAC_CONFIG` environment variable. The server URLs may additionally be overridden with the
+`BWAC_API_URL` / `BWAC_IDENTITY_URL` environment variables.
 
 **Precedence** (highest to lowest):
 
-1. `BWRD_API_URL` / `BWRD_IDENTITY_URL` environment variables
+1. `BWAC_API_URL` / `BWAC_IDENTITY_URL` environment variables
 2. `[environment].api` / `[environment].identity` in the config file
 3. Derived from `[environment].base` as `{base}/api` / `{base}/identity`
 4. Error — startup fails with a message naming all three supply methods
 
 The daemon token **cannot** be supplied via the config file. Any config file that contains a `token`
-key is rejected at startup. Use `BWRD_TOKEN` only.
+key is rejected at startup. Use `BWAC_TOKEN` only.
 
 #### Example configuration file
 
@@ -127,8 +127,8 @@ Log output is written to stderr. The log level is controlled by the `RUST_LOG` e
 (same syntax as `tracing-subscriber`'s `EnvFilter`):
 
 ```sh
-RUST_LOG=debug bwac run --config /etc/bwrd/config.toml
-RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwrd/config.toml
+RUST_LOG=debug bwac run --config /etc/bwac/config.toml
+RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwac/config.toml
 ```
 
 The default level (`info`) produces one log line per lifecycle milestone; `RUST_LOG=debug` adds
@@ -397,7 +397,7 @@ The extension decides by default, so the common case needs no configuration:
 
 ```toml
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
-script = 'C:\bwrd\rotate-sqlsa.ps1'
+script = 'C:\bwac\rotate-sqlsa.ps1'
 ```
 
 Set `script_type` only when the filename cannot say what the file is: an extensionless script that
@@ -405,7 +405,7 @@ needs PowerShell, or a `.ps1` that must run some other way:
 
 ```toml
 [targets.00000000-0000-0000-0000-000000000003]
-script      = "/opt/bwrd/rotate-appliance"
+script      = "/opt/bwac/rotate-appliance"
 script_type = "powershell"
 ```
 
@@ -525,7 +525,7 @@ To see the actual error, run the script by hand as the account the daemon runs u
 reproduces the environment allowlist:
 
 ```
-runas /user:svc_bwrd "pwsh -NoProfile -NonInteractive -File C:\bwrd\rotate-sqlsa.ps1 rotate"
+runas /user:svc_bwac "pwsh -NoProfile -NonInteractive -File C:\bwac\rotate-sqlsa.ps1 rotate"
 ```
 
 ---

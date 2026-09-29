@@ -16,7 +16,7 @@
         C:\Program Files\Bitwarden\bwac\
             bwac.exe          the daemon; shared
             Start-RotationDaemon.ps1        launcher (see below); shared
-        C:\ProgramData\Bitwarden\bwrd\
+        C:\ProgramData\Bitwarden\bwac\
             config.toml                     settings; never secrets
             env                             token and per-target credentials, ACL-locked
             scripts\                        script_root; the daemon reads, cannot write
@@ -27,7 +27,7 @@
     organisation. It moves everything the daemon writes, or reads its token from, into a
     directory of its own, and leaves the shared pieces alone:
 
-        C:\ProgramData\Bitwarden\bwrd\<name>\
+        C:\ProgramData\Bitwarden\bwac\<name>\
             config.toml
             env
             logs\
@@ -56,7 +56,7 @@
       ACL-restricted env file and sets the values on its own process only. It also
       captures stderr, which a scheduled task otherwise discards.
 
-    * The token is not a parameter. It comes from BWRD_TOKEN or a hidden prompt. A
+    * The token is not a parameter. It comes from BWAC_TOKEN or a hidden prompt. A
       -Token parameter would put it in this process's command line, readable by anything
       that can call Get-CimInstance Win32_Process -- the same reason the daemon itself
       refuses --token.
@@ -82,13 +82,13 @@
 
         Unregister-ScheduledTask -TaskName 'Bitwarden PAM rotation daemon' -Confirm:$false
         Remove-Item -Recurse 'C:\Program Files\Bitwarden\bwac'
-        Remove-Item -Recurse 'C:\ProgramData\Bitwarden\bwrd'
+        Remove-Item -Recurse 'C:\ProgramData\Bitwarden\bwac'
 
     A named daemon comes off the same way, with '(<name>)' on the task name and
-    C:\ProgramData\Bitwarden\bwrd\<name> in place of that last path. Leave the install
+    C:\ProgramData\Bitwarden\bwac\<name> in place of that last path. Leave the install
     directory until the last daemon on the host is gone.
 
-    Rotation scripts under C:\ProgramData\Bitwarden\bwrd\scripts are yours; move them out
+    Rotation scripts under C:\ProgramData\Bitwarden\bwac\scripts are yours; move them out
     first if you want to keep them.
 
 .PARAMETER ServerUrl
@@ -99,7 +99,7 @@
     Lowercase letters, digits, '-' and '_'. Leave it out for the single-daemon layout.
 
 .EXAMPLE
-    $env:BWRD_TOKEN = '0.access-connector.<id>.<secret>:<key>'
+    $env:BWAC_TOKEN = '0.access-connector.<id>.<secret>:<key>'
     .\Install-RotationDaemon.ps1 https://bitwarden.example.com
 
 .EXAMPLE
@@ -134,7 +134,7 @@ $TaskPrefix   = 'Bitwarden PAM rotation daemon'
 $RunAsUser    = 'NT AUTHORITY\NETWORK SERVICE'
 
 $InstallDir   = Join-Path $env:ProgramFiles 'Bitwarden\bwac'
-$DataDir      = Join-Path $env:ProgramData 'Bitwarden\bwrd'
+$DataDir      = Join-Path $env:ProgramData 'Bitwarden\bwac'
 $ScriptDir    = Join-Path $DataDir 'scripts'
 
 $ExePath      = Join-Path $InstallDir $BinaryName
@@ -306,9 +306,9 @@ function Get-DaemonToken {
     Write-Step 'Daemon token'
 
     $token = $null
-    if ($env:BWRD_TOKEN) {
-        $token = $env:BWRD_TOKEN
-        Write-Item 'taken from BWRD_TOKEN'
+    if ($env:BWAC_TOKEN) {
+        $token = $env:BWAC_TOKEN
+        Write-Item 'taken from BWAC_TOKEN'
     } else {
         $secure = Read-Host -Prompt '    Paste the daemon token (input hidden)' -AsSecureString
         $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
@@ -427,7 +427,7 @@ function Write-DaemonEnv {
         '# editing:'
         "#   Stop-ScheduledTask -TaskName '$TaskName'; Start-ScheduledTask -TaskName '$TaskName'"
         ''
-        "BWRD_TOKEN=$Token"
+        "BWAC_TOKEN=$Token"
         'RUST_LOG=info'
     )
     Set-ExplicitAcl -Path $EnvPath -What 'the env file' -Grants @(
