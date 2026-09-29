@@ -1,5 +1,7 @@
 //! The [`PolicyType`] enum.
 
+use bitwarden_api_api::models::PolicyType as ApiPolicyType;
+use bitwarden_core::MissingFieldError;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -112,6 +114,41 @@ impl PolicyType {
             PolicyType::SendControls => Box::new(SendControlsPolicy),
             PolicyType::FillAssist => Box::new(FillAssistPolicy),
         }
+    }
+}
+
+impl TryFrom<ApiPolicyType> for PolicyType {
+    type Error = MissingFieldError;
+
+    fn try_from(policy_type: ApiPolicyType) -> Result<Self, Self::Error> {
+        Ok(match policy_type {
+            ApiPolicyType::TwoFactorAuthentication => PolicyType::TwoFactorAuthentication,
+            ApiPolicyType::MasterPassword => PolicyType::MasterPassword,
+            ApiPolicyType::PasswordGenerator => PolicyType::PasswordGenerator,
+            ApiPolicyType::SingleOrg => PolicyType::SingleOrg,
+            ApiPolicyType::RequireSso => PolicyType::RequireSso,
+            ApiPolicyType::OrganizationDataOwnership => PolicyType::OrganizationDataOwnership,
+            ApiPolicyType::DisableSend => PolicyType::DisableSend,
+            ApiPolicyType::SendOptions => PolicyType::SendOptions,
+            ApiPolicyType::ResetPassword => PolicyType::ResetPassword,
+            ApiPolicyType::MaximumVaultTimeout => PolicyType::MaximumVaultTimeout,
+            ApiPolicyType::DisablePersonalVaultExport => PolicyType::DisablePersonalVaultExport,
+            ApiPolicyType::ActivateAutofill => PolicyType::ActivateAutofill,
+            ApiPolicyType::AutomaticAppLogIn => PolicyType::AutomaticAppLogIn,
+            ApiPolicyType::FreeFamiliesSponsorshipPolicy => PolicyType::FreeFamiliesSponsorship,
+            ApiPolicyType::RemoveUnlockWithPin => PolicyType::RemoveUnlockWithPin,
+            ApiPolicyType::RestrictedItemTypesPolicy => PolicyType::RestrictedItemTypes,
+            ApiPolicyType::UriMatchDefaults => PolicyType::UriMatchDefaults,
+            ApiPolicyType::AutotypeDefaultSetting => PolicyType::AutotypeDefaultSetting,
+            ApiPolicyType::AutomaticUserConfirmation => PolicyType::AutomaticUserConfirmation,
+            ApiPolicyType::BlockClaimedDomainAccountCreation => {
+                PolicyType::BlockClaimedDomainAccountCreation
+            }
+            ApiPolicyType::OrganizationUserNotification => PolicyType::OrganizationUserNotification,
+            ApiPolicyType::SendControls => PolicyType::SendControls,
+            ApiPolicyType::FillAssist => PolicyType::FillAssist,
+            ApiPolicyType::__Unknown(_) => return Err(MissingFieldError("type")),
+        })
     }
 }
 
