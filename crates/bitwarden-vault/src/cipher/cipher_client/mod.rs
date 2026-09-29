@@ -34,7 +34,6 @@ mod get;
 mod move_many;
 mod restore;
 mod share_cipher;
-mod shared_key;
 
 /// Returns `true` when cipher data for the given scope should be written in the blob-encrypted
 /// format, based on the current security state version. Individual-vault ciphers qualify once the

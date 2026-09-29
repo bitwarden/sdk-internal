@@ -1,15 +1,15 @@
 use bitwarden_api_api::models::EmergencyAccessViewResponseModel;
-use bitwarden_core::{ApiError, MissingFieldError, require};
-use bitwarden_crypto::{CryptoError, UnsignedSharedKey};
+use bitwarden_core::{ApiError, MissingFieldError, key_management::PrivateKeySlotId, require};
+use bitwarden_crypto::{CryptoError, Decryptable, UnsignedSharedKey};
 use bitwarden_error::bitwarden_error;
-use bitwarden_vault::{Cipher, DecryptCipherResult, DecryptError, VaultParseError};
+use bitwarden_vault::{Cipher, DecryptCipherResult, VaultParseError};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{EmergencyAccessClient, EmergencyAccessId};
 
-/// Errors returned when viewing a grantor's ciphers through emergency access.
+/// Errors returned when viewing a grantor's vault items through emergency access.
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EmergencyAccessViewError {
@@ -19,25 +19,46 @@ pub enum EmergencyAccessViewError {
     /// A required field was missing from the server response.
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
-    /// The grantor key in the server response is malformed.
+    /// The grantor key is malformed or could not be decapsulated with the current user's private
+    /// key.
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     /// A cipher in the server response could not be parsed.
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
-    /// The grantor key could not be decapsulated with the current user's private key.
-    #[error(transparent)]
-    Decrypt(#[from] DecryptError),
+}
+
+/// A grantor's vault items shared through emergency access.
+struct EmergencyAccessViewData {
+    /// The grantor's user key, encapsulated to the current user's public key.
+    grantor_key: UnsignedSharedKey,
+    ciphers: Vec<Cipher>,
+}
+
+impl TryFrom<EmergencyAccessViewResponseModel> for EmergencyAccessViewData {
+    type Error = EmergencyAccessViewError;
+
+    fn try_from(response: EmergencyAccessViewResponseModel) -> Result<Self, Self::Error> {
+        let grantor_key = require!(response.key_encrypted).parse()?;
+
+        let ciphers = response
+            .ciphers
+            .unwrap_or_default()
+            .into_iter()
+            .map(Cipher::try_from)
+            .collect::<Result<_, _>>()?;
+
+        Ok(Self {
+            grantor_key,
+            ciphers,
+        })
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl EmergencyAccessClient {
-    /// Fetches and decrypts the grantor's ciphers of an approved view-only emergency access.
-    ///
-    /// The server returns the grantor's user key encapsulated to the current user's public key;
-    /// it only lives in the key store while the ciphers are decrypted. Ciphers that fail to
-    /// decrypt are returned in `failures`.
-    pub async fn view_ciphers(
+    /// Fetches and decrypts the grantor's vault items of an approved view-only emergency access.
+    pub async fn view_vault_items(
         &self,
         emergency_access_id: EmergencyAccessId,
     ) -> Result<DecryptCipherResult, EmergencyAccessViewError> {
@@ -48,29 +69,30 @@ impl EmergencyAccessClient {
             .view_ciphers(emergency_access_id.into())
             .await?;
 
-        let (grantor_key, ciphers) = parse_view(response)?;
+        let data = EmergencyAccessViewData::try_from(response)?;
 
-        Ok(self
-            .ciphers
-            .decrypt_list_with_shared_key(grantor_key, ciphers)
-            .await?)
+        // The server returns the grantor's user key encapsulated to the current user's public key;
+        // it only lives in the key store while the ciphers are decrypted. Ciphers that fail to
+        // decrypt are returned in `failures`.
+        let mut ctx = self.key_store.context();
+        let grantor_key_id = data
+            .grantor_key
+            .decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx)?;
+
+        let mut successes = Vec::with_capacity(data.ciphers.len());
+        let mut failures = Vec::new();
+        for cipher in data.ciphers {
+            match cipher.decrypt(&mut ctx, grantor_key_id) {
+                Ok(view) => successes.push(view),
+                Err(_) => failures.push(cipher),
+            }
+        }
+
+        Ok(DecryptCipherResult {
+            successes,
+            failures,
+        })
     }
-}
-
-/// Maps the server response to the grantor key and the ciphers encrypted under it.
-fn parse_view(
-    response: EmergencyAccessViewResponseModel,
-) -> Result<(UnsignedSharedKey, Vec<Cipher>), EmergencyAccessViewError> {
-    let grantor_key: UnsignedSharedKey = require!(response.key_encrypted).parse()?;
-
-    let ciphers = response
-        .ciphers
-        .unwrap_or_default()
-        .into_iter()
-        .map(Cipher::try_from)
-        .collect::<Result<_, _>>()?;
-
-    Ok((grantor_key, ciphers))
 }
 
 #[cfg(test)]
@@ -126,12 +148,12 @@ mod tests {
     async fn view(client: &Client) -> Result<DecryptCipherResult, EmergencyAccessViewError> {
         client
             .emergency_access()
-            .view_ciphers(TEST_EMERGENCY_ACCESS_ID.parse().unwrap())
+            .view_vault_items(TEST_EMERGENCY_ACCESS_ID.parse().unwrap())
             .await
     }
 
     #[tokio::test]
-    async fn decrypts_legacy_and_blob_ciphers_with_grantor_key() {
+    async fn decrypts_legacy_and_blob_vault_items_with_grantor_key() {
         let client = grantee(
             Some(TEST_VECTOR_GRANTOR_KEY),
             &[TEST_VECTOR_LEGACY_CIPHER, TEST_VECTOR_BLOB_CIPHER],
@@ -156,7 +178,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reports_ciphers_under_other_keys_as_failures() {
+    async fn reports_vault_items_under_other_keys_as_failures() {
         // Blob decryption fails hard, unlike lenient legacy decryption which nulls out
         // undecryptable fields.
         let client = grantee(
@@ -182,7 +204,7 @@ mod tests {
 
         let result = view(&client).await;
 
-        assert!(matches!(result, Err(EmergencyAccessViewError::Decrypt(_))));
+        assert!(matches!(result, Err(EmergencyAccessViewError::Crypto(_))));
     }
 
     #[tokio::test]
