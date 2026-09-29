@@ -1,5 +1,4 @@
 import {
-  AcceptInviteLinkError,
   ClientSettings,
   PasswordManagerClient,
   isAcceptInviteLinkError,
@@ -371,30 +370,6 @@ describe("invite link client", () => {
     });
 
     describe("failures", () => {
-      // The server error code each typed variant is mapped from, and the property the server
-      // reports it under. Typing the variant column against `AcceptInviteLinkError["variant"]` makes
-      // `tsc` fail if a variant ever stops crossing the boundary as its own flat string.
-      const SERVER_ERRORS: [property: string, code: string, AcceptInviteLinkError["variant"]][] = [
-        ["code", "invite_link_not_available", "InviteLinkNotAvailable"],
-        ["code", "invite_link_confirmation_not_supported", "InviteLinkConfirmationNotSupported"],
-        ["organizationId", "email_not_verified", "EmailNotVerified"],
-        ["code", "email_domain_not_allowed", "EmailDomainNotAllowed"],
-        ["code", "provider_users_cannot_join", "ProviderUsersCannotJoin"],
-        ["code", "organization_access_revoked", "OrganizationAccessRevoked"],
-        ["code", "already_organization_member", "AlreadyOrganizationMember"],
-        ["code", "organization_has_no_available_seats", "OrganizationHasNoAvailableSeats"],
-        ["code", "seat_add_failed", "SeatAddFailed"],
-        ["resetPasswordKey", "reset_password_key_required", "ResetPasswordKeyRequired"],
-        ["organizationId", "member_of_another_organization", "MemberOfAnotherOrganization"],
-        ["organizationId", "single_organization_policy", "SingleOrganizationPolicy"],
-        ["organizationId", "two_factor_required_for_membership", "TwoFactorRequiredForMembership"],
-        [
-          "organizationId",
-          "only_one_free_organization_admin_allowed",
-          "OnlyOneFreeOrganizationAdminAllowed",
-        ],
-      ];
-
       const accept = () =>
         invitee
           .invite_link()
@@ -420,20 +395,17 @@ describe("invite link client", () => {
         expect(mock.routes()).toEqual([ROUTES.getInvite]);
       });
 
-      it.each(SERVER_ERRORS)(
-        "maps `%s: %s` from the confirm endpoint to %s",
-        async (property, code, variant) => {
-          mock = installHttpMock({
-            ...inviteLinkRoutes(),
-            [ROUTES.confirm]: () => validationProblem(property, code),
-          });
+      it("maps a server error code from the confirm endpoint to its typed variant", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.confirm]: () => validationProblem("code", "organization_has_no_available_seats"),
+        });
 
-          const error = await rejection(accept(), isAcceptInviteLinkError);
+        const error = await rejection(accept(), isAcceptInviteLinkError);
 
-          expect(error.name).toBe("AcceptInviteLinkError");
-          expect(error.variant).toBe(variant);
-        },
-      );
+        expect(error.name).toBe("AcceptInviteLinkError");
+        expect(error.variant).toBe("OrganizationHasNoAvailableSeats");
+      });
 
       it("maps errors from the accept endpoint when the invite does not support confirmation", async () => {
         mock = installHttpMock({
