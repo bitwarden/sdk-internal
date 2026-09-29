@@ -93,13 +93,13 @@ The daemon token grants two things: the ability to call the rotation endpoints, 
 decrypt and encrypt your organisation's vault entries. Anyone holding it can read organisation vault
 data.
 
-So the daemon accepts the token only through the `BWRD_TOKEN` environment variable:
+So the daemon accepts the token only through the `BWAC_TOKEN` environment variable:
 
 - A `--token` flag would expose it. `argv` is world-readable via `ps` and `/proc/<pid>/cmdline`.
 - A config-file key would end up in a repository. Any config containing `token` is a hard startup
   error.
 
-At startup the daemon reads `BWRD_TOKEN` and then removes it from its own environment, so any child
+At startup the daemon reads `BWAC_TOKEN` and then removes it from its own environment, so any child
 process it spawns (such as a custom rotation script) cannot inherit it.
 
 ### What the server sees
@@ -186,23 +186,23 @@ Place `bwac` somewhere on the daemon host, for example `/usr/local/bin/`.
 
 ### 3. Write a config file
 
-`/etc/bwrd/config.toml`:
+`/etc/bwac/config.toml`:
 
 ```toml
 [environment]
 base = "https://bitwarden.example.com"
 
-script_root = "/opt/bwrd/scripts"
+script_root = "/opt/bwac/scripts"
 ```
 
 For Bitwarden Cloud, set `api` and `identity` explicitly instead of `base`.
 
 ### 4. Supply the token and target credentials
 
-`/etc/bwrd/env` (root-owned, mode `0400`):
+`/etc/bwac/env` (root-owned, mode `0400`):
 
 ```sh
-BWRD_TOKEN=0.access-connector.…:…
+BWAC_TOKEN=0.access-connector.…:…
 ```
 
 See [Per-target credentials](#per-target-credentials) for the target entries that go alongside it.
@@ -210,8 +210,8 @@ See [Per-target credentials](#per-target-credentials) for the target entries tha
 ### 5. Run it
 
 ```sh
-set -a; . /etc/bwrd/env; set +a
-bwac run --config /etc/bwrd/config.toml
+set -a; . /etc/bwac/env; set +a
+bwac run --config /etc/bwac/config.toml
 ```
 
 You should see:
@@ -238,16 +238,16 @@ settings are reviewable in one place and secrets can never reach `argv`.
 
 | Flag              | Description                                                |
 | ----------------- | ---------------------------------------------------------- |
-| `--config <PATH>` | Path to the TOML configuration file (or set `BWRD_CONFIG`) |
+| `--config <PATH>` | Path to the TOML configuration file (or set `BWAC_CONFIG`) |
 
 ### Environment variables
 
 | Variable               | Purpose                                                         |
 | ---------------------- | --------------------------------------------------------------- |
-| `BWRD_TOKEN`           | **Required.** Daemon token. The only accepted way to supply it. |
-| `BWRD_CONFIG`          | Path to the config file (equivalent to `--config`)              |
-| `BWRD_API_URL`         | Bitwarden API URL; overrides the config file                    |
-| `BWRD_IDENTITY_URL`    | Bitwarden identity URL; overrides the config file               |
+| `BWAC_TOKEN`           | **Required.** Daemon token. The only accepted way to supply it. |
+| `BWAC_CONFIG`          | Path to the config file (equivalent to `--config`)              |
+| `BWAC_API_URL`         | Bitwarden API URL; overrides the config file                    |
+| `BWAC_IDENTITY_URL`    | Bitwarden identity URL; overrides the config file               |
 | `RUST_LOG`             | Log filter; default `info`                                      |
 | `<TARGET_ID>_<SUFFIX>` | Per-target credentials (see below)                              |
 
@@ -264,7 +264,7 @@ max_retry_attempts = 5    # total tries per retryable step, including the first
 retry_base_delay   = 1    # seconds; backoff is base * 2^(n-1)
 script_timeout     = 60   # seconds before a custom script is killed
 
-script_root = "/opt/bwrd/scripts"   # restrict scripts to this directory (recommended)
+script_root = "/opt/bwac/scripts"   # restrict scripts to this directory (recommended)
 
 powershell_execution_policy = "Bypass"   # see "PowerShell scripts" below
 # powershell_path = 'C:\Program Files\PowerShell\7\pwsh.exe'   # else discovered on PATH
@@ -277,7 +277,7 @@ base = "https://bitwarden.example.com"
 # identity = "https://identity.bitwarden.com"
 
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
-script = "/opt/bwrd/scripts/rotate-appliance.sh"
+script = "/opt/bwac/scripts/rotate-appliance.sh"
 ```
 
 #### Setting reference
@@ -299,7 +299,7 @@ script = "/opt/bwrd/scripts/rotate-appliance.sh"
 
 Highest to lowest:
 
-1. `BWRD_API_URL` / `BWRD_IDENTITY_URL`
+1. `BWAC_API_URL` / `BWAC_IDENTITY_URL`
 2. `[environment].api` / `[environment].identity`
 3. Derived from `[environment].base` as `{base}/api` and `{base}/identity`
 4. Startup error naming all three options
@@ -316,7 +316,7 @@ target system UUID, which you can find in the Bitwarden admin console.
 Uppercase the UUID, replace hyphens with underscores, and append the suffix:
 
 ```
-85808642_BABA_4B8E_8C34_B48000D60A0A_SCRIPT=/opt/bwrd/scripts/rotate.sh
+85808642_BABA_4B8E_8C34_B48000D60A0A_SCRIPT=/opt/bwac/scripts/rotate.sh
 85808642_BABA_4B8E_8C34_B48000D60A0A_API_URL=https://appliance.internal/api
 85808642_BABA_4B8E_8C34_B48000D60A0A_ADMIN_TOKEN=…
 ```
@@ -338,7 +338,7 @@ Non-secret values can live in the config file instead, which is easier to review
 
 ```toml
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
-script = "/opt/bwrd/scripts/rotate-appliance.sh"
+script = "/opt/bwac/scripts/rotate-appliance.sh"
 
 [targets.00000000-0000-0000-0000-000000000001]
 tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
@@ -578,14 +578,14 @@ PowerShell 7, and a native `.exe` target on Windows is unaffected.
 
 ```toml
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
-script = 'C:\bwrd\rotate-sqlsa.ps1'          # no other configuration needed
+script = 'C:\bwac\rotate-sqlsa.ps1'          # no other configuration needed
 ```
 
 Set `script_type` only when the filename cannot say what the file is:
 
 ```toml
 [targets.00000000-0000-0000-0000-000000000003]
-script      = "/opt/bwrd/rotate-appliance"   # no extension
+script      = "/opt/bwac/rotate-appliance"   # no extension
 script_type = "powershell"
 ```
 
@@ -699,11 +699,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=bwrd
-Group=bwrd
+User=bwac
+Group=bwac
 
-EnvironmentFile=/etc/bwrd/env
-ExecStart=/usr/local/bin/bwac run --config /etc/bwrd/config.toml
+EnvironmentFile=/etc/bwac/env
+ExecStart=/usr/local/bin/bwac run --config /etc/bwac/config.toml
 
 Restart=always
 RestartSec=10s
@@ -712,7 +712,7 @@ RestartSec=10s
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-ReadWritePaths=/var/lib/bwrd
+ReadWritePaths=/var/lib/bwac
 RestrictSUIDSGID=yes
 # NoNewPrivileges=yes   # omit if your scripts use sudo
 
@@ -720,7 +720,7 @@ RestrictSUIDSGID=yes
 WantedBy=multi-user.target
 ```
 
-`/etc/bwrd/env` holds `BWRD_TOKEN` and all per-target credentials, owned by root with mode `0400`.
+`/etc/bwac/env` holds `BWAC_TOKEN` and all per-target credentials, owned by root with mode `0400`.
 Because systemd sets these directly rather than through a shell, target UUIDs beginning with a digit
 are not a problem here.
 
@@ -743,13 +743,13 @@ belongs to a single organisation. Both installers take an optional name for that
 argument:
 
 ```sh
-BWRD_TOKEN='0.access-connector.…:…' \
+BWAC_TOKEN='0.access-connector.…:…' \
     sudo -E ./install-rotation-daemon.sh https://bitwarden.example.com acme
 ```
 
 The name keeps that daemon's config, token, state, log and service to itself:
-`/etc/bwrd/acme/config.toml` and `bwac-acme.service` on Linux, `com.bitwarden.bwac.acme` on macOS,
-`C:\ProgramData\Bitwarden\bwrd\acme\` and the task `Bitwarden PAM rotation daemon (acme)` on
+`/etc/bwac/acme/config.toml` and `bwac-acme.service` on Linux, `com.bitwarden.bwac.acme` on macOS,
+`C:\ProgramData\Bitwarden\bwac\acme\` and the task `Bitwarden PAM rotation daemon (acme)` on
 Windows. Leave it out and the daemon installs to the single-daemon layout instead. The binary, the
 service account and the script directory stay shared either way; a daemon that wants scripts of its
 own points `script_root` elsewhere.
@@ -765,8 +765,8 @@ daemons keep the binary they started with until they are restarted.
 Logs go to stderr, filtered by `RUST_LOG` (default `info`):
 
 ```sh
-RUST_LOG=debug bwac run --config /etc/bwrd/config.toml
-RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwrd/config.toml
+RUST_LOG=debug bwac run --config /etc/bwac/config.toml
+RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwac/config.toml
 ```
 
 At `info` you get one line per lifecycle milestone. At `debug` you additionally get poll ticks,
@@ -811,9 +811,9 @@ and re-logging the reason until someone fixes it.
 
 | Log message                                                             | Cause                                                             |
 | ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `daemon token must be supplied via the BWRD_TOKEN environment variable` | `BWRD_TOKEN` unset or empty                                       |
+| `daemon token must be supplied via the BWAC_TOKEN environment variable` | `BWAC_TOKEN` unset or empty                                       |
 | `Has the wrong number of parts` / `Has the wrong prefix`                | Token truncated on copy; it must include everything after the `:` |
-| `api URL must be supplied via …`                                        | No `base`, no `api`, no `BWRD_API_URL`                            |
+| `api URL must be supplied via …`                                        | No `base`, no `api`, no `BWAC_API_URL`                            |
 | `config file … is invalid TOML: unknown field`                          | A typo, or `client_secret` inside a `[targets]` block             |
 | `poll_interval must be >= 15 seconds`                                   | Value below the floor                                             |
 
@@ -863,7 +863,7 @@ because the host writes them to stderr. Reproduce it by hand as the account the 
 which also reproduces the environment allowlist:
 
 ```
-runas /user:svc_bwrd "pwsh -NoProfile -NonInteractive -File C:\bwrd\rotate-sqlsa.ps1 rotate"
+runas /user:svc_bwac "pwsh -NoProfile -NonInteractive -File C:\bwac\rotate-sqlsa.ps1 rotate"
 ```
 
 ---
@@ -878,7 +878,7 @@ cargo test -p bitwarden-access-connector --all-features
 cargo check --all-features --all-targets
 
 # Run against a local server
-BWRD_TOKEN="…" cargo run -p bitwarden-access-connector -- run \
+BWAC_TOKEN="…" cargo run -p bitwarden-access-connector -- run \
   --config bitwarden_license/bitwarden-access-connector/dev-config.toml
 ```
 
@@ -890,7 +890,7 @@ Until the admin console flow ships, `examples/register.rs` generates a registrat
 token template locally. It handles a plaintext organisation key and is **not for production use**:
 
 ```sh
-export BWRD_ORG_KEY_B64="<base64 org key>"
+export BWAC_ORG_KEY_B64="<base64 org key>"
 cargo run -p bitwarden-access-connector --example register -- --name my-daemon
 ```
 
