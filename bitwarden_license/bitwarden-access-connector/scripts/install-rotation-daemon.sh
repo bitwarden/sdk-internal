@@ -12,22 +12,22 @@
 # is laid out. The layout it installs is fixed, and is the one OPERATIONS.md documents:
 #
 #   /usr/local/bin/bwac   binary            root  0755  (shared)
-#   /etc/bwrd/config.toml               settings          root  0644  (never secrets)
-#   /etc/bwrd/env                       token + creds     root  0400  (Linux only)
-#   /opt/bwrd/scripts                   rotation scripts  root  0755  (shared, daemon cannot write)
-#   /var/lib/bwrd                       state             bwrd  0700
-#   /var/log/bwrd                       daemon log        bwrd  0750  (macOS only)
+#   /etc/bwac/config.toml               settings          root  0644  (never secrets)
+#   /etc/bwac/env                       token + creds     root  0400  (Linux only)
+#   /opt/bwac/scripts                   rotation scripts  root  0755  (shared, daemon cannot write)
+#   /var/lib/bwac                       state             bwac  0700
+#   /var/log/bwac                       daemon log        bwac  0750  (macOS only)
 #
 # A name is only needed to run more than one daemon on one host, which a host rotating
 # for more than one organisation has to do, since a daemon token belongs to a single
 # organisation. It moves everything the daemon writes, or reads its token from, one
 # level down, and leaves the shared pieces alone:
 #
-#   /etc/bwrd/<name>/config.toml, /etc/bwrd/<name>/env, /var/lib/bwrd/<name>,
-#   /var/log/bwrd/<name>, and the service becomes bwac-<name>.service
+#   /etc/bwac/<name>/config.toml, /etc/bwac/<name>/env, /var/lib/bwac/<name>,
+#   /var/log/bwac/<name>, and the service becomes bwac-<name>.service
 #   or com.bitwarden.bwac.<name>.
 #
-# The binary, the service account and /opt/bwrd/scripts stay shared: the daemon cannot
+# The binary, the service account and /opt/bwac/scripts stay shared: the daemon cannot
 # write to the script directory, so there is nothing to keep apart there, and one script
 # can serve every daemon. Point that daemon's script_root elsewhere if you would rather
 # they were separate.
@@ -40,7 +40,7 @@
 #
 #   * The token is not an argument. argv is world-readable via `ps` and
 #     /proc/<pid>/cmdline, which is why the daemon itself refuses --token. Put it in
-#     BWRD_TOKEN, or let the script prompt for it with echo off.
+#     BWAC_TOKEN, or let the script prompt for it with echo off.
 #
 #   * On macOS the token and per-target credentials live in the plist's
 #     <EnvironmentVariables> dict rather than an env file. launchd has no
@@ -56,21 +56,21 @@
 #
 #   systemctl disable --now bwac
 #   rm /etc/systemd/system/bwac.service /usr/local/bin/bwac
-#   rm -rf /etc/bwrd /var/lib/bwrd && userdel bwrd
+#   rm -rf /etc/bwac /var/lib/bwac && userdel bwac
 #
 # and on macOS:
 #
 #   launchctl bootout system/com.bitwarden.bwac
 #   rm /Library/LaunchDaemons/com.bitwarden.bwac.plist
-#   rm -rf /etc/bwrd /var/lib/bwrd /var/log/bwrd /usr/local/bin/bwac
-#   dscl . -delete /Users/_bwrd; dscl . -delete /Groups/_bwrd
+#   rm -rf /etc/bwac /var/lib/bwac /var/log/bwac /usr/local/bin/bwac
+#   dscl . -delete /Users/_bwac; dscl . -delete /Groups/_bwac
 #
 # A named daemon comes off the same way, with -<name> on the unit or .<name> on the
-# label, and /etc/bwrd/<name>, /var/lib/bwrd/<name> and /var/log/bwrd/<name> in place of
-# the directories above. Leave the binary, the service account and /opt/bwrd/scripts
+# label, and /etc/bwac/<name>, /var/lib/bwac/<name> and /var/log/bwac/<name> in place of
+# the directories above. Leave the binary, the service account and /opt/bwac/scripts
 # until the last daemon on the host is gone.
 #
-# Rotation scripts in /opt/bwrd/scripts are yours; nothing above deletes them.
+# Rotation scripts in /opt/bwac/scripts are yours; nothing above deletes them.
 
 set -euo pipefail
 
@@ -79,10 +79,10 @@ readonly BINARY_NAME="bwac"
 readonly LABEL_PREFIX="com.bitwarden.bwac"
 
 readonly BINARY_PATH="/usr/local/bin/$BINARY_NAME"
-readonly SCRIPT_ROOT="/opt/bwrd/scripts"
-readonly CONFIG_ROOT="/etc/bwrd"
-readonly STATE_ROOT="/var/lib/bwrd"
-readonly LOG_ROOT="/var/log/bwrd"
+readonly SCRIPT_ROOT="/opt/bwac/scripts"
+readonly CONFIG_ROOT="/etc/bwac"
+readonly STATE_ROOT="/var/lib/bwac"
+readonly LOG_ROOT="/var/log/bwac"
 
 # Names that would land on top of something already sitting beside a named daemon's
 # directory: the env file here, and the scripts and logs directories on Windows.
@@ -154,9 +154,9 @@ Installs bwac as a system service.
     $PROGRAM <bitwarden-url> [name]
 
 The URL is your Bitwarden server, for example https://bitwarden.example.com. The daemon
-token comes from BWRD_TOKEN, or is prompted for with the input hidden:
+token comes from BWAC_TOKEN, or is prompted for with the input hidden:
 
-    BWRD_TOKEN='0.access-connector.<id>.<secret>:<key>' sudo -E ./$PROGRAM https://bitwarden.example.com
+    BWAC_TOKEN='0.access-connector.<id>.<secret>:<key>' sudo -E ./$PROGRAM https://bitwarden.example.com
 
 The name is optional, and only needed to run a second daemon on this host: it keeps that
 daemon's config, token, state, log and service separate from the others. Leave it out and
@@ -215,15 +215,15 @@ detect_platform() {
         Linux)
             PLATFORM=linux
             ROOT_GROUP=root
-            SERVICE_USER=bwrd
+            SERVICE_USER=bwac
             [ -d /run/systemd/system ] \
                 || die "this host is not running systemd, so there is no service to install.
-       Install by hand; the daemon needs only BWRD_TOKEN and --config."
+       Install by hand; the daemon needs only BWAC_TOKEN and --config."
             ;;
         Darwin)
             PLATFORM=macos
             ROOT_GROUP=wheel
-            SERVICE_USER=_bwrd
+            SERVICE_USER=_bwac
             ;;
         *)
             die "unsupported platform: $(uname -s). Use Install-RotationDaemon.ps1 on Windows."
@@ -258,15 +258,15 @@ install_binary() {
 acquire_token() {
     step "Daemon token"
 
-    if [ -n "${BWRD_TOKEN:-}" ]; then
-        TOKEN="$BWRD_TOKEN"
-        info "taken from BWRD_TOKEN"
+    if [ -n "${BWAC_TOKEN:-}" ]; then
+        TOKEN="$BWAC_TOKEN"
+        info "taken from BWAC_TOKEN"
     elif [ -t 0 ]; then
         printf '    Paste the daemon token (input hidden): ' >&2
         IFS= read -rs TOKEN
         printf '\n' >&2
     else
-        die "no token. Set BWRD_TOKEN, or run interactively so the script can prompt."
+        die "no token. Set BWAC_TOKEN, or run interactively so the script can prompt."
     fi
 
     TOKEN="$(printf '%s' "$TOKEN" | tr -d '[:space:]')"

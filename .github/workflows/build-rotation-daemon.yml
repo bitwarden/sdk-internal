@@ -131,10 +131,10 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sed -e 's|@SERVICE_USER@|root|g' \
-              -e 's|@ENV_FILE@|/etc/bwrd/daemon.env|g' \
+              -e 's|@ENV_FILE@|/etc/bwac/daemon.env|g' \
               -e 's|@BINARY_PATH@|/bin/true|g' \
-              -e 's|@CONFIG_FILE@|/etc/bwrd/config.toml|g' \
-              -e 's|@STATE_DIR@|/var/lib/bwrd|g' \
+              -e 's|@CONFIG_FILE@|/etc/bwac/config.toml|g' \
+              -e 's|@STATE_DIR@|/var/lib/bwac|g' \
               bitwarden_license/bitwarden-access-connector/scripts/templates/bwac.service.in \
               > /tmp/bwac.service
           systemd-analyze verify /tmp/bwac.service

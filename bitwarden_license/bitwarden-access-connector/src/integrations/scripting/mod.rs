@@ -478,25 +478,25 @@ mod tests {
     #[test]
     fn resolve_script_path_accepts_a_script_under_the_root() {
         let fs = FakeFs::empty()
-            .with_dir("/opt/bwrd")
-            .with_file("/opt/bwrd/rotate.sh");
+            .with_dir("/opt/bwac")
+            .with_file("/opt/bwac/rotate.sh");
         let resolved = resolve_script_path(
-            &creds_with_script("/opt/bwrd/rotate.sh"),
-            Some(Path::new("/opt/bwrd")),
+            &creds_with_script("/opt/bwac/rotate.sh"),
+            Some(Path::new("/opt/bwac")),
             &fs,
         )
         .unwrap();
-        assert_eq!(resolved, PathBuf::from("/opt/bwrd/rotate.sh"));
+        assert_eq!(resolved, PathBuf::from("/opt/bwac/rotate.sh"));
     }
 
     #[test]
     fn resolve_script_path_rejects_a_script_outside_the_root() {
         let fs = FakeFs::empty()
-            .with_dir("/opt/bwrd")
+            .with_dir("/opt/bwac")
             .with_file("/etc/passwd");
         let err = resolve_script_path(
             &creds_with_script("/etc/passwd"),
-            Some(Path::new("/opt/bwrd")),
+            Some(Path::new("/opt/bwac")),
             &fs,
         )
         .unwrap_err();
@@ -509,11 +509,11 @@ mod tests {
     #[test]
     fn resolve_script_path_rejects_a_link_escaping_the_root() {
         let fs = FakeFs::empty()
-            .with_dir("/opt/bwrd")
-            .with_link("/opt/bwrd/escape.sh", "/bin/sh");
+            .with_dir("/opt/bwac")
+            .with_link("/opt/bwac/escape.sh", "/bin/sh");
         let err = resolve_script_path(
-            &creds_with_script("/opt/bwrd/escape.sh"),
-            Some(Path::new("/opt/bwrd")),
+            &creds_with_script("/opt/bwac/escape.sh"),
+            Some(Path::new("/opt/bwac")),
             &fs,
         )
         .unwrap_err();
@@ -522,9 +522,9 @@ mod tests {
 
     #[test]
     fn resolve_script_path_rejects_an_unresolvable_root() {
-        let fs = FakeFs::empty().with_file("/opt/bwrd/rotate.sh");
+        let fs = FakeFs::empty().with_file("/opt/bwac/rotate.sh");
         let err = resolve_script_path(
-            &creds_with_script("/opt/bwrd/rotate.sh"),
+            &creds_with_script("/opt/bwac/rotate.sh"),
             Some(Path::new("/nonexistent")),
             &fs,
         )
@@ -571,7 +571,7 @@ mod tests {
 
     #[test]
     fn detect_selects_powershell_for_ps1() {
-        let t = ScriptType::detect(Path::new("/opt/bwrd/rotate.ps1"), None);
+        let t = ScriptType::detect(Path::new("/opt/bwac/rotate.ps1"), None);
         assert_eq!(t, ScriptType::Powershell);
     }
 
