@@ -30,6 +30,7 @@ pub use admin::GetAssignedOrgCiphersAdminError;
 mod create;
 mod delete;
 mod edit;
+mod emergency_access;
 mod get;
 mod move_many;
 mod restore;
