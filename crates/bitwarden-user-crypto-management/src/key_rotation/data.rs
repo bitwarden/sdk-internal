@@ -184,7 +184,8 @@ fn decrypt_for_blob_upgrade(
         let mut view: CipherView = cipher
             .decrypt(ctx, current_key)
             .map_err(|_| DataReencryptionError::Decryption)?;
-        view.upgrade_to_cipher_key_encryption(ctx)
+        let _ = view
+            .load_cipher_key_slot(ctx)
             .map_err(|_| DataReencryptionError::Encryption)?;
         Ok(view)
     }
@@ -386,6 +387,34 @@ mod tests {
         );
     }
 
+    /// Builds a legacy cipher whose fields are encrypted directly under `key`, with no per-cipher
+    /// key. Encrypting a `CipherView` always produces one now, so this shape — which still exists
+    /// server-side for vaults predating per-cipher keys — has to be constructed by hand.
+    fn make_keyless_legacy_cipher(
+        view: &CipherView,
+        key: SymmetricKeySlotId,
+        ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
+    ) -> Cipher {
+        use bitwarden_vault::Login;
+
+        let login = view.login.as_ref().unwrap();
+
+        Cipher {
+            name: Some(view.name.encrypt(ctx, key).unwrap()),
+            notes: view.notes.encrypt(ctx, key).unwrap(),
+            login: Some(Login {
+                username: login.username.encrypt(ctx, key).unwrap(),
+                password: login.password.encrypt(ctx, key).unwrap(),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
+            ..make_test_cipher(None)
+        }
+    }
+
     #[test]
     fn test_blob_gate_rewraps_existing_blob_without_re_encrypting() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -514,19 +543,6 @@ mod tests {
     }
 
     #[test]
-    fn test_rotation_keyless_fido2() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let (old, new) = make_rotation_keys(&mut ctx);
-
-        let cipher = make_rotatable_cipher(&mut ctx, old, false, false, true);
-        let out = super::reencrypt_ciphers(&[cipher], old, new, &mut ctx).unwrap();
-
-        assert_upgraded_to_blob(&mut ctx, &out[0], new);
-        assert_fido2_decryptable(&mut ctx, &out[0], new);
-    }
-
-    #[test]
     fn test_rotation_keyless_attachment() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
@@ -536,20 +552,6 @@ mod tests {
         let out = super::reencrypt_ciphers(&[cipher], old, new, &mut ctx).unwrap();
 
         assert_upgraded_to_blob(&mut ctx, &out[0], new);
-        assert_attachment_key_decryptable(&mut ctx, &out[0], new);
-    }
-
-    #[test]
-    fn test_rotation_keyless_fido2_and_attachment() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let (old, new) = make_rotation_keys(&mut ctx);
-
-        let cipher = make_rotatable_cipher(&mut ctx, old, false, true, true);
-        let out = super::reencrypt_ciphers(&[cipher], old, new, &mut ctx).unwrap();
-
-        assert_upgraded_to_blob(&mut ctx, &out[0], new);
-        assert_fido2_decryptable(&mut ctx, &out[0], new);
         assert_attachment_key_decryptable(&mut ctx, &out[0], new);
     }
 
@@ -645,12 +647,17 @@ mod tests {
             };
             view.login.as_mut().unwrap().fido2_credentials = Some(vec![cred]);
         }
-        if with_cipher_key {
-            view.upgrade_to_cipher_key_encryption(ctx).unwrap();
-        }
-        let mut cipher = EncryptMode::Legacy(view)
-            .encrypt_composite(ctx, user_key)
-            .unwrap();
+        let mut cipher = if with_cipher_key {
+            EncryptMode::Legacy(view)
+                .encrypt_composite(ctx, user_key)
+                .unwrap()
+        } else {
+            assert!(
+                !with_fido2,
+                "make_keyless_legacy_cipher drops FIDO2 credentials"
+            );
+            make_keyless_legacy_cipher(&view, user_key, ctx)
+        };
         if with_attachment {
             // The attachment content key and file name are wrapped under the cipher key: the
             // per-item key for a keyed cipher, otherwise the user key directly.
