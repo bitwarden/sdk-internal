@@ -4,12 +4,11 @@ use bitwarden_api_api::{
 };
 use bitwarden_core::{ApiError, key_management::KeySlotIds};
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, KeyDecryptable as _, KeyStore, SymmetricCryptoKey,
-    derive_shareable_key,
+    CryptoError, EncString, KeyDecryptable as _, KeyStore, SymmetricCryptoKey, derive_shareable_key,
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_error::bitwarden_error;
-use bitwarden_vault::{Cipher, CipherView};
+use bitwarden_vault::CipherView;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -299,16 +298,10 @@ impl SendAccessKey {
                         "data",
                     )));
                 };
-                let cipher = serde_json::from_str::<Cipher>(data.as_str());
-                match cipher {
-                    Ok(c) => {
-                        let cipher_view: CipherView = c.decrypt(&mut ctx, key)?;
-                        Some(SendAccessItemView {
-                            data: Some(cipher_view),
-                        })
-                    }
-                    Err(_) => None,
-                }
+                let cipher_view = CipherView::unseal_blob_for_item_sends(&data, &mut ctx, key)?;
+                Some(SendAccessItemView {
+                    data: Some(cipher_view),
+                })
             }
             None => None,
         };
