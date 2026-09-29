@@ -8,6 +8,7 @@ mod platform;
 mod pure_crypto;
 mod ssh;
 
+pub use bitwarden_emergency_access::*;
 pub use bitwarden_ipc::wasm::*;
 pub use bitwarden_managed_settings::ManagedSettingsClient;
 pub use bitwarden_member_administration::*;
