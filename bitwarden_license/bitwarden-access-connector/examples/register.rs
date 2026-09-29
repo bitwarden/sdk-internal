@@ -3,11 +3,11 @@
 //! WARNING: handles a plaintext organisation key, for local end-to-end testing before the
 //! web-client UI exists. Never use in production.
 //!
-//! Reads the org key from `BWRD_ORG_KEY_B64` or stdin (never argv), derives a fresh daemon
+//! Reads the org key from `BWAC_ORG_KEY_B64` or stdin (never argv), derives a fresh daemon
 //! key, and prints the registration payload as JSON to stdout only.
 //!
 //! ```text
-//! export BWRD_ORG_KEY_B64="<base64-encoded-org-key>"
+//! export BWAC_ORG_KEY_B64="<base64-encoded-org-key>"
 //! cargo run -p bitwarden-access-connector --example register -- --name my-daemon
 //! ```
 
@@ -28,7 +28,7 @@ use zeroize::Zeroizing;
 /// TEST-ONLY daemon registration payload generator.
 ///
 /// Prints a JSON registration payload and token template to stdout.
-/// The organisation key is read from BWRD_ORG_KEY_B64 or stdin, never argv.
+/// The organisation key is read from BWAC_ORG_KEY_B64 or stdin, never argv.
 #[derive(Parser)]
 #[command(
     name = "register",
@@ -136,10 +136,10 @@ fn main() {
     eprintln!();
 
     // Read the org key from the environment or stdin (never argv).
-    let org_key_b64 = match std::env::var("BWRD_ORG_KEY_B64") {
+    let org_key_b64 = match std::env::var("BWAC_ORG_KEY_B64") {
         Ok(val) if !val.trim().is_empty() => val,
         _ => {
-            eprintln!("BWRD_ORG_KEY_B64 not set — reading org key from stdin (first line):");
+            eprintln!("BWAC_ORG_KEY_B64 not set — reading org key from stdin (first line):");
             let stdin = io::stdin();
             let mut line = String::new();
             stdin
