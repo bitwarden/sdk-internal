@@ -897,7 +897,7 @@ impl TryFrom<SendDataModel> for SendItem {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use bitwarden_api_api::models::SendItemMetadataModel;
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
@@ -915,7 +915,7 @@ mod tests {
 
     /// Item Send `data`, sealed under the send key of [`TEST_SEND_KEY`]. Decrypts to
     /// [`item_send_cipher_view`].
-    const TEST_VECTOR_ITEM_SEND_DATA: &str = "{\"format_version\":1,\"wrapped_cek\":\"2.e/m5UvBFEh4JEHYgnAVONQ==|Cl7wnKMdT9NxeisUg1Xx3OmOyZr7Z77luoLPCBxuo1EVAjf69q3yaFO25InB8swQgHdKgz/PVqtX6JmmbR4xu2PKZtNFNmRRUVnX5BWvvjE=|+PW2Knoda9s1qVKMAEcXDsw5ij/wUZ/GfR9xVDnpPSw=\",\"envelope\":\"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUCSl5i37B6J7uBZ8Ge91nw86AAE4gQI6AAE4gAGhBUxDZ7isjgG0Zt2UEERZATT9Jcf0kWC5y8qsWWn4iNEv9kbjf1jPeolS0FdxBu4y11Yez9MT1cPaJ8hxCjRztX5VgGzEKMnOcc491fwZXQByT0M9MLDDpJD3HDOOCzQ2gdk7VZktEmc8nhZoAGnZP0GmeoJh/my3WDukSsa2vOiOLE2KGIfF8OHa7nwXds9Z1aIhlavFSNAiqDWAdOk65OhqrvE0BPN7WdW7+NbuviPiEKa3wbCIhmjfQI1nW5simSqTMx4/ikLCqH2F3gLt4nk0SJ3KAbbQA3ENWMFef8s+m5uNWPIsALXeauC5X8XwvhOI2a1XNldR2r9LCEgg0vqzi+yCLVZpfKRQVFIfBmRwBtBObo1hFLBgbCkH8hXsX/eeU9qhL8oskb7s6HCGX0IGXoPzBLkUJH2IohWh3FMYVPd4Yw==\"}";
+    pub(crate) const TEST_VECTOR_ITEM_SEND_DATA: &str = "{\"format_version\":1,\"wrapped_cek\":\"2.e/m5UvBFEh4JEHYgnAVONQ==|Cl7wnKMdT9NxeisUg1Xx3OmOyZr7Z77luoLPCBxuo1EVAjf69q3yaFO25InB8swQgHdKgz/PVqtX6JmmbR4xu2PKZtNFNmRRUVnX5BWvvjE=|+PW2Knoda9s1qVKMAEcXDsw5ij/wUZ/GfR9xVDnpPSw=\",\"envelope\":\"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUCSl5i37B6J7uBZ8Ge91nw86AAE4gQI6AAE4gAGhBUxDZ7isjgG0Zt2UEERZATT9Jcf0kWC5y8qsWWn4iNEv9kbjf1jPeolS0FdxBu4y11Yez9MT1cPaJ8hxCjRztX5VgGzEKMnOcc491fwZXQByT0M9MLDDpJD3HDOOCzQ2gdk7VZktEmc8nhZoAGnZP0GmeoJh/my3WDukSsa2vOiOLE2KGIfF8OHa7nwXds9Z1aIhlavFSNAiqDWAdOk65OhqrvE0BPN7WdW7+NbuviPiEKa3wbCIhmjfQI1nW5simSqTMx4/ikLCqH2F3gLt4nk0SJ3KAbbQA3ENWMFef8s+m5uNWPIsALXeauC5X8XwvhOI2a1XNldR2r9LCEgg0vqzi+yCLVZpfKRQVFIfBmRwBtBObo1hFLBgbCkH8hXsX/eeU9qhL8oskb7s6HCGX0IGXoPzBLkUJH2IohWh3FMYVPd4Yw==\"}";
 
     /// Cipher content of the Item Send test vector. Metadata matches what
     /// `unseal_blob_for_item_sends` defaults.

@@ -8,7 +8,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_error::bitwarden_error;
-use bitwarden_vault::CipherView;
+use bitwarden_vault::{CipherId, CipherView};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -18,7 +18,11 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 use zeroize::Zeroizing;
 
-use crate::{SendParseError, SendType, send::SEND_ITERATIONS, send_client::SendClient};
+use crate::{
+    SendParseError, SendType,
+    send::{SEND_ITERATIONS, SendItemMetadata},
+    send_client::SendClient,
+};
 
 /// Length in bytes of the raw Send key carried in a Send URL fragment. `pub(crate)` so
 /// `SendView::encrypt_composite` (`send.rs`) can generate keys of exactly this length,
@@ -88,6 +92,8 @@ pub struct SendAccessItemResponse {
     pub encryption_version: Option<SendEncryptionType>,
     /// The encrypted item data
     pub data: Option<String>,
+    /// Unencrypted item metadata
+    pub metadata: Option<SendItemMetadata>,
 }
 
 /// File download URL data returned from a send file access call.
@@ -298,7 +304,9 @@ impl SendAccessKey {
                         "data",
                     )));
                 };
-                let cipher_view = CipherView::unseal_blob_for_item_sends(&data, &mut ctx, key)?;
+                let mut cipher_view = CipherView::unseal_blob_for_item_sends(&data, &mut ctx, key)?;
+                // The blob holds no id; restore it from the metadata.
+                cipher_view.id = d.metadata.map(|m| m.item_id);
                 Some(SendAccessItemView {
                     data: Some(cipher_view),
                 })
@@ -409,6 +417,12 @@ impl TryFrom<models::SendAccessResponseModel> for SendAccessResponse {
             data: r.data.map(|dat| SendAccessItemResponse {
                 encryption_version: dat.encryption_version,
                 data: dat.data,
+                metadata: dat
+                    .metadata
+                    .and_then(|m| m.item_id)
+                    .map(|item_id| SendItemMetadata {
+                        item_id: CipherId::new(item_id),
+                    }),
             }),
             expiration_date: r.expiration_date.map(|s| s.parse()).transpose()?,
             creator_identifier: r.creator_identifier,
@@ -645,11 +659,14 @@ mod tests {
 
         use bitwarden_core::key_management::create_test_crypto_with_user_key;
         use bitwarden_crypto::{OctetStreamBytes, PrimitiveEncryptable as _, SymmetricCryptoKey};
+        use bitwarden_vault::CipherId;
 
         use crate::{
             Send, SendAccessDecryptError, SendAccessFileResponse, SendAccessKey,
             SendAccessKeyError, SendAccessResponse, SendAccessTextResponse, SendAuthType,
             SendClient, SendFileView, SendTextView, SendType, SendView,
+            access::SendAccessItemResponse,
+            send::{SendItemMetadata, tests::TEST_VECTOR_ITEM_SEND_DATA},
         };
 
         /// The url-safe-base64 form of a 16-byte send key, as it appears in the trailing
@@ -918,6 +935,31 @@ mod tests {
             let text = view.text.expect("text block present");
             assert_eq!(text.text, None);
             assert!(text.hidden);
+        }
+
+        #[test]
+        fn decrypt_response_restores_item_id_from_metadata() {
+            let item_id: CipherId = "5d4fbf2b-7a36-4b3c-9f2e-1a6d8c0e9b71".parse().unwrap();
+            let response = SendAccessResponse {
+                id: None,
+                type_: Some(SendType::Item),
+                name: None,
+                text: None,
+                file: None,
+                data: Some(SendAccessItemResponse {
+                    encryption_version: None,
+                    data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_owned()),
+                    metadata: Some(SendItemMetadata { item_id }),
+                }),
+                expiration_date: None,
+                creator_identifier: None,
+            };
+
+            let access_key = SendAccessKey::from_url_b64(URL_KEY).expect("key parses");
+            let view = access_key.decrypt_response(response).expect("decrypts");
+
+            let cipher = view.data.and_then(|d| d.data).expect("item present");
+            assert_eq!(cipher.id, Some(item_id));
         }
 
         #[test]
