@@ -93,7 +93,7 @@ pub struct SendAccessItemResponse {
     /// The encrypted item data
     pub data: Option<String>,
     /// Unencrypted item metadata
-    pub metadata: Option<SendItemMetadata>,
+    pub metadata: SendItemMetadata,
 }
 
 /// File download URL data returned from a send file access call.
@@ -306,7 +306,7 @@ impl SendAccessKey {
                 };
                 let mut cipher_view = CipherView::unseal_blob_for_item_sends(&data, &mut ctx, key)?;
                 // The blob holds no id; restore it from the metadata.
-                cipher_view.id = d.metadata.map(|m| m.item_id);
+                cipher_view.id = Some(d.metadata.item_id);
                 Some(SendAccessItemView {
                     data: Some(cipher_view),
                 })
@@ -417,12 +417,9 @@ impl TryFrom<models::SendAccessResponseModel> for SendAccessResponse {
             data: r.data.map(|dat| SendAccessItemResponse {
                 encryption_version: dat.encryption_version,
                 data: dat.data,
-                metadata: dat
-                    .metadata
-                    .and_then(|m| m.item_id)
-                    .map(|item_id| SendItemMetadata {
-                        item_id: CipherId::new(item_id),
-                    }),
+                metadata: SendItemMetadata {
+                    item_id: CipherId::new(dat.metadata.item_id),
+                },
             }),
             expiration_date: r.expiration_date.map(|s| s.parse()).transpose()?,
             creator_identifier: r.creator_identifier,
@@ -666,7 +663,10 @@ mod tests {
             SendAccessKeyError, SendAccessResponse, SendAccessTextResponse, SendAuthType,
             SendClient, SendFileView, SendTextView, SendType, SendView,
             access::SendAccessItemResponse,
-            send::{SendItemMetadata, tests::TEST_VECTOR_ITEM_SEND_DATA},
+            send::{
+                SendItemMetadata,
+                tests::{TEST_ITEM_ID, TEST_VECTOR_ITEM_SEND_DATA},
+            },
         };
 
         /// The url-safe-base64 form of a 16-byte send key, as it appears in the trailing
@@ -939,7 +939,7 @@ mod tests {
 
         #[test]
         fn decrypt_response_restores_item_id_from_metadata() {
-            let item_id: CipherId = "5d4fbf2b-7a36-4b3c-9f2e-1a6d8c0e9b71".parse().unwrap();
+            let item_id: CipherId = TEST_ITEM_ID.parse().unwrap();
             let response = SendAccessResponse {
                 id: None,
                 type_: Some(SendType::Item),
@@ -949,7 +949,7 @@ mod tests {
                 data: Some(SendAccessItemResponse {
                     encryption_version: None,
                     data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_owned()),
-                    metadata: Some(SendItemMetadata { item_id }),
+                    metadata: SendItemMetadata { item_id },
                 }),
                 expiration_date: None,
                 creator_identifier: None,

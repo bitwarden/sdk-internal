@@ -14,16 +14,12 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SendItemMetadataModel {
-    #[serde(
-        rename = "itemId",
-        alias = "ItemId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub item_id: Option<uuid::Uuid>,
+    #[serde(rename = "itemId", alias = "ItemId")]
+    pub item_id: uuid::Uuid,
 }
 
 impl SendItemMetadataModel {
-    pub fn new() -> SendItemMetadataModel {
-        SendItemMetadataModel { item_id: None }
+    pub fn new(item_id: uuid::Uuid) -> SendItemMetadataModel {
+        SendItemMetadataModel { item_id }
     }
 }

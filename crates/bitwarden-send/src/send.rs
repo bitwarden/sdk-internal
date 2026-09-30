@@ -93,7 +93,7 @@ pub struct SendItem {
     pub encryption_version: SendEncryptionType,
     /// Opaque sealed cipher blob, see [`CipherView::seal_blob_for_item_sends`].
     pub data: String,
-    pub metadata: Option<SendItemMetadata>,
+    pub metadata: SendItemMetadata,
 }
 
 /// Unencrypted metadata of an Item Send
@@ -310,10 +310,8 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                     Some(Box::new(bitwarden_api_api::models::SendDataModel {
                         encryption_version: Some(DEFAULT_SEND_ENCRYPTION.into()),
                         data: Some(encrypted.data),
-                        metadata: encrypted.metadata.map(|m| {
-                            Box::new(SendItemMetadataModel {
-                                item_id: Some(m.item_id.into()),
-                            })
+                        metadata: Box::new(SendItemMetadataModel {
+                            item_id: encrypted.metadata.item_id.into(),
                         }),
                     })),
                 ))
@@ -554,7 +552,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendItemView> for SendItem {
     ) -> Result<SendItemView, CryptoError> {
         let mut data = CipherView::unseal_blob_for_item_sends(&self.data, ctx, key)?;
         // The blob holds no id; restore it from the metadata.
-        data.id = self.metadata.as_ref().map(|m| m.item_id);
+        data.id = Some(self.metadata.item_id);
         Ok(SendItemView { data })
     }
 }
@@ -568,7 +566,9 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendItem> for SendItem
         Ok(SendItem {
             encryption_version: DEFAULT_SEND_ENCRYPTION,
             data: self.data.seal_blob_for_item_sends(ctx, key)?,
-            metadata: self.data.id.map(|item_id| SendItemMetadata { item_id }),
+            metadata: SendItemMetadata {
+                item_id: self.data.id.ok_or(CryptoError::MissingField("id"))?,
+            },
         })
     }
 }
@@ -886,12 +886,9 @@ impl TryFrom<SendDataModel> for SendItem {
                     .unwrap_or(DEFAULT_SEND_ENCRYPTION.into()),
             )?,
             data: sealed,
-            metadata: data
-                .metadata
-                .and_then(|m| m.item_id)
-                .map(|item_id| SendItemMetadata {
-                    item_id: CipherId::new(item_id),
-                }),
+            metadata: SendItemMetadata {
+                item_id: CipherId::new(data.metadata.item_id),
+            },
         })
     }
 }
@@ -902,8 +899,7 @@ pub(crate) mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
     use bitwarden_vault::{
-        CipherId, CipherRepromptType, CipherType, FieldType, FieldView, LoginView,
-        PasswordHistoryView,
+        CipherRepromptType, CipherType, FieldType, FieldView, LoginView, PasswordHistoryView,
     };
 
     use super::*;
@@ -912,16 +908,17 @@ pub(crate) mod tests {
         "bYCsk857hl8QJJtxyRK65tjUrbxKC4aDifJpsml+NIv4W9cVgFvi3qVD+yJTUU2T4UwNKWYtt9pqWf7Q+2WCCg==";
     const TEST_SEND_KEY: &str = "2.KLv/j0V4Ebs0dwyPdtt4vw==|jcrFuNYN1Qb3onBlwvtxUV/KpdnR1LPRL4EsCoXNAt4=|gHSywGy4Rj/RsCIZFwze4s2AACYKBtqDXTrQXjkgtIE=";
     const TEST_SEND_KEY_B64: &str = "Pgui0FK85cNhBGWHAlBHBw";
+    pub(crate) const TEST_ITEM_ID: &str = "5d4fbf2b-7a36-4b3c-9f2e-1a6d8c0e9b71";
 
     /// Item Send `data`, sealed under the send key of [`TEST_SEND_KEY`]. Decrypts to
     /// [`item_send_cipher_view`].
     pub(crate) const TEST_VECTOR_ITEM_SEND_DATA: &str = "{\"format_version\":1,\"wrapped_cek\":\"2.e/m5UvBFEh4JEHYgnAVONQ==|Cl7wnKMdT9NxeisUg1Xx3OmOyZr7Z77luoLPCBxuo1EVAjf69q3yaFO25InB8swQgHdKgz/PVqtX6JmmbR4xu2PKZtNFNmRRUVnX5BWvvjE=|+PW2Knoda9s1qVKMAEcXDsw5ij/wUZ/GfR9xVDnpPSw=\",\"envelope\":\"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUCSl5i37B6J7uBZ8Ge91nw86AAE4gQI6AAE4gAGhBUxDZ7isjgG0Zt2UEERZATT9Jcf0kWC5y8qsWWn4iNEv9kbjf1jPeolS0FdxBu4y11Yez9MT1cPaJ8hxCjRztX5VgGzEKMnOcc491fwZXQByT0M9MLDDpJD3HDOOCzQ2gdk7VZktEmc8nhZoAGnZP0GmeoJh/my3WDukSsa2vOiOLE2KGIfF8OHa7nwXds9Z1aIhlavFSNAiqDWAdOk65OhqrvE0BPN7WdW7+NbuviPiEKa3wbCIhmjfQI1nW5simSqTMx4/ikLCqH2F3gLt4nk0SJ3KAbbQA3ENWMFef8s+m5uNWPIsALXeauC5X8XwvhOI2a1XNldR2r9LCEgg0vqzi+yCLVZpfKRQVFIfBmRwBtBObo1hFLBgbCkH8hXsX/eeU9qhL8oskb7s6HCGX0IGXoPzBLkUJH2IohWh3FMYVPd4Yw==\"}";
 
     /// Cipher content of the Item Send test vector. Metadata matches what
-    /// `unseal_blob_for_item_sends` defaults.
+    /// `unseal_blob_for_item_sends` defaults; the id comes from the Send metadata.
     fn item_send_cipher_view() -> CipherView {
         CipherView {
-            id: None,
+            id: TEST_ITEM_ID.parse().ok(),
             organization_id: None,
             folder_id: None,
             collection_ids: Vec::new(),
@@ -1008,7 +1005,9 @@ pub(crate) mod tests {
         let item = SendItem::try_from(SendDataModel {
             encryption_version: Some(SendEncryptionType::V1.into()),
             data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
-            metadata: None,
+            metadata: Box::new(SendItemMetadataModel {
+                item_id: TEST_ITEM_ID.parse().unwrap(),
+            }),
         })
         .unwrap();
         let send = Send {
@@ -1058,38 +1057,30 @@ pub(crate) mod tests {
         let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
         let crypto = create_test_crypto_with_user_key(user_key);
 
-        let item_id: CipherId = "5d4fbf2b-7a36-4b3c-9f2e-1a6d8c0e9b71".parse().unwrap();
-        let mut view = item_send_view();
-        view.data.as_mut().unwrap().data.id = Some(item_id);
-
         // The item id travels as metadata next to the sealed blob.
-        let send: Send = crypto.encrypt(view.clone()).unwrap();
+        let send: Send = crypto.encrypt(item_send_view()).unwrap();
         let item = send.data.as_ref().unwrap();
-        assert_eq!(item.metadata, Some(SendItemMetadata { item_id }));
+        assert_eq!(
+            item.metadata,
+            SendItemMetadata {
+                item_id: TEST_ITEM_ID.parse().unwrap()
+            }
+        );
 
         let decrypted: SendView = crypto.decrypt(&send).unwrap();
-        assert_eq!(decrypted, view);
+        assert_eq!(decrypted, item_send_view());
     }
 
     #[test]
-    fn test_item_send_metadata_from_api() {
-        let item_id = uuid::Uuid::parse_str("5d4fbf2b-7a36-4b3c-9f2e-1a6d8c0e9b71").unwrap();
+    fn test_item_send_encrypt_requires_item_id() {
+        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
+        let crypto = create_test_crypto_with_user_key(user_key);
 
-        let item = SendItem::try_from(SendDataModel {
-            encryption_version: Some(SendEncryptionType::V1.into()),
-            data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
-            metadata: Some(Box::new(SendItemMetadataModel {
-                item_id: Some(item_id),
-            })),
-        })
-        .unwrap();
+        let mut view = item_send_view();
+        view.data.as_mut().unwrap().data.id = None;
 
-        assert_eq!(
-            item.metadata,
-            Some(SendItemMetadata {
-                item_id: CipherId::new(item_id)
-            })
-        );
+        let result: Result<Send, _> = crypto.encrypt(view);
+        assert!(result.is_err());
     }
 
     #[test]
