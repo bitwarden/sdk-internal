@@ -1030,6 +1030,8 @@ pub mod send_file_model;
 pub use self::send_file_model::SendFileModel;
 pub mod send_file_upload_data_response_model;
 pub use self::send_file_upload_data_response_model::SendFileUploadDataResponseModel;
+pub mod send_item_metadata_model;
+pub use self::send_item_metadata_model::SendItemMetadataModel;
 pub mod send_request_model;
 pub use self::send_request_model::SendRequestModel;
 pub mod send_response_model;

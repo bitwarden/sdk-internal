@@ -26,6 +26,12 @@ pub struct SendDataModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub data: Option<String>,
+    #[serde(
+        rename = "metadata",
+        alias = "Metadata",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub metadata: Option<Box<models::SendItemMetadataModel>>,
 }
 
 impl SendDataModel {
@@ -33,6 +39,7 @@ impl SendDataModel {
         SendDataModel {
             encryption_version: None,
             data: None,
+            metadata: None,
         }
     }
 }
