@@ -164,6 +164,11 @@ impl PasswordManagerClient {
         self.0.invite_link()
     }
 
+    /// Organization verified domain operations.
+    pub fn organization_domains(&self) -> OrganizationDomainsClient {
+        self.0.organization_domains()
+    }
+
     /// Organization member administration operations.
     pub fn organization_users_management(&self) -> OrganizationUsersManagementClient {
         self.0.organization_users_management()
