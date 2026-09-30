@@ -9,7 +9,7 @@ use bitwarden_crypto::KeyStore;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-/// Client for emergency access operations, performed as the grantee.
+/// Client for emergency access operations, performed as the grantor or the grantee.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct EmergencyAccessClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
