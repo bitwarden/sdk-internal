@@ -219,7 +219,7 @@ mod tests {
             private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
             signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
             security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
-            signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+            signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
         }
     }
 
