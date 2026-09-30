@@ -38,6 +38,41 @@ pub enum EmergencyAccessTakeoverError {
     MasterPassword(#[from] MasterPasswordError),
 }
 
+/// The takeover response parsed: the grantor key, KDF and salt.
+struct EmergencyAccessTakeoverData {
+    grantor_key: UnsignedSharedKey,
+    kdf: Kdf,
+    /// `None` on servers that predate the salt field.
+    salt: Option<String>,
+}
+
+impl TryFrom<EmergencyAccessTakeoverResponseModel> for EmergencyAccessTakeoverData {
+    type Error = EmergencyAccessTakeoverError;
+
+    fn try_from(response: EmergencyAccessTakeoverResponseModel) -> Result<Self, Self::Error> {
+        let grantor_key = require!(response.key_encrypted).parse()?;
+
+        let iterations = require!(response.kdf_iterations);
+        let kdf = match require!(response.kdf) {
+            KdfType::PBKDF2_SHA256 => Kdf::PBKDF2 {
+                iterations: kdf_parse_nonzero_u32(iterations)?,
+            },
+            KdfType::Argon2id => Kdf::Argon2id {
+                iterations: kdf_parse_nonzero_u32(iterations)?,
+                memory: kdf_parse_nonzero_u32(require!(response.kdf_memory))?,
+                parallelism: kdf_parse_nonzero_u32(require!(response.kdf_parallelism))?,
+            },
+            KdfType::__Unknown(_) => return Err(MasterPasswordError::KdfMalformed.into()),
+        };
+
+        Ok(Self {
+            grantor_key,
+            kdf,
+            salt: response.salt,
+        })
+    }
+}
+
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl EmergencyAccessClient {
     /// Sets a new master password on the grantor's account of an approved takeover emergency
@@ -58,18 +93,28 @@ impl EmergencyAccessClient {
         let api = self.api_configurations.api_client.emergency_access_api();
 
         let response = api.takeover(emergency_access_id.into()).await?;
-        let (grantor_key, kdf, salt) = parse_takeover(response, &email)?;
+        let data = EmergencyAccessTakeoverData::try_from(response)?;
+
+        // Servers that predate the salt field use the email-derived salt.
+        // TODO: PM-32059 - drop the fallback once the salt is decoupled from the email.
+        let salt = data.salt.unwrap_or_else(|| email.trim().to_lowercase());
 
         // The key store context must not be held across the await below, so it is scoped here.
         let request = {
             let mut ctx = self.key_store.context();
-            let grantor_key =
-                grantor_key.decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx)?;
+            let grantor_key = data
+                .grantor_key
+                .decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx)?;
 
             let authentication_data =
-                MasterPasswordAuthenticationData::derive(&new_password, &kdf, &salt)?;
-            let unlock_data =
-                MasterPasswordUnlockData::derive(&new_password, &kdf, &salt, grantor_key, &ctx)?;
+                MasterPasswordAuthenticationData::derive(&new_password, &data.kdf, &salt)?;
+            let unlock_data = MasterPasswordUnlockData::derive(
+                &new_password,
+                &data.kdf,
+                &salt,
+                grantor_key,
+                &ctx,
+            )?;
 
             EmergencyAccessPasswordRequestModel {
                 new_master_password_hash: None,
@@ -84,33 +129,6 @@ impl EmergencyAccessClient {
 
         Ok(())
     }
-}
-
-/// Maps the server response to the grantor key, KDF and salt.
-fn parse_takeover(
-    response: EmergencyAccessTakeoverResponseModel,
-    email: &str,
-) -> Result<(UnsignedSharedKey, Kdf, String), EmergencyAccessTakeoverError> {
-    let grantor_key: UnsignedSharedKey = require!(response.key_encrypted).parse()?;
-
-    let iterations = require!(response.kdf_iterations);
-    let kdf = match require!(response.kdf) {
-        KdfType::PBKDF2_SHA256 => Kdf::PBKDF2 {
-            iterations: kdf_parse_nonzero_u32(iterations)?,
-        },
-        KdfType::Argon2id => Kdf::Argon2id {
-            iterations: kdf_parse_nonzero_u32(iterations)?,
-            memory: kdf_parse_nonzero_u32(require!(response.kdf_memory))?,
-            parallelism: kdf_parse_nonzero_u32(require!(response.kdf_parallelism))?,
-        },
-        KdfType::__Unknown(_) => return Err(MasterPasswordError::KdfMalformed.into()),
-    };
-
-    // Servers that predate the salt field use the email-derived salt.
-    // TODO: PM-32059 - drop the fallback once the salt is decoupled from the email.
-    let salt = response.salt.unwrap_or_else(|| email.trim().to_lowercase());
-
-    Ok((grantor_key, kdf, salt))
 }
 
 fn kdf_parse_nonzero_u32(value: i32) -> Result<NonZeroU32, MasterPasswordError> {
@@ -414,10 +432,10 @@ mod tests {
             ..response(Some(TEST_VECTOR_GRANTOR_KEY), Some(TEST_SALT))
         };
 
-        let (_, kdf, _) = parse_takeover(response, TEST_GRANTOR_EMAIL).unwrap();
+        let data = EmergencyAccessTakeoverData::try_from(response).unwrap();
 
         assert_eq!(
-            kdf,
+            data.kdf,
             Kdf::Argon2id {
                 iterations: NonZeroU32::new(3).unwrap(),
                 memory: NonZeroU32::new(64).unwrap(),
@@ -434,7 +452,7 @@ mod tests {
             ..response(Some(TEST_VECTOR_GRANTOR_KEY), Some(TEST_SALT))
         };
 
-        let result = parse_takeover(response, TEST_GRANTOR_EMAIL);
+        let result = EmergencyAccessTakeoverData::try_from(response);
 
         assert!(matches!(
             result,
@@ -449,7 +467,7 @@ mod tests {
             ..response(Some(TEST_VECTOR_GRANTOR_KEY), Some(TEST_SALT))
         };
 
-        let result = parse_takeover(response, TEST_GRANTOR_EMAIL);
+        let result = EmergencyAccessTakeoverData::try_from(response);
 
         assert!(matches!(
             result,
