@@ -84,3 +84,20 @@ export interface OrganizationEntity {
   organizationKeyId: string | null;
   members: OrganizationMember[];
 }
+
+/** An emergency access grant, as the server holds it. */
+export interface EmergencyAccessEntity {
+  id: string;
+  grantorId: string;
+  /** `null` until the invited account accepts. */
+  granteeId: string | null;
+  /** The address the grantor invited. */
+  email: string;
+  type: number;
+  status: number;
+  waitTimeDays: number;
+  /** The grantor's user key sealed to the grantee, `null` until the grantor confirms. */
+  keyEncrypted: string | null;
+  /** The token the invite email carries, which the grantee accepts with. */
+  inviteToken: string;
+}

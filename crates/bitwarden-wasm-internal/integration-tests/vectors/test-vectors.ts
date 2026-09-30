@@ -4,8 +4,10 @@ import type { InitUserCryptoMethod } from "@bitwarden/sdk-internal";
 
 import {
   hasMasterPassword,
+  loadEmergencyAccessVectors,
   loadUserVectors,
   unlockMethodName,
+  type EmergencyAccessVector,
   type MasterPasswordUserVector,
   type UserVector,
 } from "./load";
@@ -90,4 +92,13 @@ class UserVectors<V extends UserVector = UserVector> {
 
 export const testVectors = {
   users: new UserVectors(loadUserVectors()),
+
+  /** `it.each` over every emergency access vector. `$name` in the title is the vector's name. */
+  eachEmergencyAccess(
+    title: string,
+    fn: (vector: EmergencyAccessVector) => Promise<void>,
+    timeout?: number,
+  ): void {
+    it.each(loadEmergencyAccessVectors())(title, (vector) => fn(vector), timeout);
+  },
 };
