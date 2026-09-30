@@ -997,6 +997,18 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[ignore = "Generates test vectors; run manually"]
+    fn generate_item_send_test_vector() {
+        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
+        let crypto = create_test_crypto_with_user_key(user_key);
+        let send: Send = crypto.encrypt(item_send_view()).unwrap();
+        println!(
+            "pub(crate) const TEST_VECTOR_ITEM_SEND_DATA: &str = {:?};",
+            send.data.unwrap().data
+        );
+    }
+
+    #[test]
     fn test_item_send_test_vector() {
         let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
         let crypto = create_test_crypto_with_user_key(user_key);
