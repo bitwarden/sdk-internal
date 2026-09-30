@@ -78,11 +78,6 @@ impl EmergencyAccessClient {
     /// Sets a new master password on the grantor's account of an approved takeover emergency
     /// access.
     ///
-    /// The server returns the grantor's user key encapsulated to the current user's public key,
-    /// and the grantor's KDF. The new master password is derived with that KDF and wraps the
-    /// grantor's user key, which only lives in the key store while doing so. `email` is the
-    /// grantor's email, used as salt when the server doesn't return one.
-    ///
     /// Called by the grantee.
     pub async fn takeover(
         &self,
@@ -90,6 +85,10 @@ impl EmergencyAccessClient {
         new_password: String,
         email: String,
     ) -> Result<(), EmergencyAccessTakeoverError> {
+        // The server returns the grantor's user key encapsulated to the current user's public key,
+        // and the grantor's KDF. The new master password is derived with that KDF and wraps the
+        // grantor's user key, which only lives in the key store while doing so. `email` is the
+        // grantor's email, used as salt when the server doesn't return one.
         let api = self.api_configurations.api_client.emergency_access_api();
 
         let response = api.takeover(emergency_access_id.into()).await?;
