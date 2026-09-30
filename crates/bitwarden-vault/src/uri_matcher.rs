@@ -66,7 +66,7 @@ pub fn try_uri_regex_match(pattern: &str, target: &str) -> Result<bool, UriMatch
         return Err(UriMatcherError::TargetTooLong);
     }
     let regex = compile(&parse(pattern)?, pattern)?;
-    regex.is_match(target).map_err(map_regex_error)
+    Ok(regex.is_match(target)?)
 }
 
 /// Evaluates each pattern against `target`, one result per pattern. Patterns reached after 100 ms
@@ -119,9 +119,7 @@ fn parse(pattern: &str) -> Result<Expr, UriMatcherError> {
     if pattern.chars().count() > MAX_PATTERN_LENGTH {
         return Err(UriMatcherError::PatternTooLong);
     }
-    Expr::parse_tree(pattern)
-        .map(|tree| tree.expr)
-        .map_err(map_regex_error)
+    Ok(Expr::parse_tree(pattern)?.expr)
 }
 
 /// Compiles `pattern`, whose parsed form is `expr`, if it has a supported shape.
@@ -129,13 +127,12 @@ fn compile(expr: &Expr, pattern: &str) -> Result<Regex, UriMatcherError> {
     if check_shape(expr)? > MAX_EXPENSIVE_NODES {
         return Err(UriMatcherError::PatternTooComplex);
     }
-    RegexBuilder::new(pattern)
+    Ok(RegexBuilder::new(pattern)
         .case_insensitive(true)
         .backtrack_limit(BACKTRACK_LIMIT)
         .delegate_size_limit(DELEGATE_SIZE_LIMIT)
         .delegate_dfa_size_limit(DELEGATE_DFA_SIZE_LIMIT)
-        .build()
-        .map_err(map_regex_error)
+        .build()?)
 }
 
 /// Anchors the `regex` crate handles itself; word boundaries force fancy-regex's backtracking.
@@ -162,19 +159,19 @@ fn is_linear(expr: &Expr) -> bool {
     }
 }
 
-fn map_regex_error(error: RegexError) -> UriMatcherError {
-    match error {
-        RegexError::ParseError(_, ParseError::RecursionExceeded) => {
-            UriMatcherError::PatternTooComplex
+impl From<RegexError> for UriMatcherError {
+    fn from(error: RegexError) -> Self {
+        match error {
+            RegexError::ParseError(_, ParseError::RecursionExceeded) => Self::PatternTooComplex,
+            RegexError::CompileError(compile_error) => match *compile_error {
+                CompileError::InnerError(inner) if inner.size_limit().is_some() => {
+                    Self::PatternTooComplex
+                }
+                _ => Self::InvalidPattern,
+            },
+            RegexError::RuntimeError(_) => Self::MatchLimitExceeded,
+            _ => Self::InvalidPattern,
         }
-        RegexError::CompileError(compile_error) => match *compile_error {
-            CompileError::InnerError(inner) if inner.size_limit().is_some() => {
-                UriMatcherError::PatternTooComplex
-            }
-            _ => UriMatcherError::InvalidPattern,
-        },
-        RegexError::RuntimeError(_) => UriMatcherError::MatchLimitExceeded,
-        _ => UriMatcherError::InvalidPattern,
     }
 }
 
