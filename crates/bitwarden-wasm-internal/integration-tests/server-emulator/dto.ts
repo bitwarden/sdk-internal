@@ -16,6 +16,7 @@ import type {
   Passport,
   SecureNote,
   SshKey,
+  WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
 
 import {
@@ -24,18 +25,19 @@ import {
   asEncString,
   asFolderId,
   asOrganizationId,
+  asSignedPublicKey,
+  asSignedSecurityState,
   asString,
 } from "../tests/type-assertion-helpers";
 
-import type { Database } from "./database";
-import type { StoredMasterPasswordUnlock, UserEntity } from "./entities";
+import type { EmergencyAccessEntity, StoredMasterPasswordUnlock, UserEntity } from "./entities";
 
 /** The server's numeric `KdfType`. */
 export const KdfType = { pbkdf2Sha256: 0, argon2id: 1 } as const;
 export type KdfTypeValue = (typeof KdfType)[keyof typeof KdfType];
 
-function optionalString(value: { toString(): string } | undefined): string | null {
-  return value === undefined ? null : String(value);
+function optionalString(value: { toString(): string } | null | undefined): string | null {
+  return value === null || value === undefined ? null : String(value);
 }
 
 function optionalEnc(value: string | null | undefined) {
@@ -102,6 +104,102 @@ export class MasterPasswordUnlockDataModel {
   }
 }
 
+/** `PublicKeyEncryptionKeyPairRequestModel`, as a rotation posts it. */
+export class PublicKeyEncryptionKeyPairRequest {
+  wrappedPrivateKey!: string;
+  publicKey!: string;
+  signedPublicKey?: string;
+}
+
+/** `SignatureKeyPairRequestModel`. */
+export class SignatureKeyPairRequest {
+  signatureAlgorithm!: number;
+  wrappedSigningKey!: string;
+  verifyingKey!: string;
+}
+
+/** `SecurityStateModel`. */
+export class SecurityStateRequest {
+  securityState!: string;
+  securityVersion!: number;
+}
+
+/**
+ * `WrappedAccountCryptographicStateRequestModel` — always the V2 shape.
+ */
+export class WrappedAccountCryptographicStateRequest {
+  publicKeyEncryptionKeyPair!: PublicKeyEncryptionKeyPairRequest;
+  signatureKeyPair!: SignatureKeyPairRequest;
+  securityState!: SecurityStateRequest;
+}
+
+/** The server's numeric `UnlockMethod`. */
+export const UnlockMethod = { tde: 0, masterPassword: 1, keyConnector: 2 } as const;
+export type UnlockMethodValue = (typeof UnlockMethod)[keyof typeof UnlockMethod];
+
+/** `UnlockMethodRequestModel` — how the rotated user key is wrapped for the primary unlock. */
+export class UnlockMethodRequest {
+  unlockMethod!: UnlockMethodValue;
+  masterPasswordUnlockData?: MasterPasswordUnlockDataModel;
+  keyConnectorKeyWrappedUserKey?: string;
+}
+
+/** `CommonUnlockDataRequestModel` — the unlock paths a rotation re-wraps for. */
+export class CommonUnlockDataRequest {
+  emergencyAccessUnlockData!: unknown[] | null;
+  organizationAccountRecoveryUnlockData!: unknown[] | null;
+  passkeyUnlockData!: unknown[] | null;
+  deviceKeyUnlockData!: unknown[] | null;
+  v2UpgradeToken?: V2UpgradeTokenResponse;
+}
+
+/** `AccountDataRequestModel` — the vault, re-encrypted under the new user key. */
+export class AccountDataRequest {
+  ciphers?: (CipherRequest & { id: string })[] | null;
+  folders?: { id: string; name: string }[] | null;
+  sends?: unknown[] | null;
+}
+
+/**
+ * `KeyRegenerationRequestModel` — the body of `POST /accounts/key-management/regenerate-keys`.
+ */
+export class KeyRegenerationRequest {
+  userPublicKey!: string;
+  userKeyEncryptedUserPrivateKey!: string;
+}
+
+/** `RotateUserKeysRequestModel` — the body of `POST /accounts/key-management/rotate-user-keys`. */
+export class RotateUserKeysRequest {
+  wrappedAccountCryptographicState!: WrappedAccountCryptographicStateRequest;
+  unlockData!: CommonUnlockDataRequest;
+  accountData!: AccountDataRequest;
+  unlockMethodData!: UnlockMethodRequest;
+  newUserKeyId?: string;
+}
+
+/**
+ * `KeyRotationDataResponseModel` — everything a rotation has to re-wrap the new user key for.
+ *
+ * Every array is required: `key_rotation/sync.rs` maps an absent one to `SyncError::Data`, so an
+ * omitted field fails the rotation rather than reading as "none".
+ */
+export class KeyRotationDataResponse {
+  organizationPasswordResetKeyData!: unknown[];
+  emergencyAccessKeyData!: unknown[];
+  trustedDeviceKeyData!: unknown[];
+  passkeyKeyData!: unknown[];
+
+  /** An account with no organizations, grantees, trusted devices or passkeys. */
+  static empty(): KeyRotationDataResponse {
+    return {
+      organizationPasswordResetKeyData: [],
+      emergencyAccessKeyData: [],
+      trustedDeviceKeyData: [],
+      passkeyKeyData: [],
+    };
+  }
+}
+
 /** The body of `POST /accounts/key-management/user-key-id`. */
 export class UserKeyIdRequest {
   userKeyId!: string;
@@ -132,11 +230,21 @@ export class SecurityStateResponse {
   securityVersion!: number;
 }
 
+/** The fields of {@link AccountKeysResponse}, which is all a body — parsed or built — holds. */
+export type AccountKeysBody = Omit<AccountKeysResponse, "toAccountCryptographicState">;
+
 export class AccountKeysResponse {
   object!: "privateKeys";
   publicKeyEncryptionKeyPair!: PublicKeyEncryptionKeyPairResponse;
   signatureKeyPair?: SignatureKeyPairResponse;
   securityState?: SecurityStateResponse;
+
+  /**
+   * These keys as an instance, from the fields alone.
+   */
+  static fromAccountKeysResponse(body: AccountKeysBody): AccountKeysResponse {
+    return Object.assign(new AccountKeysResponse(), body);
+  }
 
   /** The account's wrapped private key, whichever generation it is. */
   static wrappedPrivateKeyOf(user: UserEntity): string {
@@ -144,25 +252,50 @@ export class AccountKeysResponse {
     return "V1" in state ? state.V1.private_key : state.V2.private_key;
   }
 
+  /**
+   * This account's keys in the SDK's `WrappedAccountCryptographicState`.
+   *
+   * A V1 account carries only a key pair; a V2 account must also carry the signature key pair and
+   * security state, which is what makes it V2.
+   */
+  toAccountCryptographicState(): WrappedAccountCryptographicState {
+    const { publicKeyEncryptionKeyPair: pair, signatureKeyPair, securityState } = this;
+
+    if (signatureKeyPair === undefined || securityState === undefined) {
+      return { V1: { private_key: asEncString(pair.wrappedPrivateKey) } };
+    }
+
+    return {
+      V2: {
+        private_key: asEncString(pair.wrappedPrivateKey),
+        signing_key: asEncString(signatureKeyPair.wrappedSigningKey),
+        security_state: asSignedSecurityState(securityState.securityState),
+        signed_public_key:
+          pair.signedPublicKey === undefined ? undefined : asSignedPublicKey(pair.signedPublicKey),
+      },
+    };
+  }
+
+  /** The account's keys as the server serves them. */
   static fromUser(user: UserEntity): AccountKeysResponse {
     const state = user.accountCryptographicState;
 
     if ("V1" in state) {
-      return {
+      return AccountKeysResponse.fromAccountKeysResponse({
         object: "privateKeys",
         publicKeyEncryptionKeyPair: {
           object: "publicKeyEncryptionKeyPair",
           wrappedPrivateKey: state.V1.private_key,
           publicKey: user.publicKey,
         },
-      };
+      });
     }
 
     if (user.verifyingKey === null) {
       throw new Error(`V2 account ${user.email} has no verifying key`);
     }
 
-    return {
+    return AccountKeysResponse.fromAccountKeysResponse({
       object: "privateKeys",
       publicKeyEncryptionKeyPair: {
         object: "publicKeyEncryptionKeyPair",
@@ -181,7 +314,7 @@ export class AccountKeysResponse {
         securityState: state.V2.security_state,
         securityVersion: user.securityVersion,
       },
-    };
+    });
   }
 }
 
@@ -247,9 +380,6 @@ export interface CipherServerFields {
 
 /**
  * `CipherRequestModel` — the body of `POST /ciphers` and `PUT /ciphers/:id`.
- *
- * The encrypted sub-objects are structurally the domain model's, so they are typed off `Cipher`
- * rather than re-declared. Only the top level differs, and only the top level needs pinning.
  */
 export class CipherRequest {
   type!: CipherType;
@@ -440,6 +570,84 @@ export class FolderResponse {
   }
 }
 
+/**
+ * `MasterPasswordUnlockResponseModel`.
+ */
+export class MasterPasswordUnlockResponse {
+  kdf!: KdfModel;
+  masterKeyEncryptedUserKey!: string;
+  salt!: string;
+  containedKeyId?: string;
+
+  static fromStored(unlock: StoredMasterPasswordUnlock): MasterPasswordUnlockResponse {
+    return {
+      kdf: KdfModel.fromKdf(unlock.kdf),
+      masterKeyEncryptedUserKey: unlock.masterKeyWrappedUserKey,
+      salt: unlock.salt,
+      ...(unlock.containedKeyId === undefined ? {} : { containedKeyId: unlock.containedKeyId }),
+    };
+  }
+}
+
+/** `V2UpgradeTokenResponseModel`. */
+export class V2UpgradeTokenResponse {
+  wrappedUserKey1!: string;
+  wrappedUserKey2!: string;
+}
+
+/**
+ * `UserDecryptionResponseModel` — how an account can be unlocked, as `GET /sync` reports it.
+ *
+ * `webAuthnPrfOptions` is omitted until an account vector has any.
+ */
+export class UserDecryptionResponse {
+  masterPasswordUnlock?: MasterPasswordUnlockResponse;
+  v2UpgradeToken?: V2UpgradeTokenResponse;
+  userKeyId?: string;
+
+  static fromUser(user: UserEntity): UserDecryptionResponse {
+    return {
+      ...(user.masterPasswordUnlock === null
+        ? {}
+        : {
+            masterPasswordUnlock: MasterPasswordUnlockResponse.fromStored(
+              user.masterPasswordUnlock,
+            ),
+          }),
+      ...(user.upgradeToken === undefined
+        ? {}
+        : {
+            v2UpgradeToken: {
+              wrappedUserKey1: String(user.upgradeToken.wrapped_user_key_1),
+              wrappedUserKey2: String(user.upgradeToken.wrapped_user_key_2),
+            },
+          }),
+      ...(user.userKeyId === undefined ? {} : { userKeyId: user.userKeyId }),
+    };
+  }
+}
+
+export class KeysResponse {
+  object!: "keys";
+  key!: string | null;
+  publicKey!: string;
+  privateKey!: string;
+  accountKeys!: AccountKeysResponse;
+
+  static fromUser(user: UserEntity): KeysResponse {
+    return {
+      object: "keys",
+      key:
+        user.masterPasswordUnlock === null
+          ? null
+          : String(user.masterPasswordUnlock.masterKeyWrappedUserKey),
+      publicKey: user.publicKey,
+      privateKey: AccountKeysResponse.wrappedPrivateKeyOf(user),
+      accountKeys: AccountKeysResponse.fromUser(user),
+    };
+  }
+}
+
 /** The subset of `ProfileResponseModel` the SDK reads. */
 export class ProfileResponse {
   object!: "profile";
@@ -449,6 +657,8 @@ export class ProfileResponse {
   privateKey!: string | null;
   securityStamp!: string | null;
   organizations!: [];
+  /** The account's cryptographic state, which a rotation reads the current keys from. */
+  accountKeys!: AccountKeysResponse;
 
   static fromUser(user: UserEntity): ProfileResponse {
     return {
@@ -459,6 +669,7 @@ export class ProfileResponse {
       privateKey: AccountKeysResponse.wrappedPrivateKeyOf(user),
       securityStamp: null,
       organizations: [],
+      accountKeys: AccountKeysResponse.fromUser(user),
     };
   }
 }
@@ -466,6 +677,7 @@ export class ProfileResponse {
 export class SyncResponse {
   object!: "sync";
   profile!: ProfileResponse;
+  userDecryption!: UserDecryptionResponse;
   folders!: FolderResponse[];
   collections!: [];
   ciphers!: CipherResponse[];
@@ -478,6 +690,7 @@ export class SyncResponse {
     return {
       object: "sync",
       profile: ProfileResponse.fromUser(user),
+      userDecryption: UserDecryptionResponse.fromUser(user),
       folders: vault.folders.map(FolderResponse.fromFolder),
       collections: [],
       ciphers: vault.ciphers.map(CipherResponse.fromCipher),
@@ -492,4 +705,155 @@ export class SyncResponse {
 export class ErrorResponse {
   message!: string;
   validationErrors?: Record<string, string[]>;
+}
+
+/** The server's numeric `EmergencyAccessType`. */
+export const EmergencyAccessType = { view: 0, takeover: 1 } as const;
+
+/** The server's numeric `EmergencyAccessStatusType`. */
+export const EmergencyAccessStatus = {
+  invited: 0,
+  accepted: 1,
+  confirmed: 2,
+  recoveryInitiated: 3,
+  recoveryApproved: 4,
+} as const;
+
+/** `ListResponseModel<T>`. */
+export class ListResponse<T> {
+  object!: "list";
+  data!: T[];
+  continuationToken!: null;
+
+  static of<T>(data: T[]): ListResponse<T> {
+    return { object: "list", data, continuationToken: null };
+  }
+}
+
+/** `EmergencyAccessGranteeDetailsResponseModel` — what the grantor sees of a grantee. */
+export class EmergencyAccessGranteeDetailsResponse {
+  object!: "emergencyAccessGranteeDetails";
+  id!: string;
+  status!: number;
+  type!: number;
+  waitTimeDays!: number;
+  granteeId!: string | null;
+  name!: string | null;
+  email!: string;
+  avatarColor!: string | null;
+
+  /** Before the invite is accepted there is no grantee account, only the address invited. */
+  static fromEntity(
+    entity: EmergencyAccessEntity,
+    grantee: UserEntity | undefined,
+  ): EmergencyAccessGranteeDetailsResponse {
+    return {
+      object: "emergencyAccessGranteeDetails",
+      id: entity.id,
+      status: entity.status,
+      type: entity.type,
+      waitTimeDays: entity.waitTimeDays,
+      granteeId: entity.granteeId,
+      name: null,
+      email: grantee?.email ?? entity.email,
+      avatarColor: null,
+    };
+  }
+}
+
+/** `EmergencyAccessGrantorDetailsResponseModel` — what the grantee sees of a grantor. */
+export class EmergencyAccessGrantorDetailsResponse {
+  object!: "emergencyAccessGrantorDetails";
+  id!: string;
+  status!: number;
+  type!: number;
+  waitTimeDays!: number;
+  grantorId!: string;
+  name!: string | null;
+  email!: string;
+  avatarColor!: string | null;
+
+  static fromEntity(
+    entity: EmergencyAccessEntity,
+    grantor: UserEntity,
+  ): EmergencyAccessGrantorDetailsResponse {
+    return {
+      object: "emergencyAccessGrantorDetails",
+      id: entity.id,
+      status: entity.status,
+      type: entity.type,
+      waitTimeDays: entity.waitTimeDays,
+      grantorId: entity.grantorId,
+      name: null,
+      email: grantor.email,
+      avatarColor: null,
+    };
+  }
+}
+
+/** `EmergencyAccessInviteRequestModel`. */
+export class EmergencyAccessInviteRequest {
+  email!: string;
+  type!: number;
+  waitTimeDays!: number;
+}
+
+/** `EmergencyAccessUpdateRequestModel`. */
+export class EmergencyAccessUpdateRequest {
+  type!: number;
+  waitTimeDays!: number;
+  keyEncrypted?: string | null;
+}
+
+/** `OrganizationUserAcceptRequestModel`, which the accept route reuses. */
+export class EmergencyAccessAcceptRequest {
+  token!: string;
+}
+
+/** `OrganizationUserConfirmRequestModel`, which the confirm route reuses. */
+export class EmergencyAccessConfirmRequest {
+  key!: string;
+}
+
+/** `EmergencyAccessViewResponseModel`. */
+export class EmergencyAccessViewResponse {
+  object!: "emergencyAccessView";
+  keyEncrypted!: string;
+  ciphers!: CipherResponse[];
+}
+
+/** `EmergencyAccessTakeoverResponseModel`. */
+export class EmergencyAccessTakeoverResponse {
+  object!: "emergencyAccessTakeover";
+  keyEncrypted!: string;
+  kdf!: KdfTypeValue;
+  kdfIterations!: number;
+  kdfMemory?: number;
+  kdfParallelism?: number;
+  salt!: string;
+
+  static from(
+    keyEncrypted: string,
+    unlock: StoredMasterPasswordUnlock,
+  ): EmergencyAccessTakeoverResponse {
+    const kdf = KdfModel.fromKdf(unlock.kdf);
+
+    return {
+      object: "emergencyAccessTakeover",
+      keyEncrypted,
+      kdf: kdf.kdfType,
+      kdfIterations: kdf.iterations,
+      ...(kdf.memory === undefined ? {} : { kdfMemory: kdf.memory }),
+      ...(kdf.parallelism === undefined ? {} : { kdfParallelism: kdf.parallelism }),
+      salt: unlock.salt,
+    };
+  }
+}
+
+/** `EmergencyAccessPasswordRequestModel`. */
+export class EmergencyAccessPasswordRequest {
+  newMasterPasswordHash?: string | null;
+  key?: string | null;
+  unlockData?: MasterPasswordUnlockDataModel | null;
+  authenticationData?: MasterPasswordAuthenticationDataModel | null;
 }
