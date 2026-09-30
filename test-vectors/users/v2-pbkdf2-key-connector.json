@@ -60,7 +60,7 @@
           "folderId": null,
           "id": "bc020800-0000-4000-8000-000000000000",
           "identity": null,
-          "key": "7.g1g+owE6AAEReQN4ImFwcGxpY2F0aW9uL3guYml0d2FyZGVuLmxlZ2FjeS1rZXkEUKTRzd9iA/xHFq+CcSWoa4ChBVgY3QQUyXATTVAQ5IvqWE3+Ld0C0T+VQNALWFDTrMc4rg2gRl0fsKGAkA+Ta7tuulJq0uvVA0rq+fFmaokBwli7+rfK2ThDg6NDqyu9ntoee/QzSxMS6jsvJdJC/p053RlyTsy+y9TCsvQVUw==",
+          "key": "LodCGdiDqSSDWZ7nV3KsHU31lezyIlZGW3HhO9+SoPlIqqp2BlLcaf17iC1SNZPI+nRKoEgmq3sZRHyHoQjdwA==",
           "localData": null,
           "login": {
             "autofillOnPageLoad": null,
@@ -75,6 +75,7 @@
           "notes": "Encrypted under a per-item cipher key",
           "organizationId": null,
           "organizationUseTotp": false,
+          "partial": false,
           "passport": null,
           "passwordHistory": null,
           "permissions": null,
@@ -133,7 +134,7 @@
             {
               "fileName": "secret.txt",
               "id": "attachment-8-1",
-              "key": "2.1Wx2OOdQiuLdtagTYi42ag==|poEKqFO2dzsoHMLZNtWaypW/78OmzyIyXdO4ixhzJer6nHYrPnAEx46QkTzOIekvAaWtN3imtwfMJtJAVjhD0anSpX+vF5W891U3+uDIvJo=|ZAJLAUw6YY1g9VxsXlmwUruHhRduBYxvcAKGjUK6XTA=",
+              "key": "MQlWuVpilPpPTK1KaXIYda7/bAUOW1A/g4i6p+CxOZOFsOlL8xpNDmOHhwUatD37EeikL4gvHH/A5jZ8NcVvoQ==",
               "size": "512",
               "sizeName": "512 Bytes",
               "url": null
@@ -151,7 +152,7 @@
           "folderId": null,
           "id": "bc020801-0000-4000-8000-000000000000",
           "identity": null,
-          "key": "7.g1g+owE6AAEReQN4ImFwcGxpY2F0aW9uL3guYml0d2FyZGVuLmxlZ2FjeS1rZXkEUKTRzd9iA/xHFq+CcSWoa4ChBVgYZKaPOhV8PXOgz9wKzZji+WfOVuvhnTjKWFBrSxTb77W0XpVqIb+/Yjpx15h9tQ+nIkaqWWAfBQLocM0VhmflYlhfVF9MSmPARAtNip7CStVbrAAGoYoy46S2cDwAtAmFYB/HuAvDPKeMoQ==",
+          "key": "5y8UyEPMICeiQAt0I1F3ldxwzmeS/3SEkeJb5eKCxD3G/9TUG6wJlUVuSIGnqPSVK3I+04Izsf4+8MTml6XCdg==",
           "localData": null,
           "login": {
             "autofillOnPageLoad": null,
@@ -166,6 +167,7 @@
           "notes": null,
           "organizationId": null,
           "organizationUseTotp": false,
+          "partial": false,
           "passport": null,
           "passwordHistory": null,
           "permissions": null,

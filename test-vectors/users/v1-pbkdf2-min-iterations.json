@@ -80,6 +80,7 @@
           "notes": "Encrypted directly under the user key",
           "organizationId": null,
           "organizationUseTotp": false,
+          "partial": false,
           "passport": null,
           "passwordHistory": null,
           "permissions": null,

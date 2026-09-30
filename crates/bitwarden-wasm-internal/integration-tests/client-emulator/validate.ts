@@ -5,12 +5,6 @@ import type { ClientEmulator } from "./client-emulator";
 export const IGNORED_FIELDS = ["revisionDate", "creationDate"] as const;
 
 /**
- * An `AttachmentView` carries the attachment key in the clear, which a vector deliberately does not
- * record, because a vector is committed to git.
- */
-const ATTACHMENT_KEY_FIELD = "decryptedKey";
-
-/**
  * Decrypts everything an unlocked client's repositories hold, comparing to the plaintext `seed`
  * records. Throws on the first difference.
  *
@@ -38,7 +32,7 @@ export async function validateVault(
       throw new Error(`local state holds cipher ${id}, which the vector does not record`);
     }
 
-    expectPlaintextEqual(cipher, recorded, `cipher ${id}`, [...ignore, ATTACHMENT_KEY_FIELD]);
+    expectPlaintextEqual(cipher, recorded, `cipher ${id}`, ignore);
   }
 
   // 2. Compare the folders
