@@ -27,13 +27,24 @@ const ATOMS: &[&str] = &[
     r"\.",
     "(?:a|b)",
 ];
-/// Unbounded runs that make a lookaround scan to the end of the target.
+/// Unbounded runs, which are cheap alone but grow the automaton when nested or counted.
 const SCANNERS: &[&str] = &[".*", "[^#]*", r"[\w/.:-]*", "[ab]*", r"\w*"];
-const ASSERTIONS: &[&str] = &[r"\b", r"\B", "$", "^", r"\R"];
+const ASSERTIONS: &[&str] = &[r"\b", r"\B", "$", "^"];
 const QUANTIFIERS: &[&str] = &["*", "+", "?", "*?", "+?", "{0,3}", "{2}", "{2,}", "{1,30}"];
-const LOOKAROUNDS: &[&str] = &["(?=", "(?!", "(?<=", "(?<!"];
+/// Literal prefixes for the supported `^literal(?!excluded)rest` form.
+const PREFIXES: &[&str] = &["", "a", "https://", r"https://www\.", r"ab\.a/"];
 /// Constructs `validate_uri_regex` must always reject.
-const REJECTED: &[&str] = &["(?>a|ab)", "a++", r"\K", "(?(1)a|b)", r"\G", "(?1)"];
+const REJECTED: &[&str] = &[
+    "(?>a|ab)",
+    r"\K",
+    "(?(1)a|b)",
+    r"\G",
+    "(?1)",
+    "(?=a)",
+    "(?<=a)",
+    "(?<!a)",
+    r"(a)\1",
+];
 
 /// Patterns found by fuzzing earlier versions of the rules; each must be rejected or fast.
 const REGRESSIONS: &[&str] = &[
@@ -46,6 +57,7 @@ const REGRESSIONS: &[&str] = &[
     r"\b(?:/|[ab] )*\d{2}(?:a|b)($)",
     r"(?:[^#]{1,30}){1,30}[ab]*/",
     r"(.)\b((?:[^#]*)+)(?:(?:\w(?:a|b)){1,30}){2}b*?(?:\.){0,3}(\d)",
+    r"^(?![^#]*a\w{28}\w)(?:[^#]{1,30}){1,30}[ab]*/",
 ];
 
 /// Small deterministic xorshift generator, so failures reproduce from the seed.
@@ -72,97 +84,48 @@ impl Rng {
     }
 }
 
-/// Generates a random expression, weighted toward constructs that are expensive to backtrack.
-fn expr(rng: &mut Rng, depth: usize, groups: &mut usize) -> String {
+/// Generates a random expression, weighted toward constructs that grow the automaton.
+fn expr(rng: &mut Rng, depth: usize) -> String {
     if depth == 0 {
         return rng.pick(ATOMS).to_owned();
     }
-    match rng.below(17) {
+    match rng.below(13) {
         0 | 1 => rng.pick(ATOMS).to_owned(),
         2 => rng.pick(SCANNERS).to_owned(),
         3 => rng.pick(ASSERTIONS).to_owned(),
         4 => (0..2 + rng.below(3))
-            .map(|_| expr(rng, depth - 1, groups))
+            .map(|_| expr(rng, depth - 1))
             .collect(),
         5 => (0..2 + rng.below(2))
-            .map(|_| expr(rng, depth - 1, groups))
+            .map(|_| expr(rng, depth - 1))
             .collect::<Vec<_>>()
             .join("|"),
-        6 => {
-            *groups += 1;
-            format!("({})", expr(rng, depth - 1, groups))
-        }
-        7 => format!(
-            "(?:{}){}",
-            expr(rng, depth - 1, groups),
-            rng.pick(QUANTIFIERS)
-        ),
+        6 => format!("({})", expr(rng, depth - 1)),
+        7 => format!("(?:{}){}", expr(rng, depth - 1), rng.pick(QUANTIFIERS)),
         8 => format!("{}{}", rng.pick(ATOMS), rng.pick(QUANTIFIERS)),
-        9 | 10 => lookaround(rng, depth, groups),
-        // A lookaround retried on every iteration of a loop.
-        11 => format!(
-            "(?:{}{}){}",
-            lookaround(rng, depth, groups),
-            rng.pick(ATOMS),
-            rng.pick(QUANTIFIERS)
+        // A counted run far from the end, which thrashes the lazy DFA.
+        9 => format!(
+            "{}a{}{{{}}}{}",
+            rng.pick(SCANNERS),
+            rng.pick(&["[ab]", r"[\w/.:-]", r"\w", "(?:a|b)"]),
+            10 + rng.below(20),
+            rng.pick(&["$", r"\w", "b"])
         ),
-        // Several lookarounds retried at every start position.
-        12 => (0..2 + rng.below(7))
-            .map(|_| lookaround(rng, depth, groups))
-            .collect(),
-        13 if *groups > 0 => format!(r"\{}", 1 + rng.below(*groups)),
-        14 if rng.chance(50) => rng.pick(REJECTED).to_owned(),
+        10 if rng.chance(50) => rng.pick(REJECTED).to_owned(),
         // A word boundary before a loop that can match at every start position.
-        15 => format!(r"\b(?:{}|{} )*", rng.pick(ATOMS), rng.pick(ATOMS)),
+        11 => format!(r"\b(?:{}|{} )*", rng.pick(ATOMS), rng.pick(ATOMS)),
         _ => rng.pick(ATOMS).to_owned(),
     }
 }
 
-/// A lookaround whose body often scans far ahead or thrashes the lazy DFA, or stays just within
-/// the width limit so the rules accept it.
-fn lookaround(rng: &mut Rng, depth: usize, groups: &mut usize) -> String {
-    let class = rng.pick(&["[ab]", r"[\w/.:-]", r"\w", "[^#]", "."]);
-    let body = match rng.below(7) {
-        0 => format!("{}{}", rng.pick(SCANNERS), rng.pick(ATOMS)),
-        1 => format!(
-            "{}a{}{{{}}}{}",
-            rng.pick(SCANNERS),
-            rng.pick(&["[ab]", r"[\w/.:-]", r"\w"]),
-            10 + rng.below(20),
-            rng.pick(&["$", r"\w", "b"])
-        ),
-        2 => format!("{}{}", rng.pick(SCANNERS), expr(rng, depth - 1, groups)),
-        3 => format!("{class}{{0,{}}}{}", 1 + rng.below(30), rng.pick(ATOMS)),
-        4 => format!(
-            "a{class}{{{}}}{}",
-            10 + rng.below(20),
-            rng.pick(&["b", r"\w", "[ab]"])
-        ),
-        5 => format!(
-            "(?:{}|{}){{1,{}}}",
-            rng.pick(ATOMS),
-            rng.pick(ATOMS),
-            1 + rng.below(15)
-        ),
-        _ => expr(rng, depth - 1, groups),
-    };
-    format!("{}{body})", rng.pick(LOOKAROUNDS))
-}
-
 fn pattern(rng: &mut Rng) -> String {
-    let mut groups = 0;
-    let body: String = (0..1 + rng.below(4))
-        .map(|_| expr(rng, 4, &mut groups))
-        .collect();
-    if !rng.chance(30) {
+    let body: String = (0..1 + rng.below(4)).map(|_| expr(rng, 4)).collect();
+    if rng.chance(50) {
         return body;
     }
-
-    // Stacked lookaheads after `^`, which an earlier version of the rules allowed unbounded.
-    let prefix: String = (0..rng.below(12))
-        .map(|_| lookaround(rng, 3, &mut groups).replacen("(?<", "(?", 1))
-        .collect();
-    format!("^{prefix}{body}")
+    let prefix = rng.pick(PREFIXES);
+    let excluded: String = (0..1 + rng.below(3)).map(|_| expr(rng, 3)).collect();
+    format!("^{prefix}(?!{excluded}){body}")
 }
 
 fn random_text(rng: &mut Rng, alphabet: &[u8], len: usize) -> String {
@@ -181,11 +144,8 @@ fn targets(rng: &mut Rng) -> Vec<(&'static str, String)> {
     ]
 }
 
-fn uses_backtracking_engine(pattern: &str) -> bool {
-    ["(?=", "(?!", "(?<"]
-        .iter()
-        .any(|token| pattern.contains(token))
-        || (1..=9).any(|group| pattern.contains(&format!(r"\{group}")))
+fn uses_lookahead(pattern: &str) -> bool {
+    pattern.contains("(?!")
 }
 
 /// Panics unless `pattern` evaluates within [`EVALUATION_LIMIT`] on every adversarial target.
@@ -207,7 +167,7 @@ fn assert_fast(rng: &mut Rng, pattern: &str, context: &str) {
 fn fuzz(seed: u64, accepted_target: usize) {
     let mut rng = Rng(seed.max(1));
     let mut accepted = 0;
-    let mut accepted_backtracking = 0;
+    let mut accepted_lookahead = 0;
 
     for _ in 0..accepted_target * 100 {
         if accepted >= accepted_target {
@@ -215,9 +175,7 @@ fn fuzz(seed: u64, accepted_target: usize) {
         }
         let pattern = pattern(&mut rng);
         let valid = validate_uri_regex(&pattern).is_ok();
-        let has_rejected = ["(?>", r"\K", "(?(", r"\G", "(?1)", "++"]
-            .iter()
-            .any(|token| pattern.contains(token));
+        let has_rejected = REJECTED.iter().any(|token| pattern.contains(token));
         assert!(
             !(valid && has_rejected),
             "seed {seed}: accepted a rejected construct in {pattern:?}"
@@ -227,8 +185,8 @@ fn fuzz(seed: u64, accepted_target: usize) {
         }
 
         accepted += 1;
-        if uses_backtracking_engine(&pattern) {
-            accepted_backtracking += 1;
+        if uses_lookahead(&pattern) {
+            accepted_lookahead += 1;
         }
         assert_fast(&mut rng, &pattern, &format!("seed {seed}"));
     }
@@ -238,8 +196,8 @@ fn fuzz(seed: u64, accepted_target: usize) {
         "seed {seed}: generator found too few valid patterns"
     );
     assert!(
-        accepted_backtracking * 4 >= accepted,
-        "seed {seed}: only {accepted_backtracking} of {accepted} patterns used the backtracking engine"
+        accepted_lookahead * 4 >= accepted,
+        "seed {seed}: only {accepted_lookahead} of {accepted} patterns used a lookahead"
     );
 }
 

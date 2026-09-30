@@ -1,11 +1,11 @@
-//! Regular-expression URI matching with bounded pattern size and execution time, using
-//! [`fancy_regex`] plus the shape restrictions in [`check_shape`].
+//! Regular-expression URI matching with bounded pattern size and execution time, using the
+//! linear-time [`regex`] crate. The one lookaround supported is a negative lookahead right after an
+//! anchored literal prefix, `^literal(?!excluded)rest`, which is evaluated as two plain regexes.
 
 use bitwarden_error::bitwarden_error;
 use chrono::{TimeDelta, Utc};
-use fancy_regex::{
-    Assertion, CompileError, Error as RegexError, Expr, ParseError, Regex, RegexBuilder,
-};
+use regex::{Regex, RegexBuilder};
+use regex_syntax::ast::{self, Ast};
 use serde::Serialize;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -16,17 +16,11 @@ pub const MAX_PATTERN_LENGTH: usize = 1_000;
 
 /// Maximum target length, in bytes, that patterns are evaluated against.
 pub const MAX_TARGET_LENGTH: usize = 4_096;
-/// Maximum number of lookarounds plus backreferences, each of which may rescan the target.
-pub const MAX_EXPENSIVE_NODES: usize = 8;
 
-/// Longest lookaround body, in characters.
-const MAX_LOOKAROUND_WIDTH: usize = 32;
-/// Backtracking steps allowed per match before it is abandoned as no match.
-const BACKTRACK_LIMIT: usize = 10_000;
-/// Approximate compiled size limit for each part delegated to the `regex` crate.
-const DELEGATE_SIZE_LIMIT: usize = 1 << 20;
-/// Approximate lazy DFA cache size for each part delegated to the `regex` crate.
-const DELEGATE_DFA_SIZE_LIMIT: usize = 1 << 20;
+/// Approximate compiled size limit for each regex.
+const SIZE_LIMIT: usize = 1 << 20;
+/// Approximate lazy DFA cache size for each regex.
+const DFA_SIZE_LIMIT: usize = 1 << 20;
 /// Time after which [`uri_regex_matches_batch`] stops evaluating further patterns.
 const BATCH_TIME_BUDGET: TimeDelta = TimeDelta::milliseconds(100);
 
@@ -41,20 +35,16 @@ pub enum UriMatcherError {
     /// The pattern is not a valid regular expression.
     #[error("Pattern is not a valid regular expression")]
     InvalidPattern,
-    /// The pattern compiles too large, or has more than [`MAX_EXPENSIVE_NODES`] lookarounds and
-    /// backreferences.
+    /// The pattern compiles too large or nests too deeply.
     #[error("Pattern is too complex")]
     PatternTooComplex,
-    /// The pattern uses a construct whose cost cannot be bounded, such as a long, nested, or
-    /// repeated lookaround, a word boundary, or an atomic group.
+    /// The pattern uses a backreference, a lookbehind, or a lookahead other than one right after
+    /// an anchored literal prefix, as in `^https://(?!admin\.)`.
     #[error("Pattern uses an unsupported construct")]
     UnsupportedConstruct,
     /// The target is longer than [`MAX_TARGET_LENGTH`].
     #[error("Target exceeds the maximum length")]
     TargetTooLong,
-    /// Evaluating the pattern exceeded the backtracking limit.
-    #[error("Pattern exceeded the matching limit")]
-    MatchLimitExceeded,
 }
 
 /// Outcome of one pattern in [`uri_regex_matches_batch`].
@@ -64,7 +54,7 @@ pub enum UriMatcherError {
 pub enum UriMatchStatus {
     /// The pattern matches the target.
     Match,
-    /// The pattern doesn't match the target, or is invalid, oversized, or too expensive.
+    /// The pattern doesn't match the target, or is invalid, oversized, or unsupported.
     NoMatch,
     /// The time budget ran out before the pattern was evaluated. Pass it to another call.
     Skipped,
@@ -79,7 +69,7 @@ pub struct UriMatchResults(
 );
 
 /// Returns whether `target` matches `pattern`, case-insensitively. Invalid, oversized, and
-/// too-expensive patterns never match.
+/// unsupported patterns never match.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn uri_regex_matches(pattern: &str, target: &str) -> bool {
     try_uri_regex_match(pattern, target).unwrap_or(false)
@@ -90,15 +80,14 @@ pub fn try_uri_regex_match(pattern: &str, target: &str) -> Result<bool, UriMatch
     if target.len() > MAX_TARGET_LENGTH {
         return Err(UriMatcherError::TargetTooLong);
     }
-    let regex = compile(&parse(pattern)?, pattern)?;
-    Ok(regex.is_match(target)?)
+    Ok(compile(pattern)?.is_match(target))
 }
 
 /// Evaluates each pattern against `target`, one result per pattern, stopping once 100 ms have
-/// passed so many expensive patterns together can't block the caller either.
+/// passed so many patterns together can't block the caller.
 ///
 /// Patterns not reached in time are [`UriMatchStatus::Skipped`]. Pass just those to another call
-/// to evaluate them: every call resolves at least one pattern, so repeating this always finishes.
+/// to evaluate them: every call evaluates at least one pattern, so repeating this always finishes.
 ///
 /// Nothing is cached between calls, since compiled patterns can be large and hold vault data.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -116,173 +105,119 @@ fn matches_batch_within(
     }
     let deadline = Utc::now() + budget;
     let mut results = vec![UriMatchStatus::Skipped; patterns.len()];
-    let mut resolved_any = false;
-
-    // Linear patterns are evaluated as they're reached; the rest wait, compile included, so they
-    // can't use up the budget meant for linear ones.
-    let mut backtracking = Vec::new();
     for (i, pattern) in patterns.iter().enumerate() {
         if i > 0 && Utc::now() >= deadline {
             break;
         }
-        match parse(pattern) {
-            Ok(expr) if !is_linear(&expr) => {
-                backtracking.push((i, expr));
-                continue;
-            }
-            Ok(expr) => results[i] = evaluate(&expr, pattern, target),
-            Err(_) => results[i] = UriMatchStatus::NoMatch,
-        }
-        resolved_any = true;
-    }
-    // Without a resolved pattern, a caller passing the skipped ones back would never finish.
-    for (i, expr) in backtracking {
-        if resolved_any && Utc::now() >= deadline {
-            break;
-        }
-        results[i] = evaluate(&expr, &patterns[i], target);
-        resolved_any = true;
+        results[i] = if uri_regex_matches(pattern, target) {
+            UriMatchStatus::Match
+        } else {
+            UriMatchStatus::NoMatch
+        };
     }
     results
 }
 
-/// Checks that `pattern` is short enough, has a supported shape, and compiles, for save-time
-/// errors.
+/// Checks that `pattern` is short enough, uses only supported constructs, and compiles, for
+/// save-time errors.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn validate_uri_regex(pattern: &str) -> Result<(), UriMatcherError> {
-    compile(&parse(pattern)?, pattern).map(|_| ())
+    compile(pattern).map(|_| ())
 }
 
-fn evaluate(expr: &Expr, pattern: &str, target: &str) -> UriMatchStatus {
-    let matched = compile(expr, pattern).is_ok_and(|regex| regex.is_match(target).unwrap_or(false));
-    if matched {
-        UriMatchStatus::Match
-    } else {
-        UriMatchStatus::NoMatch
+/// A compiled pattern.
+enum Matcher {
+    Plain(Regex),
+    /// `^literal(?!excluded)rest`, as `^literal(?:rest)` and not `^literal(?:excluded)`. The
+    /// literal matches one way at most, so the lookahead is always checked at the same position.
+    ExceptAfterPrefix {
+        included: Regex,
+        excluded: Regex,
+    },
+}
+
+impl Matcher {
+    fn is_match(&self, target: &str) -> bool {
+        match self {
+            Self::Plain(regex) => regex.is_match(target),
+            Self::ExceptAfterPrefix { included, excluded } => {
+                included.is_match(target) && !excluded.is_match(target)
+            }
+        }
     }
 }
 
-fn parse(pattern: &str) -> Result<Expr, UriMatcherError> {
+fn compile(pattern: &str) -> Result<Matcher, UriMatcherError> {
     if pattern.chars().count() > MAX_PATTERN_LENGTH {
         return Err(UriMatcherError::PatternTooLong);
     }
-    Ok(Expr::parse_tree(pattern)?.expr)
+    match build(pattern) {
+        Err(UriMatcherError::UnsupportedConstruct) => {
+            let (prefix, excluded, rest) =
+                split_prefix_lookahead(pattern).ok_or(UriMatcherError::UnsupportedConstruct)?;
+            Ok(Matcher::ExceptAfterPrefix {
+                included: build(&format!("^{prefix}(?:{rest})"))?,
+                excluded: build(&format!("^{prefix}(?:{excluded})"))?,
+            })
+        }
+        result => result.map(Matcher::Plain),
+    }
 }
 
-/// Compiles `pattern`, whose parsed form is `expr`, if it has a supported shape.
-fn compile(expr: &Expr, pattern: &str) -> Result<Regex, UriMatcherError> {
-    if check_shape(expr)? > MAX_EXPENSIVE_NODES {
-        return Err(UriMatcherError::PatternTooComplex);
-    }
-    Ok(RegexBuilder::new(pattern)
+fn build(pattern: &str) -> Result<Regex, UriMatcherError> {
+    RegexBuilder::new(pattern)
         .case_insensitive(true)
-        .backtrack_limit(BACKTRACK_LIMIT)
-        .delegate_size_limit(DELEGATE_SIZE_LIMIT)
-        .delegate_dfa_size_limit(DELEGATE_DFA_SIZE_LIMIT)
-        .build()?)
+        .size_limit(SIZE_LIMIT)
+        .dfa_size_limit(DFA_SIZE_LIMIT)
+        .build()
+        .map_err(|error| match error {
+            regex::Error::CompiledTooBig(_) => UriMatcherError::PatternTooComplex,
+            // `regex` only describes syntax errors in text, so parse again for the kind.
+            _ => match parse(pattern) {
+                Err(
+                    ast::ErrorKind::UnsupportedLookAround
+                    | ast::ErrorKind::UnsupportedBackreference,
+                ) => UriMatcherError::UnsupportedConstruct,
+                Err(ast::ErrorKind::NestLimitExceeded(_)) => UriMatcherError::PatternTooComplex,
+                _ => UriMatcherError::InvalidPattern,
+            },
+        })
 }
 
-/// Anchors the `regex` crate handles itself; word boundaries force fancy-regex's backtracking.
-fn is_linear_assertion(assertion: &Assertion) -> bool {
-    matches!(
-        assertion,
-        Assertion::StartText
-            | Assertion::EndText
-            | Assertion::StartLine { .. }
-            | Assertion::EndLine { .. }
-    )
+fn parse(pattern: &str) -> Result<Ast, ast::ErrorKind> {
+    ast::parse::Parser::new()
+        .parse(pattern)
+        .map_err(|error| error.kind().clone())
 }
 
-/// Whether fancy-regex hands all of `expr` to the linear-time `regex` crate. Mirrors fancy-regex's
-/// analysis: lookarounds, backreferences, word boundaries, and `\R` need its backtracking engine.
-fn is_linear(expr: &Expr) -> bool {
-    match expr {
-        Expr::Empty | Expr::Any { .. } | Expr::Literal { .. } | Expr::Delegate { .. } => true,
-        Expr::Assertion(assertion) => is_linear_assertion(assertion),
-        Expr::Concat(exprs) | Expr::Alt(exprs) => exprs.iter().all(is_linear),
-        Expr::Group(child) => is_linear(child),
-        Expr::Repeat { child, .. } => is_linear(child),
+/// Splits `^literal(?!excluded)rest` into its three parts, if `pattern` has that form and `rest`
+/// has no top-level alternation, which would otherwise bind looser than the prefix.
+fn split_prefix_lookahead(pattern: &str) -> Option<(&str, &str, &str)> {
+    let (prefix, after) = pattern.strip_prefix('^')?.split_once("(?!")?;
+    if !parse(prefix).is_ok_and(|ast| is_literal(&ast)) {
+        return None;
+    }
+    // The first `)` that leaves a valid expression closes the lookahead: one inside a group,
+    // class, or escape leaves it unbalanced.
+    let (excluded, rest) = after
+        .match_indices(')')
+        .filter_map(|(i, _)| {
+            let (excluded, rest) = after.split_at_checked(i)?;
+            Some((excluded, rest.strip_prefix(')')?))
+        })
+        .find(|(excluded, _)| parse(excluded).is_ok())?;
+    match parse(rest) {
+        Ok(Ast::Alternation(_)) | Err(_) => None,
+        Ok(_) => Some((prefix, excluded, rest)),
+    }
+}
+
+/// Whether `ast` is plain text, with no flags, classes, groups, or repetition.
+fn is_literal(ast: &Ast) -> bool {
+    match ast {
+        Ast::Empty(_) | Ast::Literal(_) => true,
+        Ast::Concat(concat) => concat.asts.iter().all(|ast| matches!(ast, Ast::Literal(_))),
         _ => false,
-    }
-}
-
-impl From<RegexError> for UriMatcherError {
-    fn from(error: RegexError) -> Self {
-        match error {
-            RegexError::ParseError(_, ParseError::RecursionExceeded) => Self::PatternTooComplex,
-            RegexError::CompileError(compile_error) => match *compile_error {
-                CompileError::InnerError(inner) if inner.size_limit().is_some() => {
-                    Self::PatternTooComplex
-                }
-                _ => Self::InvalidPattern,
-            },
-            RegexError::RuntimeError(_) => Self::MatchLimitExceeded,
-            _ => Self::InvalidPattern,
-        }
-    }
-}
-
-/// Where a node sits in the pattern.
-#[derive(Clone, Copy, Default)]
-struct Context {
-    in_repetition: bool,
-    in_lookaround: bool,
-}
-
-const IN_LOOKAROUND: Context = Context {
-    in_repetition: false,
-    in_lookaround: true,
-};
-
-/// Rejects shapes where fancy-regex does work its backtrack limit doesn't count, and returns the
-/// number of lookarounds and backreferences.
-fn check_shape(expr: &Expr) -> Result<usize, UriMatcherError> {
-    check_node(expr, Context::default())
-}
-
-fn check_node(expr: &Expr, context: Context) -> Result<usize, UriMatcherError> {
-    match expr {
-        Expr::Empty | Expr::Any { .. } | Expr::Literal { .. } | Expr::Delegate { .. } => Ok(0),
-        Expr::Assertion(assertion) if is_linear_assertion(assertion) => Ok(0),
-        Expr::Backref { .. } if !context.in_lookaround => Ok(1),
-        Expr::Concat(exprs) | Expr::Alt(exprs) => exprs
-            .iter()
-            .try_fold(0, |total, child| Ok(total + check_node(child, context)?)),
-        Expr::Group(child) => check_node(child, context),
-        Expr::Repeat { child, hi, .. } => check_node(
-            child,
-            Context {
-                in_repetition: context.in_repetition || *hi > 1,
-                ..context
-            },
-        ),
-        Expr::LookAround(child, _)
-            if !context.in_repetition
-                && !context.in_lookaround
-                && max_width(child).is_some_and(|width| width <= MAX_LOOKAROUND_WIDTH) =>
-        {
-            Ok(check_node(child, IN_LOOKAROUND)? + 1)
-        }
-        _ => Err(UriMatcherError::UnsupportedConstruct),
-    }
-}
-
-/// Longest text `expr` can match, in characters, or `None` if unbounded or unknown.
-fn max_width(expr: &Expr) -> Option<usize> {
-    match expr {
-        Expr::Empty | Expr::Assertion(_) => Some(0),
-        Expr::Any { .. } | Expr::Delegate { .. } => Some(1),
-        Expr::GeneralNewline { .. } => Some(2),
-        Expr::Literal { val, .. } => Some(val.chars().count()),
-        Expr::Concat(exprs) => exprs
-            .iter()
-            .try_fold(0usize, |total, child| total.checked_add(max_width(child)?)),
-        Expr::Alt(exprs) => exprs
-            .iter()
-            .try_fold(0usize, |widest, child| Some(widest.max(max_width(child)?))),
-        Expr::Group(child) => max_width(child),
-        Expr::Repeat { child, hi, .. } if *hi != usize::MAX => max_width(child)?.checked_mul(*hi),
-        _ => None,
     }
 }
 
@@ -303,6 +238,16 @@ mod tests {
         result
     }
 
+    fn random_ab(len: usize) -> String {
+        let mut seed: u32 = 1;
+        (0..len)
+            .map(|_| {
+                seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+                if (seed >> 16) & 1 == 0 { 'a' } else { 'b' }
+            })
+            .collect()
+    }
+
     #[test]
     fn catastrophic_pattern_finishes_within_budget() {
         for n in [100, 2_000, MAX_TARGET_LENGTH - 1] {
@@ -315,28 +260,13 @@ mod tests {
     }
 
     #[test]
-    fn backtrack_limit_returns_no_match_instead_of_hanging() {
-        let target = "a".repeat(2_000) + "!";
-        let result = assert_within_budget(|| try_uri_regex_match(r"^(.+)+\1#$", &target));
-        assert!(matches!(result, Err(UriMatcherError::MatchLimitExceeded)));
-        assert!(!uri_regex_matches(r"^(.+)+\1#$", &target));
-    }
-
-    #[test]
-    fn worst_allowed_shapes_finish_within_budget() {
+    fn worst_patterns_on_longest_target_finish_within_budget() {
         let patterns = [
-            "(?=[\\w/.:-]{0,31}\\w)".repeat(8) + "#",
-            "(.*)(.*)".to_owned() + &"(?<=[ab]{31}[ab])".repeat(6) + r"\1\2#",
-            r"(.*)\1\1\1\1\1\1\1#".to_owned(),
+            r"(?:\w|\W){20}a(?:\w|\W){20}#",
+            r"^a(?!(?:\w|\W){20}a(?:\w|\W){20}#)(?:\w|\W){20}a(?:\w|\W){20}#",
         ];
-        let mut seed: u32 = 1;
-        let target: String = (0..MAX_TARGET_LENGTH)
-            .map(|_| {
-                seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-                if (seed >> 16) & 1 == 0 { 'a' } else { 'b' }
-            })
-            .collect();
-        for pattern in &patterns {
+        let target = random_ab(MAX_TARGET_LENGTH);
+        for pattern in patterns {
             validate_uri_regex(pattern).expect("pattern should be allowed");
             assert!(!assert_within_budget(|| uri_regex_matches(
                 pattern, &target
@@ -345,38 +275,38 @@ mod tests {
     }
 
     #[test]
-    fn lookahead_works() {
+    fn lookahead_after_literal_prefix_works() {
         let pattern = r"^https://(?!admin\.)[^/]+\.example\.com/";
         assert!(uri_regex_matches(pattern, "https://www.example.com/login"));
         assert!(!uri_regex_matches(
             pattern,
             "https://admin.example.com/login"
         ));
+        assert!(!uri_regex_matches(pattern, "http://www.example.com/login"));
 
         let pattern = r"^https://example\.com/(?!logout)";
         assert!(uri_regex_matches(pattern, "https://example.com/login"));
         assert!(!uri_regex_matches(pattern, "https://example.com/logout"));
-    }
 
-    #[test]
-    fn lookbehind_works() {
-        let pattern = r"(?<=\.)example\.com/";
-        assert!(uri_regex_matches(pattern, "https://www.example.com/"));
-        assert!(!uri_regex_matches(pattern, "https://example.com/"));
-
-        let pattern = r"(?<!admin)\.example\.com/";
+        let pattern = r"^(?!https://admin\.).*\.example\.com/";
         assert!(uri_regex_matches(pattern, "https://www.example.com/"));
         assert!(!uri_regex_matches(pattern, "https://admin.example.com/"));
     }
 
     #[test]
-    fn backreference_works() {
-        let pattern = r"^https://(\w+)\.example\.com/\1/";
-        assert!(uri_regex_matches(pattern, "https://shop.example.com/shop/"));
-        assert!(!uri_regex_matches(
-            pattern,
-            "https://shop.example.com/blog/"
-        ));
+    fn lookahead_body_can_hold_groups_classes_and_escapes() {
+        let pattern = r"^https://(?!(?:admin|root)[.)]|a\)|[)]x)\w+\.example\.com/";
+        validate_uri_regex(pattern).expect("pattern should be allowed");
+        assert!(uri_regex_matches(pattern, "https://www.example.com/"));
+        assert!(!uri_regex_matches(pattern, "https://admin.example.com/"));
+        assert!(!uri_regex_matches(pattern, "https://root.example.com/"));
+    }
+
+    #[test]
+    fn word_boundaries_work() {
+        let pattern = r"\bexample\.com\b";
+        assert!(uri_regex_matches(pattern, "https://example.com/"));
+        assert!(!uri_regex_matches(pattern, "https://myexample.com/"));
     }
 
     #[test]
@@ -394,9 +324,14 @@ mod tests {
                 true,
             ),
             (
-                r"example\.com/(?!Admin)",
+                r"^https://example\.com/(?!Admin)",
                 "https://example.com/admin",
                 false,
+            ),
+            (
+                r"^HTTPS://example\.com/(?!Admin)",
+                "https://example.com/login",
+                true,
             ),
             (r"^https:\/\/example\.com\/", "https://example.com/", true),
             (
@@ -413,11 +348,14 @@ mod tests {
 
     #[test]
     fn rejects_invalid_patterns() {
-        for pattern in ["(", "[z-a]", r"a{2,1}", r"\"] {
-            assert!(matches!(
-                validate_uri_regex(pattern),
-                Err(UriMatcherError::InvalidPattern)
-            ));
+        for pattern in ["(", "[z-a]", r"a{2,1}", r"\", "(?>a|ab)c", r"\K"] {
+            assert!(
+                matches!(
+                    validate_uri_regex(pattern),
+                    Err(UriMatcherError::InvalidPattern)
+                ),
+                "{pattern}"
+            );
             assert!(!uri_regex_matches(pattern, "anything"));
         }
     }
@@ -436,43 +374,35 @@ mod tests {
     }
 
     #[test]
-    fn rejects_patterns_that_compile_too_large() {
-        assert!(matches!(
-            validate_uri_regex(r"\w{1000}"),
-            Err(UriMatcherError::PatternTooComplex)
-        ));
+    fn rejects_patterns_that_compile_too_large_or_nest_too_deeply() {
+        let too_deep = "(".repeat(300) + &")".repeat(300);
+        for pattern in [r"\w{1000}", r"^a(?!\w{1000})", &too_deep] {
+            assert!(
+                matches!(
+                    validate_uri_regex(pattern),
+                    Err(UriMatcherError::PatternTooComplex)
+                ),
+                "{pattern}"
+            );
+        }
     }
 
     #[test]
-    fn rejects_too_many_lookarounds_and_backreferences() {
-        let allowed = "(?=a)".repeat(MAX_EXPENSIVE_NODES);
-        assert!(validate_uri_regex(&allowed).is_ok());
-        let too_many = "(?=a)".repeat(MAX_EXPENSIVE_NODES + 1);
-        assert!(matches!(
-            validate_uri_regex(&too_many),
-            Err(UriMatcherError::PatternTooComplex)
-        ));
-    }
-
-    #[test]
-    fn rejects_unbounded_shapes() {
+    fn rejects_other_lookarounds_and_backreferences() {
         let patterns = [
-            r"^(?:(?=(?:(?=[^#]*$).)*$).)*#",
-            r"^(?:(?=[^#]*$).)*#",
-            r"(?:(?=a)b)+",
+            r"(?<=\.)example\.com/",
+            r"(?<!admin)\.example\.com/",
+            r"^https://(\w+)\.example\.com/\1/",
+            r"^a(?=b)",
             r"x(?!.*logout)",
-            r"\bexample\b",
-            r"\Bx",
-            r"a\R",
-            r"^(?!.*logout).*example\.com",
-            r"(?m)^(?!.*logout)",
-            r"^a*(?!.*logout)",
-            r"(?=(.*))\1",
-            r"(a)(?=\1)",
-            r"a++",
-            r"(?>a|ab)c",
-            r"(?(1)a|b)",
-            r"\Ka",
+            r"^a*(?!logout)",
+            r"^https://[^/]+(?!admin)",
+            r"^(?i)a(?!b)",
+            r"^a(?!b)c(?!d)",
+            r"^a(?!(?!b))",
+            r"^a(?!b)c|d",
+            r"^a(?!b)\1",
+            r"(?:^a(?!b))",
         ];
         for pattern in patterns {
             assert!(
@@ -487,27 +417,15 @@ mod tests {
     }
 
     #[test]
-    fn allows_only_short_lookarounds() {
-        let long = format!("(?={})", "a".repeat(MAX_LOOKAROUND_WIDTH));
-        assert!(validate_uri_regex(&format!("x{long}")).is_ok());
-        let too_long = format!("(?={})", "a".repeat(MAX_LOOKAROUND_WIDTH + 1));
-        assert!(validate_uri_regex(&format!("x{too_long}")).is_err());
-        assert!(validate_uri_regex(&format!("^{too_long}")).is_err());
-    }
-
-    fn random_ab(len: usize) -> String {
-        let mut seed: u32 = 1;
-        (0..len)
-            .map(|_| {
-                seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-                if (seed >> 16) & 1 == 0 { 'a' } else { 'b' }
-            })
-            .collect()
+    fn allows_alternation_inside_the_lookahead_and_rest() {
+        let pattern = r"^https://(?!admin\.|root\.)(?:www|shop)\.example\.com/";
+        assert!(uri_regex_matches(pattern, "https://shop.example.com/"));
+        assert!(!uri_regex_matches(pattern, "https://root.example.com/"));
     }
 
     #[test]
     fn oversized_target_never_matches() {
-        for pattern in ["a", r"(?<=a)a", r"(a)\1"] {
+        for pattern in ["a", "^a(?!b)"] {
             assert!(uri_regex_matches(pattern, &"a".repeat(MAX_TARGET_LENGTH)));
             assert!(
                 matches!(
@@ -519,47 +437,9 @@ mod tests {
         }
     }
 
-    #[test]
-    fn classifies_patterns_the_regex_crate_runs_alone_as_linear() {
-        let linear = [
-            r"^https://[^/]+\.example\.com/.*$",
-            r"(?m)^a$",
-            r"^(.+)+#$",
-            r"(a|b)*c{2,5}",
-        ];
-        for pattern in linear {
-            assert!(is_linear(&parse(pattern).expect("valid")), "{pattern}");
-        }
-
-        for pattern in [r"(a)\1", r"(?=a)", r"(?<!a)b"] {
-            assert!(!is_linear(&parse(pattern).expect("valid")), "{pattern}");
-        }
-    }
-
-    #[test]
-    fn worst_linear_pattern_on_longest_target_finishes_within_budget() {
-        let pattern = r"(?:\w|\W){20}a(?:\w|\W){20}#";
-        let target = random_ab(MAX_TARGET_LENGTH);
-        assert!(!assert_within_budget(|| uri_regex_matches(
-            pattern, &target
-        )));
-    }
-
     fn batch<S: AsRef<str>>(patterns: &[S], target: &str) -> Vec<UriMatchStatus> {
         let patterns = patterns.iter().map(|p| p.as_ref().to_owned()).collect();
         uri_regex_matches_batch(patterns, target).0
-    }
-
-    #[test]
-    fn batch_evaluates_linear_patterns_before_expensive_ones() {
-        let expensive = "(?=[\\w/.:-]{0,31}\\w)".repeat(8);
-        let mut patterns: Vec<String> = (0..60).map(|i| format!("{expensive}#{i}")).collect();
-        patterns.push("^a".to_owned());
-        let target = "a".to_owned() + &random_ab(MAX_TARGET_LENGTH - 1);
-
-        let results = assert_within_budget(|| batch(&patterns, &target));
-
-        assert_eq!(results.last(), Some(&UriMatchStatus::Match));
     }
 
     #[test]
@@ -568,7 +448,7 @@ mod tests {
             r"example\.com",
             "(",
             r"^https://other\.com",
-            r"(?<=\.)example",
+            r"^https://(?!admin\.)",
         ];
         assert_eq!(
             batch(&patterns, "https://www.example.com/"),
@@ -583,7 +463,7 @@ mod tests {
 
     #[test]
     fn batch_keeps_results_reached_before_the_budget_runs_out() {
-        // Every pattern matches, and just parsing all the long ones would exceed the budget.
+        // Every pattern matches, and compiling all the long ones would exceed the budget.
         let filler = "(?:x|y)".repeat(140);
         let mut patterns = vec!["^a".to_owned()];
         patterns.extend((0..20_000).map(|i| format!("^a|{filler}{i}")));
@@ -596,25 +476,14 @@ mod tests {
     }
 
     #[test]
-    fn batch_resolves_an_expensive_pattern_even_when_parsing_uses_the_budget() {
-        // Only lookaround patterns, so the first pass parses and defers every one it reaches.
-        let filler = "(?:x|y)".repeat(140);
-        let patterns: Vec<String> = (0..20_000).map(|i| format!("(?=a)a|{filler}{i}")).collect();
-
-        let results = assert_within_budget(|| batch(&patterns, "abc"));
-
-        assert_eq!(results[0], UriMatchStatus::Match);
-    }
-
-    #[test]
     fn resubmitting_skipped_patterns_evaluates_every_pattern() {
         let patterns: Vec<String> = [
-            r"(?<=\.)example",
+            r"^https://(?!admin\.)",
             "(",
             r"^https://www\.",
             r"(\w+)\.\1",
             r"^https://other\.com",
-            r"(?=w)www",
+            r"\bwww\b",
         ]
         .map(str::to_owned)
         .into();
@@ -630,13 +499,10 @@ mod tests {
             })
             .collect();
 
-        // With no budget each call resolves as little as allowed, so this checks the minimum.
+        // With no budget each call evaluates as little as allowed, so this checks the minimum.
         let mut results = vec![UriMatchStatus::Skipped; patterns.len()];
         let mut pending: Vec<usize> = (0..patterns.len()).collect();
-        let mut calls = 0;
         while !pending.is_empty() {
-            calls += 1;
-            assert!(calls <= patterns.len(), "a call resolved nothing");
             let batch: Vec<String> = pending.iter().map(|&i| patterns[i].clone()).collect();
             let statuses = matches_batch_within(&batch, target, TimeDelta::zero());
             let mut still_pending = Vec::new();
@@ -648,7 +514,7 @@ mod tests {
             }
             assert!(
                 still_pending.len() < pending.len(),
-                "a call resolved nothing"
+                "a call evaluated nothing"
             );
             pending = still_pending;
         }
