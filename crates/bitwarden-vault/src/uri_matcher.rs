@@ -6,7 +6,10 @@ use chrono::{TimeDelta, Utc};
 use fancy_regex::{
     Assertion, CompileError, Error as RegexError, Expr, ParseError, Regex, RegexBuilder,
 };
+use serde::Serialize;
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 /// Maximum accepted pattern length, in characters.
 pub const MAX_PATTERN_LENGTH: usize = 1_000;
@@ -54,8 +57,30 @@ pub enum UriMatcherError {
     MatchLimitExceeded,
 }
 
+/// Outcome of one pattern in [`uri_regex_matches_batch`].
+#[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum UriMatchStatus {
+    /// The pattern matches the target.
+    Match,
+    /// The pattern doesn't match the target, or is invalid, oversized, or too expensive.
+    NoMatch,
+    /// The time budget ran out before the pattern was evaluated. Pass it to another call.
+    Skipped,
+}
+
+/// Results of [`uri_regex_matches_batch`], one per pattern in input order.
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[serde(transparent)]
+pub struct UriMatchResults(
+    #[cfg_attr(feature = "wasm", tsify(type = "UriMatchStatus[]"))] pub Vec<UriMatchStatus>,
+);
+
 /// Returns whether `target` matches `pattern`, case-insensitively. Invalid, oversized, and
 /// too-expensive patterns never match.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn uri_regex_matches(pattern: &str, target: &str) -> bool {
     try_uri_regex_match(pattern, target).unwrap_or(false)
 }
@@ -69,50 +94,72 @@ pub fn try_uri_regex_match(pattern: &str, target: &str) -> Result<bool, UriMatch
     Ok(regex.is_match(target)?)
 }
 
-/// Evaluates each pattern against `target`, one result per pattern. Patterns reached after 100 ms
-/// never match, so many expensive patterns together can't block the caller either.
+/// Evaluates each pattern against `target`, one result per pattern, stopping once 100 ms have
+/// passed so many expensive patterns together can't block the caller either.
+///
+/// Patterns not reached in time are [`UriMatchStatus::Skipped`]. Pass just those to another call
+/// to evaluate them: every call resolves at least one pattern, so repeating this always finishes.
 ///
 /// Nothing is cached between calls, since compiled patterns can be large and hold vault data.
-pub fn uri_regex_matches_batch<S: AsRef<str>>(patterns: &[S], target: &str) -> Vec<bool> {
-    let deadline = Utc::now() + BATCH_TIME_BUDGET;
-    let mut results = vec![false; patterns.len()];
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn uri_regex_matches_batch(patterns: Vec<String>, target: &str) -> UriMatchResults {
+    UriMatchResults(matches_batch_within(&patterns, target, BATCH_TIME_BUDGET))
+}
+
+fn matches_batch_within(
+    patterns: &[String],
+    target: &str,
+    budget: TimeDelta,
+) -> Vec<UriMatchStatus> {
     if target.len() > MAX_TARGET_LENGTH {
-        return results;
+        return vec![UriMatchStatus::NoMatch; patterns.len()];
     }
+    let deadline = Utc::now() + budget;
+    let mut results = vec![UriMatchStatus::Skipped; patterns.len()];
+    let mut resolved_any = false;
 
     // Linear patterns are evaluated as they're reached; the rest wait, compile included, so they
     // can't use up the budget meant for linear ones.
     let mut backtracking = Vec::new();
     for (i, pattern) in patterns.iter().enumerate() {
-        if Utc::now() >= deadline {
-            return results;
-        }
-        let Ok(expr) = parse(pattern.as_ref()) else {
-            continue;
-        };
-        if is_linear(&expr) {
-            results[i] = evaluate(&expr, pattern.as_ref(), target);
-        } else {
-            backtracking.push((i, expr));
-        }
-    }
-    for (i, expr) in backtracking {
-        if Utc::now() >= deadline {
+        if i > 0 && Utc::now() >= deadline {
             break;
         }
-        results[i] = evaluate(&expr, patterns[i].as_ref(), target);
+        match parse(pattern) {
+            Ok(expr) if !is_linear(&expr) => {
+                backtracking.push((i, expr));
+                continue;
+            }
+            Ok(expr) => results[i] = evaluate(&expr, pattern, target),
+            Err(_) => results[i] = UriMatchStatus::NoMatch,
+        }
+        resolved_any = true;
+    }
+    // Without a resolved pattern, a caller passing the skipped ones back would never finish.
+    for (i, expr) in backtracking {
+        if resolved_any && Utc::now() >= deadline {
+            break;
+        }
+        results[i] = evaluate(&expr, &patterns[i], target);
+        resolved_any = true;
     }
     results
 }
 
 /// Checks that `pattern` is short enough, has a supported shape, and compiles, for save-time
 /// errors.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn validate_uri_regex(pattern: &str) -> Result<(), UriMatcherError> {
     compile(&parse(pattern)?, pattern).map(|_| ())
 }
 
-fn evaluate(expr: &Expr, pattern: &str, target: &str) -> bool {
-    compile(expr, pattern).is_ok_and(|regex| regex.is_match(target).unwrap_or(false))
+fn evaluate(expr: &Expr, pattern: &str, target: &str) -> UriMatchStatus {
+    let matched = compile(expr, pattern).is_ok_and(|regex| regex.is_match(target).unwrap_or(false));
+    if matched {
+        UriMatchStatus::Match
+    } else {
+        UriMatchStatus::NoMatch
+    }
 }
 
 fn parse(pattern: &str) -> Result<Expr, UriMatcherError> {
@@ -498,6 +545,11 @@ mod tests {
         )));
     }
 
+    fn batch<S: AsRef<str>>(patterns: &[S], target: &str) -> Vec<UriMatchStatus> {
+        let patterns = patterns.iter().map(|p| p.as_ref().to_owned()).collect();
+        uri_regex_matches_batch(patterns, target).0
+    }
+
     #[test]
     fn batch_evaluates_linear_patterns_before_expensive_ones() {
         let expensive = "(?=[\\w/.:-]{0,31}\\w)".repeat(8);
@@ -505,9 +557,9 @@ mod tests {
         patterns.push("^a".to_owned());
         let target = "a".to_owned() + &random_ab(MAX_TARGET_LENGTH - 1);
 
-        let results = assert_within_budget(|| uri_regex_matches_batch(&patterns, &target));
+        let results = assert_within_budget(|| batch(&patterns, &target));
 
-        assert_eq!(results.last(), Some(&true));
+        assert_eq!(results.last(), Some(&UriMatchStatus::Match));
     }
 
     #[test]
@@ -519,8 +571,13 @@ mod tests {
             r"(?<=\.)example",
         ];
         assert_eq!(
-            uri_regex_matches_batch(&patterns, "https://www.example.com/"),
-            vec![true, false, false, true]
+            batch(&patterns, "https://www.example.com/"),
+            [
+                UriMatchStatus::Match,
+                UriMatchStatus::NoMatch,
+                UriMatchStatus::NoMatch,
+                UriMatchStatus::Match,
+            ]
         );
     }
 
@@ -531,17 +588,79 @@ mod tests {
         let mut patterns = vec!["^a".to_owned()];
         patterns.extend((0..20_000).map(|i| format!("^a|{filler}{i}")));
 
-        let results = assert_within_budget(|| uri_regex_matches_batch(&patterns, "abc"));
+        let results = assert_within_budget(|| batch(&patterns, "abc"));
 
-        assert!(results[0]);
-        assert!(results.iter().any(|matched| !matched));
+        assert_eq!(results[0], UriMatchStatus::Match);
+        assert!(results.contains(&UriMatchStatus::Skipped));
+        assert!(!results.contains(&UriMatchStatus::NoMatch));
+    }
+
+    #[test]
+    fn batch_resolves_an_expensive_pattern_even_when_parsing_uses_the_budget() {
+        // Only lookaround patterns, so the first pass parses and defers every one it reaches.
+        let filler = "(?:x|y)".repeat(140);
+        let patterns: Vec<String> = (0..20_000).map(|i| format!("(?=a)a|{filler}{i}")).collect();
+
+        let results = assert_within_budget(|| batch(&patterns, "abc"));
+
+        assert_eq!(results[0], UriMatchStatus::Match);
+    }
+
+    #[test]
+    fn resubmitting_skipped_patterns_evaluates_every_pattern() {
+        let patterns: Vec<String> = [
+            r"(?<=\.)example",
+            "(",
+            r"^https://www\.",
+            r"(\w+)\.\1",
+            r"^https://other\.com",
+            r"(?=w)www",
+        ]
+        .map(str::to_owned)
+        .into();
+        let target = "https://www.example.com/";
+        let expected: Vec<_> = patterns
+            .iter()
+            .map(|pattern| {
+                if uri_regex_matches(pattern, target) {
+                    UriMatchStatus::Match
+                } else {
+                    UriMatchStatus::NoMatch
+                }
+            })
+            .collect();
+
+        // With no budget each call resolves as little as allowed, so this checks the minimum.
+        let mut results = vec![UriMatchStatus::Skipped; patterns.len()];
+        let mut pending: Vec<usize> = (0..patterns.len()).collect();
+        let mut calls = 0;
+        while !pending.is_empty() {
+            calls += 1;
+            assert!(calls <= patterns.len(), "a call resolved nothing");
+            let batch: Vec<String> = pending.iter().map(|&i| patterns[i].clone()).collect();
+            let statuses = matches_batch_within(&batch, target, TimeDelta::zero());
+            let mut still_pending = Vec::new();
+            for (&i, status) in pending.iter().zip(statuses) {
+                results[i] = status;
+                if status == UriMatchStatus::Skipped {
+                    still_pending.push(i);
+                }
+            }
+            assert!(
+                still_pending.len() < pending.len(),
+                "a call resolved nothing"
+            );
+            pending = still_pending;
+        }
+
+        assert_eq!(results, expected);
     }
 
     #[test]
     fn batch_rejects_oversized_target_without_evaluating() {
         let target = "a".repeat(MAX_TARGET_LENGTH + 1);
-        let results = assert_within_budget(|| uri_regex_matches_batch(&["a", "^a"], &target));
-        assert_eq!(results, vec![false, false]);
+        let results = assert_within_budget(|| batch(&["a", "^a"], &target));
+        assert_eq!(results, [UriMatchStatus::NoMatch, UriMatchStatus::NoMatch]);
     }
 
     #[test]
