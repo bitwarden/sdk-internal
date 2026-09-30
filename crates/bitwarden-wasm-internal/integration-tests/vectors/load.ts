@@ -159,7 +159,7 @@ export function unlockMethodName(method: InitUserCryptoMethod): string {
 }
 
 /** `describe.each` / `it.each` rows, one per vector, named after it. */
-export const vectorCases = (vectors: UserVector[]): (readonly [string, UserVector])[] =>
+export const vectorCases = <T extends { name: string }>(vectors: T[]): (readonly [string, T])[] =>
   vectors.map((vector) => [vector.name, vector] as const);
 
 /** `it.each` rows, one per unlock method each vector declares. */

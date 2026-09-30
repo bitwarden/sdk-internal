@@ -2,7 +2,13 @@ import { createHash } from "node:crypto";
 
 import type { Send } from "@bitwarden/sdk-internal";
 
-import type { CipherEntity, FolderEntity, OrganizationEntity, UserEntity } from "./entities";
+import type {
+  CipherEntity,
+  EmergencyAccessEntity,
+  FolderEntity,
+  OrganizationEntity,
+  UserEntity,
+} from "./entities";
 
 const UUID_INFIX = "-0000-4000-8000-";
 const PREFIX_DIGITS = 8;
@@ -106,4 +112,7 @@ export class Database {
   readonly ciphers = new Table<CipherEntity>(new SequentialUuidGenerator("ciphers"));
   readonly folders = new Table<FolderEntity>(new SequentialUuidGenerator("folders"));
   readonly sends = new Table<Send>(new SequentialUuidGenerator("sends"));
+  readonly emergencyAccess = new Table<EmergencyAccessEntity>(
+    new SequentialUuidGenerator("emergency-access"),
+  );
 }

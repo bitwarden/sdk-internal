@@ -3,6 +3,7 @@
 
 import { ApiServer } from "./api-server";
 import { Database } from "./database";
+import { EmergencyAccessServer } from "./emergency-access-server";
 import type { OrganizationMember, StoredMasterPasswordUnlock, UserEntity } from "./entities";
 import { installHttpMock, type HttpMock, type Routes } from "./http-mock";
 import { IdentityServer } from "./identity-server";
@@ -10,7 +11,13 @@ import { KeyConnectorServer } from "./key-connector-server";
 import { API_URL, IDENTITY_URL, KEY_CONNECTOR_URL } from "./urls";
 
 import { asEncString, asOrganizationId } from "../tests/type-assertion-helpers";
-import { loadUserVectors, toSeedAccount, userVector, type UserVector } from "../vectors/load";
+import {
+  loadUserVectors,
+  toSeedAccount,
+  userVector,
+  type EmergencyAccessVector,
+  type UserVector,
+} from "../vectors/load";
 
 import type {
   Cipher,
@@ -108,6 +115,26 @@ export interface SeededAccount {
   folders(): Folder[];
 }
 
+/** Where a seeded emergency access grant starts, and what it grants. */
+export interface SeedGrant {
+  type: number;
+  status: number;
+  waitTimeDays?: number;
+}
+
+/** A seeded emergency access grant, alongside both accounts. */
+export interface SeededEmergencyAccess {
+  id: string;
+  grantor: SeededTestVector;
+  grantee: SeededTestVector;
+}
+
+/** The invite email a grantee receives: the grant to accept, and the token to accept it with. */
+export interface EmergencyAccessInviteEmail {
+  id: string;
+  token: string;
+}
+
 /** A seeded account, alongside the vector it was seeded from. */
 export interface SeededTestVector extends SeededAccount {
   /** The vector, for the password and the plaintext it records. */
@@ -123,6 +150,7 @@ export class ServerEmulator {
   readonly api = new ApiServer(this.db);
   readonly identity = new IdentityServer(this.db);
   readonly keyConnector = new KeyConnectorServer(this.db);
+  readonly emergencyAccess = new EmergencyAccessServer(this.db);
 
   /** The seeded account with this email. Throws if there is none. */
   getUser(email: string): UserEntity {
@@ -234,6 +262,46 @@ export class ServerEmulator {
   }
 
   /**
+   * Seeds a committed emergency access vector: both accounts, and the grant between them holding
+   * the recorded grantor key sealed to the grantee.
+   *
+   * `grant` picks the lifecycle point, since the vector records only the key: a grant approved
+   * for viewing, say, lets a test go straight to decrypting the grantor's vault.
+   */
+  seedEmergencyAccessTestVector(
+    vector: EmergencyAccessVector,
+    grant: SeedGrant,
+  ): SeededEmergencyAccess {
+    const grantor = this.seedUserTestVector(vector.grantorVector);
+    const grantee = this.seedUserTestVector(vector.granteeVector);
+
+    this.db.emergencyAccess.set(vector.id, {
+      id: vector.id,
+      grantorId: grantor.userId,
+      granteeId: grantee.userId,
+      email: grantee.email,
+      type: grant.type,
+      status: grant.status,
+      waitTimeDays: grant.waitTimeDays ?? 1,
+      keyEncrypted: vector.grantorUserKeySealedToGrantee,
+      inviteToken: "",
+    });
+
+    return { id: vector.id, grantor, grantee };
+  }
+
+  /** The newest invite sent to `email`. Throws if there is none. */
+  inviteEmailFor(email: string): EmergencyAccessInviteEmail {
+    const invites = this.db.emergencyAccess.filter((grant) => grant.email === email);
+    const invite = invites.at(-1);
+    if (invite === undefined) {
+      throw new Error(`no emergency access invite was sent to ${email}`);
+    }
+
+    return { id: invite.id, token: invite.inviteToken };
+  }
+
+  /**
    * Patches `globalThis.fetch` so the SDK's requests reach the model.
    *
    * Every route is bound to the origin its service answers on, so a request aimed at the wrong
@@ -243,6 +311,7 @@ export class ServerEmulator {
   installFetchHook(): HttpMock {
     return installHttpMock({
       ...bindToOrigin(this.api.routes(), API_URL),
+      ...bindToOrigin(this.emergencyAccess.routes(), API_URL),
       ...bindToOrigin(this.identity.routes(), IDENTITY_URL),
       ...bindToOrigin(this.keyConnector.routes(), KEY_CONNECTOR_URL),
     });

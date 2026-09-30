@@ -2,6 +2,7 @@ import type {
   B64,
   CipherId,
   CollectionId,
+  EmergencyAccessId,
   EncString,
   FolderId,
   KeyId,
@@ -24,6 +25,7 @@ export const asSendId = (value: string): SendId => typeAssert(value);
 export const asUserId = (value: string): UserId => typeAssert(value);
 export const asCollectionId = (value: string): CollectionId => typeAssert(value);
 export const asOrganizationId = (value: string): OrganizationId => typeAssert(value);
+export const asEmergencyAccessId = (value: string): EmergencyAccessId => typeAssert(value);
 export const asPolicyId = (value: string): PolicyId => typeAssert(value);
 export const asKeyId = (value: string): KeyId => typeAssert(value);
 export const asEncString = (value: string): EncString => typeAssert(value);

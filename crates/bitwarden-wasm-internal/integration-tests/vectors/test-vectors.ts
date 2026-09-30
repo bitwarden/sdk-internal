@@ -1,6 +1,6 @@
 // Running one test body against every account the committed vectors record.
 
-import { loadUserVectors, unlockCases, vectorCases } from "./load";
+import { loadEmergencyAccessVectors, loadUserVectors, unlockCases, vectorCases } from "./load";
 
 export const testVectors = {
   /**
@@ -31,5 +31,19 @@ export const testVectors = {
    */
   eachUserAndUnlockMethod() {
     return it.each(unlockCases(loadUserVectors()));
+  },
+
+  /**
+   * `it.each` over every known emergency access vector, called with the vector's name and the
+   * vector itself.
+   *
+   * ```ts
+   * testVectors.eachEmergencyAccess()("%s grantee views the grantor's vault", async (_name, vector) => {
+   *   await viewAndAssert(vector);
+   * });
+   * ```
+   */
+  eachEmergencyAccess() {
+    return it.each(vectorCases(loadEmergencyAccessVectors()));
   },
 };
