@@ -164,6 +164,11 @@ impl PasswordManagerClient {
         self.0.invite_link()
     }
 
+    /// Emergency access operations, performed as the grantee.
+    pub fn emergency_access(&self) -> EmergencyAccessClient {
+        self.0.emergency_access()
+    }
+
     /// Organization member administration operations.
     pub fn organization_users_management(&self) -> OrganizationUsersManagementClient {
         self.0.organization_users_management()

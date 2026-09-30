@@ -15,6 +15,7 @@ use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClientExt as _;
 #[cfg(not(target_arch = "wasm32"))]
 use bitwarden_crypto_sync_handler::CryptoSyncHandler;
 use bitwarden_crypto_sync_handler::CryptoSyncHandlerClientExt as _;
+use bitwarden_emergency_access::EmergencyAccessClientExt as _;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
@@ -38,6 +39,7 @@ pub mod clients {
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClient;
     pub use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
+    pub use bitwarden_emergency_access::EmergencyAccessClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_importers::ImporterClient;
@@ -210,6 +212,11 @@ impl PasswordManagerClient {
     /// Organization invite link operations
     pub fn invite_link(&self) -> bitwarden_organization_invite_link::InviteLinkClient {
         self.0.invite_link()
+    }
+
+    /// Emergency access operations, performed as the grantee.
+    pub fn emergency_access(&self) -> bitwarden_emergency_access::EmergencyAccessClient {
+        self.0.emergency_access()
     }
 
     /// Organization member administration operations.
