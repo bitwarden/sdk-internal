@@ -18,7 +18,7 @@ use super::crypto::{
     make_user_password_registration,
 };
 use crate::key_management::V2UpgradeToken;
-#[cfg(feature = "uniffi")]
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
 use crate::key_management::crypto::{
     ReinitUserCryptoError, ReinitUserCryptoRequest, reinit_user_crypto,
 };
@@ -335,7 +335,8 @@ impl CryptoClient {
     }
 }
 
-#[cfg(feature = "uniffi")]
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CryptoClient {
     /// Re-initialize the user's cryptographic state during an unlock session.
     ///
