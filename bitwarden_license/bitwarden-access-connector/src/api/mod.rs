@@ -21,13 +21,14 @@ use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::{
-    auth::session::{SessionLost, SessionManager},
+    auth::session::{SessionError, SessionLost, SessionManager},
     error::{FailureCode, SafeDetail, SessionTermination, SyncState},
 };
 
 /// [`reqwest_middleware::Middleware`] that attaches the connector bearer token and retries one 401
 /// after a forced refresh. Unlike bitwarden-auth's middleware, it fails on session loss instead of
-/// sending the request without a token.
+/// sending the request without a token. Session loss is signalled by the typed [`SessionError`],
+/// not by the error message.
 pub(crate) struct AccessConnectorAuthMiddleware {
     session: Arc<SessionManager>,
 }
@@ -41,14 +42,14 @@ impl AccessConnectorAuthMiddleware {
         self.session
             .bearer(None)
             .await
-            .map_err(|e| reqwest_middleware::Error::Middleware(anyhow::anyhow!("{e}")))
+            .map_err(session_error_to_middleware)
     }
 
     async fn force_refresh_bearer(&self, stale: &str) -> Result<String, reqwest_middleware::Error> {
         self.session
             .force_refresh(stale, None)
             .await
-            .map_err(|e| reqwest_middleware::Error::Middleware(anyhow::anyhow!("{e}")))
+            .map_err(session_error_to_middleware)
     }
 }
 
@@ -105,6 +106,12 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
         }
     };
     req.headers_mut().insert(http::header::AUTHORIZATION, value);
+}
+
+/// Wrap a [`SessionError`] so [`session_loss`] can downcast it back out; `reqwest_middleware`
+/// and `anyhow` both pass the concrete type through untouched.
+fn session_error_to_middleware(err: SessionError) -> reqwest_middleware::Error {
+    reqwest_middleware::Error::Middleware(anyhow::Error::new(err))
 }
 
 /// Build the generated [`ApiClient`] with authentication middleware.
@@ -342,26 +349,29 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
                 other => ApiError::Transient(format!("HTTP {other}")),
             }
         }
-        Error::ReqwestMiddleware(mw_err) => {
-            // get_bearer and force_refresh_bearer build this message from the session error's
-            // Display ("session lost: Revoked" or "session lost: Closed"), never from credentials.
-            let msg = mw_err.to_string();
-            if msg.contains("session lost") {
-                if msg.contains("Revoked") {
-                    ApiError::SessionLost(SessionLost::Revoked)
-                } else {
-                    ApiError::SessionLost(SessionLost::Closed)
-                }
-            } else {
-                ApiError::Transient(format!(
-                    "middleware: {}",
-                    safe_middleware_description(&mw_err)
-                ))
-            }
-        }
+        Error::ReqwestMiddleware(mw_err) => match session_loss(&mw_err) {
+            Some(lost) => ApiError::SessionLost(lost),
+            None => ApiError::Transient(format!(
+                "middleware: {}",
+                safe_middleware_description(&mw_err)
+            )),
+        },
         Error::Reqwest(_) => ApiError::Transient("transport error".to_owned()),
         Error::Serde(_) => ApiError::Protocol("response decode failed".to_owned()),
         Error::Io(_) => ApiError::Transient("I/O error".to_owned()),
+    }
+}
+
+/// Recover a terminal [`SessionLost`] from a middleware error; anything else — a transient
+/// renewal failure, another middleware's error — yields `None`.
+fn session_loss(err: &reqwest_middleware::Error) -> Option<SessionLost> {
+    let reqwest_middleware::Error::Middleware(inner) = err else {
+        return None;
+    };
+
+    match inner.downcast_ref::<SessionError>()? {
+        SessionError::Lost(lost) => Some(*lost),
+        SessionError::Transient(_) => None,
     }
 }
 
@@ -1129,6 +1139,105 @@ mod tests {
             api_reqs.len(),
             2,
             "exactly 2 API requests expected (401 attempt + retry)"
+        );
+    }
+
+    /// A credential rejected on the 401-refresh path must surface as a typed `Revoked`.
+    #[tokio::test]
+    async fn revoked_session_classifies_as_session_lost_revoked() {
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        // Startup authentication succeeds; the forced refresh after the 401 is rejected.
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(identity_success_response("bearer-1", 3600, &payload))
+            .up_to_n_times(1)
+            .mount(&identity_server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(400)
+                    .set_body_string(r#"{"error":"invalid_grant"}"#)
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&identity_server)
+            .await;
+
+        let identity_client = IdentityClient::new(identity_server.uri()).expect("identity client");
+        let session = SessionManager::new(identity_client, test_token())
+            .await
+            .expect("startup auth succeeds");
+
+        Mock::given(method("GET"))
+            .and(path("/access-connectors/rotation/jobs"))
+            .respond_with(ResponseTemplate::new(401))
+            .mount(&api_server)
+            .await;
+
+        let (api, _rx) = make_rotation_api(&api_server, Arc::clone(&session));
+
+        let err = api.poll_jobs().await.expect_err("credential was rejected");
+        assert!(
+            matches!(err, ApiError::SessionLost(SessionLost::Revoked)),
+            "expected SessionLost(Revoked), got {err:?}"
+        );
+        assert_eq!(
+            session.phase().await,
+            crate::auth::session::SessionPhase::Revoked
+        );
+    }
+
+    /// Shutdown must carry `Closed`, which the executor treats differently from `Revoked`.
+    #[tokio::test]
+    async fn closed_session_classifies_as_session_lost_closed() {
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+
+        let session = make_session(&identity_server, "bearer-1").await;
+        let (api, _rx) = make_rotation_api(&api_server, Arc::clone(&session));
+
+        session.close().await;
+
+        let err = api.poll_jobs().await.expect_err("session was closed");
+        assert!(
+            matches!(err, ApiError::SessionLost(SessionLost::Closed)),
+            "expected SessionLost(Closed), got {err:?}"
+        );
+
+        assert!(
+            api_server.received_requests().await.unwrap().is_empty(),
+            "no API request should be issued after the session is closed"
+        );
+    }
+
+    /// A middleware adding context must not bury the signal: `Revoked` degrading to
+    /// `Transient` would make the executor retry instead of exiting `CredentialRefused`.
+    #[test]
+    fn session_loss_survives_a_wrapped_error() {
+        let wrapped = reqwest_middleware::Error::Middleware(
+            anyhow::Error::new(SessionError::Lost(SessionLost::Revoked))
+                .context("daemon API request failed"),
+        );
+
+        assert_eq!(session_loss(&wrapped), Some(SessionLost::Revoked));
+    }
+
+    /// Another middleware's error must not be mistaken for session loss, however it reads.
+    #[test]
+    fn foreign_middleware_error_is_not_session_loss() {
+        let impostor =
+            reqwest_middleware::Error::Middleware(anyhow::anyhow!("session lost: Revoked"));
+
+        assert!(
+            session_loss(&impostor).is_none(),
+            "only a downcastable SessionError counts as session loss"
         );
     }
 }

@@ -74,6 +74,9 @@ impl std::fmt::Display for SessionError {
     }
 }
 
+/// Lets the typed error cross `reqwest_middleware`'s [`anyhow::Error`] boundary intact.
+impl std::error::Error for SessionError {}
+
 struct SessionState {
     phase: SessionPhase,
     /// The last issued bearer, kept through renewals and cleared only on terminal entry.
