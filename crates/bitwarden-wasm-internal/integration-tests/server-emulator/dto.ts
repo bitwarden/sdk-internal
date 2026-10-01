@@ -265,13 +265,16 @@ export class AccountKeysResponse {
       return { V1: { private_key: asEncString(pair.wrappedPrivateKey) } };
     }
 
+    if (pair.signedPublicKey === undefined) {
+      throw new Error("V2 account has no signed public key");
+    }
+
     return {
       V2: {
         private_key: asEncString(pair.wrappedPrivateKey),
         signing_key: asEncString(signatureKeyPair.wrappedSigningKey),
         security_state: asSignedSecurityState(securityState.securityState),
-        signed_public_key:
-          pair.signedPublicKey === undefined ? undefined : asSignedPublicKey(pair.signedPublicKey),
+        signed_public_key: asSignedPublicKey(pair.signedPublicKey),
       },
     };
   }
@@ -301,9 +304,7 @@ export class AccountKeysResponse {
         object: "publicKeyEncryptionKeyPair",
         wrappedPrivateKey: state.V2.private_key,
         publicKey: user.publicKey,
-        ...(state.V2.signed_public_key === undefined
-          ? {}
-          : { signedPublicKey: state.V2.signed_public_key }),
+        signedPublicKey: state.V2.signed_public_key,
       },
       signatureKeyPair: {
         object: "signatureKeyPair",
