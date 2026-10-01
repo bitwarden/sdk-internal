@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`5ff30961337c0518825100d1a0c6ae601e54a116`](https://github.com/bitwarden/server/commit/5ff30961337c0518825100d1a0c6ae601e54a116)
+  [`a53382a5c3a195ed79e9da151150c1dd0ddbeeff`](https://github.com/bitwarden/server/commit/a53382a5c3a195ed79e9da151150c1dd0ddbeeff)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -1122,6 +1122,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SendFileDownloadDataResponseModel](docs/SendFileDownloadDataResponseModel.md)
 - [SendFileModel](docs/SendFileModel.md)
 - [SendFileUploadDataResponseModel](docs/SendFileUploadDataResponseModel.md)
+- [SendItemMetadataModel](docs/SendItemMetadataModel.md)
 - [SendRequestModel](docs/SendRequestModel.md)
 - [SendResponseModel](docs/SendResponseModel.md)
 - [SendResponseModelListResponseModel](docs/SendResponseModelListResponseModel.md)
