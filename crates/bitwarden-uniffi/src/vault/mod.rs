@@ -76,8 +76,8 @@ impl VaultClient {
         &self,
         patterns: Vec<String>,
         target: String,
-    ) -> Vec<UriMatchStatus> {
-        bitwarden_vault::uri_regex_matches_batch(patterns, &target).0
+    ) -> Result<Vec<UriMatchStatus>> {
+        Ok(bitwarden_vault::uri_regex_matches_batch(patterns, &target)?.0)
     }
 
     /// Checks whether `pattern` can be saved as a regular-expression URI match rule.

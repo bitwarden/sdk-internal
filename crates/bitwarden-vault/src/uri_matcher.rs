@@ -88,20 +88,24 @@ pub fn try_uri_regex_match(pattern: &str, target: &str) -> Result<bool, UriMatch
 ///
 /// Patterns not reached in time are [`UriMatchStatus::Skipped`]. Pass just those to another call
 /// to evaluate them: every call evaluates at least one pattern, so repeating this always finishes.
+/// Fails with [`UriMatcherError::TargetTooLong`] without evaluating any pattern.
 ///
 /// Nothing is cached between calls, since compiled patterns can be large and hold vault data.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub fn uri_regex_matches_batch(patterns: Vec<String>, target: &str) -> UriMatchResults {
-    UriMatchResults(matches_batch_within(&patterns, target, BATCH_TIME_BUDGET))
+pub fn uri_regex_matches_batch(
+    patterns: Vec<String>,
+    target: &str,
+) -> Result<UriMatchResults, UriMatcherError> {
+    matches_batch_within(&patterns, target, BATCH_TIME_BUDGET).map(UriMatchResults)
 }
 
 fn matches_batch_within(
     patterns: &[String],
     target: &str,
     budget: TimeDelta,
-) -> Vec<UriMatchStatus> {
+) -> Result<Vec<UriMatchStatus>, UriMatcherError> {
     if target.len() > MAX_TARGET_LENGTH {
-        return vec![UriMatchStatus::NoMatch; patterns.len()];
+        return Err(UriMatcherError::TargetTooLong);
     }
     let deadline = Utc::now() + budget;
     let mut results = vec![UriMatchStatus::Skipped; patterns.len()];
@@ -115,7 +119,7 @@ fn matches_batch_within(
             UriMatchStatus::NoMatch
         };
     }
-    results
+    Ok(results)
 }
 
 /// Checks that `pattern` is short enough, uses only supported constructs, and compiles, for
@@ -439,7 +443,9 @@ mod tests {
 
     fn batch<S: AsRef<str>>(patterns: &[S], target: &str) -> Vec<UriMatchStatus> {
         let patterns = patterns.iter().map(|p| p.as_ref().to_owned()).collect();
-        uri_regex_matches_batch(patterns, target).0
+        uri_regex_matches_batch(patterns, target)
+            .expect("target is short enough")
+            .0
     }
 
     #[test]
@@ -504,7 +510,8 @@ mod tests {
         let mut pending: Vec<usize> = (0..patterns.len()).collect();
         while !pending.is_empty() {
             let batch: Vec<String> = pending.iter().map(|&i| patterns[i].clone()).collect();
-            let statuses = matches_batch_within(&batch, target, TimeDelta::zero());
+            let statuses =
+                matches_batch_within(&batch, target, TimeDelta::zero()).expect("short target");
             let mut still_pending = Vec::new();
             for (&i, status) in pending.iter().zip(statuses) {
                 results[i] = status;
@@ -525,8 +532,10 @@ mod tests {
     #[test]
     fn batch_rejects_oversized_target_without_evaluating() {
         let target = "a".repeat(MAX_TARGET_LENGTH + 1);
-        let results = assert_within_budget(|| batch(&["a", "^a"], &target));
-        assert_eq!(results, [UriMatchStatus::NoMatch, UriMatchStatus::NoMatch]);
+        let result = assert_within_budget(|| {
+            uri_regex_matches_batch(vec!["a".to_owned(), "^a".to_owned()], &target)
+        });
+        assert!(matches!(result, Err(UriMatcherError::TargetTooLong)));
     }
 
     #[test]
