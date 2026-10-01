@@ -8,6 +8,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
+use bitwarden_crypto::KeyStore;
 use bitwarden_generators::GeneratorClient;
 use chrono::Utc;
 
@@ -21,7 +23,7 @@ use crate::{
         models::{ApiError, RotationCipher},
     },
     auth::session::{SessionLost, SessionManager, SessionPhase},
-    crypto::{AccessConnectorKeyStore, cipher_key_unwraps, encrypt_cipher_password},
+    crypto::{cipher_key_unwraps, encrypt_cipher_password},
     error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
     integrations::{Integration, IntegrationRegistry, RotateContext},
     policy,
@@ -62,7 +64,9 @@ pub(crate) struct ExecutionContext {
     pub(crate) integrations: Arc<IntegrationRegistry>,
     pub(crate) resolver: Arc<dyn CredentialResolver>,
     pub(crate) generator: GeneratorClient,
-    pub(crate) key_store: Arc<AccessConnectorKeyStore>,
+    pub(crate) key_store: Arc<KeyStore<KeySlotIds>>,
+    /// The organisation whose key the cipher is encrypted under.
+    pub(crate) organization_id: OrganizationId,
     pub(crate) retry_cfg: RetryCfg,
     /// How long without a successful server contact before the gate pauses target-side steps.
     pub(crate) offline_grace: Duration,
@@ -139,7 +143,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             return ExecutionResult::Reported;
         }
 
-        if cipher_key_unwraps(&ctx.key_store, cipher.key.as_deref()).is_err() {
+        if cipher_key_unwraps(&ctx.key_store, ctx.organization_id, cipher.key.as_deref()).is_err() {
             report_failure_absorb(
                 &ctx.api,
                 attempt_id,
@@ -369,8 +373,13 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
 
         let mut data = cipher.data.clone();
         let store = Arc::clone(&ctx.key_store);
-        let encrypt_result =
-            encrypt_cipher_password(&store, cipher.key.as_deref(), &mut data, &new_password);
+        let encrypt_result = encrypt_cipher_password(
+            &store,
+            ctx.organization_id,
+            cipher.key.as_deref(),
+            &mut data,
+            &new_password,
+        );
 
         if let Err(_e) = encrypt_result {
             report_failure_absorb(
@@ -747,8 +756,16 @@ mod tests {
         error::{FailureCode, SafeDetail},
         integrations::{Integration, IntegrationError, RotateContext, TargetEffect},
         resolver::ResolvedCredentials,
-        test_support::{encrypted_payload_for, test_token},
+        test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
     };
+
+    /// An identity success body whose access token carries the `organization` claim.
+    fn identity_ok_body(encrypted_payload: &str) -> String {
+        let access_token = access_token_tagged(test_org_id(), "tok");
+        format!(
+            r#"{{"access_token":"{access_token}","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
+        )
+    }
 
     #[test]
     fn past_datetime_maps_to_now_or_earlier() {
@@ -781,13 +798,15 @@ mod tests {
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let payload = encrypted_payload_for(&org_key);
 
-        Mock::given(method("POST")).and(path("/connect/token"))
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_string(format!(r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#))
-                    .insert_header("content-type", "application/json")
+                    .set_body_string(identity_ok_body(&payload))
+                    .insert_header("content-type", "application/json"),
             )
-            .mount(&server).await;
+            .mount(&server)
+            .await;
 
         let token = test_token();
         let identity = IdentityClient::new(server.uri()).unwrap();
@@ -829,13 +848,15 @@ mod tests {
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let payload = encrypted_payload_for(&org_key);
 
-        Mock::given(method("POST")).and(path("/connect/token"))
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_string(format!(r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#))
-                    .insert_header("content-type", "application/json")
+                    .set_body_string(identity_ok_body(&payload))
+                    .insert_header("content-type", "application/json"),
             )
-            .mount(&server).await;
+            .mount(&server)
+            .await;
 
         let token = test_token();
         let identity = IdentityClient::new(server.uri()).unwrap();
@@ -996,9 +1017,7 @@ mod tests {
             .and(path("/connect/token"))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_string(format!(
-                        r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#
-                    ))
+                    .set_body_string(identity_ok_body(&payload))
                     .insert_header("content-type", "application/json"),
             )
             .mount(&identity_server)
@@ -1090,6 +1109,7 @@ mod tests {
             resolver: Arc::new(AlwaysOkResolver),
             generator: bitwarden_core::Client::new(None).generator(),
             key_store,
+            organization_id: test_org_id(),
             retry_cfg: crate::executor::retry::RetryCfg {
                 max_retry_attempts: 1,
                 retry_base_delay: std::time::Duration::from_millis(0),
@@ -1111,7 +1131,8 @@ mod tests {
             rotation_config_wrapped_key: Some(config_blob.1),
             execute_by: Utc::now() + chrono::Duration::minutes(5),
         };
-        let job = verify::verify(snapshot, &exec_ctx.key_store).expect("well-formed claim");
+        let job = verify::verify(snapshot, &exec_ctx.key_store, test_org_id())
+            .expect("well-formed claim");
 
         let result = execute(job, &exec_ctx).await;
 
@@ -1174,9 +1195,7 @@ mod tests {
             .and(path("/connect/token"))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_string(format!(
-                        r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#
-                    ))
+                    .set_body_string(identity_ok_body(&payload))
                     .insert_header("content-type", "application/json"),
             )
             .mount(&identity_server)
@@ -1256,6 +1275,7 @@ mod tests {
             resolver: Arc::new(AlwaysOkResolver),
             generator: bitwarden_core::Client::new(None).generator(),
             key_store,
+            organization_id: test_org_id(),
             retry_cfg: crate::executor::retry::RetryCfg {
                 max_retry_attempts: 1,
                 retry_base_delay: std::time::Duration::from_millis(0),
@@ -1277,7 +1297,8 @@ mod tests {
             rotation_config_wrapped_key: Some(config_blob.1),
             execute_by: Utc::now() + chrono::Duration::minutes(5),
         };
-        let job = verify::verify(snapshot, &exec_ctx.key_store).expect("well-formed claim");
+        let job = verify::verify(snapshot, &exec_ctx.key_store, test_org_id())
+            .expect("well-formed claim");
 
         let result = execute(job, &exec_ctx).await;
 

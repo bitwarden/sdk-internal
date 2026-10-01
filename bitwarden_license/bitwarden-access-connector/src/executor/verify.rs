@@ -4,7 +4,11 @@
 //! Only [`verify`] can construct a [`VerifiedJob`], so `rotation::execute` never reads an
 //! uncross-checked claim field.
 
-use bitwarden_crypto::{EncString, safe::DataEnvelope};
+use bitwarden_core::{
+    OrganizationId,
+    key_management::{KeySlotIds, SymmetricKeySlotId},
+};
+use bitwarden_crypto::{EncString, KeyStore, safe::DataEnvelope};
 use bitwarden_pam_sealed::{
     RotationConfigSealedV1, SealedPasswordPolicy, SealedTargetSystemMethod, TargetSystemSealedV1,
     unseal_rotation_config, unseal_target_system,
@@ -12,10 +16,7 @@ use bitwarden_pam_sealed::{
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{
-    api::models::{TargetKind, WorkSnapshot},
-    crypto::{AccessConnectorKeySlotIds, AccessConnectorKeyStore, AccessConnectorSymmSlotId},
-};
+use crate::api::models::{TargetKind, WorkSnapshot};
 
 /// Why [`verify`] refused a claim. Carries no claim or blob values, only which check failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,7 +113,8 @@ impl VerifiedJob {
 /// Runs checks 1–7 on a claim, rejecting it with a [`SealRejection`] on the first failure.
 pub(crate) fn verify(
     snapshot: WorkSnapshot,
-    key_store: &AccessConnectorKeyStore,
+    key_store: &KeyStore<KeySlotIds>,
+    organization_id: OrganizationId,
 ) -> Result<VerifiedJob, SealRejection> {
     // Check 1: both halves of each sealed value must be present and parse.
     let (target_envelope, target_key) = snapshot
@@ -134,19 +136,20 @@ pub(crate) fn verify(
         .map_err(|_| SealRejection::ConfigBlobInvalid)?;
 
     let mut ctx = key_store.context_mut();
+    let org_slot = SymmetricKeySlotId::Organization(organization_id);
 
-    let target: TargetSystemSealedV1 = unseal_target_system::<AccessConnectorKeySlotIds>(
+    let target: TargetSystemSealedV1 = unseal_target_system::<KeySlotIds>(
         &target_envelope,
         &EncString::from(target_key),
-        &AccessConnectorSymmSlotId::Organization,
+        &org_slot,
         &mut ctx,
     )
     .map_err(|_| SealRejection::TargetBlobInvalid)?;
 
-    let config: RotationConfigSealedV1 = unseal_rotation_config::<AccessConnectorKeySlotIds>(
+    let config: RotationConfigSealedV1 = unseal_rotation_config::<KeySlotIds>(
         &config_envelope,
         &EncString::from(config_key),
-        &AccessConnectorSymmSlotId::Organization,
+        &org_slot,
         &mut ctx,
     )
     .map_err(|_| SealRejection::ConfigBlobInvalid)?;
@@ -207,13 +210,13 @@ pub(crate) mod test_support {
     pub(crate) type SealedStrings = (String, String);
 
     /// A key store holding a fresh organization key, which is also returned.
-    pub(crate) fn store_with_org_key() -> (AccessConnectorKeyStore, SymmetricCryptoKey) {
-        let store = AccessConnectorKeyStore::default();
+    pub(crate) fn store_with_org_key() -> (KeyStore<KeySlotIds>, SymmetricCryptoKey) {
+        let store = KeyStore::default();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(AccessConnectorSymmSlotId::Organization, org_key.clone())
+            .set_symmetric_key(crate::test_support::test_org_slot(), org_key.clone())
             .expect("set_symmetric_key");
         (store, org_key)
     }
@@ -273,20 +276,20 @@ pub(crate) mod test_support {
     }
 
     pub(crate) fn sealed_pair(
-        store: &AccessConnectorKeyStore,
+        store: &KeyStore<KeySlotIds>,
         target: TargetSystemSealedV1,
         config: RotationConfigSealedV1,
     ) -> (SealedStrings, SealedStrings) {
         let mut ctx = store.context_mut();
-        let target_blob = bitwarden_pam_sealed::seal_target_system::<AccessConnectorKeySlotIds>(
+        let target_blob = bitwarden_pam_sealed::seal_target_system::<KeySlotIds>(
             target,
-            &AccessConnectorSymmSlotId::Organization,
+            &crate::test_support::test_org_slot(),
             &mut ctx,
         )
         .expect("seal target");
-        let config_blob = bitwarden_pam_sealed::seal_rotation_config::<AccessConnectorKeySlotIds>(
+        let config_blob = bitwarden_pam_sealed::seal_rotation_config::<KeySlotIds>(
             config,
-            &AccessConnectorSymmSlotId::Organization,
+            &crate::test_support::test_org_slot(),
             &mut ctx,
         )
         .expect("seal config");
@@ -328,7 +331,8 @@ mod tests {
             Some(config_blob),
         );
 
-        let job = verify(snapshot, &store).expect("well-formed claim should verify");
+        let job = verify(snapshot, &store, crate::test_support::test_org_id())
+            .expect("well-formed claim should verify");
 
         assert_eq!(job.attempt_id(), attempt_id);
         assert_eq!(job.job_id(), job_id);
@@ -359,7 +363,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::MissingTargetBlob
         );
     }
@@ -384,7 +388,7 @@ mod tests {
             None,
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::MissingConfigBlob
         );
     }
@@ -410,7 +414,7 @@ mod tests {
         );
         snapshot.target_system_wrapped_key = None;
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::MissingTargetBlob
         );
     }
@@ -436,7 +440,7 @@ mod tests {
         );
         snapshot.rotation_config_wrapped_key = None;
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::MissingConfigBlob
         );
     }
@@ -461,7 +465,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::TargetBlobInvalid
         );
     }
@@ -492,7 +496,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::TargetBlobInvalid
         );
     }
@@ -517,7 +521,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::TargetBlobInvalid
         );
     }
@@ -532,9 +536,9 @@ mod tests {
         let wrong_key_target_blob = {
             let mut ctx = other_store.context_mut();
             strings(
-                seal_target_system::<AccessConnectorKeySlotIds>(
+                seal_target_system::<KeySlotIds>(
                     sample_target(target_system_id),
-                    &AccessConnectorSymmSlotId::Organization,
+                    &crate::test_support::test_org_slot(),
                     &mut ctx,
                 )
                 .expect("seal under other store's key"),
@@ -555,7 +559,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::TargetBlobInvalid
         );
     }
@@ -576,9 +580,9 @@ mod tests {
         let wrong_config_blob = {
             let mut ctx = store.context_mut();
             strings(
-                seal_rotation_config::<AccessConnectorKeySlotIds>(
+                seal_rotation_config::<KeySlotIds>(
                     sample_config(target_system_id, other_cipher_id),
-                    &AccessConnectorSymmSlotId::Organization,
+                    &crate::test_support::test_org_slot(),
                     &mut ctx,
                 )
                 .expect("seal a different config"),
@@ -594,7 +598,7 @@ mod tests {
             Some(wrong_config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::CipherIdMismatch
         );
     }
@@ -609,9 +613,9 @@ mod tests {
         let wrong_target_blob = {
             let mut ctx = store.context_mut();
             strings(
-                seal_target_system::<AccessConnectorKeySlotIds>(
+                seal_target_system::<KeySlotIds>(
                     sample_target(other_target_id),
-                    &AccessConnectorSymmSlotId::Organization,
+                    &crate::test_support::test_org_slot(),
                     &mut ctx,
                 )
                 .expect("seal a different target"),
@@ -632,7 +636,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::TargetSystemIdMismatch
         );
     }
@@ -659,7 +663,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::TargetSystemIdMismatch
         );
     }
@@ -686,7 +690,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::CipherIdMismatch
         );
     }
@@ -718,7 +722,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::TargetMethodNotAutomatic
         );
     }
@@ -748,7 +752,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::TargetKindMissing
         );
     }
@@ -785,7 +789,7 @@ mod tests {
             Some(config_blob),
         );
         assert_eq!(
-            verify(snapshot, &store).unwrap_err(),
+            verify(snapshot, &store, crate::test_support::test_org_id()).unwrap_err(),
             SealRejection::PolicyRejected
         );
     }
@@ -815,7 +819,7 @@ mod tests {
             Some(config_blob),
         );
 
-        let job = verify(snapshot, &store)
+        let job = verify(snapshot, &store, crate::test_support::test_org_id())
             .expect("an unsupported termination request must not be a rejection");
         assert!(!job.terminate_sessions());
     }
