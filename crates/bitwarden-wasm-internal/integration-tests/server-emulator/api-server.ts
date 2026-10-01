@@ -204,6 +204,12 @@ export class ApiServer {
       return error(HTTP_BAD_REQUEST, "master password unlock data required");
     }
 
+    // A V2 account state requires the public key signed by the signing key.
+    const signedPublicKey = state.publicKeyEncryptionKeyPair.signedPublicKey;
+    if (signedPublicKey === undefined) {
+      return error(HTTP_BAD_REQUEST, "signed public key required");
+    }
+
     // Every referenced item is resolved before a single write lands: a rejected rotation must not
     // leave the account rotated on top of a half re-encrypted vault.
     const ciphers: { posted: CipherRequest & { id: string }; stored: CipherEntity }[] = [];
@@ -233,10 +239,7 @@ export class ApiServer {
         private_key: asEncString(state.publicKeyEncryptionKeyPair.wrappedPrivateKey),
         signing_key: asEncString(state.signatureKeyPair.wrappedSigningKey),
         security_state: asSignedSecurityState(state.securityState.securityState),
-        signed_public_key:
-          state.publicKeyEncryptionKeyPair.signedPublicKey === undefined
-            ? undefined
-            : asSignedPublicKey(state.publicKeyEncryptionKeyPair.signedPublicKey),
+        signed_public_key: asSignedPublicKey(signedPublicKey),
       },
     };
     user.publicKey = state.publicKeyEncryptionKeyPair.publicKey;
