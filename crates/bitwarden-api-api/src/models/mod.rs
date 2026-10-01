@@ -316,6 +316,8 @@ pub mod email_request_model;
 pub use self::email_request_model::EmailRequestModel;
 pub mod email_token_request_model;
 pub use self::email_token_request_model::EmailTokenRequestModel;
+pub mod emergency_access_accept_request_model;
+pub use self::emergency_access_accept_request_model::EmergencyAccessAcceptRequestModel;
 pub mod emergency_access_grantee_details_response_model;
 pub use self::emergency_access_grantee_details_response_model::EmergencyAccessGranteeDetailsResponseModel;
 pub mod emergency_access_grantee_details_response_model_list_response_model;
