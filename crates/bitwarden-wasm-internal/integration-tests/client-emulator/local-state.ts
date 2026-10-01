@@ -78,6 +78,22 @@ export class LocalState {
 
   private identity: LocalIdentity | undefined;
 
+  private accessToken: string | undefined;
+
+  constructor(private readonly settings: ClientSettings) {}
+
+  setAccessToken(accessToken: string): void {
+    this.accessToken = accessToken;
+  }
+
+  get token(): string {
+    if (this.accessToken === undefined) {
+      throw new Error("local state has no access token; authenticate first");
+    }
+
+    return this.accessToken;
+  }
+
   /** Who this state belongs to. Throws before a sync has recorded it. */
   get account(): LocalIdentity {
     if (this.identity === undefined) {
@@ -121,7 +137,7 @@ export class LocalState {
    * starts, not when the vault opens.
    */
   locked(): PasswordManagerClient {
-    const client = makePasswordManagerClient(this.bridge, SETTINGS, this.account.userId);
+    const client = makePasswordManagerClient(this.bridge, this.settings, this.token);
 
     client.platform().state().register_client_managed_repositories({
       cipher: this.ciphers,

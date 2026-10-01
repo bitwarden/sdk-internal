@@ -111,7 +111,7 @@ describe("change kdf", () => {
         .change_kdf(V1_VECTOR.account.password, NEW_PBKDF2);
       // Sync is triggered by a push notification usually. In this case we do it manually
       // because push notifications are not implemented in the emulator.
-      await second.sync(seeded.email);
+      await second.sync();
       expect(await second.bridge.get_kdf_config()).toEqual(NEW_PBKDF2);
 
       // 2. The second session locks and unlocks, picking up the new kdf and unlock data the sync

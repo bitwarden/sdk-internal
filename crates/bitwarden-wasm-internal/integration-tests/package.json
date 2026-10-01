@@ -6,7 +6,8 @@
   "scripts": {
     "build:test": "bash ../build.sh && npm run test",
     "test": "npm run typecheck && NODE_OPTIONS=--experimental-vm-modules jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:live": "npm run typecheck && NODE_OPTIONS=--experimental-vm-modules jest --runInBand --testPathIgnorePatterns '/node_modules/' --testPathPatterns '\\.live\\.test\\.ts$'"
   },
   "dependencies": {
     "@bitwarden/sdk-internal": "file:../npm/"
