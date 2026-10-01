@@ -1,7 +1,7 @@
 //! `reinit_user_crypto`: refresh an unlocked user's cryptographic state
 //! intended to be used for mobile clients.
 
-#![cfg(feature = "uniffi")]
+#![cfg(any(feature = "uniffi", feature = "wasm"))]
 
 use bitwarden_crypto::SymmetricKeyAlgorithm;
 use bitwarden_error::bitwarden_error;
@@ -23,6 +23,12 @@ use crate::{
 /// This presumes the SDK is already unlocked (has user key in memory).
 #[derive(Serialize, Deserialize, Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReinitUserCryptoRequest {
     /// The user's account cryptographic state, encrypted under the user key
     pub account_cryptographic_state: WrappedAccountCryptographicState,
@@ -219,7 +225,7 @@ mod tests {
             private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
             signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
             security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
-            signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+            signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
         }
     }
 

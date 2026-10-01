@@ -315,7 +315,15 @@ async fn verify_key(
             CONFIRM_KEY_ENDPOINT,
             json!({ "clientVerifyHash": BASE64URL_NOPAD.encode(&client_hash) }),
         )
-        .await?;
+        .await
+        .map_err(|error| match error {
+            // A wrong password or Secret Key derives a different verifier, and this is the first
+            // step that can tell. The server says so with a bare 401 and no error body.
+            OnePasswordError::UnexpectedStatus { status: 401, .. } => {
+                OnePasswordError::BadCredentials
+            }
+            error => error,
+        })?;
 
     // The only step that authenticates the server: nothing but a party holding the same session key
     // can produce this hash.
@@ -545,14 +553,19 @@ mod tests {
 
     /// Runs `verify_key` against a server that answers with `server_hash`.
     async fn run_verify_key(server_hash: &str) -> Result<(), OnePasswordError> {
+        run_verify_key_against(
+            ResponseTemplate::new(200).set_body_json(json!({ "serverVerifyHash": server_hash })),
+        )
+        .await
+    }
+
+    /// Runs `verify_key` against a server that answers `confirm-key` with `response`.
+    async fn run_verify_key_against(response: ResponseTemplate) -> Result<(), OnePasswordError> {
         let server = MockServer::start().await;
         server
             .register(
                 Mock::given(matchers::path("/api/v2/auth/confirm-key"))
-                    .respond_with(
-                        ResponseTemplate::new(200)
-                            .set_body_json(json!({ "serverVerifyHash": server_hash })),
-                    )
+                    .respond_with(response)
                     .expect(1),
             )
             .await;
@@ -579,6 +592,27 @@ mod tests {
 
         server.verify().await;
         result
+    }
+
+    #[tokio::test]
+    async fn verify_key_reports_a_rejected_proof_as_bad_credentials() {
+        let error = run_verify_key_against(ResponseTemplate::new(401))
+            .await
+            .expect_err("the server rejects the proof");
+
+        assert!(matches!(error, OnePasswordError::BadCredentials));
+    }
+
+    #[tokio::test]
+    async fn verify_key_keeps_other_failures() {
+        let error = run_verify_key_against(ResponseTemplate::new(503))
+            .await
+            .expect_err("the server is unavailable");
+
+        assert!(matches!(
+            error,
+            OnePasswordError::UnexpectedStatus { status: 503, .. }
+        ));
     }
 
     #[tokio::test]

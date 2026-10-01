@@ -15,7 +15,7 @@ use super::{
     account_key::AccountKey,
     client::download_vaults,
     credentials::Credentials,
-    model::Vault,
+    model::DownloadedAccount,
     opdata::{AesKey, decode64_loose},
     rest::RestClient,
     session::Session,
@@ -74,14 +74,13 @@ async fn mock_encrypted(server: &MockServer, path: String, body: &str) {
 }
 
 /// Downloads the captured account the same way an import does, minus the login exchange.
-pub(in crate::importers::onepassword) async fn download_captured_account() -> Vec<Vault> {
+pub(in crate::importers::onepassword) async fn download_captured_account() -> DownloadedAccount {
+    download_account_fixture(include_str!("fixtures/account/account-response.json")).await
+}
+
+async fn download_account_fixture(account_response: &str) -> DownloadedAccount {
     let server = MockServer::start().await;
-    mock_encrypted(
-        &server,
-        "/api/v1/account".to_string(),
-        include_str!("fixtures/account/account-response.json"),
-    )
-    .await;
+    mock_encrypted(&server, "/api/v1/account".to_string(), account_response).await;
     mock_encrypted(
         &server,
         "/api/v1/account/keysets".to_string(),
@@ -108,4 +107,24 @@ pub(in crate::importers::onepassword) async fn download_captured_account() -> Ve
     download_vaults(&credentials, &account_key, &session)
         .await
         .expect("the captured responses decrypt and parse")
+}
+
+#[tokio::test]
+async fn an_inaccessible_vault_keeps_its_available_metadata() {
+    let mut response: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/account/account-response.json"))
+            .expect("valid account response");
+    let vault = &mut response["vaults"][0];
+    for access in vault["access"].as_array_mut().expect("vault access list") {
+        access["encVaultKey"]["kid"] = "a-key-the-account-does-not-have".into();
+    }
+
+    let account = download_account_fixture(&response.to_string()).await;
+
+    assert_eq!(account.vaults.len(), 1);
+    assert_eq!(account.skipped_vaults.len(), 1);
+    let skipped = &account.skipped_vaults[0];
+    assert_eq!(skipped.id, "wv2hn4jgomxwvfh4oiubyjppym");
+    assert_eq!(skipped.item_count, Some(1));
+    assert_eq!(skipped.reason, super::model::SkippedReason::NoAccess);
 }

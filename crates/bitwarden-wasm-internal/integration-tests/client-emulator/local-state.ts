@@ -159,7 +159,7 @@ export class LocalState {
       kdfParams,
       accountCryptographicState,
       method,
-      ...(upgradeToken === null ? {} : { upgradeToken }),
+      upgradeToken: upgradeToken ?? undefined,
     });
 
     const sealedOrganizationKeys = Object.entries(this.organizationKeys);
