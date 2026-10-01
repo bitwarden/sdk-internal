@@ -1110,6 +1110,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SendFileDownloadDataResponseModel](docs/SendFileDownloadDataResponseModel.md)
 - [SendFileModel](docs/SendFileModel.md)
 - [SendFileUploadDataResponseModel](docs/SendFileUploadDataResponseModel.md)
+- [SendItemMetadataModel](docs/SendItemMetadataModel.md)
 - [SendRequestModel](docs/SendRequestModel.md)
 - [SendResponseModel](docs/SendResponseModel.md)
 - [SendResponseModelListResponseModel](docs/SendResponseModelListResponseModel.md)
