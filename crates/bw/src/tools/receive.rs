@@ -378,13 +378,22 @@ fn invalid_grant_type(err: &SendAccessTokenError) -> Option<&SendAccessTokenInva
     }
 }
 
-/// Surface a token-negotiation failure we have no specific message for. The error's `Debug`
-/// carries the server's `error_description`, which is diagnostic and never contains send content
-/// or credentials.
+/// Map a token-negotiation failure that no caller handled to a CLI error. Failures with no
+/// CLI-specific message fall back to the error's `Debug`, which carries the server's
+/// `error_description`. That description is diagnostic and never contains send content or
+/// credentials.
 fn token_error(err: SendAccessTokenError) -> color_eyre::eyre::Error {
-    match err {
-        SendAccessTokenError::Unexpected(inner) => eyre!("Server error: {inner:?}"),
-        SendAccessTokenError::Expected(inner) => eyre!("Error: {inner:?}"),
+    match invalid_request_type(&err) {
+        Some(SendAccessTokenInvalidRequestError::DeviceIdentifierRequired) => {
+            eyre!("The CLI did not send a device identifier; cannot access the Send.")
+        }
+        Some(SendAccessTokenInvalidRequestError::DeviceIdentifierInvalid) => {
+            eyre!("The server rejected the CLI's device identifier; cannot access the Send.")
+        }
+        _ => match err {
+            SendAccessTokenError::Unexpected(inner) => eyre!("Server error: {inner:?}"),
+            SendAccessTokenError::Expected(inner) => eyre!("Error: {inner:?}"),
+        },
     }
 }
 
@@ -891,5 +900,55 @@ mod tests {
     #[test]
     fn no_inputs_yields_no_password() {
         assert_eq!(password_from_args(None, None, None).unwrap(), None);
+    }
+
+    // ---- token_error ----
+
+    fn invalid_request(
+        send_access_error_type: SendAccessTokenInvalidRequestError,
+        error_description: Option<&str>,
+    ) -> SendAccessTokenError {
+        SendAccessTokenError::Expected(SendAccessTokenApiErrorResponse::InvalidRequest {
+            error_description: error_description.map(str::to_string),
+            send_access_error_type: Some(send_access_error_type),
+        })
+    }
+
+    #[test]
+    fn a_missing_device_identifier_shows_a_cli_message() {
+        let err = token_error(invalid_request(
+            SendAccessTokenInvalidRequestError::DeviceIdentifierRequired,
+            Some("Device-Identifier header is required."),
+        ));
+        assert_eq!(
+            err.to_string(),
+            "The CLI did not send a device identifier; cannot access the Send."
+        );
+    }
+
+    #[test]
+    fn an_invalid_device_identifier_shows_a_cli_message() {
+        let err = token_error(invalid_request(
+            SendAccessTokenInvalidRequestError::DeviceIdentifierInvalid,
+            Some("Device-Identifier header is invalid."),
+        ));
+        assert_eq!(
+            err.to_string(),
+            "The server rejected the CLI's device identifier; cannot access the Send."
+        );
+    }
+
+    #[test]
+    fn other_token_errors_keep_the_full_error_detail() {
+        let err = token_error(invalid_request(
+            SendAccessTokenInvalidRequestError::Unknown,
+            Some("Something else."),
+        ));
+        let message = err.to_string();
+        assert!(
+            message.starts_with("Error: InvalidRequest {"),
+            "got: {message}"
+        );
+        assert!(message.contains("Something else."), "got: {message}");
     }
 }
