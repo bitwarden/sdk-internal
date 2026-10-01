@@ -1,0 +1,26 @@
+[Unit]
+Description=Bitwarden PAM rotation daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@SERVICE_USER@
+Group=@SERVICE_USER@
+
+EnvironmentFile=@ENV_FILE@
+ExecStart=@BINARY_PATH@ run --config @CONFIG_FILE@
+
+Restart=always
+RestartSec=10s
+
+# Hardening. Review each line against what your rotation scripts need.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=@STATE_DIR@
+RestrictSUIDSGID=yes
+# NoNewPrivileges=yes   # omit if your scripts use sudo
+
+[Install]
+WantedBy=multi-user.target
