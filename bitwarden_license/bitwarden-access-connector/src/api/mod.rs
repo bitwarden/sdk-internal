@@ -1,4 +1,7 @@
 //! HTTP API client wrappers for the Bitwarden server's PAM rotation endpoints.
+//!
+//! [`build_sdk_client`] assembles the client the connector runs on; [`RotationApi`] reaches
+//! through its configurations, mapping calls into domain types.
 
 pub(crate) mod models;
 
@@ -8,15 +11,15 @@ use std::{
 };
 
 use bitwarden_api_api::{
-    apis::{ApiClient, AuthRequired},
+    apis::AuthRequired,
     models::{
         ReportRotationFailedRequestModel, ReportRotationSucceededRequestModel,
         SubmitCipherUpdateRequestModel,
     },
 };
-use bitwarden_api_base::Configuration;
+use bitwarden_core::{Client, ClientBuilder, ClientSettings, client::internal::ApiConfigurations};
 use models::{ApiError, JobRef, RotationCipher, WorkSnapshot};
-use reqwest_middleware::{ClientBuilder, Middleware, Next};
+use reqwest_middleware::{Middleware, Next};
 use tokio::sync::watch;
 use uuid::Uuid;
 
@@ -180,28 +183,33 @@ impl std::fmt::Display for RequestTimedOut {
 
 impl std::error::Error for RequestTimedOut {}
 
-/// Build the generated [`ApiClient`] with authentication middleware.
-pub(crate) fn build_api_client(
-    base_url: impl Into<String>,
-    handler: AccessConnectorTokenHandler,
-) -> ApiClient {
-    // Do not follow redirects: a cross-host redirect could leak the bearer token.
-    let http_client = bitwarden_api_base::new_http_client_builder()
-        .timeout(REQUEST_TIMEOUT)
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .expect("HTTP client build should not fail");
+/// Builds the SDK client the connector runs against, plus the handler that carries its session
+/// once startup has one.
+///
+/// [`TimeoutMiddleware`] is load-bearing twice over: core sets no per-request timeout, and it only
+/// disables redirect-following when the extra-middleware vec is non-empty (the auth middleware does
+/// not count). Passing none would drop the timeout and start following cross-host redirects, so
+/// `request_times_out_rather_than_hanging` and `does_not_follow_a_cross_host_redirect` guard both.
+/// Chained outermost, the timeout also bounds token renewal, so the heartbeat cannot stall past
+/// `AccessConnectorOfflineAfter` whatever it is waiting on.
+pub(crate) fn build_sdk_client(
+    api_url: String,
+    identity_url: String,
+    timeout: Duration,
+) -> (Client, AccessConnectorTokenHandler) {
+    let handler = AccessConnectorTokenHandler::default();
 
-    let middleware_client = ClientBuilder::new(http_client)
-        .with(AccessConnectorAuthMiddleware::new(handler))
+    let client = ClientBuilder::new()
+        .with_settings(ClientSettings {
+            api_url,
+            identity_url,
+            ..Default::default()
+        })
+        .with_token_handler(Arc::new(handler.clone()))
+        .with_middleware(vec![Arc::new(TimeoutMiddleware::new(timeout))])
         .build();
 
-    let config = Arc::new(Configuration {
-        base_path: base_url.into(),
-        client: middleware_client,
-    });
-
-    ApiClient::new(&config)
+    (client, handler)
 }
 
 /// Domain-typed wrapper around the generated PAM rotation API clients.
@@ -209,14 +217,20 @@ pub(crate) fn build_api_client(
 /// Every successful response bumps `connectivity_tx`, which the rotation gate reads to pause
 /// target-side steps while the server is unreachable.
 pub(crate) struct RotationApi {
-    client: ApiClient,
+    api_configurations: Arc<ApiConfigurations>,
     connectivity_tx: watch::Sender<Instant>,
 }
 
 impl RotationApi {
-    pub(crate) fn new(client: ApiClient, connectivity_tx: watch::Sender<Instant>) -> Self {
+    /// Reaches through the client's shared configurations at the point of use, as `SyncClient`
+    /// does: `ApiClient` is not `Clone`, and rebuilding one would construct ~85 sub-API clients
+    /// the client already has.
+    pub(crate) fn new(
+        api_configurations: Arc<ApiConfigurations>,
+        connectivity_tx: watch::Sender<Instant>,
+    ) -> Self {
         Self {
-            client,
+            api_configurations,
             connectivity_tx,
         }
     }
@@ -228,7 +242,8 @@ impl RotationApi {
     /// Poll for claimable rotation jobs. A 404 maps to [`ApiError::NotEligible`].
     pub(crate) async fn poll_jobs(&self) -> Result<Vec<JobRef>, ApiError> {
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_jobs_api()
             .get_all()
             .await;
@@ -244,7 +259,7 @@ impl RotationApi {
                     .collect();
                 Ok(jobs)
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::AccessConnectorOrJob)),
+            Err(e) => Err(classify_error(e, Route::AccessConnectorOrJob)),
         }
     }
 
@@ -254,7 +269,8 @@ impl RotationApi {
     /// [`ApiError::NotEligible`].
     pub(crate) async fn claim(&self, job_id: Uuid) -> Result<Option<WorkSnapshot>, ApiError> {
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_jobs_api()
             .claim(job_id)
             .await;
@@ -268,7 +284,7 @@ impl RotationApi {
             Err(bitwarden_api_base::Error::Response(ref rc)) if rc.status.as_u16() == 409 => {
                 Ok(None)
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::AccessConnectorOrJob)),
+            Err(e) => Err(classify_error(e, Route::AccessConnectorOrJob)),
         }
     }
 
@@ -276,7 +292,8 @@ impl RotationApi {
     /// [`ApiError::UnknownAttempt`].
     pub(crate) async fn get_cipher(&self, attempt_id: Uuid) -> Result<RotationCipher, ApiError> {
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_attempts_api()
             .get_cipher(attempt_id)
             .await;
@@ -286,7 +303,7 @@ impl RotationApi {
                 self.mark_ok();
                 parse_rotation_cipher(model)
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::Attempt)),
+            Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
 
@@ -305,7 +322,8 @@ impl RotationApi {
         };
 
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_attempts_api()
             .put_cipher(attempt_id, body)
             .await;
@@ -315,7 +333,7 @@ impl RotationApi {
                 self.mark_ok();
                 Ok(())
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::Attempt)),
+            Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
 
@@ -333,7 +351,8 @@ impl RotationApi {
         };
 
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_attempts_api()
             .success(attempt_id, body)
             .await;
@@ -343,7 +362,7 @@ impl RotationApi {
                 self.mark_ok();
                 Ok(())
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::Attempt)),
+            Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
 
@@ -365,7 +384,8 @@ impl RotationApi {
         };
 
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_attempts_api()
             .failure(attempt_id, body)
             .await;
@@ -375,7 +395,7 @@ impl RotationApi {
                 self.mark_ok();
                 Ok(())
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::Attempt)),
+            Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
 }
@@ -391,7 +411,7 @@ enum Route {
     Attempt,
 }
 
-fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Route) -> ApiError {
+fn classify_error(err: bitwarden_api_base::Error, route: Route) -> ApiError {
     use bitwarden_api_base::Error;
 
     match err {
@@ -523,7 +543,6 @@ fn failure_code_string(code: FailureCode) -> String {
 mod tests {
     use std::{sync::Arc, time::Instant};
 
-    use bitwarden_api_base::Configuration;
     use bitwarden_crypto::KeyStore;
     use reqwest_middleware::ClientBuilder;
     use tokio::sync::watch;
@@ -603,14 +622,28 @@ mod tests {
         handler
     }
 
+    /// A [`RotationApi`] over the same client stack production builds.
     fn make_rotation_api(
         api_server: &MockServer,
         session: Arc<SessionManager>,
     ) -> (RotationApi, watch::Receiver<Instant>) {
         let (tx, rx) = watch::channel(Instant::now());
-        let client = build_api_client(api_server.uri(), handler_for(session));
-        let api = RotationApi::new(client, tx);
+        let api = RotationApi::new(api_configurations_for(api_server, session), tx);
         (api, rx)
+    }
+
+    /// The client's [`ApiConfigurations`], with `session` installed on its handler.
+    fn api_configurations_for(
+        api_server: &MockServer,
+        session: Arc<SessionManager>,
+    ) -> Arc<ApiConfigurations> {
+        let (client, handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_owned(),
+            REQUEST_TIMEOUT,
+        );
+        handler.set_session(session);
+        client.internal.get_api_configurations()
     }
 
     #[test]
@@ -770,23 +803,7 @@ mod tests {
             message: String::new(),
         };
         let err: bitwarden_api_base::Error = bitwarden_api_base::Error::Response(rc);
-        let api_err = classify_error(
-            err,
-            &{
-                // classify_error ignores the client.
-                let config = Arc::new(Configuration {
-                    base_path: "http://localhost".to_owned(),
-                    client: ClientBuilder::new(
-                        bitwarden_api_base::new_http_client_builder()
-                            .build()
-                            .unwrap(),
-                    )
-                    .build(),
-                });
-                ApiClient::new(&config)
-            },
-            Route::AccessConnectorOrJob,
-        );
+        let api_err = classify_error(err, Route::AccessConnectorOrJob);
         assert!(matches!(api_err, ApiError::Rejected { status: 409 }));
     }
 
@@ -1218,8 +1235,7 @@ mod tests {
             .await;
 
         let (tx, _rx) = watch::channel(Instant::now());
-        let client = build_api_client(api_server.uri(), handler_for(session));
-        let api = RotationApi::new(client, tx);
+        let api = RotationApi::new(api_configurations_for(&api_server, session), tx);
 
         let jobs = api.poll_jobs().await.expect("poll_jobs after 401-refresh");
         assert!(jobs.is_empty());
@@ -1245,6 +1261,100 @@ mod tests {
             .respond_with(ResponseTemplate::new(401))
             .mount(api_server)
             .await;
+    }
+
+    /// Issue a request through the client's own API HTTP stack, the one
+    /// [`build_sdk_client`] assembled.
+    async fn get_through_client(
+        client: &Client,
+        url: String,
+    ) -> reqwest_middleware::Result<reqwest::Response> {
+        client
+            .internal
+            .get_api_configurations()
+            .api_config
+            .client
+            .get(url)
+            .send()
+            .await
+    }
+
+    /// R1: core's builder sets no per-request timeout, so a black-holed connection would
+    /// otherwise hang forever and starve the heartbeat past AccessAccessConnectorOfflineAfter.
+    #[tokio::test]
+    async fn request_times_out_rather_than_hanging() {
+        let api_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/stall"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(30)))
+            .mount(&api_server)
+            .await;
+
+        let (client, _handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_string(),
+            Duration::from_millis(100),
+        );
+
+        let started = Instant::now();
+        let err = get_through_client(&client, format!("{}/stall", api_server.uri()))
+            .await
+            .expect_err("a stalled request must fail, not hang");
+
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "must fail on the timeout, not wait out the response"
+        );
+        match err {
+            reqwest_middleware::Error::Middleware(e) => assert!(
+                e.downcast_ref::<crate::api::RequestTimedOut>().is_some(),
+                "expected RequestTimedOut, got {e:?}"
+            ),
+            other => panic!("expected a middleware error, got {other:?}"),
+        }
+    }
+
+    /// R2: core disables redirects only when the extra-middleware vec is non-empty, and the
+    /// auth middleware does not count toward it. Following a cross-host redirect would
+    /// re-send the bearer to another host.
+    #[tokio::test]
+    async fn does_not_follow_a_cross_host_redirect() {
+        let elsewhere = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/elsewhere"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&elsewhere)
+            .await;
+
+        let api_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/redirect"))
+            .respond_with(ResponseTemplate::new(302).insert_header(
+                "location",
+                format!("{}/elsewhere", elsewhere.uri()).as_str(),
+            ))
+            .mount(&api_server)
+            .await;
+
+        let (client, _handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_string(),
+            Duration::from_secs(5),
+        );
+
+        let response = get_through_client(&client, format!("{}/redirect", api_server.uri()))
+            .await
+            .expect("the 302 itself is a successful exchange");
+
+        assert_eq!(
+            response.status(),
+            302,
+            "the redirect must be returned, not followed"
+        );
+        assert!(
+            elsewhere.received_requests().await.unwrap().is_empty(),
+            "the redirect target must never be contacted"
+        );
     }
 
     #[tokio::test]

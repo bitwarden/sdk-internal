@@ -1000,7 +1000,7 @@ mod tests {
 
         use crate::{
             api::{
-                RotationApi, build_api_client,
+                REQUEST_TIMEOUT, RotationApi, build_sdk_client,
                 models::{TargetKind, WorkSnapshot},
             },
             auth::{identity::IdentityClient, session::SessionManager},
@@ -1076,12 +1076,18 @@ mod tests {
         let session = SessionManager::new(identity, token, KeyStore::default())
             .await
             .unwrap();
-        let handler = crate::auth::token_handler::AccessConnectorTokenHandler::default();
+        let (client, handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_owned(),
+            REQUEST_TIMEOUT,
+        );
         handler.set_session(Arc::clone(&session));
 
         let (tx, _rx) = watch::channel(std::time::Instant::now());
-        let client = build_api_client(api_server.uri(), handler);
-        let api = Arc::new(RotationApi::new(client, tx));
+        let api = Arc::new(RotationApi::new(
+            client.internal.get_api_configurations(),
+            tx,
+        ));
 
         struct AlwaysOkResolver;
         #[async_trait::async_trait]
@@ -1180,7 +1186,7 @@ mod tests {
 
         use crate::{
             api::{
-                RotationApi, build_api_client,
+                REQUEST_TIMEOUT, RotationApi, build_sdk_client,
                 models::{TargetKind, WorkSnapshot},
             },
             auth::{identity::IdentityClient, session::SessionManager},
@@ -1244,12 +1250,18 @@ mod tests {
         let session = SessionManager::new(identity, token, KeyStore::default())
             .await
             .unwrap();
-        let handler = crate::auth::token_handler::AccessConnectorTokenHandler::default();
+        let (client, handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_owned(),
+            REQUEST_TIMEOUT,
+        );
         handler.set_session(Arc::clone(&session));
 
         let (tx, _rx) = watch::channel(std::time::Instant::now());
-        let client = build_api_client(api_server.uri(), handler);
-        let api = Arc::new(RotationApi::new(client, tx));
+        let api = Arc::new(RotationApi::new(
+            client.internal.get_api_configurations(),
+            tx,
+        ));
 
         struct AlwaysOkResolver;
         #[async_trait::async_trait]
