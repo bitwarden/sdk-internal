@@ -6,7 +6,7 @@
 //!                         → closed   (terminal: explicit shutdown)
 //! ```
 //!
-//! Entering `Revoked` or `Closed` drops the bearer and replaces the key store with a fresh one.
+//! Entering `Revoked` or `Closed` drops the bearer and clears the key store.
 
 use std::{
     sync::Arc,
@@ -133,8 +133,10 @@ impl SessionState {
         self.set_phase(phase);
         self.bearer = None;
         self.expires_at = None;
-        // Replace key store with a fresh empty one; clears the Organization slot.
-        self.key_store = Arc::new(KeyStore::default());
+        // Empty the store in place rather than swapping in a fresh one: every holder of
+        // the Arc -- the executor hoists one before the poll loop -- must lose the org key,
+        // not just whoever asks the session for it next.
+        self.key_store.clear();
     }
 }
 
@@ -696,6 +698,79 @@ mod tests {
         assert!(
             !store.context().has_symmetric_key(org_slot()),
             "org key slot must be cleared after revocation"
+        );
+    }
+
+    /// The executor hoists the key-store handle once, before the poll loop, and hands that
+    /// same `Arc` to every rotation. Swapping the session's store left that handle pointing
+    /// at the original, org key intact; clearing in place reaches every holder.
+    #[tokio::test]
+    async fn key_store_handle_taken_before_revocation_loses_the_org_key() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(rejected_response())
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token())
+            .await
+            .expect("first auth");
+
+        // Taken before revocation, as the executor does.
+        let hoisted = mgr.key_store().await;
+        assert!(
+            hoisted.context().has_symmetric_key(org_slot()),
+            "org key must be installed before revocation"
+        );
+
+        let _ = mgr
+            .force_refresh(&access_token_tagged(test_org_id(), "tok"), None)
+            .await;
+        assert_eq!(mgr.phase().await, SessionPhase::Revoked);
+
+        assert!(
+            !hoisted.context().has_symmetric_key(org_slot()),
+            "a handle taken before revocation must not still hold the org key"
+        );
+    }
+
+    /// The same, for the shutdown path.
+    #[tokio::test]
+    async fn key_store_handle_taken_before_close_loses_the_org_key() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token())
+            .await
+            .expect("auth");
+
+        let hoisted = mgr.key_store().await;
+        assert!(hoisted.context().has_symmetric_key(org_slot()));
+
+        mgr.close().await;
+
+        assert!(
+            !hoisted.context().has_symmetric_key(org_slot()),
+            "a handle taken before close must not still hold the org key"
         );
     }
 
