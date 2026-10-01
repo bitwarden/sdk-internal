@@ -211,10 +211,7 @@ describe("rotate user keys", () => {
    */
   for (const lockType of ["BeforeFirstUnlock", "AfterFirstUnlock"] as const) {
     for (const pickup of ["reinit", "restart"] as const) {
-      // PM-44163: the AfterFirstUnlock encrypted PIN is never migrated off the V1 key.
-      const test = lockType === "AfterFirstUnlock" ? it.failing : it;
-
-      test(
+      it(
         `${lockType} pin unlock survives an upgrade picked up by ${pickup}`,
         async () => {
           // 1. A device enrolled in PIN unlock
