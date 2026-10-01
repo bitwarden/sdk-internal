@@ -291,6 +291,11 @@ async fn access_with_password(
     }
 }
 
+// TODO: Email-OTP-protected Sends do not work in this CLI yet. The server rejects every token
+// request for such a Send that has no `Device-Identifier` header, and this CLI does not send one.
+// The first request in `attempt_access` gets `device_identifier_required`, so this function is
+// never reached. Fixing it needs the Platform team to persist a device identifier for the CLI and
+// send it as the `Device-Identifier` header on every request.
 /// Email-OTP-protected Sends: the email request is what makes the server send the code, so the
 /// expected outcome of the first call is an `email_and_otp_required` error, not a token.
 async fn access_with_email_otp(
