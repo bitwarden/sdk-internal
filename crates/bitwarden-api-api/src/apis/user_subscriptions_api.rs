@@ -30,6 +30,16 @@ pub trait UserSubscriptionsApi: Send + Sync {
     /// Previews the account's upcoming subscription renewal.
     async fn get_account_subscription_preview(&self) -> Result<models::SubscriptionPreview, Error>;
 
+    /// GET /account/billing/subscription/purchase/preview
+    /// Previews the invoice for purchasing a Premium subscription.
+    async fn get_account_subscription_purchase_preview<'a>(
+        &self,
+        additional_storage: Option<i32>,
+        coupons: Option<Vec<String>>,
+        country: Option<&'a str>,
+        postal_code: Option<&'a str>,
+    ) -> Result<models::InvoicePreview, Error>;
+
     /// GET /account/billing/subscription/upgrade/preview
     /// Previews the invoice for upgrading the user's Premium subscription to an organization plan.
     async fn get_account_subscription_upgrade_preview<'a>(
@@ -66,6 +76,61 @@ impl UserSubscriptionsApi for UserSubscriptionsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    /// Previews the invoice for purchasing a Premium subscription.
+    async fn get_account_subscription_purchase_preview<'a>(
+        &self,
+        additional_storage: Option<i32>,
+        coupons: Option<Vec<String>>,
+        country: Option<&'a str>,
+        postal_code: Option<&'a str>,
+    ) -> Result<models::InvoicePreview, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/account/billing/subscription/purchase/preview",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        if let Some(ref param_value) = additional_storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("additionalStorage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = coupons {
+            local_var_req_builder = match "multi" {
+                "multi" => local_var_req_builder.query(
+                    &param_value
+                        .into_iter()
+                        .map(|p| ("coupons".to_owned(), p.to_string()))
+                        .collect::<Vec<(std::string::String, std::string::String)>>(),
+                ),
+                _ => local_var_req_builder.query(&[(
+                    "coupons",
+                    &param_value
+                        .into_iter()
+                        .map(|p| p.to_string())
+                        .collect::<Vec<String>>()
+                        .join(",")
+                        .to_string(),
+                )]),
+            };
+        }
+        if let Some(ref param_value) = country {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("country", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = postal_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("postalCode", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
