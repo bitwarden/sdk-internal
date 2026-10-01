@@ -478,14 +478,16 @@ mod tests {
     use crate::{
         auth::{identity::IdentityClient, session::SessionManager},
         error::{FailureCode, SafeDetail, SyncState},
-        test_support::{encrypted_payload_for, test_token},
+        test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
     };
 
+    /// `bearer` is a short tag, expanded to a real JWT so the `organization` claim parses.
     fn identity_success_response(
         bearer: &str,
         expires_in: u64,
         encrypted_payload: &str,
     ) -> ResponseTemplate {
+        let bearer = access_token_tagged(test_org_id(), bearer);
         let body = format!(
             r#"{{"access_token":"{bearer}","expires_in":{expires_in},"encrypted_payload":"{encrypted_payload}"}}"#
         );
@@ -1103,16 +1105,19 @@ mod tests {
             .await
             .expect("SessionManager::new");
 
+        let bearer_1 = format!("Bearer {}", access_token_tagged(test_org_id(), "bearer-1"));
+        let bearer_2 = format!("Bearer {}", access_token_tagged(test_org_id(), "bearer-2"));
+
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
-            .and(header("Authorization", "Bearer bearer-1"))
+            .and(header("Authorization", bearer_1.as_str()))
             .respond_with(ResponseTemplate::new(401))
             .up_to_n_times(1)
             .mount(&api_server)
             .await;
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
-            .and(header("Authorization", "Bearer bearer-2"))
+            .and(header("Authorization", bearer_2.as_str()))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_json(serde_json::json!({"data": []}))

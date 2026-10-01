@@ -26,7 +26,6 @@ use tokio::{
 use crate::{
     api::{RotationApi, build_api_client, models::ApiError},
     auth::session::{SessionLost, SessionManager},
-    crypto::AccessConnectorKeyStore,
     error::{FailureCode, SafeDetail, SyncState},
     integrations::IntegrationRegistry,
     resolver::CredentialResolver,
@@ -218,7 +217,13 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         crate::resolver::config::ConfigCredentialResolver::new(cfg.targets, Arc::new(SystemEnv)),
     );
 
-    let key_store: Arc<AccessConnectorKeyStore> = session.key_store().await;
+    let key_store = session.key_store().await;
+
+    // `SessionManager::new` authenticated eagerly, so the claim has already been read.
+    let Some(organization_id) = session.organization_id().await else {
+        tracing::error!("access token carries no usable organization claim");
+        return RunExit::CredentialRefused;
+    };
 
     let connectivity_rx_for_gate = connectivity_rx.clone();
     let last_ok: Arc<dyn Fn() -> Instant + Send + Sync> =
@@ -343,7 +348,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         // Verify the sealed blobs (checks 1–7) before anything else: a rejection is reported
         // without touching the resolver, integration layer, or cipher route.
         let attempt_id = snap.attempt_id;
-        let verified = match verify::verify(snap, &key_store) {
+        let verified = match verify::verify(snap, &key_store, organization_id) {
             Ok(v) => v,
             Err(rejection) => {
                 tracing::warn!(
@@ -392,6 +397,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             resolver: Arc::clone(&resolver),
             generator: sdk_client.generator(),
             key_store: Arc::clone(&key_store),
+            organization_id,
             retry_cfg: cfg.retry_cfg.clone(),
             offline_grace: cfg.offline_grace,
             last_ok: Arc::clone(&last_ok),
@@ -479,10 +485,12 @@ mod tests {
     use crate::{
         api::{RotationApi, build_api_client},
         auth::{identity::IdentityClient, session::SessionManager},
-        test_support::{encrypted_payload_for, test_token},
+        test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
     };
 
+    /// `bearer` is a short tag, expanded to a real JWT so the `organization` claim parses.
     fn identity_ok(bearer: &str, encrypted_payload: &str) -> ResponseTemplate {
+        let bearer = access_token_tagged(test_org_id(), bearer);
         ResponseTemplate::new(200)
             .set_body_string(format!(
                 r#"{{"access_token":"{bearer}","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
