@@ -12,11 +12,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessLeaseRevokeRequestModel : A request to revoke an active lease early.
+/// AccessRequestRevokeRequestModel : A request to revoke an access request that has not been
+/// activated.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AccessLeaseRevokeRequestModel {
-    /// A note explaining the revocation. Recorded on the audit trail; not surfaced on the lease
-    /// itself.
+pub struct AccessRequestRevokeRequestModel {
+    /// Why the request is being revoked. Required when a managing approver revokes; recorded with
+    /// their decision and surfaced to the requester.
     #[serde(
         rename = "reason",
         alias = "Reason",
@@ -25,9 +26,9 @@ pub struct AccessLeaseRevokeRequestModel {
     pub reason: Option<String>,
 }
 
-impl AccessLeaseRevokeRequestModel {
-    /// A request to revoke an active lease early.
-    pub fn new() -> AccessLeaseRevokeRequestModel {
-        AccessLeaseRevokeRequestModel { reason: None }
+impl AccessRequestRevokeRequestModel {
+    /// A request to revoke an access request that has not been activated.
+    pub fn new() -> AccessRequestRevokeRequestModel {
+        AccessRequestRevokeRequestModel { reason: None }
     }
 }
