@@ -8,8 +8,10 @@ use crate::auth::{
 };
 #[cfg(feature = "internal")]
 use crate::{
-    Client,
-    auth::{api::request::PasswordTokenRequest, login::LoginError, login::TwoFactorRequest},
+    Client, UserId,
+    auth::{
+        JwtToken, api::request::PasswordTokenRequest, login::LoginError, login::TwoFactorRequest,
+    },
     client::LoginMethod,
     key_management::{MasterPasswordAuthenticationData, UserDecryptionData},
 };
@@ -47,6 +49,17 @@ pub(crate) async fn login_password(
                 r.expires_in,
             )
             .await;
+
+        // `login_password` alone never calls `init_user_id` (unlike the `InitUserCryptoRequest`
+        // path), so `Client::internal::get_user_id()` stays `None` after a fresh password login,
+        // and anything that needs it (e.g. `CiphersClient::create`) fails with
+        // `NotAuthenticatedError` even though the login itself succeeded. Derive it from the
+        // access token's `sub` claim, the same value the JWT already carries.
+        if let Ok(jwt) = r.access_token.parse::<JwtToken>()
+            && let Ok(uuid) = jwt.sub.parse()
+        {
+            let _ = client.internal.init_user_id(UserId::new(uuid)).await;
+        }
 
         let private_key: EncString = require!(&r.private_key).parse()?;
 

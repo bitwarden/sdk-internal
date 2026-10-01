@@ -8,6 +8,7 @@ pub(crate) mod card;
 pub(crate) mod cipher;
 pub(crate) mod cipher_client;
 pub(crate) mod cipher_permissions;
+pub(crate) mod cipher_sync_handler;
 pub(crate) mod cipher_view_type;
 pub(crate) mod drivers_license;
 pub(crate) mod field;
@@ -38,8 +39,10 @@ pub use cipher::{
     EncryptionContext, ListOrganizationCiphersResult,
 };
 pub use cipher_client::{
-    CiphersClient, GetAssignedOrgCiphersAdminError, should_use_blob_encryption,
+    CipherCreateRequest, CipherEditRequest, CipherPartialEditRequest, CiphersClient,
+    GetAssignedOrgCiphersAdminError, should_use_blob_encryption,
 };
+pub use cipher_sync_handler::CipherSyncHandler;
 pub use cipher_view_type::CipherViewType;
 pub use drivers_license::DriversLicenseView;
 #[cfg(feature = "wasm")]
