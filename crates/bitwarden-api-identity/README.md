@@ -20,9 +20,9 @@ using the [openapi-spec](https://openapis.org) from a remote server, you can eas
 client.
 
 - API version: v1
-- Package version: 3.0.0
+- Package version: 4.0.0
 - Server Git commit:
-  [`aa786fc9cd3803f48e79f15067e910e99d768b69`](https://github.com/bitwarden/server/commit/aa786fc9cd3803f48e79f15067e910e99d768b69)
+  [`a53382a5c3a195ed79e9da151150c1dd0ddbeeff`](https://github.com/bitwarden/server/commit/a53382a5c3a195ed79e9da151150c1dd0ddbeeff)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
