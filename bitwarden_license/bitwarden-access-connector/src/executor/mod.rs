@@ -13,7 +13,7 @@ use std::{
 };
 
 use bitwarden_access_token::AccessToken;
-use bitwarden_core::Client;
+use bitwarden_core::{Client, ClientBuilder, ClientSettings};
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_threading::cancellation_token::CancellationToken;
 use retry::RetryCfg;
@@ -24,8 +24,11 @@ use tokio::{
 };
 
 use crate::{
-    api::{RotationApi, build_api_client, models::ApiError},
-    auth::session::{SessionLost, SessionManager},
+    api::{REQUEST_TIMEOUT, RotationApi, TimeoutMiddleware, build_api_client, models::ApiError},
+    auth::{
+        session::{SessionLost, SessionManager},
+        token_handler::AccessConnectorTokenHandler,
+    },
     error::{FailureCode, SafeDetail, SyncState},
     integrations::IntegrationRegistry,
     resolver::CredentialResolver,
@@ -129,6 +132,33 @@ impl AccessConnectorConfig {
     }
 }
 
+/// Builds the SDK client the connector runs against, plus the handler that carries its session
+/// once startup has one.
+///
+/// [`TimeoutMiddleware`] is load-bearing twice over: core sets no per-request timeout, and it only
+/// disables redirect-following when the extra-middleware vec is non-empty (the auth middleware does
+/// not count). Passing none would drop the timeout and start following cross-host redirects, so
+/// `request_times_out_rather_than_hanging` and `does_not_follow_a_cross_host_redirect` guard both.
+fn build_sdk_client(
+    api_url: String,
+    identity_url: String,
+    timeout: Duration,
+) -> (Client, AccessConnectorTokenHandler) {
+    let handler = AccessConnectorTokenHandler::default();
+
+    let client = ClientBuilder::new()
+        .with_settings(ClientSettings {
+            api_url,
+            identity_url,
+            ..Default::default()
+        })
+        .with_token_handler(Arc::new(handler.clone()))
+        .with_middleware(vec![Arc::new(TimeoutMiddleware::new(timeout))])
+        .build();
+
+    (client, handler)
+}
+
 /// Run the connector poll loop until a clean exit condition is reached. A revoked session maps to
 /// [`RunExit::CredentialRefused`]; a startup failure other than a rejection maps to
 /// [`RunExit::StartupFailed`]; a 404 that survives a refresh probe maps to
@@ -153,10 +183,22 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         "access connector starting"
     );
 
+    // The client owns the key store the session installs the org key into, so it is built first;
+    // the handler lets the session be filled in afterwards.
+    let (sdk_client, handler) = build_sdk_client(
+        cfg.api_url.clone(),
+        cfg.identity_url.clone(),
+        REQUEST_TIMEOUT,
+    );
+
+    let key_store = handler
+        .key_store()
+        .expect("ClientBuilder::build calls initialize_middleware, which sets the key store");
+
     // SessionManager::new backs off internally; the select! lets a cancellation during startup
     // exit cleanly.
     let session = tokio::select! {
-        result = crate::auth::session::SessionManager::new(identity_client, cfg.token) => {
+        result = crate::auth::session::SessionManager::new(identity_client, cfg.token, key_store) => {
             match result {
                 Ok(s) => s,
                 Err(crate::auth::session::SessionError::Lost(
@@ -183,13 +225,11 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         }
     };
 
-    let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
-    let api_client = build_api_client(cfg.api_url.clone(), Arc::clone(&session));
-    let api = Arc::new(RotationApi::new(api_client, connectivity_tx));
+    handler.set_session(Arc::clone(&session));
 
-    // The connector drives its own API calls; this client exists only so rotations can reach
-    // the SDK's password generator.
-    let sdk_client = Client::new(None);
+    let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
+    let api_client = build_api_client(cfg.api_url.clone(), handler.clone());
+    let api = Arc::new(RotationApi::new(api_client, connectivity_tx));
 
     let mut registry = IntegrationRegistry::new();
 
@@ -389,7 +429,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             integrations: Arc::clone(&integrations),
             resolver: Arc::clone(&resolver),
             generator: sdk_client.generator(),
-            key_store: Arc::clone(&key_store),
+            key_store: key_store.clone(),
             organization_id,
             retry_cfg: cfg.retry_cfg.clone(),
             offline_grace: cfg.offline_grace,
@@ -543,7 +583,13 @@ mod tests {
             .await;
 
         let identity = IdentityClient::new(identity_server.uri()).unwrap();
-        SessionManager::new(identity, test_token()).await.unwrap()
+        SessionManager::new(
+            identity,
+            test_token(),
+            bitwarden_crypto::KeyStore::default(),
+        )
+        .await
+        .unwrap()
     }
 
     fn make_api(
@@ -551,7 +597,9 @@ mod tests {
         session: Arc<SessionManager>,
     ) -> (Arc<RotationApi>, watch::Receiver<Instant>) {
         let (tx, rx) = watch::channel(Instant::now());
-        let client = build_api_client(api_server.uri(), session);
+        let handler = AccessConnectorTokenHandler::default();
+        handler.set_session(session);
+        let client = build_api_client(api_server.uri(), handler);
         let api = Arc::new(RotationApi::new(client, tx));
         (api, rx)
     }
@@ -930,6 +978,100 @@ mod tests {
             body["syncState"],
             serde_json::json!(0),
             "syncState must be 0 (TargetUnchanged): {body}"
+        );
+    }
+
+    /// Issue a request through the client's own API HTTP stack, the one
+    /// [`build_sdk_client`] assembled.
+    async fn get_through_client(
+        client: &Client,
+        url: String,
+    ) -> reqwest_middleware::Result<reqwest::Response> {
+        client
+            .internal
+            .get_api_configurations()
+            .api_config
+            .client
+            .get(url)
+            .send()
+            .await
+    }
+
+    /// R1: core's builder sets no per-request timeout, so a black-holed connection would
+    /// otherwise hang forever and starve the heartbeat past AccessConnectorOfflineAfter.
+    #[tokio::test]
+    async fn request_times_out_rather_than_hanging() {
+        let api_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/stall"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(30)))
+            .mount(&api_server)
+            .await;
+
+        let (client, _handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_string(),
+            Duration::from_millis(100),
+        );
+
+        let started = Instant::now();
+        let err = get_through_client(&client, format!("{}/stall", api_server.uri()))
+            .await
+            .expect_err("a stalled request must fail, not hang");
+
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "must fail on the timeout, not wait out the response"
+        );
+        match err {
+            reqwest_middleware::Error::Middleware(e) => assert!(
+                e.downcast_ref::<crate::api::RequestTimedOut>().is_some(),
+                "expected RequestTimedOut, got {e:?}"
+            ),
+            other => panic!("expected a middleware error, got {other:?}"),
+        }
+    }
+
+    /// R2: core disables redirects only when the extra-middleware vec is non-empty, and the
+    /// auth middleware does not count toward it. Following a cross-host redirect would
+    /// re-send the bearer to another host.
+    #[tokio::test]
+    async fn does_not_follow_a_cross_host_redirect() {
+        let elsewhere = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/elsewhere"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&elsewhere)
+            .await;
+
+        let api_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/redirect"))
+            .respond_with(ResponseTemplate::new(302).insert_header(
+                "location",
+                format!("{}/elsewhere", elsewhere.uri()).as_str(),
+            ))
+            .mount(&api_server)
+            .await;
+
+        let (client, _handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_string(),
+            Duration::from_secs(5),
+        );
+
+        let response = get_through_client(&client, format!("{}/redirect", api_server.uri()))
+            .await
+            .expect("the 302 itself is a successful exchange");
+
+        assert_eq!(
+            response.status(),
+            302,
+            "the redirect must be returned, not followed"
+        );
+        assert!(
+            elsewhere.received_requests().await.unwrap().is_empty(),
+            "the redirect target must never be contacted"
         );
     }
 }

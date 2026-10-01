@@ -507,6 +507,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-pam-sealed",
  "bitwarden-sensitive-value",
+ "bitwarden-state",
  "bitwarden-threading",
  "chrono",
  "clap",

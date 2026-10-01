@@ -74,7 +74,8 @@ struct SessionState {
     bearer: Option<String>,
     /// Monotonic expiry of `bearer`.
     expires_at: Option<Instant>,
-    key_store: Arc<KeyStore<KeySlotIds>>,
+    /// Shared with the client, so clearing it on terminal entry reaches core too.
+    key_store: KeyStore<KeySlotIds>,
     /// The organisation from the access token's claim; `None` until the first authentication.
     organization_id: Option<OrganizationId>,
     phase_tx: watch::Sender<SessionPhase>,
@@ -157,11 +158,12 @@ impl std::fmt::Debug for SessionManager {
 impl SessionManager {
     /// Build the manager and authenticate. A rejected credential returns
     /// `Err(SessionError::Lost(Revoked))`, which callers treat as a fatal startup failure.
+    /// `key_store` is the client's, which the org key is installed into.
     pub(crate) async fn new(
         identity: IdentityClient,
         token: AccessToken,
+        key_store: KeyStore<KeySlotIds>,
     ) -> Result<Arc<Self>, SessionError> {
-        let key_store = Arc::new(KeyStore::<KeySlotIds>::default());
         let (phase_tx, _phase_rx) = watch::channel(SessionPhase::Authenticating);
 
         let state = SessionState {
@@ -189,8 +191,8 @@ impl SessionManager {
         self.state.lock().await.phase
     }
 
-    pub(crate) async fn key_store(&self) -> Arc<KeyStore<KeySlotIds>> {
-        Arc::clone(&self.state.lock().await.key_store)
+    pub(crate) async fn key_store(&self) -> KeyStore<KeySlotIds> {
+        self.state.lock().await.key_store.clone()
     }
 
     /// `None` only before the first authentication, which [`Self::new`] has already performed.
@@ -472,7 +474,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("SessionManager::new");
 
@@ -516,7 +518,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("SessionManager::new");
 
@@ -553,7 +555,7 @@ mod tests {
 
         let client = IdentityClient::new(server.uri()).expect("client");
         let mgr = Arc::new(
-            SessionManager::new(client, test_token())
+            SessionManager::new(client, test_token(), KeyStore::default())
                 .await
                 .expect("SessionManager::new"),
         );
@@ -586,7 +588,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let result = SessionManager::new(client, test_token()).await;
+        let result = SessionManager::new(client, test_token(), KeyStore::default()).await;
 
         assert!(
             matches!(result, Err(SessionError::Lost(SessionLost::Revoked))),
@@ -613,7 +615,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("first auth succeeds");
 
@@ -647,7 +649,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("auth");
 
@@ -682,7 +684,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("first auth");
 
@@ -723,7 +725,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("first auth");
 
@@ -759,7 +761,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("auth");
 
@@ -787,7 +789,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("auth");
 
@@ -813,7 +815,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("auth");
 
@@ -853,7 +855,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("first auth");
 
