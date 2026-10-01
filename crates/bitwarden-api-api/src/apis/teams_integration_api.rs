@@ -29,13 +29,6 @@ pub trait TeamsIntegrationApi: Send + Sync {
     /// GET /organizations/integrations/teams/create
     async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error>;
 
-    /// GET /organizations/{organizationId}/integrations/{integrationId}/teams/channels
-    async fn get_channels<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        integration_id: uuid::Uuid,
-    ) -> Result<models::TeamsChannelResponseModelListResponseModel, Error>;
-
     /// POST /organizations/integrations/teams/incoming
     async fn incoming_post(&self) -> Result<(), Error>;
 
@@ -79,29 +72,6 @@ impl TeamsIntegrationApi for TeamsIntegrationApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
-    async fn get_channels<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        integration_id: uuid::Uuid,
-    ) -> Result<models::TeamsChannelResponseModelListResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{organizationId}/integrations/{integrationId}/teams/channels",
-            local_var_configuration.base_path,
-            organizationId = organization_id,
-            integrationId = integration_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn incoming_post(&self) -> Result<(), Error> {

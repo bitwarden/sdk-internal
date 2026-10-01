@@ -28,7 +28,7 @@ pub struct AccessRequestDecisionResponseModel {
         alias = "DeciderKind",
         skip_serializing_if = "Option::is_none"
     )]
-    pub decider_kind: Option<models::AccessDeciderKind>,
+    pub decider_kind: Option<models::DeciderKind>,
     /// The human approver's user id, or null for an automatic decision.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,

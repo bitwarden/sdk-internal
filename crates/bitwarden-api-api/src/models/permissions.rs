@@ -86,12 +86,6 @@ pub struct Permissions {
         skip_serializing_if = "Option::is_none"
     )]
     pub manage_scim: Option<bool>,
-    #[serde(
-        rename = "manageAccessRules",
-        alias = "ManageAccessRules",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub manage_access_rules: Option<bool>,
 }
 
 impl Permissions {
@@ -109,7 +103,6 @@ impl Permissions {
             manage_users: None,
             manage_reset_password: None,
             manage_scim: None,
-            manage_access_rules: None,
         }
     }
 }

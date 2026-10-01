@@ -72,14 +72,6 @@ pub struct CollectionDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub manage: Option<bool>,
-    /// True if the collection is governed by an access rule that is currently enabled. Lets a
-    /// client mark the collection as privileged without reading the organization's access rules.
-    #[serde(
-        rename = "hasEnabledAccessRule",
-        alias = "HasEnabledAccessRule",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub has_enabled_access_rule: Option<bool>,
 }
 
 impl CollectionDetailsResponseModel {
@@ -97,7 +89,6 @@ impl CollectionDetailsResponseModel {
             read_only: None,
             hide_passwords: None,
             manage: None,
-            has_enabled_access_rule: None,
         }
     }
 }

@@ -16,16 +16,40 @@ use crate::models;
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CredentialCreateOptions {
-    #[serde(rename = "rp", alias = "Rp")]
-    pub rp: Box<models::PublicKeyCredentialRpEntity>,
-    #[serde(rename = "user", alias = "User")]
-    pub user: Box<models::Fido2User>,
+    #[serde(
+        rename = "status",
+        alias = "Status",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub status: Option<String>,
+    #[serde(
+        rename = "errorMessage",
+        alias = "ErrorMessage",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub error_message: Option<String>,
+    #[serde(rename = "rp", alias = "Rp", skip_serializing_if = "Option::is_none")]
+    pub rp: Option<Box<models::PublicKeyCredentialRpEntity>>,
+    #[serde(
+        rename = "user",
+        alias = "User",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user: Option<Box<models::Fido2User>>,
     #[serde_as(
         as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
     )]
-    #[serde(rename = "challenge", alias = "Challenge")]
+    #[serde(
+        rename = "challenge",
+        alias = "Challenge",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub challenge: Option<Vec<u8>>,
-    #[serde(rename = "pubKeyCredParams", alias = "PubKeyCredParams")]
+    #[serde(
+        rename = "pubKeyCredParams",
+        alias = "PubKeyCredParams",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub pub_key_cred_params: Option<Vec<models::PubKeyCredParam>>,
     #[serde(
         rename = "timeout",
@@ -40,23 +64,11 @@ pub struct CredentialCreateOptions {
     )]
     pub attestation: Option<models::AttestationConveyancePreference>,
     #[serde(
-        rename = "attestationFormats",
-        alias = "AttestationFormats",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub attestation_formats: Option<Vec<models::AttestationStatementFormatIdentifier>>,
-    #[serde(
         rename = "authenticatorSelection",
         alias = "AuthenticatorSelection",
         skip_serializing_if = "Option::is_none"
     )]
     pub authenticator_selection: Option<Box<models::AuthenticatorSelection>>,
-    #[serde(
-        rename = "hints",
-        alias = "Hints",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub hints: Option<Vec<models::PublicKeyCredentialHint>>,
     #[serde(
         rename = "excludeCredentials",
         alias = "ExcludeCredentials",
@@ -72,22 +84,17 @@ pub struct CredentialCreateOptions {
 }
 
 impl CredentialCreateOptions {
-    pub fn new(
-        rp: models::PublicKeyCredentialRpEntity,
-        user: models::Fido2User,
-        challenge: Option<Vec<u8>>,
-        pub_key_cred_params: Option<Vec<models::PubKeyCredParam>>,
-    ) -> CredentialCreateOptions {
+    pub fn new() -> CredentialCreateOptions {
         CredentialCreateOptions {
-            rp: Box::new(rp),
-            user: Box::new(user),
-            challenge,
-            pub_key_cred_params,
+            status: None,
+            error_message: None,
+            rp: None,
+            user: None,
+            challenge: None,
+            pub_key_cred_params: None,
             timeout: None,
             attestation: None,
-            attestation_formats: None,
             authenticator_selection: None,
-            hints: None,
             exclude_credentials: None,
             extensions: None,
         }

@@ -316,12 +316,6 @@ pub struct ProfileOrganizationResponseModel {
     )]
     pub access_secrets_manager: Option<bool>,
     #[serde(
-        rename = "accessPam",
-        alias = "AccessPam",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub access_pam: Option<bool>,
-    #[serde(
         rename = "userId",
         alias = "UserId",
         skip_serializing_if = "Option::is_none"
@@ -393,6 +387,13 @@ pub struct ProfileOrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub is_admin_initiated: Option<bool>,
+    /// Obsolete property for backward compatibility
+    #[serde(
+        rename = "userIsManagedByOrganization",
+        alias = "UserIsManagedByOrganization",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_is_managed_by_organization: Option<bool>,
 }
 
 impl ProfileOrganizationResponseModel {
@@ -452,7 +453,6 @@ impl ProfileOrganizationResponseModel {
             key_connector_url: None,
             sso_member_decryption_type: None,
             access_secrets_manager: None,
-            access_pam: None,
             user_id: None,
             status: None,
             r#type: None,
@@ -465,6 +465,7 @@ impl ProfileOrganizationResponseModel {
             family_sponsorship_valid_until: None,
             family_sponsorship_to_delete: None,
             is_admin_initiated: None,
+            user_is_managed_by_organization: None,
         }
     }
 }

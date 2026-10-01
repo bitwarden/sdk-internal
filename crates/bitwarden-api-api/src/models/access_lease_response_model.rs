@@ -12,9 +12,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessLeaseResponseModel : An access lease as its requester sees it, with
-/// Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.Status derived against the read
-/// clock. Fields without a backing store in v1
+/// AccessLeaseResponseModel : An access lease as its requester sees it: the originating request,
+/// its lifecycle Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.Status, and
+/// revocation fields. Powers the request-submission envelope, the caller-scoped \"my active
+/// leases\" surface, and the cipher access-state snapshot. Fields without a backing store in v1
 /// (Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.RuleId,
 /// Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.RevocationReason) are null.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
@@ -115,9 +116,10 @@ pub struct AccessLeaseResponseModel {
 }
 
 impl AccessLeaseResponseModel {
-    /// An access lease as its requester sees it, with
-    /// Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.Status derived against the
-    /// read clock. Fields without a backing store in v1
+    /// An access lease as its requester sees it: the originating request, its lifecycle
+    /// Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.Status, and revocation fields.
+    /// Powers the request-submission envelope, the caller-scoped \"my active leases\" surface, and
+    /// the cipher access-state snapshot. Fields without a backing store in v1
     /// (Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.RuleId,
     /// Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.RevocationReason) are null.
     pub fn new() -> AccessLeaseResponseModel {

@@ -13,27 +13,33 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 /// AccessLeaseExtensionRequestModel : A request to extend an active lease, identified by the
-/// route's lease id. Extensions are always auto-approved, subject to the governing rule allowing
-/// extensions and the per-lease maximum not being reached.
+/// route's lease id. The lease's end is pushed out by
+/// Bit.Services.Pam.Api.Models.Request.AccessLeaseExtensionRequestModel.DurationSeconds; a
+/// justifying Bit.Services.Pam.Api.Models.Request.AccessLeaseExtensionRequestModel.Reason is
+/// required. Extensions are always auto-approved, subject to the governing rule allowing extensions
+/// and the per-lease maximum not being reached.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessLeaseExtensionRequestModel {
-    /// How far the lease's end is pushed out, in seconds, bounded by the governing rule's maximum
-    /// extension duration.
+    /// How far the lease's end is pushed out, in seconds. Must be positive and no longer than the
+    /// governing rule's maximum extension duration.
     #[serde(
         rename = "durationSeconds",
         alias = "DurationSeconds",
         skip_serializing_if = "Option::is_none"
     )]
     pub duration_seconds: Option<i32>,
-    /// The justification recorded with the extension.
+    /// The justification recorded with the extension. Required to be non-empty.
     #[serde(rename = "reason", alias = "Reason")]
     pub reason: String,
 }
 
 impl AccessLeaseExtensionRequestModel {
-    /// A request to extend an active lease, identified by the route's lease id. Extensions are
-    /// always auto-approved, subject to the governing rule allowing extensions and the per-lease
-    /// maximum not being reached.
+    /// A request to extend an active lease, identified by the route's lease id. The lease's end is
+    /// pushed out by
+    /// Bit.Services.Pam.Api.Models.Request.AccessLeaseExtensionRequestModel.DurationSeconds; a
+    /// justifying Bit.Services.Pam.Api.Models.Request.AccessLeaseExtensionRequestModel.Reason is
+    /// required. Extensions are always auto-approved, subject to the governing rule allowing
+    /// extensions and the per-lease maximum not being reached.
     pub fn new(reason: String) -> AccessLeaseExtensionRequestModel {
         AccessLeaseExtensionRequestModel {
             duration_seconds: None,

@@ -26,12 +26,6 @@ pub struct ServerSettingsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub suppress_onboarding_interstitials: Option<bool>,
-    #[serde(
-        rename = "enableEmailVerification",
-        alias = "EnableEmailVerification",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub enable_email_verification: Option<bool>,
 }
 
 impl ServerSettingsResponseModel {
@@ -39,7 +33,6 @@ impl ServerSettingsResponseModel {
         ServerSettingsResponseModel {
             disable_user_registration: None,
             suppress_onboarding_interstitials: None,
-            enable_email_verification: None,
         }
     }
 }

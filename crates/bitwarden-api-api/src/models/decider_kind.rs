@@ -11,72 +11,73 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 
 use crate::models;
-/// BitwardenDiscountType : The type of discounts Bitwarden supports.
-/// The type of discounts Bitwarden supports.
+/// DeciderKind : What produced a decision on an access request, as it appears on the wire: `0 =
+/// automatic`, `1 = human`. What produced a decision on an access request, as it appears on the
+/// wire: `0 = automatic`, `1 = human`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum BitwardenDiscountType {
-    AmountOff,
-    PercentOff,
+pub enum DeciderKind {
+    Automatic,
+    Human,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
 }
 
-impl BitwardenDiscountType {
+impl DeciderKind {
     pub fn as_i64(&self) -> i64 {
         match self {
-            Self::AmountOff => 0,
-            Self::PercentOff => 1,
+            Self::Automatic => 0,
+            Self::Human => 1,
             Self::__Unknown(v) => *v,
         }
     }
 
     pub fn from_i64(value: i64) -> Self {
         match value {
-            0 => Self::AmountOff,
-            1 => Self::PercentOff,
+            0 => Self::Automatic,
+            1 => Self::Human,
             v => Self::__Unknown(v),
         }
     }
 }
 
-impl serde::Serialize for BitwardenDiscountType {
+impl serde::Serialize for DeciderKind {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_i64(self.as_i64())
     }
 }
 
-impl<'de> serde::Deserialize<'de> for BitwardenDiscountType {
+impl<'de> serde::Deserialize<'de> for DeciderKind {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct BitwardenDiscountTypeVisitor;
+        struct DeciderKindVisitor;
 
-        impl Visitor<'_> for BitwardenDiscountTypeVisitor {
-            type Value = BitwardenDiscountType;
+        impl Visitor<'_> for DeciderKindVisitor {
+            type Value = DeciderKind;
 
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 f.write_str("an integer")
             }
 
             fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
-                Ok(BitwardenDiscountType::from_i64(v))
+                Ok(DeciderKind::from_i64(v))
             }
 
             fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
-                Ok(BitwardenDiscountType::from_i64(v as i64))
+                Ok(DeciderKind::from_i64(v as i64))
             }
         }
 
-        deserializer.deserialize_i64(BitwardenDiscountTypeVisitor)
+        deserializer.deserialize_i64(DeciderKindVisitor)
     }
 }
 
-impl std::fmt::Display for BitwardenDiscountType {
+impl std::fmt::Display for DeciderKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_i64())
     }
 }
-impl Default for BitwardenDiscountType {
-    fn default() -> BitwardenDiscountType {
-        Self::AmountOff
+impl Default for DeciderKind {
+    fn default() -> DeciderKind {
+        Self::Automatic
     }
 }

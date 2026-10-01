@@ -23,12 +23,6 @@ pub struct OrganizationUserUpdateRequestModel {
     )]
     pub access_secrets_manager: Option<bool>,
     #[serde(
-        rename = "accessPam",
-        alias = "AccessPam",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub access_pam: Option<bool>,
-    #[serde(
         rename = "permissions",
         alias = "Permissions",
         skip_serializing_if = "Option::is_none"
@@ -71,7 +65,6 @@ impl OrganizationUserUpdateRequestModel {
         OrganizationUserUpdateRequestModel {
             r#type,
             access_secrets_manager: None,
-            access_pam: None,
             permissions: None,
             collections: None,
             groups: None,

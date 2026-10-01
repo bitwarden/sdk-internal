@@ -15,17 +15,23 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthenticationExtensionsClientOutputs {
     #[serde(
-        rename = "example.extension.bool",
-        alias = "ExampleExtensionBool",
+        rename = "example.extension",
+        alias = "ExampleExtension",
         skip_serializing_if = "Option::is_none"
     )]
-    pub example_extension_bool: Option<bool>,
+    pub example_extension: Option<serde_json::Value>,
     #[serde(
         rename = "appid",
         alias = "Appid",
         skip_serializing_if = "Option::is_none"
     )]
     pub appid: Option<bool>,
+    #[serde(
+        rename = "authnSel",
+        alias = "AuthnSel",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub authn_sel: Option<bool>,
     #[serde(
         rename = "exts",
         alias = "Exts",
@@ -34,39 +40,16 @@ pub struct AuthenticationExtensionsClientOutputs {
     pub exts: Option<Vec<String>>,
     #[serde(rename = "uvm", alias = "Uvm", skip_serializing_if = "Option::is_none")]
     pub uvm: Option<Vec<Vec<i64>>>,
-    #[serde(
-        rename = "credProps",
-        alias = "CredProps",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub cred_props: Option<Box<models::CredentialPropertiesOutput>>,
-    #[serde(rename = "prf", alias = "Prf", skip_serializing_if = "Option::is_none")]
-    pub prf: Option<Box<models::AuthenticationExtensionsPrfOutputs>>,
-    #[serde(
-        rename = "largeBlob",
-        alias = "LargeBlob",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub large_blob: Option<Box<models::AuthenticationExtensionsLargeBlobOutputs>>,
-    #[serde(
-        rename = "credProtect",
-        alias = "CredProtect",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub cred_protect: Option<models::CredentialProtectionPolicy>,
 }
 
 impl AuthenticationExtensionsClientOutputs {
     pub fn new() -> AuthenticationExtensionsClientOutputs {
         AuthenticationExtensionsClientOutputs {
-            example_extension_bool: None,
+            example_extension: None,
             appid: None,
+            authn_sel: None,
             exts: None,
             uvm: None,
-            cred_props: None,
-            prf: None,
-            large_blob: None,
-            cred_protect: None,
         }
     }
 }

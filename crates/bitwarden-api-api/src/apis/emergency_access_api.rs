@@ -30,7 +30,7 @@ pub trait EmergencyAccessApi: Send + Sync {
     async fn accept<'a>(
         &self,
         id: uuid::Uuid,
-        emergency_access_accept_request_model: Option<models::EmergencyAccessAcceptRequestModel>,
+        organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
     ) -> Result<(), Error>;
 
     /// POST /emergency-access/{id}/approve
@@ -116,8 +116,6 @@ pub trait EmergencyAccessApi: Send + Sync {
     ) -> Result<models::EmergencyAccessTakeoverResponseModel, Error>;
 
     /// POST /emergency-access/{id}/view
-    /// Emergency access exposes the grantor's personal vault only, and a user-owned cipher is never
-    /// leasing-gated, so the gate authorizes all of them.
     async fn view_ciphers<'a>(
         &self,
         id: uuid::Uuid,
@@ -140,7 +138,7 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
     async fn accept<'a>(
         &self,
         id: uuid::Uuid,
-        emergency_access_accept_request_model: Option<models::EmergencyAccessAcceptRequestModel>,
+        organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -155,7 +153,7 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&emergency_access_accept_request_model);
+        local_var_req_builder = local_var_req_builder.json(&organization_user_accept_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
@@ -472,8 +470,6 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    /// Emergency access exposes the grantor's personal vault only, and a user-owned cipher is never
-    /// leasing-gated, so the gate authorizes all of them.
     async fn view_ciphers<'a>(
         &self,
         id: uuid::Uuid,

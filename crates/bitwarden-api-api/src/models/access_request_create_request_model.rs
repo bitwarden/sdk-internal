@@ -28,16 +28,12 @@ pub struct AccessRequestCreateRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub duration_seconds: Option<i32>,
-    /// The start of the requested window. A timestamp with neither `Z` nor an offset is read as
-    /// UTC.
     #[serde(
         rename = "start",
         alias = "Start",
         skip_serializing_if = "Option::is_none"
     )]
     pub start: Option<String>,
-    /// The end of the requested window, read like
-    /// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.Start.
     #[serde(rename = "end", alias = "End", skip_serializing_if = "Option::is_none")]
     pub end: Option<String>,
     #[serde(

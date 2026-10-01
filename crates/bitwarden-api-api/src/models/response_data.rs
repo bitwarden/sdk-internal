@@ -15,21 +15,14 @@ use crate::models;
 
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AssertionResponse {
+pub struct ResponseData {
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
     #[serde(
-        rename = "authenticatorData",
-        alias = "AuthenticatorData",
+        rename = "attestationObject",
+        alias = "AttestationObject",
         skip_serializing_if = "Option::is_none"
     )]
-    pub authenticator_data: Option<Vec<u8>>,
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(
-        rename = "signature",
-        alias = "Signature",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub signature: Option<Vec<u8>>,
+    pub attestation_object: Option<Vec<u8>>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
     #[serde(
         rename = "clientDataJSON",
@@ -37,22 +30,13 @@ pub struct AssertionResponse {
         skip_serializing_if = "Option::is_none"
     )]
     pub client_data_json: Option<Vec<u8>>,
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(
-        rename = "userHandle",
-        alias = "UserHandle",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub user_handle: Option<Vec<u8>>,
 }
 
-impl AssertionResponse {
-    pub fn new() -> AssertionResponse {
-        AssertionResponse {
-            authenticator_data: None,
-            signature: None,
+impl ResponseData {
+    pub fn new() -> ResponseData {
+        ResponseData {
+            attestation_object: None,
             client_data_json: None,
-            user_handle: None,
         }
     }
 }

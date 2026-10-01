@@ -11,13 +11,17 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 
 use crate::models;
-///
+/// AccessRequestStatus : The lifecycle state of an access request, as it appears on the wire: `0 =
+/// pending`, `1 = approved`, `2 = activated`, `3 = denied`, `4 = canceled`, `5 = expired`.
+/// The lifecycle state of an access request, as it appears on the wire: `0 = pending`, `1 =
+/// approved`, `2 = activated`, `3 = denied`, `4 = canceled`, `5 = expired`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum AccessRequestStatus {
     Pending,
     Approved,
+    Activated,
     Denied,
-    Cancelled,
+    Canceled,
     Expired,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
@@ -29,9 +33,10 @@ impl AccessRequestStatus {
         match self {
             Self::Pending => 0,
             Self::Approved => 1,
-            Self::Denied => 2,
-            Self::Cancelled => 3,
-            Self::Expired => 4,
+            Self::Activated => 2,
+            Self::Denied => 3,
+            Self::Canceled => 4,
+            Self::Expired => 5,
             Self::__Unknown(v) => *v,
         }
     }
@@ -40,9 +45,10 @@ impl AccessRequestStatus {
         match value {
             0 => Self::Pending,
             1 => Self::Approved,
-            2 => Self::Denied,
-            3 => Self::Cancelled,
-            4 => Self::Expired,
+            2 => Self::Activated,
+            3 => Self::Denied,
+            4 => Self::Canceled,
+            5 => Self::Expired,
             v => Self::__Unknown(v),
         }
     }

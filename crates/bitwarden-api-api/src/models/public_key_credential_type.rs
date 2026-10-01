@@ -17,8 +17,6 @@ use crate::models;
 pub enum PublicKeyCredentialType {
     #[serde(rename = "public-key")]
     PublicKey,
-    #[serde(rename = "invalid")]
-    Invalid,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     #[serde(untagged)]
@@ -29,7 +27,6 @@ impl std::fmt::Display for PublicKeyCredentialType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::PublicKey => write!(f, "public-key"),
-            Self::Invalid => write!(f, "invalid"),
             Self::__Unknown(s) => write!(f, "{}", s),
         }
     }

@@ -37,14 +37,8 @@ pub mod organization_integration_configuration_api;
 pub mod organization_invite_links_api;
 pub mod organization_reports_api;
 pub mod organization_sponsorships_api;
-pub mod organization_subscriptions_api;
 pub mod organization_users_api;
 pub mod organizations_api;
-pub mod pam_access_connector_rotation_attempts_api;
-pub mod pam_access_connector_rotation_configs_api;
-pub mod pam_access_connector_rotation_jobs_api;
-pub mod pam_access_connector_rotation_target_systems_api;
-pub mod pam_access_connectors_api;
 pub mod plans_api;
 pub mod policies_api;
 pub mod preview_invoice_api;
@@ -77,7 +71,6 @@ pub mod sync_api;
 pub mod teams_integration_api;
 pub mod trash_api;
 pub mod two_factor_api;
-pub mod user_subscriptions_api;
 pub mod users_api;
 pub mod web_authn_api;
 
@@ -121,25 +114,22 @@ struct ApiClientReal {
     leases_api: leases_api::LeasesApiClient,
     licenses_api: licenses_api::LicensesApiClient,
     notifications_api: notifications_api::NotificationsApiClient,
-    organization_auth_requests_api: organization_auth_requests_api::OrganizationAuthRequestsApiClient,
+    organization_auth_requests_api:
+        organization_auth_requests_api::OrganizationAuthRequestsApiClient,
     organization_billing_api: organization_billing_api::OrganizationBillingApiClient,
-    organization_billing_v_next_api: organization_billing_v_next_api::OrganizationBillingVNextApiClient,
+    organization_billing_v_next_api:
+        organization_billing_v_next_api::OrganizationBillingVNextApiClient,
     organization_connections_api: organization_connections_api::OrganizationConnectionsApiClient,
     organization_domain_api: organization_domain_api::OrganizationDomainApiClient,
     organization_export_api: organization_export_api::OrganizationExportApiClient,
     organization_integration_api: organization_integration_api::OrganizationIntegrationApiClient,
-    organization_integration_configuration_api: organization_integration_configuration_api::OrganizationIntegrationConfigurationApiClient,
+    organization_integration_configuration_api:
+        organization_integration_configuration_api::OrganizationIntegrationConfigurationApiClient,
     organization_invite_links_api: organization_invite_links_api::OrganizationInviteLinksApiClient,
     organization_reports_api: organization_reports_api::OrganizationReportsApiClient,
     organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient,
-    organization_subscriptions_api: organization_subscriptions_api::OrganizationSubscriptionsApiClient,
     organization_users_api: organization_users_api::OrganizationUsersApiClient,
     organizations_api: organizations_api::OrganizationsApiClient,
-    pam_access_connector_rotation_attempts_api: pam_access_connector_rotation_attempts_api::PamAccessConnectorRotationAttemptsApiClient,
-    pam_access_connector_rotation_configs_api: pam_access_connector_rotation_configs_api::PamAccessConnectorRotationConfigsApiClient,
-    pam_access_connector_rotation_jobs_api: pam_access_connector_rotation_jobs_api::PamAccessConnectorRotationJobsApiClient,
-    pam_access_connector_rotation_target_systems_api: pam_access_connector_rotation_target_systems_api::PamAccessConnectorRotationTargetSystemsApiClient,
-    pam_access_connectors_api: pam_access_connectors_api::PamAccessConnectorsApiClient,
     plans_api: plans_api::PlansApiClient,
     policies_api: policies_api::PoliciesApiClient,
     preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient,
@@ -158,10 +148,14 @@ struct ApiClientReal {
     secrets_manager_events_api: secrets_manager_events_api::SecretsManagerEventsApiClient,
     secrets_manager_porting_api: secrets_manager_porting_api::SecretsManagerPortingApiClient,
     security_task_api: security_task_api::SecurityTaskApiClient,
-    self_hosted_account_billing_v_next_api: self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApiClient,
-    self_hosted_organization_billing_v_next_api: self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApiClient,
-    self_hosted_organization_licenses_api: self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApiClient,
-    self_hosted_organization_sponsorships_api: self_hosted_organization_sponsorships_api::SelfHostedOrganizationSponsorshipsApiClient,
+    self_hosted_account_billing_v_next_api:
+        self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApiClient,
+    self_hosted_organization_billing_v_next_api:
+        self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApiClient,
+    self_hosted_organization_licenses_api:
+        self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApiClient,
+    self_hosted_organization_sponsorships_api:
+        self_hosted_organization_sponsorships_api::SelfHostedOrganizationSponsorshipsApiClient,
     sends_api: sends_api::SendsApiClient,
     service_accounts_api: service_accounts_api::ServiceAccountsApiClient,
     settings_api: settings_api::SettingsApiClient,
@@ -172,7 +166,6 @@ struct ApiClientReal {
     teams_integration_api: teams_integration_api::TeamsIntegrationApiClient,
     trash_api: trash_api::TrashApiClient,
     two_factor_api: two_factor_api::TwoFactorApiClient,
-    user_subscriptions_api: user_subscriptions_api::UserSubscriptionsApiClient,
     users_api: users_api::UsersApiClient,
     web_authn_api: web_authn_api::WebAuthnApiClient,
 }
@@ -204,25 +197,24 @@ pub struct ApiClientMock {
     pub leases_api: leases_api::MockLeasesApi,
     pub licenses_api: licenses_api::MockLicensesApi,
     pub notifications_api: notifications_api::MockNotificationsApi,
-    pub organization_auth_requests_api: organization_auth_requests_api::MockOrganizationAuthRequestsApi,
+    pub organization_auth_requests_api:
+        organization_auth_requests_api::MockOrganizationAuthRequestsApi,
     pub organization_billing_api: organization_billing_api::MockOrganizationBillingApi,
-    pub organization_billing_v_next_api: organization_billing_v_next_api::MockOrganizationBillingVNextApi,
+    pub organization_billing_v_next_api:
+        organization_billing_v_next_api::MockOrganizationBillingVNextApi,
     pub organization_connections_api: organization_connections_api::MockOrganizationConnectionsApi,
     pub organization_domain_api: organization_domain_api::MockOrganizationDomainApi,
     pub organization_export_api: organization_export_api::MockOrganizationExportApi,
     pub organization_integration_api: organization_integration_api::MockOrganizationIntegrationApi,
-    pub organization_integration_configuration_api: organization_integration_configuration_api::MockOrganizationIntegrationConfigurationApi,
-    pub organization_invite_links_api: organization_invite_links_api::MockOrganizationInviteLinksApi,
+    pub organization_integration_configuration_api:
+        organization_integration_configuration_api::MockOrganizationIntegrationConfigurationApi,
+    pub organization_invite_links_api:
+        organization_invite_links_api::MockOrganizationInviteLinksApi,
     pub organization_reports_api: organization_reports_api::MockOrganizationReportsApi,
-    pub organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi,
-    pub organization_subscriptions_api: organization_subscriptions_api::MockOrganizationSubscriptionsApi,
+    pub organization_sponsorships_api:
+        organization_sponsorships_api::MockOrganizationSponsorshipsApi,
     pub organization_users_api: organization_users_api::MockOrganizationUsersApi,
     pub organizations_api: organizations_api::MockOrganizationsApi,
-    pub pam_access_connector_rotation_attempts_api: pam_access_connector_rotation_attempts_api::MockPamAccessConnectorRotationAttemptsApi,
-    pub pam_access_connector_rotation_configs_api: pam_access_connector_rotation_configs_api::MockPamAccessConnectorRotationConfigsApi,
-    pub pam_access_connector_rotation_jobs_api: pam_access_connector_rotation_jobs_api::MockPamAccessConnectorRotationJobsApi,
-    pub pam_access_connector_rotation_target_systems_api: pam_access_connector_rotation_target_systems_api::MockPamAccessConnectorRotationTargetSystemsApi,
-    pub pam_access_connectors_api: pam_access_connectors_api::MockPamAccessConnectorsApi,
     pub plans_api: plans_api::MockPlansApi,
     pub policies_api: policies_api::MockPoliciesApi,
     pub preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi,
@@ -241,10 +233,14 @@ pub struct ApiClientMock {
     pub secrets_manager_events_api: secrets_manager_events_api::MockSecretsManagerEventsApi,
     pub secrets_manager_porting_api: secrets_manager_porting_api::MockSecretsManagerPortingApi,
     pub security_task_api: security_task_api::MockSecurityTaskApi,
-    pub self_hosted_account_billing_v_next_api: self_hosted_account_billing_v_next_api::MockSelfHostedAccountBillingVNextApi,
-    pub self_hosted_organization_billing_v_next_api: self_hosted_organization_billing_v_next_api::MockSelfHostedOrganizationBillingVNextApi,
-    pub self_hosted_organization_licenses_api: self_hosted_organization_licenses_api::MockSelfHostedOrganizationLicensesApi,
-    pub self_hosted_organization_sponsorships_api: self_hosted_organization_sponsorships_api::MockSelfHostedOrganizationSponsorshipsApi,
+    pub self_hosted_account_billing_v_next_api:
+        self_hosted_account_billing_v_next_api::MockSelfHostedAccountBillingVNextApi,
+    pub self_hosted_organization_billing_v_next_api:
+        self_hosted_organization_billing_v_next_api::MockSelfHostedOrganizationBillingVNextApi,
+    pub self_hosted_organization_licenses_api:
+        self_hosted_organization_licenses_api::MockSelfHostedOrganizationLicensesApi,
+    pub self_hosted_organization_sponsorships_api:
+        self_hosted_organization_sponsorships_api::MockSelfHostedOrganizationSponsorshipsApi,
     pub sends_api: sends_api::MockSendsApi,
     pub service_accounts_api: service_accounts_api::MockServiceAccountsApi,
     pub settings_api: settings_api::MockSettingsApi,
@@ -255,7 +251,6 @@ pub struct ApiClientMock {
     pub teams_integration_api: teams_integration_api::MockTeamsIntegrationApi,
     pub trash_api: trash_api::MockTrashApi,
     pub two_factor_api: two_factor_api::MockTwoFactorApi,
-    pub user_subscriptions_api: user_subscriptions_api::MockUserSubscriptionsApi,
     pub users_api: users_api::MockUsersApi,
     pub web_authn_api: web_authn_api::MockWebAuthnApi,
 }
@@ -299,14 +294,8 @@ impl ApiClient {
             organization_invite_links_api: organization_invite_links_api::OrganizationInviteLinksApiClient::new(configuration.clone()),
             organization_reports_api: organization_reports_api::OrganizationReportsApiClient::new(configuration.clone()),
             organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient::new(configuration.clone()),
-            organization_subscriptions_api: organization_subscriptions_api::OrganizationSubscriptionsApiClient::new(configuration.clone()),
             organization_users_api: organization_users_api::OrganizationUsersApiClient::new(configuration.clone()),
             organizations_api: organizations_api::OrganizationsApiClient::new(configuration.clone()),
-            pam_access_connector_rotation_attempts_api: pam_access_connector_rotation_attempts_api::PamAccessConnectorRotationAttemptsApiClient::new(configuration.clone()),
-            pam_access_connector_rotation_configs_api: pam_access_connector_rotation_configs_api::PamAccessConnectorRotationConfigsApiClient::new(configuration.clone()),
-            pam_access_connector_rotation_jobs_api: pam_access_connector_rotation_jobs_api::PamAccessConnectorRotationJobsApiClient::new(configuration.clone()),
-            pam_access_connector_rotation_target_systems_api: pam_access_connector_rotation_target_systems_api::PamAccessConnectorRotationTargetSystemsApiClient::new(configuration.clone()),
-            pam_access_connectors_api: pam_access_connectors_api::PamAccessConnectorsApiClient::new(configuration.clone()),
             plans_api: plans_api::PlansApiClient::new(configuration.clone()),
             policies_api: policies_api::PoliciesApiClient::new(configuration.clone()),
             preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient::new(configuration.clone()),
@@ -339,7 +328,6 @@ impl ApiClient {
             teams_integration_api: teams_integration_api::TeamsIntegrationApiClient::new(configuration.clone()),
             trash_api: trash_api::TrashApiClient::new(configuration.clone()),
             two_factor_api: two_factor_api::TwoFactorApiClient::new(configuration.clone()),
-            user_subscriptions_api: user_subscriptions_api::UserSubscriptionsApiClient::new(configuration.clone()),
             users_api: users_api::UsersApiClient::new(configuration.clone()),
             web_authn_api: web_authn_api::WebAuthnApiClient::new(configuration.clone()),
         })
@@ -384,14 +372,8 @@ impl ApiClient {
             organization_invite_links_api: organization_invite_links_api::MockOrganizationInviteLinksApi::new(),
             organization_reports_api: organization_reports_api::MockOrganizationReportsApi::new(),
             organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi::new(),
-            organization_subscriptions_api: organization_subscriptions_api::MockOrganizationSubscriptionsApi::new(),
             organization_users_api: organization_users_api::MockOrganizationUsersApi::new(),
             organizations_api: organizations_api::MockOrganizationsApi::new(),
-            pam_access_connector_rotation_attempts_api: pam_access_connector_rotation_attempts_api::MockPamAccessConnectorRotationAttemptsApi::new(),
-            pam_access_connector_rotation_configs_api: pam_access_connector_rotation_configs_api::MockPamAccessConnectorRotationConfigsApi::new(),
-            pam_access_connector_rotation_jobs_api: pam_access_connector_rotation_jobs_api::MockPamAccessConnectorRotationJobsApi::new(),
-            pam_access_connector_rotation_target_systems_api: pam_access_connector_rotation_target_systems_api::MockPamAccessConnectorRotationTargetSystemsApi::new(),
-            pam_access_connectors_api: pam_access_connectors_api::MockPamAccessConnectorsApi::new(),
             plans_api: plans_api::MockPlansApi::new(),
             policies_api: policies_api::MockPoliciesApi::new(),
             preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi::new(),
@@ -424,7 +406,6 @@ impl ApiClient {
             teams_integration_api: teams_integration_api::MockTeamsIntegrationApi::new(),
             trash_api: trash_api::MockTrashApi::new(),
             two_factor_api: two_factor_api::MockTwoFactorApi::new(),
-            user_subscriptions_api: user_subscriptions_api::MockUserSubscriptionsApi::new(),
             users_api: users_api::MockUsersApi::new(),
             web_authn_api: web_authn_api::MockWebAuthnApi::new(),
         };
@@ -709,15 +690,6 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.organization_sponsorships_api,
         }
     }
-    pub fn organization_subscriptions_api(
-        &self,
-    ) -> &dyn organization_subscriptions_api::OrganizationSubscriptionsApi {
-        match self {
-            ApiClient::Real(real) => &real.organization_subscriptions_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.organization_subscriptions_api,
-        }
-    }
     pub fn organization_users_api(&self) -> &dyn organization_users_api::OrganizationUsersApi {
         match self {
             ApiClient::Real(real) => &real.organization_users_api,
@@ -730,50 +702,6 @@ impl ApiClient {
             ApiClient::Real(real) => &real.organizations_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organizations_api,
-        }
-    }
-    pub fn pam_access_connector_rotation_attempts_api(
-        &self,
-    ) -> &dyn pam_access_connector_rotation_attempts_api::PamAccessConnectorRotationAttemptsApi
-    {
-        match self {
-            ApiClient::Real(real) => &real.pam_access_connector_rotation_attempts_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.pam_access_connector_rotation_attempts_api,
-        }
-    }
-    pub fn pam_access_connector_rotation_configs_api(
-        &self,
-    ) -> &dyn pam_access_connector_rotation_configs_api::PamAccessConnectorRotationConfigsApi {
-        match self {
-            ApiClient::Real(real) => &real.pam_access_connector_rotation_configs_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.pam_access_connector_rotation_configs_api,
-        }
-    }
-    pub fn pam_access_connector_rotation_jobs_api(
-        &self,
-    ) -> &dyn pam_access_connector_rotation_jobs_api::PamAccessConnectorRotationJobsApi {
-        match self {
-            ApiClient::Real(real) => &real.pam_access_connector_rotation_jobs_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.pam_access_connector_rotation_jobs_api,
-        }
-    }
-    pub fn pam_access_connector_rotation_target_systems_api(&self) -> &dyn pam_access_connector_rotation_target_systems_api::PamAccessConnectorRotationTargetSystemsApi{
-        match self {
-            ApiClient::Real(real) => &real.pam_access_connector_rotation_target_systems_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.pam_access_connector_rotation_target_systems_api,
-        }
-    }
-    pub fn pam_access_connectors_api(
-        &self,
-    ) -> &dyn pam_access_connectors_api::PamAccessConnectorsApi {
-        match self {
-            ApiClient::Real(real) => &real.pam_access_connectors_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.pam_access_connectors_api,
         }
     }
     pub fn plans_api(&self) -> &dyn plans_api::PlansApi {
@@ -1015,13 +943,6 @@ impl ApiClient {
             ApiClient::Real(real) => &real.two_factor_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.two_factor_api,
-        }
-    }
-    pub fn user_subscriptions_api(&self) -> &dyn user_subscriptions_api::UserSubscriptionsApi {
-        match self {
-            ApiClient::Real(real) => &real.user_subscriptions_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.user_subscriptions_api,
         }
     }
     pub fn users_api(&self) -> &dyn users_api::UsersApi {
