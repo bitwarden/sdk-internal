@@ -188,8 +188,14 @@ impl std::error::Error for RequestTimedOut {}
 ///
 /// [`TimeoutMiddleware`] is load-bearing twice over: core sets no per-request timeout, and it only
 /// disables redirect-following when the extra-middleware vec is non-empty (the auth middleware does
-/// not count). Passing none would drop the timeout and start following cross-host redirects, so
+/// not count). Passing none would drop the timeout and start following redirects, so
 /// `request_times_out_rather_than_hanging` and `does_not_follow_a_cross_host_redirect` guard both.
+///
+/// Redirects are refused not because they would leak the bearer (reqwest strips `Authorization`
+/// when the host, port or scheme changes) but because these endpoints never legitimately redirect.
+/// Following one would send the request to a host the server named, read that host's reply as the
+/// API's, and on a 307 forward the encrypted cipher body.
+///
 /// Chained outermost, the timeout also bounds token renewal, so the heartbeat cannot stall past
 /// `AccessConnectorOfflineAfter` whatever it is waiting on.
 pub(crate) fn build_sdk_client(
@@ -1315,8 +1321,8 @@ mod tests {
     }
 
     /// R2: core disables redirects only when the extra-middleware vec is non-empty, and the
-    /// auth middleware does not count toward it. Following a cross-host redirect would
-    /// re-send the bearer to another host.
+    /// auth middleware does not count toward it. Following one would let the server redirect
+    /// the connector onto an arbitrary host and have its reply read as the API's.
     #[tokio::test]
     async fn does_not_follow_a_cross_host_redirect() {
         let elsewhere = MockServer::start().await;
