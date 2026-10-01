@@ -21,7 +21,10 @@ use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::{
-    auth::session::{SessionError, SessionLost, SessionManager},
+    auth::{
+        session::{SessionError, SessionLost, SessionManager},
+        token_handler::AccessConnectorTokenHandler,
+    },
     error::{FailureCode, SafeDetail, SessionTermination, SyncState},
 };
 
@@ -30,28 +33,49 @@ use crate::{
 /// sending the request without a token. Session loss is signalled by the typed [`SessionError`],
 /// not by the error message.
 pub(crate) struct AccessConnectorAuthMiddleware {
-    session: Arc<SessionManager>,
+    handler: AccessConnectorTokenHandler,
 }
 
 impl AccessConnectorAuthMiddleware {
-    pub(crate) fn new(session: Arc<SessionManager>) -> Self {
-        Self { session }
+    pub(crate) fn new(handler: AccessConnectorTokenHandler) -> Self {
+        Self { handler }
+    }
+
+    /// Core builds this middleware before startup has a session; a request in that window fails
+    /// rather than going out unauthenticated.
+    fn session(&self) -> Result<Arc<SessionManager>, reqwest_middleware::Error> {
+        self.handler.session().ok_or_else(|| {
+            tracing::error!("authenticated request issued before the session was installed");
+            reqwest_middleware::Error::Middleware(anyhow::Error::new(SessionNotInstalled))
+        })
     }
 
     async fn get_bearer(&self) -> Result<String, reqwest_middleware::Error> {
-        self.session
+        self.session()?
             .bearer(None)
             .await
             .map_err(session_error_to_middleware)
     }
 
     async fn force_refresh_bearer(&self, stale: &str) -> Result<String, reqwest_middleware::Error> {
-        self.session
+        self.session()?
             .force_refresh(stale, None)
             .await
             .map_err(session_error_to_middleware)
     }
 }
+
+/// A request needed a bearer before [`AccessConnectorTokenHandler::set_session`] ran.
+#[derive(Debug)]
+pub(crate) struct SessionNotInstalled;
+
+impl std::fmt::Display for SessionNotInstalled {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "session not installed")
+    }
+}
+
+impl std::error::Error for SessionNotInstalled {}
 
 #[async_trait::async_trait]
 impl Middleware for AccessConnectorAuthMiddleware {
@@ -114,23 +138,69 @@ fn session_error_to_middleware(err: SessionError) -> reqwest_middleware::Error {
     reqwest_middleware::Error::Middleware(anyhow::Error::new(err))
 }
 
-/// Build the generated [`ApiClient`] with authentication middleware.
+/// A black-holed connection must not starve the heartbeat past the server's
+/// `AccessConnectorOfflineAfter`.
+pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Applies [`REQUEST_TIMEOUT`] to a whole request.
 ///
-/// The 30 s per-request timeout keeps a black-holed connection from starving the heartbeat past
-/// the server's `AccessConnectorOfflineAfter`.
+/// Applies [`REQUEST_TIMEOUT`] to a whole request. Neither `new_http_client_builder` nor core's
+/// `ClientBuilder::build` sets one, so a client built through [`bitwarden_core::Client`] needs this
+/// passed as middleware.
+pub(crate) struct TimeoutMiddleware {
+    timeout: Duration,
+}
+
+impl TimeoutMiddleware {
+    pub(crate) fn new(timeout: Duration) -> Self {
+        Self { timeout }
+    }
+}
+
+#[async_trait::async_trait]
+impl Middleware for TimeoutMiddleware {
+    async fn handle(
+        &self,
+        req: reqwest::Request,
+        ext: &mut http::Extensions,
+        next: Next<'_>,
+    ) -> Result<reqwest::Response, reqwest_middleware::Error> {
+        tokio::time::timeout(self.timeout, next.run(req, ext))
+            .await
+            .unwrap_or_else(|_| {
+                Err(reqwest_middleware::Error::Middleware(anyhow::Error::new(
+                    RequestTimedOut,
+                )))
+            })
+    }
+}
+
+/// A request exceeded [`REQUEST_TIMEOUT`].
+#[derive(Debug)]
+pub(crate) struct RequestTimedOut;
+
+impl std::fmt::Display for RequestTimedOut {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "request timed out")
+    }
+}
+
+impl std::error::Error for RequestTimedOut {}
+
+/// Build the generated [`ApiClient`] with authentication middleware.
 pub(crate) fn build_api_client(
     base_url: impl Into<String>,
-    session: Arc<SessionManager>,
+    handler: AccessConnectorTokenHandler,
 ) -> ApiClient {
     // Do not follow redirects: a cross-host redirect could leak the bearer token.
     let http_client = bitwarden_api_base::new_http_client_builder()
-        .timeout(Duration::from_secs(30))
+        .timeout(REQUEST_TIMEOUT)
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .expect("HTTP client build should not fail");
 
     let middleware_client = ClientBuilder::new(http_client)
-        .with(AccessConnectorAuthMiddleware::new(session))
+        .with(AccessConnectorAuthMiddleware::new(handler))
         .build();
 
     let config = Arc::new(Configuration {
@@ -467,6 +537,7 @@ mod tests {
     use std::{sync::Arc, time::Instant};
 
     use bitwarden_api_base::Configuration;
+    use bitwarden_crypto::KeyStore;
     use reqwest_middleware::ClientBuilder;
     use tokio::sync::watch;
     use wiremock::{
@@ -509,9 +580,16 @@ mod tests {
             .await;
 
         let identity_client = IdentityClient::new(identity_server.uri()).expect("identity client");
-        SessionManager::new(identity_client, test_token())
+        SessionManager::new(identity_client, test_token(), KeyStore::default())
             .await
             .expect("SessionManager::new")
+    }
+
+    /// A handler holding `session`, as startup leaves it.
+    fn handler_for(session: Arc<SessionManager>) -> AccessConnectorTokenHandler {
+        let handler = AccessConnectorTokenHandler::default();
+        handler.set_session(session);
+        handler
     }
 
     fn make_rotation_api(
@@ -519,7 +597,7 @@ mod tests {
         session: Arc<SessionManager>,
     ) -> (RotationApi, watch::Receiver<Instant>) {
         let (tx, rx) = watch::channel(Instant::now());
-        let client = build_api_client(api_server.uri(), session);
+        let client = build_api_client(api_server.uri(), handler_for(session));
         let api = RotationApi::new(client, tx);
         (api, rx)
     }
@@ -1054,7 +1132,9 @@ mod tests {
             .build()
             .unwrap();
         let client = ClientBuilder::new(http_client)
-            .with(AccessConnectorAuthMiddleware::new(Arc::clone(&session)))
+            .with(AccessConnectorAuthMiddleware::new(handler_for(Arc::clone(
+                &session,
+            ))))
             .build();
 
         Mock::given(method("GET"))
@@ -1101,7 +1181,7 @@ mod tests {
             .await;
 
         let identity_client = IdentityClient::new(identity_server.uri()).expect("identity client");
-        let session = SessionManager::new(identity_client, test_token())
+        let session = SessionManager::new(identity_client, test_token(), KeyStore::default())
             .await
             .expect("SessionManager::new");
 
@@ -1127,7 +1207,7 @@ mod tests {
             .await;
 
         let (tx, _rx) = watch::channel(Instant::now());
-        let client = build_api_client(api_server.uri(), session);
+        let client = build_api_client(api_server.uri(), handler_for(session));
         let api = RotationApi::new(client, tx);
 
         let jobs = api.poll_jobs().await.expect("poll_jobs after 401-refresh");
@@ -1176,7 +1256,7 @@ mod tests {
             .await;
 
         let identity_client = IdentityClient::new(identity_server.uri()).expect("identity client");
-        let session = SessionManager::new(identity_client, test_token())
+        let session = SessionManager::new(identity_client, test_token(), KeyStore::default())
             .await
             .expect("startup auth succeeds");
 

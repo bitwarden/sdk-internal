@@ -64,7 +64,7 @@ pub(crate) struct ExecutionContext {
     pub(crate) integrations: Arc<IntegrationRegistry>,
     pub(crate) resolver: Arc<dyn CredentialResolver>,
     pub(crate) generator: GeneratorClient,
-    pub(crate) key_store: Arc<KeyStore<KeySlotIds>>,
+    pub(crate) key_store: KeyStore<KeySlotIds>,
     /// The organisation whose key the cipher is encrypted under.
     pub(crate) organization_id: OrganizationId,
     pub(crate) retry_cfg: RetryCfg,
@@ -376,7 +376,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         tracing::debug!(attempt_id = %attempt_id, cipher_id = %cipher.cipher_id, "cipher fetched");
 
         let mut data = cipher.data.clone();
-        let store = Arc::clone(&ctx.key_store);
+        let store = ctx.key_store.clone();
         let encrypt_result = encrypt_cipher_password(
             &store,
             ctx.organization_id,
@@ -814,7 +814,9 @@ mod tests {
 
         let token = test_token();
         let identity = IdentityClient::new(server.uri()).unwrap();
-        let session = SessionManager::new(identity, token).await.unwrap();
+        let session = SessionManager::new(identity, token, KeyStore::default())
+            .await
+            .unwrap();
 
         let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
         let last_ok: Arc<dyn Fn() -> std::time::Instant + Send + Sync> =
@@ -864,7 +866,9 @@ mod tests {
 
         let token = test_token();
         let identity = IdentityClient::new(server.uri()).unwrap();
-        let session = SessionManager::new(identity, token).await.unwrap();
+        let session = SessionManager::new(identity, token, KeyStore::default())
+            .await
+            .unwrap();
 
         let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
         cancel.cancel();
@@ -1081,11 +1085,14 @@ mod tests {
 
         let token = test_token();
         let identity = IdentityClient::new(identity_server.uri()).unwrap();
-        let session = SessionManager::new(identity, token).await.unwrap();
-        let session = Arc::new(session);
+        let session = SessionManager::new(identity, token, KeyStore::default())
+            .await
+            .unwrap();
+        let handler = crate::auth::token_handler::AccessConnectorTokenHandler::default();
+        handler.set_session(Arc::clone(&session));
 
         let (tx, _rx) = watch::channel(std::time::Instant::now());
-        let client = build_api_client(api_server.uri(), Arc::clone(&session));
+        let client = build_api_client(api_server.uri(), handler);
         let api = Arc::new(RotationApi::new(client, tx));
 
         struct AlwaysOkResolver;
@@ -1110,7 +1117,7 @@ mod tests {
             sample_target(target_system_id),
             sample_config(target_system_id, cipher_id),
         );
-        let key_store = Arc::new(store);
+        let key_store = store;
 
         let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
         let last_ok_clone = Arc::clone(&last_ok_time);
@@ -1246,11 +1253,14 @@ mod tests {
 
         let token = test_token();
         let identity = IdentityClient::new(identity_server.uri()).unwrap();
-        let session = SessionManager::new(identity, token).await.unwrap();
-        let session = Arc::new(session);
+        let session = SessionManager::new(identity, token, KeyStore::default())
+            .await
+            .unwrap();
+        let handler = crate::auth::token_handler::AccessConnectorTokenHandler::default();
+        handler.set_session(Arc::clone(&session));
 
         let (tx, _rx) = watch::channel(std::time::Instant::now());
-        let client = build_api_client(api_server.uri(), Arc::clone(&session));
+        let client = build_api_client(api_server.uri(), handler);
         let api = Arc::new(RotationApi::new(client, tx));
 
         struct AlwaysOkResolver;
@@ -1276,7 +1286,7 @@ mod tests {
             sample_target(target_system_id),
             sample_config(target_system_id, cipher_id),
         );
-        let key_store = Arc::new(store);
+        let key_store = store;
 
         let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
         let last_ok_clone = Arc::clone(&last_ok_time);
