@@ -187,12 +187,8 @@ export function toSeedAccount(vector: UserVector): SeedAccount {
       // A V2 account's user key carries a key id from the start, so the server has always had one.
       ...(raw.userKeyId === null ? {} : { userKeyId: asKeyId(raw.userKeyId) }),
       accountCryptographicState: vector.account.accountCryptographicState,
-      ...(vector.account.upgradeToken === undefined
-        ? {}
-        : { upgradeToken: vector.account.upgradeToken }),
-      ...(vector.account.organizationKeys === undefined
-        ? {}
-        : { organizationKeys: vector.account.organizationKeys }),
+      upgradeToken: vector.account.upgradeToken ?? undefined,
+      organizationKeys: vector.account.organizationKeys ?? undefined,
     },
     unlockMethods: vector.unlockMethods,
     rawCryptographicState: {
@@ -227,9 +223,7 @@ export function toSeedOrganization(
     members: vector.members.map((member) => ({
       userEmail: userVector(users, member.userVector).account.email,
       organizationKeySealedToMember: member.organizationKeySealedToMember,
-      ...(member.accountRecoveryKey === undefined
-        ? {}
-        : { accountRecoveryKey: member.accountRecoveryKey }),
+      accountRecoveryKey: member.accountRecoveryKey ?? undefined,
     })),
     vault: { ciphers: vector.vault.ciphers },
   };
