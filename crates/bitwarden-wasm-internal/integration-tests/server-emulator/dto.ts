@@ -584,7 +584,7 @@ export class MasterPasswordUnlockResponse {
       kdf: KdfModel.fromKdf(unlock.kdf),
       masterKeyEncryptedUserKey: unlock.masterKeyWrappedUserKey,
       salt: unlock.salt,
-      ...(unlock.containedKeyId === undefined ? {} : { containedKeyId: unlock.containedKeyId }),
+      containedKeyId: unlock.containedKeyId,
     };
   }
 }
@@ -622,7 +622,7 @@ export class UserDecryptionResponse {
               wrappedUserKey2: String(user.upgradeToken.wrapped_user_key_2),
             },
           }),
-      ...(user.userKeyId === undefined ? {} : { userKeyId: user.userKeyId }),
+      userKeyId: user.userKeyId,
     };
   }
 }
