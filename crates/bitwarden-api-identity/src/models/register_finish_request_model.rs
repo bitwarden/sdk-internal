@@ -133,12 +133,6 @@ pub struct RegisterFinishRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub sales_assisted_token: Option<String>,
-    #[serde(
-        rename = "openOrgInvite",
-        alias = "OpenOrgInvite",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub open_org_invite: Option<Box<models::OpenOrgInviteRequestModel>>,
 }
 
 impl RegisterFinishRequestModel {
@@ -165,7 +159,6 @@ impl RegisterFinishRequestModel {
             provider_invite_token: None,
             provider_user_id: None,
             sales_assisted_token: None,
-            open_org_invite: None,
         }
     }
 }

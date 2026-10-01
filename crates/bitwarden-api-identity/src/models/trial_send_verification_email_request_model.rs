@@ -35,11 +35,11 @@ pub struct TrialSendVerificationEmailRequestModel {
     )]
     pub from_marketing: Option<String>,
     #[serde(
-        rename = "openOrgInvite",
-        alias = "OpenOrgInvite",
+        rename = "sealedOpenOrgInviteData",
+        alias = "SealedOpenOrgInviteData",
         skip_serializing_if = "Option::is_none"
     )]
-    pub open_org_invite: Option<Box<models::RegisterStartOpenOrgInviteRequestModel>>,
+    pub sealed_open_org_invite_data: Option<String>,
     #[serde(rename = "productTier", alias = "ProductTier")]
     pub product_tier: models::ProductTierType,
     #[serde(rename = "products", alias = "Products")]
@@ -69,7 +69,7 @@ impl TrialSendVerificationEmailRequestModel {
             email,
             receive_marketing_emails: None,
             from_marketing: None,
-            open_org_invite: None,
+            sealed_open_org_invite_data: None,
             product_tier,
             products,
             trial_length: None,

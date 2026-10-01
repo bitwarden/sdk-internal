@@ -24,12 +24,6 @@ pub struct KeysRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub account_keys: Option<Box<models::AccountKeysRequestModel>>,
-    #[serde(
-        rename = "userKeyId",
-        alias = "UserKeyId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub user_key_id: Option<String>,
 }
 
 impl KeysRequestModel {
@@ -38,7 +32,6 @@ impl KeysRequestModel {
             public_key,
             encrypted_private_key,
             account_keys: None,
-            user_key_id: None,
         }
     }
 }

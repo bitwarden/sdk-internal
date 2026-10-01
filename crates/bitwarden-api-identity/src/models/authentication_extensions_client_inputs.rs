@@ -15,11 +15,23 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthenticationExtensionsClientInputs {
     #[serde(
-        rename = "example.extension.bool",
-        alias = "ExampleExtensionBool",
+        rename = "example.extension",
+        alias = "ExampleExtension",
         skip_serializing_if = "Option::is_none"
     )]
-    pub example_extension_bool: Option<bool>,
+    pub example_extension: Option<serde_json::Value>,
+    #[serde(
+        rename = "appid",
+        alias = "Appid",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub appid: Option<String>,
+    #[serde(
+        rename = "authnSel",
+        alias = "AuthnSel",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub authn_sel: Option<Vec<String>>,
     #[serde(
         rename = "exts",
         alias = "Exts",
@@ -28,45 +40,16 @@ pub struct AuthenticationExtensionsClientInputs {
     pub exts: Option<bool>,
     #[serde(rename = "uvm", alias = "Uvm", skip_serializing_if = "Option::is_none")]
     pub uvm: Option<bool>,
-    #[serde(
-        rename = "credProps",
-        alias = "CredProps",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub cred_props: Option<bool>,
-    #[serde(rename = "prf", alias = "Prf", skip_serializing_if = "Option::is_none")]
-    pub prf: Option<Box<models::AuthenticationExtensionsPrfInputs>>,
-    #[serde(
-        rename = "largeBlob",
-        alias = "LargeBlob",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub large_blob: Option<Box<models::AuthenticationExtensionsLargeBlobInputs>>,
-    #[serde(
-        rename = "credentialProtectionPolicy",
-        alias = "CredentialProtectionPolicy",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub credential_protection_policy: Option<models::CredentialProtectionPolicy>,
-    #[serde(
-        rename = "enforceCredentialProtectionPolicy",
-        alias = "EnforceCredentialProtectionPolicy",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub enforce_credential_protection_policy: Option<bool>,
 }
 
 impl AuthenticationExtensionsClientInputs {
     pub fn new() -> AuthenticationExtensionsClientInputs {
         AuthenticationExtensionsClientInputs {
-            example_extension_bool: None,
+            example_extension: None,
+            appid: None,
+            authn_sel: None,
             exts: None,
             uvm: None,
-            cred_props: None,
-            prf: None,
-            large_blob: None,
-            credential_protection_policy: None,
-            enforce_credential_protection_policy: None,
         }
     }
 }

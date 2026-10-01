@@ -20,9 +20,9 @@ using the [openapi-spec](https://openapis.org) from a remote server, you can eas
 client.
 
 - API version: v1
-- Package version: 3.0.0
+- Package version: 4.0.0
 - Server Git commit:
-  [`aa786fc9cd3803f48e79f15067e910e99d768b69`](https://github.com/bitwarden/server/commit/aa786fc9cd3803f48e79f15067e910e99d768b69)
+  [`883fd9045801d61ca32d44c54028e4527ac4b76d`](https://github.com/bitwarden/server/commit/883fd9045801d61ca32d44c54028e4527ac4b76d)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -39,6 +39,7 @@ All URIs are relative to *https://identity.bitwarden.com*
 | _AccountsApi_ | [**post_register_verification_email_clicked**](docs/AccountsApi.md#accounts_post_register_verification_email_clicked)           | **POST** /accounts/register/verification-email-clicked |
 | _AccountsApi_ | [**post_trial_initiation_send_verification_email**](docs/AccountsApi.md#accounts_post_trial_initiation_send_verification_email) | **POST** /accounts/trial/send-verification-email       |
 | _InfoApi_     | [**get_alive**](docs/InfoApi.md#info_get_alive)                                                                                 | **GET** /alive                                         |
+| _InfoApi_     | [**get_version**](docs/InfoApi.md#info_get_version)                                                                             | **GET** /version                                       |
 | _SsoApi_      | [**external_callback**](docs/SsoApi.md#sso_external_callback)                                                                   | **GET** /sso/ExternalCallback                          |
 | _SsoApi_      | [**external_challenge**](docs/SsoApi.md#sso_external_challenge)                                                                 | **GET** /sso/ExternalChallenge                         |
 | _SsoApi_      | [**login**](docs/SsoApi.md#sso_login)                                                                                           | **GET** /sso/Login                                     |
@@ -49,35 +50,26 @@ All URIs are relative to *https://identity.bitwarden.com*
 - [AccountKeysRequestModel](docs/AccountKeysRequestModel.md)
 - [AssertionOptions](docs/AssertionOptions.md)
 - [AuthenticationExtensionsClientInputs](docs/AuthenticationExtensionsClientInputs.md)
-- [AuthenticationExtensionsLargeBlobInputs](docs/AuthenticationExtensionsLargeBlobInputs.md)
-- [AuthenticationExtensionsPrfInputs](docs/AuthenticationExtensionsPrfInputs.md)
-- [AuthenticationExtensionsPrfValues](docs/AuthenticationExtensionsPrfValues.md)
 - [AuthenticatorTransport](docs/AuthenticatorTransport.md)
-- [CredentialProtectionPolicy](docs/CredentialProtectionPolicy.md)
 - [KdfRequestModel](docs/KdfRequestModel.md)
 - [KdfSettings](docs/KdfSettings.md)
 - [KdfType](docs/KdfType.md)
 - [KeysRequestModel](docs/KeysRequestModel.md)
-- [LargeBlobSupport](docs/LargeBlobSupport.md)
 - [MasterPasswordAuthenticationDataRequestModel](docs/MasterPasswordAuthenticationDataRequestModel.md)
 - [MasterPasswordUnlockDataRequestModel](docs/MasterPasswordUnlockDataRequestModel.md)
-- [OpenOrgInviteRequestModel](docs/OpenOrgInviteRequestModel.md)
 - [PasswordPreloginRequestModel](docs/PasswordPreloginRequestModel.md)
 - [PasswordPreloginResponseModel](docs/PasswordPreloginResponseModel.md)
 - [ProductTierType](docs/ProductTierType.md)
 - [ProductType](docs/ProductType.md)
 - [PublicKeyCredentialDescriptor](docs/PublicKeyCredentialDescriptor.md)
-- [PublicKeyCredentialHint](docs/PublicKeyCredentialHint.md)
 - [PublicKeyCredentialType](docs/PublicKeyCredentialType.md)
 - [PublicKeyEncryptionKeyPairRequestModel](docs/PublicKeyEncryptionKeyPairRequestModel.md)
 - [RegisterFinishRequestModel](docs/RegisterFinishRequestModel.md)
 - [RegisterFinishResponseModel](docs/RegisterFinishResponseModel.md)
 - [RegisterSendVerificationEmailRequestModel](docs/RegisterSendVerificationEmailRequestModel.md)
-- [RegisterStartOpenOrgInviteRequestModel](docs/RegisterStartOpenOrgInviteRequestModel.md)
 - [RegisterVerificationEmailClickedRequestModel](docs/RegisterVerificationEmailClickedRequestModel.md)
 - [SecurityStateModel](docs/SecurityStateModel.md)
 - [SignatureKeyPairRequestModel](docs/SignatureKeyPairRequestModel.md)
-- [StringAuthenticationExtensionsPrfValuesKeyValuePair](docs/StringAuthenticationExtensionsPrfValuesKeyValuePair.md)
 - [TrialSendVerificationEmailRequestModel](docs/TrialSendVerificationEmailRequestModel.md)
 - [UserVerificationRequirement](docs/UserVerificationRequirement.md)
 - [WebAuthnLoginAssertionOptionsResponseModel](docs/WebAuthnLoginAssertionOptionsResponseModel.md)
