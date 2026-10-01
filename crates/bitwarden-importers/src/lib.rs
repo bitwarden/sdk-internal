@@ -19,26 +19,11 @@ pub(crate) use importers::keeper;
 pub use importers::onepassword::access::{
     Credentials, SignInAddress, SignInDomain, TotpResult as OnePasswordTotpResult,
     TwoFactorUi as OnePasswordTwoFactorUi,
+    model::{ItemCategory, SkippedItem, SkippedReason, SkippedVault},
 };
 mod pipeline;
-
-/// The 1Password access module: log in to an account and download its vaults.
-///
-/// Exposed only under the `test-utils` feature, for the out-of-tree CLI that drives it against
-/// a real account. Not part of this crate's supported API, and no stability is promised.
-// TODO: Remove once the out-of-tree CLI is retired.
-#[cfg(feature = "test-utils")]
-pub use importers::onepassword::access as onepassword_access;
-/// The 1Password conversion step: downloaded vaults to the [`ParsedImport`] the pipeline
-/// submits.
-///
-/// Exposed only under the `test-utils` feature, so the CLI can print what a real account
-/// converts to. Not part of this crate's supported API, and no stability is promised.
-// TODO: Remove once the out-of-tree CLI is retired.
-#[cfg(feature = "test-utils")]
-pub use importers::onepassword::convert as onepassword_convert;
-#[cfg(feature = "test-utils")]
-pub use pipeline::ParsedImport;
+#[cfg(feature = "wasm")]
+mod wasm;
 
 /// Destination options for a vault import.
 ///
@@ -107,6 +92,20 @@ pub struct ImportSummary {
     pub ciphers: Vec<CipherTypeCount>,
     pub folders: u32,
     pub collections: u32,
+}
+
+/// Result of a direct 1Password import, including source data that could not be imported.
+#[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
+    tsify(into_wasm_abi)
+)]
+pub struct OnePasswordImportSummary {
+    pub imported: ImportSummary,
+    pub skipped_vaults: Vec<SkippedVault>,
+    pub skipped_items: Vec<SkippedItem>,
 }
 
 /// Number of imported ciphers of a given type.

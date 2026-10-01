@@ -157,6 +157,13 @@ impl TryFrom<&bitwarden_api_api::models::UserDecryptionResponseModel> for Crypto
 
 /// Runs the key management sync work for the given sync data.
 async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
+    // A replayed payload is refused whole: taking its user decryption options would let the
+    // server swap out the key id and unlock data that belong to the state it just tried to undo.
+    if is_replayed_state(client, data).await {
+        warn!("WARNING: Refusing a V2 to V1 account cryptographic state downgrade.");
+        return;
+    }
+
     // Handlers MUST NOT fail, to avoid partial state writes
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
@@ -225,16 +232,30 @@ async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncDa
         return;
     }
 
-    // A malicious or compromised server must not be able to move an account back to V1, which
-    // would silently drop the signed security state that V2 exists to protect.
-    if let Some(local) = state_bridge.get_account_cryptographic_state().await
-        && is_v2_to_v1_downgrade(&local, incoming)
-    {
-        warn!("Refusing a V2 to V1 account cryptographic state downgrade; keeping the local state");
-        return;
+    state_bridge.set_account_cryptographic_state(incoming).await;
+}
+
+/// Whether the sync carries a state that constitutes a cryptographic downgrade
+///
+/// Currently, the only downgrade defined is a V2 -> V1 encryption downgrade
+async fn is_replayed_state(client: &Client, data: &CryptoSyncData) -> bool {
+    let Some(incoming) = data.account_cryptographic_state.as_ref() else {
+        return false;
+    };
+    let Some(local) = client
+        .km_state_bridge()
+        .get_account_cryptographic_state()
+        .await
+    else {
+        return false;
+    };
+
+    if is_v2_to_v1_downgrade(&local, incoming) {
+        return true;
     }
 
-    state_bridge.set_account_cryptographic_state(incoming).await;
+    // If we define more downgrade types in the future, check them here.
+    false
 }
 
 /// Whether the incoming state moves a locally V2 account back to V1.
@@ -534,7 +555,7 @@ mod tests {
             account_cryptographic_state: Some(incoming.clone()),
             ..Default::default()
         };
-        handle_account_cryptographic_state(client, &data).await;
+        handle_crypto_sync(client, &data).await;
         client
             .km_state_bridge()
             .get_account_cryptographic_state()

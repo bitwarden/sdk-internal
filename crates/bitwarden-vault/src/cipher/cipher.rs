@@ -285,6 +285,18 @@ impl From<EncryptionContext> for CipherRequestModel {
     }
 }
 
+/// Encrypted cipher, as stored and synced.
+///
+/// # Encryption-format internal fields
+///
+/// Only metadata fields (ids, `key`, `type`, flags, permissions, dates, `attachments`,
+/// `local_data`) are stable to read. Fields marked "encryption-format internal" depend on the
+/// encryption format and must not be read or filtered on by clients:
+/// - Legacy field-level format: each field is individually encrypted.
+/// - Blob format: these fields are `None`; all sensitive data is sealed in `data`.
+///
+/// Decrypt to [`CipherView`] or [`CipherListView`] to inspect item contents (e.g. whether a
+/// login has a TOTP or passkey).
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -301,17 +313,27 @@ pub struct Cipher {
 
     /// Encrypted item name. `None` for blob-encrypted ciphers, where the name lives inside
     /// the sealed `data` blob; required on the legacy field-level format.
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub name: Option<EncString>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub notes: Option<EncString>,
 
     pub r#type: CipherType,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub login: Option<Login>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub identity: Option<identity::Identity>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub card: Option<card::Card>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub secure_note: Option<secure_note::SecureNote>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub ssh_key: Option<ssh_key::SshKey>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub bank_account: Option<bank_account::BankAccount>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub drivers_license: Option<drivers_license::DriversLicense>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub passport: Option<passport::Passport>,
 
     pub favorite: bool,
@@ -323,13 +345,17 @@ pub struct Cipher {
     pub local_data: Option<LocalData>,
 
     pub attachments: Option<Vec<attachment::Attachment>>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub fields: Option<Vec<field::Field>>,
+    /// Encryption-format internal, not public API. See [`Cipher`].
     pub password_history: Option<Vec<password_history::PasswordHistory>>,
 
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
+    /// Sealed blob holding all sensitive data in the blob format; `None` on the legacy format.
+    /// Opaque, not public API. See [`Cipher`].
     pub data: Option<String>,
 
     /// Raw JSON envelope for a server-restricted (PAM-gated) cipher: only contains a sub-set of
@@ -2191,6 +2217,15 @@ impl PartialCipher for CipherResponseModel {
             archived_date: self.archived_date.map(|d| d.parse()).transpose()?,
             data: self.data,
         })
+    }
+}
+
+/// Converts a response for a cipher without local state, e.g. one fetched through emergency access.
+impl TryFrom<CipherResponseModel> for Cipher {
+    type Error = VaultParseError;
+
+    fn try_from(cipher: CipherResponseModel) -> Result<Self, Self::Error> {
+        cipher.merge_with_cipher(None)
     }
 }
 

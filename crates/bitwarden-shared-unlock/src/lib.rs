@@ -194,6 +194,8 @@ pub enum DeviceEvent {
 pub enum SharedUnlockClient {
     /// The browser extension, in any of its contexts.
     Browser,
+    /// The command-line interface, in any of its invocations.
+    Cli,
     /// The desktop app, in any of its processes.
     Desktop,
     /// A web vault tab.
@@ -208,6 +210,7 @@ impl SharedUnlockClient {
             Endpoint::BrowserForeground { .. } | Endpoint::BrowserBackground { .. } => {
                 SharedUnlockClient::Browser
             }
+            Endpoint::Cli { .. } => SharedUnlockClient::Cli,
             Endpoint::DesktopRenderer | Endpoint::DesktopMain => SharedUnlockClient::Desktop,
         }
     }

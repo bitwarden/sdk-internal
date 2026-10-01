@@ -795,6 +795,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-emergency-access"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-error",
+ "bitwarden-uuid",
+ "bitwarden-vault",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tsify",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-encoding"
 version = "4.0.0"
 dependencies = [
@@ -955,6 +975,7 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-random",
  "bitwarden-ssh",
+ "bitwarden-threading",
  "bitwarden-vault",
  "cbc",
  "chrono",
@@ -1166,6 +1187,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-crypto-cipher-suite",
  "bitwarden-crypto-sync-handler",
+ "bitwarden-emergency-access",
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
@@ -1632,6 +1654,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-crypto-sync-handler",
+ "bitwarden-emergency-access",
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-logging",

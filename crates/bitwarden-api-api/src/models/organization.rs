@@ -392,6 +392,23 @@ pub struct Organization {
         skip_serializing_if = "Option::is_none"
     )]
     pub max_autoscale_sm_service_accounts: Option<i32>,
+    /// The number of Privileged Access Management seats included in the organization's
+    /// subscription. NULL if the organization does not have access to Privileged Access
+    /// Management.
+    #[serde(
+        rename = "pamSeats",
+        alias = "PamSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pam_seats: Option<i32>,
+    /// The maximum number of Privileged Access Management seats the organization can autoscale to.
+    /// NULL if autoscaling is not limited.
+    #[serde(
+        rename = "maxAutoscalePamSeats",
+        alias = "MaxAutoscalePamSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_autoscale_pam_seats: Option<i32>,
     /// If set to true, only owners, admins, and some custom users can create and delete
     /// collections. If set to false, any organization member can create a collection, and any
     /// member can delete a collection that they have Can Manage permissions for.
@@ -569,6 +586,8 @@ impl Organization {
             sm_service_accounts: None,
             max_autoscale_sm_seats: None,
             max_autoscale_sm_service_accounts: None,
+            pam_seats: None,
+            max_autoscale_pam_seats: None,
             limit_collection_creation: None,
             limit_collection_deletion: None,
             allow_admin_access_to_all_collection_items: None,

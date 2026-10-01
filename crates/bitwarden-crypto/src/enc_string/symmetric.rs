@@ -10,9 +10,9 @@ use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     Aes256CbcHmacKey, ContentFormat, CoseEncrypt0Bytes, KeyDecryptable, KeyEncryptable,
-    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XAes256GcmKey,
-    XChaCha20Poly1305Key,
-    cose::{XAES_256_GCM, XCHACHA20_POLY1305},
+    KeyEncryptableWithContentType, SymmetricCryptoKey, SymmetricKeyAlgorithm, Utf8Bytes,
+    XAes256GcmKey, XChaCha20Poly1305Key,
+    cose::{XAES_256_GCM, XCHACHA20_POLY1305, symmetric::CoseContentEncryptionAlgorithm},
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
     hazmat::symmetric_encryption::Aes256CbcHmacSha256,
     keys::KeyId,
@@ -193,6 +193,43 @@ impl EncString {
     /// Parses an [EncString], rejecting invalid values
     pub fn parse_strict(s: &str) -> Result<Self, CryptoError> {
         Self::parse_known_format(s).ok_or(CryptoError::UnparseableEncString)
+    }
+
+    /// The id of the key this [EncString] was encrypted with, read from the COSE protected header.
+    /// [None] for the legacy types, which carry no key id, or if the header holds none.
+    pub fn key_id(&self) -> Option<KeyId> {
+        let EncString::Cose_Encrypt0_B64 { data } = self else {
+            return None;
+        };
+
+        let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).ok()?;
+        KeyId::try_from(msg.protected.header.key_id.as_slice()).ok()
+    }
+
+    /// The algorithm of the key this [EncString] was encrypted with. [None] for the unauthenticated
+    /// legacy type, an [EncString::Unparseable], or a COSE message with an unknown algorithm.
+    pub fn algorithm(&self) -> Option<SymmetricKeyAlgorithm> {
+        let data = match self {
+            EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
+                return Some(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            }
+            EncString::Cose_Encrypt0_B64 { data } => data,
+            EncString::Aes256Cbc_B64 { .. } | EncString::Unparseable { .. } => return None,
+        };
+
+        let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).ok()?;
+        let algorithm = msg.protected.header.alg.as_ref()?;
+        let algorithm = match CoseContentEncryptionAlgorithm::try_from(algorithm).ok()? {
+            CoseContentEncryptionAlgorithm::Aes256Gcm => SymmetricKeyAlgorithm::Aes256Gcm,
+            CoseContentEncryptionAlgorithm::XAes256Gcm => SymmetricKeyAlgorithm::XAes256Gcm,
+            CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => {
+                SymmetricKeyAlgorithm::XChaCha20Poly1305
+            }
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+                SymmetricKeyAlgorithm::Aes256CbcHmac
+            }
+        };
+        Some(algorithm)
     }
 
     /// Synthetic sugar for mapping `Option<String>` to `Result<Option<EncString>>`
@@ -550,7 +587,7 @@ mod tests {
     use super::EncString;
     use crate::{
         CryptoError, KEY_ID_SIZE, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
-        derive_symmetric_key,
+        SymmetricKeyAlgorithm, derive_symmetric_key,
     };
 
     fn xaes_key(operations: Vec<KeyOperation>) -> SymmetricCryptoKey {
@@ -588,6 +625,33 @@ mod tests {
         });
 
         plaintext.encrypt_with_key(&key).expect("encryption works")
+    }
+
+    #[test]
+    fn test_key_id_of_cose_enc_string() {
+        let enc_string = encrypt_with_xaes("Test key id");
+        assert_eq!(enc_string.key_id(), Some([0u8; KEY_ID_SIZE].into()));
+    }
+
+    #[test]
+    fn test_algorithm_of_enc_string() {
+        let v1 = EncString::encrypt_aes256_hmac(b"Test", &derive_symmetric_key("test")).unwrap();
+        assert_eq!(v1.algorithm(), Some(SymmetricKeyAlgorithm::Aes256CbcHmac));
+        assert_eq!(
+            encrypt_with_xaes("Test").algorithm(),
+            Some(SymmetricKeyAlgorithm::XAes256Gcm)
+        );
+        assert_eq!(
+            encrypt_with_xchacha20("Test").algorithm(),
+            Some(SymmetricKeyAlgorithm::XChaCha20Poly1305)
+        );
+    }
+
+    #[test]
+    fn test_key_id_of_legacy_enc_string_is_none() {
+        let enc_string =
+            EncString::encrypt_aes256_hmac(b"Test key id", &derive_symmetric_key("test")).unwrap();
+        assert_eq!(enc_string.key_id(), None);
     }
 
     #[test]
