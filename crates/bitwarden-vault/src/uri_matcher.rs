@@ -38,10 +38,13 @@ pub enum UriMatcherError {
     /// The pattern compiles too large or nests too deeply.
     #[error("Pattern is too complex")]
     PatternTooComplex,
-    /// The pattern uses a backreference, a lookbehind, or a lookahead other than one right after
-    /// an anchored literal prefix, as in `^https://(?!admin\.)`.
-    #[error("Pattern uses an unsupported construct")]
-    UnsupportedConstruct,
+    /// The pattern uses a backreference.
+    #[error("Pattern uses a backreference")]
+    UnsupportedBackreference,
+    /// The pattern uses a lookbehind, or a lookahead other than a negative one right after an
+    /// anchored literal prefix, as in `^https://(?!admin\.)`.
+    #[error("Pattern uses an unsupported lookaround")]
+    UnsupportedLookaround,
     /// The target is longer than [`MAX_TARGET_LENGTH`].
     #[error("Target exceeds the maximum length")]
     TargetTooLong,
@@ -156,9 +159,9 @@ fn compile(pattern: &str) -> Result<Matcher, UriMatcherError> {
         return Err(UriMatcherError::PatternTooLong);
     }
     match build(pattern) {
-        Err(UriMatcherError::UnsupportedConstruct) => {
+        Err(UriMatcherError::UnsupportedLookaround) => {
             let (prefix, excluded, rest) =
-                split_prefix_lookahead(pattern).ok_or(UriMatcherError::UnsupportedConstruct)?;
+                split_prefix_lookahead(pattern).ok_or(UriMatcherError::UnsupportedLookaround)?;
             Ok(Matcher::ExceptAfterPrefix {
                 included: build(&format!("^{prefix}(?:{rest})"))?,
                 excluded: build(&format!("^{prefix}(?:{excluded})"))?,
@@ -178,10 +181,12 @@ fn build(pattern: &str) -> Result<Regex, UriMatcherError> {
             regex::Error::CompiledTooBig(_) => UriMatcherError::PatternTooComplex,
             // `regex` only describes syntax errors in text, so parse again for the kind.
             _ => match parse(pattern) {
-                Err(
-                    ast::ErrorKind::UnsupportedLookAround
-                    | ast::ErrorKind::UnsupportedBackreference,
-                ) => UriMatcherError::UnsupportedConstruct,
+                Err(ast::ErrorKind::UnsupportedLookAround) => {
+                    UriMatcherError::UnsupportedLookaround
+                }
+                Err(ast::ErrorKind::UnsupportedBackreference) => {
+                    UriMatcherError::UnsupportedBackreference
+                }
                 Err(ast::ErrorKind::NestLimitExceeded(_)) => UriMatcherError::PatternTooComplex,
                 _ => UriMatcherError::InvalidPattern,
             },
@@ -210,9 +215,10 @@ fn split_prefix_lookahead(pattern: &str) -> Option<(&str, &str, &str)> {
             Some((excluded, rest.strip_prefix(')')?))
         })
         .find(|(excluded, _)| parse(excluded).is_ok())?;
+    // An unparsable `rest` fails again when built, which reports why.
     match parse(rest) {
-        Ok(Ast::Alternation(_)) | Err(_) => None,
-        Ok(_) => Some((prefix, excluded, rest)),
+        Ok(Ast::Alternation(_)) => None,
+        _ => Some((prefix, excluded, rest)),
     }
 }
 
@@ -392,11 +398,24 @@ mod tests {
     }
 
     #[test]
-    fn rejects_other_lookarounds_and_backreferences() {
+    fn rejects_backreferences() {
+        for pattern in [r"^https://(\w+)\.example\.com/\1/", r"^a(?!b)\1"] {
+            assert!(
+                matches!(
+                    validate_uri_regex(pattern),
+                    Err(UriMatcherError::UnsupportedBackreference)
+                ),
+                "{pattern}"
+            );
+            assert!(!uri_regex_matches(pattern, "aaaa"));
+        }
+    }
+
+    #[test]
+    fn rejects_other_lookarounds() {
         let patterns = [
             r"(?<=\.)example\.com/",
             r"(?<!admin)\.example\.com/",
-            r"^https://(\w+)\.example\.com/\1/",
             r"^a(?=b)",
             r"x(?!.*logout)",
             r"^a*(?!logout)",
@@ -405,14 +424,13 @@ mod tests {
             r"^a(?!b)c(?!d)",
             r"^a(?!(?!b))",
             r"^a(?!b)c|d",
-            r"^a(?!b)\1",
             r"(?:^a(?!b))",
         ];
         for pattern in patterns {
             assert!(
                 matches!(
                     validate_uri_regex(pattern),
-                    Err(UriMatcherError::UnsupportedConstruct)
+                    Err(UriMatcherError::UnsupportedLookaround)
                 ),
                 "{pattern}"
             );
