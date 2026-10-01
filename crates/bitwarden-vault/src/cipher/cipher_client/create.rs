@@ -83,7 +83,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
         identity: r.r#type.as_identity_view().cloned(),
         card: r.r#type.as_card_view().cloned(),
         secure_note: r.r#type.as_secure_note_view().cloned(),
-        ssh_key: r.r#type.as_ssh_key_view().cloned(),
+        ssh_key: r.r#type.as_ssh_key_view().cloned().map(|v| v.normalized()),
         bank_account: r.r#type.as_bank_account_view().cloned(),
         drivers_license: r.r#type.as_drivers_license_view().cloned(),
         passport: r.r#type.as_passport_view().cloned(),
@@ -235,6 +235,39 @@ mod tests {
             collection_ids: vec![],
             archived_date: None,
         }
+    }
+
+    #[test]
+    fn test_convert_request_to_cipher_view_normalizes_ssh_key() {
+        use crate::cipher::ssh_key::{SshKeyView, test_rewrap_pem_noncompliant_76_chars};
+
+        let generated = bitwarden_ssh::generator::generate_sshkey(
+            bitwarden_ssh::generator::KeyAlgorithm::Ed25519,
+        )
+        .unwrap();
+
+        let request = CipherCreateRequest {
+            name: "My SSH Key".to_string(),
+            notes: None,
+            r#type: CipherViewType::SshKey(SshKeyView {
+                private_key: test_rewrap_pem_noncompliant_76_chars(&generated.private_key, 76),
+                public_key: String::new(),
+                fingerprint: String::new(),
+            }),
+            organization_id: Default::default(),
+            folder_id: Default::default(),
+            favorite: Default::default(),
+            reprompt: Default::default(),
+            fields: Default::default(),
+            collection_ids: vec![],
+            archived_date: None,
+        };
+
+        let view = convert_request_to_cipher_view(request);
+        let ssh_key = view.ssh_key.unwrap();
+
+        assert_eq!(ssh_key.private_key, generated.private_key);
+        assert_eq!(ssh_key.public_key, generated.public_key);
     }
 
     #[tokio::test]

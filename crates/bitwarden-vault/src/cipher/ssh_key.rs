@@ -51,13 +51,48 @@ impl From<bitwarden_ssh::SshKeyData> for SshKeyView {
     }
 }
 
-/// Derive the public key and fingerprint from an unencrypted OpenSSH private key.
+/// Parses an unencrypted OpenSSH or PKCS8 private key and derives its public key and
+/// fingerprint. Only OpenSSH-labeled input is re-encoded to canonical line wrapping.
+/// PKCS8 input's private key is returned unchanged.
+/// Returns the input unchanged with an empty public key/fingerprint if it cannot be parsed.
+fn derive_ssh_key_fields(private_key: &str) -> (String, String, String) {
+    if let Some(data) = bitwarden_ssh::import::rewrap_key_compliant_70_chars(private_key) {
+        return (data.private_key, data.public_key, data.fingerprint);
+    }
+    match bitwarden_ssh::import::import_key(private_key.to_string(), None) {
+        Ok(data) => (private_key.to_string(), data.public_key, data.fingerprint),
+        Err(_) => (private_key.to_string(), String::new(), String::new()),
+    }
+}
+
+/// Derive the public key and fingerprint from an unencrypted OpenSSH or PKCS8 private key.
 ///
 /// Returns empty strings if the key cannot be parsed.
 fn derive_public_key_and_fingerprint(private_key: &str) -> (String, String) {
-    bitwarden_ssh::import::import_key(private_key.to_string(), None)
-        .map(|data| (data.public_key, data.fingerprint))
-        .unwrap_or_default()
+    let (_, public_key, fingerprint) = derive_ssh_key_fields(private_key);
+    (public_key, fingerprint)
+}
+
+impl SshKeyView {
+    /// Re-encodes an OpenSSH private key to canonical line wrapping and fills in an empty
+    /// public key/fingerprint. Unchanged if the private key doesn't parse or isn't OpenSSH.
+    pub(crate) fn normalized(&self) -> SshKeyView {
+        let (private_key, derived_public_key, derived_fingerprint) =
+            derive_ssh_key_fields(&self.private_key);
+        SshKeyView {
+            private_key,
+            public_key: if self.public_key.is_empty() {
+                derived_public_key
+            } else {
+                self.public_key.clone()
+            },
+            fingerprint: if self.fingerprint.is_empty() {
+                derived_fingerprint
+            } else {
+                self.fingerprint.clone()
+            },
+        }
+    }
 }
 
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SshKey> for SshKeyView {
@@ -82,7 +117,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SshKey> for SshKeyView
         }
 
         Ok(SshKey {
-            private_key: self.private_key.encrypt(ctx, key)?,
+            private_key: self.private_key.clone().encrypt(ctx, key)?,
             public_key: Some(public_key.encrypt(ctx, key)?),
             fingerprint: Some(fingerprint.encrypt(ctx, key)?),
         })
@@ -158,6 +193,33 @@ impl From<SshKey> for CipherSshKeyModel {
             key_fingerprint: ssh_key.fingerprint.map(|e| e.to_string()),
         }
     }
+}
+
+/// Re-wraps a PEM body to the given line width, for constructing non-standard-wrapped input in
+/// tests from a key generated at test time.
+#[cfg(test)]
+pub(crate) fn test_rewrap_pem_noncompliant_76_chars(pem: &str, width: usize) -> String {
+    let mut lines = pem.lines();
+    let header = lines.next().expect("pem has a header line");
+    let mut footer = "";
+    let mut body = String::new();
+    for line in lines {
+        if line.starts_with("-----END") {
+            footer = line;
+            break;
+        }
+        body.push_str(line);
+    }
+
+    let mut out = String::new();
+    out.push_str(header);
+    out.push('\n');
+    for chunk in body.as_bytes().chunks(width) {
+        out.push_str(std::str::from_utf8(chunk).expect("base64 body is ASCII"));
+        out.push('\n');
+    }
+    out.push_str(footer);
+    out
 }
 
 #[cfg(test)]
@@ -294,6 +356,106 @@ mod tests {
         let decrypted = encrypted.decrypt(&mut ctx, key).unwrap();
         assert_eq!(decrypted.public_key, generated.public_key);
         assert_eq!(decrypted.fingerprint, generated.fingerprint);
+    }
+
+    #[test]
+    fn test_normalized_rewraps_non_standard_openssh_pem() {
+        let generated = bitwarden_ssh::generator::generate_sshkey(
+            bitwarden_ssh::generator::KeyAlgorithm::Ed25519,
+        )
+        .unwrap();
+
+        let view = SshKeyView {
+            private_key: test_rewrap_pem_noncompliant_76_chars(&generated.private_key, 76),
+            public_key: String::new(),
+            fingerprint: String::new(),
+        };
+
+        let normalized = view.normalized();
+
+        assert_eq!(normalized.private_key, generated.private_key);
+        assert_eq!(normalized.public_key, generated.public_key);
+    }
+
+    #[test]
+    fn test_normalized_rewraps_even_when_fields_already_present() {
+        let generated = bitwarden_ssh::generator::generate_sshkey(
+            bitwarden_ssh::generator::KeyAlgorithm::Ed25519,
+        )
+        .unwrap();
+
+        let view = SshKeyView {
+            private_key: test_rewrap_pem_noncompliant_76_chars(&generated.private_key, 76),
+            public_key: "preset-public-key".to_string(),
+            fingerprint: "preset-fingerprint".to_string(),
+        };
+
+        let normalized = view.normalized();
+
+        assert_eq!(normalized.private_key, generated.private_key);
+        assert_eq!(normalized.public_key, "preset-public-key");
+        assert_eq!(normalized.fingerprint, "preset-fingerprint");
+    }
+
+    #[test]
+    fn test_normalized_leaves_pkcs8_private_key_untouched() {
+        // `bitwarden_ssh::generator` only produces OpenSSH-format keys (PKCS8 is an import-only
+        // format, never generated), so this one input key can't be generated at test time like
+        // the others in this file. Same key as
+        // crates/bitwarden-ssh/resources/import/ed25519_pkcs8_unencrypted.
+        const PKCS8: &str = "-----BEGIN PRIVATE KEY-----
+MFECAQEwBQYDK2VwBCIEIDY6/OAdDr3PbDss9NsLXK4CxiKUvz5/R9uvjtIzj4Sz
+gSEAxsxm1xpZ/4lKIRYm0JrJ5gRZUh7H24/YT/0qGVGzPa0=
+-----END PRIVATE KEY-----";
+        let expected_public_key = bitwarden_ssh::import::import_key(PKCS8.to_string(), None)
+            .unwrap()
+            .public_key;
+
+        let view = SshKeyView {
+            private_key: PKCS8.to_string(),
+            public_key: String::new(),
+            fingerprint: String::new(),
+        };
+
+        let normalized = view.normalized();
+
+        assert_eq!(normalized.private_key, PKCS8);
+        assert_eq!(normalized.public_key, expected_public_key);
+    }
+
+    #[test]
+    fn test_normalized_leaves_unparseable_private_key_untouched() {
+        let view = SshKeyView {
+            private_key: "not a key".to_string(),
+            public_key: String::new(),
+            fingerprint: String::new(),
+        };
+
+        let normalized = view.normalized();
+
+        assert_eq!(normalized.private_key, "not a key");
+        assert_eq!(normalized.public_key, "");
+        assert_eq!(normalized.fingerprint, "");
+    }
+
+    #[test]
+    fn test_normalized_is_idempotent_for_already_canonical_keys() {
+        let generated = bitwarden_ssh::generator::generate_sshkey(
+            bitwarden_ssh::generator::KeyAlgorithm::Ed25519,
+        )
+        .unwrap();
+
+        let view = SshKeyView {
+            private_key: generated.private_key.clone(),
+            public_key: generated.public_key.clone(),
+            fingerprint: generated.fingerprint.clone(),
+        };
+
+        let normalized = view.normalized();
+
+        assert_eq!(normalized.private_key, generated.private_key);
+        assert_eq!(normalized.public_key, generated.public_key);
+        assert_eq!(normalized.fingerprint, generated.fingerprint);
     }
 
     #[test]

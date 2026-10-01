@@ -35,6 +35,18 @@ pub fn import_key(
     }
 }
 
+/// Re-encodes an unencrypted OpenSSH private key to canonical line wrapping
+///
+/// Returns [None] if the input isn't OpenSSH-labeled, or can't be parsed - callers should treat
+/// that as "leave the input unchanged".
+pub fn rewrap_key_compliant_70_chars(encoded_key: &str) -> Option<SshKeyData> {
+    let label = pem_rfc7468::decode_label(encoded_key.as_bytes()).ok()?;
+    if label != ssh_key::PrivateKey::PEM_LABEL {
+        return None;
+    }
+    import_key(encoded_key.to_string(), None).ok()
+}
+
 fn import_pkcs8_key(
     encoded_key: String,
     password: Option<String>,
@@ -223,6 +235,30 @@ mod tests {
         let public_key = include_str!("../resources/import/ed25519_openssh_unencrypted.pub").trim();
         let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
+    }
+
+    /// Python's `cryptography` library wraps OpenSSH private keys at 76 chars/line instead of the
+    /// 70 chars/line native `ssh-keygen` uses.
+    #[test]
+    fn rewrap_key_compliant_70_chars_openssh_key_rewraps_non_standard_line_width() {
+        let non_standard =
+            include_str!("../resources/import/ed25519_openssh_76_char_wrap_unencrypted");
+        let canonical = include_str!("../resources/import/ed25519_openssh_unencrypted");
+
+        let result = rewrap_key_compliant_70_chars(non_standard).unwrap();
+
+        assert_eq!(result.private_key, canonical);
+    }
+
+    #[test]
+    fn rewrap_key_compliant_70_chars_openssh_key_returns_none_for_pkcs8() {
+        let pkcs8 = include_str!("../resources/import/ed25519_pkcs8_unencrypted");
+        assert!(rewrap_key_compliant_70_chars(pkcs8).is_none());
+    }
+
+    #[test]
+    fn rewrap_key_compliant_70_chars_openssh_key_returns_none_for_unparseable_input() {
+        assert!(rewrap_key_compliant_70_chars("not a key").is_none());
     }
 
     #[test]
