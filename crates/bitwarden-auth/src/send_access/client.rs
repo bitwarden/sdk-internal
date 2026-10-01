@@ -547,6 +547,90 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn request_send_access_token_invalid_request_device_identifier_required_error() {
+            let error_description = "Device-Identifier header is required.".into();
+            let raw_error = serde_json::json!({
+                "error": "invalid_request",
+                "error_description": error_description,
+                "send_access_error_type": "device_identifier_required"
+            });
+
+            let mock = Mock::given(matchers::method("POST"))
+                .and(matchers::path("identity/connect/token"))
+                .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+
+            let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+
+            let send_access_client = make_send_client(&mock_server);
+
+            let req = SendAccessTokenRequest {
+                send_id: "test_send_id".into(),
+                send_access_credentials: Some(SendAccessCredentials::Email(SendEmailCredentials {
+                    email: "test@example.com".into(),
+                })),
+            };
+
+            let result = send_access_client.request_send_access_token(req).await;
+
+            match result.unwrap_err() {
+                SendAccessTokenError::Expected(api_err) => {
+                    assert_eq!(
+                        api_err,
+                        SendAccessTokenApiErrorResponse::InvalidRequest {
+                            send_access_error_type: Some(
+                                SendAccessTokenInvalidRequestError::DeviceIdentifierRequired
+                            ),
+                            error_description: Some(error_description),
+                        }
+                    );
+                }
+                other => panic!("expected Response variant, got {:?}", other),
+            }
+        }
+
+        #[tokio::test]
+        async fn request_send_access_token_invalid_request_device_identifier_invalid_error() {
+            let error_description = "Device-Identifier header is invalid.".into();
+            let raw_error = serde_json::json!({
+                "error": "invalid_request",
+                "error_description": error_description,
+                "send_access_error_type": "device_identifier_invalid"
+            });
+
+            let mock = Mock::given(matchers::method("POST"))
+                .and(matchers::path("identity/connect/token"))
+                .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+
+            let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+
+            let send_access_client = make_send_client(&mock_server);
+
+            let req = SendAccessTokenRequest {
+                send_id: "test_send_id".into(),
+                send_access_credentials: Some(SendAccessCredentials::Email(SendEmailCredentials {
+                    email: "test@example.com".into(),
+                })),
+            };
+
+            let result = send_access_client.request_send_access_token(req).await;
+
+            match result.unwrap_err() {
+                SendAccessTokenError::Expected(api_err) => {
+                    assert_eq!(
+                        api_err,
+                        SendAccessTokenApiErrorResponse::InvalidRequest {
+                            send_access_error_type: Some(
+                                SendAccessTokenInvalidRequestError::DeviceIdentifierInvalid
+                            ),
+                            error_description: Some(error_description),
+                        }
+                    );
+                }
+                other => panic!("expected Response variant, got {:?}", other),
+            }
+        }
+
+        #[tokio::test]
         async fn request_send_access_token_invalid_request_email_credential_unrecognized_email_masked_as_otp_required()
          {
             // Create a mock error response
