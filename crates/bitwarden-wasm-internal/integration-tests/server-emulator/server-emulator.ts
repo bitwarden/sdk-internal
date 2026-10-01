@@ -171,7 +171,7 @@ export class ServerEmulator {
       userKeyId: account.userKeyId,
       masterPasswordUnlock: toMasterPasswordUnlock(vector),
       masterPasswordAuthenticationHash: vector.masterPasswordAuthenticationHash ?? null,
-      ...(account.upgradeToken === undefined ? {} : { upgradeToken: account.upgradeToken }),
+      upgradeToken: account.upgradeToken ?? undefined,
       organizationKeys: account.organizationKeys ?? {},
     };
 
