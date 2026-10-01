@@ -70,7 +70,7 @@
           "folderId": null,
           "id": "bc020500-0000-4000-8000-000000000000",
           "identity": null,
-          "key": "2.od5MYBDPxb3l1eYKSaBOvg==|dcrjF9juBBjFZyXb4CsJBwNua3QCznzJRSHsR5R0tTfQpPQa7P+svsmSQM//2GvX+7flO5mnhlnv9tcaK2PoSVCjB1wMrVGStKuot4mIwds=|09bNsGdcGjbdPtvt6fIgFic0pPYx+W7ftiYCEQ7mPGo=",
+          "key": "6jZWlkPvOu8s+DXp5F5Rw55a5fiUTGRle7iIfK10YlyHkkmgiAKlLun39nwK8ySJVTNA+hvxp0JgzPiBePHzFg==",
           "localData": null,
           "login": {
             "autofillOnPageLoad": null,
@@ -85,6 +85,7 @@
           "notes": "Encrypted under a per-item cipher key",
           "organizationId": null,
           "organizationUseTotp": false,
+          "partial": false,
           "passport": null,
           "passwordHistory": null,
           "permissions": null,
