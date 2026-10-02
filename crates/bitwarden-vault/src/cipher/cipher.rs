@@ -856,7 +856,7 @@ impl Cipher {
     /// * `key` - The key to use to decrypt the cipher key, this should be the user or organization
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
-    #[bitwarden_logging::instrument(err)]
+    #[bitwarden_logging::instrument(err, level = "debug")]
     pub(crate) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
