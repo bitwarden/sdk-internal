@@ -8,7 +8,7 @@ use thiserror::Error;
 use super::{CipherBlob, CipherBlobLatest, SealedCipherBlob, SealedCipherBlobError};
 use crate::cipher::{
     attachment,
-    cipher::{Cipher, CipherView},
+    cipher::{Cipher, CipherRepromptType, CipherType, CipherView},
 };
 
 /// Errors produced while sealing or unsealing a blob-format cipher.
@@ -221,6 +221,84 @@ pub(crate) fn decrypt_blob_cipher(
     blob.apply_to_cipher_view(&mut view)?;
 
     Ok(view)
+}
+
+/// Item Send payloads: the sealed blob is the entire `data` string of an Item Send, sealed
+/// directly under the send key. It has no outer cipher key and no metadata; only the blob
+/// contents (name, notes, type data, fields, password history) round-trip.
+///
+/// ```text
+/// CipherView --seal_blob_for_item_sends(send key)--> SendItem.data (opaque string)
+/// SendItem.data --unseal_blob_for_item_sends(send key)--> CipherView (metadata defaulted)
+/// ```
+impl CipherView {
+    /// Seals the sensitive contents of this view into an opaque blob string under `key`.
+    pub fn seal_blob_for_item_sends(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<String, CryptoError> {
+        // Fail closed: a restricted view has its secrets stripped.
+        if self.partial {
+            return Err(CryptoError::EncryptRestrictedView);
+        }
+
+        let blob = CipherBlobLatest::from_cipher_view(self)?;
+        Ok(seal_blob_content(blob, key, ctx)?)
+    }
+
+    /// Unseals a blob produced by [`CipherView::seal_blob_for_item_sends`]. Metadata absent
+    /// from the blob (ids, dates, flags) is set to defaults; the type follows the blob contents.
+    pub fn unseal_blob_for_item_sends(
+        data: &str,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<CipherView, CryptoError> {
+        let sealed =
+            SealedCipherBlob::from_opaque_string(data).map_err(BlobEncryptionError::from)?;
+        let CipherBlob::CipherBlobV1(blob) = sealed
+            .unseal(&key, ctx)
+            .map_err(BlobEncryptionError::from)?;
+
+        let mut view = CipherView {
+            partial: false,
+            id: None,
+            organization_id: None,
+            folder_id: None,
+            collection_ids: Vec::new(),
+            key: None,
+            name: String::new(),
+            notes: None,
+            // Overwritten from the blob type data below.
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: false,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            attachment_decryption_failures: None,
+            fields: None,
+            password_history: None,
+            creation_date: Default::default(),
+            deleted_date: None,
+            revision_date: Default::default(),
+            archived_date: None,
+        };
+        blob.apply_to_cipher_view(&mut view)?;
+
+        Ok(view)
+    }
 }
 
 #[cfg(test)]

@@ -3,7 +3,8 @@
 use bitwarden_core::Client;
 
 use crate::{
-    Credentials, ImportError, ImportOptions, ImportSummary, OnePasswordTwoFactorUi,
+    Credentials, ImportError, ImportOptions, ImportSummary, OnePasswordImportSummary,
+    OnePasswordTwoFactorUi,
     importers::{
         self,
         onepassword::{access, convert},
@@ -29,13 +30,22 @@ pub(crate) async fn import_onepassword(
     credentials: Credentials,
     two_factor: &dyn OnePasswordTwoFactorUi,
     options: ImportOptions,
-) -> Result<ImportSummary, ImportError> {
+) -> Result<OnePasswordImportSummary, ImportError> {
     // 1Password is a third-party host, so this goes through the client's external transport rather
     // than the one configured for the Bitwarden API.
     let onepassword = access::Client::new(client.internal.get_http_client().clone());
-    let vaults = onepassword
-        .download_all_vaults(credentials, two_factor)
-        .await?;
+    let mut account = onepassword.open_account(credentials, two_factor).await?;
+    let skipped_items = account
+        .vaults
+        .iter_mut()
+        .flat_map(|vault| std::mem::take(&mut vault.skipped_items))
+        .collect();
+    let imported =
+        pipeline::submit_import(client, convert::convert(account.vaults), options).await?;
 
-    pipeline::submit_import(client, convert::convert(vaults), options).await
+    Ok(OnePasswordImportSummary {
+        imported,
+        skipped_vaults: account.skipped_vaults,
+        skipped_items,
+    })
 }

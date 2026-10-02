@@ -19,9 +19,7 @@ use crate::{CipherTypeCount, ImportError, ImportOptions, ImportSummary, ImportTa
 
 /// Format-agnostic parse result: the ciphers, the folder paths, and which cipher belongs to which
 /// folder (by index). Every importer parser produces this for the pipeline to submit.
-// `pub` only so the `test-utils` re-export can reach it for the out-of-tree CLI.
-// TODO: Back to `pub(crate)` once the re-export goes.
-pub struct ParsedImport {
+pub(crate) struct ParsedImport {
     /// The ciphers to submit, index-aligned with [`Self::folder_relationships`].
     pub ciphers: Vec<ImportingCipher>,
     /// Folder paths (e.g. `"Parent/Child"`), index-aligned with [`Self::folder_relationships`].

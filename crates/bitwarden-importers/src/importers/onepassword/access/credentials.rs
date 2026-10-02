@@ -6,8 +6,13 @@ use super::sign_in::SignInAddress;
 
 /// The credentials for a password + Secret Key login.
 ///
-/// Deliberately not `Debug`: it holds the master password and Secret Key.
+/// Deliberately neither `Debug` nor `Serialize`: it holds the master password and Secret Key.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Deserialize, tsify::Tsify),
+    tsify(from_wasm_abi)
+)]
 #[derive(Clone)]
 pub struct Credentials {
     /// The account's email address.

@@ -15,7 +15,7 @@ mod edit;
 mod get;
 mod restore;
 
-pub use get::GetAssignedOrgCiphersAdminError;
+pub use get::{GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError};
 
 /// Client for performing admin operations on ciphers. Unlike the regular CiphersClient,
 /// this client uses the admin server API endpoints, and does not modify local state.

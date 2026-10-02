@@ -4,7 +4,7 @@
 //! the SDK is fully implemented. When porting functionality from `client` the mobile clients should
 //! be updated to consume the regular code paths and in this module should eventually disappear.
 
-#[cfg(feature = "uniffi")]
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
 mod reinit_user_crypto;
 use std::collections::HashMap;
 
@@ -21,9 +21,9 @@ use bitwarden_crypto::{
 use bitwarden_crypto::{SymmetricKeyAlgorithm, safe::PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
-#[cfg(feature = "uniffi")]
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
 pub(super) use reinit_user_crypto::reinit_user_crypto;
-#[cfg(feature = "uniffi")]
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
 pub use reinit_user_crypto::{ReinitUserCryptoError, ReinitUserCryptoRequest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -1216,7 +1216,7 @@ mod tests {
                     private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
                     signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
                     security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
-                    signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                    signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
                 },
                 method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: TEST_USER_PASSWORD.into(),
@@ -1815,7 +1815,7 @@ mod tests {
                     private_key: enrollment_response.private_key,
                     signing_key: enrollment_response.signing_key,
                     security_state: enrollment_response.security_state,
-                    signed_public_key: Some(enrollment_response.signed_public_key),
+                    signed_public_key: enrollment_response.signed_public_key,
                 },
                 method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
@@ -1851,7 +1851,7 @@ mod tests {
                     private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
                     signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
                     security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
-                    signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                    signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
                 },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
@@ -1909,7 +1909,7 @@ mod tests {
                     private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
                     signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
                     security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
-                    signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                    signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
                 },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
@@ -2159,7 +2159,7 @@ mod tests {
                     private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
                     signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
                     security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
-                    signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                    signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
                 },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),

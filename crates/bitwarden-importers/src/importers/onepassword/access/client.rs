@@ -9,14 +9,16 @@ use super::{
     error::OnePasswordError,
     keychain::Keychain,
     login::{self, LoginOutcome},
-    model::{Item, ItemCategory, Vault},
+    model::{
+        DownloadedAccount, Item, ItemCategory, SkippedItem, SkippedReason, SkippedVault, Vault,
+    },
     opdata::Encrypted,
     rest::RestClient,
     session::Session,
     two_factor::TwoFactorUi,
     wire::{
         AccountInfo, EncryptedEnvelope, KeysetsInfo, VaultAccess, VaultAttributes, VaultItem,
-        VaultItemsBatch,
+        VaultItemOverview, VaultItemsBatch,
     },
 };
 
@@ -39,15 +41,13 @@ impl Client {
         Client { http }
     }
 
-    /// Logs in and downloads every vault the account can open, driving 2FA through `ui` when
-    /// required.
-    ///
-    /// An import takes the whole account, so there is no vault selection.
-    pub async fn download_all_vaults(
+    /// Opens the account by signing in and decrypting every accessible vault, driving 2FA through
+    /// `ui` when required.
+    pub async fn open_account(
         &self,
         credentials: Credentials,
         ui: &dyn TwoFactorUi,
-    ) -> Result<Vec<Vault>, OnePasswordError> {
+    ) -> Result<DownloadedAccount, OnePasswordError> {
         let mut credentials = Zeroizing::new(credentials);
         credentials.sign_in_address.normalize()?;
         let account_key = AccountKey::parse(&credentials.account_key)?;
@@ -102,42 +102,74 @@ impl Client {
 }
 
 /// Unlocks the account's keys and downloads every vault the session can open.
-///
-/// Split out of [`Client::download_all_vaults`] so the fixture replay can drive the real download
-/// over captured responses without performing the login exchange.
 pub(super) async fn download_vaults(
     credentials: &Credentials,
     account_key: &AccountKey,
     session: &Session,
-) -> Result<Vec<Vault>, OnePasswordError> {
-    let (keychain, vaults) = unlock(credentials, account_key, session).await?;
+) -> Result<DownloadedAccount, OnePasswordError> {
+    let (keychain, vaults, mut skipped_vaults) =
+        unlock_account(credentials, account_key, session).await?;
 
     let mut downloaded = Vec::with_capacity(vaults.len());
-    for info in &vaults {
-        downloaded.push(Vault {
-            id: info.id.clone(),
-            name: info.name.clone(),
-            items: download_vault_items(&info.id, &keychain, session).await?,
-        });
+    for info in vaults {
+        match download_vault(info, &keychain, session).await? {
+            VaultDownload::Downloaded(vault) => downloaded.push(vault),
+            VaultDownload::Skipped(vault) => skipped_vaults.push(vault),
+        }
     }
 
-    Ok(downloaded)
+    Ok(DownloadedAccount {
+        vaults: downloaded,
+        skipped_vaults,
+    })
 }
 
 /// A vault the account can open, with its attributes already decrypted.
 struct VaultInfo {
     id: String,
     name: String,
+    item_count: Option<u32>,
+}
+
+enum VaultDownload {
+    Downloaded(Vault),
+    Skipped(SkippedVault),
+}
+
+/// Downloads one vault. A missing vault becomes a partial result; every other failure aborts.
+async fn download_vault(
+    info: VaultInfo,
+    keychain: &Keychain,
+    session: &Session,
+) -> Result<VaultDownload, OnePasswordError> {
+    let download = match download_vault_items(&info.id, keychain, session).await {
+        Ok(download) => download,
+        // TODO: Double check that this is the right error code for a missing vault.
+        //       To test that create a shared vault that the user doesn't have access to.
+        Err(OnePasswordError::NotFound) => {
+            return Ok(VaultDownload::Skipped(SkippedVault {
+                id: info.id,
+                item_count: info.item_count,
+                reason: SkippedReason::NoAccess,
+            }));
+        }
+        Err(error) => return Err(error),
+    };
+
+    Ok(VaultDownload::Downloaded(Vault {
+        id: info.id,
+        name: info.name,
+        items: download.items,
+        skipped_items: download.skipped_items,
+    }))
 }
 
 /// Decrypts the account keysets and every accessible vault key.
-///
-/// The keychain is complete when this returns, so the download itself never adds to it.
-async fn unlock(
+async fn unlock_account(
     credentials: &Credentials,
     account_key: &AccountKey,
     session: &Session,
-) -> Result<(Keychain, Vec<VaultInfo>), OnePasswordError> {
+) -> Result<(Keychain, Vec<VaultInfo>, Vec<SkippedVault>), OnePasswordError> {
     // The vault list, and the keysets that unlock it.
     let account_info: AccountInfo = session
         .rest
@@ -157,24 +189,57 @@ async fn unlock(
         account_key,
     )?;
 
-    // A vault whose key we do not hold is one the account can see but not open.
-    // TODO: Report skipped vaults and failed items instead of dropping them silently or failing the
-    // entire import.
     let mut vaults = Vec::new();
+    let mut skipped_vaults = Vec::new();
     for vault in &account_info.vaults {
-        let Some(enc_key) = find_working_key(&vault.access, &keychain)? else {
-            continue;
-        };
-        keychain.decrypt_aes_key(enc_key)?;
-
-        let attributes: VaultAttributes = keychain.decrypt_json(&vault.enc_attrs)?;
-        vaults.push(VaultInfo {
-            id: vault.uuid.clone(),
-            name: attributes.name.unwrap_or_default(),
-        });
+        match unlock_vault(vault, &mut keychain)? {
+            VaultUnlock::Unlocked(vault) => vaults.push(vault),
+            VaultUnlock::Skipped(vault) => skipped_vaults.push(vault),
+        }
     }
 
-    Ok((keychain, vaults))
+    Ok((keychain, vaults, skipped_vaults))
+}
+
+enum VaultUnlock {
+    Unlocked(VaultInfo),
+    Skipped(SkippedVault),
+}
+
+/// Decrypts a vault's key and attributes. Missing keys and unsupported encryption are skippable;
+/// malformed data is an error.
+fn unlock_vault(
+    vault: &super::wire::VaultInfo,
+    keychain: &mut Keychain,
+) -> Result<VaultUnlock, OnePasswordError> {
+    let skipped = |reason| {
+        VaultUnlock::Skipped(SkippedVault {
+            id: vault.uuid.clone(),
+            item_count: vault.active_item_count,
+            reason,
+        })
+    };
+
+    let enc_key = match find_working_key(&vault.access, keychain)? {
+        VaultKey::Found(enc_key) => enc_key,
+        VaultKey::Missing(reason) => return Ok(skipped(reason)),
+    };
+    keychain.decrypt_aes_key(enc_key)?;
+
+    if let Some(reason) = skip_reason(&vault.enc_attrs, keychain)? {
+        return Ok(skipped(reason));
+    }
+    let attributes: VaultAttributes = keychain.decrypt_json(&vault.enc_attrs)?;
+    Ok(VaultUnlock::Unlocked(VaultInfo {
+        id: vault.uuid.clone(),
+        name: attributes.name.unwrap_or_default(),
+        item_count: vault.active_item_count,
+    }))
+}
+
+struct VaultItemsDownload {
+    items: Vec<Item>,
+    skipped_items: Vec<SkippedItem>,
 }
 
 /// Pages through a vault's items until `batchComplete`, parsing each supported item.
@@ -182,8 +247,9 @@ async fn download_vault_items(
     vault_id: &str,
     keychain: &Keychain,
     session: &Session,
-) -> Result<Vec<Item>, OnePasswordError> {
+) -> Result<VaultItemsDownload, OnePasswordError> {
     let mut items = Vec::new();
+    let mut skipped_items = Vec::new();
     let mut batch_id: i64 = 0;
     loop {
         let batch: VaultItemsBatch = session
@@ -198,11 +264,17 @@ async fn download_vault_items(
             if item.trashed == "Y" {
                 continue;
             }
-            items.push(parse_item(&item, keychain)?);
+            match parse_item(&item, keychain)? {
+                ItemDownload::Downloaded(item) => items.push(item),
+                ItemDownload::Skipped(item) => skipped_items.push(item),
+            }
         }
 
         if batch.complete {
-            return Ok(items);
+            return Ok(VaultItemsDownload {
+                items,
+                skipped_items,
+            });
         }
 
         // The batch id is a cursor, so an unchanged (or rewound) version would refetch the same
@@ -216,35 +288,82 @@ async fn download_vault_items(
     }
 }
 
-/// Decrypts both payloads. Every category is kept, not only logins.
-fn parse_item(item: &VaultItem, keychain: &Keychain) -> Result<Item, OnePasswordError> {
-    Ok(Item {
+enum ItemDownload {
+    Downloaded(Item),
+    Skipped(SkippedItem),
+}
+
+/// Decrypts both payloads. Missing keys and unsupported encryption are skippable; malformed data
+/// is an error.
+fn parse_item(item: &VaultItem, keychain: &Keychain) -> Result<ItemDownload, OnePasswordError> {
+    let category = ItemCategory::from_template_id(&item.template_uuid);
+    if let Some(reason) = skip_reason(&item.enc_overview, keychain)? {
+        return Ok(ItemDownload::Skipped(SkippedItem {
+            id: item.uuid.clone(),
+            name: None,
+            category,
+            reason,
+        }));
+    }
+    let overview: VaultItemOverview = keychain.decrypt_json(&item.enc_overview)?;
+
+    if let Some(reason) = skip_reason(&item.enc_details, keychain)? {
+        return Ok(ItemDownload::Skipped(SkippedItem {
+            id: item.uuid.clone(),
+            name: overview.title.clone(),
+            category,
+            reason,
+        }));
+    }
+    let details = keychain.decrypt_json(&item.enc_details)?;
+
+    Ok(ItemDownload::Downloaded(Item {
         id: item.uuid.clone(),
-        category: ItemCategory::from_template_id(&item.template_uuid),
-        overview: keychain.decrypt_json(&item.enc_overview)?,
-        details: keychain.decrypt_json(&item.enc_details)?,
-    })
+        category,
+        overview,
+        details,
+    }))
+}
+
+/// Why `envelope` has to be skipped: its scheme is unsupported or its key is not in the keychain.
+/// `None` does not promise it decrypts.
+fn skip_reason(
+    envelope: &EncryptedEnvelope,
+    keychain: &Keychain,
+) -> Result<Option<SkippedReason>, OnePasswordError> {
+    let encrypted = Encrypted::parse(envelope)?;
+    match keychain.can_decrypt(&encrypted) {
+        Ok(true) => Ok(None),
+        Ok(false) => Ok(Some(SkippedReason::NoAccess)),
+        Err(OnePasswordError::Unsupported(_)) => Ok(Some(SkippedReason::Unsupported)),
+        Err(error) => Err(error),
+    }
+}
+
+enum VaultKey<'a> {
+    Found(&'a EncryptedEnvelope),
+    Missing(SkippedReason),
 }
 
 /// Finds a readable access entry whose vault key the keychain can already decrypt.
 ///
-/// `None` means every readable entry names a key we do not hold, which is a vault the account can
-/// see but not open. A malformed envelope or an unsupported scheme is an error instead, so an
-/// unreadable format never passes for a missing key.
+/// Without one, the reason is `Unsupported` when a readable entry uses a scheme we cannot decrypt,
+/// otherwise `NoAccess`: a vault the account can see but not open. A malformed envelope is an
+/// error.
 fn find_working_key<'a>(
     access: &'a [VaultAccess],
     keychain: &Keychain,
-) -> Result<Option<&'a EncryptedEnvelope>, OnePasswordError> {
-    for entry in access {
-        if is_read_accessible(entry.acl) {
-            let encrypted = Encrypted::parse(&entry.enc_vault_key)?;
-            if keychain.can_decrypt(&encrypted)? {
-                return Ok(Some(&entry.enc_vault_key));
-            }
+) -> Result<VaultKey<'a>, OnePasswordError> {
+    let mut reason = SkippedReason::NoAccess;
+    for entry in access.iter().filter(|entry| is_read_accessible(entry.acl)) {
+        match skip_reason(&entry.enc_vault_key, keychain)? {
+            None => return Ok(VaultKey::Found(&entry.enc_vault_key)),
+            Some(SkippedReason::Unsupported) => reason = SkippedReason::Unsupported,
+            Some(SkippedReason::NoAccess) => {}
         }
     }
 
-    Ok(None)
+    Ok(VaultKey::Missing(reason))
 }
 
 /// Whether an ACL grants read access.
@@ -315,12 +434,145 @@ mod tests {
         mock_batch(&server, 0, batch(7, false)).await;
         mock_batch(&server, 7, batch(9, true)).await;
 
-        let items = download_vault_items(VAULT_ID, &Keychain::new(), &session(&server))
+        let download = download_vault_items(VAULT_ID, &Keychain::new(), &session(&server))
             .await
             .expect("pagination advances to the final batch");
 
-        assert!(items.is_empty());
+        assert!(download.items.is_empty());
+        assert!(download.skipped_items.is_empty());
         server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn items_without_keys_are_recorded_and_other_items_continue() {
+        let server = MockServer::start().await;
+        let readable_key = AesKey::new("VAULT", vec![7u8; 32]);
+        let missing_key = AesKey::new("MISSING", vec![8u8; 32]);
+        let overview = readable_key
+            .encrypt(br#"{"title":"partly readable"}"#, &[1u8; 12])
+            .expect("encrypts");
+        let missing_overview = missing_key
+            .encrypt(br#"{"title":"not readable"}"#, &[2u8; 12])
+            .expect("encrypts");
+        let missing_details = missing_key.encrypt(br#"{}"#, &[5u8; 12]).expect("encrypts");
+        let good_overview = readable_key
+            .encrypt(br#"{"title":"readable"}"#, &[3u8; 12])
+            .expect("encrypts");
+        let good_details = readable_key
+            .encrypt(br#"{}"#, &[4u8; 12])
+            .expect("encrypts");
+        mock_batch(
+            &server,
+            0,
+            json!({
+                "contentVersion": 1,
+                "batchComplete": true,
+                "items": [
+                    {
+                        "uuid": "bad-details",
+                        "templateUuid": "001",
+                        "trashed": "N",
+                        "encOverview": overview,
+                        "encDetails": missing_details
+                    },
+                    {
+                        "uuid": "bad-overview",
+                        "templateUuid": "002",
+                        "trashed": "N",
+                        "encOverview": missing_overview,
+                        "encDetails": {
+                            "kid": "VAULT", "enc": "A256GCM", "cty": "b5+jwk+json",
+                            "data": "!"
+                        }
+                    },
+                    {
+                        "uuid": "good-item",
+                        "templateUuid": "003",
+                        "trashed": "N",
+                        "encOverview": good_overview,
+                        "encDetails": good_details
+                    },
+                    {
+                        "uuid": "unsupported-encryption",
+                        "templateUuid": "004",
+                        "trashed": "N",
+                        "encOverview": {
+                            "kid": "VAULT", "enc": "FUTURE", "cty": "b5+jwk+json", "data": ""
+                        },
+                        "encDetails": {
+                            "kid": "VAULT", "enc": "A256GCM", "cty": "b5+jwk+json", "data": ""
+                        }
+                    }
+                ]
+            }),
+        )
+        .await;
+
+        let mut keychain = Keychain::new();
+        keychain.add_aes(readable_key);
+        let download = download_vault_items(VAULT_ID, &keychain, &session(&server))
+            .await
+            .expect("one bad item does not fail its vault");
+
+        assert_eq!(download.items.len(), 1);
+        assert_eq!(download.items[0].id, "good-item");
+        assert_eq!(download.skipped_items.len(), 3);
+        assert_eq!(download.skipped_items[0].id, "bad-details");
+        assert_eq!(
+            download.skipped_items[0].name.as_deref(),
+            Some("partly readable")
+        );
+        assert_eq!(download.skipped_items[0].category, ItemCategory::Login);
+        assert_eq!(download.skipped_items[0].reason, SkippedReason::NoAccess);
+        assert_eq!(download.skipped_items[1].id, "bad-overview");
+        assert_eq!(download.skipped_items[1].name, None);
+        assert_eq!(download.skipped_items[1].category, ItemCategory::CreditCard);
+        assert_eq!(download.skipped_items[1].reason, SkippedReason::NoAccess);
+        assert_eq!(download.skipped_items[2].id, "unsupported-encryption");
+        assert_eq!(download.skipped_items[2].reason, SkippedReason::Unsupported);
+        server.verify().await;
+    }
+
+    #[test]
+    fn invalid_json_or_undecryptable_items_are_errors() {
+        let readable_key = AesKey::new("VAULT", vec![7u8; 32]);
+        let wrong_key = AesKey::new("VAULT", vec![8u8; 32]);
+        let details = readable_key
+            .encrypt(br#"{}"#, &[1u8; 12])
+            .expect("encrypts");
+        let invalid_json: VaultItem = serde_json::from_value(json!({
+            "uuid": "invalid-json",
+            "templateUuid": "001",
+            "trashed": "N",
+            "encOverview": readable_key
+                .encrypt(b"not json", &[4u8; 12])
+                .expect("encrypts"),
+            "encDetails": details,
+        }))
+        .expect("valid item envelope");
+        let undecryptable: VaultItem = serde_json::from_value(json!({
+            "uuid": "undecryptable",
+            "templateUuid": "001",
+            "trashed": "N",
+            "encOverview": wrong_key
+                .encrypt(br#"{}"#, &[2u8; 12])
+                .expect("encrypts"),
+            "encDetails": readable_key
+                .encrypt(br#"{}"#, &[3u8; 12])
+                .expect("encrypts"),
+        }))
+        .expect("valid item envelope");
+
+        let mut keychain = Keychain::new();
+        keychain.add_aes(readable_key);
+        assert!(matches!(
+            parse_item(&invalid_json, &keychain),
+            Err(OnePasswordError::Parse)
+        ));
+        assert!(matches!(
+            parse_item(&undecryptable, &keychain),
+            Err(OnePasswordError::Internal(_))
+        ));
     }
 
     #[tokio::test]
@@ -341,12 +593,109 @@ mod tests {
         server.verify().await;
     }
 
+    #[tokio::test]
+    async fn a_missing_vault_is_reported() {
+        let server = MockServer::start().await;
+        server
+            .register(
+                Mock::given(matchers::path(format!("/api/v1/vault/{VAULT_ID}/0/items")))
+                    .respond_with(ResponseTemplate::new(404).set_body_json(json!({
+                        "errorCode": 117,
+                        "errorMessage": "vault not found",
+                    })))
+                    .expect(1),
+            )
+            .await;
+
+        let result = download_vault(
+            VaultInfo {
+                id: VAULT_ID.into(),
+                name: "Known vault".into(),
+                item_count: Some(17),
+            },
+            &Keychain::new(),
+            &session(&server),
+        )
+        .await
+        .expect("a missing vault only skips that vault");
+
+        let VaultDownload::Skipped(vault) = result else {
+            panic!("the failed vault should be reported as skipped");
+        };
+        assert_eq!(vault.id, VAULT_ID);
+        assert_eq!(vault.item_count, Some(17));
+        assert_eq!(vault.reason, SkippedReason::NoAccess);
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn an_auth_or_transient_vault_failure_aborts_the_import() {
+        for status in [401, 503] {
+            let server = MockServer::start().await;
+            server
+                .register(
+                    Mock::given(matchers::path(format!("/api/v1/vault/{VAULT_ID}/0/items")))
+                        .respond_with(ResponseTemplate::new(status))
+                        .expect(1),
+                )
+                .await;
+
+            let result = download_vault(
+                VaultInfo {
+                    id: VAULT_ID.into(),
+                    name: "Known vault".into(),
+                    item_count: Some(17),
+                },
+                &Keychain::new(),
+                &session(&server),
+            )
+            .await;
+
+            assert!(result.is_err());
+            server.verify().await;
+        }
+    }
+
     fn access(acl: i32, kid: &str) -> VaultAccess {
+        access_with_scheme(acl, kid, "A256GCM")
+    }
+
+    fn access_with_scheme(acl: i32, kid: &str, scheme: &str) -> VaultAccess {
         serde_json::from_value(json!({
             "acl": acl,
-            "encVaultKey": {"kid": kid, "enc": "A256GCM", "cty": "b5+jwk+json", "data": ""},
+            "encVaultKey": {"kid": kid, "enc": scheme, "cty": "b5+jwk+json", "data": ""},
         }))
         .expect("valid access entry")
+    }
+
+    #[test]
+    fn a_vault_with_unreadable_attributes_is_skipped() {
+        let account_key = AesKey::new("ACCOUNT", vec![1u8; 32]);
+        let vault_key = json!({"kid": "VAULT", "k": "WyICHHlP5lPigZUGZYoivbJMqgHjSti86UKwdjCryYM"});
+        let enc_vault_key = account_key
+            .encrypt(vault_key.to_string().as_bytes(), &[0u8; 12])
+            .expect("encrypts");
+        let mut keychain = Keychain::new();
+        keychain.add_aes(account_key);
+
+        for (kid, scheme, expected) in [
+            ("VAULT", "FUTURE", SkippedReason::Unsupported),
+            ("MISSING", "A256GCM", SkippedReason::NoAccess),
+        ] {
+            let vault: super::super::wire::VaultInfo = serde_json::from_value(json!({
+                "uuid": VAULT_ID,
+                "encAttrs": {"kid": kid, "enc": scheme, "cty": "b5+jwk+json", "data": ""},
+                "access": [{"acl": 32, "encVaultKey": enc_vault_key}],
+            }))
+            .expect("valid vault");
+
+            let unlocked =
+                unlock_vault(&vault, &mut keychain).expect("the envelopes are well formed");
+            assert!(matches!(
+                unlocked,
+                VaultUnlock::Skipped(SkippedVault { reason, .. }) if reason == expected
+            ));
+        }
     }
 
     #[test]
@@ -365,23 +714,46 @@ mod tests {
         let entries = vec![
             // Readable, but the key is not in the keychain.
             access(32, "missing"),
+            // Readable, but in a scheme we cannot decrypt.
+            access_with_scheme(32, "usable", "FUTURE"),
             // The key is in the keychain, but there is no read access.
             access(1, "usable"),
             // Both.
             access(32, "usable"),
         ];
 
-        let found = find_working_key(&entries, &keychain)
-            .expect("the schemes are all supported")
-            .expect("a usable entry");
-        assert_eq!(found.kid, "usable");
+        let found = find_working_key(&entries, &keychain).expect("the envelopes are well formed");
+        assert!(matches!(
+            found,
+            VaultKey::Found(entry) if entry.kid == "usable" && entry.enc == "A256GCM"
+        ));
     }
 
     #[test]
-    fn find_working_key_returns_nothing_without_a_usable_entry() {
+    fn find_working_key_reports_no_access_without_a_usable_entry() {
         let keychain = Keychain::new();
-        let entries = [access(32, "missing")];
-        let found = find_working_key(&entries, &keychain).expect("the scheme is supported");
-        assert!(found.is_none());
+        let entries = [
+            access(32, "missing"),
+            // Without read access the scheme does not matter.
+            access_with_scheme(1, "missing", "FUTURE"),
+        ];
+
+        let found = find_working_key(&entries, &keychain).expect("the envelopes are well formed");
+        assert!(matches!(found, VaultKey::Missing(SkippedReason::NoAccess)));
+    }
+
+    #[test]
+    fn find_working_key_reports_an_unsupported_scheme() {
+        let keychain = Keychain::new();
+        let entries = [
+            access_with_scheme(32, "missing", "FUTURE"),
+            access(32, "missing"),
+        ];
+
+        let found = find_working_key(&entries, &keychain).expect("the envelopes are well formed");
+        assert!(matches!(
+            found,
+            VaultKey::Missing(SkippedReason::Unsupported)
+        ));
     }
 }

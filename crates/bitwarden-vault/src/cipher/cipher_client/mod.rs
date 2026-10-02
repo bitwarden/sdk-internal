@@ -26,7 +26,7 @@ use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 mod admin;
 mod bulk_update_collections;
 
-pub use admin::GetAssignedOrgCiphersAdminError;
+pub use admin::{GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError};
 mod create;
 mod delete;
 mod edit;

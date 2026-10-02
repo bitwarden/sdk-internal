@@ -25,7 +25,7 @@ impl bitwarden_core::auth::ClientManagedTokens for MockTokenProvider {
 struct FailingCallback;
 
 impl LogCallback for FailingCallback {
-    fn on_log(&self, _level: String, _target: String, _message: String) -> Result<()> {
+    fn on_log(&self, _level: LogLevel, _target: String, _message: String) -> Result<()> {
         // Simulate mobile callback exception
         // Use a simple error that will be converted at FFI boundary
         Err(bitwarden_uniffi::error::BitwardenError::Conversion(
@@ -37,7 +37,7 @@ impl LogCallback for FailingCallback {
 #[test]
 fn test_callback_error_does_not_crash_sdk() {
     // Initialize logger with failing callback
-    init_logger(Some(Arc::new(FailingCallback)), None);
+    init_logger(Some(Arc::new(FailingCallback)), None, true);
 
     // Create client
     let client = Client::new(
