@@ -9,8 +9,6 @@ use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -20,7 +18,7 @@ uuid_newtype!(pub OrganizationUserId);
 /// The membership status of a user within an organization.
 #[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[repr(i8)]
 pub enum OrganizationUserStatusType {
     /// The user's access has been revoked. This may occur at any time from any other status.
@@ -38,7 +36,7 @@ pub enum OrganizationUserStatusType {
 /// The role of a user within an organization.
 #[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[repr(u8)]
 pub enum OrganizationUserType {
     /// Full administrative control over the organization.
@@ -56,7 +54,7 @@ pub enum OrganizationUserType {
 /// The type of provider.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[repr(u8)]
 pub enum ProviderType {
     /// Managed Service Provider - sells and manages its clients' Bitwarden organizations.
@@ -72,7 +70,7 @@ pub enum ProviderType {
 /// The method used to decrypt organization member data.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[repr(u8)]
 pub enum MemberDecryptionType {
     /// Decryption using the user's master password.
@@ -86,7 +84,7 @@ pub enum MemberDecryptionType {
 /// The subscription tier of an organization.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[repr(u8)]
 pub enum ProductTierType {
     /// Free tier with limited features.
@@ -105,7 +103,7 @@ pub enum ProductTierType {
 /// [`OrganizationUserType::Custom`] role.
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase", default)]
 pub struct Permissions {
     /// Can view the organization's event logs.
@@ -140,7 +138,7 @@ pub struct Permissions {
 /// organization that the current user belongs to.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileOrganization {
     /// Unique identifier for the organization.

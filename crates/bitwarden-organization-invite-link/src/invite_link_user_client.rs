@@ -17,21 +17,19 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 use bitwarden_organization_crypto::invite::{Invite, InviteSecret};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{InviteLinkError, OrganizationInviteLinkStatusView};
 
 /// Client for organization invite link invitee (user) operations: checking link status, validating
 /// email eligibility, and accepting or self-confirming an invite.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct InviteLinkUserClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl InviteLinkUserClient {
     /// Retrieves the status of an invite link.
     /// Used to verify basic availability before attempting to accept.

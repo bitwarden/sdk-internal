@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use bitwarden_core::{Client, FromClient};
-#[cfg(feature = "wasm")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -19,12 +16,9 @@ use crate::{
 /// This struct contains two vectors: `successes` and `failures`.
 /// `successes` contains the decrypted `CollectionView` objects,
 /// while `failures` contains the original `Collection` objects that failed to decrypt.
-#[cfg_attr(
-    feature = "wasm",
-    derive(Tsify, Serialize, Deserialize),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
 pub struct DecryptCollectionListResult {
     /// The decrypted `CollectionView` objects.
     pub successes: Vec<CollectionView>,
@@ -33,7 +27,7 @@ pub struct DecryptCollectionListResult {
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(Clone)]
 pub struct CollectionsClient {
     pub(crate) client: Client,
@@ -47,7 +41,7 @@ impl FromClient for CollectionsClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CollectionsClient {
     /// Encrypts a [CollectionView] into an encrypted [Collection] using the organization key.
     pub fn encrypt(
@@ -116,27 +110,24 @@ impl CollectionsClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CollectionViewTree {
     tree: Tree<CollectionView>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CollectionViewNodeItem {
     node_item: NodeItem<CollectionView>,
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(Tsify, Serialize, Deserialize),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
 pub struct AncestorMap {
     pub ancestors: HashMap<CollectionId, String>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CollectionViewNodeItem {
     pub fn get_item(&self) -> CollectionView {
         self.node_item.item.clone()
@@ -162,7 +153,7 @@ impl CollectionViewNodeItem {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CollectionViewTree {
     pub fn get_item_for_view(
         &self,

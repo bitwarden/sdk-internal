@@ -5,8 +5,6 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyStore;
 use bitwarden_organization_crypto::invite::{Invite, InviteSecret};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{InviteLinkAdminClient, InviteLinkError, InviteLinkUserClient, OrganizationInviteLink};
 
@@ -16,7 +14,7 @@ use crate::{InviteLinkAdminClient, InviteLinkError, InviteLinkUserClient, Organi
 /// [`admin`](Self::admin)) for administrator CRUD operations, and [`InviteLinkUserClient`] (via
 /// [`user`](Self::user)) for invitee flows. The other methods on this type are deprecated redirects
 /// kept for backwards compatibility.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct InviteLinkClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -27,7 +25,7 @@ pub struct InviteLinkClient {
 // deprecated), and the `wasm_bindgen`-generated shims call the redirects; both would otherwise emit
 // deprecation warnings from generated code we cannot annotate individually.
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl InviteLinkClient {
     /// Administrative (organization-key) invite link operations.
     pub fn admin(&self) -> InviteLinkAdminClient {
