@@ -225,6 +225,21 @@ codegen-units = 1
 lto = true
 opt-level = "z"
 
+# KDFs run on every unlock and dominate its time. Optimizing these crates for speed instead of size
+# makes PBKDF2 and Argon2id unlock faster for a few KB of binary size.
+
+[profile.release.package.argon2]
+opt-level = 3
+
+[profile.release.package.blake2]
+opt-level = 3
+
+[profile.release.package.hmac]
+opt-level = 3
+
+[profile.release.package.sha2]
+opt-level = 3
+
 # Enable optimization for the bitwarden-crypto crate. This will increase the binary size slightly (~0.1MB),
 # but it will more aggressively inline functions. This will help us avoid extra stack copies of keys and
 # other sensitive values being left behind without cleanup.
