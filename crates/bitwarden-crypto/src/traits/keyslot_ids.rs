@@ -46,7 +46,11 @@ pub struct LocalId(pub(crate) uuid::Uuid);
 
 impl LocalId {
     pub(crate) fn new() -> Self {
-        LocalId(uuid::Uuid::new_v4())
+        // A process-wide counter is unique and avoids a CSPRNG call per local key (on WASM, a
+        // `crypto.getRandomValues` round-trip per decrypted cipher key).
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let next = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        LocalId(uuid::Uuid::from_u64_pair(0, next))
     }
 }
 
