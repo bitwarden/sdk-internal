@@ -5,8 +5,6 @@
 use bitwarden_crypto::safe::HighEntropySecret;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::{OpenOrgInvite, SealedOpenOrgInviteData};
@@ -16,7 +14,7 @@ use crate::registration::registration_client::{RegistrationClient, RegistrationE
 /// [`RegistrationClient::seal_open_org_invite_data`] and consumed by
 /// [`RegistrationClient::unseal_open_org_invite_data`]. Both fields are required to unseal;
 /// neither half is useful on its own.
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SealedOpenOrgInvite {
@@ -26,7 +24,7 @@ pub struct SealedOpenOrgInvite {
     pub high_entropy_secret: HighEntropySecret,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl RegistrationClient {
     /// Seals an [`OpenOrgInvite`] into a [`SealedOpenOrgInvite`]. The returned
     /// `sealed_data` is safe to place on the verification-email link; the returned

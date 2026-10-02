@@ -6,11 +6,9 @@ use bitwarden_core::{
     key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Client for emergency access operations, performed as the grantee.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct EmergencyAccessClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
     pub(crate) key_store: KeyStore<KeySlotIds>,

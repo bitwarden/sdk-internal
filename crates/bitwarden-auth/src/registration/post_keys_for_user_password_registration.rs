@@ -15,11 +15,7 @@ use wasm_bindgen::prelude::*;
 use crate::registration::{RegistrationClient, RegistrationError};
 
 /// Open-organization-invite data to include on the register-finish payload.
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct RegistrationFinishOpenOrgInviteData {
@@ -42,11 +38,7 @@ pub struct RegistrationFinishOpenOrgInviteData {
 // changes on mobile and clients (rather than forcing a coordinated PR across every consumer
 // repo whenever a field is added).
 /// Request parameters for master password registration
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct UserMasterPasswordRegistrationRequest {
@@ -82,11 +74,7 @@ pub struct UserMasterPasswordRegistrationRequest {
 }
 
 /// Result of user master password registration process.
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct UserMasterPasswordRegistrationResponse {
@@ -98,7 +86,7 @@ pub struct UserMasterPasswordRegistrationResponse {
     pub user_key: B64,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl RegistrationClient {
     /// Initializes new password-based cryptographic state for a user
     /// and posts the state to the server
