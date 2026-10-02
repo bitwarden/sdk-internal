@@ -28,7 +28,7 @@ pub fn derive_shareable_key(
 
     // HKDF already produces the `enc_key || mac_key` layout the key stores internally.
     let key: Pin<Box<Array<u8, U64>>> = hkdf_expand(&res, info).expect("Input is a valid size");
-    Aes256CbcHmacKey { key }
+    Aes256CbcHmacKey::from_composite(key)
 }
 
 #[cfg(test)]

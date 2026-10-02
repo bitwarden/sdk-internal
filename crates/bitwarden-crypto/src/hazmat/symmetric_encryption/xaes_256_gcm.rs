@@ -55,11 +55,41 @@ impl Aead for XAes256Gcm {
         ciphertext: &Self::Ciphertext,
         associated_data: &[u8],
     ) -> Result<Vec<u8>, CryptoError> {
+        Self::decrypt_expanded(
+            &XAes256GcmExpandedKey::new(key),
+            nonce,
+            ciphertext,
+            associated_data,
+        )
+    }
+}
+
+impl XAes256Gcm {
+    /// [`Aead::decrypt`] with a pre-expanded key, skipping the per-call key schedule.
+    pub(crate) fn decrypt_expanded(
+        key: &XAes256GcmExpandedKey,
+        nonce: &XAes256GcmNonce,
+        ciphertext: &XAes256GcmCiphertext,
+        associated_data: &[u8],
+    ) -> Result<Vec<u8>, CryptoError> {
         let mut buffer = ciphertext.encrypted_bytes().to_vec();
-        Xaes256GcmAlg::new(key.into())
+        key.0
             .decrypt_in_place(&nonce.0, associated_data, &mut buffer)
             .map_err(|_| CryptoError::KeyDecrypt)?;
         Ok(buffer)
+    }
+}
+
+/// XAES-256-GCM with the master-key AES schedule and CMAC subkey pre-computed.
+///
+/// The per-message key derived from the nonce is not cached; only work that depends on the key
+/// alone is. The AES round keys zeroize on drop.
+#[derive(Clone)]
+pub(crate) struct XAes256GcmExpandedKey(Xaes256GcmAlg);
+
+impl XAes256GcmExpandedKey {
+    pub(crate) fn new(key: &[u8; KEY_SIZE]) -> Self {
+        Self(Xaes256GcmAlg::new(key.into()))
     }
 }
 
