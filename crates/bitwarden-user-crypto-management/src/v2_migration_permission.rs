@@ -7,8 +7,6 @@
 use bitwarden_core::key_management::V2EncryptedMigrationsGracePeriodStart;
 use chrono::{TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::UserCryptoManagementClient;
 

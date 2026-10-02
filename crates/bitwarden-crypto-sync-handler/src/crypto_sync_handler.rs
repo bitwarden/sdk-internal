@@ -15,8 +15,6 @@ use bitwarden_core::{
 use bitwarden_crypto::KeyId;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// The parts of a sync response the key management sync handler needs.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

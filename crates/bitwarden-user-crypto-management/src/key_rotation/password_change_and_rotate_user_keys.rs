@@ -7,8 +7,6 @@ use bitwarden_core::key_management::{
 use bitwarden_crypto::{KeyStore, PublicKey};
 use serde::{Deserialize, Serialize};
 use tracing::info;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     UserCryptoManagementClient,
