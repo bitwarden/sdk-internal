@@ -10,6 +10,11 @@ mod uniffi_support;
 /// Encryptable, TryFrom, and TreeItem
 pub mod collection;
 ///
+/// Module containing the [CollectionsClient](collection_client::CollectionsClient), which exposes
+/// encrypt/decrypt operations for collections.
+#[allow(missing_docs)]
+pub mod collection_client;
+///
 /// Module containing the error types.
 pub mod error;
 ///

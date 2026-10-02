@@ -180,7 +180,7 @@ mod tests {
                         cipher_id: Some(uuid!("55555555-5555-5555-5555-555555555555")),
                         collection_id: Some(uuid!("66666666-6666-6666-6666-666666666666")),
                         requester_id: Some(uuid!("88888888-8888-8888-8888-888888888888")),
-                        status: Some(bitwarden_api_api::models::AccessRequestStatus::Activated),
+                        status: Some(bitwarden_api_api::models::AccessRequestStatus::Approved),
                         lease_not_before: Some("2025-01-01T00:00:00Z".to_string()),
                         lease_not_after: Some("2025-01-01T02:00:00Z".to_string()),
                         submitted_at: Some("2025-01-01T00:00:00Z".to_string()),

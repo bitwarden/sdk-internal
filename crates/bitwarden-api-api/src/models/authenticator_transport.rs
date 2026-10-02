@@ -21,6 +21,10 @@ pub enum AuthenticatorTransport {
     Nfc,
     #[serde(rename = "ble")]
     Ble,
+    #[serde(rename = "smart-card")]
+    SmartCard,
+    #[serde(rename = "hybrid")]
+    Hybrid,
     #[serde(rename = "internal")]
     Internal,
 
@@ -35,6 +39,8 @@ impl std::fmt::Display for AuthenticatorTransport {
             Self::Usb => write!(f, "usb"),
             Self::Nfc => write!(f, "nfc"),
             Self::Ble => write!(f, "ble"),
+            Self::SmartCard => write!(f, "smart-card"),
+            Self::Hybrid => write!(f, "hybrid"),
             Self::Internal => write!(f, "internal"),
             Self::__Unknown(s) => write!(f, "{}", s),
         }

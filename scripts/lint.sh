@@ -121,11 +121,18 @@ run_dylint() {
   cargo bin cargo-dylint --help >/dev/null
   cargo bin dylint-link --help >/dev/null 2>&1 || true
 
-  local cargo_dylint dylint_link
-  cargo_dylint="$(find "$REPO_ROOT/.bin" -type f -name cargo-dylint -not -path '*/.shims/*' -print -quit)"
-  dylint_link="$(find "$REPO_ROOT/.bin" -type f -name dylint-link -not -path '*/.shims/*' -print -quit)"
+  # Grab the exact version from the manifest. The directory gets cached and can contain older versions.
+  local dylint_version dylint_link_version cargo_dylint dylint_link
+  dylint_version="$(awk -F'"' '/^cargo-dylint *=/ {print $2}' "$REPO_ROOT/Cargo.toml")"
+  dylint_link_version="$(awk -F'"' '/^dylint-link *=/ {print $2}' "$REPO_ROOT/Cargo.toml")"
+  if [[ -z "$dylint_version" || -z "$dylint_link_version" ]]; then
+    echo "Could not read cargo-dylint/dylint-link versions from Cargo.toml" >&2
+    exit 1
+  fi
+  cargo_dylint="$(find "$REPO_ROOT/.bin" -type f -name cargo-dylint -path "*/cargo-dylint/$dylint_version/*" -print -quit)"
+  dylint_link="$(find "$REPO_ROOT/.bin" -type f -name dylint-link -path "*/dylint-link/$dylint_link_version/*" -print -quit)"
   if [[ -z "$cargo_dylint" || -z "$dylint_link" ]]; then
-    echo "Could not find cargo-dylint/dylint-link under .bin (build failed?)" >&2
+    echo "Could not find cargo-dylint $dylint_version / dylint-link $dylint_link_version under .bin (build failed?)" >&2
     exit 1
   fi
   PATH="$(dirname "$dylint_link"):$PATH" "$cargo_dylint" dylint --all -- --all-features --all-targets

@@ -1,11 +1,11 @@
 use std::num::NonZeroU32;
 
 use bitwarden_api_api::models::{
-    AccessApprovalMode as ApiAccessApprovalMode, AccessDecisionVerdict as ApiAccessDecisionVerdict,
-    AccessPreCheckResponseModel, AccessRequestCreateRequestModel,
-    AccessRequestDecisionResponseModel, AccessRequestDetailsResponseModel,
-    AccessRequestResultResponseModel, AccessRequestStatus as ApiAccessRequestStatus,
-    CipherAccessStateResponseModel, DeciderKind as ApiDeciderKind,
+    AccessApprovalMode as ApiAccessApprovalMode, AccessDeciderKind as ApiAccessDeciderKind,
+    AccessDecisionVerdict as ApiAccessDecisionVerdict, AccessPreCheckResponseModel,
+    AccessRequestCreateRequestModel, AccessRequestDecisionResponseModel,
+    AccessRequestDetailsResponseModel, AccessRequestResultResponseModel,
+    AccessRequestStatus as ApiAccessRequestStatus, CipherAccessStateResponseModel,
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{OrganizationId, UserId, require};
@@ -22,19 +22,19 @@ use crate::{
 
 /// The lifecycle state of an access request.
 ///
-/// The automatic (no human approval) path moves `Pending -> Approved -> Activated`; the requester
-/// activates the approved request to mint a lease. `Denied`, `Canceled`, and `Expired` are terminal
-/// states in which no lease exists.
+/// The automatic (no human approval) path moves `Pending -> Approved`; the requester activates the
+/// approved request to mint a lease. Activation does not change the status — it is observed through
+/// [`produced_lease_id`](AccessRequestView::produced_lease_id) and
+/// [`produced_lease_status`](AccessRequestView::produced_lease_status). `Denied`, `Canceled`, and
+/// `Expired` are terminal states in which no lease exists.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
 pub enum AccessRequestStatus {
     /// Awaiting a decision (or, on the automatic path, awaiting the server's auto-approval).
     Pending,
-    /// Approved but not yet activated; the requester may activate it to mint a lease.
+    /// Approved; the requester may activate it to mint a lease.
     Approved,
-    /// Activated - a lease has been minted from this request.
-    Activated,
     /// Denied by an approver; terminal.
     Denied,
     /// Cancelled by the requester before resolution; terminal.
@@ -51,9 +51,8 @@ impl From<ApiAccessRequestStatus> for AccessRequestStatus {
         match status {
             ApiAccessRequestStatus::Pending => Self::Pending,
             ApiAccessRequestStatus::Approved => Self::Approved,
-            ApiAccessRequestStatus::Activated => Self::Activated,
             ApiAccessRequestStatus::Denied => Self::Denied,
-            ApiAccessRequestStatus::Canceled => Self::Canceled,
+            ApiAccessRequestStatus::Cancelled => Self::Canceled,
             ApiAccessRequestStatus::Expired => Self::Expired,
             ApiAccessRequestStatus::__Unknown(_) => Self::Unknown,
         }
@@ -134,13 +133,15 @@ impl TryFrom<AccessRequestDecisionResponseModel> for AccessRequestDecisionView {
 
     fn try_from(response: AccessRequestDecisionResponseModel) -> Result<Self, Self::Error> {
         let decider = match require!(response.decider_kind) {
-            ApiDeciderKind::Automatic => AccessDecider::Automatic,
-            ApiDeciderKind::Human => AccessDecider::Human(AccessApprover {
+            ApiAccessDeciderKind::Automatic => AccessDecider::Automatic,
+            ApiAccessDeciderKind::Human => AccessDecider::Human(AccessApprover {
                 id: response.id.map(UserId::new),
                 name: response.name,
                 email: response.email,
             }),
-            ApiDeciderKind::__Unknown(_) => return Err(LeasingError::UnrecognizedDeciderKind),
+            ApiAccessDeciderKind::__Unknown(_) => {
+                return Err(LeasingError::UnrecognizedDeciderKind);
+            }
         };
 
         Ok(Self {
@@ -447,7 +448,7 @@ impl From<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::models::{
-        AccessLeaseResponseModel, AccessLeaseStatus as ApiAccessLeaseStatus, DeciderKind,
+        AccessDeciderKind, AccessLeaseResponseModel, AccessLeaseStatus as ApiAccessLeaseStatus,
     };
     use uuid::{Uuid, uuid};
 
@@ -455,7 +456,7 @@ mod tests {
 
     fn human_decision() -> AccessRequestDecisionResponseModel {
         AccessRequestDecisionResponseModel {
-            decider_kind: Some(DeciderKind::Human),
+            decider_kind: Some(AccessDeciderKind::Human),
             id: Some(Uuid::new_v4()),
             name: Some("Ana Approver".to_string()),
             email: Some("ana@example.com".to_string()),
@@ -467,7 +468,7 @@ mod tests {
 
     fn automatic_decision() -> AccessRequestDecisionResponseModel {
         AccessRequestDecisionResponseModel {
-            decider_kind: Some(DeciderKind::Automatic),
+            decider_kind: Some(AccessDeciderKind::Automatic),
             id: None,
             name: None,
             email: None,
@@ -485,7 +486,7 @@ mod tests {
             organization_id: Some(Uuid::new_v4()),
             requester_id: Some(Uuid::new_v4()),
             rule_id: Some(Uuid::new_v4()),
-            status: Some(ApiAccessRequestStatus::Activated),
+            status: Some(ApiAccessRequestStatus::Approved),
             lease_not_before: Some("2025-01-01T00:00:00Z".to_string()),
             lease_not_after: Some("2025-01-01T01:00:00Z".to_string()),
             reason: Some("Need to fix an incident".to_string()),
@@ -559,7 +560,7 @@ mod tests {
     #[test]
     fn unknown_decider_kind_is_rejected() {
         let response = AccessRequestDecisionResponseModel {
-            decider_kind: Some(DeciderKind::__Unknown(99)),
+            decider_kind: Some(AccessDeciderKind::__Unknown(99)),
             ..human_decision()
         };
 

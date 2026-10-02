@@ -1,6 +1,6 @@
 import { ClientSettings, PasswordManagerClient } from "@bitwarden/sdk-internal";
 
-import { HttpMock, installHttpMock } from "../http-mock";
+import { HttpMock, installHttpMock } from "../../server-emulator/http-mock";
 import {
   TEST_INVITE,
   TEST_INVITE_NO_CONFIRMATION,
@@ -9,6 +9,7 @@ import {
 } from "../org-fixtures";
 import { makeOrgAccountClient, makeOrgInitializedClient, makeStateBridge } from "../utils";
 import { CREATION_DATE, LINK_CODE, LINK_ID, ROUTES, inviteLinkRoutes } from "./invite-link-server";
+import { fromUuid } from "../type-assertion-helpers";
 
 // Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
 // SDK's request URLs parseable and makes an unmocked route fail loudly rather than escape to
@@ -118,6 +119,109 @@ describe("invite link client", () => {
       expect(inviteLink.get_invite_secret(TEST_ORGANIZATION_ID, refreshed.invite)).not.toBe(
         inviteLink.get_invite_secret(TEST_ORGANIZATION_ID, created.invite),
       );
+    });
+  });
+
+  describe("set_invite_confirmation", () => {
+    it("strips the organization-key envelope when disabling confirmation", async () => {
+      mock = installHttpMock(inviteLinkRoutes());
+
+      const link = await admin
+        .invite_link()
+        .set_invite_confirmation(TEST_ORGANIZATION_ID, TEST_INVITE, false);
+
+      // No key material is fetched — the invite carries everything needed.
+      expect(mock.routes()).toEqual([ROUTES.supportConfirm]);
+
+      const posted = mock.bodyFor(ROUTES.supportConfirm);
+      expect(Object.keys(posted).sort()).toEqual(["invite", "supportsConfirmation"]);
+      expect(posted.supportsConfirmation).toBe(false);
+      // The envelope is nulled out rather than dropped, and the other four are untouched.
+      const stripped = JSON.parse(posted.invite);
+      expect(stripped.invite_key_sealed_organization_key).toBeNull();
+      const original = JSON.parse(TEST_INVITE as unknown as string);
+      expect(original.invite_key_sealed_organization_key).not.toBeNull();
+      for (const key of [
+        "sealed_invite_data",
+        "invite_key_sealed_invite_data_cek",
+        "invite_secret_sealed_invite_key",
+        "organization_key_sealed_invite_key",
+      ]) {
+        expect(stripped[key]).toBe(original[key]);
+      }
+
+      expect(link.supportsConfirmation).toBe(false);
+      expect(link.invite).toBe(posted.invite);
+    });
+
+    it("re-seals the organization key when enabling confirmation", async () => {
+      mock = installHttpMock(inviteLinkRoutes());
+
+      const link = await admin
+        .invite_link()
+        .set_invite_confirmation(TEST_ORGANIZATION_ID, TEST_INVITE_NO_CONFIRMATION, true);
+
+      const posted = mock.bodyFor(ROUTES.supportConfirm);
+      expect(posted.supportsConfirmation).toBe(true);
+      // A fresh envelope appears where the fixture had `null`; the invite key it wraps is
+      // unchanged, so `organization_key_sealed_invite_key` must not be rotated.
+      const resealed = JSON.parse(posted.invite);
+      const original = JSON.parse(TEST_INVITE_NO_CONFIRMATION as unknown as string);
+      expect(resealed.invite_key_sealed_organization_key).toEqual(expect.any(String));
+      expect(resealed.organization_key_sealed_invite_key).toBe(
+        original.organization_key_sealed_invite_key,
+      );
+      expect(link.supportsConfirmation).toBe(true);
+    });
+
+    it("preserves the invite secret so distributed links keep working", async () => {
+      mock = installHttpMock(inviteLinkRoutes());
+      const inviteLink = admin.invite_link();
+
+      const link = await inviteLink.set_invite_confirmation(
+        TEST_ORGANIZATION_ID,
+        TEST_INVITE,
+        false,
+      );
+
+      expect(inviteLink.get_invite_secret(TEST_ORGANIZATION_ID, link.invite)).toEqual(
+        TEST_INVITE_SECRET,
+      );
+      for (const request of mock.requests) {
+        expect(request.body).not.toContain(TEST_INVITE_SECRET);
+      }
+    });
+
+    it("lets an invitee redeem a link whose confirmation was turned off after creation", async () => {
+      // Whatever the admin posts to support-confirm is what the server hands back to the invitee.
+      let persisted: string | undefined;
+      mock = installHttpMock(
+        inviteLinkRoutes({
+          onCreate: (invite) => {
+            persisted = invite;
+          },
+          invite: () => persisted!,
+        }),
+      );
+
+      const link = await admin
+        .invite_link()
+        .set_invite_confirmation(TEST_ORGANIZATION_ID, TEST_INVITE, false);
+      expect(persisted).toBe(link.invite);
+
+      await invitee
+        .invite_link()
+        .accept_and_optionally_confirm(
+          TEST_ORGANIZATION_ID,
+          fromUuid(link.code),
+          TEST_INVITE_SECRET,
+          COLLECTION_NAME,
+          false,
+        );
+
+      // Confirmation was stripped, so the invitee can only accept.
+      expect(mock.routes()).toEqual([ROUTES.supportConfirm, ROUTES.getInvite, ROUTES.accept]);
+      expect(mock.called(ROUTES.confirm)).toBe(false);
     });
   });
 
@@ -276,7 +380,7 @@ describe("invite link client", () => {
       .invite_link()
       .accept_and_optionally_confirm(
         TEST_ORGANIZATION_ID,
-        link.code,
+        fromUuid(link.code),
         secret,
         COLLECTION_NAME,
         true,

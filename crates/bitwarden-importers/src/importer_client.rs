@@ -2,7 +2,11 @@ use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{ImportError, ImportOptions, ImportSummary, import::import_kdbx};
+use crate::{
+    Credentials, ImportError, ImportOptions, ImportSummary, OnePasswordImportSummary,
+    OnePasswordTwoFactorUi,
+    import::{import_kdbx, import_onepassword},
+};
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -30,6 +34,41 @@ impl ImporterClient {
         options: ImportOptions,
     ) -> Result<ImportSummary, ImportError> {
         import_kdbx(&self.client, file, password, key_file, options).await
+    }
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+impl ImporterClient {
+    /// The same import as [`ImporterClient::import_onepassword`], for JavaScript, which passes the
+    /// two-factor prompt as an object rather than a `&dyn` callback.
+    #[wasm_bindgen(js_name = import_onepassword)]
+    pub async fn import_onepassword_wasm(
+        &self,
+        credentials: Credentials,
+        two_factor: crate::wasm::RawJsOnePasswordTwoFactorUi,
+        options: ImportOptions,
+    ) -> Result<OnePasswordImportSummary, ImportError> {
+        let two_factor = crate::wasm::JsOnePasswordTwoFactorUi::new(two_factor);
+        import_onepassword(&self.client, credentials, &two_factor, options).await
+    }
+}
+
+// Separate from the block above: `wasm_bindgen` cannot export the `&dyn` two-factor callback.
+impl ImporterClient {
+    /// Import a 1Password account directly from the 1Password servers.
+    ///
+    /// Signs in with the email, master password and Secret Key in `credentials`, asking
+    /// `two_factor` for a code when the account requires one, downloads and decrypts every vault
+    /// the account can open, and submits the result to the import endpoint. Each vault becomes a
+    /// folder. Returns the imported counts plus any vaults or items that could not be imported.
+    pub async fn import_onepassword(
+        &self,
+        credentials: Credentials,
+        two_factor: &dyn OnePasswordTwoFactorUi,
+        options: ImportOptions,
+    ) -> Result<OnePasswordImportSummary, ImportError> {
+        import_onepassword(&self.client, credentials, two_factor, options).await
     }
 }
 

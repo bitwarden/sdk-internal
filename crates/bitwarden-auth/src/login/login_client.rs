@@ -1,4 +1,4 @@
-use bitwarden_core::{Client, ClientSettings};
+use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -18,23 +18,14 @@ use wasm_bindgen::prelude::*;
 /// ```rust,no_run
 /// # use bitwarden_auth::{AuthClient, login::login_via_password::PasswordLoginRequest};
 /// # use bitwarden_auth::login::models::{LoginRequest, LoginDeviceRequest, LoginResponse};
-/// # use bitwarden_core::{Client, ClientSettings, DeviceType};
+/// # use bitwarden_core::{Client, DeviceType};
 /// # async fn example(email: String, password: String) -> Result<(), Box<dyn std::error::Error>> {
 /// // Create auth client
 /// let client = Client::new(None);
 /// let auth_client = AuthClient::new(client);
 ///
-/// // Configure client settings and create login client
-/// let settings = ClientSettings {
-///     identity_url: "https://identity.bitwarden.com".to_string(),
-///     api_url: "https://api.bitwarden.com".to_string(),
-///     user_agent: "MyApp/1.0".to_string(),
-///     device_type: DeviceType::SDK,
-///     device_identifier: None,
-///     bitwarden_client_version: None,
-///     bitwarden_package_type: None,
-/// };
-/// let login_client = auth_client.login(settings);
+/// // Create login client, sharing the same backing client
+/// let login_client = auth_client.login();
 ///
 /// // Get user's KDF config
 /// let prelogin = login_client.get_password_prelogin(email.clone()).await?;
@@ -71,18 +62,14 @@ pub struct LoginClient {
 }
 
 impl LoginClient {
-    /// Creates a new `LoginClient` with the given client settings.
+    /// Creates a new `LoginClient` with the given client.
     ///
     /// # Note
     ///
     /// This method is `pub(crate)` because `LoginClient` instances should be obtained through
     /// the AuthClient. Direct instantiation is internal to the crate.
-    pub(crate) fn new(settings: ClientSettings) -> Self {
-        let core_client = Client::new(Some(settings));
-
-        Self {
-            client: core_client,
-        }
+    pub(crate) fn new(client: Client) -> Self {
+        Self { client }
     }
 }
 
@@ -92,8 +79,8 @@ mod tests {
 
     #[test]
     fn test_login_client_creation() {
-        let client_settings = ClientSettings::default();
-        let login_client = LoginClient::new(client_settings);
+        let client = Client::new(None);
+        let login_client = LoginClient::new(client);
 
         // Verify the internal client exists (type check)
         let _client = &login_client.client;

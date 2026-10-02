@@ -1,0 +1,11 @@
+warning: this crate sets up UniFFI scaffolding but has no `uniffi.toml`
+  --> $DIR/main.rs:12:5
+   |
+LL |     uniffi::setup_scaffolding!();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a `uniffi.toml` beside `Cargo.toml`, copying the `[bindings.kotlin]` / `[bindings.swift]` layout from a neighboring crate and substituting this crate's names
+   = note: `#[warn(missing_uniffi_config)]` on by default
+
+warning: 1 warning emitted
+

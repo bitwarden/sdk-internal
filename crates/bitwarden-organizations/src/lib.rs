@@ -5,6 +5,7 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
+use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -13,6 +14,8 @@ use tsify::Tsify;
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
+
+uuid_newtype!(pub OrganizationUserId);
 
 /// The membership status of a user within an organization.
 #[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]

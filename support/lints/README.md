@@ -13,3 +13,6 @@ The following lints are currently available:
   `#[cfg_attr(feature = "wasm", wasm_bindgen)]` for repr-encoded enums.
 - `uniffi_async_export`: Ensures `#[uniffi::export]` on `async fn`s (free or inside an impl)
   specifies `async_runtime = "tokio"`.
+- `uniffi_config`: Ensures crates calling `uniffi::setup_scaffolding!()` ship a `uniffi.toml`, so
+  the Kotlin package name and Swift module names are set explicitly instead of derived from the
+  crate name.

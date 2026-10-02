@@ -8,6 +8,23 @@ Exposes `client.importers()` ([`ImporterClient`]) with:
 - `import_kdbx` — parses a KeePass KDBX (`.kdbx`) database (3.1 + 4, via the `keepass` crate),
   encrypts the entries for the user's personal vault or a given organization, and submits them to
   the server's import endpoint. Returns per-type counts.
+- `import_onepassword` — signs in to a 1Password account with its email, master password and Secret
+  Key, asking a caller-supplied prompt for a TOTP code when the account requires one, downloads and
+  decrypts every vault the account can open, and submits them the same way. Each vault becomes a
+  folder.
+
+## Keeper direct importer
+
+The Keeper "direct" importer logs into Keeper's API and decrypts the vault on-device. Its access
+layer is being ported from TypeScript (`clients` repo) into the `keeper` module incrementally
+(strangler-fig). The first piece, `keeper::crypto`, implements **Keeper's** formats —
+unauthenticated AES-CBC ("aes-v1"), AES-GCM with a prepended nonce ("aes-v2"), an ECDH-P256 →
+SHA-256 → AES-GCM scheme, and Keeper's custom `encryptionParams` blob. These are **not** Bitwarden
+cryptography and deliberately do not live in `bitwarden-crypto`; Use the RustCrypto crates. The
+crypto is currently internal Rust with no WASM / UniFFI bindings — the low-level primitives are
+deliberately not exposed across the FFI boundary. Platform bindings will be created once the
+structured access layer (records, folders, the `sync-down` protobuf) is ported, so the exposed
+surface can be record/folder-level operations rather than raw byte arrays.
 
 ## Architecture
 

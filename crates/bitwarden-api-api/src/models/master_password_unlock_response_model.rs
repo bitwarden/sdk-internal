@@ -25,6 +25,12 @@ pub struct MasterPasswordUnlockResponseModel {
     pub master_key_encrypted_user_key: Option<String>,
     #[serde(rename = "salt", alias = "Salt")]
     pub salt: Option<String>,
+    #[serde(
+        rename = "containedKeyId",
+        alias = "ContainedKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub contained_key_id: Option<String>,
 }
 
 impl MasterPasswordUnlockResponseModel {
@@ -37,6 +43,7 @@ impl MasterPasswordUnlockResponseModel {
             kdf: Box::new(kdf),
             master_key_encrypted_user_key,
             salt,
+            contained_key_id: None,
         }
     }
 }

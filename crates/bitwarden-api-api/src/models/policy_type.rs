@@ -36,6 +36,7 @@ pub enum PolicyType {
     BlockClaimedDomainAccountCreation,
     OrganizationUserNotification,
     SendControls,
+    FillAssist,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -66,6 +67,7 @@ impl PolicyType {
             Self::BlockClaimedDomainAccountCreation => 19,
             Self::OrganizationUserNotification => 20,
             Self::SendControls => 21,
+            Self::FillAssist => 22,
             Self::__Unknown(v) => *v,
         }
     }
@@ -94,6 +96,7 @@ impl PolicyType {
             19 => Self::BlockClaimedDomainAccountCreation,
             20 => Self::OrganizationUserNotification,
             21 => Self::SendControls,
+            22 => Self::FillAssist,
             v => Self::__Unknown(v),
         }
     }

@@ -8,7 +8,7 @@ use crate::chunked::chunked_encode;
 
 /// Base64URL encoded data
 ///
-/// Is indifferent about padding when decoding, but always produces padding when encoding.
+/// Is indifferent about padding when decoding, and never produces padding when encoding.
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 #[serde(try_from = "&str", into = "String")]
 pub struct B64Url(Vec<u8>);
@@ -119,7 +119,7 @@ mod tests {
     }
 
     #[test]
-    fn test_b64url_encoding_with_padding() {
+    fn test_b64url_encoding_omits_padding() {
         let data = b"Hello, World!";
         let b64url = B64Url::from(data.as_slice());
         let encoded = String::from(&b64url);
@@ -141,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn test_b64url_round_trip_with_padding() {
+    fn test_b64url_round_trip_input_not_multiple_of_three() {
         let original = b"Test data that requires padding!";
         let b64url = B64Url::from(original.as_slice());
         let encoded = String::from(&b64url);
@@ -150,7 +150,7 @@ mod tests {
     }
 
     #[test]
-    fn test_b64url_round_trip_without_padding() {
+    fn test_b64url_round_trip_input_multiple_of_three() {
         let original = b"Test data";
         let b64url = B64Url::from(original.as_slice());
         let encoded = String::from(&b64url);

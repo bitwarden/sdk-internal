@@ -24,6 +24,14 @@ pub struct KeysRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub account_keys: Option<Box<models::AccountKeysRequestModel>>,
+    /// Key id of the user key these account keys belong to, when the client supplied it. Absent
+    /// for clients that predate the field. Only honored on the V2 path.
+    #[serde(
+        rename = "userKeyId",
+        alias = "UserKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_key_id: Option<String>,
 }
 
 impl KeysRequestModel {
@@ -32,6 +40,7 @@ impl KeysRequestModel {
             public_key,
             encrypted_private_key,
             account_keys: None,
+            user_key_id: None,
         }
     }
 }

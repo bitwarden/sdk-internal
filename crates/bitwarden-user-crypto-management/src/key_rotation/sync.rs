@@ -314,6 +314,7 @@ mod tests {
             organization_id: None,
             r#type: Some(bitwarden_api_api::models::CipherType::Login),
             data: None,
+            partial_data: None,
             name: Some(TEST_ENC_STRING.to_string()),
             notes: None,
             login: None,
@@ -379,9 +380,11 @@ mod tests {
                 }),
                 master_key_encrypted_user_key: None,
                 salt: Some("test_salt".to_string()),
+                contained_key_id: None,
             })),
             web_authn_prf_options: None,
             v2_upgrade_token: None,
+            user_key_id: None,
         }
     }
 

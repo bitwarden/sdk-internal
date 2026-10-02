@@ -148,7 +148,7 @@ fn create_dir_all_private(dir: &Path) -> std::io::Result<()> {
 ///
 /// The mode applies at creation only, so an existing file keeps whatever permissions it already
 /// has — this never widens them.
-fn write_file_private(path: &Path, data: &[u8]) -> std::io::Result<()> {
+pub(crate) fn write_file_private(path: &Path, data: &[u8]) -> std::io::Result<()> {
     #[cfg(unix)]
     {
         use std::{io::Write as _, os::unix::fs::OpenOptionsExt as _};

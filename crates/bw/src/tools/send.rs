@@ -30,10 +30,7 @@ use crate::{
     client_state::{AnyState, BwCommand, BwCommandExt as _, ClientContext, LoggedIn},
     platform::read_config_json,
     render::{CommandOutput, CommandResult},
-    tools::{
-        file_output::reject_path_traversal,
-        receive::{ReceiveInputs, run_receive},
-    },
+    tools::file_output::reject_path_traversal,
 };
 
 /// Allowed values for `--deleteInDays`, matching the legacy CLI's enumerated set.
@@ -115,7 +112,7 @@ pub enum SendCommands {
     Get(SendGetArgs),
 
     #[command(about = "Access a Bitwarden Send from a url.")]
-    Receive(SendReceiveArgs),
+    Receive(super::ReceiveArgs),
 
     #[command(about = "Create a Send.")]
     Create(SendCreateArgs),
@@ -142,56 +139,8 @@ pub struct SendTemplateArgs {
 pub struct SendGetArgs {
     pub id: SendId,
 
-    // The internal field is `output_path` (not `output`) to avoid clashing with the
-    // top-level `Cli::output` (the `-o` rendered-output-format arg). User-facing long
-    // flag stays `--output` to match the legacy CLI.
-    #[arg(
-        long = "output",
-        help = "File path to save a file-type Send's decrypted contents to."
-    )]
-    pub output_path: Option<String>,
-
     #[arg(long, help = "Only return the access url.")]
     pub text: bool,
-}
-
-/// `bw send receive <url>`. Must stay field-identical to [`super::ReceiveArgs`]
-/// (`bw receive`) — they are the same command under two names, and both delegate to
-/// [`super::receive::run_receive`].
-#[derive(Args, Clone, Debug)]
-#[command(after_help = "Notes:
-    If a password is required, the provided password is used or the user is prompted.")]
-pub struct SendReceiveArgs {
-    pub url: String,
-
-    #[arg(long, help = "Optional password for the Send.")]
-    pub password: Option<String>,
-
-    #[arg(long, help = "Environment variable storing the Send's password.")]
-    pub passwordenv: Option<String>,
-
-    #[arg(
-        long,
-        help = "Path to a file containing the Send's password as its first line."
-    )]
-    pub passwordfile: Option<String>,
-
-    // The internal field is `output_path` (not `output`) to avoid clashing with the top-level
-    // `Cli::output` (the `-o` rendered-output-format arg) — same convention as
-    // `SendGetArgs::output_path`. User-facing long flag stays `--output` to match both that
-    // sibling command and the legacy CLI.
-    #[arg(
-        long = "output",
-        help = "Specify a file path to save a File-type Send to."
-    )]
-    pub output_path: Option<String>,
-
-    #[arg(
-        long = "fullObject",
-        alias = "full-object",
-        help = "Return the Send's json object rather than its content."
-    )]
-    pub full_object: bool,
 }
 
 #[derive(Args, Clone, Debug)]
@@ -315,12 +264,6 @@ impl BwCommand for SendArgs {
                 let LoggedIn { user, .. } = LoggedIn::try_from(ctx)?;
                 create_shortcut(&user, self).await
             }
-            // `--output` on `get` fails before the auth check: silently emitting JSON to
-            // stdout while the requested file path goes uncreated would be a worse UX than
-            // an explicit "not implemented" error.
-            Some(SendCommands::Get(args)) if args.output_path.is_some() => {
-                Err(eyre!("`--output` on `bw send get` is not yet implemented"))
-            }
             // `create`/`edit` resolve and parse their full-object JSON input *before*
             // extracting `LoggedIn`, so malformed input surfaces a clear parse error rather
             // than a confusing "not logged in" message (the integration tests assert this
@@ -380,30 +323,7 @@ impl BwCommand for SendGetArgs {
     type Client = LoggedIn;
 
     async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
-        // The `--output` early-error gate lives in [`SendArgs::run`] above so it can
-        // fire *before* the `LoggedIn` typestate extractor — a logged-out caller passing
-        // `--output` should see the precise "not yet implemented" error rather than
-        // a generic auth message. See that gate for why it stays unimplemented.
         get_send(&user, self.id, self.text).await
-    }
-}
-
-impl BwCommand for SendReceiveArgs {
-    // `bw send receive` is the legacy alias for the top-level `bw receive` command; both route
-    // into the same implementation. `AnyState` because receiving a Send needs no session — the
-    // decryption key comes from the url fragment, not the account key store.
-    type Client = AnyState;
-
-    async fn run(self, _: AnyState) -> CommandResult {
-        run_receive(ReceiveInputs {
-            url: self.url,
-            password: self.password,
-            passwordenv: self.passwordenv,
-            passwordfile: self.passwordfile,
-            output_path: self.output_path,
-            full_object: self.full_object,
-        })
-        .await
     }
 }
 
@@ -687,6 +607,8 @@ impl From<SendJsonInput> for SendView {
             r#type: input.r#type,
             file: input.file,
             text: input.text,
+            // TODO - Use the `data` field when implementing item-type Send support
+            data: None,
             max_access_count: input.max_access_count,
             access_count: input.access_count,
             disabled: input.disabled,
@@ -784,13 +706,16 @@ fn build_create_request(inputs: CreateInputs) -> color_eyre::eyre::Result<SendAd
         }
     };
 
-    // Derive a default name: file sends pick up the file name; text sends require an explicit
-    // name to match the legacy CLI's UX.
+    // Derive a default name: file sends pick up the file name; text and
+    // item sends require an explicit name to match the legacy CLI's UX.
     let resolved_name = match (name, &view_type) {
         (Some(n), _) => n,
         (None, SendViewType::File(f)) => f.file_name.clone(),
         (None, SendViewType::Text(_)) => {
             return Err(eyre!("--name is required for text Sends."));
+        }
+        (None, SendViewType::Item(_)) => {
+            return Err(eyre!("--name is required for item Sends."));
         }
     };
 
@@ -1814,6 +1739,7 @@ mod tests {
                 text: Some("existing text".to_string()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: Some(42),
             access_count: 0,
             disabled: false,
@@ -2087,6 +2013,7 @@ mod tests {
                 text: Some("body".to_string()),
                 hidden,
             }),
+            data: None,
             max_access_count: max,
             access_count: 0,
             disabled: false,

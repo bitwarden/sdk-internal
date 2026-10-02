@@ -39,7 +39,7 @@ pub struct PolicyResponseModel {
         alias = "Data",
         skip_serializing_if = "Option::is_none"
     )]
-    pub data: Option<std::collections::HashMap<String, serde_json::Value>>,
+    pub data: Option<serde_json::Value>,
     #[serde(
         rename = "enabled",
         alias = "Enabled",

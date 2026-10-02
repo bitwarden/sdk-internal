@@ -1,5 +1,6 @@
 use bitwarden_api_api::models::{
-    SendFileModel, SendResponseModel, SendTextModel, SendWithIdRequestModel,
+    SendDataModel, SendFileModel, SendItemMetadataModel, SendResponseModel, SendTextModel,
+    SendWithIdRequestModel,
 };
 use bitwarden_core::{
     key_management::{KeySlotIds, SymmetricKeySlotId},
@@ -11,6 +12,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_uuid::uuid_newtype;
+use bitwarden_vault::{CipherId, CipherView};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -19,8 +21,9 @@ use zeroize::Zeroizing;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::SendParseError;
+use crate::{SendParseError, access::SEND_KEY_LEN, error::SendItemDeserializationFailureError};
 pub const SEND_ITERATIONS: u32 = 100_000;
+pub const DEFAULT_SEND_ENCRYPTION: SendEncryptionType = SendEncryptionType::V1;
 
 uuid_newtype!(pub SendId);
 
@@ -71,6 +74,38 @@ pub struct SendText {
     pub hidden: bool,
 }
 
+/// View model for decrypted SendItem
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct SendItemView {
+    /// The item content of the send
+    pub data: CipherView,
+}
+
+/// Item-based send content
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct SendItem {
+    pub encryption_version: SendEncryptionType,
+    /// Opaque sealed cipher blob, see [`CipherView::seal_blob_for_item_sends`].
+    pub data: String,
+    pub metadata: SendItemMetadata,
+}
+
+/// Unencrypted metadata of an Item Send
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct SendItemMetadata {
+    /// Id of the vault item being sent
+    pub item_id: CipherId,
+}
+
 /// View model for decrypted SendText
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -83,7 +118,7 @@ pub struct SendTextView {
     pub hidden: bool,
 }
 
-/// The type of Send, either text or file
+/// The type of Send, either text, file, or item
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -111,6 +146,16 @@ pub enum AuthType {
 
     /// No authentication required
     None = 2,
+}
+
+/// Indicates the version of Send data encryption that is being used
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub enum SendEncryptionType {
+    /// V1 encryption (field by field)
+    V1 = 1,
 }
 
 /// Type-safe authentication method for a Send, including the authentication data.
@@ -212,6 +257,8 @@ pub enum SendViewType {
     File(SendFileView),
     /// Text-based send
     Text(SendTextView),
+    /// Item-based send
+    Item(Box<SendItemView>),
 }
 
 /// Type alias for the tuple returned by SendViewType::into_api_models
@@ -219,6 +266,7 @@ type SendApiModels = (
     bitwarden_api_api::models::SendType,
     Option<Box<bitwarden_api_api::models::SendFileModel>>,
     Option<Box<bitwarden_api_api::models::SendTextModel>>,
+    Option<Box<bitwarden_api_api::models::SendDataModel>>,
 );
 
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for SendViewType {
@@ -237,6 +285,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                     size_name: f.size_name.clone(),
                 })),
                 None,
+                None,
             )),
             SendViewType::Text(t) => Ok((
                 bitwarden_api_api::models::SendType::Text,
@@ -250,7 +299,17 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                         .map(|e| e.to_string()),
                     hidden: Some(t.hidden),
                 })),
+                None,
             )),
+            SendViewType::Item(i) => {
+                let encrypted = i.encrypt_composite(ctx, key)?;
+                Ok((
+                    bitwarden_api_api::models::SendType::Item,
+                    None,
+                    None,
+                    Some(Box::new(encrypted.into())),
+                ))
+            }
         }
     }
 }
@@ -272,6 +331,7 @@ pub struct Send {
     pub r#type: SendType,
     pub file: Option<SendFile>,
     pub text: Option<SendText>,
+    pub data: Option<SendItem>,
 
     pub max_access_count: Option<u32>,
     pub access_count: u32,
@@ -312,8 +372,7 @@ impl From<Send> for SendWithIdRequestModel {
             deletion_date: send.deletion_date.to_rfc3339(),
             file: send.file.map(|file| Box::new(file.into())),
             text: send.text.map(|text| Box::new(text.into())),
-            // TODO: Implement logic for item-based Sends
-            data: None,
+            data: send.data.map(|data| Box::new(data.into())),
             password: send.password,
             emails: send.emails,
             disabled: send.disabled,
@@ -350,6 +409,7 @@ pub struct SendView {
     pub r#type: SendType,
     pub file: Option<SendFileView>,
     pub text: Option<SendTextView>,
+    pub data: Option<SendItemView>,
 
     pub max_access_count: Option<u32>,
     pub access_count: u32,
@@ -477,6 +537,35 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendFile> for SendFile
     }
 }
 
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendItemView> for SendItem {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<SendItemView, CryptoError> {
+        let mut data = CipherView::unseal_blob_for_item_sends(&self.data, ctx, key)?;
+        // The blob holds no id; restore it from the metadata.
+        data.id = Some(self.metadata.item_id);
+        Ok(SendItemView { data })
+    }
+}
+
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendItem> for SendItemView {
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<SendItem, CryptoError> {
+        Ok(SendItem {
+            encryption_version: DEFAULT_SEND_ENCRYPTION,
+            data: self.data.seal_blob_for_item_sends(ctx, key)?,
+            metadata: SendItemMetadata {
+                item_id: self.data.id.ok_or(CryptoError::MissingField("id"))?,
+            },
+        })
+    }
+}
+
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendView> for Send {
     fn decrypt(
         &self,
@@ -502,6 +591,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendView> for Send {
             r#type: self.r#type,
             file: self.file.decrypt(ctx, key).ok().flatten(),
             text: self.text.decrypt(ctx, key).ok().flatten(),
+            data: self.data.decrypt(ctx, key).ok().flatten(),
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -572,7 +662,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
                 .to_vec(),
             // New send, generate random key
             (None, None) => {
-                let key = generate_random_bytes::<[u8; 16]>();
+                let key = generate_random_bytes::<[u8; SEND_KEY_LEN]>();
                 key.to_vec()
             }
             // Existing send without key
@@ -587,6 +677,12 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
             name: self.name.encrypt(ctx, send_key)?,
             notes: self.notes.encrypt(ctx, send_key)?,
             key: OctetStreamBytes::from(k.clone()).encrypt(ctx, key)?,
+            // A decrypted SendView never carries the existing password hash (only
+            // `has_password`), so a call site with no new password to set (e.g. key rotation)
+            // always produces `password: None` here. This is safe: the server's rotation and
+            // edit validators special-case AuthType::Password on both the stored and incoming
+            // record and preserve the stored hash unconditionally in that case, ignoring
+            // whatever this field carries. See `ToSendBase` server-side.
             password: self.new_password.as_ref().map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
                 B64::from(password.as_slice()).to_string()
@@ -595,6 +691,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
             r#type: self.r#type,
             file: self.file.encrypt_composite(ctx, send_key)?,
             text: self.text.encrypt_composite(ctx, send_key)?,
+            data: self.data.encrypt_composite(ctx, send_key)?,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -637,6 +734,7 @@ impl TryFrom<SendResponseModel> for Send {
             r#type: require!(send.r#type).try_into()?,
             file: send.file.map(|f| (*f).try_into()).transpose()?,
             text: send.text.map(|t| (*t).try_into()).transpose()?,
+            data: send.data.map(|d| (*d).try_into()).transpose()?,
             max_access_count: send.max_access_count.map(|s| s as u32),
             access_count: require!(send.access_count) as u32,
             disabled: send.disabled.unwrap_or(false),
@@ -711,6 +809,27 @@ impl From<SendFile> for SendFileModel {
     }
 }
 
+impl From<SendEncryptionType> for bitwarden_api_api::models::SendEncryptionType {
+    fn from(t: SendEncryptionType) -> Self {
+        match t {
+            SendEncryptionType::V1 => bitwarden_api_api::models::SendEncryptionType::V1,
+        }
+    }
+}
+
+impl TryFrom<bitwarden_api_api::models::SendEncryptionType> for SendEncryptionType {
+    type Error = bitwarden_core::MissingFieldError;
+
+    fn try_from(value: bitwarden_api_api::models::SendEncryptionType) -> Result<Self, Self::Error> {
+        Ok(match value {
+            bitwarden_api_api::models::SendEncryptionType::V1 => SendEncryptionType::V1,
+            bitwarden_api_api::models::SendEncryptionType::__Unknown(_) => {
+                return Err(bitwarden_core::MissingFieldError("encryption_version"));
+            }
+        })
+    }
+}
+
 impl From<SendText> for SendTextModel {
     fn from(text: SendText) -> Self {
         SendTextModel {
@@ -744,12 +863,242 @@ impl TryFrom<SendTextModel> for SendText {
     }
 }
 
+impl TryFrom<SendDataModel> for SendItem {
+    type Error = SendParseError;
+
+    fn try_from(data: SendDataModel) -> Result<Self, Self::Error> {
+        let Some(sealed) = data.data else {
+            return Err(SendParseError::DeserializationFailure(
+                SendItemDeserializationFailureError,
+            ));
+        };
+
+        Ok(SendItem {
+            encryption_version: SendEncryptionType::try_from(
+                data.encryption_version
+                    .unwrap_or(DEFAULT_SEND_ENCRYPTION.into()),
+            )?,
+            data: sealed,
+            metadata: SendItemMetadata {
+                item_id: CipherId::new(data.metadata.item_id),
+            },
+        })
+    }
+}
+
+impl From<SendItem> for SendDataModel {
+    fn from(item: SendItem) -> Self {
+        SendDataModel {
+            encryption_version: Some(item.encryption_version.into()),
+            data: Some(item.data),
+            metadata: Box::new(SendItemMetadataModel {
+                item_id: item.metadata.item_id.into(),
+            }),
+        }
+    }
+}
+
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
+    use bitwarden_api_api::models::SendItemMetadataModel;
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_vault::{
+        CipherRepromptType, CipherType, FieldType, FieldView, LoginView, PasswordHistoryView,
+    };
 
     use super::*;
+
+    const TEST_USER_KEY: &str =
+        "bYCsk857hl8QJJtxyRK65tjUrbxKC4aDifJpsml+NIv4W9cVgFvi3qVD+yJTUU2T4UwNKWYtt9pqWf7Q+2WCCg==";
+    const TEST_SEND_KEY: &str = "2.KLv/j0V4Ebs0dwyPdtt4vw==|jcrFuNYN1Qb3onBlwvtxUV/KpdnR1LPRL4EsCoXNAt4=|gHSywGy4Rj/RsCIZFwze4s2AACYKBtqDXTrQXjkgtIE=";
+    const TEST_SEND_KEY_B64: &str = "Pgui0FK85cNhBGWHAlBHBw";
+    pub(crate) const TEST_ITEM_ID: &str = "5d4fbf2b-7a36-4b3c-9f2e-1a6d8c0e9b71";
+
+    /// Item Send `data`, sealed under the send key of [`TEST_SEND_KEY`]. Decrypts to
+    /// [`item_send_cipher_view`].
+    pub(crate) const TEST_VECTOR_ITEM_SEND_DATA: &str = "{\"format_version\":1,\"wrapped_cek\":\"2.e/m5UvBFEh4JEHYgnAVONQ==|Cl7wnKMdT9NxeisUg1Xx3OmOyZr7Z77luoLPCBxuo1EVAjf69q3yaFO25InB8swQgHdKgz/PVqtX6JmmbR4xu2PKZtNFNmRRUVnX5BWvvjE=|+PW2Knoda9s1qVKMAEcXDsw5ij/wUZ/GfR9xVDnpPSw=\",\"envelope\":\"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUCSl5i37B6J7uBZ8Ge91nw86AAE4gQI6AAE4gAGhBUxDZ7isjgG0Zt2UEERZATT9Jcf0kWC5y8qsWWn4iNEv9kbjf1jPeolS0FdxBu4y11Yez9MT1cPaJ8hxCjRztX5VgGzEKMnOcc491fwZXQByT0M9MLDDpJD3HDOOCzQ2gdk7VZktEmc8nhZoAGnZP0GmeoJh/my3WDukSsa2vOiOLE2KGIfF8OHa7nwXds9Z1aIhlavFSNAiqDWAdOk65OhqrvE0BPN7WdW7+NbuviPiEKa3wbCIhmjfQI1nW5simSqTMx4/ikLCqH2F3gLt4nk0SJ3KAbbQA3ENWMFef8s+m5uNWPIsALXeauC5X8XwvhOI2a1XNldR2r9LCEgg0vqzi+yCLVZpfKRQVFIfBmRwBtBObo1hFLBgbCkH8hXsX/eeU9qhL8oskb7s6HCGX0IGXoPzBLkUJH2IohWh3FMYVPd4Yw==\"}";
+
+    /// Cipher content of the Item Send test vector. Metadata matches what
+    /// `unseal_blob_for_item_sends` defaults; the id comes from the Send metadata.
+    fn item_send_cipher_view() -> CipherView {
+        CipherView {
+            id: TEST_ITEM_ID.parse().ok(),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: Vec::new(),
+            key: None,
+            name: "Item Send".to_string(),
+            notes: Some("Item Send notes".to_string()),
+            r#type: CipherType::Login,
+            login: Some(LoginView {
+                username: Some("user@example.com".to_string()),
+                password: Some("hunter2".to_string()),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: false,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            attachment_decryption_failures: None,
+            fields: Some(vec![FieldView {
+                name: Some("field".to_string()),
+                value: Some("value".to_string()),
+                r#type: FieldType::Text,
+                linked_id: None,
+            }]),
+            password_history: Some(vec![PasswordHistoryView {
+                password: "old-password".to_string(),
+                last_used_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+            }]),
+            creation_date: Default::default(),
+            deleted_date: None,
+            revision_date: Default::default(),
+            archived_date: None,
+            partial: false,
+        }
+    }
+
+    fn item_send_view() -> SendView {
+        SendView {
+            id: "3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().ok(),
+            access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_owned()),
+            name: "Test".to_string(),
+            notes: None,
+            key: Some(TEST_SEND_KEY_B64.to_owned()),
+            new_password: None,
+            has_password: false,
+            r#type: SendType::Item,
+            file: None,
+            text: None,
+            data: Some(SendItemView {
+                data: item_send_cipher_view(),
+            }),
+            max_access_count: None,
+            access_count: 0,
+            disabled: false,
+            hide_email: false,
+            revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
+            deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
+            expiration_date: None,
+            emails: Vec::new(),
+            auth_type: AuthType::None,
+        }
+    }
+
+    #[test]
+    #[ignore = "Generates test vectors; run manually"]
+    fn generate_item_send_test_vector() {
+        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
+        let crypto = create_test_crypto_with_user_key(user_key);
+        let send: Send = crypto.encrypt(item_send_view()).unwrap();
+        println!(
+            "pub(crate) const TEST_VECTOR_ITEM_SEND_DATA: &str = {:?};",
+            send.data.unwrap().data
+        );
+    }
+
+    #[test]
+    fn test_item_send_test_vector() {
+        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
+        let crypto = create_test_crypto_with_user_key(user_key);
+
+        // Parse the wire model as received from the server.
+        let item = SendItem::try_from(SendDataModel {
+            encryption_version: Some(SendEncryptionType::V1.into()),
+            data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
+            metadata: Box::new(SendItemMetadataModel {
+                item_id: TEST_ITEM_ID.parse().unwrap(),
+            }),
+        })
+        .unwrap();
+        let send = Send {
+            id: "3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().ok(),
+            access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_owned()),
+            r#type: SendType::Item,
+            name: "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=".parse()
+                .unwrap(),
+            notes: None,
+            file: None,
+            text: None,
+            data: Some(item),
+            key: TEST_SEND_KEY.parse().unwrap(),
+            max_access_count: None,
+            access_count: 0,
+            password: None,
+            disabled: false,
+            revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
+            expiration_date: None,
+            deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
+            hide_email: false,
+            emails: None,
+            auth_type: AuthType::None,
+        };
+
+        let view: SendView = crypto.decrypt(&send).unwrap();
+
+        assert_eq!(view, item_send_view());
+    }
+
+    #[test]
+    fn test_item_send_encrypt_round_trip() {
+        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
+        let crypto = create_test_crypto_with_user_key(user_key);
+
+        let send: Send = crypto.encrypt(item_send_view()).unwrap();
+        let item = send.data.as_ref().unwrap();
+        // The wire data is the sealed blob itself, not a serialized `Cipher`.
+        assert!(serde_json::from_str::<bitwarden_vault::Cipher>(&item.data).is_err());
+
+        let view: SendView = crypto.decrypt(&send).unwrap();
+        assert_eq!(view, item_send_view());
+    }
+
+    #[test]
+    fn test_item_send_metadata_round_trip() {
+        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
+        let crypto = create_test_crypto_with_user_key(user_key);
+
+        // The item id travels as metadata next to the sealed blob.
+        let send: Send = crypto.encrypt(item_send_view()).unwrap();
+        let item = send.data.as_ref().unwrap();
+        assert_eq!(
+            item.metadata,
+            SendItemMetadata {
+                item_id: TEST_ITEM_ID.parse().unwrap()
+            }
+        );
+
+        let decrypted: SendView = crypto.decrypt(&send).unwrap();
+        assert_eq!(decrypted, item_send_view());
+    }
+
+    #[test]
+    fn test_item_send_encrypt_requires_item_id() {
+        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
+        let crypto = create_test_crypto_with_user_key(user_key);
+
+        let mut view = item_send_view();
+        view.data.as_mut().unwrap().data.id = None;
+
+        let result: Result<Send, _> = crypto.encrypt(view);
+        assert!(result.is_err());
+    }
 
     #[test]
     fn test_get_send_key() {
@@ -790,6 +1139,7 @@ mod tests {
                 text: "2.2VPyLzk1tMLug0X3x7RkaQ==|mrMt9vbZsCJhJIj4eebKyg==|aZ7JeyndytEMR1+uEBupEvaZuUE69D/ejhfdJL8oKq0=".parse().ok(),
                 hidden: false,
             }),
+            data: None,
             key: "2.KLv/j0V4Ebs0dwyPdtt4vw==|jcrFuNYN1Qb3onBlwvtxUV/KpdnR1LPRL4EsCoXNAt4=|gHSywGy4Rj/RsCIZFwze4s2AACYKBtqDXTrQXjkgtIE=".parse().unwrap(),
             max_access_count: None,
             access_count: 0,
@@ -819,6 +1169,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -852,6 +1203,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -889,6 +1241,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -929,6 +1282,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -973,6 +1327,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -1032,6 +1387,7 @@ mod tests {
                 text: Some(text_value.parse().unwrap()),
                 hidden: true,
             }),
+            data: None,
             max_access_count: Some(42),
             access_count: 0,
             disabled: true,
@@ -1088,6 +1444,49 @@ mod tests {
         let text = model.text.unwrap();
         assert_eq!(text.text.as_deref(), Some(text_value));
         assert_eq!(text.hidden, Some(true));
+    }
+
+    #[test]
+    fn test_item_send_into_send_with_id_request_model() {
+        let send = Send {
+            id: "3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().ok(),
+            access_id: None,
+            r#type: SendType::Item,
+            name: "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=".parse()
+                .unwrap(),
+            notes: None,
+            file: None,
+            text: None,
+            data: Some(SendItem {
+                encryption_version: SendEncryptionType::V1,
+                data: TEST_VECTOR_ITEM_SEND_DATA.to_string(),
+                metadata: SendItemMetadata {
+                    item_id: TEST_ITEM_ID.parse().unwrap(),
+                },
+            }),
+            key: TEST_SEND_KEY.parse().unwrap(),
+            max_access_count: None,
+            access_count: 0,
+            password: None,
+            disabled: false,
+            revision_date: "2024-01-07T23:56:48Z".parse().unwrap(),
+            expiration_date: None,
+            deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
+            hide_email: false,
+            emails: None,
+            auth_type: AuthType::None,
+        };
+
+        let model: SendWithIdRequestModel = send.into();
+
+        // Key rotation sends this model; the server rejects Item Sends without data.
+        let data = model.data.expect("Item Send request must carry its data");
+        assert_eq!(
+            data.encryption_version,
+            Some(bitwarden_api_api::models::SendEncryptionType::V1)
+        );
+        assert_eq!(data.data.as_deref(), Some(TEST_VECTOR_ITEM_SEND_DATA));
+        assert_eq!(data.metadata.item_id.to_string(), TEST_ITEM_ID);
     }
 
     #[test]

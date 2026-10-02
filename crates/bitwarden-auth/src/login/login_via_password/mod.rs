@@ -28,23 +28,14 @@
 //! # use bitwarden_auth::{AuthClient, AuthClientExt};
 //! # use bitwarden_auth::login::login_via_password::PasswordLoginRequest;
 //! # use bitwarden_auth::login::models::{LoginRequest, LoginDeviceRequest, LoginResponse};
-//! # use bitwarden_core::{Client, ClientSettings, DeviceType};
+//! # use bitwarden_core::{Client, DeviceType};
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create the core client
 //! let client = Client::new(None);
 //! let auth_client = AuthClient::new(client);
 //!
-//! // Create login client with settings
-//! let settings = ClientSettings {
-//!     identity_url: "https://identity.bitwarden.com".to_string(),
-//!     api_url: "https://api.bitwarden.com".to_string(),
-//!     user_agent: "MyApp/1.0".to_string(),
-//!     device_type: DeviceType::SDK,
-//!     device_identifier: None,
-//!     bitwarden_client_version: None,
-//!     bitwarden_package_type: None,
-//! };
-//! let login_client = auth_client.login(settings);
+//! // Create login client, sharing the same backing client as the auth client
+//! let login_client = auth_client.login();
 //!
 //! // Step 1: Get user's KDF configuration
 //! let prelogin = login_client

@@ -111,9 +111,7 @@ pub enum WrappedAccountCryptographicState {
         /// The user's encryption private key, wrapped by the user key.
         private_key: EncString,
         /// The user's public-key for the private key, signed by the user's signing key.
-        /// Note: This is optional for backwards compatibility. After a few releases, this will be
-        /// made non-optional once all clients store the response on sync.
-        signed_public_key: Option<SignedPublicKey>,
+        signed_public_key: SignedPublicKey,
         /// The user's signing key, wrapped by the user key.
         signing_key: EncString,
         /// The user's signed security state.
@@ -148,10 +146,10 @@ impl TryFrom<&PrivateKeysResponseModel> for WrappedAccountCryptographicState {
     type Error = AccountKeysResponseParseError;
 
     fn try_from(response: &PrivateKeysResponseModel) -> Result<Self, Self::Error> {
-        let private_key: EncString =
-            require!(&response.public_key_encryption_key_pair.wrapped_private_key)
-                .parse()
-                .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
+        let private_key: EncString = EncString::parse_strict(require!(
+            &response.public_key_encryption_key_pair.wrapped_private_key
+        ))
+        .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
 
         let is_v2_encryption = matches!(private_key, EncString::Cose_Encrypt0_B64 { .. });
 
@@ -161,16 +159,16 @@ impl TryFrom<&PrivateKeysResponseModel> for WrappedAccountCryptographicState {
                 .as_ref()
                 .ok_or(AccountKeysResponseParseError::InconsistentState)?;
 
-            let signing_key: EncString = require!(&signature_key_pair.wrapped_signing_key)
-                .parse()
-                .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
+            let signing_key: EncString =
+                EncString::parse_strict(require!(&signature_key_pair.wrapped_signing_key))
+                    .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
 
-            let signed_public_key: Option<SignedPublicKey> = response
+            let signed_public_key: SignedPublicKey = response
                 .public_key_encryption_key_pair
                 .signed_public_key
                 .as_ref()
-                .map(|spk| spk.parse())
-                .transpose()
+                .ok_or(AccountKeysResponseParseError::InconsistentState)?
+                .parse()
                 .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
 
             let security_state_model = response
@@ -239,7 +237,7 @@ impl WrappedAccountCryptographicState {
                         bitwarden_api_api::models::PublicKeyEncryptionKeyPairRequestModel {
                             wrapped_private_key: Some(private_key.to_string()),
                             public_key: Some(B64::from(public_key.to_der()?).to_string()),
-                            signed_public_key: signed_public_key.clone().map(|spk| spk.into()),
+                            signed_public_key: Some(signed_public_key.clone().into()),
                         },
                     ),
                     // Convert the verified state's version to i32 for the API model
@@ -347,7 +345,7 @@ impl WrappedAccountCryptographicState {
             user_key,
             WrappedAccountCryptographicState::V2 {
                 private_key: ctx.wrap_private_key(user_key, private_key)?,
-                signed_public_key: Some(signed_public_key),
+                signed_public_key,
                 signing_key: ctx.wrap_signing_key(user_key, signing_key)?,
                 security_state: signed_security_state,
             },
@@ -437,7 +435,7 @@ impl WrappedAccountCryptographicState {
 
                 Ok(WrappedAccountCryptographicState::V2 {
                     private_key: new_private_key,
-                    signed_public_key: Some(signed_public_key),
+                    signed_public_key,
                     signing_key: new_signing_key,
                     security_state: signed_security_state,
                 })
@@ -546,12 +544,10 @@ impl WrappedAccountCryptographicState {
                     .unwrap_signing_key(user_key, signing_key)
                     .map_err(|_| AccountCryptographyInitializationError::WrongUserKey)?;
 
-                if let Some(signed_public_key) = signed_public_key {
-                    signed_public_key
-                        .to_owned()
-                        .verify_and_unwrap(&ctx.get_verifying_key(signing_key_id)?)
-                        .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
-                }
+                signed_public_key
+                    .to_owned()
+                    .verify_and_unwrap(&ctx.get_verifying_key(signing_key_id)?)
+                    .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
 
                 let verifying_key = ctx.get_verifying_key(signing_key_id)?;
                 let security_state: SecurityState = security_state
@@ -613,7 +609,7 @@ impl WrappedAccountCryptographicState {
             WrappedAccountCryptographicState::V1 { .. } => Ok(None),
             WrappedAccountCryptographicState::V2 {
                 signed_public_key, ..
-            } => Ok(signed_public_key.as_ref()),
+            } => Ok(Some(signed_public_key)),
         }
     }
 }
@@ -716,7 +712,7 @@ mod tests {
 
         let wrapped = WrappedAccountCryptographicState::V2 {
             private_key: wrapped_private,
-            signed_public_key: Some(signed_public_key),
+            signed_public_key,
             signing_key: wrapped_signing,
             security_state: signed_security_state,
         };
@@ -1003,6 +999,59 @@ mod tests {
             }),
             signature_key_pair: None,
             security_state: None,
+        };
+
+        let result = WrappedAccountCryptographicState::try_from(&response);
+        assert!(matches!(
+            result.unwrap_err(),
+            AccountKeysResponseParseError::InconsistentState
+        ));
+    }
+
+    #[test]
+    fn test_try_from_response_v2_encryption_missing_signed_public_key() {
+        use bitwarden_api_api::models::{
+            PublicKeyEncryptionKeyPairResponseModel, SecurityStateModel,
+            SignatureKeyPairResponseModel,
+        };
+
+        let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut temp_ctx = temp_store.context_mut();
+        let (user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make(&mut temp_ctx).unwrap();
+
+        wrapped_state
+            .set_to_context(&RwLock::new(None), user_key, &temp_store, temp_ctx)
+            .unwrap();
+
+        let mut ctx = temp_store.context_mut();
+        let request_model = wrapped_state
+            .to_request_model(&SymmetricKeySlotId::User, &mut ctx)
+            .unwrap();
+        drop(ctx);
+
+        let pk_pair = request_model.public_key_encryption_key_pair.unwrap();
+        let sig_pair = request_model.signature_key_pair.unwrap();
+        let sec_state = request_model.security_state.unwrap();
+
+        // Complete V2 response except for the signed public key
+        let response = PrivateKeysResponseModel {
+            object: None,
+            public_key_encryption_key_pair: Box::new(PublicKeyEncryptionKeyPairResponseModel {
+                object: None,
+                wrapped_private_key: pk_pair.wrapped_private_key,
+                public_key: pk_pair.public_key,
+                signed_public_key: None,
+            }),
+            signature_key_pair: Some(Box::new(SignatureKeyPairResponseModel {
+                object: None,
+                wrapped_signing_key: sig_pair.wrapped_signing_key,
+                verifying_key: sig_pair.verifying_key,
+            })),
+            security_state: Some(Box::new(SecurityStateModel {
+                security_state: sec_state.security_state,
+                security_version: sec_state.security_version,
+            })),
         };
 
         let result = WrappedAccountCryptographicState::try_from(&response);

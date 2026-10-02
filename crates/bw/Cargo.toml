@@ -15,7 +15,7 @@ repository.workspace = true
 license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 
 [dependencies]
-base64 = ">=0.22.1, <0.23"
+base64 = ">=0.22.1, <0.24"
 bat = { version = "0.26.0", features = [
     "regex-fancy",
 ], default-features = false }
@@ -31,7 +31,7 @@ bitwarden-state = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
-clap = { version = "4.5.4", features = ["derive", "env"] }
+clap = { workspace = true, features = ["env"] }
 clap_complete = "4.5.55"
 color-eyre = "0.6.3"
 erased-serde = "0.4.6"

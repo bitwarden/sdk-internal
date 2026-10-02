@@ -39,6 +39,12 @@ pub trait OrganizationDomainApi: Send + Sync {
         org_id: uuid::Uuid,
     ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error>;
 
+    /// GET /organizations/{orgId}/domain/mini
+    async fn get_all_mini<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationDomainMiniResponseModelListResponseModel, Error>;
+
     /// POST /organizations/domain/sso/verified
     async fn get_verified_org_domain_sso_details<'a>(
         &self,
@@ -111,6 +117,27 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
 
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/domain",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_all_mini<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationDomainMiniResponseModelListResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/domain/mini",
             local_var_configuration.base_path,
             orgId = org_id
         );

@@ -86,6 +86,7 @@ mod test {
             request,
             request_id: "test_id".to_string(),
             request_type: "TestRequest".to_string(),
+            response_topic: "RpcResponseMessage:test_id".to_string(),
         };
         let serialized_request =
             RpcRequestPayload::from_slice(serde_utils::to_vec(&message).unwrap()).unwrap();
@@ -106,6 +107,7 @@ mod test {
             request,
             request_id: "test_id".to_string(),
             request_type: "TestRequest".to_string(),
+            response_topic: "RpcResponseMessage:test_id".to_string(),
         };
         let serialized_request =
             RpcRequestPayload::from_slice(serde_utils::to_vec(&message).unwrap()).unwrap();

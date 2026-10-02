@@ -87,7 +87,8 @@ impl
         // Derive the shareable send key for encrypting content
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
-        let (send_type, file, text) = self.view_type.clone().encrypt_composite(ctx, send_key)?;
+        let (send_type, file, text, data) =
+            self.view_type.clone().encrypt_composite(ctx, send_key)?;
 
         let (password, emails) = self.auth.auth_data(&k);
 
@@ -109,8 +110,7 @@ impl
             deletion_date: self.deletion_date.to_rfc3339(),
             file,
             text,
-            // TODO: Implement logic for item-based Sends
-            data: None,
+            data,
             password,
             emails,
             disabled: self.disabled,

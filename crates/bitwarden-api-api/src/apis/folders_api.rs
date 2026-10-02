@@ -32,6 +32,12 @@ pub trait FoldersApi: Send + Sync {
     /// DELETE /folders/all
     async fn delete_all(&self) -> Result<(), Error>;
 
+    /// DELETE /folders
+    async fn delete_many<'a>(
+        &self,
+        folder_bulk_delete_request_model: Option<models::FolderBulkDeleteRequestModel>,
+    ) -> Result<(), Error>;
+
     /// GET /folders/{id}
     async fn get<'a>(&self, id: &'a str) -> Result<models::FolderResponseModel, Error>;
 
@@ -93,6 +99,24 @@ impl FoldersApi for FoldersApiClient {
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn delete_many<'a>(
+        &self,
+        folder_bulk_delete_request_model: Option<models::FolderBulkDeleteRequestModel>,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!("{}/folders", local_var_configuration.base_path);
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&folder_bulk_delete_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }

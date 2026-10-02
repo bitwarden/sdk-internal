@@ -12,7 +12,9 @@ use bitwarden_core::{
         account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
+use bitwarden_crypto::KeyId;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -58,6 +60,10 @@ pub struct CryptoSyncUserDecryption {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub web_authn_prf_options: Option<Vec<WebAuthnPrfUnlockOption>>,
+    /// The id of the account's current user key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub user_key_id: Option<KeyId>,
 }
 
 /// Errors returned when a sync response cannot be converted into [`CryptoSyncData`].
@@ -76,6 +82,9 @@ pub enum CryptoSyncDataParseError {
     /// The sync response carried a WebAuthn PRF unlock option that could not be parsed.
     #[error("Sync response carried an unparseable WebAuthn PRF unlock option")]
     WebAuthnPrfOption(#[source] WebAuthnPrfError),
+    /// The sync response carried a user key id that could not be parsed.
+    #[error("Sync response carried an unparseable user key id")]
+    UserKeyId(#[source] bitwarden_crypto::CryptoError),
     /// The sync response carried account cryptographic state that could not be parsed.
     #[error("Sync response carried unparseable account cryptographic state")]
     AccountCryptographicState(#[source] AccountKeysResponseParseError),
@@ -136,12 +145,25 @@ impl TryFrom<&bitwarden_api_api::models::UserDecryptionResponseModel> for Crypto
                 })
                 .transpose()
                 .map_err(CryptoSyncDataParseError::WebAuthnPrfOption)?,
+            user_key_id: response
+                .user_key_id
+                .as_deref()
+                .map(str::parse)
+                .transpose()
+                .map_err(CryptoSyncDataParseError::UserKeyId)?,
         })
     }
 }
 
 /// Runs the key management sync work for the given sync data.
 async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
+    // A replayed payload is refused whole: taking its user decryption options would let the
+    // server swap out the key id and unlock data that belong to the state it just tried to undo.
+    if is_replayed_state(client, data).await {
+        warn!("WARNING: Refusing a V2 to V1 account cryptographic state downgrade.");
+        return;
+    }
+
     // Handlers MUST NOT fail, to avoid partial state writes
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
@@ -189,11 +211,18 @@ async fn handle_user_decryption_options(client: &Client, data: &CryptoSyncData) 
         }
         _ => state_bridge.clear_webauthn_prf_unlock_data().await,
     }
+
+    // The stored key id mirrors the server's. An absent one means the server has no id recorded for
+    // this user key, so a previously stored id no longer describes anything and is dropped.
+    match user_decryption.user_key_id.as_ref() {
+        Some(user_key_id) => state_bridge.set_user_key_id(user_key_id).await,
+        None => state_bridge.clear_user_key_id().await,
+    }
 }
 
 /// Persists the account cryptographic state the server reported.
 async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncData) {
-    let Some(account_cryptographic_state) = data.account_cryptographic_state.as_ref() else {
+    let Some(incoming) = data.account_cryptographic_state.as_ref() else {
         return;
     };
 
@@ -203,9 +232,41 @@ async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncDa
         return;
     }
 
-    state_bridge
-        .set_account_cryptographic_state(account_cryptographic_state)
-        .await;
+    state_bridge.set_account_cryptographic_state(incoming).await;
+}
+
+/// Whether the sync carries a state that constitutes a cryptographic downgrade
+///
+/// Currently, the only downgrade defined is a V2 -> V1 encryption downgrade
+async fn is_replayed_state(client: &Client, data: &CryptoSyncData) -> bool {
+    let Some(incoming) = data.account_cryptographic_state.as_ref() else {
+        return false;
+    };
+    let Some(local) = client
+        .km_state_bridge()
+        .get_account_cryptographic_state()
+        .await
+    else {
+        return false;
+    };
+
+    if is_v2_to_v1_downgrade(&local, incoming) {
+        return true;
+    }
+
+    // If we define more downgrade types in the future, check them here.
+    false
+}
+
+/// Whether the incoming state moves a locally V2 account back to V1.
+///
+/// V1 accounts carry no security state, so staying on V1 or upgrading to V2 is never a downgrade.
+fn is_v2_to_v1_downgrade(
+    local: &WrappedAccountCryptographicState,
+    incoming: &WrappedAccountCryptographicState,
+) -> bool {
+    matches!(local, WrappedAccountCryptographicState::V2 { .. })
+        && matches!(incoming, WrappedAccountCryptographicState::V1 { .. })
 }
 
 /// Client for the key management work that runs on every sync.
@@ -244,8 +305,8 @@ impl CryptoSyncHandlerClientExt for Client {
     }
 }
 
-/// [`bitwarden_sync::SyncHandler`] implementation of the same work, reading the key id straight off
-/// the generated sync response model.
+/// [`bitwarden_sync::SyncHandler`] implementation of the same work, reading the sync data straight
+/// off the generated sync response model.
 ///
 /// Unused while the clients still own sync — they call [`CryptoSyncHandlerClient::on_sync`] instead
 /// — but this is the entry point that survives once sync moves into the SDK.
@@ -289,11 +350,16 @@ mod tests {
         KdfType, MasterPasswordUnlockKdfResponseModel, MasterPasswordUnlockResponseModel,
         SyncResponseModel, UserDecryptionResponseModel, WebAuthnPrfDecryptionOption,
     };
+    use bitwarden_core::key_management::{
+        KeySlotIds, state_bridge::test_support::InMemoryStateBridge,
+    };
+    use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
 
     use super::*;
 
     const TEST_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
     const TEST_SALT: &str = "test@example.com";
+    const TEST_USER_KEY_ID: &str = "000102030405060708090a0b0c0d0e0f";
 
     fn master_password_unlock(
         master_key_encrypted_user_key: Option<String>,
@@ -307,6 +373,7 @@ mod tests {
             }),
             master_key_encrypted_user_key,
             salt: Some(TEST_SALT.to_string()),
+            contained_key_id: None,
         }
     }
 
@@ -368,5 +435,168 @@ mod tests {
             CryptoSyncData::try_from(&response),
             Err(CryptoSyncDataParseError::WebAuthnPrfOption(_))
         ));
+    }
+
+    #[test]
+    fn test_try_from_valid_user_key_id_succeeds() {
+        let response = sync_response(UserDecryptionResponseModel {
+            user_key_id: Some(TEST_USER_KEY_ID.to_string()),
+            ..Default::default()
+        });
+
+        let data = CryptoSyncData::try_from(&response).unwrap();
+
+        let user_key_id = data.user_decryption.unwrap().user_key_id.unwrap();
+        assert_eq!(user_key_id.to_string(), TEST_USER_KEY_ID);
+    }
+
+    #[test]
+    fn test_try_from_absent_user_key_id_is_none() {
+        // The account has other unlock data, but the server has no key id recorded for it yet.
+        let response = sync_response(UserDecryptionResponseModel {
+            master_password_unlock: Some(Box::new(master_password_unlock(Some(
+                TEST_USER_KEY.to_string(),
+            )))),
+            ..Default::default()
+        });
+
+        let data = CryptoSyncData::try_from(&response).unwrap();
+
+        assert!(data.user_decryption.unwrap().user_key_id.is_none());
+    }
+
+    #[test]
+    fn test_try_from_malformed_user_key_id_errors() {
+        for malformed in [
+            "not hex at all",
+            // Valid hex, but not 16 bytes worth.
+            "00ff",
+            // Odd number of hex digits.
+            "000102030405060708090a0b0c0d0e0",
+        ] {
+            let response = sync_response(UserDecryptionResponseModel {
+                user_key_id: Some(malformed.to_string()),
+                ..Default::default()
+            });
+
+            assert!(
+                matches!(
+                    CryptoSyncData::try_from(&response),
+                    Err(CryptoSyncDataParseError::UserKeyId(_))
+                ),
+                "{malformed:?} should not parse as a key id"
+            );
+        }
+    }
+
+    /// The key id has to reach the state bridge, not just the parsed data. An absent id clears a
+    /// previously stored one.
+    #[tokio::test]
+    async fn test_handle_crypto_sync_writes_and_clears_user_key_id() {
+        let client = Client::new(None);
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+
+        let with_key_id = CryptoSyncData::try_from(&sync_response(UserDecryptionResponseModel {
+            user_key_id: Some(TEST_USER_KEY_ID.to_string()),
+            ..Default::default()
+        }))
+        .unwrap();
+        handle_crypto_sync(&client, &with_key_id).await;
+
+        let stored = client.km_state_bridge().get_user_key_id().await.unwrap();
+        assert_eq!(stored.to_string(), TEST_USER_KEY_ID);
+
+        let without_key_id =
+            CryptoSyncData::try_from(&sync_response(UserDecryptionResponseModel::default()))
+                .unwrap();
+        handle_crypto_sync(&client, &without_key_id).await;
+
+        assert!(client.km_state_bridge().get_user_key_id().await.is_none());
+    }
+
+    /// A client with an in-memory state bridge registered.
+    fn client_with_bridge() -> Client {
+        let client = Client::new(None);
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+        client
+    }
+
+    fn make_v2_state() -> WrappedAccountCryptographicState {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (_, state) =
+            WrappedAccountCryptographicState::make(&mut ctx).expect("making a V2 state succeeds");
+        state
+    }
+
+    fn make_v1_state() -> WrappedAccountCryptographicState {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+
+        WrappedAccountCryptographicState::V1 {
+            private_key: ctx
+                .wrap_private_key(user_key, private_key)
+                .expect("wrapping the private key succeeds"),
+        }
+    }
+
+    /// Runs the handler for the given incoming state and returns what the bridge holds afterwards.
+    async fn sync_account_cryptographic_state(
+        client: &Client,
+        incoming: &WrappedAccountCryptographicState,
+    ) -> Option<WrappedAccountCryptographicState> {
+        let data = CryptoSyncData {
+            account_cryptographic_state: Some(incoming.clone()),
+            ..Default::default()
+        };
+        handle_crypto_sync(client, &data).await;
+        client
+            .km_state_bridge()
+            .get_account_cryptographic_state()
+            .await
+    }
+
+    #[tokio::test]
+    async fn test_account_cryptographic_state_is_persisted_when_there_is_no_local_state() {
+        let client = client_with_bridge();
+        let incoming = make_v2_state();
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&incoming));
+    }
+
+    #[tokio::test]
+    async fn test_account_cryptographic_state_upgrade_from_v1_to_v2_is_persisted() {
+        let client = client_with_bridge();
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&make_v1_state())
+            .await;
+        let incoming = make_v2_state();
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&incoming));
+    }
+
+    #[tokio::test]
+    async fn test_account_cryptographic_state_downgrade_from_v2_to_v1_is_rejected() {
+        let client = client_with_bridge();
+        let local = make_v2_state();
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+
+        let stored = sync_account_cryptographic_state(&client, &make_v1_state()).await;
+
+        assert_eq!(stored.as_ref(), Some(&local));
     }
 }

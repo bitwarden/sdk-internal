@@ -16,44 +16,45 @@ use crate::models;
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthenticatorAssertionRawResponse {
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<Vec<u8>>,
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(
-        rename = "rawId",
-        alias = "RawId",
-        skip_serializing_if = "Option::is_none"
+    #[serde(rename = "id", alias = "Id")]
+    pub id: String,
+    #[serde_as(
+        as = "serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>"
     )]
-    pub raw_id: Option<Vec<u8>>,
+    #[serde(rename = "rawId", alias = "RawId")]
+    pub raw_id: Vec<u8>,
     #[serde(
         rename = "response",
         alias = "Response",
         skip_serializing_if = "Option::is_none"
     )]
     pub response: Option<Box<models::AssertionResponse>>,
-    #[serde(
-        rename = "type",
-        alias = "R#type",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub r#type: Option<models::PublicKeyCredentialType>,
+    #[serde(rename = "type", alias = "R#type")]
+    pub r#type: models::PublicKeyCredentialType,
     #[serde(
         rename = "extensions",
         alias = "Extensions",
         skip_serializing_if = "Option::is_none"
     )]
     pub extensions: Option<Box<models::AuthenticationExtensionsClientOutputs>>,
+    #[serde(rename = "clientExtensionResults", alias = "ClientExtensionResults")]
+    pub client_extension_results: Box<models::AuthenticationExtensionsClientOutputs>,
 }
 
 impl AuthenticatorAssertionRawResponse {
-    pub fn new() -> AuthenticatorAssertionRawResponse {
+    pub fn new(
+        id: String,
+        raw_id: Vec<u8>,
+        r#type: models::PublicKeyCredentialType,
+        client_extension_results: models::AuthenticationExtensionsClientOutputs,
+    ) -> AuthenticatorAssertionRawResponse {
         AuthenticatorAssertionRawResponse {
-            id: None,
-            raw_id: None,
+            id,
+            raw_id,
             response: None,
-            r#type: None,
+            r#type,
             extensions: None,
+            client_extension_results: Box::new(client_extension_results),
         }
     }
 }

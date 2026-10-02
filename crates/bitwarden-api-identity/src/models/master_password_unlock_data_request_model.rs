@@ -20,6 +20,12 @@ pub struct MasterPasswordUnlockDataRequestModel {
     pub master_key_wrapped_user_key: String,
     #[serde(rename = "salt", alias = "Salt")]
     pub salt: String,
+    #[serde(
+        rename = "containedKeyId",
+        alias = "ContainedKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub contained_key_id: Option<String>,
 }
 
 impl MasterPasswordUnlockDataRequestModel {
@@ -32,6 +38,7 @@ impl MasterPasswordUnlockDataRequestModel {
             kdf: Box::new(kdf),
             master_key_wrapped_user_key,
             salt,
+            contained_key_id: None,
         }
     }
 }

@@ -26,8 +26,6 @@ pub use error::{DecryptError, EncryptError, VaultParseError};
 mod vault_client;
 pub use vault_client::{VaultClient, VaultClientExt};
 
-#[allow(missing_docs)]
-pub mod collection_client;
 mod totp_client;
 
 pub use totp_client::TotpClient;

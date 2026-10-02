@@ -12,6 +12,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// CipherMiniResponseModel : The shape shared by every cipher response. Abstract because a response
+/// has to say which data it carries: a `Partial*` subclass emits the reduced
+/// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.PartialData envelope for a leasing-gated
+/// cipher, and a `Full*` subclass emits the secret
+/// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.Data blob and can only be constructed with
+/// a Bit.Core.Vault.Authorization.FullCipherAccess witness. Both properties are declared here so
+/// either shape serializes to the same contract.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherMiniResponseModel {
     #[serde(
@@ -40,6 +47,17 @@ pub struct CipherMiniResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub data: Option<String>,
+    /// The reduced data blob returned in place of
+    /// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.Data when the caller can only reach
+    /// this cipher through leasing-enabled collections (PAM credential leasing). Contains the
+    /// encrypted title and, for logins, the encrypted URIs — never the dropped secrets. Null for
+    /// full responses.
+    #[serde(
+        rename = "partialData",
+        alias = "PartialData",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub partial_data: Option<String>,
     #[serde(
         rename = "name",
         alias = "Name",
@@ -153,6 +171,13 @@ pub struct CipherMiniResponseModel {
 }
 
 impl CipherMiniResponseModel {
+    /// The shape shared by every cipher response. Abstract because a response has to say which data
+    /// it carries: a `Partial*` subclass emits the reduced
+    /// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.PartialData envelope for a
+    /// leasing-gated cipher, and a `Full*` subclass emits the secret
+    /// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.Data blob and can only be constructed
+    /// with a Bit.Core.Vault.Authorization.FullCipherAccess witness. Both properties are declared
+    /// here so either shape serializes to the same contract.
     pub fn new() -> CipherMiniResponseModel {
         CipherMiniResponseModel {
             object: None,
@@ -160,6 +185,7 @@ impl CipherMiniResponseModel {
             organization_id: None,
             r#type: None,
             data: None,
+            partial_data: None,
             name: None,
             notes: None,
             login: None,

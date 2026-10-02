@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_collections::collection::CollectionId;
+use bitwarden_collections::collection::{CollectionId, CollectionType};
 use bitwarden_core::OrganizationId;
 use bitwarden_vault::{CipherType as VaultCipherType, FolderId};
 
@@ -15,7 +15,15 @@ mod import;
 mod importer_client;
 pub use importer_client::{ImporterClient, ImporterClientExt};
 mod importers;
+pub(crate) use importers::keeper;
+pub use importers::onepassword::access::{
+    Credentials, SignInAddress, SignInDomain, TotpResult as OnePasswordTotpResult,
+    TwoFactorUi as OnePasswordTwoFactorUi,
+    model::{ItemCategory, SkippedItem, SkippedReason, SkippedVault},
+};
 mod pipeline;
+#[cfg(feature = "wasm")]
+mod wasm;
 
 /// Destination options for a vault import.
 ///
@@ -55,7 +63,9 @@ pub struct ImportTargetFolder {
     pub name: String,
 }
 
-/// An existing organization collection to assign an org import to.
+/// An existing organization collection to assign an org import to. `type` distinguishes the
+/// "My items" default collection (import.rs converts groups to personal folders instead of
+/// nested collections) from a normal shared collection.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -66,6 +76,7 @@ pub struct ImportTargetFolder {
 pub struct ImportTargetCollection {
     pub id: CollectionId,
     pub name: String,
+    pub r#type: CollectionType,
 }
 
 /// Counts of what an import submitted to the server, broken down by cipher type so the client can
@@ -81,6 +92,20 @@ pub struct ImportSummary {
     pub ciphers: Vec<CipherTypeCount>,
     pub folders: u32,
     pub collections: u32,
+}
+
+/// Result of a direct 1Password import, including source data that could not be imported.
+#[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
+    tsify(into_wasm_abi)
+)]
+pub struct OnePasswordImportSummary {
+    pub imported: ImportSummary,
+    pub skipped_vaults: Vec<SkippedVault>,
+    pub skipped_items: Vec<SkippedItem>,
 }
 
 /// Number of imported ciphers of a given type.

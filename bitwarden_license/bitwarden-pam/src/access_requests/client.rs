@@ -124,7 +124,7 @@ impl AccessRequestsClient {
         self.api_configurations
             .api_client
             .access_requests_api()
-            .revoke(id.into())
+            .revoke(id.into(), None)
             .await?;
 
         Ok(())
@@ -267,7 +267,7 @@ mod tests {
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.access_requests_api
                 .expect_revoke()
-                .returning(move |_id| Ok(()))
+                .returning(move |_id, _body| Ok(()))
                 .once();
         });
 

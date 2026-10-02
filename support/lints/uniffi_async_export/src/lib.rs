@@ -6,7 +6,8 @@ extern crate rustc_errors;
 
 use clippy_utils::diagnostics::{span_lint_and_help, span_lint_and_sugg};
 use rustc_ast::ast::{
-    AssocItemKind, AttrArgs, AttrKind, Attribute, CoroutineKind, FnSig, Item, ItemKind,
+    AssocItemKind, AttrArgs, AttrItemKind, AttrKind, Attribute, CoroutineKind, FnSig, Item,
+    ItemKind,
 };
 use rustc_ast::token::{LitKind, TokenKind};
 use rustc_ast::tokenstream::TokenTree;
@@ -100,7 +101,7 @@ fn has_async_runtime_tokio(attr: &Attribute) -> bool {
     let AttrKind::Normal(normal) = &attr.kind else {
         return false;
     };
-    let AttrArgs::Delimited(delim) = &normal.item.args else {
+    let AttrItemKind::Unparsed(AttrArgs::Delimited(delim)) = &normal.item.args else {
         return false;
     };
 
@@ -129,7 +130,7 @@ fn emit_lint(cx: &EarlyContext<'_>, attr: &Attribute) {
     let msg =
         "`#[uniffi::export]` on `async fn`s must specify `async_runtime = \"tokio\"`";
 
-    if matches!(normal.item.args, AttrArgs::Empty) {
+    if matches!(normal.item.args, AttrItemKind::Unparsed(AttrArgs::Empty)) {
         span_lint_and_sugg(
             cx,
             UNIFFI_ASYNC_EXPORT,

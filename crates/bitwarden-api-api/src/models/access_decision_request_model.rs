@@ -12,16 +12,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessDecisionRequestModel : An approver's decision on a pending access request.
-/// Bit.Services.Pam.Api.Models.Request.AccessDecisionRequestModel.Verdict is the
-/// Bit.Services.Pam.Api.Models.AccessDecisionVerdict value on the wire (`0` = deny, `1` = approve);
-/// Bit.Services.Pam.Api.Models.Request.AccessDecisionRequestModel.Comment is optional.
+/// AccessDecisionRequestModel : An approver's decision on a pending access request: approve or
+/// deny, with a comment for the requester.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessDecisionRequestModel {
     #[serde(rename = "verdict", alias = "Verdict")]
     pub verdict: models::AccessDecisionVerdict,
-    /// An optional note recorded with the decision — for example the reason for a denial. Surfaced
-    /// to the requester.
+    /// A note recorded with the decision, such as a denial's reason. Surfaced to the requester.
     #[serde(
         rename = "comment",
         alias = "Comment",
@@ -31,11 +28,8 @@ pub struct AccessDecisionRequestModel {
 }
 
 impl AccessDecisionRequestModel {
-    /// An approver's decision on a pending access request.
-    /// Bit.Services.Pam.Api.Models.Request.AccessDecisionRequestModel.Verdict is the
-    /// Bit.Services.Pam.Api.Models.AccessDecisionVerdict value on the wire (`0` = deny, `1` =
-    /// approve); Bit.Services.Pam.Api.Models.Request.AccessDecisionRequestModel.Comment is
-    /// optional.
+    /// An approver's decision on a pending access request: approve or deny, with a comment for the
+    /// requester.
     pub fn new(verdict: models::AccessDecisionVerdict) -> AccessDecisionRequestModel {
         AccessDecisionRequestModel {
             verdict,

@@ -15,11 +15,13 @@ pub mod crypto;
 pub mod error;
 mod log_callback;
 #[allow(missing_docs)]
+pub mod managed_settings;
+#[allow(missing_docs)]
 pub mod platform;
 #[allow(missing_docs)]
 pub mod policies;
 #[allow(missing_docs)]
-pub mod tool;
+pub mod tools;
 mod uniffi_support;
 #[allow(missing_docs)]
 pub mod vault;
@@ -30,12 +32,13 @@ mod android_support;
 use crypto::CryptoClient;
 use error::{Error, Result};
 pub use log_callback::LogCallback;
+pub use managed_settings::ManagedSettingsBindingClient;
 use platform::PlatformClient;
 pub use platform::{
     AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
     ServerCommunicationConfigRepository, SsoCookieVendorConfig,
 };
-use tool::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
+use tools::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
 use vault::VaultClient;
 
 #[allow(missing_docs)]
@@ -45,12 +48,18 @@ pub struct Client(pub(crate) bitwarden_pm::PasswordManagerClient);
 #[uniffi::export(async_runtime = "tokio")]
 impl Client {
     /// Initialize a new instance of the SDK client
+    ///
+    /// `managed_settings` is the host-owned handle onto the operating system's Unified Endpoint
+    /// Management profile. The client shares its profile, so profiles pushed after construction
+    /// are visible here. Pass a fresh `ManagedSettingsBindingClient` where the host has no UEM
+    /// source.
     #[uniffi::constructor]
     pub fn new(
         token_provider: Arc<dyn ClientManagedTokens>,
         settings: Option<ClientSettings>,
+        managed_settings: Arc<ManagedSettingsBindingClient>,
     ) -> Self {
-        init_logger(None, None);
+        init_logger(None, None, true);
         setup_error_converter();
 
         #[cfg(target_os = "android")]
@@ -59,6 +68,7 @@ impl Client {
         Self(bitwarden_pm::PasswordManagerClient::new_with_client_tokens(
             settings,
             token_provider,
+            &managed_settings.0,
         ))
     }
 
@@ -92,6 +102,15 @@ impl Client {
         VaultClient(self.0.vault())
     }
 
+    /// Collection related operations.
+    ///
+    /// This is registered directly on the top-level client in addition to being nested under
+    /// [`vault`](Self::vault). Once mobile clients have migrated to this accessor, the nested one
+    /// will be removed.
+    pub fn collections(&self) -> vault::collections::CollectionsClient {
+        vault::collections::CollectionsClient(self.0.collections())
+    }
+
     #[allow(missing_docs)]
     pub fn platform(&self) -> PlatformClient {
         PlatformClient(self.0.0.clone())
@@ -115,6 +134,11 @@ impl Client {
     /// Sends operations
     pub fn sends(&self) -> SendClient {
         SendClient(self.0.sends())
+    }
+
+    /// Send sync handler operations
+    pub fn send_sync_handler(&self) -> bitwarden_send::SendSyncHandlerClient {
+        self.0.send_sync_handler()
     }
 
     /// SSH operations
@@ -164,17 +188,17 @@ impl Client {
 static INIT: Once = Once::new();
 
 /// Log level for SDK logging
-#[derive(uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 pub enum LogLevel {
-    /// Most verbose: all trace, debug, info, warn, and error messages
+    /// Very detailed diagnostic information
     Trace,
-    /// Verbose: debug, info, warn, and error messages
+    /// Diagnostic information for debugging
     Debug,
-    /// Default: info, warn, and error messages
+    /// Informational message
     Info,
-    /// Only warn and error messages
+    /// Potential problem that doesn't prevent the operation from completing
     Warn,
-    /// Only error messages
+    /// Failure of an operation
     Error,
 }
 
@@ -190,6 +214,18 @@ impl LogLevel {
     }
 }
 
+impl From<&tracing::Level> for LogLevel {
+    fn from(level: &tracing::Level) -> Self {
+        match *level {
+            tracing::Level::TRACE => LogLevel::Trace,
+            tracing::Level::DEBUG => LogLevel::Debug,
+            tracing::Level::INFO => LogLevel::Info,
+            tracing::Level::WARN => LogLevel::Warn,
+            tracing::Level::ERROR => LogLevel::Error,
+        }
+    }
+}
+
 /// Initialize the SDK logger
 ///
 /// This function should be called once before creating any SDK clients.
@@ -199,22 +235,29 @@ impl LogLevel {
 /// # Parameters
 /// - `callback`: Optional callback to receive SDK log events. Pass `None` to use only platform
 ///   loggers (oslog on iOS, logcat on Android).
-/// - `level`: Optional log level. Defaults to `Info` if not specified. Can be overridden by
-///   `RUST_LOG` environment variable at runtime or compile time.
+/// - `level`: Optional minimum log level; events below it are dropped. Defaults to `Info` if not
+///   specified. Can be overridden by the `RUST_LOG` environment variable at runtime or compile
+///   time.
+/// - `platform_logger`: Whether the SDK writes log events to the platform logger (oslog on iOS,
+///   logcat on Android, stdout elsewhere). Defaults to `true`. Disable it when `callback` already
+///   forwards events there, otherwise every event is logged twice.
 ///
 /// # Example
 /// ```kotlin
 /// // Initialize with callback and trace-level logging before creating clients
 /// initLogger(FlightRecorderCallback(), LogLevel.TRACE)
-/// val client = Client(tokenProvider, settings)
+/// val client = Client(tokenProvider, settings, ManagedSettingsBindingClient())
 /// ```
 ///
 /// # Notes
 /// - This function can only be called once - subsequent calls are ignored
 /// - If not called explicitly, logging is auto-initialized when first client is created
-/// - Platform loggers (oslog/logcat) are always enabled regardless of callback
-#[uniffi::export]
-pub fn init_logger(callback: Option<Arc<dyn LogCallback>>, level: Option<LogLevel>) {
+#[uniffi::export(default(platform_logger = true))]
+pub fn init_logger(
+    callback: Option<Arc<dyn LogCallback>>,
+    level: Option<LogLevel>,
+    platform_logger: bool,
+) {
     use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
     INIT.call_once(|| {
@@ -233,12 +276,15 @@ pub fn init_logger(callback: Option<Arc<dyn LogCallback>>, level: Option<LogLeve
             )
             .from_env_lossy();
 
-        let fmtlayer = tracing_subscriber::fmt::layer()
-            .with_ansi(true)
-            .with_file(true)
-            .with_line_number(true)
-            .with_target(true)
-            .pretty();
+        // `Option<L>` is a `Layer`, so disabled sinks are attached as `None`
+        let fmtlayer = platform_logger.then(|| {
+            tracing_subscriber::fmt::layer()
+                .with_ansi(true)
+                .with_file(true)
+                .with_line_number(true)
+                .with_target(true)
+                .pretty()
+        });
 
         // Build base registry once instead of duplicating per-platform
         let registry = tracing_subscriber::registry().with(fmtlayer).with(filter);
@@ -251,7 +297,7 @@ pub fn init_logger(callback: Option<Arc<dyn LogCallback>>, level: Option<LogLeve
         {
             const TAG: &str = "com.8bit.bitwarden";
             registry
-                .with(tracing_oslog::OsLogger::new(TAG, "default"))
+                .with(platform_logger.then(|| tracing_oslog::OsLogger::new(TAG, "default")))
                 .init();
         }
 
@@ -259,10 +305,10 @@ pub fn init_logger(callback: Option<Arc<dyn LogCallback>>, level: Option<LogLeve
         {
             const TAG: &str = "com.bitwarden.sdk";
             registry
-                .with(
+                .with(platform_logger.then(|| {
                     tracing_android::layer(TAG)
-                        .expect("initialization of android logcat tracing layer"),
-                )
+                        .expect("initialization of android logcat tracing layer")
+                }))
                 .init();
         }
 
@@ -301,10 +347,10 @@ mod tests {
     }
     /// Mock LogCallback implementation for testing
     struct TestLogCallback {
-        logs: Arc<Mutex<Vec<(String, String, String)>>>,
+        logs: Arc<Mutex<Vec<(LogLevel, String, String)>>>,
     }
     impl LogCallback for TestLogCallback {
-        fn on_log(&self, level: String, target: String, message: String) -> Result<()> {
+        fn on_log(&self, level: LogLevel, target: String, message: String) -> Result<()> {
             self.logs
                 .lock()
                 .expect("Failed to lock logs mutex")
@@ -323,10 +369,14 @@ mod tests {
         let callback = Arc::new(TestLogCallback { logs: logs.clone() });
 
         // Initialize logger with callback before creating client
-        init_logger(Some(callback), None);
+        init_logger(Some(callback), None, true);
 
         // Create client
-        let _client = Client::new(Arc::new(MockTokenProvider), None);
+        let _client = Client::new(
+            Arc::new(MockTokenProvider),
+            None,
+            Arc::new(ManagedSettingsBindingClient::new()),
+        );
 
         // Trigger a log
         tracing::info!("test message from SDK");
@@ -341,7 +391,7 @@ mod tests {
             .find(|(_, _, msg)| msg.contains("test message"))
             .expect("Should find our test log message");
 
-        assert_eq!(test_log.0, "INFO");
+        assert_eq!(test_log.0, LogLevel::Info);
         assert!(test_log.2.contains("test message"));
     }
 }

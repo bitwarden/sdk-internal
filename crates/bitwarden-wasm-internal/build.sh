@@ -40,13 +40,19 @@ if [ -n "$ENABLE_LICENSE_FEATURE" ]; then
   echo "Build will include BITWARDEN LICENSED FEATURES"
 fi
 
+# Fail the non-commercial build if a bitwarden_license crate leaks in (see bitwarden-commercial-marker).
+NO_COMMERCIAL_CFG=""
+if [ -z "$ENABLE_LICENSE_FEATURE" ]; then
+  NO_COMMERCIAL_CFG="--cfg bitwarden_ensure_non_commercial"
+fi
+
 # Build with MVP CPU target, two reasons:
 # 1. It is required for wasm2js support
 # 2. While webpack supports it, it has some compatibility issues that lead to strange results
 # Note that this requires build-std which is an unstable feature,
 # this normally requires a nightly build, but we can also use the
 # RUSTC_BOOTSTRAP hack to use the same stable version as the normal build
-RUSTFLAGS='-Ctarget-cpu=mvp --cfg getrandom_backend="wasm_js"' RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG} ${ENABLE_LICENSE_FEATURE}
+RUSTFLAGS='-Ctarget-cpu=mvp --cfg getrandom_backend="wasm_js"'" ${NO_COMMERCIAL_CFG}" RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG} ${ENABLE_LICENSE_FEATURE}
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundler --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER} ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target nodejs --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER}/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 

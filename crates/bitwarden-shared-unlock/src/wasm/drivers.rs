@@ -5,7 +5,7 @@ use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
-use crate::{LockState, SharedUnlockDriver};
+use crate::SharedUnlockDriver;
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
@@ -13,7 +13,6 @@ export interface SharedUnlockDriver {
     lock_user(user_id: UserId): Promise<void>;
     unlock_user(user_id: UserId, user_key: SymmetricKey): Promise<void>;
     list_users(): Promise<UserId[]>;
-    get_user_key(user_id: UserId): Promise<SymmetricKey | undefined>;
     suppress_vault_timeout(user_id: UserId, suppression_duration: number): Promise<void>;
     get_client_name(): Promise<string>;
     get_vault_url(user_id: UserId): Promise<string | undefined>;
@@ -36,11 +35,6 @@ extern "C" {
     ) -> Result<(), JsValue>;
     #[wasm_bindgen(method, catch)]
     async fn list_users(this: &RawJsSharedUnlockDriver) -> Result<js_sys::Array, JsValue>;
-    #[wasm_bindgen(method, catch)]
-    async fn get_user_key(
-        this: &RawJsSharedUnlockDriver,
-        user_id: UserId,
-    ) -> Result<JsValue, JsValue>;
 
     /// Supress the vault timeout for the given duration (in milliseconds).
     #[wasm_bindgen(method, catch)]
@@ -75,6 +69,20 @@ impl JsSharedUnlockDriver {
     }
 }
 
+async fn list_users(driver: &RawJsSharedUnlockDriver) -> Vec<UserId> {
+    match driver.list_users().await {
+        Ok(array) => array
+            .iter()
+            .filter_map(|js_value| js_value.as_string())
+            .filter_map(|s| s.parse().ok())
+            .collect(),
+        Err(error) => {
+            tracing::error!(?error, "Failed to list users");
+            vec![]
+        }
+    }
+}
+
 #[async_trait::async_trait]
 impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
@@ -97,34 +105,9 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
 
     async fn list_users(&self) -> Vec<UserId> {
         self.runner
-            .run_in_thread(move |driver| async move {
-                match driver.list_users().await {
-                    Ok(array) => array
-                        .iter()
-                        .filter_map(|js_value| js_value.as_string())
-                        .filter_map(|s| s.parse().ok())
-                        .collect(),
-                    Err(_) => vec![],
-                }
-            })
+            .run_in_thread(move |driver| async move { list_users(&driver).await })
             .await
             .unwrap_or_default()
-    }
-
-    async fn get_user_lock_state(&self, user_id: UserId) -> LockState {
-        self.runner
-            .run_in_thread(move |driver| async move {
-                let js_value = driver.get_user_key(user_id).await.ok()?;
-                if js_value.is_null() || js_value.is_undefined() {
-                    return None;
-                }
-                let user_key = SymmetricCryptoKey::try_from(js_value).ok()?;
-                Some(LockState::Unlocked { user_key })
-            })
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or(LockState::Locked)
     }
 
     async fn get_vault_url(&self, user_id: UserId) -> Option<String> {

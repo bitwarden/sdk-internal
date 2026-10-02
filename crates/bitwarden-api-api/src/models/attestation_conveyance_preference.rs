@@ -21,6 +21,8 @@ pub enum AttestationConveyancePreference {
     Indirect,
     #[serde(rename = "direct")]
     Direct,
+    #[serde(rename = "enterprise")]
+    Enterprise,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     #[serde(untagged)]
@@ -33,6 +35,7 @@ impl std::fmt::Display for AttestationConveyancePreference {
             Self::None => write!(f, "none"),
             Self::Indirect => write!(f, "indirect"),
             Self::Direct => write!(f, "direct"),
+            Self::Enterprise => write!(f, "enterprise"),
             Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
