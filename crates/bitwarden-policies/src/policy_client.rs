@@ -567,6 +567,24 @@ mod tests {
         }
 
         #[test]
+        fn applies_automatic_app_log_in_to_owners_and_admins() {
+            // AutomaticAppLogInPolicy has no exempt roles, so it applies to all members.
+            let org_id = OrganizationId::new_v4();
+            for role in [OrganizationUserType::Owner, OrganizationUserType::Admin] {
+                let label = format!("expected {role:?} to be subject");
+                let policies = vec![policy(org_id, PolicyType::AutomaticAppLogIn, None)];
+                let orgs = vec![OrganizationUserPolicyContext {
+                    role,
+                    ..confirmed_member(org_id)
+                }];
+
+                let result = filter(policies, orgs, PolicyType::AutomaticAppLogIn);
+
+                assert_eq!(result.len(), 1, "{label}");
+            }
+        }
+
+        #[test]
         fn exempts_an_owner_from_maximum_vault_timeout() {
             let org_id = OrganizationId::new_v4();
             let policies = vec![policy(org_id, PolicyType::MaximumVaultTimeout, None)];
