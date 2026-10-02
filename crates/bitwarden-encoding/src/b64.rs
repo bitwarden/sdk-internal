@@ -93,7 +93,7 @@ const BASE64_PERMISSIVE: data_encoding::Encoding = data_encoding_macro::new_enco
     padding: None,
     check_trailing_bits: false,
 };
-const BASE64_PADDING: &str = "=";
+const BASE64_PADDING: char = '=';
 
 impl TryFrom<String> for B64 {
     type Error = NotB64EncodedError;

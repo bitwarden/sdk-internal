@@ -29,8 +29,7 @@ fn check_length(buf: &[u8], expected: usize) -> Result<()> {
 fn from_b64_vec(s: &str) -> Result<Vec<u8>> {
     Ok(B64::try_from(s)
         .map_err(EncStringParseError::InvalidBase64)?
-        .as_bytes()
-        .to_vec())
+        .into())
 }
 
 fn from_b64<const N: usize>(s: &str) -> Result<[u8; N]> {
