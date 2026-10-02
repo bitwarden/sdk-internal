@@ -189,6 +189,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                     .try_into()
                     .map_err(|_| CryptoError::InvalidKey)?;
                 Ok(SymmetricCryptoKey::XAes256GcmKey(XAes256GcmKey {
+                    expanded: std::sync::OnceLock::new(),
                     enc_key,
                     key_id,
                     supported_operations: key_opts,
