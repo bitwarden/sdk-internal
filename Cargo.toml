@@ -231,6 +231,21 @@ opt-level = "z"
 [profile.release.package.bitwarden-crypto]
 opt-level = 3
 
+# Hot paths of bulk vault decryption live in these crates. Optimizing them for speed instead of
+# size makes decrypting large vaults faster for a few KB of binary size.
+
+[profile.release.package.aes]
+opt-level = 3
+
+[profile.release.package.cbc]
+opt-level = 3
+
+[profile.release.package.data-encoding]
+opt-level = 3
+
+[profile.release.package.serde-wasm-bindgen]
+opt-level = 3
+
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.
 # This is fine as long as we don't have any unhandled panics, but let's keep it disabled for now
 # strip = true
