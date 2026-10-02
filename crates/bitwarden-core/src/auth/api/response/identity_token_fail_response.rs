@@ -1,3 +1,7 @@
+//! Identity `connect/token` failure response.
+
+#![allow(missing_docs)]
+
 use core::fmt;
 
 use serde::{Deserialize, Serialize};

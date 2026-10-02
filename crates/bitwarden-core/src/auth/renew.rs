@@ -1,19 +1,8 @@
-#[cfg(feature = "secrets")]
-use bitwarden_crypto::KeyStore;
-
 use super::login::LoginError;
 use crate::{
     NotAuthenticatedError,
     auth::api::{request::ApiTokenRequest, response::IdentityTokenResponse},
     client::UserLoginMethod,
-};
-#[cfg(feature = "secrets")]
-use crate::{
-    auth::api::request::AccessTokenRequest,
-    client::ServiceAccountLoginMethod,
-    key_management::KeySlotIds,
-    key_management::SymmetricKeySlotId,
-    secrets_manager::state::{self, ClientState},
 };
 
 pub async fn renew_pm_token_sdk_managed(
@@ -45,49 +34,6 @@ pub async fn renew_pm_token_sdk_managed(
         IdentityTokenResponse::Authenticated(r) => {
             Ok((r.access_token, r.refresh_token, r.expires_in))
         }
-        _ => {
-            // We should never get here
-            Err(LoginError::InvalidResponse)
-        }
-    }
-}
-
-#[cfg(feature = "secrets")]
-pub async fn renew_sm_token_sdk_managed(
-    login_method: &ServiceAccountLoginMethod,
-    identity_config: bitwarden_api_api::Configuration,
-    key_store: KeyStore<KeySlotIds>,
-) -> Result<(String, Option<String>, u64), LoginError> {
-    let res = match login_method {
-        ServiceAccountLoginMethod::AccessToken {
-            access_token,
-            state_file,
-            ..
-        } => {
-            let result =
-                AccessTokenRequest::new(access_token.access_token_id, &access_token.client_secret)
-                    .send(&identity_config)
-                    .await?;
-
-            if let (IdentityTokenResponse::Payload(r), Some(state_file)) = (&result, state_file) {
-                let ctx = key_store.context();
-                #[allow(deprecated)]
-                if let Ok(enc_key) = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User) {
-                    let state = ClientState::new(r.access_token.clone(), enc_key.to_base64());
-                    _ = state::set(state_file, access_token, state);
-                }
-            }
-
-            result
-        }
-    };
-
-    match res {
-        IdentityTokenResponse::Refreshed(r) => Ok((r.access_token, r.refresh_token, r.expires_in)),
-        IdentityTokenResponse::Authenticated(r) => {
-            Ok((r.access_token, r.refresh_token, r.expires_in))
-        }
-        IdentityTokenResponse::Payload(r) => Ok((r.access_token, r.refresh_token, r.expires_in)),
         _ => {
             // We should never get here
             Err(LoginError::InvalidResponse)
