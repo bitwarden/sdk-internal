@@ -8,8 +8,6 @@ use bitwarden_core::key_management::V2EncryptedMigrationsGracePeriodStart;
 use chrono::{TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::UserCryptoManagementClient;
@@ -19,7 +17,7 @@ const GRACE_PERIOD: TimeDelta = TimeDelta::weeks(2);
 
 /// Whether the client may prompt the user to migrate to v2 encryption.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum MigrationPermission {
     /// The user is inside the grace period. Do not show the migration prompt.
@@ -28,7 +26,7 @@ pub enum MigrationPermission {
     Migrate,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl UserCryptoManagementClient {
     /// Returns whether the client may prompt the user to migrate to v2 encryption.

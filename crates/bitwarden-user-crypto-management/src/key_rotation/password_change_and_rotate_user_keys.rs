@@ -8,8 +8,6 @@ use bitwarden_crypto::{KeyStore, PublicKey};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -29,7 +27,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PasswordChangeAndRotateUserKeysRequest {
     pub old_password: String,
@@ -39,7 +37,7 @@ pub struct PasswordChangeAndRotateUserKeysRequest {
     pub trusted_organization_public_keys: Vec<PublicKey>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl UserCryptoManagementClient {
     /// Combines a password change and user key rotation into a single request.
     ///

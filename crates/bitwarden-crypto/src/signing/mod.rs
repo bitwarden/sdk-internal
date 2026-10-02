@@ -44,13 +44,13 @@ pub use message::SerializedMessage;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
 
 /// The type of key / signature scheme used for signing and verifying.
 #[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum SignatureAlgorithm {
     /// Ed25519 is the modern, secure recommended option for digital signatures on eliptic curves,
     /// safe under the assumption that an attacker does not have access to a large-scale quantum

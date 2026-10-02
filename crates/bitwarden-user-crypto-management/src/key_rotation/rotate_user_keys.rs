@@ -7,8 +7,6 @@ use bitwarden_crypto::{KeyConnectorKey, KeyStore, PublicKey, SymmetricCryptoKey}
 use serde::{Deserialize, Serialize};
 use tracing::info;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -27,7 +25,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum KeyRotationMethod {
     /// Master password user, key rotation without a password change.
@@ -39,7 +37,7 @@ pub enum KeyRotationMethod {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum UpgradeTokenAction {
     /// Skip creating and sending an upgrade token to the server.
@@ -50,7 +48,7 @@ pub enum UpgradeTokenAction {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RotateUserKeysRequest {
     pub key_rotation_method: KeyRotationMethod,
@@ -61,7 +59,7 @@ pub struct RotateUserKeysRequest {
     pub upgrade_token_action: UpgradeTokenAction,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl UserCryptoManagementClient {
     /// Rotates the user's encryption keys without a password change.
     pub async fn rotate_user_keys(
