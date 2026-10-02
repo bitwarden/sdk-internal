@@ -56,7 +56,7 @@ impl SealedCipherBlob {
     }
 
     /// Unseals the `CipherBlob` from this container using the provided wrapping key.
-    #[instrument(err, fields(format_version = self.format_version))]
+    #[instrument(err, level = "debug", fields(format_version = self.format_version))]
     pub(super) fn unseal(
         &self,
         wrapping_key: &SymmetricKeySlotId,

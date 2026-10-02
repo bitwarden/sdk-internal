@@ -220,7 +220,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `wrapped_key` - The key to decrypt
-    #[bitwarden_logging::instrument(err, fields(wrapping_key = ?wrapping_key))]
+    #[bitwarden_logging::instrument(err, level = "debug", fields(wrapping_key = ?wrapping_key))]
     pub fn unwrap_symmetric_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
