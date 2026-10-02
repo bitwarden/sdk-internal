@@ -20,6 +20,12 @@ pub enum SendAccessTokenInvalidRequestError {
     #[allow(missing_docs)]
     EmailAndOtpRequired,
 
+    /// The request has no device identifier.
+    DeviceIdentifierRequired,
+
+    /// The request's device identifier is not valid.
+    DeviceIdentifierInvalid,
+
     /// Fallback for unknown variants for forward compatibility
     #[serde(other)]
     Unknown,
@@ -150,6 +156,14 @@ mod tests {
                 (
                     SendAccessTokenInvalidRequestError::EmailAndOtpRequired,
                     "\"email_and_otp_required\"",
+                ),
+                (
+                    SendAccessTokenInvalidRequestError::DeviceIdentifierRequired,
+                    "\"device_identifier_required\"",
+                ),
+                (
+                    SendAccessTokenInvalidRequestError::DeviceIdentifierInvalid,
+                    "\"device_identifier_invalid\"",
                 ),
             ];
 
