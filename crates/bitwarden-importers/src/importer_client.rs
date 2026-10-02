@@ -1,6 +1,4 @@
 use bitwarden_core::Client;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     Credentials, ImportError, ImportOptions, ImportSummary, OnePasswordImportSummary,
@@ -9,12 +7,12 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct ImporterClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl ImporterClient {
     fn new(client: Client) -> Self {
         Self { client }
@@ -50,7 +48,7 @@ impl ImporterClient {
 }
 
 #[cfg(feature = "wasm")]
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl ImporterClient {
     /// The same import as [`ImporterClient::import_onepassword`], for JavaScript, which passes the
     /// two-factor prompt as an object rather than a `&dyn` callback.

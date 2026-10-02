@@ -25,6 +25,7 @@ uniffi = [
 wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-vault/wasm",
     "bitwarden-exporters/wasm",
     "bitwarden-threading/wasm",
@@ -44,6 +45,7 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-exporters = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-random = { workspace = true }
 bitwarden-ssh = { workspace = true }
 bitwarden-threading = { workspace = true, optional = true }
