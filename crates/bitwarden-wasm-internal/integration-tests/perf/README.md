@@ -13,7 +13,7 @@ node perf/analyze-profile.mjs perf/profiles/<file>.cpuprofile <rootFrame> 40
 
 `perf/build.sh` takes overrides to compare build configurations:
 
-- `PERF_WASM_CPU`: wasm target features (default `-Ctarget-cpu=mvp`, as in `../build.sh`).
+- `PERF_WASM_CPU`: wasm target features (default: the shipped `.wasm` features from `../build.sh`).
 - `PERF_CARGO_ARGS`: extra cargo flags, e.g. `--config profile.release.package.argon2.opt-level=3`.
 
 Set `PERF_LABEL` to write results to `perf/results/<label>*.json`. Timings vary between processes by
