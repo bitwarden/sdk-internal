@@ -122,7 +122,7 @@ pub struct InternalClient {
     // TODO: Flags have been migrated to Setting but this will have to stay temporarily until the
     // feature flags are removed.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
-    pub(crate) state_registry: StateRegistry,
+    pub(crate) state_registry: Arc<StateRegistry>,
 
     // A bridge used to map in KM state into the SDK, until a more robust solution is implemented
     // by platform. This is not a stable API and other teams should not use it. It will be
@@ -207,6 +207,15 @@ impl InternalClient {
     /// reading this handle directly.
     pub fn managed_profile_handle(&self) -> Arc<RwLock<Option<ManagementProfile>>> {
         self.managed_profile.clone()
+    }
+
+    /// Shared handle to the SDK's state registry, for the dev-only debug browse.
+    ///
+    /// Prefer `bitwarden_state::debug::StateDebug` (reached through the client's
+    /// debug tree) over reading this handle directly.
+    #[cfg(feature = "debug-capabilities")]
+    pub fn state_registry(&self) -> Arc<StateRegistry> {
+        self.state_registry.clone()
     }
 
     #[allow(missing_docs)]
