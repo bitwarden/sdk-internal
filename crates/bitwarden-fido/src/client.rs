@@ -1,3 +1,4 @@
+use bitwarden_error::bitwarden_error;
 use passkey::client::WebauthnError;
 use thiserror::Error;
 
@@ -15,7 +16,7 @@ use crate::types::InvalidOriginError;
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
+#[bitwarden_error(flat)]
 pub enum Fido2ClientError {
     #[error(transparent)]
     InvalidOrigin(#[from] InvalidOriginError),
