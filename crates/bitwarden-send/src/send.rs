@@ -307,13 +307,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                     bitwarden_api_api::models::SendType::Item,
                     None,
                     None,
-                    Some(Box::new(bitwarden_api_api::models::SendDataModel {
-                        encryption_version: Some(DEFAULT_SEND_ENCRYPTION.into()),
-                        data: Some(encrypted.data),
-                        metadata: Box::new(SendItemMetadataModel {
-                            item_id: encrypted.metadata.item_id.into(),
-                        }),
-                    })),
+                    Some(Box::new(encrypted.into())),
                 ))
             }
         }
