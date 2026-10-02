@@ -10,13 +10,10 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
-    XAes256GcmKey,
+    ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext,
     cose::{
         ContentNamespace, SafeObjectNamespace,
-        symmetric::{
-            CoseAlgorithmPolicy, CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0,
-        },
+        symmetric::{CoseAlgorithmPolicy, decrypt_cose0, encrypt_cose0},
     },
     keys::KeyId,
     safe::{
@@ -49,14 +46,18 @@ pub enum SymmetricKeyEnvelopeError {
     InvalidNamespace,
 }
 
-/// A symmetric key protected by an XAES-256-GCM wrapping key.
+/// A symmetric key protected by an XAES-256-GCM or AES-256-CBC-HMAC wrapping key.
+///
+/// To migrate a key stored as an [`EncString`](crate::EncString), see
+/// [`LegacyCompatSymmetricKeyEnvelope`](crate::compat::LegacyCompatSymmetricKeyEnvelope) and its
+/// migration example.
 #[derive(Clone)]
 pub struct SymmetricKeyEnvelope {
     cose_encrypt0: coset::CoseEncrypt0,
 }
 
 impl SymmetricKeyEnvelope {
-    /// Seals a symmetric key with an XAES-256-GCM key from the key store.
+    /// Seals a symmetric key with an XAES-256-GCM or AES-256-CBC-HMAC key from the key store.
     pub fn seal<Ids: KeySlotIds>(
         key_to_seal: Ids::Symmetric,
         sealing_key: Ids::Symmetric,
@@ -75,10 +76,9 @@ impl SymmetricKeyEnvelope {
             .get_symmetric_key(sealing_key)
             .map_err(|_| SymmetricKeyEnvelopeError::KeyMissing)?;
 
-        let wrapping_key: &XAes256GcmKey = match wrapping_key {
-            SymmetricCryptoKey::XAes256GcmKey(key) => key,
-            _ => return Err(SymmetricKeyEnvelopeError::WrongKeyType),
-        };
+        let wrapping_key = wrapping_key
+            .as_cose_key_view()
+            .ok_or(SymmetricKeyEnvelopeError::WrongKeyType)?;
 
         let (content_format, key_bytes) = match key_to_seal.to_encoded_raw() {
             EncodedSymmetricKey::BitwardenLegacyKey(key_bytes) => {
@@ -96,21 +96,22 @@ impl SymmetricKeyEnvelope {
             SafeObjectNamespace::SymmetricKeyEnvelope,
             namespace,
         );
-        protected_header.key_id = wrapping_key.key_id.as_slice().into();
+        protected_header.key_id = wrapping_key.key_id().as_slice().into();
 
         let cose_encrypt0 = encrypt_cose0(
-            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            wrapping_key.algorithm(),
             CoseEncrypt0Builder::new(),
             protected_header,
             &key_bytes,
-            wrapping_key.enc_key.as_slice(),
+            wrapping_key.key_bytes(),
         )
         .map_err(|_| SymmetricKeyEnvelopeError::WrongKeyType)?;
 
         Ok(SymmetricKeyEnvelope { cose_encrypt0 })
     }
 
-    /// Unseals a symmetric key with an XAES-256-GCM key and stores it in the key store context.
+    /// Unseals a symmetric key with an XAES-256-GCM or AES-256-CBC-HMAC key and stores it in the
+    /// key store context.
     pub fn unseal<Ids: KeySlotIds>(
         &self,
         wrapping_key: Ids::Symmetric,
@@ -121,10 +122,13 @@ impl SymmetricKeyEnvelope {
             .get_symmetric_key(wrapping_key)
             .map_err(|_| SymmetricKeyEnvelopeError::KeyMissing)?;
 
-        let wrapping_key_inner = match wrapping_key_ref {
-            SymmetricCryptoKey::XAes256GcmKey(key) => key,
-            _ => return Err(SymmetricKeyEnvelopeError::WrongKeyType),
-        };
+        if !KeyEncryptionKey::is_key_algorithm_valid(ctx, wrapping_key) {
+            return Err(SymmetricKeyEnvelopeError::WrongKeyType);
+        }
+
+        let wrapping_key_inner = wrapping_key_ref
+            .as_cose_key_view()
+            .ok_or(SymmetricKeyEnvelopeError::WrongKeyType)?;
 
         validate_safe_namespaces(
             &self.cose_encrypt0.protected.header,
@@ -133,12 +137,12 @@ impl SymmetricKeyEnvelope {
         )
         .map_err(|_| SymmetricKeyEnvelopeError::InvalidNamespace)?;
 
-        // The wrapping key is independently typed as XAES-256-GCM, so require the protected
-        // content-encryption algorithm to match it before attempting decryption.
+        // The wrapping key is independently typed, so require the protected content-encryption
+        // algorithm to match it before attempting decryption.
         let key_bytes = decrypt_cose0(
             &self.cose_encrypt0,
-            CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XAes256Gcm),
-            wrapping_key_inner.enc_key.as_slice(),
+            CoseAlgorithmPolicy::Exactly(wrapping_key_inner.algorithm()),
+            wrapping_key_inner.key_bytes(),
         )
         .map_err(|_| SymmetricKeyEnvelopeError::WrongKey)?;
 
@@ -158,6 +162,13 @@ impl SymmetricKeyEnvelope {
     pub fn contained_key_id(&self) -> Result<Option<KeyId>, SymmetricKeyEnvelopeError> {
         extract_key_id(&self.cose_encrypt0.protected.header)
             .map_err(|_| SymmetricKeyEnvelopeError::Parsing("Invalid contained key id".to_string()))
+    }
+
+    /// Get the key ID of the key this envelope was sealed with. Always present in a well-formed
+    /// envelope.
+    pub fn encrypted_by_key_id(&self) -> Result<KeyId, SymmetricKeyEnvelopeError> {
+        KeyId::try_from(self.cose_encrypt0.protected.header.key_id.as_slice())
+            .map_err(|_| SymmetricKeyEnvelopeError::Parsing("Invalid sealing key id".to_string()))
     }
 }
 
@@ -324,7 +335,7 @@ impl ContentNamespace for SymmetricKeyEnvelopeNamespace {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{KeyStore, SymmetricKeyAlgorithm, traits::tests::TestIds};
+    use crate::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
     const TEST_VECTOR_SEALING_KEY: &str = "pQEEAlAJiRm3TVKQVUpm9gqA4tm6AzoAARF5BIQDBAUGIFggQyO5bN7Uto3hpXUyqluuArn+zppBmhdnahDRJ6p4s84B";
     const TEST_VECTOR_KEY_TO_SEAL: &str = "pQEEAlDpQoswNPD5xaz7sYLHZXXXAzoAARFvBIQDBAUGIFgg2YO7eUZhb9WSxxsGvdURTunDOBV0W4FRk9E4TV7c00QB";
@@ -388,6 +399,68 @@ mod tests {
     }
 
     #[test]
+    fn test_seal_unseal_aes256_cbc_hmac() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+
+        let envelope = SymmetricKeyEnvelope::seal(
+            key_to_seal,
+            wrapping_key,
+            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        assert_eq!(
+            envelope.cose_encrypt0.protected.header.alg,
+            Some(coset::Algorithm::PrivateUse(
+                crate::cose::AES_256_CBC_HMAC_SHA256_AEAD
+            ))
+        );
+
+        let unsealed_key = envelope
+            .unseal(
+                wrapping_key,
+                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx,
+            )
+            .unwrap();
+
+        ctx.assert_symmetric_keys_equal(unsealed_key, key_to_seal);
+    }
+
+    #[test]
+    fn test_unseal_with_other_wrapping_key_algorithm_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let cbc_hmac_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let xaes_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+
+        // Sealed with one algorithm, unsealed with a key of the other.
+        let envelope = SymmetricKeyEnvelope::seal(
+            key_to_seal,
+            cbc_hmac_key,
+            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            envelope.unseal(
+                xaes_key,
+                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx
+            ),
+            Err(SymmetricKeyEnvelopeError::WrongKey)
+        ));
+    }
+
+    #[test]
     fn test_contained_key_id_symmetric() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
@@ -410,6 +483,34 @@ mod tests {
         let contained_key_id = envelope.contained_key_id().unwrap();
 
         assert_eq!(key_to_seal_ref.key_id(), contained_key_id);
+    }
+
+    #[test]
+    fn test_encrypted_by_key_id() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+
+        for algorithm in [
+            SymmetricKeyAlgorithm::XAes256Gcm,
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ] {
+            let wrapping_key = ctx.make_symmetric_key(algorithm);
+            let envelope = SymmetricKeyEnvelope::seal(
+                key_to_seal,
+                wrapping_key,
+                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                &ctx,
+            )
+            .unwrap();
+
+            let wrapping_key_id = ctx.get_symmetric_key(wrapping_key).unwrap().key_id();
+            assert_eq!(
+                Some(envelope.encrypted_by_key_id().unwrap()),
+                wrapping_key_id
+            );
+        }
     }
 
     #[test]
@@ -478,7 +579,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rejects_non_xaes_wrapping_keys() {
+    fn test_rejects_unsupported_wrapping_keys() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
@@ -493,7 +594,6 @@ mod tests {
         .unwrap();
 
         let unsupported_wrapping_keys = [
-            ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac),
             ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256Gcm),
             ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305),
         ];

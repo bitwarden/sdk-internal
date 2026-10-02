@@ -39,6 +39,7 @@ pub use store::{
 mod cose;
 pub(crate) use cose::CONTENT_TYPE_PADDED_CBOR;
 pub use cose::{CoseKeyThumbprint, CoseKeyThumbprintExt, CoseSerializable};
+pub mod compat;
 pub mod safe;
 mod signing;
 pub use signing::*;
