@@ -113,11 +113,10 @@ impl CiphersClient {
         &self,
         cipher_id: CipherId,
         collection_ids: Vec<CollectionId>,
-        is_admin: bool,
     ) -> Result<CipherView> {
         Ok(self
             .0
-            .update_collection(cipher_id, collection_ids, is_admin)
+            .update_collection(cipher_id, collection_ids, false)
             .await?)
     }
 

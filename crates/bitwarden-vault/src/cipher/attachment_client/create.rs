@@ -58,7 +58,6 @@ impl TryFrom<bitwarden_api_api::models::FileUploadType> for AttachmentFileUpload
 /// the caller uploads. See `upgrade_attachment` for the alternative where the SDK owns the
 /// encryption and upload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct CreateAttachmentRequest {
