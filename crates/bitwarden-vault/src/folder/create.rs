@@ -11,8 +11,6 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{Folder, FolderView, FoldersClient, VaultParseError};
 

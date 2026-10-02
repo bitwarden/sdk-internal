@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::CipherId;
 

@@ -10,8 +10,6 @@ use bitwarden_crypto::{
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::VaultParseError;
 

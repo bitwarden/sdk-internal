@@ -12,8 +12,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, PasswordHistoryView, VaultParseError, cipher::cipher::CopyableCipherFields};

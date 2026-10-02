@@ -6,8 +6,6 @@ use bitwarden_core::{
 use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::Serialize_repr;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, VaultParseError,
