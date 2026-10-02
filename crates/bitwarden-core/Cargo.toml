@@ -39,6 +39,7 @@ wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-state/wasm",
     "getrandom2/js",
     "getrandom3/wasm_js",
@@ -65,6 +66,7 @@ bitwarden-core-macro = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-logging = { workspace = true }
 bitwarden-managed-settings-types = { workspace = true }
 bitwarden-random = { workspace = true }
