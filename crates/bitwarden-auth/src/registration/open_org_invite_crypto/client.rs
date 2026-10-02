@@ -4,8 +4,6 @@
 
 use bitwarden_crypto::safe::HighEntropySecret;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::{OpenOrgInvite, SealedOpenOrgInviteData};
 use crate::registration::registration_client::{RegistrationClient, RegistrationError};

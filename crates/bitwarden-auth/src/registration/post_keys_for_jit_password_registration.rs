@@ -11,8 +11,6 @@ use bitwarden_core::{
 };
 use bitwarden_encoding::B64;
 use tracing::{error, info};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::registration::{RegistrationClient, RegistrationError};
 
