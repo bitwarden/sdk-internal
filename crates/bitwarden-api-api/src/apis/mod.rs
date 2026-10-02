@@ -39,6 +39,7 @@ pub mod organization_reports_api;
 pub mod organization_sponsorships_api;
 pub mod organization_subscriptions_api;
 pub mod organization_users_api;
+pub mod organization_users_keys_api;
 pub mod organizations_api;
 pub mod pam_access_connector_rotation_attempts_api;
 pub mod pam_access_connector_rotation_configs_api;
@@ -134,6 +135,7 @@ struct ApiClientReal {
     organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient,
     organization_subscriptions_api: organization_subscriptions_api::OrganizationSubscriptionsApiClient,
     organization_users_api: organization_users_api::OrganizationUsersApiClient,
+    organization_users_keys_api: organization_users_keys_api::OrganizationUsersKeysApiClient,
     organizations_api: organizations_api::OrganizationsApiClient,
     pam_access_connector_rotation_attempts_api: pam_access_connector_rotation_attempts_api::PamAccessConnectorRotationAttemptsApiClient,
     pam_access_connector_rotation_configs_api: pam_access_connector_rotation_configs_api::PamAccessConnectorRotationConfigsApiClient,
@@ -217,6 +219,7 @@ pub struct ApiClientMock {
     pub organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi,
     pub organization_subscriptions_api: organization_subscriptions_api::MockOrganizationSubscriptionsApi,
     pub organization_users_api: organization_users_api::MockOrganizationUsersApi,
+    pub organization_users_keys_api: organization_users_keys_api::MockOrganizationUsersKeysApi,
     pub organizations_api: organizations_api::MockOrganizationsApi,
     pub pam_access_connector_rotation_attempts_api: pam_access_connector_rotation_attempts_api::MockPamAccessConnectorRotationAttemptsApi,
     pub pam_access_connector_rotation_configs_api: pam_access_connector_rotation_configs_api::MockPamAccessConnectorRotationConfigsApi,
@@ -301,6 +304,7 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient::new(configuration.clone()),
             organization_subscriptions_api: organization_subscriptions_api::OrganizationSubscriptionsApiClient::new(configuration.clone()),
             organization_users_api: organization_users_api::OrganizationUsersApiClient::new(configuration.clone()),
+            organization_users_keys_api: organization_users_keys_api::OrganizationUsersKeysApiClient::new(configuration.clone()),
             organizations_api: organizations_api::OrganizationsApiClient::new(configuration.clone()),
             pam_access_connector_rotation_attempts_api: pam_access_connector_rotation_attempts_api::PamAccessConnectorRotationAttemptsApiClient::new(configuration.clone()),
             pam_access_connector_rotation_configs_api: pam_access_connector_rotation_configs_api::PamAccessConnectorRotationConfigsApiClient::new(configuration.clone()),
@@ -386,6 +390,7 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi::new(),
             organization_subscriptions_api: organization_subscriptions_api::MockOrganizationSubscriptionsApi::new(),
             organization_users_api: organization_users_api::MockOrganizationUsersApi::new(),
+            organization_users_keys_api: organization_users_keys_api::MockOrganizationUsersKeysApi::new(),
             organizations_api: organizations_api::MockOrganizationsApi::new(),
             pam_access_connector_rotation_attempts_api: pam_access_connector_rotation_attempts_api::MockPamAccessConnectorRotationAttemptsApi::new(),
             pam_access_connector_rotation_configs_api: pam_access_connector_rotation_configs_api::MockPamAccessConnectorRotationConfigsApi::new(),
@@ -723,6 +728,15 @@ impl ApiClient {
             ApiClient::Real(real) => &real.organization_users_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organization_users_api,
+        }
+    }
+    pub fn organization_users_keys_api(
+        &self,
+    ) -> &dyn organization_users_keys_api::OrganizationUsersKeysApi {
+        match self {
+            ApiClient::Real(real) => &real.organization_users_keys_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.organization_users_keys_api,
         }
     }
     pub fn organizations_api(&self) -> &dyn organizations_api::OrganizationsApi {

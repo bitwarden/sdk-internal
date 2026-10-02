@@ -3,7 +3,9 @@ use std::sync::Arc;
 use bitwarden_api_api::models::OrganizationUserBulkRequestModel;
 use bitwarden_core::{
     ApiError, Client, FromClient, MissingFieldError, OrganizationId, client::ApiConfigurations,
+    key_management::KeySlotIds,
 };
+use bitwarden_crypto::KeyStore;
 use bitwarden_error::bitwarden_error;
 use bitwarden_organizations::OrganizationUserId;
 use thiserror::Error;
@@ -28,6 +30,7 @@ pub enum OrganizationUsersManagementError {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
 pub struct OrganizationUsersManagementClient {
+    pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 

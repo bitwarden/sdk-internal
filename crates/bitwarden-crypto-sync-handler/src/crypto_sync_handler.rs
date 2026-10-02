@@ -6,13 +6,15 @@ use bitwarden_core::key_management::{
     account_cryptographic_state::AccountKeysResponseParseError,
 };
 use bitwarden_core::{
-    Client,
+    Client, OrganizationId,
     key_management::{
         MasterPasswordUnlockData, V2UpgradeToken, WebAuthnPrfUnlockData, WebAuthnPrfUnlockOption,
         account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
 use bitwarden_crypto::KeyId;
+use bitwarden_member_administration::OrganizationUsersManagementClientExt as _;
+use bitwarden_organizations::{OrganizationUserType, Permissions};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 #[cfg(feature = "wasm")]
@@ -36,6 +38,29 @@ pub struct CryptoSyncData {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub account_cryptographic_state: Option<WrappedAccountCryptographicState>,
+    /// The account's organization memberships, as the server reports them on sync.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub organizations: Option<Vec<CryptoSyncOrganization>>,
+}
+
+/// An organization membership a sync response carries, narrowed to the parts key management owns.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+pub struct CryptoSyncOrganization {
+    /// The organization this membership belongs to.
+    pub id: OrganizationId,
+    /// The account's role in the organization.
+    pub r#type: OrganizationUserType,
+    /// The account's custom permissions, which apply only to the Custom role.
+    #[serde(default)]
+    pub permissions: Permissions,
 }
 
 /// The user decryption options a sync response carries, narrowed to the parts key management owns.
@@ -110,6 +135,16 @@ impl TryFrom<&bitwarden_api_api::models::SyncResponseModel> for CryptoSyncData {
                 .map(WrappedAccountCryptographicState::try_from)
                 .transpose()
                 .map_err(CryptoSyncDataParseError::AccountCryptographicState)?,
+            organizations: response
+                .profile
+                .as_deref()
+                .and_then(|p| p.organizations.as_deref())
+                .map(|organizations| {
+                    organizations
+                        .iter()
+                        .filter_map(organization_from_response)
+                        .collect()
+                }),
         })
     }
 }
@@ -155,6 +190,60 @@ impl TryFrom<&bitwarden_api_api::models::UserDecryptionResponseModel> for Crypto
     }
 }
 
+/// Returns `None` for a membership this version cannot interpret, which the caller drops.
+///
+/// These memberships only drive background work, while a handler error aborts the sync and leaves
+/// `last_sync` unbumped. An unrecognised role must not cost the account its unlock data.
+#[cfg(not(target_arch = "wasm32"))]
+fn organization_from_response(
+    response: &bitwarden_api_api::models::ProfileOrganizationResponseModel,
+) -> Option<CryptoSyncOrganization> {
+    Some(CryptoSyncOrganization {
+        id: OrganizationId::new(response.id?),
+        r#type: user_type_from_response(response.r#type.as_ref()?)?,
+        permissions: response
+            .permissions
+            .as_deref()
+            .map(permissions_from_response)
+            .unwrap_or_default(),
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn user_type_from_response(
+    response: &bitwarden_api_api::models::OrganizationUserType,
+) -> Option<OrganizationUserType> {
+    use bitwarden_api_api::models::OrganizationUserType as Response;
+
+    match response {
+        Response::Owner => Some(OrganizationUserType::Owner),
+        Response::Admin => Some(OrganizationUserType::Admin),
+        Response::User => Some(OrganizationUserType::User),
+        Response::Custom => Some(OrganizationUserType::Custom),
+        // An unknown role may or may not administer account recovery.
+        Response::__Unknown(_) => None,
+    }
+}
+
+/// An absent permission is one the account does not hold.
+#[cfg(not(target_arch = "wasm32"))]
+fn permissions_from_response(response: &bitwarden_api_api::models::Permissions) -> Permissions {
+    Permissions {
+        access_event_logs: response.access_event_logs.unwrap_or_default(),
+        access_import_export: response.access_import_export.unwrap_or_default(),
+        access_reports: response.access_reports.unwrap_or_default(),
+        create_new_collections: response.create_new_collections.unwrap_or_default(),
+        edit_any_collection: response.edit_any_collection.unwrap_or_default(),
+        delete_any_collection: response.delete_any_collection.unwrap_or_default(),
+        manage_groups: response.manage_groups.unwrap_or_default(),
+        manage_sso: response.manage_sso.unwrap_or_default(),
+        manage_policies: response.manage_policies.unwrap_or_default(),
+        manage_users: response.manage_users.unwrap_or_default(),
+        manage_reset_password: response.manage_reset_password.unwrap_or_default(),
+        manage_scim: response.manage_scim.unwrap_or_default(),
+    }
+}
+
 /// Runs the key management sync work for the given sync data.
 async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
     // A replayed payload is refused whole: taking its user decryption options would let the
@@ -167,6 +256,7 @@ async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
     // Handlers MUST NOT fail, to avoid partial state writes
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
+    handle_account_recovery_v2_upgrades(client, data).await;
 
     // Further key management sync handlers go here.
 }
@@ -256,6 +346,45 @@ async fn is_replayed_state(client: &Client, data: &CryptoSyncData) -> bool {
 
     // If we define more downgrade types in the future, check them here.
     false
+}
+
+/// Updates the account recovery keys of members who have upgraded to a V2 user key.
+///
+/// A member upgrading to V2 leaves their organizations holding an account recovery key that still
+/// wraps their V1 user key. Only an admin can replace it, so each sync clears what it can.
+async fn handle_account_recovery_v2_upgrades(client: &Client, data: &CryptoSyncData) {
+    let organization_users_management = client.organization_users_management();
+
+    for organization_id in organizations_to_upgrade(client, data) {
+        if let Err(e) = organization_users_management
+            .upgrade_pending_account_recovery_keys(organization_id)
+            .await
+        {
+            warn!(
+                %organization_id,
+                "Failed to upgrade pending account recovery keys: {e}"
+            );
+        }
+    }
+}
+
+/// The organizations this account can update account recovery keys for.
+fn organizations_to_upgrade(client: &Client, data: &CryptoSyncData) -> Vec<OrganizationId> {
+    let organization_users_management = client.organization_users_management();
+
+    data.organizations
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .filter(|o| {
+            organization_users_management.can_administer_account_recovery_keys(
+                o.id,
+                &o.r#type,
+                &o.permissions,
+            )
+        })
+        .map(|o| o.id)
+        .collect()
 }
 
 /// Whether the incoming state moves a locally V2 account back to V1.
@@ -348,7 +477,8 @@ impl bitwarden_sync::SyncHandler for CryptoSyncHandler {
 mod tests {
     use bitwarden_api_api::models::{
         KdfType, MasterPasswordUnlockKdfResponseModel, MasterPasswordUnlockResponseModel,
-        SyncResponseModel, UserDecryptionResponseModel, WebAuthnPrfDecryptionOption,
+        ProfileOrganizationResponseModel, ProfileResponseModel, SyncResponseModel,
+        UserDecryptionResponseModel, WebAuthnPrfDecryptionOption,
     };
     use bitwarden_core::key_management::{
         KeySlotIds, state_bridge::test_support::InMemoryStateBridge,
@@ -598,5 +728,186 @@ mod tests {
         let stored = sync_account_cryptographic_state(&client, &make_v1_state()).await;
 
         assert_eq!(stored.as_ref(), Some(&local));
+    }
+
+    fn profile_organization(
+        user_type: bitwarden_api_api::models::OrganizationUserType,
+        permissions: Option<bitwarden_api_api::models::Permissions>,
+    ) -> ProfileOrganizationResponseModel {
+        ProfileOrganizationResponseModel {
+            id: Some(uuid::Uuid::new_v4()),
+            r#type: Some(user_type),
+            permissions: permissions.map(Box::new),
+            ..Default::default()
+        }
+    }
+
+    fn sync_response_with_organizations(
+        organizations: Vec<ProfileOrganizationResponseModel>,
+    ) -> SyncResponseModel {
+        SyncResponseModel {
+            profile: Some(Box::new(ProfileResponseModel {
+                organizations: Some(organizations),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_try_from_maps_an_organization_membership() {
+        let organization = profile_organization(
+            bitwarden_api_api::models::OrganizationUserType::Custom,
+            Some(bitwarden_api_api::models::Permissions {
+                manage_reset_password: Some(true),
+                manage_users: Some(true),
+                ..Default::default()
+            }),
+        );
+        let expected_id = organization.id.unwrap();
+
+        let data = CryptoSyncData::try_from(&sync_response_with_organizations(vec![organization]))
+            .unwrap();
+
+        let organizations = data.organizations.unwrap();
+        let [organization] = organizations.as_slice() else {
+            panic!("one membership is mapped, got {}", organizations.len());
+        };
+        assert_eq!(organization.id, OrganizationId::new(expected_id));
+        assert_eq!(organization.r#type, OrganizationUserType::Custom);
+        assert!(organization.permissions.manage_reset_password);
+        assert!(organization.permissions.manage_users);
+        // A permission the response left out is one the account does not hold.
+        assert!(!organization.permissions.manage_groups);
+    }
+
+    /// Owners and Admins carry no custom permissions, so an absent block must still parse.
+    #[test]
+    fn test_try_from_maps_an_organization_membership_without_permissions() {
+        let data = CryptoSyncData::try_from(&sync_response_with_organizations(vec![
+            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None),
+        ]))
+        .unwrap();
+
+        let organizations = data.organizations.unwrap();
+        assert_eq!(organizations[0].r#type, OrganizationUserType::Owner);
+        assert!(!organizations[0].permissions.manage_reset_password);
+    }
+
+    /// An uninterpretable membership is dropped without affecting the rest of the sync.
+    #[test]
+    fn test_try_from_drops_uninterpretable_memberships_and_keeps_the_rest() {
+        let usable =
+            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None);
+        let expected_id = OrganizationId::new(usable.id.unwrap());
+
+        let mut response = sync_response_with_organizations(vec![
+            // A role added by a newer server.
+            profile_organization(
+                bitwarden_api_api::models::OrganizationUserType::__Unknown(99),
+                None,
+            ),
+            // A membership sent without a role.
+            ProfileOrganizationResponseModel {
+                id: Some(uuid::Uuid::new_v4()),
+                r#type: None,
+                ..Default::default()
+            },
+            usable,
+        ]);
+        response.user_decryption = Some(Box::new(UserDecryptionResponseModel {
+            user_key_id: Some(TEST_USER_KEY_ID.to_string()),
+            ..Default::default()
+        }));
+
+        let data = CryptoSyncData::try_from(&response).unwrap();
+
+        let organizations = data.organizations.unwrap();
+        assert_eq!(
+            organizations.iter().map(|o| o.id).collect::<Vec<_>>(),
+            vec![expected_id]
+        );
+        assert!(data.user_decryption.unwrap().user_key_id.is_some());
+    }
+
+    /// Only organizations the account administers are upgraded.
+    #[test]
+    fn test_only_administered_memberships_are_upgraded() {
+        let owner =
+            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None);
+        let admin =
+            profile_organization(bitwarden_api_api::models::OrganizationUserType::Admin, None);
+        let custom_without_user_management = profile_organization(
+            bitwarden_api_api::models::OrganizationUserType::Custom,
+            Some(bitwarden_api_api::models::Permissions {
+                manage_reset_password: Some(true),
+                manage_users: Some(false),
+                ..Default::default()
+            }),
+        );
+        let member =
+            profile_organization(bitwarden_api_api::models::OrganizationUserType::User, None);
+        let expected = vec![
+            OrganizationId::new(owner.id.unwrap()),
+            OrganizationId::new(admin.id.unwrap()),
+        ];
+
+        let data = CryptoSyncData::try_from(&sync_response_with_organizations(vec![
+            owner,
+            member,
+            custom_without_user_management,
+            admin,
+        ]))
+        .unwrap();
+
+        let client = client_with_organization_keys(&expected);
+
+        assert_eq!(organizations_to_upgrade(&client, &data), expected);
+    }
+
+    /// Permissions alone are not enough; the organization key has to be unlocked too.
+    #[test]
+    fn test_administered_memberships_without_an_organization_key_are_skipped() {
+        let owner =
+            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None);
+        let unlocked =
+            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None);
+        let unlocked_id = OrganizationId::new(unlocked.id.unwrap());
+
+        let data =
+            CryptoSyncData::try_from(&sync_response_with_organizations(vec![owner, unlocked]))
+                .unwrap();
+        let client = client_with_organization_keys(&[unlocked_id]);
+
+        assert_eq!(organizations_to_upgrade(&client, &data), vec![unlocked_id]);
+    }
+
+    #[test]
+    fn test_no_memberships_upgrades_nothing() {
+        let client = client_with_organization_keys(&[]);
+
+        assert!(organizations_to_upgrade(&client, &CryptoSyncData::default()).is_empty());
+    }
+
+    /// A client holding an organization key for each of `organization_ids`.
+    fn client_with_organization_keys(organization_ids: &[OrganizationId]) -> Client {
+        use bitwarden_core::key_management::SymmetricKeySlotId;
+        use bitwarden_crypto::SymmetricCryptoKey;
+
+        let client = Client::new(None);
+        let key_store = client.internal.get_key_store();
+        let mut ctx = key_store.context_mut();
+
+        for organization_id in organization_ids {
+            #[allow(deprecated)]
+            ctx.set_symmetric_key(
+                SymmetricKeySlotId::Organization(*organization_id),
+                SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            )
+            .expect("the context is mutable");
+        }
+        drop(ctx);
+
+        client
     }
 }

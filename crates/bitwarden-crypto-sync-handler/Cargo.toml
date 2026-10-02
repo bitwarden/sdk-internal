@@ -16,10 +16,12 @@ keywords.workspace = true
 
 [features]
 default = []
-uniffi = ["bitwarden-core/uniffi", "dep:uniffi"]
+uniffi = ["bitwarden-core/uniffi", "bitwarden-organizations/uniffi", "dep:uniffi"]
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
+    "bitwarden-member-administration/wasm",
+    "bitwarden-organizations/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -31,6 +33,8 @@ async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
+bitwarden-member-administration = { workspace = true }
+bitwarden-organizations = { workspace = true }
 bitwarden-sync = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
@@ -44,6 +48,7 @@ wasm-bindgen-futures = { workspace = true, optional = true }
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
 bitwarden-core = { workspace = true, features = ["internal-test-utils"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
+uuid = { workspace = true }
 
 [lints]
 workspace = true

@@ -19,6 +19,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, SpkiPublicKeyBytes, UnsignedSharedKey};
 use bitwarden_encoding::B64;
+use bitwarden_organization_crypto::account_recovery::AccountRecoveryKey;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, debug_span, error, info};
 #[cfg(feature = "wasm")]
@@ -280,9 +281,13 @@ fn reencrypt_organization_memberships(
                     .entered();
             // Share the key to the organization. Note: No sender authentication
             // and the passed in public-key must be verified/trusted.
-            match UnsignedSharedKey::encapsulate(new_user_key_id, &org_membership.public_key, ctx) {
-                Ok(reencrypted_key) => Ok(OrganizationUserAccountRecoveryRequestModel {
-                    reset_password_key: Some(reencrypted_key.to_string()),
+            match AccountRecoveryKey::encapsulate(
+                new_user_key_id,
+                &org_membership.public_key,
+                ctx,
+            ) {
+                Ok(account_recovery_key) => Ok(OrganizationUserAccountRecoveryRequestModel {
+                    reset_password_key: Some(account_recovery_key.to_string()),
                     organization_id: org_membership.organization_id,
                 }),
                 Err(_) => Err(ReencryptError::KeySharingError),
