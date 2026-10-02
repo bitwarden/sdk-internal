@@ -63,19 +63,32 @@ pub enum EditCipherError {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherEditRequest {
+    /// ID of the cipher to edit.
     pub id: CipherId,
 
+    /// Organization that owns the cipher, or `None` for the user's individual vault.
     pub organization_id: Option<OrganizationId>,
+    /// Folder to place the cipher in, if any.
     pub folder_id: Option<FolderId>,
+    /// Whether the cipher is marked as a favorite.
     pub favorite: bool,
+    /// Whether the user must re-enter their master password to view the cipher.
     pub reprompt: CipherRepromptType,
+    /// Display name of the cipher.
     pub name: String,
+    /// Free-form notes.
     pub notes: Option<String>,
+    /// Custom fields.
     pub fields: Vec<FieldView>,
+    /// Type of the cipher and its type-specific data.
     pub r#type: CipherViewType,
+    /// Revision date of the cipher being edited, as last seen by the client.
     pub revision_date: DateTime<Utc>,
+    /// When the cipher was archived, or `None` if it is not archived.
     pub archived_date: Option<DateTime<Utc>>,
+    /// Attachments on the cipher.
     pub attachments: Vec<AttachmentView>,
+    /// The cipher's own encryption key, if it has one.
     #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey | undefined"))]
     pub key: Option<SymmetricCryptoKey>,
 }
@@ -122,8 +135,11 @@ impl TryFrom<CipherView> for CipherEditRequest {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherPartialEditRequest {
+    /// ID of the cipher to edit.
     pub id: CipherId,
+    /// Folder to place the cipher in, if any.
     pub folder_id: Option<FolderId>,
+    /// Whether the cipher is marked as a favorite.
     pub favorite: bool,
 }
 
