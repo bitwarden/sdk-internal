@@ -4,8 +4,6 @@ use bitwarden_core::OrganizationId;
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::policy_type::PolicyType;
 
@@ -18,7 +16,7 @@ uuid_newtype!(pub PolicyId);
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Policy {
     /// The policy's unique ID.
     pub id: PolicyId,
