@@ -6,7 +6,9 @@
   "scripts": {
     "build:test": "bash ../build.sh && npm run test",
     "test": "npm run typecheck && NODE_OPTIONS=--experimental-vm-modules jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "perf": "NODE_OPTIONS=--experimental-vm-modules jest -c jest.perf.config.js --runInBand",
+    "perf:profile": "node --experimental-vm-modules --cpu-prof --cpu-prof-dir=perf/profiles node_modules/jest/bin/jest.js -c jest.perf.config.js --runInBand"
   },
   "dependencies": {
     "@bitwarden/sdk-internal": "file:../npm/"
