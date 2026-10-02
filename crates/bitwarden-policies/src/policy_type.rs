@@ -7,7 +7,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{policies::*, policy_definition::ErasedPolicy};
+use crate::{PolicyParseError, policies::*, policy_definition::ErasedPolicy};
 
 /// The type of an organization policy.
 ///
@@ -76,6 +76,40 @@ pub enum PolicyType {
     /// have not explicitly set their Fill Assist preference, and optionally overrides the default
     /// rules feed URL.
     FillAssist = 22,
+}
+
+impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
+    type Error = PolicyParseError;
+
+    fn try_from(value: bitwarden_api_api::models::PolicyType) -> Result<Self, Self::Error> {
+        use bitwarden_api_api::models::PolicyType as Api;
+        Ok(match value {
+            Api::TwoFactorAuthentication => PolicyType::TwoFactorAuthentication,
+            Api::MasterPassword => PolicyType::MasterPassword,
+            Api::PasswordGenerator => PolicyType::PasswordGenerator,
+            Api::SingleOrg => PolicyType::SingleOrg,
+            Api::RequireSso => PolicyType::RequireSso,
+            Api::OrganizationDataOwnership => PolicyType::OrganizationDataOwnership,
+            Api::DisableSend => PolicyType::DisableSend,
+            Api::SendOptions => PolicyType::SendOptions,
+            Api::ResetPassword => PolicyType::ResetPassword,
+            Api::MaximumVaultTimeout => PolicyType::MaximumVaultTimeout,
+            Api::DisablePersonalVaultExport => PolicyType::DisablePersonalVaultExport,
+            Api::ActivateAutofill => PolicyType::ActivateAutofill,
+            Api::AutomaticAppLogIn => PolicyType::AutomaticAppLogIn,
+            Api::FreeFamiliesSponsorshipPolicy => PolicyType::FreeFamiliesSponsorship,
+            Api::RemoveUnlockWithPin => PolicyType::RemoveUnlockWithPin,
+            Api::RestrictedItemTypesPolicy => PolicyType::RestrictedItemTypes,
+            Api::UriMatchDefaults => PolicyType::UriMatchDefaults,
+            Api::AutotypeDefaultSetting => PolicyType::AutotypeDefaultSetting,
+            Api::AutomaticUserConfirmation => PolicyType::AutomaticUserConfirmation,
+            Api::BlockClaimedDomainAccountCreation => PolicyType::BlockClaimedDomainAccountCreation,
+            Api::OrganizationUserNotification => PolicyType::OrganizationUserNotification,
+            Api::SendControls => PolicyType::SendControls,
+            Api::FillAssist => PolicyType::FillAssist,
+            Api::__Unknown(value) => return Err(PolicyParseError::UnknownPolicyType(value)),
+        })
+    }
 }
 
 impl PolicyType {

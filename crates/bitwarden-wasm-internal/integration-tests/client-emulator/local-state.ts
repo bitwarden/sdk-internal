@@ -4,6 +4,7 @@ import type {
   Folder,
   InitUserCryptoMethod,
   PasswordManagerClient,
+  Policy,
   Repository,
 } from "@bitwarden/sdk-internal";
 
@@ -72,6 +73,7 @@ export class LocalState {
   readonly bridge = makeStateBridge();
   readonly ciphers = new TestRepository<Cipher>();
   readonly folders = new TestRepository<Folder>();
+  readonly policies = new TestRepository<Policy>();
 
   /** Organization keys sealed to this account, keyed by organization id. */
   organizationKeys: Record<string, string> = {};
@@ -92,7 +94,11 @@ export class LocalState {
   }
 
   /** Replaces the repositories' contents. An omitted collection is left alone. */
-  async seedVault(vault: { ciphers?: Cipher[]; folders?: Folder[] }): Promise<void> {
+  async seedVault(vault: {
+    ciphers?: Cipher[];
+    folders?: Folder[];
+    policies?: Policy[];
+  }): Promise<void> {
     if (vault.ciphers !== undefined) {
       await this.ciphers.removeAll();
       await this.ciphers.setBulk(vault.ciphers.map((cipher) => [String(cipher.id), cipher]));
@@ -100,6 +106,10 @@ export class LocalState {
     if (vault.folders !== undefined) {
       await this.folders.removeAll();
       await this.folders.setBulk(vault.folders.map((folder) => [String(folder.id), folder]));
+    }
+    if (vault.policies !== undefined) {
+      await this.policies.removeAll();
+      await this.policies.setBulk(vault.policies.map((policy) => [String(policy.id), policy]));
     }
   }
 
@@ -129,6 +139,7 @@ export class LocalState {
       local_user_data_key_state: null,
       organization_shared_key: null,
       send: null,
+      policy: this.policies,
     });
 
     return client;
