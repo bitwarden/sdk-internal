@@ -5,8 +5,6 @@ use bitwarden_core::{
 use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     Cipher, CipherView, VaultParseError,
@@ -92,7 +90,7 @@ async fn create_cipher(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CipherAdminClient {
     /// Creates a new [Cipher] for an organization, using the admin server endpoints.
     /// Creates the Cipher on the server only, does not store it to local state.

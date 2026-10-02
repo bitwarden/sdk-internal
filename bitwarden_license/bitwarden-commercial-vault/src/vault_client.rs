@@ -1,10 +1,8 @@
 use bitwarden_core::Client;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 #[allow(missing_docs)]
 #[derive(Clone)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CommercialVaultClient {
     #[allow(unused)]
     pub(crate) client: Client,
@@ -16,7 +14,7 @@ impl CommercialVaultClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CommercialVaultClient {}
 
 #[allow(missing_docs)]

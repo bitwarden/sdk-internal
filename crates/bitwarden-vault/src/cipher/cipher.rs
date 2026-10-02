@@ -19,10 +19,6 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, bank_account,
@@ -89,7 +85,7 @@ pub(super) trait CipherKind {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum CipherType {
     Login = 1,
     SecureNote = 2,
@@ -105,7 +101,7 @@ pub enum CipherType {
 #[derive(Clone, Copy, Default, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum CipherRepromptType {
     #[default]
     None = 0,
@@ -116,7 +112,7 @@ pub enum CipherRepromptType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct EncryptionContext {
     /// The Id of the user that encrypted the cipher. It should always represent a UserId, even for
     /// Organization-owned ciphers
@@ -301,7 +297,7 @@ impl From<EncryptionContext> for CipherRequestModel {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Cipher {
     pub id: Option<CipherId>,
     pub organization_id: Option<OrganizationId>,
@@ -470,7 +466,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherView {
     pub id: Option<CipherId>,
     pub organization_id: Option<OrganizationId>,
@@ -526,7 +522,7 @@ pub struct CipherView {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum CipherListViewType {
     Login(LoginListView),
     SecureNote,
@@ -540,7 +536,7 @@ pub enum CipherListViewType {
 
 /// Available fields on a cipher and can be copied from a the list view in the UI.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum CopyableCipherFields {
     LoginUsername,
@@ -575,7 +571,7 @@ pub enum CopyableCipherFields {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherListView {
     pub id: Option<CipherId>,
     pub organization_id: Option<OrganizationId>,
@@ -635,7 +631,7 @@ pub struct CipherListView {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct DecryptCipherListResult {
     /// The decrypted `CipherListView` objects.
     pub successes: Vec<CipherListView>,
@@ -651,7 +647,7 @@ pub struct DecryptCipherListResult {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct DecryptCipherResult {
     /// The decrypted `CipherView` objects.
     pub successes: Vec<CipherView>,
@@ -665,7 +661,7 @@ pub struct DecryptCipherResult {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct ListOrganizationCiphersResult {
     /// All encrypted ciphers returned from the API.
     pub ciphers: Vec<Cipher>,
