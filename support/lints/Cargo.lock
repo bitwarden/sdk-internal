@@ -87,7 +87,7 @@ checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
 
 [[package]]
 name = "bitwarden-logging-macro"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -150,7 +150,7 @@ dependencies = [
  "dylint_testing",
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.3",
  "tracing",
 ]
 
