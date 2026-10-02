@@ -238,7 +238,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                Aes256CbcHmacSha256::decrypt(iv, data, mac, key.as_composite_key())
+                Aes256CbcHmacSha256::decrypt_expanded(iv, data, mac, key.expanded())
                     .map_err(|_| CryptoError::Decrypt)?,
             ))?,
             (
@@ -775,7 +775,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => Aes256CbcHmacSha256::decrypt(iv, data, mac, key.as_composite_key())
+            ) => Aes256CbcHmacSha256::decrypt_expanded(iv, data, mac, key.expanded())
                 .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
@@ -1129,6 +1129,7 @@ mod tests {
         ctx.set_symmetric_key(
             no_encrypt,
             SymmetricCryptoKey::XAes256GcmKey(crate::XAes256GcmKey {
+                expanded: std::sync::OnceLock::new(),
                 key_id: [1; 16].into(),
                 enc_key: Box::pin([1; 32].into()),
                 supported_operations: vec![KeyOperation::Decrypt],

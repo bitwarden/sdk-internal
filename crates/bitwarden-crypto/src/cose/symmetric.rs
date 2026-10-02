@@ -846,8 +846,8 @@ pub(crate) fn decrypt_xaes256_gcm(
         &[],
         || CryptoError::MissingField("ciphertext"),
         |data, aad| {
-            XAes256Gcm::decrypt(
-                &(*key.enc_key).into(),
+            XAes256Gcm::decrypt_expanded(
+                key.expanded(),
                 &nonce,
                 &XAes256GcmCiphertext::from(data.to_vec()),
                 aad,
@@ -907,6 +907,7 @@ mod tests {
 
     fn make_xaes_key() -> XAes256GcmKey {
         XAes256GcmKey {
+            expanded: std::sync::OnceLock::new(),
             key_id: KeyId::from(KEY_ID),
             enc_key: Box::pin(Array::from(KEY_DATA)),
             supported_operations: vec![

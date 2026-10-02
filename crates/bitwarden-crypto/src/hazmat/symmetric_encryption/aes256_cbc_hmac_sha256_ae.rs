@@ -3,7 +3,9 @@
 //! Aes256CbcHmacSha256 is the construct used in type 2 EncStrings. It is authenticated encryption
 //! (AE) via Encrypt-then-MAC, but has no support for associated data (it is not AEAD).
 
-use aes::cipher::{BlockModeDecrypt, BlockModeEncrypt, KeyIvInit, block_padding::Pkcs7};
+use aes::cipher::{
+    BlockModeDecrypt, BlockModeEncrypt, InnerIvInit, KeyIvInit, block_padding::Pkcs7,
+};
 use hmac::{KeyInit, Mac};
 use subtle::ConstantTimeEq;
 
@@ -16,6 +18,26 @@ pub(crate) const ENC_KEY_SIZE: usize = 32;
 pub(crate) const MAC_KEY_SIZE: usize = 32;
 pub(crate) const KEY_SIZE: usize = ENC_KEY_SIZE + MAC_KEY_SIZE;
 pub(crate) const MAC_SIZE: usize = 32;
+
+/// Pre-expanded AES-256 round keys and keyed HMAC-SHA256 state for one composite key.
+///
+/// Expanding a key costs more than decrypting a typical vault field. Keys that decrypt many fields
+/// keep one of these instead of re-deriving it per call. Both parts zeroize on drop.
+#[derive(Clone)]
+pub(crate) struct ExpandedKey {
+    aes: aes::Aes256,
+    hmac: HmacSha256,
+}
+
+impl ExpandedKey {
+    pub(crate) fn new(key: &[u8; KEY_SIZE]) -> Self {
+        let (enc_key, mac_key) = split_to_subkeys(key);
+        Self {
+            aes: aes::Aes256::new(enc_key.into()),
+            hmac: HmacSha256::new_from_slice(mac_key).expect("hmac new_from_slice should not fail"),
+        }
+    }
+}
 
 /// The legacy AES-256-CBC-HMAC-SHA256 Encrypt-then-MAC cipher. The 64-byte composite key is the
 /// AES-256-CBC encryption sub-key (first 32 bytes) followed by the HMAC-SHA256 authentication
@@ -43,22 +65,31 @@ impl Aes256CbcHmacSha256 {
     }
 
     /// Decrypt using AES-256 in CBC mode, validating the MAC over the IV and ciphertext.
+    #[cfg(test)]
     pub(crate) fn decrypt(
         iv: &[u8; IV_SIZE],
         ciphertext: &[u8],
         mac: &[u8; MAC_SIZE],
         key: &[u8; KEY_SIZE],
     ) -> Result<Vec<u8>, SymmetricEncryptionError> {
-        let (enc_key, mac_key) = split_to_subkeys(key);
+        Self::decrypt_expanded(iv, ciphertext, mac, &ExpandedKey::new(key))
+    }
 
-        let expected_mac = calculate_mac(iv, ciphertext, mac_key);
+    /// [`Self::decrypt`] with a pre-expanded key, skipping the per-call key schedule.
+    pub(crate) fn decrypt_expanded(
+        iv: &[u8; IV_SIZE],
+        ciphertext: &[u8],
+        mac: &[u8; MAC_SIZE],
+        key: &ExpandedKey,
+    ) -> Result<Vec<u8>, SymmetricEncryptionError> {
+        let expected_mac = finalize_mac(key.hmac.clone(), iv, ciphertext);
         if expected_mac.ct_ne(mac).into() {
             return Err(SymmetricEncryptionError::IntegrityCheckFailed);
         }
 
         // Decrypt data in place in a copy of the ciphertext
         let mut data = ciphertext.to_vec();
-        let decrypted_slice = cbc::Decryptor::<aes::Aes256>::new(enc_key.into(), iv.into())
+        let decrypted_slice = cbc::Decryptor::<&aes::Aes256>::inner_iv_init(&key.aes, iv.into())
             .decrypt_padded::<Pkcs7>(&mut data)
             .map_err(|_| SymmetricEncryptionError::FormatWrong)?;
 
@@ -86,8 +117,12 @@ fn split_to_subkeys(key: &[u8; KEY_SIZE]) -> (&[u8; ENC_KEY_SIZE], &[u8; MAC_KEY
 /// Generate a MAC using HMAC-SHA256 over the IV and ciphertext, without length prefixes or
 /// associated data.
 fn calculate_mac(iv: &[u8], data: &[u8], mac_key: &[u8; MAC_KEY_SIZE]) -> [u8; MAC_SIZE] {
-    let mut hmac =
-        HmacSha256::new_from_slice(mac_key).expect("hmac new_from_slice should not fail");
+    let hmac = HmacSha256::new_from_slice(mac_key).expect("hmac new_from_slice should not fail");
+    finalize_mac(hmac, iv, data)
+}
+
+/// Completes an HMAC-SHA256 over the IV and ciphertext from an already keyed state.
+fn finalize_mac(mut hmac: HmacSha256, iv: &[u8], data: &[u8]) -> [u8; MAC_SIZE] {
     hmac.update(iv);
     hmac.update(data);
     let mac: [u8; MAC_SIZE] = (*hmac.finalize().into_bytes())
