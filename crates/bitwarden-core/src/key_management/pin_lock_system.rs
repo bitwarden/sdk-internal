@@ -13,8 +13,6 @@ use bitwarden_crypto::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::warn;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     Client,

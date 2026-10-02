@@ -28,8 +28,6 @@ pub use reinit_user_crypto::{ReinitUserCryptoError, ReinitUserCryptoRequest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::info;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "wasm")]
 use crate::key_management::wasm_unlock_state::{copy_user_key_to_state, get_user_key_from_state};
