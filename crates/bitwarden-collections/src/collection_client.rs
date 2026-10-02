@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use bitwarden_core::{Client, FromClient};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     collection::{Collection, CollectionId, CollectionView},
