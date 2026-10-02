@@ -173,7 +173,7 @@ impl Totp {
         if let TotpAlgorithm::Steam = self.algorithm {
             derive_steam_otp(binary, self.digits)
         } else {
-            let otp = binary % 10_u32.pow(self.digits);
+            let otp = (binary as u64) % 10_u64.pow(self.digits);
             format!("{1:00$}", self.digits as usize, otp)
         }
     }
@@ -485,6 +485,33 @@ mod tests {
         let response = generate_totp(key, time).unwrap();
 
         assert_eq!(response.code, "842615".to_string());
+        assert_eq!(response.period, 30);
+    }
+
+    #[test]
+    fn test_generate_otpauth_algorithm_sha512_digits_10() {
+        let key =
+            "otpauth://totp/test-account?secret=F5ISM4FV3R2KRPEBTSUPDJAKXNNBUKQJ&algorithm=SHA512&digits=10".to_string();
+        let time = Some(
+            DateTime::parse_from_rfc3339("2026-09-13T14:11:41.000Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        );
+        let response = generate_totp(key, time).unwrap();
+
+        assert_eq!(response.code, "1592453751".to_string());
+        assert_eq!(response.period, 30);
+
+        let key =
+            "otpauth://totp/test-account?secret=F5ISM4FV3R2KRPEBTSUPDJAKXNNBUKQJ&algorithm=SHA512&digits=10".to_string();
+        let time = Some(
+            DateTime::parse_from_rfc3339("2026-09-13T14:12:11.000Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        );
+        let response = generate_totp(key, time).unwrap();
+
+        assert_eq!(response.code, "1375459528".to_string());
         assert_eq!(response.period, 30);
     }
 
