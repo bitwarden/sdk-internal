@@ -3,15 +3,13 @@ use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{OrganizationId, require};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::{conditions::AccessCondition, error::AccessRuleError};
 use crate::AccessRuleId;
 
 /// A decrypted view of an access rule, as returned by the server.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRuleView {
     /// The rule's unique identifier.
@@ -49,7 +47,7 @@ pub struct AccessRuleView {
 
 /// Request to create or edit an access rule.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRuleAddEditRequest {
     /// The rule's display name, shown wherever rules are listed and managed. Must be non-empty
