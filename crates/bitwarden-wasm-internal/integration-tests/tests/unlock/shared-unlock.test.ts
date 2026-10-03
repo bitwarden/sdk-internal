@@ -6,9 +6,12 @@
  */
 import {
   IpcClient,
+  PeerLockState,
+  SharedUnlockClient,
   SharedUnlockDriver,
   SharedUnlockPeer,
   SymmetricKey,
+  Source,
   UserId,
   init_sdk,
 } from "@bitwarden/sdk-internal";
@@ -30,18 +33,26 @@ interface MockDriver {
   /** `undefined` means locked. */
   getUserKey(): SymmetricKey | undefined;
   suppressions: number[];
+  /** Resolves with the first peer state reported to `on_peer_state`. */
+  nextPeerState(): Promise<PeerLockState>;
 }
+
+type ClientName = "browser" | "desktop" | "cli";
+type FollowerName = "browser" | "cli";
 
 /**
  * Minimal `SharedUnlockDriver` implementation. Every method here exists to be called across the
  * binding, so an adapter that stops marshalling one of them shows up as a failure below.
  */
-function makeDriver(
-  clientName: "browser" | "desktop",
-  initialKey: SymmetricKey | undefined,
-): MockDriver {
+function makeDriver(clientName: ClientName, initialKey: SymmetricKey | undefined): MockDriver {
   let key = initialKey;
   const suppressions: number[] = [];
+
+  // Settled by the first `on_peer_state` call; later reports are ignored.
+  let reportPeerState: (state: PeerLockState) => void;
+  const peerState = new Promise<PeerLockState>((resolve) => {
+    reportPeerState = resolve;
+  });
 
   return {
     driver: {
@@ -57,24 +68,37 @@ function makeDriver(
       },
       get_client_name: async () => clientName,
       get_vault_url: async () => undefined,
+      on_peer_state: async (_user_id, lock_state) => {
+        reportPeerState(lock_state);
+      },
     },
     getUserKey: () => key,
     suppressions,
+    nextPeerState: () => peerState,
   };
 }
 
+/** How each follower client is addressed, and named in the leader's destinations. */
+const FOLLOWERS: Record<FollowerName, { source: Source; destination: SharedUnlockClient }> = {
+  browser: { source: { BrowserBackground: { id: "Own" } }, destination: "Browser" },
+  cli: { source: { Cli: { id: "Own" } }, destination: "Cli" },
+};
+
 /**
- * A browser peer that syncs up to a desktop peer. `get_client_name` is what feeds
+ * A follower peer (browser by default) that syncs up to a desktop peer. `get_client_name` is what feeds
  * `discover_leader`, so the desktop reporting `"desktop"` is what makes it the top of the hierarchy.
  */
 async function setupPair(options: {
   leaderKey: SymmetricKey | undefined;
   followerKey: SymmetricKey | undefined;
+  follower?: FollowerName;
 }) {
   init_sdk();
 
+  const followerName = options.follower ?? "browser";
+  const followerClient = FOLLOWERS[followerName];
   const [followerBackend, leaderBackend] = makeMockTransportPair(
-    { BrowserBackground: { id: "Own" } },
+    followerClient.source,
     "DesktopRenderer",
   );
 
@@ -84,19 +108,28 @@ async function setupPair(options: {
   await followerIpc.start();
 
   const leaderDriver = makeDriver("desktop", options.leaderKey);
-  const followerDriver = makeDriver("browser", options.followerKey);
+  const followerDriver = makeDriver(followerName, options.followerKey);
 
   const leader = new SharedUnlockPeer(leaderIpc, leaderDriver.driver);
   const follower = new SharedUnlockPeer(followerIpc, followerDriver.driver);
 
   // A peer sends nothing for a user until told which clients that user may be shared with: the
-  // desktop leader serves the browser below it, the browser follower syncs up to the desktop.
-  leader.set_destinations(USER_A, ["Browser"]);
+  // desktop leader serves the follower below it, the follower syncs up to the desktop.
+  leader.set_destinations(USER_A, [followerClient.destination]);
   follower.set_destinations(USER_A, ["Desktop"]);
 
   const leaderAbort = new AbortController();
   const followerAbort = new AbortController();
   await leader.start(leaderAbort);
+
+  // The peer only learns of an unlock through a device event, not the driver's key. Reported
+  // before the follower starts, as with a desktop already unlocked when the CLI connects.
+  if (options.leaderKey !== undefined) {
+    await leader.handle_device_event({
+      ManualUnlock: { user_id: USER_A, user_key: options.leaderKey },
+    });
+  }
+
   await follower.start(followerAbort);
 
   return {
@@ -172,5 +205,29 @@ describe("shared unlock wasm bindings", () => {
       expect(typeof suppression).toBe("number");
       expect(suppression).toBeGreaterThan(0);
     }
+  }, 30000);
+});
+
+describe("CLI shared unlock", () => {
+  let cleanup: (() => void) | undefined;
+
+  afterEach(async () => {
+    cleanup?.();
+    cleanup = undefined;
+    await delay(100);
+  });
+
+  it("is told an unlocked desktop is unlocked", async () => {
+    const pair = await setupPair({ follower: "cli", leaderKey: USER_KEY, followerKey: undefined });
+    cleanup = pair.cleanup;
+
+    expect(await pair.followerDriver.nextPeerState()).toBe("Unlocked");
+  }, 30000);
+
+  it("is told a locked desktop is locked", async () => {
+    const pair = await setupPair({ follower: "cli", leaderKey: undefined, followerKey: undefined });
+    cleanup = pair.cleanup;
+
+    expect(await pair.followerDriver.nextPeerState()).toBe("Locked");
   }, 30000);
 });
