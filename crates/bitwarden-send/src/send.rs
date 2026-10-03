@@ -307,13 +307,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                     bitwarden_api_api::models::SendType::Item,
                     None,
                     None,
-                    Some(Box::new(bitwarden_api_api::models::SendDataModel {
-                        encryption_version: Some(DEFAULT_SEND_ENCRYPTION.into()),
-                        data: Some(encrypted.data),
-                        metadata: Box::new(SendItemMetadataModel {
-                            item_id: encrypted.metadata.item_id.into(),
-                        }),
-                    })),
+                    Some(Box::new(encrypted.into())),
                 ))
             }
         }
@@ -378,8 +372,7 @@ impl From<Send> for SendWithIdRequestModel {
             deletion_date: send.deletion_date.to_rfc3339(),
             file: send.file.map(|file| Box::new(file.into())),
             text: send.text.map(|text| Box::new(text.into())),
-            // TODO: Implement logic for item-based Sends
-            data: None,
+            data: send.data.map(|data| Box::new(data.into())),
             password: send.password,
             emails: send.emails,
             disabled: send.disabled,
@@ -890,6 +883,18 @@ impl TryFrom<SendDataModel> for SendItem {
                 item_id: CipherId::new(data.metadata.item_id),
             },
         })
+    }
+}
+
+impl From<SendItem> for SendDataModel {
+    fn from(item: SendItem) -> Self {
+        SendDataModel {
+            encryption_version: Some(item.encryption_version.into()),
+            data: Some(item.data),
+            metadata: Box::new(SendItemMetadataModel {
+                item_id: item.metadata.item_id.into(),
+            }),
+        }
     }
 }
 
@@ -1439,6 +1444,49 @@ pub(crate) mod tests {
         let text = model.text.unwrap();
         assert_eq!(text.text.as_deref(), Some(text_value));
         assert_eq!(text.hidden, Some(true));
+    }
+
+    #[test]
+    fn test_item_send_into_send_with_id_request_model() {
+        let send = Send {
+            id: "3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().ok(),
+            access_id: None,
+            r#type: SendType::Item,
+            name: "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=".parse()
+                .unwrap(),
+            notes: None,
+            file: None,
+            text: None,
+            data: Some(SendItem {
+                encryption_version: SendEncryptionType::V1,
+                data: TEST_VECTOR_ITEM_SEND_DATA.to_string(),
+                metadata: SendItemMetadata {
+                    item_id: TEST_ITEM_ID.parse().unwrap(),
+                },
+            }),
+            key: TEST_SEND_KEY.parse().unwrap(),
+            max_access_count: None,
+            access_count: 0,
+            password: None,
+            disabled: false,
+            revision_date: "2024-01-07T23:56:48Z".parse().unwrap(),
+            expiration_date: None,
+            deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
+            hide_email: false,
+            emails: None,
+            auth_type: AuthType::None,
+        };
+
+        let model: SendWithIdRequestModel = send.into();
+
+        // Key rotation sends this model; the server rejects Item Sends without data.
+        let data = model.data.expect("Item Send request must carry its data");
+        assert_eq!(
+            data.encryption_version,
+            Some(bitwarden_api_api::models::SendEncryptionType::V1)
+        );
+        assert_eq!(data.data.as_deref(), Some(TEST_VECTOR_ITEM_SEND_DATA));
+        assert_eq!(data.metadata.item_id.to_string(), TEST_ITEM_ID);
     }
 
     #[test]
