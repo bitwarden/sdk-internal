@@ -604,6 +604,7 @@ src/models/send_encryption_type.rs
 src/models/send_file_download_data_response_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs
+src/models/send_item_metadata_model.rs
 src/models/send_request_model.rs
 src/models/send_response_model.rs
 src/models/send_response_model_list_response_model.rs

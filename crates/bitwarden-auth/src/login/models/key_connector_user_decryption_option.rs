@@ -6,11 +6,7 @@ use crate::login::api::response::KeyConnectorUserDecryptionOptionApiResponse;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct KeyConnectorUserDecryptionOption {
     /// URL of the Key Connector server to use for decryption.
     pub key_connector_url: String,
