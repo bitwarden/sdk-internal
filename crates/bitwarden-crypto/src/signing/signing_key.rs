@@ -22,6 +22,7 @@ use crate::{
     cose::{CoseKeyThumbprintExt, CoseSerializable},
     error::{EncodingError, Result},
     keys::KeyId,
+    slow_crypto_span::{SlowCryptoOp, SlowCryptoSpan},
 };
 
 pub(crate) const ML_DSA_SEED_SIZE: usize = 32;
@@ -91,7 +92,9 @@ impl SigningKey {
                 let mut seed = Box::pin(Array::from([0u8; 32]));
                 bitwarden_random::rng().fill_bytes(&mut seed);
 
+                let span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaKeyGeneration);
                 let kp = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
+                drop(span);
                 SigningKey {
                     id: KeyId::make(),
                     inner: RawSigningKey::MlDsa44 {
@@ -132,12 +135,15 @@ impl SigningKey {
     pub(super) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
-            RawSigningKey::MlDsa44 { signing_key, .. } => signing_key
-                .sign_randomized(data, &[], &mut bitwarden_random::rng())
-                .expect("Empty ML-DSA context must be accepted")
-                .encode()
-                .as_slice()
-                .to_vec(),
+            RawSigningKey::MlDsa44 { signing_key, .. } => {
+                let _span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaSign);
+                signing_key
+                    .sign_randomized(data, &[], &mut bitwarden_random::rng())
+                    .expect("Empty ML-DSA context must be accepted")
+                    .encode()
+                    .as_slice()
+                    .to_vec()
+            }
         }
     }
 }
@@ -199,7 +205,9 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 RegisteredLabel::Assigned(KeyType::AKP),
             ) => {
                 let seed = mldsa_seed(&cose_key)?;
+                let span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaKeyGeneration);
                 let kp = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
+                drop(span);
                 Ok(SigningKey {
                     id: key_id(&cose_key)?,
                     inner: RawSigningKey::MlDsa44 {
