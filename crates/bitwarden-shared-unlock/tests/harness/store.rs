@@ -250,7 +250,15 @@ impl SharedUnlockDriver for LockStateStore {
         );
     }
 
-    async fn on_peer_state(&self, _user_id: UserId, _lock_state: PeerLockState) {}
+    async fn on_peer_state(&self, user_id: UserId, lock_state: PeerLockState) {
+        emit_log(
+            self.0.topology,
+            &self.0.device_name,
+            kind::PEER_STATE,
+            Some(user_id),
+            &format!("{lock_state:?}"),
+        );
+    }
 
     async fn discover_leader(&self) -> Option<Endpoint> {
         self.0.leader.clone()
