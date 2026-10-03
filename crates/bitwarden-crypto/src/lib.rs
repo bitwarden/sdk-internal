@@ -41,6 +41,7 @@ pub(crate) use cose::CONTENT_TYPE_PADDED_CBOR;
 pub use cose::{CoseKeyThumbprint, CoseKeyThumbprintExt, CoseSerializable};
 pub mod safe;
 mod signing;
+mod slow_crypto_span;
 pub use signing::*;
 mod hazmat;
 mod traits;
