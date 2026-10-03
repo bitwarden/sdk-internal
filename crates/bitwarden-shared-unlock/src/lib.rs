@@ -160,11 +160,7 @@ impl LockState {
 /// The device (client) has several events that need to be reported to the shared unlock system.
 /// This enum represents the events that need to be reported.
 #[derive(Serialize, Deserialize, zeroize::ZeroizeOnDrop)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum DeviceEvent {
     /// The user with the given user id has been locked manually in the UI
     ManualLock {
@@ -186,11 +182,7 @@ pub enum DeviceEvent {
 /// A kind of client a peer may share unlock state with, independent of the IPC endpoint variants
 /// that address its individual contexts (foreground/background, renderer/main).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum SharedUnlockClient {
     /// The browser extension, in any of its contexts.
     Browser,
