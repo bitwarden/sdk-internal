@@ -37,11 +37,11 @@ pub(crate) mod xchacha20;
 #[allow(unused_imports)]
 pub(crate) use aes_gcm::Aes256Gcm;
 pub(crate) use aes256_cbc::Aes256Cbc;
-pub(crate) use aes256_cbc_hmac_sha256_ae::Aes256CbcHmacSha256;
+pub(crate) use aes256_cbc_hmac_sha256_ae::{Aes256CbcHmacSha256, ExpandedKey};
 #[allow(unused_imports)]
 pub(crate) use aes256_cbc_hmac_sha256_aead::Aes256CbcHmacSha256Aead;
 #[allow(unused_imports)]
-pub(crate) use xaes_256_gcm::XAes256Gcm;
+pub(crate) use xaes_256_gcm::{XAes256Gcm, XAes256GcmExpandedKey};
 #[allow(unused_imports)]
 pub(crate) use xchacha20::XChaCha20Poly1305;
 

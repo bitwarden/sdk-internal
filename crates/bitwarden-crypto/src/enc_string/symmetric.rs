@@ -521,7 +521,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => Aes256CbcHmacSha256::decrypt(iv, data, mac, key.as_composite_key())
+            ) => Aes256CbcHmacSha256::decrypt_expanded(iv, data, mac, key.expanded())
                 .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
@@ -592,6 +592,7 @@ mod tests {
 
     fn xaes_key(operations: Vec<KeyOperation>) -> SymmetricCryptoKey {
         SymmetricCryptoKey::XAes256GcmKey(crate::XAes256GcmKey {
+            expanded: std::sync::OnceLock::new(),
             key_id: [0u8; KEY_ID_SIZE].into(),
             enc_key: Box::pin([0u8; 32].into()),
             supported_operations: operations,

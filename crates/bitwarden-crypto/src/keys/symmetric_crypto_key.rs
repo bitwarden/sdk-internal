@@ -1,4 +1,4 @@
-use std::{pin::Pin, str::FromStr};
+use std::{pin::Pin, str::FromStr, sync::OnceLock};
 
 use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::{Value, value::Integer};
@@ -32,6 +32,7 @@ use crate::{
         thumbprint_from_required_params,
     },
     error::EncodingError,
+    hazmat::symmetric_encryption::{ExpandedKey, XAes256GcmExpandedKey},
 };
 
 #[cfg(feature = "wasm")]
@@ -149,6 +150,11 @@ pub struct Aes256CbcHmacKey {
     ///
     /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
     pub(crate) key: Pin<Box<Array<u8, U64>>>,
+
+    /// Expanded form of `key`, derived on first decrypt and reused afterwards. Heap-pinned like
+    /// `key`, and zeroized by its own `Drop`.
+    #[zeroize(skip)]
+    expanded: OnceLock<Pin<Box<ExpandedKey>>>,
 }
 
 impl ConstantTimeEq for Aes256CbcHmacKey {
@@ -167,7 +173,21 @@ impl Aes256CbcHmacKey {
         let (enc, mac) = key.split_at_mut(AES256_CBC_HMAC_ENC_KEY_SIZE);
         enc.copy_from_slice(enc_key);
         mac.copy_from_slice(mac_key);
-        Self { key }
+        Self::from_composite(key)
+    }
+
+    /// Builds a key from the 64-byte composite `enc_key || mac_key` buffer.
+    pub(crate) fn from_composite(key: Pin<Box<Array<u8, U64>>>) -> Self {
+        Self {
+            key,
+            expanded: OnceLock::new(),
+        }
+    }
+
+    /// Returns the expanded key, deriving it on first use.
+    pub(crate) fn expanded(&self) -> &ExpandedKey {
+        self.expanded
+            .get_or_init(|| Box::pin(ExpandedKey::new(self.as_composite_key())))
     }
 
     /// Returns the 64-byte composite key (`enc_key || mac_key`), which is the layout expected by
@@ -341,9 +361,19 @@ pub struct XAes256GcmKey {
     pub(crate) enc_key: Pin<Box<Array<u8, U32>>>,
     #[zeroize(skip)]
     pub(crate) supported_operations: Vec<KeyOperation>,
+
+    /// Expanded form of `enc_key`, derived on first decrypt and reused afterwards.
+    #[zeroize(skip)]
+    pub(crate) expanded: OnceLock<Pin<Box<XAes256GcmExpandedKey>>>,
 }
 
 impl XAes256GcmKey {
+    /// Returns the expanded key, deriving it on first use.
+    pub(crate) fn expanded(&self) -> &XAes256GcmExpandedKey {
+        self.expanded
+            .get_or_init(|| Box::pin(XAes256GcmExpandedKey::new(&self.enc_key.0)))
+    }
+
     /// Creates a new XAES-256-GCM key with securely sampled key bytes and key ID.
     pub fn make() -> Self {
         let mut rng = bitwarden_random::rng();
@@ -351,6 +381,7 @@ impl XAes256GcmKey {
         rng.fill(enc_key.as_mut_slice());
 
         Self {
+            expanded: OnceLock::new(),
             key_id: KeyId::make(),
             enc_key,
             supported_operations: vec![
@@ -456,7 +487,7 @@ impl SymmetricCryptoKey {
         rng.fill(enc_key);
         rng.fill(mac_key);
 
-        Self::Aes256CbcHmacKey(Aes256CbcHmacKey { key })
+        Self::Aes256CbcHmacKey(Aes256CbcHmacKey::from_composite(key))
     }
 
     /// Make a new [SymmetricCryptoKey] for the specified algorithm
@@ -527,7 +558,7 @@ impl SymmetricCryptoKey {
         seeded_rng.fill(enc_key);
         seeded_rng.fill(mac_key);
 
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { key })
+        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey::from_composite(key))
     }
 
     /// Creates the byte representation of the key, without any padding. This should not
@@ -748,9 +779,9 @@ impl TryFrom<EncodedSymmetricKey> for SymmetricCryptoKey {
                 let mut composite_key = Box::pin(Array::<u8, U64>::default());
                 composite_key.copy_from_slice(key.as_ref());
 
-                Ok(Self::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                    key: composite_key,
-                }))
+                Ok(Self::Aes256CbcHmacKey(Aes256CbcHmacKey::from_composite(
+                    composite_key,
+                )))
             }
             EncodedSymmetricKey::CoseKey(key) => Self::try_from_cose(key.as_ref()),
             _ => Err(CryptoError::InvalidKey),
@@ -1165,6 +1196,7 @@ mod tests {
 
     fn fixed_xaes_key_inner() -> XAes256GcmKey {
         XAes256GcmKey {
+            expanded: std::sync::OnceLock::new(),
             enc_key: Box::pin(Array::from([
                 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
