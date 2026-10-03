@@ -24,6 +24,9 @@ const USER_KEY = testSymmetricKey(0x11);
 /** Matches `SYNC_INTERVAL` in `bitwarden-shared-unlock/src/lib.rs`. */
 const SYNC_INTERVAL_MS = 5000;
 
+/** The first peer state arrives on first contact, well before the next sync tick. */
+const PEER_STATE_TIMEOUT_MS = 2000;
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -222,12 +225,12 @@ describe("CLI shared unlock", () => {
     cleanup = pair.cleanup;
 
     expect(await pair.followerDriver.nextPeerState()).toBe("Unlocked");
-  }, 30000);
+  }, PEER_STATE_TIMEOUT_MS);
 
   it("is told a locked desktop is locked", async () => {
     const pair = await setupPair({ follower: "cli", leaderKey: undefined, followerKey: undefined });
     cleanup = pair.cleanup;
 
     expect(await pair.followerDriver.nextPeerState()).toBe("Locked");
-  }, 30000);
+  }, PEER_STATE_TIMEOUT_MS);
 });
