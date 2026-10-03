@@ -34,6 +34,7 @@ impl EmergencyAccessClient {
         emergency_access_id: EmergencyAccessId,
         grantee_public_key: B64,
     ) -> Result<(), EmergencyAccessConfirmError> {
+        // TODO: Use the trust log / KM APIs instead of a caller-supplied key.
         let grantee_public_key =
             PublicKey::from_der(&SpkiPublicKeyBytes::from(&grantee_public_key))?;
 

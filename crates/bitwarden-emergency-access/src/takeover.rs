@@ -78,17 +78,18 @@ impl EmergencyAccessClient {
     /// Sets a new master password on the grantor's account of an approved takeover emergency
     /// access.
     ///
+    /// `grantor_email` is used as salt when the server doesn't return one.
+    ///
     /// Called by the grantee.
     pub async fn takeover(
         &self,
         emergency_access_id: EmergencyAccessId,
         new_password: String,
-        email: String,
+        grantor_email: String,
     ) -> Result<(), EmergencyAccessTakeoverError> {
         // The server returns the grantor's user key encapsulated to the current user's public key,
         // and the grantor's KDF. The new master password is derived with that KDF and wraps the
-        // grantor's user key, which only lives in the key store while doing so. `email` is the
-        // grantor's email, used as salt when the server doesn't return one.
+        // grantor's user key, which only lives in the key store while doing so.
         let api = self.api_configurations.api_client.emergency_access_api();
 
         let response = api.takeover(emergency_access_id.into()).await?;
@@ -96,9 +97,12 @@ impl EmergencyAccessClient {
 
         // Servers that predate the salt field use the email-derived salt.
         // TODO: PM-32059 - drop the fallback once the salt is decoupled from the email.
-        let salt = data.salt.unwrap_or_else(|| email.trim().to_lowercase());
+        let salt = data
+            .salt
+            .unwrap_or_else(|| grantor_email.trim().to_lowercase());
 
         // The key store context must not be held across the await below, so it is scoped here.
+        // TODO: Move this crypto into a dedicated bitwarden-emergency-access-crypto crate.
         let request = {
             let mut ctx = self.key_store.context();
             let grantor_key = data

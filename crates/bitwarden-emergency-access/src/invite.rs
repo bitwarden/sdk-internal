@@ -18,18 +18,18 @@ pub enum EmergencyAccessInviteError {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl EmergencyAccessClient {
-    /// Invites `email` to become a trusted emergency contact. Step 1 of the setup; the grantee
-    /// accepts next.
+    /// Invites `grantee_email` to become a trusted emergency contact. Step 1 of the setup; the
+    /// grantee accepts next.
     ///
     /// Called by the grantor.
     pub async fn invite(
         &self,
-        email: String,
+        grantee_email: String,
         r#type: EmergencyAccessType,
         wait_time_days: i32,
     ) -> Result<(), EmergencyAccessInviteError> {
         let request = EmergencyAccessInviteRequestModel {
-            email: email.trim().to_owned(),
+            email: grantee_email.trim().to_owned(),
             r#type: r#type.into(),
             wait_time_days,
         };

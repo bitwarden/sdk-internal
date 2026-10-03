@@ -1,3 +1,4 @@
+use bitwarden_api_api::models::PolicyType as ApiPolicyType;
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
 use bitwarden_policies::Policy;
@@ -39,11 +40,13 @@ impl EmergencyAccessClient {
             .policies(emergency_access_id.into())
             .await?;
 
-        // A missing list means no policies apply.
+        // A missing list means no policies apply. Policy types unknown to this SDK can't be
+        // enforced; skip them rather than failing the whole list.
         Ok(response
             .data
             .unwrap_or_default()
             .into_iter()
+            .filter(|policy| !matches!(policy.r#type, Some(ApiPolicyType::__Unknown(_))))
             .map(Policy::try_from)
             .collect::<Result<_, _>>()?)
     }
@@ -51,9 +54,7 @@ impl EmergencyAccessClient {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::models::{
-        PolicyResponseModel, PolicyResponseModelListResponseModel, PolicyType as ApiPolicyType,
-    };
+    use bitwarden_api_api::models::{PolicyResponseModel, PolicyResponseModelListResponseModel};
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account_v2;
     use bitwarden_policies::PolicyType;
 
@@ -120,18 +121,49 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn fails_when_policy_type_is_unknown() {
-        let unknown = PolicyResponseModel {
-            r#type: Some(ApiPolicyType::__Unknown(999)),
+    async fn maps_enabled_and_disabled_policies() {
+        // A disabled policy is still returned; the caller decides whether it applies.
+        let disabled = PolicyResponseModel {
+            enabled: Some(false),
             ..master_password_policy()
         };
 
-        let result = policies(Some(vec![unknown])).await;
+        let result = policies(Some(vec![master_password_policy(), disabled]))
+            .await
+            .unwrap();
 
-        assert!(matches!(
-            result,
-            Err(EmergencyAccessGetGrantorPoliciesError::MissingField(_))
-        ));
+        let enabled: Vec<bool> = result.iter().map(|policy| policy.enabled).collect();
+        assert_eq!(enabled, vec![true, false]);
+    }
+
+    #[tokio::test]
+    async fn skips_unknown_policy_types() {
+        // Mirrors the server returning every policy of the grantor's organizations, including
+        // types newer than this SDK.
+        let policy = |r#type| PolicyResponseModel {
+            r#type: Some(r#type),
+            ..master_password_policy()
+        };
+
+        let result = policies(Some(vec![
+            policy(ApiPolicyType::__Unknown(998)),
+            policy(ApiPolicyType::MasterPassword),
+            policy(ApiPolicyType::TwoFactorAuthentication),
+            policy(ApiPolicyType::__Unknown(999)),
+            policy(ApiPolicyType::ResetPassword),
+        ]))
+        .await
+        .unwrap();
+
+        let types: Vec<PolicyType> = result.into_iter().map(|policy| policy.r#type).collect();
+        assert_eq!(
+            types,
+            vec![
+                PolicyType::MasterPassword,
+                PolicyType::TwoFactorAuthentication,
+                PolicyType::ResetPassword,
+            ]
+        );
     }
 
     #[tokio::test]
