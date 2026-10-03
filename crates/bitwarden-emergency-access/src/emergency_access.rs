@@ -7,16 +7,12 @@ use bitwarden_core::{MissingFieldError, UserId, require};
 use bitwarden_uuid::uuid_newtype;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 uuid_newtype!(pub EmergencyAccessId);
 
 /// What the grantee may do once access is granted.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[repr(u8)]
 pub enum EmergencyAccessType {
     /// The grantee may view the grantor's vault.
@@ -27,7 +23,7 @@ pub enum EmergencyAccessType {
 
 /// Where an emergency access is in its lifecycle.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[repr(u8)]
 pub enum EmergencyAccessStatus {
     /// The grantor invited the grantee.
@@ -45,7 +41,7 @@ pub enum EmergencyAccessStatus {
 /// An emergency access seen by the grantor, describing the trusted grantee.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct GranteeEmergencyAccess {
     /// The emergency access ID.
     pub id: EmergencyAccessId,
@@ -68,7 +64,7 @@ pub struct GranteeEmergencyAccess {
 /// An emergency access seen by the grantee, describing the grantor who trusts them.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct GrantorEmergencyAccess {
     /// The emergency access ID.
     pub id: EmergencyAccessId,

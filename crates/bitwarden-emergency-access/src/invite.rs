@@ -2,8 +2,6 @@ use bitwarden_api_api::models::EmergencyAccessInviteRequestModel;
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{EmergencyAccessClient, EmergencyAccessType};
 
@@ -16,7 +14,7 @@ pub enum EmergencyAccessInviteError {
     Api(#[from] ApiError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl EmergencyAccessClient {
     /// Invites `grantee_email` to become a trusted emergency contact. Step 1 of the setup; the
     /// grantee accepts next.

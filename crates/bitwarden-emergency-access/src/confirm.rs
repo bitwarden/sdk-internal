@@ -4,8 +4,6 @@ use bitwarden_crypto::{CryptoError, PublicKey, SpkiPublicKeyBytes, UnsignedShare
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{EmergencyAccessClient, EmergencyAccessId};
 
@@ -21,7 +19,7 @@ pub enum EmergencyAccessConfirmError {
     Crypto(#[from] CryptoError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl EmergencyAccessClient {
     /// Shares the current user's user key with the grantee. Step 3 of the setup.
     ///

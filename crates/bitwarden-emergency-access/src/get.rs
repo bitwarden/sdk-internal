@@ -1,8 +1,6 @@
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{EmergencyAccessClient, EmergencyAccessId, GranteeEmergencyAccess};
 
@@ -18,7 +16,7 @@ pub enum EmergencyAccessGetError {
     MissingField(#[from] MissingFieldError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl EmergencyAccessClient {
     /// Fetches an emergency access the current user granted.
     ///

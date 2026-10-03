@@ -14,8 +14,6 @@ use bitwarden_core::{
 use bitwarden_crypto::{CryptoError, Kdf, UnsignedSharedKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{EmergencyAccessClient, EmergencyAccessId};
 
@@ -73,7 +71,7 @@ impl TryFrom<EmergencyAccessTakeoverResponseModel> for EmergencyAccessTakeoverDa
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl EmergencyAccessClient {
     /// Sets a new master password on the grantor's account of an approved takeover emergency
     /// access.

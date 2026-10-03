@@ -3,8 +3,6 @@ use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
 use bitwarden_policies::Policy;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{EmergencyAccessClient, EmergencyAccessId};
 
@@ -20,7 +18,7 @@ pub enum EmergencyAccessGetGrantorPoliciesError {
     MissingField(#[from] MissingFieldError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl EmergencyAccessClient {
     /// Fetches the policies of the organizations the grantor owns, to enforce them on the new
     /// master password during a takeover.

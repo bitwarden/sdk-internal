@@ -1,8 +1,6 @@
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{EmergencyAccessClient, EmergencyAccessId};
 
@@ -15,7 +13,7 @@ pub enum EmergencyAccessInitiateError {
     Api(#[from] ApiError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl EmergencyAccessClient {
     /// Requests access to the grantor's account. Access is granted once the grantor approves or
     /// the wait time passes.

@@ -2,8 +2,6 @@ use bitwarden_api_api::models::EmergencyAccessUpdateRequestModel;
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{EmergencyAccessClient, EmergencyAccessId, EmergencyAccessType};
 
@@ -16,7 +14,7 @@ pub enum EmergencyAccessUpdateError {
     Api(#[from] ApiError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl EmergencyAccessClient {
     /// Changes the access type and wait time of an emergency access.
     ///
