@@ -8,7 +8,6 @@ Benchmarks for the WASM SDK, run through the Node build. Excluded from `npm test
 npm run perf                   # run all harnesses
 npm run perf -- unlock         # run one harness
 npm run perf:profile           # same, writing a V8 CPU profile to perf/profiles/
-node perf/analyze-profile.mjs perf/profiles/<file>.cpuprofile <rootFrame> 40
 ```
 
 `perf/build.sh` takes overrides to compare build configurations:
