@@ -220,17 +220,33 @@ describe("CLI shared unlock", () => {
     await delay(100);
   });
 
-  it("is told an unlocked desktop is unlocked", async () => {
-    const pair = await setupPair({ follower: "cli", leaderKey: USER_KEY, followerKey: undefined });
-    cleanup = pair.cleanup;
+  it(
+    "is told an unlocked desktop is unlocked",
+    async () => {
+      const pair = await setupPair({
+        follower: "cli",
+        leaderKey: USER_KEY,
+        followerKey: undefined,
+      });
+      cleanup = pair.cleanup;
 
-    expect(await pair.followerDriver.nextPeerState()).toBe("Unlocked");
-  }, PEER_STATE_TIMEOUT_MS);
+      expect(await pair.followerDriver.nextPeerState()).toBe("Unlocked");
+    },
+    PEER_STATE_TIMEOUT_MS,
+  );
 
-  it("is told a locked desktop is locked", async () => {
-    const pair = await setupPair({ follower: "cli", leaderKey: undefined, followerKey: undefined });
-    cleanup = pair.cleanup;
+  it(
+    "is told a locked desktop is locked",
+    async () => {
+      const pair = await setupPair({
+        follower: "cli",
+        leaderKey: undefined,
+        followerKey: undefined,
+      });
+      cleanup = pair.cleanup;
 
-    expect(await pair.followerDriver.nextPeerState()).toBe("Locked");
-  }, PEER_STATE_TIMEOUT_MS);
+      expect(await pair.followerDriver.nextPeerState()).toBe("Locked");
+    },
+    PEER_STATE_TIMEOUT_MS,
+  );
 });
