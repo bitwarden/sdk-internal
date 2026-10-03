@@ -14,6 +14,7 @@ use crate::{
     CoseKeyThumbprint, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
     cose::{CoseKeyThumbprintExt, thumbprint_from_required_params},
     error::{CryptoError, Result},
+    slow_crypto_span::{SlowCryptoOp, SlowCryptoSpan},
 };
 
 #[cfg(feature = "wasm")]
@@ -208,11 +209,14 @@ impl PrivateKey {
         rng: &mut R,
     ) -> Self {
         match algorithm {
-            PublicKeyEncryptionAlgorithm::RsaOaepSha1 => Self {
-                inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                    RsaPrivateKey::new(rng, 2048).expect("failed to generate a key"),
-                )),
-            },
+            PublicKeyEncryptionAlgorithm::RsaOaepSha1 => {
+                let _span = SlowCryptoSpan::start(SlowCryptoOp::RsaKeyGeneration);
+                Self {
+                    inner: RawPrivateKey::RsaOaepSha1(Box::pin(
+                        RsaPrivateKey::new(rng, 2048).expect("failed to generate a key"),
+                    )),
+                }
+            }
         }
     }
 
