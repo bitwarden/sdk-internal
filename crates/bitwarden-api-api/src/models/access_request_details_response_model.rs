@@ -12,12 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessRequestDetailsResponseModel : An access request with its denormalized requester identity,
-/// serving the approver inbox, the caller's own request list, and the cipher access-state snapshot.
-/// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.ExpiredAt has no backing
-/// store in v1 and is always null;
-/// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.RuleId is the rule pinned
-/// at submit (null for requests created before pinning existed).
+/// AccessRequestDetailsResponseModel : An access request with its denormalized requester identity.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessRequestDetailsResponseModel {
     #[serde(
@@ -57,9 +52,7 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub requester_id: Option<uuid::Uuid>,
-    /// The access rule that gated the cipher and that this request is evaluated against, resolved
-    /// once at submit (oldest wins) and pinned on the request. Null for requests created before
-    /// pinning existed.
+    /// The access rule pinned on the request at submit, if any.
     #[serde(
         rename = "ruleId",
         alias = "RuleId",
@@ -107,22 +100,14 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub submitted_at: Option<String>,
-    /// When the request was approved, denied, or cancelled (UTC); null while pending.
+    /// When a party approved, denied, or cancelled the request (UTC). Null while pending or
+    /// expired.
     #[serde(
         rename = "resolvedAt",
         alias = "ResolvedAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub resolved_at: Option<String>,
-    /// Distinct from
-    /// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.ResolvedAt; set when
-    /// an approved request lapses unactivated. Not tracked in v1.
-    #[serde(
-        rename = "expiredAt",
-        alias = "ExpiredAt",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub expired_at: Option<String>,
     /// The request's decision log, oldest first — one element per decision (human or automatic).
     /// Each carries who decided (`deciderKind`), the verdict, and (for a human decision) the
     /// approver's identity and comment. Empty only while pending. An array so multi-party approval
@@ -146,6 +131,13 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub produced_lease_status: Option<models::AccessLeaseStatus>,
+    /// The produced lease's end (UTC), including any extension, or null when no lease exists.
+    #[serde(
+        rename = "producedLeaseNotAfter",
+        alias = "ProducedLeaseNotAfter",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub produced_lease_not_after: Option<String>,
     /// The parent lease if this is an extension request.
     #[serde(
         rename = "extensionOfLeaseId",
@@ -172,12 +164,7 @@ pub struct AccessRequestDetailsResponseModel {
 }
 
 impl AccessRequestDetailsResponseModel {
-    /// An access request with its denormalized requester identity, serving the approver inbox, the
-    /// caller's own request list, and the cipher access-state snapshot.
-    /// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.ExpiredAt has no
-    /// backing store in v1 and is always null;
-    /// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.RuleId is the rule
-    /// pinned at submit (null for requests created before pinning existed).
+    /// An access request with its denormalized requester identity.
     pub fn new() -> AccessRequestDetailsResponseModel {
         AccessRequestDetailsResponseModel {
             object: None,
@@ -193,10 +180,10 @@ impl AccessRequestDetailsResponseModel {
             reason: None,
             submitted_at: None,
             resolved_at: None,
-            expired_at: None,
             decisions: None,
             produced_lease_id: None,
             produced_lease_status: None,
+            produced_lease_not_after: None,
             extension_of_lease_id: None,
             requester_name: None,
             requester_email: None,

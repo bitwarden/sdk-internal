@@ -10,8 +10,6 @@ use bitwarden_crypto::{
     },
 };
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::{RegistrationOpenOrgInviteData, data_v1::RegistrationOpenOrgInviteDataV1};
 use crate::registration::registration_client::RegistrationError;
@@ -24,7 +22,7 @@ pub(super) const OPEN_ORG_INVITE_SECRET_SIZE_BYTES: usize = 32;
 /// seal to be used in the registration email verification link, and returned by
 /// [`crate::registration::registration_client::RegistrationClient::unseal_open_org_invite_data`]
 /// for the acceptance flow.
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenOrgInvite {

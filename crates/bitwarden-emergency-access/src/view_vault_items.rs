@@ -4,8 +4,6 @@ use bitwarden_crypto::{CryptoError, Decryptable, UnsignedSharedKey};
 use bitwarden_error::bitwarden_error;
 use bitwarden_vault::{Cipher, DecryptCipherResult, VaultParseError};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{EmergencyAccessClient, EmergencyAccessId};
 
@@ -55,7 +53,7 @@ impl TryFrom<EmergencyAccessViewResponseModel> for EmergencyAccessViewData {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl EmergencyAccessClient {
     /// Fetches and decrypts the grantor's vault items of an approved view-only emergency access.
     pub async fn view_vault_items(

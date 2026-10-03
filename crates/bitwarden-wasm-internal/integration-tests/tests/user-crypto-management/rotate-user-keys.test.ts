@@ -143,14 +143,14 @@ describe("rotate user keys", () => {
   );
 
   /**
-   * A second rotation, starting from an account that is already V2. Nothing is upgraded, and the
+   * A rotation starting from an account that is already V2. Nothing is upgraded, and the
    * vault still travels to the new key.
    *
-   *   client  ──unlock(K2)────────▶ rotate──▶ K3 ──sync ─▶ lock ─▶ unlock(K3) ──▶ reads
+   *   client  ──unlock(K1)────────▶ rotate──▶ K2 ──sync ─▶ lock ─▶ unlock(K2) ──▶ reads
    *                                             │
-   *   server  ──────────────────────────────── V2 ──▶ V2, vault re-encrypted to K3
+   *   server  ──────────────────────────────── V2 ──▶ V2, vault re-encrypted to K2
    *                                             │
-   *   relogin ──────────────────────────────────┴── login ─▶ unlock(K3) ─────────▶ reads
+   *   relogin ──────────────────────────────────┴── login ─▶ unlock(K2) ─────────▶ reads
    */
   it(
     "rotates an already-V2 account",
@@ -160,12 +160,12 @@ describe("rotate user keys", () => {
       await client.login(email);
       await client.unlock(TEST_PASSWORD);
 
-      // 1. Rotate again, this time without an upgrade token
+      // 1. Rotate without an upgrade token
       await rotate(client.getPasswordManagerClient(), "Skip");
 
       // 2. Verify the rotating client still reads the vault, over the key it rotated to. A
       //    V2 to V2 rotation issues no upgrade token, so there is nothing to re-initialize from:
-      //    the session restarts instead, syncing the re-encrypted vault and unlocking onto K3.
+      //    the session restarts instead, syncing the re-encrypted vault and unlocking onto K2.
       await client.sync(email);
       await client.lock();
       await client.unlock(TEST_PASSWORD);

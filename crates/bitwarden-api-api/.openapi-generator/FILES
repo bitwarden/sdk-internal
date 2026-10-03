@@ -76,6 +76,7 @@ src/apis/sync_api.rs
 src/apis/teams_integration_api.rs
 src/apis/trash_api.rs
 src/apis/two_factor_api.rs
+src/apis/user_subscriptions_api.rs
 src/apis/users_api.rs
 src/apis/web_authn_api.rs
 src/lib.rs
@@ -96,6 +97,7 @@ src/models/access_request_decision_response_model.rs
 src/models/access_request_details_response_model.rs
 src/models/access_request_details_response_model_list_response_model.rs
 src/models/access_request_result_response_model.rs
+src/models/access_request_revoke_request_model.rs
 src/models/access_request_status.rs
 src/models/access_rule_request_model.rs
 src/models/access_rule_response_model.rs
@@ -141,6 +143,7 @@ src/models/authenticator_transport.rs
 src/models/base_secret_response_model.rs
 src/models/base_secret_response_model_list_response_model.rs
 src/models/billing_address_request.rs
+src/models/billing_address_selections.rs
 src/models/billing_customer_discount.rs
 src/models/billing_history_response_model.rs
 src/models/billing_invoice.rs
@@ -238,6 +241,7 @@ src/models/domains_response_model.rs
 src/models/drop_password_health_report_application_request.rs
 src/models/email_request_model.rs
 src/models/email_token_request_model.rs
+src/models/emergency_access_accept_request_model.rs
 src/models/emergency_access_grantee_details_response_model.rs
 src/models/emergency_access_grantee_details_response_model_list_response_model.rs
 src/models/emergency_access_grantor_details_response_model.rs
@@ -446,6 +450,7 @@ src/models/password_hint_request_model.rs
 src/models/password_manager_invoice_items.rs
 src/models/password_manager_plan_features_response_model.rs
 src/models/password_manager_purchase_selections.rs
+src/models/password_manager_selections.rs
 src/models/password_manager_update_selections.rs
 src/models/password_request_model.rs
 src/models/payment_method_type.rs
@@ -476,6 +481,7 @@ src/models/potential_grantee_response_model_list_response_model.rs
 src/models/pre_validate_sponsorship_response_model.rs
 src/models/premium_cloud_hosted_subscription_request.rs
 src/models/preview_organization_subscription_plan_change_tax_request.rs
+src/models/preview_organization_subscription_purchase_request.rs
 src/models/preview_organization_subscription_purchase_tax_request.rs
 src/models/preview_organization_subscription_update_tax_request.rs
 src/models/preview_premium_subscription_purchase_tax_request.rs
@@ -533,6 +539,7 @@ src/models/public_key_encryption_key_pair_request_model.rs
 src/models/public_key_encryption_key_pair_response_model.rs
 src/models/public_keys_response_model.rs
 src/models/purchasable_proration.rs
+src/models/purchase_selections.rs
 src/models/push_device_request_model.rs
 src/models/push_registration_request_model.rs
 src/models/push_settings.rs
@@ -574,6 +581,7 @@ src/models/secret_with_projects_list_response_model.rs
 src/models/secrets_manager_invoice_items.rs
 src/models/secrets_manager_plan_features_response_model.rs
 src/models/secrets_manager_purchase_selections.rs
+src/models/secrets_manager_selections.rs
 src/models/secrets_manager_subscribe_request_model.rs
 src/models/secrets_manager_subscription_update_request_model.rs
 src/models/secrets_manager_update_selections.rs
@@ -596,6 +604,7 @@ src/models/send_encryption_type.rs
 src/models/send_file_download_data_response_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs
+src/models/send_item_metadata_model.rs
 src/models/send_request_model.rs
 src/models/send_response_model.rs
 src/models/send_response_model_list_response_model.rs
@@ -637,6 +646,9 @@ src/models/subscription_preview.rs
 src/models/subscription_response_model.rs
 src/models/sync_response_model.rs
 src/models/tax_id_request.rs
+src/models/tax_id_selection.rs
+src/models/teams_channel_response_model.rs
+src/models/teams_channel_response_model_list_response_model.rs
 src/models/tokenized_payment_method_request.rs
 src/models/transaction_type.rs
 src/models/trusted_device_key_data_response_model.rs

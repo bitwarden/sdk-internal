@@ -5,11 +5,7 @@ use crate::login::models::LoginSuccessResponse;
 /// Common login response model used across different login methods.
 #[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum LoginResponse {
     /// Successful authentication response.
     Authenticated(LoginSuccessResponse),

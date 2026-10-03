@@ -1,4 +1,4 @@
-use bitwarden_api_api::models::OrganizationUserAcceptRequestModel;
+use bitwarden_api_api::models::EmergencyAccessAcceptRequestModel;
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
@@ -27,11 +27,7 @@ impl EmergencyAccessClient {
         emergency_access_id: EmergencyAccessId,
         token: String,
     ) -> Result<(), EmergencyAccessAcceptError> {
-        // The server reuses the organization invite request model; only the token applies.
-        let request = OrganizationUserAcceptRequestModel {
-            token,
-            reset_password_key: None,
-        };
+        let request = EmergencyAccessAcceptRequestModel { token };
 
         self.api_configurations
             .api_client
@@ -63,9 +59,8 @@ mod tests {
                 .withf(|id, request| {
                     is_test_id(id)
                         && *request
-                            == Some(OrganizationUserAcceptRequestModel {
+                            == Some(EmergencyAccessAcceptRequestModel {
                                 token: TEST_TOKEN.to_owned(),
-                                reset_password_key: None,
                             })
                 })
                 .returning(|_, _| Ok(()))
