@@ -6,9 +6,9 @@ mod prelogin;
 #[cfg(feature = "internal")]
 pub use prelogin::*;
 
-#[cfg(any(feature = "internal", feature = "secrets"))]
+#[cfg(feature = "internal")]
 mod password;
-#[cfg(any(feature = "internal", feature = "secrets"))]
+#[cfg(feature = "internal")]
 pub use password::*;
 
 #[cfg(feature = "internal")]
@@ -25,11 +25,6 @@ pub use api_key::*;
 mod auth_request;
 #[cfg(feature = "internal")]
 pub use auth_request::*;
-
-#[cfg(feature = "secrets")]
-mod access_token;
-#[cfg(feature = "secrets")]
-pub use access_token::*;
 
 #[allow(missing_docs)]
 #[derive(Debug, thiserror::Error)]
@@ -55,17 +50,21 @@ pub enum LoginError {
     #[error(transparent)]
     EncryptionSettings(#[from] crate::client::encryption_settings::EncryptionSettingsError),
     #[error(transparent)]
-    AccessTokenInvalid(#[from] super::AccessTokenInvalidError),
-    #[error(transparent)]
     NotAuthenticated(#[from] super::NotAuthenticatedError),
-    #[cfg(feature = "secrets")]
-    #[error(transparent)]
-    StateFile(#[from] crate::secrets_manager::state::StateFileError),
     #[error("Error parsing Identity response: {0}")]
     IdentityFail(crate::auth::api::response::IdentityTokenFailResponse),
 
+    /// The provided access token could not be parsed. Carries the specific reason so callers see
+    /// the real failure detail (e.g. wrong version / wrong parts) rather than a generic error.
+    ///
+    /// The concrete `AccessTokenInvalidError` type lives in `bitwarden-auth`, which sits above
+    /// `bitwarden-core` in the dependency graph, so its message is surfaced as a string here.
+    #[error("Invalid access token: {0}")]
+    AccessTokenInvalid(String),
+
     #[error("The state file could not be read")]
     InvalidStateFile,
+
     #[error("Invalid organization id")]
     InvalidOrganizationId,
 

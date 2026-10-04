@@ -2,12 +2,14 @@
 
 use std::sync::Arc;
 
-use bitwarden_auth::token_management::SecretsManagerTokenHandler;
 pub use bitwarden_core::ClientSettings;
-use bitwarden_core::{OrganizationId, auth::auth_client::AuthClient};
+use bitwarden_core::OrganizationId;
 use bitwarden_generators::GeneratorClientsExt;
 
-use crate::{ProjectsClient, SecretsClient};
+use crate::{
+    ProjectsClient, SecretsClient, auth_client::SmAuthClient,
+    token_handler::SecretsManagerTokenHandler,
+};
 
 /// The main struct for interacting with the Secrets Manager service through the SM SDK.
 #[derive(Clone)]
@@ -37,8 +39,8 @@ impl SecretsManagerClient {
     }
 
     /// Get access to the Auth API
-    pub fn auth(&self) -> AuthClient {
-        self.client.auth()
+    pub fn auth(&self) -> SmAuthClient {
+        SmAuthClient::new(self.clone())
     }
 
     /// Get access to the Generators API
@@ -53,5 +55,9 @@ impl SecretsManagerClient {
 
     pub(crate) fn client(&self) -> &bitwarden_core::Client {
         &self.client
+    }
+
+    pub(crate) fn token_handler(&self) -> &SecretsManagerTokenHandler {
+        &self.token_handler
     }
 }

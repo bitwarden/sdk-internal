@@ -6,8 +6,6 @@ use std::sync::Arc;
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
 
-#[cfg(feature = "secrets")]
-use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::key_management::KeySlotIds;
 
 /// Trait for handling token usage and renewal.
@@ -30,15 +28,6 @@ pub trait TokenHandler: 'static + Send + Sync {
     /// which case it would be up to the auth crate to internally set those tokens when initializing
     /// the client.
     async fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64);
-
-    /// Secrets-Manager-only hook for storing the Service Account login method on the handler
-    /// itself. SM tokens are not persisted, so the login method lives in-memory on the
-    /// [SecretsManagerTokenHandler](crate::auth::auth_tokens::TokenHandler) implementation.
-    /// The default no-op implementation is intentional: handlers that do not back Secrets Manager
-    /// (PM, Noop, ClientManaged) should ignore this call. This will be removed once the auth
-    /// crate fully owns the login process.
-    #[cfg(feature = "secrets")]
-    async fn set_sm_login_method(&self, _login_method: ServiceAccountLoginMethod) {}
 }
 
 /// Access tokens managed by client applications, such as the web or mobile apps.

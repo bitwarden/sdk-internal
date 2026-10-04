@@ -15,10 +15,8 @@ pub use from_client_part::{FromClient, FromClientPart, FromClientShared};
 pub use internal::ApiConfigurations;
 #[allow(missing_docs)]
 pub mod login_method;
-#[cfg(any(feature = "internal", feature = "secrets"))]
+#[cfg(feature = "internal")]
 pub(crate) use login_method::LoginMethod;
-#[cfg(feature = "secrets")]
-pub(crate) use login_method::ServiceAccountLoginMethod;
 pub(crate) use login_method::UserLoginMethod;
 #[cfg(feature = "internal")]
 mod flags;
