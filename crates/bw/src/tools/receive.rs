@@ -291,6 +291,11 @@ async fn access_with_password(
     }
 }
 
+// TODO: Email-OTP-protected Sends do not work in this CLI yet. The server rejects every token
+// request for such a Send that has no `Device-Identifier` header, and this CLI does not send one.
+// The first request in `attempt_access` gets `device_identifier_required`, so this function is
+// never reached. Fixing it needs the Platform team to persist a device identifier for the CLI and
+// send it as the `Device-Identifier` header on every request.
 /// Email-OTP-protected Sends: the email request is what makes the server send the code, so the
 /// expected outcome of the first call is an `email_and_otp_required` error, not a token.
 async fn access_with_email_otp(
@@ -378,13 +383,22 @@ fn invalid_grant_type(err: &SendAccessTokenError) -> Option<&SendAccessTokenInva
     }
 }
 
-/// Surface a token-negotiation failure we have no specific message for. The error's `Debug`
-/// carries the server's `error_description`, which is diagnostic and never contains send content
-/// or credentials.
+/// Map a token-negotiation failure that no caller handled to a CLI error. Failures with no
+/// CLI-specific message fall back to the error's `Debug`, which carries the server's
+/// `error_description`. That description is diagnostic and never contains send content or
+/// credentials.
 fn token_error(err: SendAccessTokenError) -> color_eyre::eyre::Error {
-    match err {
-        SendAccessTokenError::Unexpected(inner) => eyre!("Server error: {inner:?}"),
-        SendAccessTokenError::Expected(inner) => eyre!("Error: {inner:?}"),
+    match invalid_request_type(&err) {
+        Some(SendAccessTokenInvalidRequestError::DeviceIdentifierRequired) => {
+            eyre!("The CLI did not send a device identifier; cannot access the Send.")
+        }
+        Some(SendAccessTokenInvalidRequestError::DeviceIdentifierInvalid) => {
+            eyre!("The server rejected the CLI's device identifier; cannot access the Send.")
+        }
+        _ => match err {
+            SendAccessTokenError::Unexpected(inner) => eyre!("Server error: {inner:?}"),
+            SendAccessTokenError::Expected(inner) => eyre!("Error: {inner:?}"),
+        },
     }
 }
 
@@ -891,5 +905,55 @@ mod tests {
     #[test]
     fn no_inputs_yields_no_password() {
         assert_eq!(password_from_args(None, None, None).unwrap(), None);
+    }
+
+    // ---- token_error ----
+
+    fn invalid_request(
+        send_access_error_type: SendAccessTokenInvalidRequestError,
+        error_description: Option<&str>,
+    ) -> SendAccessTokenError {
+        SendAccessTokenError::Expected(SendAccessTokenApiErrorResponse::InvalidRequest {
+            error_description: error_description.map(str::to_string),
+            send_access_error_type: Some(send_access_error_type),
+        })
+    }
+
+    #[test]
+    fn a_missing_device_identifier_shows_a_cli_message() {
+        let err = token_error(invalid_request(
+            SendAccessTokenInvalidRequestError::DeviceIdentifierRequired,
+            Some("Device-Identifier header is required."),
+        ));
+        assert_eq!(
+            err.to_string(),
+            "The CLI did not send a device identifier; cannot access the Send."
+        );
+    }
+
+    #[test]
+    fn an_invalid_device_identifier_shows_a_cli_message() {
+        let err = token_error(invalid_request(
+            SendAccessTokenInvalidRequestError::DeviceIdentifierInvalid,
+            Some("Device-Identifier header is invalid."),
+        ));
+        assert_eq!(
+            err.to_string(),
+            "The server rejected the CLI's device identifier; cannot access the Send."
+        );
+    }
+
+    #[test]
+    fn other_token_errors_keep_the_full_error_detail() {
+        let err = token_error(invalid_request(
+            SendAccessTokenInvalidRequestError::Unknown,
+            Some("Something else."),
+        ));
+        let message = err.to_string();
+        assert!(
+            message.starts_with("Error: InvalidRequest {"),
+            "got: {message}"
+        );
+        assert!(message.contains("Something else."), "got: {message}");
     }
 }
