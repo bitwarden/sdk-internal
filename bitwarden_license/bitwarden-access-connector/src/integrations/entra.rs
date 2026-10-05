@@ -1,7 +1,7 @@
 //! Microsoft Entra ID (Azure AD) integration for credential rotation.
 //!
 //! [`EntraIntegration`] rotates user passwords via the Microsoft Graph REST API using an
-//! administrative password reset. The daemon never holds the account's current credential,
+//! administrative password reset. The connector never holds the account's current credential,
 //! only the new password.
 //!
 //! # URL-building security

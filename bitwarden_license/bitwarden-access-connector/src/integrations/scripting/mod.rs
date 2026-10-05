@@ -17,7 +17,7 @@
 //!
 //! One JSON document, written immediately after spawn, after which stdin is closed so the
 //! script reads to EOF. `newPassword` is absent for `terminate`, and the forwarded credential
-//! map excludes `SCRIPT` and `SCRIPT_TYPE`, which describe the daemon's own invocation rather
+//! map excludes `SCRIPT` and `SCRIPT_TYPE`, which describe the connector's own invocation rather
 //! than the target.
 //!
 //! # Exit codes
@@ -30,7 +30,7 @@
 //! | 3       | Fatal, unknown sync state                                                    |
 //! | 4       | Transient, retry may succeed                                                 |
 //! | other   | Fatal, unknown sync state                                                    |
-//! | timeout | Killed by daemon; rotate → unknown, verify → applied, terminate → not_applied |
+//! | timeout | Killed by bwac; rotate → unknown, verify → applied, terminate → not_applied |
 //!
 //! Scripts must perform an administrative reset, not a change-password operation: a retried
 //! rotation sends a new `newPassword`, which a change-password script would reject after its
@@ -57,7 +57,7 @@ use crate::{
     sys::FileSystem,
 };
 
-/// How the daemon launches an operator-supplied script.
+/// How the connector launches an operator-supplied script.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum ScriptType {
@@ -118,7 +118,7 @@ pub(crate) fn payload_json(
 ) -> Result<Vec<u8>, InvokeError> {
     use bitwarden_sensitive_value::ExposeSensitive as _;
 
-    // Exclude the keys that configure the daemon's own invocation rather than the target: the
+    // Exclude the keys that configure the connector's own invocation rather than the target: the
     // script already knows its own path and how it was launched.
     let mut credentials: HashMap<&str, &str> = HashMap::new();
     for (k, v) in ctx.creds.iter() {
