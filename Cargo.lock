@@ -1244,15 +1244,21 @@ dependencies = [
 name = "bitwarden-policies"
 version = "4.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-ffi",
  "bitwarden-organizations",
+ "bitwarden-state",
+ "bitwarden-sync",
+ "bitwarden-test",
  "bitwarden-uuid",
  "chrono",
  "serde",
  "serde_json",
  "serde_repr",
+ "thiserror",
+ "tokio",
  "tracing",
  "tsify",
  "uniffi",
