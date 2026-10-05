@@ -28,12 +28,14 @@ uniffi = [
 ]                                                    # Uniffi bindings
 wasm = [
     "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
     "getrandom4/wasm_js",
     "dep:wasm-bindgen",
 ] # WASM support
 
 [dependencies]
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 # We don't use this directly (it's used by rand and uuid), but we need it here to enable WASM
 # support for the getrandom version they pull in.
 getrandom4 = { package = "getrandom", version = "0.4", optional = true }

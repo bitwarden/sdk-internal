@@ -574,6 +574,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-policies",
  "bitwarden-state",
  "bitwarden-test",
@@ -661,6 +662,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-logging",
  "bitwarden-managed-settings-types",
  "bitwarden-random",
@@ -720,6 +722,7 @@ dependencies = [
  "bitwarden-api-key-connector",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-logging",
  "bitwarden-random",
  "bitwarden-sensitive-value",
@@ -771,6 +774,7 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-ffi",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -784,6 +788,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-ffi",
  "bitwarden-sync",
  "serde",
  "thiserror",
@@ -803,6 +808,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-uuid",
  "bitwarden-vault",
  "serde",
@@ -1162,6 +1168,7 @@ dependencies = [
  "bitwarden-commercial-marker",
  "bitwarden-core",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-uuid",
  "bitwarden-vault",
  "chrono",
@@ -1239,6 +1246,7 @@ name = "bitwarden-random"
 version = "4.0.0"
 dependencies = [
  "bitwarden-error",
+ "bitwarden-ffi",
  "getrandom 0.4.3",
  "rand 0.10.2",
  "rand_chacha 0.10.0",
@@ -1327,6 +1335,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-ipc",
  "bitwarden-shared-unlock",
  "bitwarden-threading",
@@ -1408,6 +1417,8 @@ dependencies = [
  "tracing",
  "tsify",
  "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
 ]
 
@@ -1563,6 +1574,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-logging",
  "bitwarden-send",
  "bitwarden-test",
@@ -1658,6 +1670,7 @@ dependencies = [
  "bitwarden-crypto-sync-handler",
  "bitwarden-emergency-access",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-ipc",
  "bitwarden-logging",
  "bitwarden-managed-settings",
@@ -2302,9 +2315,9 @@ dependencies = [
 
 [[package]]
 name = "credential-exchange-format"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d1ea47a553efe5bd0a5ab9cd8dda95c99540a3873f0f599f9e1fc67ccf13ab3"
+checksum = "288cce1d17f7263796be2c92ce6abe994d0b5257614bbc02b92129fb6bea5224"
 dependencies = [
  "chrono",
  "data-encoding",

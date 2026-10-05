@@ -1,5 +1,6 @@
 //! The protocol's scenarios, one module per group.
 
+mod cli_unlock;
 mod client_quirks;
 mod peer_unavailable;
 mod relock_regressions;

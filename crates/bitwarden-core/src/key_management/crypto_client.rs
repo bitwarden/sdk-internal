@@ -7,8 +7,6 @@ use bitwarden_crypto::{
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
@@ -45,12 +43,12 @@ use crate::{
 };
 
 /// A client for the crypto operations.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CryptoClient {
     pub(crate) client: crate::Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CryptoClient {
     /// Initialization method for the user crypto. Needs to be called before any other crypto
     /// operations.
@@ -336,7 +334,7 @@ impl CryptoClient {
 }
 
 #[cfg(any(feature = "uniffi", feature = "wasm"))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CryptoClient {
     /// Re-initialize the user's cryptographic state during an unlock session.
     ///

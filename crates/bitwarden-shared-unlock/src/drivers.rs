@@ -3,6 +3,8 @@
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
 
+use crate::PeerLockState;
+
 /// Trait that implmeents the device's shared unlock driver. These functions need to be implemented
 /// in order to allow the shared unlock system to function.
 #[async_trait::async_trait]
@@ -23,6 +25,11 @@ pub trait SharedUnlockDriver {
         user_id: UserId,
         suppression_duration: std::time::Duration,
     );
+    /// Called when a peer state is reported to the shared unlock system (locked or unlocked).
+    /// This can be used when client needs to be informed about establishment of a shared session
+    /// with a peer device.
+    async fn on_peer_state(&self, user_id: UserId, lock_state: PeerLockState);
+
     /// Discovers the endpoint of the peer above this one in the device hierarchy or none
     /// if this device is at the top of the hierarchy. The local peer disables vault timeout
     /// if it is not at the top of the hierarchy.
