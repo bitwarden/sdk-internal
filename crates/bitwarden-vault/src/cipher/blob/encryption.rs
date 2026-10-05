@@ -84,9 +84,8 @@ pub(crate) fn encrypt_blob_cipher(
 
 /// Variant of [`encrypt_blob_cipher`] that accepts an explicit outer wrapping
 /// key. Used by key rotation, where the new user/org key is installed under a
-/// `Local` slot id and `view.key` has been rewrapped under that slot — calling
-/// `key_identifier()` would resolve to the original `User`/`Organization` slot
-/// and fail to unwrap the CEK.
+/// `Local` slot id — `key_identifier()` would resolve to the original
+/// `User`/`Organization` slot and wrap the cipher key under the old key.
 pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
     view: &mut CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -100,11 +99,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
         ));
     }
 
-    if view.key.is_none() {
-        view.upgrade_to_cipher_key_encryption(ctx)?;
-    }
-
-    let cipher_key = view.load_cipher_key_slot(ctx, wrapping_key)?;
+    let cipher_key = view.load_cipher_key_slot(ctx)?;
 
     let sealed_string = seal_cipher(view, ctx, cipher_key)?;
 
@@ -118,11 +113,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
         organization_id: view.organization_id,
         folder_id: view.folder_id,
         collection_ids: view.collection_ids.clone(),
-        key: view
-            .key
-            .as_ref()
-            .map(|_| ctx.wrap_symmetric_key(wrapping_key, cipher_key))
-            .transpose()?,
+        key: Some(ctx.wrap_symmetric_key(wrapping_key, cipher_key)?),
         r#type: view.r#type,
         favorite: view.favorite,
         reprompt: view.reprompt,
@@ -403,11 +394,8 @@ mod tests {
         view.secure_note = Some(SecureNoteView {
             r#type: SecureNoteType::Generic,
         });
-        view.upgrade_to_cipher_key_encryption(&mut ctx).unwrap();
+        let cipher_key = view.load_cipher_key_slot(&mut ctx).unwrap();
 
-        let cipher_key = view
-            .load_cipher_key_slot(&mut ctx, view.key_identifier())
-            .unwrap();
         let sealed_string = seal_cipher(&view, &mut ctx, cipher_key).unwrap();
 
         let mut cipher = make_test_cipher_with_data(&mut ctx, Some(sealed_string));

@@ -3,6 +3,11 @@
 #[cfg(feature = "bitwarden-license")]
 mod commercial;
 
+/// Dev-only debug-capability tree rooted on the top-level client. Compiled only
+/// under the `debug-capabilities` feature.
+#[cfg(feature = "debug-capabilities")]
+pub mod debug;
+
 use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
@@ -61,6 +66,7 @@ pub use bitwarden_unlock::{SessionKey, UnlockError, UnlockMethod};
 pub use builder::PasswordManagerClientBuilder;
 
 /// The main entry point for the Bitwarden Password Manager SDK
+#[derive(Clone)]
 pub struct PasswordManagerClient(pub bitwarden_core::Client);
 
 impl PasswordManagerClient {

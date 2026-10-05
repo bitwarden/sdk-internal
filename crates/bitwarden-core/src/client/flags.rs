@@ -9,10 +9,6 @@
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Flags {
-    /// Enable cipher key encryption.
-    #[serde(alias = "enableCipherKeyEncryption", alias = "cipher-key-encryption")]
-    pub enable_cipher_key_encryption: bool,
-
     /// Enable strict cipher field decryption (propagates errors instead of nulling fields).
     #[serde(alias = "pm-34500-strict-cipher-decryption")]
     pub strict_cipher_decryption: bool,
@@ -41,23 +37,23 @@ mod tests {
     fn test_load_empty_map() {
         let map = std::collections::HashMap::new();
         let flags = Flags::load_from_map(map);
-        assert!(!flags.enable_cipher_key_encryption);
+        assert!(!flags.strict_cipher_decryption);
     }
 
     #[test]
     fn test_load_valid_map() {
         let mut map = std::collections::HashMap::new();
-        map.insert("enableCipherKeyEncryption".into(), true);
+        map.insert("strict-cipher-decryption".into(), true);
         let flags = Flags::load_from_map(map);
-        assert!(flags.enable_cipher_key_encryption);
+        assert!(flags.strict_cipher_decryption);
     }
 
     #[test]
     fn test_load_valid_map_alias() {
         let mut map = std::collections::HashMap::new();
-        map.insert("cipher-key-encryption".into(), true);
+        map.insert("pm-34500-strict-cipher-decryption".into(), true);
         let flags = Flags::load_from_map(map);
-        assert!(flags.enable_cipher_key_encryption);
+        assert!(flags.strict_cipher_decryption);
     }
 
     #[test]
@@ -65,6 +61,6 @@ mod tests {
         let mut map = std::collections::HashMap::new();
         map.insert("thisIsNotAFlag".into(), true);
         let flags = Flags::load_from_map(map);
-        assert!(!flags.enable_cipher_key_encryption);
+        assert!(!flags.strict_cipher_decryption);
     }
 }
