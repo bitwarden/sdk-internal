@@ -1,4 +1,4 @@
-//! Configuration loading and validation for the rotation daemon.
+//! Configuration loading and validation for the access connector.
 //!
 //! [`crate::config::Config::from_cli`] resolves URLs from `BWAC_API_URL` / `BWAC_IDENTITY_URL`,
 //! then `[environment]`, then derivation from `[environment].base`, or a hard startup error.
@@ -11,22 +11,22 @@
 //!
 //! # Token intake
 //!
-//! `BWAC_TOKEN` is the only way to supply the daemon token; never echoed, and not settable
-//! via the config file.
+//! `BWAC_TOKEN` is the only way to supply the access connector token; never echoed, and not
+//! settable via the config file.
 
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 use crate::{
     cli::RunArgs,
-    error::RotationDaemonError,
-    executor::{DaemonConfig, retry::RetryCfg},
-    token::DaemonToken,
+    error::AccessConnectorError,
+    executor::{AccessConnectorConfig, retry::RetryCfg},
+    token::AccessConnectorToken,
 };
 
-/// Minimum poll interval the daemon will accept (spec `HeartbeatMinInterval`).
+/// Minimum poll interval the connector will accept (spec `HeartbeatMinInterval`).
 const MIN_POLL_INTERVAL_SECS: u64 = 15;
 
-/// Maximum heartbeat interval the daemon will accept.
+/// Maximum heartbeat interval the connector will accept.
 const MAX_HEARTBEAT_INTERVAL_SECS: u64 = 120;
 
 /// Server environment configuration from the `[environment]` TOML section.
@@ -65,7 +65,7 @@ impl EnvironmentConfig {
     }
 }
 
-/// On-disk daemon configuration (TOML). Every key is optional; `BWAC_API_URL` /
+/// On-disk connector configuration (TOML). Every key is optional; `BWAC_API_URL` /
 /// `BWAC_IDENTITY_URL` override the `[environment]` section's URLs.
 ///
 /// A `token` key is rejected at parse time; use `BWAC_TOKEN` instead.
@@ -103,7 +103,7 @@ struct FileConfig {
     targets: HashMap<uuid::Uuid, crate::resolver::config::TargetEntry>,
 }
 
-/// The daemon's built-in defaults: the lowest-priority configuration layer
+/// The connector's built-in defaults: the lowest-priority configuration layer
 /// (env URLs, then config file `[environment]`, then base derivation, then error).
 impl Default for FileConfig {
     fn default() -> Self {
@@ -129,9 +129,9 @@ impl FileConfig {
     ///
     /// Only the last line of the TOML error (its human-readable description) is kept;
     /// the source snippet, which could echo config values, is stripped.
-    fn load(path: &std::path::Path) -> Result<Self, RotationDaemonError> {
+    fn load(path: &std::path::Path) -> Result<Self, AccessConnectorError> {
         let contents = std::fs::read_to_string(path).map_err(|e| {
-            RotationDaemonError::InvalidConfig(format!(
+            AccessConnectorError::InvalidConfig(format!(
                 "cannot read config file {}: {e}",
                 path.display()
             ))
@@ -140,7 +140,7 @@ impl FileConfig {
             // Drop the source snippet; keep only the human-readable description.
             let summary = e.to_string();
             let description = summary.lines().last().unwrap_or("parse error");
-            RotationDaemonError::InvalidConfig(format!(
+            AccessConnectorError::InvalidConfig(format!(
                 "config file {} is invalid TOML: {description}",
                 path.display()
             ))
@@ -148,11 +148,11 @@ impl FileConfig {
     }
 }
 
-/// Validated configuration for the daemon run loop.
+/// Validated configuration for the connector run loop.
 ///
 /// Constructed from [`RunArgs`] by [`Config::from_cli`].
 pub struct Config {
-    inner: DaemonConfig,
+    inner: AccessConnectorConfig,
 }
 
 impl std::fmt::Debug for Config {
@@ -172,9 +172,9 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// [`RotationDaemonError::InvalidConfig`] for a validation failure, or
-    /// [`RotationDaemonError::InvalidToken`] for an unparseable token; never echoes secrets.
-    pub fn from_cli(args: RunArgs) -> Result<Self, RotationDaemonError> {
+    /// [`AccessConnectorError::InvalidConfig`] for a validation failure, or
+    /// [`AccessConnectorError::InvalidToken`] for an unparseable token; never echoes secrets.
+    pub fn from_cli(args: RunArgs) -> Result<Self, AccessConnectorError> {
         // SAFETY: single-threaded startup; no other thread can observe or mutate
         // BWAC_TOKEN. Removed immediately after reading so child processes don't inherit it.
         let env_token = std::env::var("BWAC_TOKEN").ok();
@@ -188,17 +188,17 @@ impl Config {
         let token_str: String = match env_token.filter(|t| !t.trim().is_empty()) {
             Some(t) => t,
             None => {
-                return Err(RotationDaemonError::InvalidConfig(
-                    "daemon token must be supplied via the BWAC_TOKEN environment variable".into(),
+                return Err(AccessConnectorError::InvalidConfig(
+                    "access connector token must be supplied via the BWAC_TOKEN environment variable".into(),
                 ));
             }
         };
 
         // Parse the token; error messages must not echo the token string.
-        let token: DaemonToken = token_str
+        let token: AccessConnectorToken = token_str
             .trim()
             .parse()
-            .map_err(|e| RotationDaemonError::InvalidToken(format!("{e}")))?;
+            .map_err(|e| AccessConnectorError::InvalidToken(format!("{e}")))?;
 
         // Drop the plaintext token string as soon as we have the parsed form.
         drop(token_str);
@@ -213,7 +213,7 @@ impl Config {
         let api_url = env_url("BWAC_API_URL")
             .or_else(|| file.environment.derive_api())
             .ok_or_else(|| {
-                RotationDaemonError::InvalidConfig(
+                AccessConnectorError::InvalidConfig(
                     "api URL must be supplied via the BWAC_API_URL environment variable, \
                      [environment].api, or [environment].base in the config file"
                         .into(),
@@ -223,7 +223,7 @@ impl Config {
         let identity_url = env_url("BWAC_IDENTITY_URL")
             .or_else(|| file.environment.derive_identity())
             .ok_or_else(|| {
-                RotationDaemonError::InvalidConfig(
+                AccessConnectorError::InvalidConfig(
                     "identity URL must be supplied via the BWAC_IDENTITY_URL environment \
                      variable, [environment].identity, or [environment].base in the config file"
                         .into(),
@@ -232,21 +232,21 @@ impl Config {
 
         // Missing TOML keys fall back to `FileConfig`'s `#[serde(default)]` values.
         if file.poll_interval < MIN_POLL_INTERVAL_SECS {
-            return Err(RotationDaemonError::InvalidConfig(format!(
+            return Err(AccessConnectorError::InvalidConfig(format!(
                 "poll_interval must be >= {MIN_POLL_INTERVAL_SECS} seconds (got {})",
                 file.poll_interval
             )));
         }
 
         if file.heartbeat_interval >= MAX_HEARTBEAT_INTERVAL_SECS {
-            return Err(RotationDaemonError::InvalidConfig(format!(
+            return Err(AccessConnectorError::InvalidConfig(format!(
                 "heartbeat_interval must be < {MAX_HEARTBEAT_INTERVAL_SECS} seconds (got {})",
                 file.heartbeat_interval
             )));
         }
 
         Ok(Config {
-            inner: DaemonConfig {
+            inner: AccessConnectorConfig {
                 api_url,
                 identity_url,
                 token,
@@ -267,8 +267,8 @@ impl Config {
         })
     }
 
-    /// Consume the [`Config`] and return the inner [`DaemonConfig`].
-    pub fn into_daemon_config(self) -> DaemonConfig {
+    /// Consume the [`Config`] and return the inner [`AccessConnectorConfig`].
+    pub fn into_access_connector_config(self) -> AccessConnectorConfig {
         self.inner
     }
 }
@@ -332,7 +332,7 @@ mod tests {
         }
         let result = Config::from_cli(empty_args());
         assert!(
-            matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
+            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
             "expected InvalidConfig, got {result:?}"
         );
     }
@@ -350,7 +350,7 @@ mod tests {
             std::env::remove_var("BWAC_TOKEN");
         }
         assert!(
-            matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
+            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
             "expected InvalidConfig for whitespace-only BWAC_TOKEN, got {result:?}"
         );
     }
@@ -370,7 +370,7 @@ mod tests {
         }
 
         match result {
-            Err(RotationDaemonError::InvalidToken(msg)) => {
+            Err(AccessConnectorError::InvalidToken(msg)) => {
                 assert!(
                     !msg.contains(bad_token),
                     "error message must not echo the token string; got: {msg}"
@@ -435,7 +435,7 @@ identity = "https://identity.example.com"
         }
 
         assert!(
-            matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
+            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
             "expected InvalidConfig for poll_interval < 15, got {result:?}"
         );
     }
@@ -497,7 +497,7 @@ identity = "https://identity.example.com"
         }
 
         assert!(
-            matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
+            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
             "expected InvalidConfig for heartbeat_interval >= 120, got {result:?}"
         );
     }
@@ -549,7 +549,7 @@ identity = "https://identity.example.com"
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        let inner = result.expect("expected Ok").into_daemon_config();
+        let inner = result.expect("expected Ok").into_access_connector_config();
         assert_eq!(inner.api_url, "https://api.env.example.com");
         assert_eq!(inner.identity_url, "https://identity.env.example.com");
     }
@@ -579,7 +579,7 @@ identity = "https://identity.file.example.com"
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        let inner = result.expect("expected Ok").into_daemon_config();
+        let inner = result.expect("expected Ok").into_access_connector_config();
         // Environment URLs win over file URLs.
         assert_eq!(inner.api_url, "https://api.env.example.com");
         assert_eq!(inner.identity_url, "https://identity.env.example.com");
@@ -610,7 +610,7 @@ identity = "https://identity.file.example.com"
             std::env::remove_var("BWAC_API_URL");
         }
 
-        let inner = result.expect("expected Ok").into_daemon_config();
+        let inner = result.expect("expected Ok").into_access_connector_config();
         // Whitespace-only BWAC_API_URL is treated as unset.
         assert_eq!(inner.api_url, "https://api.file.example.com");
         assert_eq!(inner.identity_url, "https://identity.file.example.com");
@@ -641,7 +641,7 @@ identity = "https://identity.example.com"
         }
 
         match result {
-            Err(RotationDaemonError::InvalidConfig(msg)) => {
+            Err(AccessConnectorError::InvalidConfig(msg)) => {
                 assert!(
                     msg.contains("api URL"),
                     "error should mention the missing 'api URL'; got: {msg}"
@@ -676,7 +676,7 @@ api = "https://api.example.com"
         }
 
         match result {
-            Err(RotationDaemonError::InvalidConfig(msg)) => {
+            Err(AccessConnectorError::InvalidConfig(msg)) => {
                 assert!(
                     msg.contains("identity URL"),
                     "error should mention the missing 'identity URL'; got: {msg}"
@@ -719,7 +719,7 @@ identity = "https://identity.file.example.com"
         }
 
         let cfg = result.expect("expected Ok from file-only config");
-        let inner = cfg.into_daemon_config();
+        let inner = cfg.into_access_connector_config();
         assert_eq!(inner.api_url, "https://api.file.example.com");
         assert_eq!(inner.identity_url, "https://identity.file.example.com");
         assert_eq!(inner.poll_interval, Duration::from_secs(30));
@@ -757,7 +757,7 @@ identity = "https://identity.example.com"
         }
 
         let cfg = result.expect("expected Ok with defaults");
-        let inner = cfg.into_daemon_config();
+        let inner = cfg.into_access_connector_config();
         let defaults = FileConfig::default();
         assert_eq!(
             inner.poll_interval,
@@ -813,7 +813,7 @@ identity = "https://identity.example.com"
         }
 
         match result {
-            Err(RotationDaemonError::InvalidConfig(msg)) => {
+            Err(AccessConnectorError::InvalidConfig(msg)) => {
                 assert!(
                     !msg.contains(token_value),
                     "error must NOT echo the token value; got: {msg}"
@@ -844,7 +844,7 @@ identity = "https://identity.example.com"
         }
 
         assert!(
-            matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
+            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
             "expected InvalidConfig for nonexistent config path, got {result:?}"
         );
     }
@@ -876,7 +876,7 @@ identity = "https://identity.example.com"
         }
 
         let cfg = result.expect("expected Ok");
-        let inner = cfg.into_daemon_config();
+        let inner = cfg.into_access_connector_config();
         assert!(
             inner.entra_verify_probe,
             "entra_verify_probe from file should be true"
@@ -908,7 +908,7 @@ base = "https://bitwarden.example.com"
 
         let inner = result
             .expect("base-only config should succeed")
-            .into_daemon_config();
+            .into_access_connector_config();
         assert_eq!(inner.api_url, "https://bitwarden.example.com/api");
         assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
     }
@@ -937,7 +937,7 @@ base = "https://bitwarden.example.com/"
 
         let inner = result
             .expect("trailing-slash base should succeed")
-            .into_daemon_config();
+            .into_access_connector_config();
         assert_eq!(inner.api_url, "https://bitwarden.example.com/api");
         assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
     }
@@ -968,7 +968,7 @@ api  = "https://custom-api.example.com/v2"
 
         let inner = result
             .expect("mixed explicit+base config should succeed")
-            .into_daemon_config();
+            .into_access_connector_config();
         assert_eq!(inner.api_url, "https://custom-api.example.com/v2");
         assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
     }
@@ -1005,7 +1005,7 @@ identity = "https://identity.file.example.com"
 
         let inner = result
             .expect("env override should succeed")
-            .into_daemon_config();
+            .into_access_connector_config();
         assert_eq!(inner.api_url, "https://override.env.example.com/api");
         assert_eq!(
             inner.identity_url,
@@ -1037,7 +1037,7 @@ identity_url = "https://identity.example.com"
         }
 
         assert!(
-            matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
+            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
             "top-level api_url/identity_url must be rejected as unknown fields, got {result:?}"
         );
     }
@@ -1066,7 +1066,7 @@ poll_interval = 15
         }
 
         match result {
-            Err(RotationDaemonError::InvalidConfig(msg)) => {
+            Err(AccessConnectorError::InvalidConfig(msg)) => {
                 // Error message should name the supply methods for api URL.
                 assert!(
                     msg.contains("BWAC_API_URL") && msg.contains("[environment]"),
@@ -1103,7 +1103,7 @@ script = "/opt/scripts/rotate.sh"
         }
         let cfg = result
             .expect("targets section should parse")
-            .into_daemon_config();
+            .into_access_connector_config();
         let uuid: uuid::Uuid = "85808642-baba-4b8e-8c34-b48000d60a0a".parse().unwrap();
         assert!(cfg.targets.contains_key(&uuid));
         assert_eq!(
@@ -1136,7 +1136,7 @@ client_id = "my-client"
         }
         let cfg = result
             .expect("entra target entry should parse")
-            .into_daemon_config();
+            .into_access_connector_config();
         let uuid: uuid::Uuid = "00000000-0000-0000-0000-000000000001".parse().unwrap();
         assert_eq!(cfg.targets[&uuid].tenant_id.as_deref(), Some("my-tenant"));
         assert_eq!(cfg.targets[&uuid].client_id.as_deref(), Some("my-client"));
@@ -1167,7 +1167,7 @@ client_secret = "{secret_value}"
             std::env::remove_var("BWAC_TOKEN");
         }
         match result {
-            Err(RotationDaemonError::InvalidConfig(msg)) => {
+            Err(AccessConnectorError::InvalidConfig(msg)) => {
                 assert!(
                     !msg.contains(secret_value),
                     "error must not echo secret value; got: {msg}"
@@ -1201,7 +1201,7 @@ script = "/some/script.sh"
             std::env::remove_var("BWAC_TOKEN");
         }
         assert!(
-            matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
+            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
             "non-UUID key in [targets] must be rejected, got {result:?}"
         );
     }
@@ -1226,7 +1226,7 @@ identity = "https://identity.example.com"
         }
         let cfg = result
             .expect("no targets section should be fine")
-            .into_daemon_config();
+            .into_access_connector_config();
         assert!(
             cfg.targets.is_empty(),
             "absent [targets] section must default to empty map"

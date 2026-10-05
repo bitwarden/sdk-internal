@@ -1,6 +1,6 @@
 //! HTTP API client wrappers for the Bitwarden server's PAM rotation endpoints.
 //!
-//! [`DaemonAuthMiddleware`] attaches the bearer token and handles 401 retry.
+//! [`AccessConnectorAuthMiddleware`] attaches the bearer token and handles 401 retry.
 //! [`build_api_client`] assembles the client stack; [`RotationApi`] wraps it, mapping calls
 //! into domain types and bumping connectivity on success.
 
@@ -29,16 +29,16 @@ use crate::{
     error::{FailureCode, SafeDetail, SessionTermination, SyncState},
 };
 
-/// [`reqwest_middleware::Middleware`] that attaches a daemon bearer token, retries a single
+/// [`reqwest_middleware::Middleware`] that attaches a connector bearer token, retries a single
 /// 401 via forced refresh for a cloneable request body, and hard-fails on session loss so the
 /// executor can consult `session.phase()`.
 ///
 /// Unlike bitwarden-auth's middleware, this one does not soft-fail without a token.
-pub(crate) struct DaemonAuthMiddleware {
+pub(crate) struct AccessConnectorAuthMiddleware {
     session: Arc<SessionManager>,
 }
 
-impl DaemonAuthMiddleware {
+impl AccessConnectorAuthMiddleware {
     /// Build a new middleware wrapping `session`.
     pub(crate) fn new(session: Arc<SessionManager>) -> Self {
         Self { session }
@@ -63,7 +63,7 @@ impl DaemonAuthMiddleware {
 }
 
 #[async_trait::async_trait]
-impl Middleware for DaemonAuthMiddleware {
+impl Middleware for AccessConnectorAuthMiddleware {
     async fn handle(
         &self,
         mut req: reqwest::Request,
@@ -91,7 +91,7 @@ impl Middleware for DaemonAuthMiddleware {
             && let Some(mut cloned) = req_clone
             && response.status() == http::StatusCode::UNAUTHORIZED
         {
-            tracing::info!("daemon API: 401 received, refreshing token and retrying");
+            tracing::info!("connector API: 401 received, refreshing token and retrying");
 
             let stale = used_token.as_deref().unwrap_or("");
             let new_token = self.force_refresh_bearer(stale).await?;
@@ -111,7 +111,7 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
         Err(e) => {
             // Token has a character invalid in a header value; proceed without it,
             // the server will 401 and the retry path surfaces the error.
-            tracing::warn!("daemon API: cannot format bearer token as header value: {e}");
+            tracing::warn!("connector API: cannot format bearer token as header value: {e}");
             return;
         }
     };
@@ -121,7 +121,7 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
 /// Build the generated [`ApiClient`] with authentication middleware.
 ///
 /// The 30 s per-request timeout keeps a black-holed connection from starving the
-/// heartbeat past `DaemonOfflineAfter` (2 minutes).
+/// heartbeat past `AccessConnectorOfflineAfter` (2 minutes).
 pub(crate) fn build_api_client(
     base_url: impl Into<String>,
     session: Arc<SessionManager>,
@@ -134,7 +134,7 @@ pub(crate) fn build_api_client(
         .expect("HTTP client build should not fail");
 
     let middleware_client = ClientBuilder::new(http_client)
-        .with(DaemonAuthMiddleware::new(session))
+        .with(AccessConnectorAuthMiddleware::new(session))
         .build();
 
     let config = Arc::new(Configuration {
@@ -171,7 +171,7 @@ impl RotationApi {
 
     /// Poll for claimable rotation jobs.
     ///
-    /// An empty list means no jobs are available. A 404 on this daemon-scoped route
+    /// An empty list means no jobs are available. A 404 on this connector-scoped route
     /// maps to [`ApiError::NotEligible`].
     pub(crate) async fn poll_jobs(&self) -> Result<Vec<JobRef>, ApiError> {
         let result = self
@@ -191,14 +191,14 @@ impl RotationApi {
                     .collect();
                 Ok(jobs)
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::DaemonOrJob)),
+            Err(e) => Err(classify_error(e, &self.client, Route::AccessConnectorOrJob)),
         }
     }
 
     /// Attempt to claim a rotation job.
     ///
-    /// `Ok(None)` means another daemon won the race (409), not an error;
-    /// [`ApiError::NotEligible`] means a 404 on the daemon route.
+    /// `Ok(None)` means another connector won the race (409), not an error;
+    /// [`ApiError::NotEligible`] means a 404 on the connector route.
     pub(crate) async fn claim(&self, job_id: Uuid) -> Result<Option<WorkSnapshot>, ApiError> {
         let result = self
             .client
@@ -216,7 +216,7 @@ impl RotationApi {
                 // 409 = race lost, not an error; caller continues to the next job.
                 Ok(None)
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::DaemonOrJob)),
+            Err(e) => Err(classify_error(e, &self.client, Route::AccessConnectorOrJob)),
         }
     }
 
@@ -335,10 +335,10 @@ impl RotationApi {
 /// Route class, for disambiguating 404 semantics.
 #[derive(Clone, Copy)]
 enum Route {
-    /// A daemon-scoped or job-scoped route (`/access-connectors/rotation/jobs`
+    /// A connector-scoped or job-scoped route (`/access-connectors/rotation/jobs`
     /// or `/access-connectors/rotation/jobs/{id}/claim`).  A 404 here means the
-    /// daemon is not eligible (the endpoint filter rejected it).
-    DaemonOrJob,
+    /// connector is not eligible (the endpoint filter rejected it).
+    AccessConnectorOrJob,
     /// An attempt-scoped route (`/access-connectors/rotation/attempts/{id}/…`).
     /// A 404 here means the attempt is not known to the server.
     Attempt,
@@ -358,7 +358,7 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
                     ApiError::Transient("HTTP 401 (post-retry)".to_string())
                 }
                 404 => match route {
-                    Route::DaemonOrJob => ApiError::NotEligible,
+                    Route::AccessConnectorOrJob => ApiError::NotEligible,
                     Route::Attempt => ApiError::UnknownAttempt,
                 },
                 409 => ApiError::Rejected { status },
@@ -518,9 +518,9 @@ mod tests {
 
     const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    fn test_token() -> crate::token::DaemonToken {
+    fn test_token() -> crate::token::AccessConnectorToken {
         use std::str::FromStr;
-        crate::token::DaemonToken::from_str(VALID_TOKEN_STR).expect("valid token")
+        crate::token::AccessConnectorToken::from_str(VALID_TOKEN_STR).expect("valid token")
     }
 
     fn token_encryption_key() -> bitwarden_crypto::SymmetricCryptoKey {
@@ -744,7 +744,7 @@ mod tests {
                 });
                 ApiClient::new(&config)
             },
-            Route::DaemonOrJob,
+            Route::AccessConnectorOrJob,
         );
         assert!(matches!(api_err, ApiError::Rejected { status: 409 }));
     }
@@ -1103,7 +1103,7 @@ mod tests {
             .build()
             .unwrap();
         let client = ClientBuilder::new(http_client)
-            .with(DaemonAuthMiddleware::new(Arc::clone(&session)))
+            .with(AccessConnectorAuthMiddleware::new(Arc::clone(&session)))
             .build();
 
         Mock::given(method("GET"))

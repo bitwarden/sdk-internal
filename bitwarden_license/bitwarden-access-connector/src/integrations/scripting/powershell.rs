@@ -298,11 +298,11 @@ mod tests {
     }
 
     #[test]
-    fn env_allowlist_contains_no_credential_or_daemon_names() {
+    fn env_allowlist_contains_no_credential_or_connector_names() {
         for name in ENV_ALLOWLIST {
             assert!(
                 !name.starts_with("BWAC"),
-                "daemon variable {name} must never be forwarded"
+                "connector variable {name} must never be forwarded"
             );
             for suffix in [
                 "SCRIPT",

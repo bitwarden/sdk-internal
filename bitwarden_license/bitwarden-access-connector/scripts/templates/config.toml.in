@@ -1,7 +1,7 @@
 # bwac configuration. The installer writes this once and never touches
 # it again; edit it and restart the service.
 #
-# Secrets do not belong here. The daemon treats a config containing a token as a
+# Secrets do not belong here. The connector treats a config containing a token as a
 # startup error, and rejects client_secret inside [targets], because config files end
 # up in repositories. Unknown keys are a startup error too, so a typo is loud.
 #
