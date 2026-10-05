@@ -2,8 +2,8 @@
 #
 # Installs bwac as a system service. A URL, and an optional name.
 #
-#   sudo -E ./install-rotation-daemon.sh https://bitwarden.example.com
-#   sudo -E ./install-rotation-daemon.sh https://bitwarden.example.com acme
+#   sudo -E ./install-access-connector.sh https://bitwarden.example.com
+#   sudo -E ./install-access-connector.sh https://bitwarden.example.com acme
 #
 #   Linux  -> systemd unit    /etc/systemd/system/bwac.service
 #   macOS  -> launchd daemon  /Library/LaunchDaemons/com.bitwarden.bwac.plist
@@ -14,22 +14,22 @@
 #   /usr/local/bin/bwac   binary            root  0755  (shared)
 #   /etc/bwac/config.toml               settings          root  0644  (never secrets)
 #   /etc/bwac/env                       token + creds     root  0400  (Linux only)
-#   /opt/bwac/scripts                   rotation scripts  root  0755  (shared, daemon cannot write)
+#   /opt/bwac/scripts                   rotation scripts  root  0755  (shared, connector cannot write)
 #   /var/lib/bwac                       state             bwac  0700
-#   /var/log/bwac                       daemon log        bwac  0750  (macOS only)
+#   /var/log/bwac                       connector log     bwac  0750  (macOS only)
 #
-# A name is only needed to run more than one daemon on one host, which a host rotating
-# for more than one organisation has to do, since a daemon token belongs to a single
-# organisation. It moves everything the daemon writes, or reads its token from, one
+# A name is only needed to run more than one connector on one host, which a host rotating
+# for more than one organisation has to do, since an access connector token belongs to a single
+# organisation. It moves everything the connector writes, or reads its token from, one
 # level down, and leaves the shared pieces alone:
 #
 #   /etc/bwac/<name>/config.toml, /etc/bwac/<name>/env, /var/lib/bwac/<name>,
 #   /var/log/bwac/<name>, and the service becomes bwac-<name>.service
 #   or com.bitwarden.bwac.<name>.
 #
-# The binary, the service account and /opt/bwac/scripts stay shared: the daemon cannot
+# The binary, the service account and /opt/bwac/scripts stay shared: the connector cannot
 # write to the script directory, so there is nothing to keep apart there, and one script
-# can serve every daemon. Point that daemon's script_root elsewhere if you would rather
+# can serve every connector. Point that connector's script_root elsewhere if you would rather
 # they were separate.
 #
 # None of that is configurable. If you want a different layout, a different service
@@ -39,7 +39,7 @@
 # Two things here are not arbitrary:
 #
 #   * The token is not an argument. argv is world-readable via `ps` and
-#     /proc/<pid>/cmdline, which is why the daemon itself refuses --token. Put it in
+#     /proc/<pid>/cmdline, which is why the connector itself refuses --token. Put it in
 #     BWAC_TOKEN, or let the script prompt for it with echo off.
 #
 #   * On macOS the token and per-target credentials live in the plist's
@@ -49,7 +49,7 @@
 #
 # Re-running replaces the binary and leaves config.toml, the env file, the systemd unit
 # and the plist alone, so upgrading cannot lose credentials or hardening you added to
-# them. Every daemon on the host runs the one binary, so replacing it replaces it for
+# them. Every connector on the host runs the one binary, so replacing it replaces it for
 # all of them, and the ones already running keep the old one until they are restarted.
 #
 # To remove it, on Linux:
@@ -65,10 +65,10 @@
 #   rm -rf /etc/bwac /var/lib/bwac /var/log/bwac /usr/local/bin/bwac
 #   dscl . -delete /Users/_bwac; dscl . -delete /Groups/_bwac
 #
-# A named daemon comes off the same way, with -<name> on the unit or .<name> on the
+# A named connector comes off the same way, with -<name> on the unit or .<name> on the
 # label, and /etc/bwac/<name>, /var/lib/bwac/<name> and /var/log/bwac/<name> in place of
 # the directories above. Leave the binary, the service account and /opt/bwac/scripts
-# until the last daemon on the host is gone.
+# until the last connector on the host is gone.
 #
 # Rotation scripts in /opt/bwac/scripts are yours; nothing above deletes them.
 
@@ -84,11 +84,11 @@ readonly CONFIG_ROOT="/etc/bwac"
 readonly STATE_ROOT="/var/lib/bwac"
 readonly LOG_ROOT="/var/log/bwac"
 
-# Names that would land on top of something already sitting beside a named daemon's
+# Names that would land on top of something already sitting beside a named connector's
 # directory: the env file here, and the scripts and logs directories on Windows.
 readonly RESERVED_NAMES="env logs scripts"
 
-# Set by set_paths. An unnamed daemon gets the roots above as they are, which is the
+# Set by set_paths. An unnamed connector gets the roots above as they are, which is the
 # layout every install had before names existed.
 NAME=""
 LAUNCHD_LABEL=""
@@ -121,7 +121,7 @@ write_file() {
 }
 
 # Fills in a template from templates/. The substitution is done with shell parameter
-# expansion rather than sed because two of these carry the daemon token, and a sed
+# expansion rather than sed because two of these carry the access connector token, and a sed
 # replacement would put it in argv where ps can read it. It also sidesteps having to
 # escape the delimiter and & in paths and URLs.
 render() {
@@ -153,14 +153,14 @@ Installs bwac as a system service.
 
     $PROGRAM <bitwarden-url> [name]
 
-The URL is your Bitwarden server, for example https://bitwarden.example.com. The daemon
+The URL is your Bitwarden server, for example https://bitwarden.example.com. The connector
 token comes from BWAC_TOKEN, or is prompted for with the input hidden:
 
     BWAC_TOKEN='0.access-connector.<id>.<secret>:<key>' sudo -E ./$PROGRAM https://bitwarden.example.com
 
-The name is optional, and only needed to run a second daemon on this host: it keeps that
-daemon's config, token, state, log and service separate from the others. Leave it out and
-the daemon installs to the single-daemon layout.
+The name is optional, and only needed to run a second connector on this host: it keeps that
+connector's config, token, state, log and service separate from the others. Leave it out and
+the connector installs to the single-connector layout.
 
 There are no other options. The comments at the top of this script list the layout it
 installs and how to remove it; OPERATIONS.md covers everything else.
@@ -173,7 +173,7 @@ validate_name() {
     local reserved
 
     case "$1" in
-        '')            die "the name is empty; leave it out entirely for a single daemon" ;;
+        '')            die "the name is empty; leave it out entirely for a single connector" ;;
         *[!a-z0-9_-]*) die "name '$1' must be lowercase letters, digits, '-' or '_'" ;;
         [!a-z0-9]*)    die "name '$1' must start with a letter or a digit" ;;
     esac
@@ -181,11 +181,11 @@ validate_name() {
 
     for reserved in $RESERVED_NAMES; do
         [ "$1" != "$reserved" ] || die "'$1' is taken: the layout already uses that name
-       next to the directory this daemon would get. Pick another."
+       next to the directory this connector would get. Pick another."
     done
 }
 
-# Everything a second daemon on this host must not share with the first: its config, its
+# Everything a second connector on this host must not share with the first: its config, its
 # token, its state, its log and its service.
 set_paths() {
     NAME="$1"
@@ -218,7 +218,7 @@ detect_platform() {
             SERVICE_USER=bwac
             [ -d /run/systemd/system ] \
                 || die "this host is not running systemd, so there is no service to install.
-       Install by hand; the daemon needs only BWAC_TOKEN and --config."
+       Install by hand; the connector needs only BWAC_TOKEN and --config."
             ;;
         Darwin)
             PLATFORM=macos
@@ -226,7 +226,7 @@ detect_platform() {
             SERVICE_USER=_bwac
             ;;
         *)
-            die "unsupported platform: $(uname -s). Use Install-RotationDaemon.ps1 on Windows."
+            die "unsupported platform: $(uname -s). Use Install-AccessConnector.ps1 on Windows."
             ;;
     esac
 }
@@ -254,15 +254,15 @@ install_binary() {
 
 # Reads the token from the environment or prompts for it, then checks the two things
 # that actually go wrong when a token is pasted: it gets cut at the ':', or it is not
-# a daemon token at all. The daemon validates the rest properly at startup.
+# an access connector token at all. The connector validates the rest properly at startup.
 acquire_token() {
-    step "Daemon token"
+    step "Access connector token"
 
     if [ -n "${BWAC_TOKEN:-}" ]; then
         TOKEN="$BWAC_TOKEN"
         info "taken from BWAC_TOKEN"
     elif [ -t 0 ]; then
-        printf '    Paste the daemon token (input hidden): ' >&2
+        printf '    Paste the access connector token (input hidden): ' >&2
         IFS= read -rs TOKEN
         printf '\n' >&2
     else
@@ -275,7 +275,7 @@ acquire_token() {
         '')                   die "the token is empty" ;;
         0.access-connector.*) ;;
         *)                    die "the token does not start '0.access-connector.'. This looks
-       like a different kind of Bitwarden key, not a rotation daemon token." ;;
+       like a different kind of Bitwarden key, not an access connector token." ;;
     esac
     case "$TOKEN" in
         *:?*) ;;
@@ -303,7 +303,7 @@ create_service_account() {
         done
         getent group "$SERVICE_USER" >/dev/null 2>&1 || groupadd --system "$SERVICE_USER"
         useradd --system --gid "$SERVICE_USER" --home-dir "$STATE_ROOT" --no-create-home \
-            --shell "$shell_path" --comment "Bitwarden PAM rotation daemon" "$SERVICE_USER"
+            --shell "$shell_path" --comment "Bitwarden PAM access connector" "$SERVICE_USER"
     else
         # macOS has no useradd. Hidden service accounts go straight into the local
         # directory node, in the id range Apple reserves for system daemons.
@@ -318,7 +318,7 @@ create_service_account() {
         dscl . -create "/Groups/$SERVICE_USER" PrimaryGroupID "$uid"
         dscl . -create "/Users/$SERVICE_USER" UniqueID "$uid"
         dscl . -create "/Users/$SERVICE_USER" PrimaryGroupID "$uid"
-        dscl . -create "/Users/$SERVICE_USER" RealName "Bitwarden PAM rotation daemon"
+        dscl . -create "/Users/$SERVICE_USER" RealName "Bitwarden PAM access connector"
         dscl . -create "/Users/$SERVICE_USER" UserShell /usr/bin/false
         dscl . -create "/Users/$SERVICE_USER" NFSHomeDirectory /var/empty
         dscl . -create "/Users/$SERVICE_USER" IsHidden 1
@@ -330,9 +330,9 @@ create_service_account() {
 create_directories() {
     step "Directories"
 
-    # A named daemon's directories sit inside these, which are the unnamed daemon's own
+    # A named connector's directories sit inside these, which are the unnamed connector's own
     # if there is one on this host. Created when missing rather than installed, so that
-    # daemon's mode and owner are left as they are.
+    # connector's mode and owner are left as they are.
     if [ -n "$NAME" ]; then
         [ -d "$CONFIG_ROOT" ] || install -d -m 0755 -o root -g "$ROOT_GROUP" "$CONFIG_ROOT"
         [ -d "$STATE_ROOT" ] || install -d -m 0755 -o root -g "$ROOT_GROUP" "$STATE_ROOT"
@@ -341,12 +341,12 @@ create_directories() {
         fi
     fi
 
-    # config.toml is read by the daemon user and holds no secrets; the daemon rejects
+    # config.toml is read by the connector user and holds no secrets; the connector rejects
     # a config that tries to.
     install -d -m 0755 -o root -g "$ROOT_GROUP" "$CONFIG_DIR"
 
-    # script_root: the daemon reads and executes what is here and cannot write to it,
-    # so it cannot install a new script for itself to run. Shared by every daemon on
+    # script_root: the connector reads and executes what is here and cannot write to it,
+    # so it cannot install a new script for itself to run. Shared by every connector on
     # the host.
     install -d -m 0755 -o root -g "$ROOT_GROUP" "$SCRIPT_ROOT"
 
@@ -376,7 +376,7 @@ write_env_file() {
         return 0
     fi
 
-    render daemon.env.in | write_file "$ENV_FILE" 0400
+    render bwac.env.in | write_file "$ENV_FILE" 0400
     info "$ENV_FILE"
 }
 
@@ -403,8 +403,8 @@ install_launchd_plist() {
         info "$PLIST_FILE"
     fi
 
-    # bootout first, so a re-install starts the binary we just wrote. Only this daemon's
-    # label is touched; any other daemon on the host keeps running.
+    # bootout first, so a re-install starts the binary we just wrote. Only this connector's
+    # label is touched; any other connector on the host keeps running.
     launchctl bootout "system/$LAUNCHD_LABEL" 2>/dev/null || true
     launchctl bootstrap system "$PLIST_FILE"
     info "loaded and started"
@@ -430,8 +430,8 @@ summary() {
       $status
       $logs
 
-    You want "session established". "Daemon credential refused" means the token needs
-    reissuing; "not eligible" means the daemon record, the licence or the PAM flag
+    You want "session established". "Access connector credential refused" means the token needs
+    reissuing; "not eligible" means the access connector record, the licence or the PAM flag
     needs attention on the server.
 
     Next, add the credentials for each target system to
@@ -447,7 +447,7 @@ main() {
         '')                 usage >&2; die "missing the Bitwarden server URL" ;;
         http://*|https://*) SERVER_URL="$1" ;;
         *)                  usage >&2; die "'$1' is not an http(s) URL; this script takes a URL
-       and, for a second daemon on this host, a name" ;;
+       and, for a second connector on this host, a name" ;;
     esac
     [ "$#" -le 2 ] || die "unexpected extra arguments after '$2'"
     readonly SERVER_URL
