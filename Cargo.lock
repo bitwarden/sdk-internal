@@ -1634,6 +1634,8 @@ dependencies = [
  "futures",
  "hmac 0.13.0",
  "percent-encoding",
+ "regex",
+ "regex-syntax",
  "reqwest",
  "serde",
  "serde_json",
