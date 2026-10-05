@@ -226,6 +226,8 @@ pub(super) struct AccountInfo {
 #[derive(Debug, Deserialize)]
 pub(super) struct VaultInfo {
     pub uuid: String,
+    #[serde(rename = "activeItemCount")]
+    pub active_item_count: Option<u32>,
     #[serde(rename = "encAttrs")]
     pub enc_attrs: EncryptedEnvelope,
     pub access: Vec<VaultAccess>,

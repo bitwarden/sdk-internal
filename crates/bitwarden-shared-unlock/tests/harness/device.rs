@@ -29,8 +29,9 @@ use super::{
 
 /// The client kinds every simulated device shares its users with. No scenario is about the
 /// destination gate itself, so nothing here narrows it.
-const ALL_DESTINATIONS: [SharedUnlockClient; 3] = [
+const ALL_DESTINATIONS: [SharedUnlockClient; 4] = [
     SharedUnlockClient::Browser,
+    SharedUnlockClient::Cli,
     SharedUnlockClient::Desktop,
     SharedUnlockClient::Web,
 ];

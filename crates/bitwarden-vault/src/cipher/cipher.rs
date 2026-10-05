@@ -2220,6 +2220,15 @@ impl PartialCipher for CipherResponseModel {
     }
 }
 
+/// Converts a response for a cipher without local state, e.g. one fetched through emergency access.
+impl TryFrom<CipherResponseModel> for Cipher {
+    type Error = VaultParseError;
+
+    fn try_from(cipher: CipherResponseModel) -> Result<Self, Self::Error> {
+        cipher.merge_with_cipher(None)
+    }
+}
+
 impl PartialCipher for CipherMiniResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         let cipher = cipher.as_ref();

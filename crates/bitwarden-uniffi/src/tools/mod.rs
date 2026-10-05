@@ -6,7 +6,8 @@ use bitwarden_generators::{
     PassphraseGeneratorRequest, PasswordGeneratorRequest, UsernameGeneratorRequest,
 };
 use bitwarden_importers::{
-    Credentials, ImportOptions, ImportSummary, OnePasswordTotpResult, OnePasswordTwoFactorUi,
+    Credentials, ImportOptions, ImportSummary, OnePasswordImportSummary, OnePasswordTotpResult,
+    OnePasswordTwoFactorUi,
 };
 use bitwarden_vault::{Cipher, EncryptionContext, Folder};
 
@@ -114,13 +115,14 @@ impl ImporterClient {
     /// Import a 1Password account directly from the 1Password servers.
     ///
     /// Signs in, asks `two_factor` for a code when the account requires one, downloads every vault
-    /// the account can open, and submits the result. Each vault becomes a folder.
+    /// the account can open, and submits the result. Each vault becomes a folder; the result also
+    /// reports vaults and items that could not be imported.
     pub async fn import_onepassword(
         &self,
         credentials: Credentials,
         two_factor: Arc<dyn OnePasswordTwoFactorPrompt>,
         options: ImportOptions,
-    ) -> Result<ImportSummary> {
+    ) -> Result<OnePasswordImportSummary> {
         Ok(self
             .0
             .import_onepassword(credentials, &TwoFactorPromptBridge(two_factor), options)
