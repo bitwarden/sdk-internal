@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`b22d652c36c6d38bfe8c77d4a94fb1672014c9ea`](https://github.com/bitwarden/server/commit/b22d652c36c6d38bfe8c77d4a94fb1672014c9ea)
+  [`da45237f89d644204b72f8e1b40cc16d74df9804`](https://github.com/bitwarden/server/commit/da45237f89d644204b72f8e1b40cc16d74df9804)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -54,6 +54,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccessRulesApi_                             | [**delete**](docs/AccessRulesApi.md#pam_access_rules_delete)                                                                                                     | **DELETE** /organizations/{orgId}/access-rules/{id}                                                      |
 | _AccessRulesApi_                             | [**get**](docs/AccessRulesApi.md#pam_access_rules_get)                                                                                                           | **GET** /organizations/{orgId}/access-rules/{id}                                                         |
 | _AccessRulesApi_                             | [**get_all**](docs/AccessRulesApi.md#pam_access_rules_get_all)                                                                                                   | **GET** /organizations/{orgId}/access-rules                                                              |
+| _AccessRulesApi_                             | [**get_bypassable_ciphers**](docs/AccessRulesApi.md#pam_access_rules_get_bypassable_ciphers)                                                                     | **GET** /organizations/{orgId}/access-rules/{id}/bypassable-ciphers                                      |
 | _AccessRulesApi_                             | [**post**](docs/AccessRulesApi.md#pam_access_rules_post)                                                                                                         | **POST** /organizations/{orgId}/access-rules                                                             |
 | _AccessRulesApi_                             | [**put**](docs/AccessRulesApi.md#pam_access_rules_put)                                                                                                           | **PUT** /organizations/{orgId}/access-rules/{id}                                                         |
 | _AccountBillingVNextApi_                     | [**add_credit_via_bit_pay**](docs/AccountBillingVNextApi.md#account_billing_v_next_add_credit_via_bit_pay)                                                       | **POST** /account/billing/vnext/credit/bitpay                                                            |
@@ -1083,6 +1084,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [RotateUserKeysRequestModel](docs/RotateUserKeysRequestModel.md)
 - [RotationCipherResponseModel](docs/RotationCipherResponseModel.md)
 - [RotationClaimResponseModel](docs/RotationClaimResponseModel.md)
+- [RuleBypassableCiphersResponseModel](docs/RuleBypassableCiphersResponseModel.md)
 - [Saml2BindingType](docs/Saml2BindingType.md)
 - [Saml2NameIdFormat](docs/Saml2NameIdFormat.md)
 - [Saml2SigningBehavior](docs/Saml2SigningBehavior.md)
