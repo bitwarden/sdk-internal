@@ -12,3 +12,17 @@ mod thread_bound_runner;
 pub mod time;
 
 pub use thread_bound_runner::{CallError, ThreadBoundRunner};
+
+/// Run `future` to completion in the background: on the tokio runtime natively, on the JS event
+/// loop in WebAssembly.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn spawn(future: impl std::future::Future<Output = ()> + Send + 'static) {
+    tokio::spawn(future);
+}
+
+/// Run `future` to completion in the background: on the tokio runtime natively, on the JS event
+/// loop in WebAssembly.
+#[cfg(target_arch = "wasm32")]
+pub fn spawn(future: impl std::future::Future<Output = ()> + 'static) {
+    wasm_bindgen_futures::spawn_local(future);
+}
