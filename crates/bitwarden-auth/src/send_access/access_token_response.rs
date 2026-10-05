@@ -5,11 +5,7 @@ use crate::send_access::api::{SendAccessTokenApiErrorResponse, SendAccessTokenAp
 /// A send access token which can be used to access a send.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Debug)]
 pub struct SendAccessTokenResponse {
@@ -73,11 +69,7 @@ impl From<reqwest_middleware::Error> for SendAccessTokenError {
 /// available.
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct UnexpectedIdentityError(pub String);
 
 // Newtype wrapper for unexpected identity errors for uniffi compatibility.

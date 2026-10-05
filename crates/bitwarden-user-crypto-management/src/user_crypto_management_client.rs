@@ -1,13 +1,11 @@
 //! Client to manage the cryptographic machinery of a user account, including key-rotation
 
 use bitwarden_core::Client;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// Client for managing the cryptographic machinery of a user account, including key-rotation.
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct UserCryptoManagementClient {
     #[allow(unused)]
     pub(crate) client: Client,

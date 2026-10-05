@@ -14,11 +14,7 @@ use crate::{MissingFieldError, require};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct WebAuthnPrfUnlockOption {
     /// The private key of the unlock option, wrapped by the key derived from the credential's PRF
     /// output
@@ -36,11 +32,7 @@ pub struct WebAuthnPrfUnlockOption {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct WebAuthnPrfUnlockData {
     /// The credentials, in the order the server reported them.
     pub options: Vec<WebAuthnPrfUnlockOption>,
