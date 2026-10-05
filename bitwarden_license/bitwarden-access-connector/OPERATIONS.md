@@ -1,14 +1,14 @@
-# Bitwarden PAM Rotation Daemon
+# Bitwarden PAM Access Connector
 
 `bwac` automatically rotates the passwords of privileged accounts (domain admins, service accounts,
 appliance root logins, database roles) and stores each new password in your Bitwarden organisation
 vault.
 
 You run it inside your own network. Bitwarden's server decides _what_ should be rotated and _when_;
-the daemon does the actual rotating, because only it can reach the systems being rotated. The server
-never sees a plaintext password.
+the connector does the actual rotating, because only it can reach the systems being rotated. The
+server never sees a plaintext password.
 
-> **Commercial feature.** The rotation daemon requires an active organisation licence with PAM
+> **Commercial feature.** The access connector requires an active organisation licence with PAM
 > enabled.
 
 ## Contents
@@ -31,9 +31,9 @@ never sees a plaintext password.
 
 ## How it works
 
-The daemon makes outbound connections only. It never listens on a port, and nothing needs to connect
-to it. It sits in whatever network segment can reach your target systems, and polls Bitwarden for
-work.
+The connector makes outbound connections only. It never listens on a port, and nothing needs to
+connect to it. It sits in whatever network segment can reach your target systems, and polls
+Bitwarden for work.
 
 ```
    your network                                  Bitwarden server
@@ -50,8 +50,8 @@ work.
 
 ### The loop
 
-Every `poll_interval` seconds (default 15) the daemon asks the server for claimable jobs and tries
-to claim one. If it claims a job it runs the rotation to completion, reports the outcome, and
+Every `poll_interval` seconds (default 15) the connector asks the server for claimable jobs and
+tries to claim one. If it claims a job it runs the rotation to completion, reports the outcome, and
 returns to polling.
 
 ### One rotation, step by step
@@ -67,89 +67,89 @@ returns to polling.
 7. **Report.** Tell the server the attempt succeeded, or why it failed.
 
 Transient failures are retried with exponential backoff (`max_retry_attempts`, default 5 total
-tries); fatal ones stop immediately. Before every attempt at a target-side step the daemon re-checks
-that it still holds a valid session and that the job's execution window has not expired, so it will
-not touch a target system after losing its authorisation to do so.
+tries); fatal ones stop immediately. Before every attempt at a target-side step the connector
+re-checks that it still holds a valid session and that the job's execution window has not expired,
+so it will not touch a target system after losing its authorisation to do so.
 
 The vault write and the final report are not cut off by that window, so a rotation that changed the
 target is always recorded.
 
 ### Throughput and scaling
 
-One daemon handles one rotation at a time, and claims at most one job per poll tick. To rotate more
-accounts in parallel, run more daemons. They compete safely: if two daemons try to claim the same
-job, one wins and the other moves on to the next job.
+One connector handles one rotation at a time, and claims at most one job per poll tick. To rotate
+more accounts in parallel, run more connectors. They compete safely: if two connectors try to claim
+the same job, one wins and the other moves on to the next job.
 
-Run daemons in different network segments to reach targets that no single host can reach. Each
-daemon only needs credentials for the targets it is responsible for.
+Run connectors in different network segments to reach targets that no single host can reach. Each
+connector only needs credentials for the targets it is responsible for.
 
 ---
 
 ## Security model
 
-### What the daemon can access
+### What the connector can access
 
-The daemon token grants two things: the ability to call the rotation endpoints, and the ability to
-decrypt and encrypt your organisation's vault entries. Anyone holding it can read organisation vault
-data.
+The access connector token grants two things: the ability to call the rotation endpoints, and the
+ability to decrypt and encrypt your organisation's vault entries. Anyone holding it can read
+organisation vault data.
 
-So the daemon accepts the token only through the `BWAC_TOKEN` environment variable:
+So the connector accepts the token only through the `BWAC_TOKEN` environment variable:
 
 - A `--token` flag would expose it. `argv` is world-readable via `ps` and `/proc/<pid>/cmdline`.
 - A config-file key would end up in a repository. Any config containing `token` is a hard startup
   error.
 
-At startup the daemon reads `BWAC_TOKEN` and then removes it from its own environment, so any child
-process it spawns (such as a custom rotation script) cannot inherit it.
+At startup the connector reads `BWAC_TOKEN` and then removes it from its own environment, so any
+child process it spawns (such as a custom rotation script) cannot inherit it.
 
 ### What the server sees
 
-New passwords are generated on the daemon host and encrypted there before being sent. The Bitwarden
-server stores ciphertext it cannot read. Failure reports draw on a fixed vocabulary (error codes,
-HTTP status codes, script exit codes, variable _names_) and never contain credential values.
+New passwords are generated on the connector host and encrypted there before being sent. The
+Bitwarden server stores ciphertext it cannot read. Failure reports draw on a fixed vocabulary (error
+codes, HTTP status codes, script exit codes, variable _names_) and never contain credential values.
 
 ### Administrative reset
 
-The daemon never sends a target account's _current_ password to an integration or script. Rotation
-is always an administrative reset. The daemon authenticates as a separate privileged identity that
-has authority to reset the account, the way a helpdesk resets a password without knowing the old
-one.
+The connector never sends a target account's _current_ password to an integration or script.
+Rotation is always an administrative reset. The connector authenticates as a separate privileged
+identity that has authority to reset the account, the way a helpdesk resets a password without
+knowing the old one.
 
 If a change-password flow set the target to `X` and the vault write then failed, the vault would
 still hold the old password, every subsequent retry would be rejected, and the account would be
 permanently locked out of the vault. An administrative reset does not depend on the previous state,
 so retries converge.
 
-Practically, this means each target system needs a rotation identity for the daemon to use: a
+Practically, this means each target system needs a rotation identity for the connector to use: a
 service principal, an SSH key with sudo rights, a dedicated admin API token, a database role with
 `ALTER ROLE` privileges, and so on. That identity is the credential you configure below.
 
-### Secrets on the daemon host
+### Secrets on the connector host
 
-Target credentials live in the daemon's environment, or in its config file for non-secret values.
+Target credentials live in the connector's environment, or in its config file for non-secret values.
 
 - Keep the token and target credentials in a root-owned file with mode `0400`, loaded via systemd
   `EnvironmentFile=`.
-- Run the daemon as a dedicated unprivileged user.
-- Set `script_root` so the daemon will only execute scripts from one directory you control, and make
-  that directory non-writable by the daemon user.
+- Run the connector as a dedicated unprivileged user.
+- Set `script_root` so the connector will only execute scripts from one directory you control, and
+  make that directory non-writable by the connector user.
 
 ---
 
 ## Requirements
 
-|                     |                                                                              |
-| ------------------- | ---------------------------------------------------------------------------- |
-| **Platform**        | Linux (x86-64 or ARM64), macOS (ARM64), or Windows (x86-64).                 |
-| **Privileges**      | No root required for the daemon itself. Scripts may need their own.          |
-| **Inbound network** | None.                                                                        |
-| **Bitwarden**       | Organisation licence active, PAM enabled, daemon registered and not revoked. |
+|                     |                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------- |
+| **Platform**        | Linux (x86-64 or ARM64), macOS (ARM64), or Windows (x86-64).                    |
+| **Privileges**      | No root required for the connector itself. Scripts may need their own.          |
+| **Inbound network** | None.                                                                           |
+| **Bitwarden**       | Organisation licence active, PAM enabled, connector registered and not revoked. |
 
 ### Outbound network access
 
 | Destination                     | Purpose                                                     |
 | ------------------------------- | ----------------------------------------------------------- |
-| Your Bitwarden **identity** URL | Authenticate and refresh the daemon session                 |
+| Your Bitwarden **identity** URL | Authenticate and refresh the connector session              |
 | Your Bitwarden **API** URL      | Poll, claim, read/write ciphers, report outcomes            |
 | `login.microsoftonline.com`     | Token acquisition (Entra targets only)                      |
 | `graph.microsoft.com`           | Password reset, verify, session revoke (Entra targets only) |
@@ -170,9 +170,10 @@ POST  /access-connectors/rotation/attempts/{id}/failure
 
 ## Getting started
 
-### 1. Register the daemon
+### 1. Register the connector
 
-An organisation admin registers a rotation daemon and receives a daemon token. It looks like this:
+An organisation admin registers an access connector and receives an access connector token. It looks
+like this:
 
 ```
 0.access-connector.<api-key-id>.<client-secret>:<encryption-key>
@@ -182,7 +183,7 @@ The token is shown once. Copy the whole string, including everything after the `
 
 ### 2. Install the binary
 
-Place `bwac` somewhere on the daemon host, for example `/usr/local/bin/`.
+Place `bwac` somewhere on the connector host, for example `/usr/local/bin/`.
 
 ### 3. Write a config file
 
@@ -217,7 +218,7 @@ bwac run --config /etc/bwac/config.toml
 You should see:
 
 ```
-INFO daemon starting api_url=… identity_url=… poll_interval_secs=15 …
+INFO access connector starting api_url=… identity_url=… poll_interval_secs=15 …
 INFO session established
 ```
 
@@ -242,14 +243,14 @@ settings are reviewable in one place and secrets can never reach `argv`.
 
 ### Environment variables
 
-| Variable               | Purpose                                                         |
-| ---------------------- | --------------------------------------------------------------- |
-| `BWAC_TOKEN`           | **Required.** Daemon token. The only accepted way to supply it. |
-| `BWAC_CONFIG`          | Path to the config file (equivalent to `--config`)              |
-| `BWAC_API_URL`         | Bitwarden API URL; overrides the config file                    |
-| `BWAC_IDENTITY_URL`    | Bitwarden identity URL; overrides the config file               |
-| `RUST_LOG`             | Log filter; default `info`                                      |
-| `<TARGET_ID>_<SUFFIX>` | Per-target credentials (see below)                              |
+| Variable               | Purpose                                                                   |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `BWAC_TOKEN`           | **Required.** Access connector token. The only accepted way to supply it. |
+| `BWAC_CONFIG`          | Path to the config file (equivalent to `--config`)                        |
+| `BWAC_API_URL`         | Bitwarden API URL; overrides the config file                              |
+| `BWAC_IDENTITY_URL`    | Bitwarden identity URL; overrides the config file                         |
+| `RUST_LOG`             | Log filter; default `info`                                                |
+| `<TARGET_ID>_<SUFFIX>` | Per-target credentials (see below)                                        |
 
 ### Config file
 
@@ -308,7 +309,7 @@ Highest to lowest:
 
 ## Per-target credentials
 
-Each target system needs credentials the daemon can use to authenticate. They are keyed by the
+Each target system needs credentials the connector can use to authenticate. They are keyed by the
 target system UUID, which you can find in the Bitwarden admin console.
 
 ### Environment variables
@@ -391,9 +392,9 @@ password resets on users holding a higher-privileged directory role.
 Configure it with `TENANT_ID`, `CLIENT_ID`, and `CLIENT_SECRET` (the secret via environment variable
 only).
 
-**Verification.** By default the daemon verifies by reading the user's `lastPasswordChangeDateTime`
-from Microsoft Graph and checking it is newer than the rotation start. This is subject to directory
-replication lag.
+**Verification.** By default the connector verifies by reading the user's
+`lastPasswordChangeDateTime` from Microsoft Graph and checking it is newer than the rotation start.
+This is subject to directory replication lag.
 
 Setting `entra_verify_probe = true` additionally attempts to sign in as the rotated user with the
 new password, which is authoritative and immune to replication lag. It is off by default because
@@ -413,7 +414,7 @@ PowerShell directly rather than through a wrapper executable. See
 
 ## Writing a custom rotation script
 
-The daemon runs your executable once per operation and communicates entirely through argv (the
+The connector runs your executable once per operation and communicates entirely through argv (the
 operation name), stdin (JSON), and the exit code.
 
 ### The contract
@@ -422,7 +423,7 @@ operation name), stdin (JSON), and the exit code.
 | ------------------- | ----------------------------------------------------------- |
 | **argv**            | Exactly one argument: `rotate`, `verify`, or `terminate`    |
 | **stdin**           | One JSON document, then EOF                                 |
-| **environment**     | **Empty.** No `PATH`, no `HOME`, no daemon token            |
+| **environment**     | **Empty.** No `PATH`, no `HOME`, no access connector token  |
 | **stdout / stderr** | Both redirected to `/dev/null`                              |
 | **exit code**       | The only output channel                                     |
 | **timeout**         | `SIGKILL` at `script_timeout` seconds; no cleanup trap runs |
@@ -459,7 +460,7 @@ The three operations are separate process invocations of the same script:
 
 ### Exit codes
 
-The exit code tells the daemon two things: whether to retry, and whether the target system was
+The exit code tells the connector two things: whether to retry, and whether the target system was
 changed. If the second is wrong, the vault and the target diverge and nothing flags it.
 
 | Code  | Retry?  | Target state                       | Use when                                        |
@@ -471,8 +472,8 @@ changed. If the second is wrong, the vault and the target diverge and nothing fl
 | `4`   | **Yes** | Unchanged                          | Network blip, rate limit, 5xx; a retry may work |
 | other | No      | `rotate` → unknown; else unchanged | Unexpected                                      |
 
-On timeout the daemon assumes conservatively: `rotate` → unknown, `verify` → applied, `terminate` →
-unchanged.
+On timeout the connector assumes conservatively: `rotate` → unknown, `verify` → applied, `terminate`
+→ unchanged.
 
 ### Example
 
@@ -481,7 +482,7 @@ unchanged.
 # Rotate a service account on an appliance admin API.
 set -eu
 
-# The daemon clears the environment, so PATH is only your shell's compiled-in
+# The connector clears the environment, so PATH is only your shell's compiled-in
 # default. Set it explicitly, or use absolute paths for every tool.
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
@@ -566,14 +567,14 @@ real payload to a file.
 
 ## PowerShell scripts
 
-A `.ps1` is not an executable, so the daemon launches a PowerShell host to run it. Nothing else
+A `.ps1` is not an executable, so the connector launches a PowerShell host to run it. Nothing else
 changes. The contract in [Writing a custom rotation script](#writing-a-custom-rotation-script)
 applies exactly as written: the stdin payload, the exit codes, the timeout, `script_root`.
 
 ### When PowerShell is used
 
 The file decides rather than the operating system. A `.ps1` is launched through a host; anything
-else is executed directly, as before. So a PowerShell script rotates from a Linux daemon running
+else is executed directly, as before. So a PowerShell script rotates from a Linux connector running
 PowerShell 7, and a native `.exe` target on Windows is unaffected.
 
 ```toml
@@ -598,8 +599,8 @@ In order: `powershell_path` from the config file, then `pwsh` / `pwsh.exe` on `P
 `powershell.exe`. PowerShell 7 is preferred over Windows PowerShell 5.1.
 
 A `powershell_path` you set is used exactly as given and never quietly replaced by a discovered
-host. If no host is found at all the rotation fails with `credentials_unresolved`; the daemon still
-starts, so a machine without PowerShell can serve its other targets.
+host. If no host is found at all the rotation fails with `credentials_unresolved`; the connector
+still starts, so a machine without PowerShell can serve its other targets.
 
 The host is invoked as:
 
@@ -625,8 +626,8 @@ receives a fixed allowlist instead: `SystemRoot`, `windir`, `PATH`, `PATHEXT`, `
 `PSModulePath`, `PROGRAMFILES`, `PROGRAMFILES(X86)`, `PROGRAMDATA`, `APPDATA`, `LOCALAPPDATA`,
 `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `TEMP`, `TMP`, and on Unix `HOME`, `TMPDIR`, `LANG`.
 
-Nothing else crosses. The daemon token, every target credential, and the new password are all absent
-from the child environment; secrets still arrive only in the stdin payload.
+Nothing else crosses. The access connector token, every target credential, and the new password are
+all absent from the child environment; secrets still arrive only in the stdin payload.
 
 ### Getting the exit code right
 
@@ -693,7 +694,7 @@ exit 0
 
 ```ini
 [Unit]
-Description=Bitwarden PAM rotation daemon
+Description=Bitwarden PAM access connector
 After=network-online.target
 Wants=network-online.target
 
@@ -726,37 +727,37 @@ are not a problem here.
 
 ### Shutdown and restarts
 
-`SIGTERM` and Ctrl-C trigger a graceful shutdown: the daemon stops claiming new work, closes its
+`SIGTERM` and Ctrl-C trigger a graceful shutdown: the connector stops claiming new work, closes its
 session, and exits `0`. A rotation interrupted mid-flight is abandoned without a report; the server
 handles the unreported attempt on its side. Prefer restarting between rotations where you can. The
 logs make it obvious when one is in progress.
 
-### Running several daemons
+### Running several connectors
 
 Run as many as you need. They share nothing and race safely for jobs. Give each one only the target
-credentials it needs, which also limits what a single compromised host exposes — though daemons on
-one host do share a service account, so that keeps each one's blast radius small rather than
+credentials it needs, which also limits what a single compromised host exposes — though connectors
+on one host do share a service account, so that keeps each one's blast radius small rather than
 dividing them from each other.
 
-A host rotating for more than one organisation has to run more than one daemon, since a daemon token
-belongs to a single organisation. Both installers take an optional name for that, as a second
-argument:
+A host rotating for more than one organisation has to run more than one connector, since an access
+connector token belongs to a single organisation. Both installers take an optional name for that, as
+a second argument:
 
 ```sh
 BWAC_TOKEN='0.access-connector.…:…' \
-    sudo -E ./install-rotation-daemon.sh https://bitwarden.example.com acme
+    sudo -E ./install-access-connector.sh https://bitwarden.example.com acme
 ```
 
-The name keeps that daemon's config, token, state, log and service to itself:
+The name keeps that connector's config, token, state, log and service to itself:
 `/etc/bwac/acme/config.toml` and `bwac-acme.service` on Linux, `com.bitwarden.bwac.acme` on macOS,
-`C:\ProgramData\Bitwarden\bwac\acme\` and the task `Bitwarden PAM rotation daemon (acme)` on
-Windows. Leave it out and the daemon installs to the single-daemon layout instead. The binary, the
-service account and the script directory stay shared either way; a daemon that wants scripts of its
-own points `script_root` elsewhere.
+`C:\ProgramData\Bitwarden\bwac\acme\` and the task `Bitwarden PAM access connector (acme)` on
+Windows. Leave it out and the connector installs to the single-connector layout instead. The binary,
+the service account and the script directory stay shared either way; a connector that wants scripts
+of its own points `script_root` elsewhere.
 
-Windows locks a running image, so the binary there cannot be replaced while another daemon is
+Windows locks a running image, so the binary there cannot be replaced while another connector is
 running from it: upgrading means stopping the other tasks first. On Linux and macOS the running
-daemons keep the binary they started with until they are restarted.
+connectors keep the binary they started with until they are restarted.
 
 ---
 
@@ -772,57 +773,57 @@ RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwac/confi
 At `info` you get one line per lifecycle milestone. At `debug` you additionally get poll ticks,
 heartbeats, lost claim races, and per-substep detail.
 
-| Level   | Event                                              | Key fields                                                                 |
-| ------- | -------------------------------------------------- | -------------------------------------------------------------------------- |
-| `info`  | Daemon starting                                    | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs` |
-| `info`  | Session established / renewed                      | `retry`                                                                    |
-| `info`  | Rotation job claimed                               | `job_id`, `target_system_name`                                             |
-| `info`  | Starting rotation execution                        | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                  |
-| `info`  | Steps 1–7 completed                                | `attempt_id`, plus `kind` / `cipher_id` / `termination`                    |
-| `info`  | Shutdown signal received; daemon shut down cleanly | —                                                                          |
-| `warn`  | Session renewal failed                             | `retry`, `sleep_ms`                                                        |
-| `warn`  | Session revoked                                    | —                                                                          |
-| `warn`  | **Rotation failed**                                | `attempt_id`, `failure_code`, `sync_state`, `detail`                       |
-| `warn`  | Session termination aborted or failed              | `attempt_id`, `abort_reason`                                               |
-| `warn`  | Transient poll error / backoff                     | backoff duration                                                           |
-| `error` | Daemon credential refused                          | —                                                                          |
-| `error` | Daemon not eligible for rotation endpoints         | —                                                                          |
+| Level   | Event                                                        | Key fields                                                                 |
+| ------- | ------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `info`  | Access connector starting                                    | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs` |
+| `info`  | Session established / renewed                                | `retry`                                                                    |
+| `info`  | Rotation job claimed                                         | `job_id`, `target_system_name`                                             |
+| `info`  | Starting rotation execution                                  | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                  |
+| `info`  | Steps 1–7 completed                                          | `attempt_id`, plus `kind` / `cipher_id` / `termination`                    |
+| `info`  | Shutdown signal received; access connector shut down cleanly | —                                                                          |
+| `warn`  | Session renewal failed                                       | `retry`, `sleep_ms`                                                        |
+| `warn`  | Session revoked                                              | —                                                                          |
+| `warn`  | **Rotation failed**                                          | `attempt_id`, `failure_code`, `sync_state`, `detail`                       |
+| `warn`  | Session termination aborted or failed                        | `attempt_id`, `abort_reason`                                               |
+| `warn`  | Transient poll error / backoff                               | backoff duration                                                           |
+| `error` | Access connector credential refused                          | —                                                                          |
+| `error` | Access connector not eligible for rotation endpoints         | —                                                                          |
 
 Log output contains no secrets by construction: only identifiers, status codes, exit codes, and
 variable names.
 
 ### Exit codes
 
-| Code | Meaning                                                    | What to do                                                                             |
-| ---- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `0`  | Clean shutdown                                             | Nothing                                                                                |
-| `1`  | Startup error (bad config, unreadable file, missing token) | Fix the config; the log line names the problem                                         |
-| `2`  | Daemon credential refused                                  | Have an admin reissue the credential, then restart with the new token                  |
-| `3`  | Not eligible for rotation endpoints                        | Check the daemon is not revoked or disabled, the licence is active, and PAM is enabled |
+| Code | Meaning                                                    | What to do                                                                                |
+| ---- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `0`  | Clean shutdown                                             | Nothing                                                                                   |
+| `1`  | Startup error (bad config, unreadable file, missing token) | Fix the config; the log line names the problem                                            |
+| `2`  | Access connector credential refused                        | Have an admin reissue the credential, then restart with the new token                     |
+| `3`  | Not eligible for rotation endpoints                        | Check the connector is not revoked or disabled, the licence is active, and PAM is enabled |
 
-`Restart=always` is safe: codes `2` and `3` need human action, and the daemon will keep restarting
-and re-logging the reason until someone fixes it.
+`Restart=always` is safe: codes `2` and `3` need human action, and the connector will keep
+restarting and re-logging the reason until someone fixes it.
 
 ---
 
 ## Troubleshooting
 
-### The daemon will not start
+### The connector will not start
 
-| Log message                                                             | Cause                                                             |
-| ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `daemon token must be supplied via the BWAC_TOKEN environment variable` | `BWAC_TOKEN` unset or empty                                       |
-| `Has the wrong number of parts` / `Has the wrong prefix`                | Token truncated on copy; it must include everything after the `:` |
-| `api URL must be supplied via …`                                        | No `base`, no `api`, no `BWAC_API_URL`                            |
-| `config file … is invalid TOML: unknown field`                          | A typo, or `client_secret` inside a `[targets]` block             |
-| `poll_interval must be >= 15 seconds`                                   | Value below the floor                                             |
+| Log message                                                                       | Cause                                                             |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `access connector token must be supplied via the BWAC_TOKEN environment variable` | `BWAC_TOKEN` unset or empty                                       |
+| `Has the wrong number of parts` / `Has the wrong prefix`                          | Token truncated on copy; it must include everything after the `:` |
+| `api URL must be supplied via …`                                                  | No `base`, no `api`, no `BWAC_API_URL`                            |
+| `config file … is invalid TOML: unknown field`                                    | A typo, or `client_secret` inside a `[targets]` block             |
+| `poll_interval must be >= 15 seconds`                                             | Value below the floor                                             |
 
-### The daemon runs but nothing is rotated
+### The connector runs but nothing is rotated
 
 Raise the level to `RUST_LOG=debug` and look at the poll ticks. `claimable_jobs=0` every tick means
 the server has no work. Check the rotation schedule on the target system in the admin console.
-Frequent `claim race lost (409)` means another daemon is picking up the work first, which is normal
-with several daemons running.
+Frequent `claim race lost (409)` means another connector is picking up the work first, which is
+normal with several connectors running.
 
 ### Rotations fail
 
@@ -834,11 +835,11 @@ recorded server-side.
 | `credentials_unresolved` | A required variable is missing, or the script path does not exist or falls outside `script_root` | The `detail` field names the variable or the reason           |
 | `unsupported_kind`       | This build has no driver for that target kind                                                    | See [Supported target systems](#supported-target-systems)     |
 | `target_rejected`        | The target system refused the reset                                                              | Permissions on the rotation identity; role hierarchy in Entra |
-| `target_unreachable`     | Network failure reaching the target                                                              | Firewall, DNS, TLS from the daemon host                       |
+| `target_unreachable`     | Network failure reaching the target                                                              | Firewall, DNS, TLS from the connector host                    |
 | `verification_failed`    | The reset reported success but verification did not confirm it                                   | Replication lag, or a `rotate` that silently no-ops           |
 | `script_failed`          | Your script exited non-zero                                                                      | The `detail` field carries the exit code                      |
 | `script_timeout`         | The script exceeded `script_timeout`                                                             | Raise the timeout, or make the script faster                  |
-| `cipher_write_rejected`  | The vault entry changed underneath the daemon                                                    | Usually resolves on the next attempt                          |
+| `cipher_write_rejected`  | The vault entry changed underneath the connector                                                 | Usually resolves on the next attempt                          |
 | `invalid_policy`         | The password policy cannot be satisfied                                                          | Review the policy on the target system                        |
 
 The accompanying `sync_state` tells you the blast radius:
@@ -853,14 +854,14 @@ Because stdout and stderr are discarded, a script cannot print its way out of a 
 write to a log file instead, never logging `newPassword`, or point the target temporarily at
 `tests/fixtures/copy_stdin.sh` to capture a real payload.
 
-The most common script failure is a missing `PATH`: the daemon clears the environment, so tools in
-`/usr/local/bin` or `/opt/homebrew/bin` are not found unless you say where they are.
+The most common script failure is a missing `PATH`: the connector clears the environment, so tools
+in `/usr/local/bin` or `/opt/homebrew/bin` are not found unless you say where they are.
 
 For a PowerShell script, `script_failed` with `exit code 1` and no other detail is usually a
 host-level failure that happened before your code ran: an execution-policy block, an unsigned
 script, a syntax error, or a module that would not load. None of those can reach the failure report,
-because the host writes them to stderr. Reproduce it by hand as the account the daemon runs under,
-which also reproduces the environment allowlist:
+because the host writes them to stderr. Reproduce it by hand as the account the connector runs
+under, which also reproduces the environment allowlist:
 
 ```
 runas /user:svc_bwac "pwsh -NoProfile -NonInteractive -File C:\bwac\rotate-sqlsa.ps1 rotate"
@@ -891,7 +892,7 @@ token template locally. It handles a plaintext organisation key and is **not for
 
 ```sh
 export BWAC_ORG_KEY_B64="<base64 org key>"
-cargo run -p bitwarden-access-connector --example register -- --name my-daemon
+cargo run -p bitwarden-access-connector --example register -- --name my-connector
 ```
 
 ### References

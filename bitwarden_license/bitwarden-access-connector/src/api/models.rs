@@ -1,7 +1,7 @@
 //! Local domain types produced by the [`super`] API wrapper layer.
 //!
 //! Wire DTOs come from `bitwarden_api_api::models`; only the stripped-down
-//! daemon-local types live here.
+//! connector-local types live here.
 
 use bitwarden_api_api::models::{PamPasswordPolicyResponseModel, PamTargetSystemKind};
 use chrono::{DateTime, Utc};
@@ -13,7 +13,7 @@ use crate::{
     policy::PasswordPolicy,
 };
 
-/// The target-system kind understood by this daemon build.
+/// The target-system kind understood by this connector build.
 ///
 /// Unknown or future variants, including `Mssql` (wire-known but not yet
 /// implemented), surface as [`TargetKind::Unknown`] rather than crashing.
@@ -40,7 +40,7 @@ impl From<PamTargetSystemKind> for TargetKind {
     }
 }
 
-/// Converts the generated [`PamPasswordPolicyResponseModel`] into the daemon's
+/// Converts the generated [`PamPasswordPolicyResponseModel`] into the connector's
 /// [`PasswordPolicy`].
 ///
 /// Negative length values are treated as `None` (unconstrained), since the
@@ -63,7 +63,7 @@ impl From<PamPasswordPolicyResponseModel> for PasswordPolicy {
 
 /// A reference to a claimable rotation job returned by the poll endpoint.
 ///
-/// The daemon iterates over these and attempts to claim each one until it
+/// The connector iterates over these and attempts to claim each one until it
 /// succeeds (or the list is exhausted).
 #[derive(Debug, Clone)]
 pub(crate) struct JobRef {
@@ -73,7 +73,7 @@ pub(crate) struct JobRef {
 
 /// The self-contained work snapshot returned by a successful claim.
 ///
-/// Contains everything the daemon needs to execute the rotation without any
+/// Contains everything the connector needs to execute the rotation without any
 /// further round-trips to the server (except the cipher read/write and the
 /// outcome report).
 #[derive(Debug, Clone)]
@@ -98,7 +98,7 @@ pub(crate) struct WorkSnapshot {
     pub(crate) account_identity: String,
     /// Whether to terminate active sessions after rotating the credential.
     pub(crate) terminate_sessions: bool,
-    /// Lease deadline: the daemon **must** keep heartbeating (or complete)
+    /// Lease deadline: the connector **must** keep heartbeating (or complete)
     /// before this instant, or the server may reclaim the job.
     pub(crate) execute_by: DateTime<Utc>,
 }
@@ -126,7 +126,7 @@ pub(crate) struct RotationCipher {
     pub(crate) revision_date: String,
 }
 
-/// Convert the daemon's `SessionTermination` into the generated
+/// Convert the connector's `SessionTermination` into the generated
 /// [`bitwarden_api_api::models::PamSessionTerminationOutcome`] integer enum.
 impl From<SessionTermination> for bitwarden_api_api::models::PamSessionTerminationOutcome {
     fn from(t: SessionTermination) -> Self {
@@ -144,7 +144,7 @@ impl From<SessionTermination> for bitwarden_api_api::models::PamSessionTerminati
     }
 }
 
-/// Convert the daemon's `SyncState` into the generated
+/// Convert the connector's `SyncState` into the generated
 /// [`bitwarden_api_api::models::PamRotationSyncState`] integer enum.
 impl From<SyncState> for bitwarden_api_api::models::PamRotationSyncState {
     fn from(s: SyncState) -> Self {
@@ -168,7 +168,7 @@ impl From<SyncState> for bitwarden_api_api::models::PamRotationSyncState {
 /// bodies are never included; they can contain sensitive data.
 #[derive(Debug)]
 pub(crate) enum ApiError {
-    /// The daemon's session was terminally lost (revoked or closed).
+    /// The connector's session was terminally lost (revoked or closed).
     ///
     /// Returned by `SessionManager::bearer` or `force_refresh` as
     /// [`crate::auth::session::SessionError::Lost`]; the executor then consults
@@ -177,7 +177,7 @@ pub(crate) enum ApiError {
 
     /// The server returned 409 (conflict or race lost on a claim) or an analogous rejection.
     ///
-    /// For the claim endpoint, this maps to `Ok(None)` instead (another daemon won the race);
+    /// For the claim endpoint, this maps to `Ok(None)` instead (another connector won the race);
     /// for cipher-write, it means revision drift or capability lost.
     Rejected {
         /// The HTTP status code of the rejection (typically 409).
@@ -189,10 +189,10 @@ pub(crate) enum ApiError {
     /// The executor should abort the rotation unreported.
     UnknownAttempt,
 
-    /// The daemon is not eligible to use the rotation endpoints.
+    /// The connector is not eligible to use the rotation endpoints.
     ///
-    /// The server's `DaemonRequestEndpointFilter` returns 404 on any daemon route for a
-    /// revoked PAM license, a disabled daemon, or `UsePam` off; the executor runs a
+    /// The server's `AccessConnectorHeartbeatEndpointFilter` returns 404 on any connector route for
+    /// a revoked PAM license, a disabled connector, or `UsePam` off; the executor runs a
     /// refresh-probe before choosing between `CredentialRefused` and `NotEligible`.
     NotEligible,
 
@@ -216,7 +216,9 @@ impl std::fmt::Display for ApiError {
             Self::SessionLost(l) => write!(f, "session lost: {l:?}"),
             Self::Rejected { status } => write!(f, "rejected (HTTP {status})"),
             Self::UnknownAttempt => write!(f, "attempt not found (404)"),
-            Self::NotEligible => write!(f, "daemon not eligible (404 on daemon route)"),
+            Self::NotEligible => {
+                write!(f, "access connector not eligible (404 on connector route)")
+            }
             Self::Transient(s) => write!(f, "transient error: {s}"),
             Self::Protocol(s) => write!(f, "protocol error: {s}"),
         }

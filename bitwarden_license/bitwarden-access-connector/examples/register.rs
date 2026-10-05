@@ -1,14 +1,14 @@
-//! # TEST-ONLY: Daemon registration payload generator
+//! # TEST-ONLY: Access connector registration payload generator
 //!
 //! WARNING: handles a plaintext organisation key, for local end-to-end testing before the
 //! web-client UI exists. Never use in production.
 //!
-//! Reads the org key from `BWAC_ORG_KEY_B64` or stdin (never argv), derives a fresh daemon
+//! Reads the org key from `BWAC_ORG_KEY_B64` or stdin (never argv), derives a fresh connector
 //! key, and prints the registration payload as JSON to stdout only.
 //!
 //! ```text
 //! export BWAC_ORG_KEY_B64="<base64-encoded-org-key>"
-//! cargo run -p bitwarden-access-connector --example register -- --name my-daemon
+//! cargo run -p bitwarden-access-connector --example register -- --name my-connector
 //! ```
 
 // CLI tool: prints the payload to stdout and operator guidance to stderr by design.
@@ -25,27 +25,27 @@ use bitwarden_encoding::B64;
 use clap::Parser;
 use zeroize::Zeroizing;
 
-/// TEST-ONLY daemon registration payload generator.
+/// TEST-ONLY access connector registration payload generator.
 ///
 /// Prints a JSON registration payload and token template to stdout.
 /// The organisation key is read from BWAC_ORG_KEY_B64 or stdin, never argv.
 #[derive(Parser)]
 #[command(
     name = "register",
-    about = "TEST-ONLY: generate a daemon registration payload"
+    about = "TEST-ONLY: generate an access connector registration payload"
 )]
 struct Cli {
-    /// Display name for the daemon (sent in the registration request).
-    #[arg(long, default_value = "test-daemon")]
+    /// Display name for the connector (sent in the registration request).
+    #[arg(long, default_value = "test-connector")]
     name: String,
 }
 
 /// The output of a successful registration payload generation.
 ///
 /// `Debug` is manually implemented, so `encryption_key_b64` (the raw seed that
-/// forms the `:` suffix of the daemon token) is never emitted in debug output.
+/// forms the `:` suffix of the access connector token) is never emitted in debug output.
 pub struct RegisterPayload {
-    /// The daemon display name.
+    /// The connector display name.
     pub name: String,
     /// The `encryptedPayload` field for the register API call.
     pub encrypted_payload: String,
@@ -68,7 +68,7 @@ impl std::fmt::Debug for RegisterPayload {
     }
 }
 
-/// Generate the registration payload for a new rotation daemon.
+/// Generate the registration payload for a new access connector.
 ///
 /// `org_key_b64` is the organisation's crown-jewel symmetric key; it must never appear in logs.
 ///
@@ -90,15 +90,15 @@ pub fn generate_registration_payload(
 
     let seed: Zeroizing<[u8; 16]> = generate_random_bytes();
 
-    // Encode the raw seed to base64: this is the `:` suffix of the daemon token.
+    // Encode the raw seed to base64: this is the `:` suffix of the access connector token.
     let seed_b64 = B64::from(seed.as_slice());
     let encryption_key_b64 = Zeroizing::new(seed_b64.to_string());
 
-    // Mirrors DaemonToken::from_str's derivation exactly (C1 constants).
+    // Mirrors AccessConnectorToken::from_str's derivation exactly (C1 constants).
     let derived = derive_shareable_key(seed, DERIVE_NAME, Some(DERIVE_INFO));
     let derived_key = SymmetricCryptoKey::Aes256CbcHmacKey(derived);
 
-    // The identity server returns this after authentication; the daemon
+    // The identity server returns this after authentication; the connector
     // decrypts it (using derived_key) to recover the org key.
     let org_key_b64_str = org_key_b64_parsed.to_string();
     let payload_json = format!(r#"{{"encryptionKey":"{org_key_b64_str}"}}"#);
@@ -129,7 +129,7 @@ fn main() {
     // output that callers parse from stdout.
     eprintln!();
     eprintln!("╔══════════════════════════════════════════════════════════╗");
-    eprintln!("║  TEST-ONLY: daemon registration payload generator        ║");
+    eprintln!("║  TEST-ONLY: access connector registration payload generator        ║");
     eprintln!("║  This binary handles a plaintext org key.                ║");
     eprintln!("║  Do NOT use in production.                               ║");
     eprintln!("╚══════════════════════════════════════════════════════════╝");
@@ -189,8 +189,8 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use bitwarden_access_connector::{
-        crypto::{DaemonKeyStore, DaemonSymmSlotId, unwrap_org_key},
-        token::DaemonToken,
+        crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId, unwrap_org_key},
+        token::AccessConnectorToken,
     };
     use bitwarden_crypto::{KeyDecryptable, KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use bitwarden_encoding::B64;
@@ -205,13 +205,13 @@ mod tests {
 
     /// Full round-trip: generate payload → parse token → unwrap org key → probe.
     ///
-    /// This exercises both the registration helper and the daemon's key-unwrap
+    /// This exercises both the registration helper and the connector's key-unwrap
     /// path end-to-end using a synthetic token.
     #[test]
     fn register_round_trip() {
         let (org_key, org_key_b64) = make_test_org_key_b64();
 
-        let payload = generate_registration_payload(&org_key_b64, "round-trip-daemon")
+        let payload = generate_registration_payload(&org_key_b64, "round-trip-connector")
             .expect("generate_registration_payload should succeed");
 
         // apiKeyId and clientSecret are arbitrary; the token parser only cares
@@ -226,22 +226,22 @@ mod tests {
         );
 
         // Parsing re-derives the full symmetric key from the seed.
-        let token: DaemonToken = token_str
+        let token: AccessConnectorToken = token_str
             .parse()
             .expect("synthetic token must parse successfully");
 
         // Unwrap the org key from encryptedPayload using the token's derived key.
-        let store: DaemonKeyStore = KeyStore::default();
+        let store: AccessConnectorKeyStore = KeyStore::default();
         unwrap_org_key(&store, &token.encryption_key, &payload.encrypted_payload)
             .expect("unwrap_org_key must succeed with the correct derived key");
 
         // Verify the recovered org key encrypts/decrypts a probe correctly.
-        let probe = "rotation-daemon-register-round-trip-probe";
+        let probe = "access-connector-register-round-trip-probe";
         let encrypted_probe = {
             use bitwarden_crypto::PrimitiveEncryptable;
             let mut ctx = store.context_mut();
             probe
-                .encrypt(&mut ctx, DaemonSymmSlotId::Organization)
+                .encrypt(&mut ctx, AccessConnectorSymmSlotId::Organization)
                 .expect("encrypt probe under recovered org key")
         };
 

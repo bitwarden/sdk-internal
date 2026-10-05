@@ -240,8 +240,8 @@ mod tests {
 
     #[test]
     fn powershell_launcher_forwards_the_allowlist_and_nothing_else() {
-        // The credential and the daemon token exist in the environment the daemon reads; only
-        // the allowlisted names may reach the child.
+        // The credential and the access connector token exist in the environment the connector
+        // reads; only the allowlisted names may reach the child.
         let env = FakeEnv::from([
             ("PATH", "/usr/bin"),
             ("BWAC_TOKEN", "SENTINEL_TOKEN"),
@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn payload_excludes_the_keys_that_configure_the_daemon() {
+    async fn payload_excludes_the_keys_that_configure_the_connector() {
         let mut creds = ResolvedCredentials::new();
         creds.insert("SCRIPT".to_string(), SH_SCRIPT.to_string());
         creds.insert("SCRIPT_TYPE".to_string(), "direct".to_string());
