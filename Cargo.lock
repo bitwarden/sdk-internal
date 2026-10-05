@@ -661,6 +661,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-logging",
  "bitwarden-managed-settings-types",
  "bitwarden-random",
