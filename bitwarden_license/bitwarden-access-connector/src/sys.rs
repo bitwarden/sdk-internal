@@ -1,4 +1,4 @@
-//! Seams for the ambient system state the daemon reads.
+//! Seams for the ambient system state the connector reads.
 
 use std::{ffi::OsString, path::Path, sync::Arc};
 

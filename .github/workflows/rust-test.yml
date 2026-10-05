@@ -53,7 +53,7 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-features
 
-      # The rotation daemon's script launchers have a few tests that need a real child
+      # The access connector's script launchers have a few tests that need a real child
       # process and real files, so they are #[ignore]d and skipped by the run above. All
       # three runner images ship pwsh, so these run on each of them.
       - name: Test (integration, requires pwsh)

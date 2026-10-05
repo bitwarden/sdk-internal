@@ -32,13 +32,13 @@ use tokio::{
 use crate::{
     api::{RotationApi, build_api_client, models::ApiError},
     auth::session::{SessionLost, SessionManager},
-    crypto::DaemonKeyStore,
+    crypto::AccessConnectorKeyStore,
     integrations::IntegrationRegistry,
     resolver::CredentialResolver,
     sys::SystemEnv,
 };
 
-/// Watches the `connectivity_tx` channel for the daemon's last successful server contact.
+/// Watches the `connectivity_tx` channel for the connector's last successful server contact.
 ///
 /// For the future gate arm 5 (network-partition pause); not yet wired into the poll loop.
 #[cfg(test)]
@@ -65,33 +65,33 @@ impl ConnectivityMonitor {
     }
 }
 
-/// Why the daemon's main loop exited cleanly.
+/// Why the connector's main loop exited cleanly.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunExit {
     /// The cancellation token was cancelled (clean shutdown).
     Shutdown,
-    /// The daemon credential was rejected (by the identity server or by a
-    /// revocation event on a daemon route).  The operator must reissue the
-    /// credential and restart the daemon.
+    /// The access connector credential was rejected (by the identity server or by a
+    /// revocation event on a connector route).  The operator must reissue the
+    /// credential and restart the connector.
     CredentialRefused,
-    /// The daemon is not eligible to use the rotation endpoints (organisation
+    /// The connector is not eligible to use the rotation endpoints (organisation
     /// disabled, license lapsed, or `UsePam` off).  The operator should check
     /// the server configuration.
     NotEligible,
 }
 
-/// Configuration for the daemon run loop.
+/// Configuration for the connector run loop.
 ///
 /// All durations are validated by the CLI/config layer before this struct is
 /// constructed.
-pub struct DaemonConfig {
+pub struct AccessConnectorConfig {
     /// URL of the Bitwarden API server.
     pub(crate) api_url: String,
     /// URL of the Bitwarden identity server.
     pub(crate) identity_url: String,
-    /// The parsed daemon access token.
-    pub(crate) token: crate::token::DaemonToken,
-    /// How often the daemon polls for new jobs (default: 15 s).
+    /// The parsed access connector token.
+    pub(crate) token: crate::token::AccessConnectorToken,
+    /// How often the connector polls for new jobs (default: 15 s).
     pub(crate) poll_interval: Duration,
     /// How often the heartbeat fires during an executing rotation (default: 30 s).
     pub(crate) heartbeat_interval: Duration,
@@ -114,8 +114,8 @@ pub struct DaemonConfig {
     pub(crate) targets: std::collections::HashMap<uuid::Uuid, crate::resolver::config::TargetEntry>,
 }
 
-impl DaemonConfig {
-    /// Build a [`DaemonConfig`] for integration tests, bypassing CLI validation
+impl AccessConnectorConfig {
+    /// Build an [`AccessConnectorConfig`] for integration tests, bypassing CLI validation
     /// (e.g. poll-interval minimum).
     ///
     /// `pub` so `tests/` can use it; `#[doc(hidden)]` keeps it out of published docs.
@@ -123,7 +123,7 @@ impl DaemonConfig {
     pub fn new_for_test(
         api_url: String,
         identity_url: String,
-        token: crate::token::DaemonToken,
+        token: crate::token::AccessConnectorToken,
         poll_interval: Duration,
         script_root: Option<std::path::PathBuf>,
     ) -> Self {
@@ -148,12 +148,12 @@ impl DaemonConfig {
     }
 }
 
-/// Run the daemon poll loop until a clean exit condition is reached.
+/// Run the connector poll loop until a clean exit condition is reached.
 ///
 /// Builds the [`SessionManager`] under a `select!` on `cancel` so shutdown can interrupt
 /// startup. `SessionLost::Revoked` maps to [`RunExit::CredentialRefused`]; a poll 404
 /// surviving a refresh probe maps to [`RunExit::NotEligible`].
-pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit {
+pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -> RunExit {
     let identity_client = match crate::auth::identity::IdentityClient::new(cfg.identity_url.clone())
     {
         Ok(c) => c,
@@ -170,7 +170,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
         poll_interval_secs = cfg.poll_interval.as_secs(),
         heartbeat_interval_secs = cfg.heartbeat_interval.as_secs(),
         configured_targets = cfg.targets.len(),
-        "daemon starting"
+        "access connector starting"
     );
 
     // SessionManager::new backs off internally (up to NO_DEADLINE_MAX_TRIES=3); the
@@ -183,8 +183,9 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
                     crate::auth::session::SessionLost::Revoked,
                 )) => {
                     tracing::error!(
-                        "Daemon credential refused. Have an admin reissue the credential \
-                         via ReissueDaemonCredential, then restart the daemon with the new token."
+                        "Access connector credential refused. Have an admin reissue the credential \
+                         via ReissueConnectorCredential, then restart the connector with the new \
+                         token."
                     );
                     return RunExit::CredentialRefused;
                 }
@@ -204,7 +205,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     let api_client = build_api_client(cfg.api_url.clone(), Arc::clone(&session));
     let api = Arc::new(RotationApi::new(api_client, connectivity_tx));
 
-    // The daemon drives its own API calls; this client exists only so rotations can reach
+    // The connector drives its own API calls; this client exists only so rotations can reach
     // the SDK's password generator.
     let sdk_client = Client::new(None);
 
@@ -240,7 +241,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
         crate::resolver::config::ConfigCredentialResolver::new(cfg.targets, Arc::new(SystemEnv)),
     );
 
-    let key_store: Arc<DaemonKeyStore> = session.key_store().await;
+    let key_store: Arc<AccessConnectorKeyStore> = session.key_store().await;
 
     let connectivity_rx_for_gate = connectivity_rx.clone();
     let last_ok: Arc<dyn Fn() -> Instant + Send + Sync> =
@@ -272,8 +273,9 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
             }
             Err(ApiError::SessionLost(SessionLost::Revoked)) => {
                 tracing::error!(
-                    "Daemon credential refused (revoked mid-session). Have an admin reissue \
-                     the credential via ReissueDaemonCredential, then restart with the new token."
+                    "Access connector credential refused (revoked mid-session). Have an admin \
+                     reissue the credential via ReissueConnectorCredential, then restart with the \
+                     new token."
                 );
                 return RunExit::CredentialRefused;
             }
@@ -285,8 +287,9 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
                     }
                     NotEligibleOutcome::NotEligible => {
                         tracing::error!(
-                            "Daemon not eligible for rotation endpoints. Check: daemon record \
-                             not revoked or disabled, organisation license active, UsePam enabled."
+                            "Access connector not eligible for rotation endpoints. Check: \
+                             connector record not revoked or disabled, organisation license \
+                             active, UsePam enabled."
                         );
                         return RunExit::NotEligible;
                     }
@@ -336,7 +339,8 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
                 }
                 Err(ApiError::SessionLost(SessionLost::Revoked)) => {
                     tracing::error!(
-                        "Daemon credential refused during claim. Reissue credential and restart."
+                        "Access connector credential refused during claim. Reissue credential and \
+                         restart."
                     );
                     return RunExit::CredentialRefused;
                 }
@@ -486,14 +490,14 @@ mod tests {
     use crate::{
         api::{RotationApi, build_api_client},
         auth::{identity::IdentityClient, session::SessionManager},
-        token::DaemonToken,
+        token::AccessConnectorToken,
     };
 
     const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    fn test_token() -> DaemonToken {
+    fn test_token() -> AccessConnectorToken {
         use std::str::FromStr;
-        DaemonToken::from_str(VALID_TOKEN_STR).unwrap()
+        AccessConnectorToken::from_str(VALID_TOKEN_STR).unwrap()
     }
 
     fn token_encryption_key() -> bitwarden_crypto::SymmetricCryptoKey {

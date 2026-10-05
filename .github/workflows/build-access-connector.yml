@@ -1,5 +1,5 @@
 # Builds the `bwac` binary (bitwarden_license/bitwarden-access-connector) in release
-# mode for each supported platform and uploads it as a workflow artifact, so the daemon can be
+# mode for each supported platform and uploads it as a workflow artifact, so the connector can be
 # picked up for QA / self-hosted testing without a local Rust toolchain.
 #
 # Each archive holds the binary and the installer script for that platform. Unpack it on the
@@ -9,7 +9,7 @@
 # Unit and integration tests for the crate already run in rust-test.yml as part of
 # `cargo test --workspace`; this workflow only produces the binaries.
 
-name: Build rotation daemon
+name: Build access connector
 
 on:
   workflow_dispatch:
@@ -41,22 +41,22 @@ jobs:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             binary: bwac
-            installer: install-rotation-daemon.sh
+            installer: install-access-connector.sh
             templates: "*.in"
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             binary: bwac
-            installer: install-rotation-daemon.sh
+            installer: install-access-connector.sh
             templates: "*.in"
           - os: macos-14
             target: aarch64-apple-darwin
             binary: bwac
-            installer: install-rotation-daemon.sh
+            installer: install-access-connector.sh
             templates: "*.in"
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             binary: bwac.exe
-            installer: Install-RotationDaemon.ps1
+            installer: Install-AccessConnector.ps1
             templates: bwac-launcher.ps1
             rustflags: "-C target-feature=+crt-static"
 
@@ -87,7 +87,7 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
-          key: rotation-daemon-${{ matrix.target }}
+          key: access-connector-${{ matrix.target }}
 
       - name: Build
         run: cargo build -p bitwarden-access-connector --release --locked --target ${{ matrix.target }}
@@ -131,7 +131,7 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sed -e 's|@SERVICE_USER@|root|g' \
-              -e 's|@ENV_FILE@|/etc/bwac/daemon.env|g' \
+              -e 's|@ENV_FILE@|/etc/bwac/env|g' \
               -e 's|@BINARY_PATH@|/bin/true|g' \
               -e 's|@CONFIG_FILE@|/etc/bwac/config.toml|g' \
               -e 's|@STATE_DIR@|/var/lib/bwac|g' \

@@ -1,7 +1,8 @@
-//! Cryptographic helpers used by the rotation daemon.
+//! Cryptographic helpers used by the access connector.
 //!
-//! Owns [`DaemonKeyStore`]'s slot definitions, [`unwrap_org_key`] (installs the auth-payload
-//! org key), and [`encrypt_cipher_password`] (writes a new password into the cipher's data blob).
+//! Owns [`AccessConnectorKeyStore`]'s slot definitions, [`unwrap_org_key`] (installs the
+//! auth-payload org key), and [`encrypt_cipher_password`] (writes a new password into the cipher's
+//! data blob).
 
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, EncString, KeyDecryptable, KeyStore, PrimitiveEncryptable,
@@ -15,29 +16,30 @@ use thiserror::Error;
 // signing slots are stubs; the macro requires all three slot enum types.
 key_slot_ids! {
     #[symmetric]
-    pub enum DaemonSymmSlotId {
+    pub enum AccessConnectorSymmSlotId {
         Organization,
         #[local]
         Local(LocalId),
     }
 
     #[private]
-    pub enum DaemonPrivateSlotId {
+    pub enum AccessConnectorPrivateSlotId {
         #[local]
         Local(LocalId),
     }
 
     #[signing]
-    pub enum DaemonSigningSlotId {
+    pub enum AccessConnectorSigningSlotId {
         #[local]
         Local(LocalId),
     }
 
-    pub DaemonKeySlotIds => DaemonSymmSlotId, DaemonPrivateSlotId, DaemonSigningSlotId;
+    pub AccessConnectorKeySlotIds =>
+        AccessConnectorSymmSlotId, AccessConnectorPrivateSlotId, AccessConnectorSigningSlotId;
 }
 
-/// The key store used throughout the daemon.
-pub type DaemonKeyStore = KeyStore<DaemonKeySlotIds>;
+/// The key store used throughout the connector.
+pub type AccessConnectorKeyStore = KeyStore<AccessConnectorKeySlotIds>;
 
 /// Errors produced by the cryptographic helpers in this module.
 #[derive(Debug, Error)]
@@ -67,11 +69,11 @@ pub enum CryptoModuleError {
 
 /// Install the organisation encryption key into `store`.
 ///
-/// `token_key` is the daemon access token's derived key; `encrypted_payload` is the
+/// `token_key` is the access connector token's derived key; `encrypted_payload` is the
 /// identity server's `encrypted_payload` EncString. The plaintext org-key bytes are
 /// transient and never returned; errors carry no payload content.
 pub fn unwrap_org_key(
-    store: &DaemonKeyStore,
+    store: &AccessConnectorKeyStore,
     token_key: &SymmetricCryptoKey,
     encrypted_payload: &str,
 ) -> Result<(), CryptoModuleError> {
@@ -102,7 +104,7 @@ pub fn unwrap_org_key(
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(DaemonSymmSlotId::Organization, org_key)
+        .set_symmetric_key(AccessConnectorSymmSlotId::Organization, org_key)
         .map_err(CryptoModuleError::Crypto)?;
 
     Ok(())
@@ -120,7 +122,7 @@ const CIPHER_PASSWORD_KEY: &str = "Password";
 /// key directly. Other fields are preserved byte-for-byte; a non-object `data` errors with
 /// `CipherDataShape` rather than echoing content.
 pub fn encrypt_cipher_password(
-    store: &DaemonKeyStore,
+    store: &AccessConnectorKeyStore,
     cipher_key: Option<&str>,
     data: &mut serde_json::Value,
     new_password: &str,
@@ -134,10 +136,10 @@ pub fn encrypt_cipher_password(
             .map_err(|_| CryptoModuleError::InvalidPayload)?;
 
         // Unwrap the per-item cipher key under the org key into a fresh local slot.
-        ctx.unwrap_symmetric_key(DaemonSymmSlotId::Organization, &wrapped_enc)
+        ctx.unwrap_symmetric_key(AccessConnectorSymmSlotId::Organization, &wrapped_enc)
             .map_err(CryptoModuleError::Crypto)?
     } else {
-        DaemonSymmSlotId::Organization
+        AccessConnectorSymmSlotId::Organization
     };
 
     let encrypted: EncString = new_password
@@ -171,15 +173,15 @@ mod tests {
 
     /// Build a fresh Aes256CbcHmac org key and return it alongside the store
     /// with the key installed at the Organization slot.
-    fn make_store_with_org_key() -> (DaemonKeyStore, SymmetricCryptoKey) {
-        let store: DaemonKeyStore = KeyStore::default();
+    fn make_store_with_org_key() -> (AccessConnectorKeyStore, SymmetricCryptoKey) {
+        let store: AccessConnectorKeyStore = KeyStore::default();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         // Install directly for setup purposes.
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(DaemonSymmSlotId::Organization, org_key.clone())
+            .set_symmetric_key(AccessConnectorSymmSlotId::Organization, org_key.clone())
             .expect("set_symmetric_key");
 
         (store, org_key)
@@ -229,11 +231,11 @@ mod tests {
         let encrypted_payload = make_encrypted_payload(&token_key, &org_key);
 
         // Start with an empty store.
-        let store: DaemonKeyStore = KeyStore::default();
+        let store: AccessConnectorKeyStore = KeyStore::default();
         assert!(
             !store
                 .context()
-                .has_symmetric_key(DaemonSymmSlotId::Organization)
+                .has_symmetric_key(AccessConnectorSymmSlotId::Organization)
         );
 
         unwrap_org_key(&store, &token_key, &encrypted_payload).expect("unwrap_org_key");
@@ -245,7 +247,7 @@ mod tests {
             let mut ctx = store.context();
             use bitwarden_crypto::PrimitiveEncryptable;
             probe
-                .encrypt(&mut ctx, DaemonSymmSlotId::Organization)
+                .encrypt(&mut ctx, AccessConnectorSymmSlotId::Organization)
                 .expect("encrypt probe")
         };
 
@@ -260,7 +262,7 @@ mod tests {
     fn unwrap_org_key_bad_payload_returns_error() {
         let secret = Zeroizing::new([0x01u8; 16]);
         let token_key = derive_token_key(secret);
-        let store: DaemonKeyStore = KeyStore::default();
+        let store: AccessConnectorKeyStore = KeyStore::default();
 
         let result = unwrap_org_key(&store, &token_key, "not-an-enc-string");
         assert!(
@@ -303,7 +305,7 @@ mod tests {
             // Store item_key as a local slot so we can wrap it.
             let item_key_slot = ctx.add_local_symmetric_key(item_key.clone());
             let wrapped = ctx
-                .wrap_symmetric_key(DaemonSymmSlotId::Organization, item_key_slot)
+                .wrap_symmetric_key(AccessConnectorSymmSlotId::Organization, item_key_slot)
                 .expect("wrap item key");
             wrapped.to_string()
         };

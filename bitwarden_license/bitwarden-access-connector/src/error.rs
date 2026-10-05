@@ -1,4 +1,4 @@
-//! Error taxonomy for the rotation daemon: failure codes, sync state, session
+//! Error taxonomy for the access connector: failure codes, sync state, session
 //! termination outcome, retry classification, and safe report details.
 
 use thiserror::Error;
@@ -15,7 +15,7 @@ pub(crate) enum FailureCode {
     CredentialsUnresolved,
     /// The password policy received from the server is invalid or cannot be satisfied.
     InvalidPolicy,
-    /// The target-system kind is not supported by this daemon build.
+    /// The target-system kind is not supported by this connector build.
     UnsupportedKind,
     /// The target system explicitly rejected the rotation (e.g. wrong account, policy
     /// violation at the target).
@@ -165,25 +165,25 @@ impl std::fmt::Display for SafeDetail {
     }
 }
 
-/// Top-level errors produced during CLI parsing and daemon startup.
+/// Top-level errors produced during CLI parsing and connector startup.
 ///
 /// Printed to stderr with a non-zero exit code. No `#[bitwarden_error]` attribute
-/// is needed; the daemon has no language bindings.
+/// is needed; the connector has no language bindings.
 #[derive(Debug, Error)]
-pub enum RotationDaemonError {
+pub enum AccessConnectorError {
     /// The configuration supplied is invalid (bad URL, conflicting options, etc.).
     #[error("invalid configuration: {0}")]
     InvalidConfig(String),
 
-    /// The daemon token string could not be parsed.
-    #[error("invalid daemon token: {0}")]
+    /// The access connector token string could not be parsed.
+    #[error("invalid access connector token: {0}")]
     InvalidToken(String),
 
     /// The identity server could not be reached during startup authentication.
     #[error("identity server unreachable: {0}")]
     IdentityUnreachable(String),
 
-    /// The daemon credential was rejected by the identity server.
+    /// The access connector credential was rejected by the identity server.
     #[error("credential refused by identity server: {0}")]
     CredentialRefused(String),
 
