@@ -1,4 +1,8 @@
-import { ClientSettings, PasswordManagerClient } from "@bitwarden/sdk-internal";
+import {
+  ClientSettings,
+  PasswordManagerClient,
+  isAcceptInviteLinkError,
+} from "@bitwarden/sdk-internal";
 
 import { HttpMock, installHttpMock } from "../../server-emulator/http-mock";
 import {
@@ -7,8 +11,21 @@ import {
   TEST_INVITE_SECRET,
   TEST_ORGANIZATION_ID,
 } from "../org-fixtures";
-import { makeOrgAccountClient, makeOrgInitializedClient, makeStateBridge } from "../utils";
-import { CREATION_DATE, LINK_CODE, LINK_ID, ROUTES, inviteLinkRoutes } from "./invite-link-server";
+import {
+  makeOrgAccountClient,
+  makeOrgInitializedClient,
+  makeStateBridge,
+  rejection,
+} from "../utils";
+import {
+  CREATION_DATE,
+  LINK_CODE,
+  LINK_ID,
+  ROUTES,
+  inviteLinkRoutes,
+  legacyError,
+  validationProblem,
+} from "./invite-link-server";
 import { fromUuid } from "../type-assertion-helpers";
 
 // Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
@@ -350,6 +367,92 @@ describe("invite link client", () => {
       expect(Object.keys(posted).sort()).toEqual(["code", "organizationId", "resetPasswordKey"]);
       expect(typeof posted.resetPasswordKey).toBe("string");
       expect(posted).not.toHaveProperty("orgUserKey");
+    });
+
+    describe("failures", () => {
+      const accept = () =>
+        invitee
+          .invite_link()
+          .accept_and_optionally_confirm(
+            TEST_ORGANIZATION_ID,
+            LINK_CODE,
+            TEST_INVITE_SECRET,
+            COLLECTION_NAME,
+            false,
+          );
+
+      it("rejects with LinkNotFound when the server cannot find the invite", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.getInvite]: () => legacyError(404, "Invite link not found."),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.name).toBe("AcceptInviteLinkError");
+        expect(error.variant).toBe("LinkNotFound");
+        // Nothing is posted once the invite cannot be fetched.
+        expect(mock.routes()).toEqual([ROUTES.getInvite]);
+      });
+
+      it("maps a server error code from the confirm endpoint to its typed variant", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.confirm]: () => validationProblem("code", "organization_has_no_available_seats"),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.name).toBe("AcceptInviteLinkError");
+        expect(error.variant).toBe("OrganizationHasNoAvailableSeats");
+      });
+
+      it("maps errors from the accept endpoint when the invite does not support confirmation", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION as unknown as string }),
+          [ROUTES.accept]: () => validationProblem("code", "already_organization_member"),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.variant).toBe("AlreadyOrganizationMember");
+        expect(mock.routes()).toEqual([ROUTES.getInvite, ROUTES.accept]);
+      });
+
+      it("maps errors from fetching the invite", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.getInvite]: () => validationProblem("code", "invite_link_not_available"),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.variant).toBe("InviteLinkNotAvailable");
+      });
+
+      it("rejects with Unknown for an error code this SDK version does not recognize", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.confirm]: () => validationProblem("code", "some_future_code"),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.variant).toBe("Unknown");
+        // The server's English description is surfaced for display rather than the raw code.
+        expect(error.message).toBe("Some detail.");
+      });
+
+      it("keeps a legacy error response as Api", async () => {
+        mock = installHttpMock({
+          ...inviteLinkRoutes(),
+          [ROUTES.confirm]: () => legacyError(400, "You're already a member of Acme."),
+        });
+
+        const error = await rejection(accept(), isAcceptInviteLinkError);
+
+        expect(error.variant).toBe("Api");
+      });
     });
   });
 

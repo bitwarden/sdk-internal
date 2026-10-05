@@ -6,7 +6,10 @@ use bitwarden_core::{
 use bitwarden_crypto::KeyStore;
 use bitwarden_organization_crypto::invite::{Invite, InviteSecret};
 
-use crate::{InviteLinkAdminClient, InviteLinkError, InviteLinkUserClient, OrganizationInviteLink};
+use crate::{
+    AcceptInviteLinkError, InviteLinkAdminClient, InviteLinkError, InviteLinkUserClient,
+    OrganizationInviteLink,
+};
 
 /// Client for organization invite link operations.
 ///
@@ -108,7 +111,7 @@ impl InviteLinkClient {
         invite_secret: InviteSecret,
         default_collection_name: String,
         enroll_into_account_recovery: bool,
-    ) -> Result<(), InviteLinkError> {
+    ) -> Result<(), AcceptInviteLinkError> {
         self.user()
             .accept_and_optionally_confirm(
                 organization_id,
