@@ -7,24 +7,24 @@
     optional name.
 
 .DESCRIPTION
-        .\Install-RotationDaemon.ps1 https://bitwarden.example.com
-        .\Install-RotationDaemon.ps1 https://bitwarden.example.com acme
+        .\Install-AccessConnector.ps1 https://bitwarden.example.com
+        .\Install-AccessConnector.ps1 https://bitwarden.example.com acme
 
     The binary is the bwac.exe sitting next to this script, which is how
     the release archive is laid out. The layout it installs is fixed:
 
         C:\Program Files\Bitwarden\bwac\
-            bwac.exe          the daemon; shared
-            Start-RotationDaemon.ps1        launcher (see below); shared
+            bwac.exe          the connector; shared
+            Start-AccessConnector.ps1       launcher (see below); shared
         C:\ProgramData\Bitwarden\bwac\
             config.toml                     settings; never secrets
             env                             token and per-target credentials, ACL-locked
-            scripts\                        script_root; the daemon reads, cannot write
+            scripts\                        script_root; the connector reads, cannot write
             logs\                           stderr, rolled at 10 MB
 
-    A name is only needed to run more than one daemon on one host, which a host rotating
-    for more than one organisation has to do, since a daemon token belongs to a single
-    organisation. It moves everything the daemon writes, or reads its token from, into a
+    A name is only needed to run more than one connector on one host, which a host rotating
+    for more than one organisation has to do, since an access connector token belongs to a single
+    organisation. It moves everything the connector writes, or reads its token from, into a
     directory of its own, and leaves the shared pieces alone:
 
         C:\ProgramData\Bitwarden\bwac\<name>\
@@ -32,10 +32,10 @@
             env
             logs\
 
-    with the task named 'Bitwarden PAM rotation daemon (<name>)'. The binary, the
-    launcher and scripts\ stay shared: the daemon cannot write to the script directory,
-    so there is nothing to keep apart there, and one script can serve every daemon.
-    Point that daemon's script_root elsewhere if you would rather they were separate.
+    with the task named 'Bitwarden PAM access connector (<name>)'. The binary, the
+    launcher and scripts\ stay shared: the connector cannot write to the script directory,
+    so there is nothing to keep apart there, and one script can serve every connector.
+    Point that connector's script_root elsewhere if you would rather they were separate.
 
     None of that is configurable. If you want a different layout, a different task
     principal, or Bitwarden Cloud's separate api and identity URLs, install by hand:
@@ -49,7 +49,7 @@
       A scheduled task with an at-startup trigger is the built-in way to run a console
       program unattended; the alternative is a third-party wrapper such as NSSM.
 
-    * A launcher sits between the task and the daemon. The daemon reads its token and
+    * A launcher sits between the task and the connector. The connector reads its token and
       every per-target credential from environment variables, and most target UUIDs
       begin with a digit. A machine-level environment variable is the wrong place for a
       token -- it lands in a registry key any user can read -- so the launcher reads the
@@ -58,12 +58,12 @@
 
     * The token is not a parameter. It comes from BWAC_TOKEN or a hidden prompt. A
       -Token parameter would put it in this process's command line, readable by anything
-      that can call Get-CimInstance Win32_Process -- the same reason the daemon itself
+      that can call Get-CimInstance Win32_Process -- the same reason the connector itself
       refuses --token.
 
-    * Windows locks a running image, so the binary cannot be replaced while any daemon
+    * Windows locks a running image, so the binary cannot be replaced while any connector
       on the host is running from it. Nothing has to stop when the bundled binary is the
-      one already installed, which is the usual case when a second daemon comes from the
+      one already installed, which is the usual case when a second connector comes from the
       same archive; an actual upgrade means stopping the other tasks first, and the
       installer says so rather than failing obscurely.
 
@@ -71,22 +71,22 @@
     here, and a CustomScript target runs a .ps1 through a PowerShell host.
 
     Re-running replaces the binary and the launcher and leaves config.toml and the env
-    file alone, so upgrading cannot lose credentials you added. Every daemon on the host
+    file alone, so upgrading cannot lose credentials you added. Every connector on the host
     runs the one binary, so replacing it replaces it for all of them.
 
-    Stopping the task terminates the daemon rather than asking it to shut down, because
+    Stopping the task terminates the connector rather than asking it to shut down, because
     Windows has no SIGTERM. A rotation interrupted that way is abandoned without a
     report and the server reconciles it, as OPERATIONS.md describes for a hard restart.
 
     To remove it:
 
-        Unregister-ScheduledTask -TaskName 'Bitwarden PAM rotation daemon' -Confirm:$false
+        Unregister-ScheduledTask -TaskName 'Bitwarden PAM access connector' -Confirm:$false
         Remove-Item -Recurse 'C:\Program Files\Bitwarden\bwac'
         Remove-Item -Recurse 'C:\ProgramData\Bitwarden\bwac'
 
-    A named daemon comes off the same way, with '(<name>)' on the task name and
+    A named connector comes off the same way, with '(<name>)' on the task name and
     C:\ProgramData\Bitwarden\bwac\<name> in place of that last path. Leave the install
-    directory until the last daemon on the host is gone.
+    directory until the last connector on the host is gone.
 
     Rotation scripts under C:\ProgramData\Bitwarden\bwac\scripts are yours; move them out
     first if you want to keep them.
@@ -95,20 +95,20 @@
     Your Bitwarden server, for example https://bitwarden.example.com.
 
 .PARAMETER Name
-    Which daemon on this host is being installed, for a host that runs more than one.
-    Lowercase letters, digits, '-' and '_'. Leave it out for the single-daemon layout.
+    Which connector on this host is being installed, for a host that runs more than one.
+    Lowercase letters, digits, '-' and '_'. Leave it out for the single-connector layout.
 
 .EXAMPLE
     $env:BWAC_TOKEN = '0.access-connector.<id>.<secret>:<key>'
-    .\Install-RotationDaemon.ps1 https://bitwarden.example.com
+    .\Install-AccessConnector.ps1 https://bitwarden.example.com
 
 .EXAMPLE
     # Prompts for the token, with the input hidden.
-    .\Install-RotationDaemon.ps1 https://bitwarden.example.com
+    .\Install-AccessConnector.ps1 https://bitwarden.example.com
 
 .EXAMPLE
-    # A second daemon on the same host, kept separate from the first.
-    .\Install-RotationDaemon.ps1 https://bitwarden.example.com acme
+    # A second connector on the same host, kept separate from the first.
+    .\Install-AccessConnector.ps1 https://bitwarden.example.com acme
 #>
 
 param(
@@ -129,8 +129,8 @@ $ProgressPreference = 'SilentlyContinue'
 # ---------------------------------------------------------------------------
 
 $BinaryName   = 'bwac.exe'
-$LauncherName = 'Start-RotationDaemon.ps1'
-$TaskPrefix   = 'Bitwarden PAM rotation daemon'
+$LauncherName = 'Start-AccessConnector.ps1'
+$TaskPrefix   = 'Bitwarden PAM access connector'
 $RunAsUser    = 'NT AUTHORITY\NETWORK SERVICE'
 
 $InstallDir   = Join-Path $env:ProgramFiles 'Bitwarden\bwac'
@@ -140,17 +140,17 @@ $ScriptDir    = Join-Path $DataDir 'scripts'
 $ExePath      = Join-Path $InstallDir $BinaryName
 $LauncherPath = Join-Path $InstallDir $LauncherName
 
-# Names that would land on top of something already sitting beside a named daemon's
+# Names that would land on top of something already sitting beside a named connector's
 # directory.
 $ReservedNames = @('scripts', 'logs', 'env')
 
-# Set by Resolve-Layout, once the name has been checked. An unnamed daemon gets the data
+# Set by Resolve-Layout, once the name has been checked. An unnamed connector gets the data
 # directory itself, which is the layout every install had before names existed.
-$TaskName   = $null
-$DaemonDir  = $null
-$LogDir     = $null
-$ConfigPath = $null
-$EnvPath    = $null
+$TaskName     = $null
+$ConnectorDir = $null
+$LogDir       = $null
+$ConfigPath   = $null
+$EnvPath      = $null
 $LogPath    = $null
 
 # Well-known SIDs, so the ACLs are the same on a localised Windows.
@@ -176,7 +176,7 @@ function Set-ExplicitAcl {
     Invoke-Native -Command 'icacls.exe' -Arguments $icaclsArgs -What "setting permissions on $What"
 }
 
-# UTF-8 without a BOM: the daemon's TOML parser and the launcher's env reader both
+# UTF-8 without a BOM: the connector's TOML parser and the launcher's env reader both
 # treat a BOM as part of the first key.
 function Write-TextFile {
     param([string] $Path, [string[]] $Lines)
@@ -187,7 +187,7 @@ function Write-TextFile {
 # ---------------------------------------------------------------------------
 
 # Checks the name and settles everything that depends on it: the task, and the directory
-# holding this daemon's config, token and logs. The name becomes part of a scheduled task
+# holding this connector's config, token and logs. The name becomes part of a scheduled task
 # name, a systemd unit file name on the other platforms, and a path, so it is kept to a
 # plain lowercase word.
 function Resolve-Layout {
@@ -202,22 +202,22 @@ function Resolve-Layout {
         if ($Name.Length -gt 32) { Fail "The name '$Name' is longer than 32 characters." }
         if ($ReservedNames -contains $Name) {
             Fail ("'$Name' is taken: the layout already uses that name next to the " +
-                'directory this daemon would get. Pick another.')
+                'directory this connector would get. Pick another.')
         }
     }
 
-    $script:TaskName   = if ($Name) { "$TaskPrefix ($Name)" } else { $TaskPrefix }
-    $script:DaemonDir  = if ($Name) { Join-Path $DataDir $Name } else { $DataDir }
-    $script:LogDir     = Join-Path $script:DaemonDir 'logs'
-    $script:ConfigPath = Join-Path $script:DaemonDir 'config.toml'
-    $script:EnvPath    = Join-Path $script:DaemonDir 'env'
+    $script:TaskName     = if ($Name) { "$TaskPrefix ($Name)" } else { $TaskPrefix }
+    $script:ConnectorDir = if ($Name) { Join-Path $DataDir $Name } else { $DataDir }
+    $script:LogDir       = Join-Path $script:ConnectorDir 'logs'
+    $script:ConfigPath   = Join-Path $script:ConnectorDir 'config.toml'
+    $script:EnvPath      = Join-Path $script:ConnectorDir 'env'
     $script:LogPath    = Join-Path $script:LogDir 'bwac.log'
 }
 
 # Windows locks a running image, and Stop-ScheduledTask returns before the process is gone.
 # -MultipleInstances IgnoreNew then makes a too-early Start-ScheduledTask a silent no-op, so
 # both callers wait for the task to leave Running.
-function Stop-DaemonTask {
+function Stop-AccessConnectorTask {
     if (-not (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)) { return }
 
     Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -248,7 +248,7 @@ function Get-ExitCodeHint {
 # Copies the bundled binary into place after checking it runs here. Those are the two
 # checks CI runs after building, and they catch a binary that cannot start on this host
 # now rather than as a task that will not stay running.
-function Install-DaemonBinary {
+function Install-AccessConnectorBinary {
     Write-Step 'Binary'
     $bundled = Join-Path $PSScriptRoot $BinaryName
 
@@ -276,14 +276,14 @@ function Install-DaemonBinary {
     }
 
     # Nothing has to stop if the installed binary is already this build, which is the
-    # usual case when another daemon on this host came from the same archive.
+    # usual case when another connector on this host came from the same archive.
     if ((Test-Path -LiteralPath $ExePath) -and
         (Get-FileHash -LiteralPath $bundled).Hash -eq (Get-FileHash -LiteralPath $ExePath).Hash) {
         Write-Item "$ExePath is already this build ($version); left in place"
         return
     }
 
-    Stop-DaemonTask
+    Stop-AccessConnectorTask
     if (-not (Test-Path -LiteralPath $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
@@ -291,8 +291,8 @@ function Install-DaemonBinary {
     try {
         Copy-Item -LiteralPath $bundled -Destination $ExePath -Force
     } catch {
-        # Windows locks a running image, and every daemon on this host runs this one.
-        Fail ("Cannot replace $ExePath while another daemon on this host is running " +
+        # Windows locks a running image, and every connector on this host runs this one.
+        Fail ("Cannot replace $ExePath while another connector on this host is running " +
             "from it. Stop the other tasks, run this again, and start them afterwards:`n" +
             "         Get-ScheduledTask -TaskName '$TaskPrefix*' | Stop-ScheduledTask")
     }
@@ -301,16 +301,16 @@ function Install-DaemonBinary {
 
 # Reads the token from the environment or prompts for it, then checks the two things
 # that actually go wrong when a token is pasted: it gets cut at the ':', or it is not a
-# daemon token at all. The daemon validates the rest properly at startup.
-function Get-DaemonToken {
-    Write-Step 'Daemon token'
+# access connector token at all. The connector validates the rest properly at startup.
+function Get-AccessConnectorToken {
+    Write-Step 'Access connector token'
 
     $token = $null
     if ($env:BWAC_TOKEN) {
         $token = $env:BWAC_TOKEN
         Write-Item 'taken from BWAC_TOKEN'
     } else {
-        $secure = Read-Host -Prompt '    Paste the daemon token (input hidden)' -AsSecureString
+        $secure = Read-Host -Prompt '    Paste the access connector token (input hidden)' -AsSecureString
         $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
         try { $token = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
         finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
@@ -320,7 +320,7 @@ function Get-DaemonToken {
     if (-not $token) { Fail 'The token is empty.' }
     if (-not $token.StartsWith('0.access-connector.')) {
         Fail ("The token does not start '0.access-connector.'. This looks like a different " +
-            'kind of Bitwarden key, not a rotation daemon token.')
+            'kind of Bitwarden key, not an access connector token.')
     }
     $colon = $token.IndexOf(':')
     if ($colon -lt 0 -or $colon -eq $token.Length - 1) {
@@ -339,7 +339,7 @@ function Initialize-Layout {
         Fail "Cannot resolve '$RunAsUser' to a SID: $($_.Exception.Message)"
     }
 
-    foreach ($dir in @($InstallDir, $DataDir, $ScriptDir, $DaemonDir, $LogDir)) {
+    foreach ($dir in @($InstallDir, $DataDir, $ScriptDir, $ConnectorDir, $LogDir)) {
         if (-not (Test-Path -LiteralPath $dir)) {
             New-Item -ItemType Directory -Path $dir -Force | Out-Null
         }
@@ -347,17 +347,17 @@ function Initialize-Layout {
 
     # InstallDir sits under Program Files and inherits the right thing already:
     # administrators and SYSTEM can write, everyone else reads and executes. A named
-    # daemon's directory inherits this one, which is read-only for the task principal.
+    # connector's directory inherits this one, which is read-only for the task principal.
     Set-ExplicitAcl -Path $DataDir -What 'the data directory' -Grants @(
         "$($SidAdministrators):(OI)(CI)F", "$($SidSystem):(OI)(CI)F", "*$($sid):(OI)(CI)R")
 
-    # script_root: the daemon reads and executes what is here and cannot add to it, so
+    # script_root: the connector reads and executes what is here and cannot add to it, so
     # it cannot install a new script for itself to run.
     Set-ExplicitAcl -Path $ScriptDir -What 'the script directory' -Grants @(
         "$($SidAdministrators):(OI)(CI)F", "$($SidSystem):(OI)(CI)F", "*$($sid):(OI)(CI)RX")
 
     # The launcher writes the log, so this one directory is writable. It belongs to this
-    # daemon alone, named or not.
+    # connector alone, named or not.
     Set-ExplicitAcl -Path $LogDir -What 'the log directory' -Grants @(
         "$($SidAdministrators):(OI)(CI)F", "$($SidSystem):(OI)(CI)F", "*$($sid):(OI)(CI)M")
 
@@ -365,7 +365,7 @@ function Initialize-Layout {
     return $sid
 }
 
-function Write-DaemonConfig {
+function Write-AccessConnectorConfig {
     Write-Step 'Configuration'
     if (Test-Path -LiteralPath $ConfigPath) {
         Write-Item "$ConfigPath exists; left alone"
@@ -378,7 +378,7 @@ function Write-DaemonConfig {
         '# bwac configuration. The installer writes this once and never touches'
         '# it again; edit it and restart the scheduled task.'
         '#'
-        '# Secrets do not belong here. The daemon treats a config containing a token as a'
+        '# Secrets do not belong here. The connector treats a config containing a token as a'
         '# startup error, and rejects client_secret inside [targets], because config files end'
         '# up in repositories. Unknown keys are a startup error too, so a typo is loud.'
         '#'
@@ -397,7 +397,7 @@ function Write-DaemonConfig {
     Write-Item $ConfigPath
 }
 
-function Write-DaemonEnv {
+function Write-AccessConnectorEnv {
     param([string] $Token, [string] $Sid)
     Write-Step 'Token and target credentials'
     if (Test-Path -LiteralPath $EnvPath) {
@@ -406,8 +406,8 @@ function Write-DaemonEnv {
     }
 
     Write-TextFile -Path $EnvPath -Lines @(
-        '# Environment for bwac, read by Start-RotationDaemon.ps1 and set on'
-        '# the daemon process only, so nothing here reaches the registry or any other'
+        '# Environment for bwac, read by Start-AccessConnector.ps1 and set on'
+        '# the connector process only, so nothing here reaches the registry or any other'
         '# process. Restricted by ACL to administrators, SYSTEM and the task principal.'
         '#'
         '# Per-target credentials go here, keyed by target system UUID: uppercase the UUID,'
@@ -450,7 +450,7 @@ function Write-Launcher {
     Write-Item $LauncherPath
 }
 
-function Register-DaemonTask {
+function Register-AccessConnectorTask {
     Write-Step 'Scheduled task'
 
     $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
@@ -458,7 +458,7 @@ function Register-DaemonTask {
         '-Exe "{1}" -Config "{2}" -EnvFile "{3}" -LogFile "{4}"') -f
         $LauncherPath, $ExePath, $ConfigPath, $EnvPath, $LogPath
 
-    # ExecutionTimeLimit zero means no limit, which is what a daemon needs. The restart
+    # ExecutionTimeLimit zero means no limit, which is what a connector needs. The restart
     # settings are the nearest equivalent to systemd's Restart=always; one minute is the
     # shortest interval the task scheduler accepts.
     Register-ScheduledTask -TaskName $TaskName -Force `
@@ -469,9 +469,9 @@ function Register-DaemonTask {
             -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
             -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
             -ExecutionTimeLimit ([TimeSpan]::Zero)) `
-        -Description 'Bitwarden PAM credential rotation daemon.' | Out-Null
+        -Description 'Bitwarden PAM access connector.' | Out-Null
 
-    Stop-DaemonTask
+    Stop-AccessConnectorTask
     Start-ScheduledTask -TaskName $TaskName
     Write-Item "registered '$TaskName' as $RunAsUser, started, and set to start at boot"
 }
@@ -480,13 +480,13 @@ function Register-DaemonTask {
 
 try {
     Resolve-Layout -Name $Name
-    Install-DaemonBinary
-    $token = Get-DaemonToken
+    Install-AccessConnectorBinary
+    $token = Get-AccessConnectorToken
     $sid = Initialize-Layout
-    Write-DaemonConfig
-    Write-DaemonEnv -Token $token -Sid $sid
+    Write-AccessConnectorConfig
+    Write-AccessConnectorEnv -Token $token -Sid $sid
     Write-Launcher
-    Register-DaemonTask
+    Register-AccessConnectorTask
 
     Write-Host ''
     Write-Host '==> Installed' -ForegroundColor Green
@@ -495,8 +495,8 @@ try {
     Write-Host "      Get-ScheduledTaskInfo -TaskName '$TaskName'"
     Write-Host "      Get-Content -Path '$LogPath' -Tail 20 -Wait"
     Write-Host ''
-    Write-Host '    You want "session established". "Daemon credential refused" means the token'
-    Write-Host '    needs reissuing; "not eligible" means the daemon record, the licence or the'
+    Write-Host '    You want "session established". "Access connector credential refused" means the token'
+    Write-Host '    needs reissuing; "not eligible" means the access connector record, the licence or the'
     Write-Host '    PAM flag needs attention on the server.'
     Write-Host ''
     Write-Host '    Next, add the credentials for each target system to'
@@ -505,6 +505,6 @@ try {
     Write-Host ''
 } catch {
     Write-Host ''
-    Write-Host "Install-RotationDaemon.ps1: error: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Install-AccessConnector.ps1: error: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }

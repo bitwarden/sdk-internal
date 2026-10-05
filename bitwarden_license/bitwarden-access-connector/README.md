@@ -1,6 +1,6 @@
 # bitwarden-access-connector
 
-Bitwarden PAM credential rotation daemon.
+Bitwarden PAM access connector.
 
 This crate provides the `bwac` binary. It continuously rotates PAM-managed credentials by polling
 the Bitwarden server for claimable rotation jobs, executing each job (resolve credentials → generate
@@ -13,14 +13,14 @@ terminate sessions → report outcome), and then returning to the poll loop.
 bwac run [--config <PATH>]
 ```
 
-All daemon settings live in the TOML configuration file (see
+All connector settings live in the TOML configuration file (see
 [Configuration file](#configuration-file)); they are **not** individual CLI flags.
 
 ### Environment variables
 
 | Variable            | Purpose                                                        |
 | ------------------- | -------------------------------------------------------------- |
-| `BWAC_TOKEN`        | Daemon access token (required)                                 |
+| `BWAC_TOKEN`        | Access connector token (required)                              |
 | `BWAC_CONFIG`       | Path to the TOML configuration file (equivalent to `--config`) |
 | `BWAC_API_URL`      | Bitwarden API server URL (overrides the config file)           |
 | `BWAC_IDENTITY_URL` | Bitwarden identity server URL (overrides the config file)      |
@@ -34,16 +34,16 @@ All daemon settings live in the TOML configuration file (see
 
 ### Token security
 
-The daemon token contains the org-key encryption key. It is **never** accepted as a plain `--token`
-argument — argv is visible via `ps`/`/proc/<pid>/cmdline`. Supply it via the `BWAC_TOKEN`
+The access connector token contains the org-key encryption key. It is **never** accepted as a plain
+`--token` argument — argv is visible via `ps`/`/proc/<pid>/cmdline`. Supply it via the `BWAC_TOKEN`
 environment variable only.
 
-After reading `BWAC_TOKEN` at startup, the daemon removes it from the process environment so that
+After reading `BWAC_TOKEN` at startup, the connector removes it from the process environment so that
 child processes (e.g. custom scripts) cannot inherit the token value.
 
 ### Configuration file
 
-The daemon is configured from a TOML file. Specify the file with `--config <PATH>` or the
+The connector is configured from a TOML file. Specify the file with `--config <PATH>` or the
 `BWAC_CONFIG` environment variable. The server URLs may additionally be overridden with the
 `BWAC_API_URL` / `BWAC_IDENTITY_URL` environment variables.
 
@@ -54,8 +54,8 @@ The daemon is configured from a TOML file. Specify the file with `--config <PATH
 3. Derived from `[environment].base` as `{base}/api` / `{base}/identity`
 4. Error — startup fails with a message naming all three supply methods
 
-The daemon token **cannot** be supplied via the config file. Any config file that contains a `token`
-key is rejected at startup. Use `BWAC_TOKEN` only.
+The access connector token **cannot** be supplied via the config file. Any config file that contains
+a `token` key is rejected at startup. Use `BWAC_TOKEN` only.
 
 #### Example configuration file
 
@@ -71,14 +71,14 @@ script_timeout     = 60   # seconds
 
 # script_root = "/opt/scripts"   # uncomment to restrict custom script paths
 
-# PowerShell host, used for any script the daemon launches through PowerShell.
+# PowerShell host, used for any script the connector launches through PowerShell.
 powershell_execution_policy = "Bypass"   # set "AllSigned" if you sign your scripts
 # powershell_path = "C:\\Program Files\\PowerShell\\7\\pwsh.exe"   # else discovered on PATH
 
 entra_verify_probe = false   # set true only with MFA exemption for the service principal
 
 [environment]
-# Supply a base URL and let the daemon derive /api and /identity automatically:
+# Supply a base URL and let the connector derive /api and /identity automatically:
 base     = "https://bitwarden.example.com"
 # Or override individual URLs (takes precedence over base-derived values):
 # api      = "https://api.bitwarden.com"
@@ -136,29 +136,29 @@ per-tick and per-substep chatter.
 
 #### Operator-visible events at `info` / `warn` / `error`
 
-| Level   | Event                                          | Key fields                                                                 |
-| ------- | ---------------------------------------------- | -------------------------------------------------------------------------- |
-| `info`  | Daemon starting                                | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs` |
-| `info`  | Session established / renewed                  | `retry` (on renewal)                                                       |
-| `info`  | Shutdown signal received                       | —                                                                          |
-| `info`  | Rotation job claimed                           | `job_id`, `target_system_name`                                             |
-| `info`  | Starting rotation execution                    | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                  |
-| `info`  | Step 1: credentials resolved                   | `attempt_id`                                                               |
-| `info`  | Step 2: password generated                     | `attempt_id`                                                               |
-| `info`  | Step 3: target rotate succeeded                | `attempt_id`, `kind`                                                       |
-| `info`  | Step 4: verify succeeded                       | `attempt_id`                                                               |
-| `info`  | Step 5: cipher written                         | `attempt_id`, `cipher_id`                                                  |
-| `info`  | Step 6: session termination succeeded          | `attempt_id`                                                               |
-| `info`  | Step 7: rotation succeeded and reported        | `attempt_id`, `termination`                                                |
-| `info`  | Daemon shut down cleanly                       | —                                                                          |
-| `warn`  | Session renewal failed (transient / protocol)  | `retry`, `sleep_ms`                                                        |
-| `warn`  | Session entered Revoked phase                  | —                                                                          |
-| `warn`  | Rotation failed (any step)                     | `attempt_id`, `failure_code`, `sync_state`, `detail`                       |
-| `warn`  | Step 6: session termination aborted / failed   | `attempt_id`, `abort_reason`                                               |
-| `warn`  | Transient poll error / backoff                 | backoff duration                                                           |
-| `warn`  | Success report rejected/unknown by server      | `attempt_id`                                                               |
-| `error` | Daemon credential refused (startup or mid-run) | —                                                                          |
-| `error` | Daemon not eligible for rotation endpoints     | —                                                                          |
+| Level   | Event                                                    | Key fields                                                                 |
+| ------- | -------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `info`  | Access connector starting                                | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs` |
+| `info`  | Session established / renewed                            | `retry` (on renewal)                                                       |
+| `info`  | Shutdown signal received                                 | —                                                                          |
+| `info`  | Rotation job claimed                                     | `job_id`, `target_system_name`                                             |
+| `info`  | Starting rotation execution                              | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                  |
+| `info`  | Step 1: credentials resolved                             | `attempt_id`                                                               |
+| `info`  | Step 2: password generated                               | `attempt_id`                                                               |
+| `info`  | Step 3: target rotate succeeded                          | `attempt_id`, `kind`                                                       |
+| `info`  | Step 4: verify succeeded                                 | `attempt_id`                                                               |
+| `info`  | Step 5: cipher written                                   | `attempt_id`, `cipher_id`                                                  |
+| `info`  | Step 6: session termination succeeded                    | `attempt_id`                                                               |
+| `info`  | Step 7: rotation succeeded and reported                  | `attempt_id`, `termination`                                                |
+| `info`  | Access connector shut down cleanly                       | —                                                                          |
+| `warn`  | Session renewal failed (transient / protocol)            | `retry`, `sleep_ms`                                                        |
+| `warn`  | Session entered Revoked phase                            | —                                                                          |
+| `warn`  | Rotation failed (any step)                               | `attempt_id`, `failure_code`, `sync_state`, `detail`                       |
+| `warn`  | Step 6: session termination aborted / failed             | `attempt_id`, `abort_reason`                                               |
+| `warn`  | Transient poll error / backoff                           | backoff duration                                                           |
+| `warn`  | Success report rejected/unknown by server                | `attempt_id`                                                               |
+| `error` | Access connector credential refused (startup or mid-run) | —                                                                          |
+| `error` | Access connector not eligible for rotation endpoints     | —                                                                          |
 
 At `RUST_LOG=debug` the following additional events appear: poll ticks (with claimable job count),
 heartbeat ticks, claim-race losses (409 per job), registered integration kinds, cipher-fetch
@@ -166,15 +166,16 @@ sub-step, and session-renewal details.
 
 ### Exit codes
 
-| Code | Meaning                                                              |
-| ---- | -------------------------------------------------------------------- |
-| `0`  | Clean shutdown (SIGTERM or Ctrl-C received).                         |
-| `1`  | Startup error: invalid configuration, I/O error, or parse failure.   |
-| `2`  | Daemon credential refused. An admin must reissue the credential      |
-|      | server-side (via `ReissueDaemonCredential`) and restart the daemon   |
-|      | with the new token.                                                  |
-| `3`  | Daemon not eligible for rotation endpoints. Check: daemon record not |
-|      | revoked or disabled, organisation license active, `UsePam` enabled.  |
+| Code | Meaning                                                            |
+| ---- | ------------------------------------------------------------------ |
+| `0`  | Clean shutdown (SIGTERM or Ctrl-C received).                       |
+| `1`  | Startup error: invalid configuration, I/O error, or parse failure. |
+| `2`  | Access connector credential refused. An admin must reissue the     |
+|      | credential server-side (via `ReissueConnectorCredential`) and      |
+|      | restart the connector with the new token.                          |
+| `3`  | Access connector not eligible for rotation endpoints. Check:       |
+|      | connector record not revoked or disabled, organisation license     |
+|      | active, `UsePam` enabled.                                          |
 
 ---
 
@@ -215,7 +216,7 @@ committed to version control; storing a secret there would expose it. Always sup
 via the environment variable (`<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET`).
 
 An unknown field (including `client_secret`) inside a `[targets.<uuid>]` block is a hard startup
-error; the daemon will refuse to start.
+error; the connector will refuse to start.
 
 ### POSIX shell limitation
 
@@ -281,7 +282,7 @@ environment).
 4. **RotationByAdministrativeReset** — the stdin payload never contains the current password.
    Scripts **must** perform an administrative (force) reset. A change-password script is
    incompatible with retry convergence: if the first attempt successfully changes the target
-   credential but the vault write fails, the daemon retries with a new `newPassword`; a
+   credential but the vault write fails, the connector retries with a new `newPassword`; a
    change-password script would then fail because the "old" password it was given is no longer
    valid.
 5. **verify has no v0 opt-out** — `verify` is mandatory. A script that cannot
@@ -290,7 +291,7 @@ environment).
 
 ### Operations
 
-The daemon invokes the script with a single argument: the operation name.
+The connector invokes the script with a single argument: the operation name.
 
 | Argument    | When called                                              |
 | ----------- | -------------------------------------------------------- |
@@ -338,8 +339,8 @@ Notes:
 
 ### Timeout behaviour
 
-If the script does not exit within `script_timeout` (default 60 s) the daemon kills it (`SIGKILL`)
-and maps the outcome per operation:
+If the script does not exit within `script_timeout` (default 60 s) the connector kills it
+(`SIGKILL`) and maps the outcome per operation:
 
 | Operation   | Timeout outcome (failure code `script_timeout`)                   |
 | ----------- | ----------------------------------------------------------------- |
@@ -380,9 +381,9 @@ exit 0
 
 ## PowerShell scripts
 
-A `.ps1` is not an executable; it needs a PowerShell host to interpret it. The daemon launches one
-for you. Everything else about the integration is unchanged, so the contract above (stdin payload,
-exit codes, timeouts, `script_root`) applies verbatim.
+A `.ps1` is not an executable; it needs a PowerShell host to interpret it. The connector launches
+one for you. Everything else about the integration is unchanged, so the contract above (stdin
+payload, exit codes, timeouts, `script_root`) applies verbatim.
 
 ### When PowerShell is used
 
@@ -409,8 +410,8 @@ script      = "/opt/bwac/rotate-appliance"
 script_type = "powershell"
 ```
 
-The file decides rather than the host OS, so a `.ps1` rotates from a Linux or macOS daemon running
-PowerShell 7, and a native `.exe` target on Windows keeps executing directly.
+The file decides rather than the host OS, so a `.ps1` rotates from a Linux or macOS connector
+running PowerShell 7, and a native `.exe` target on Windows keeps executing directly.
 
 An unrecognised `script_type` fails the rotation with `credentials_unresolved` rather than falling
 back to direct execution.
@@ -422,8 +423,8 @@ In order: the `powershell_path` config key, then `pwsh` / `pwsh.exe` on `PATH`, 
 
 `powershell_path` is used exactly as given and never falls back to a discovered host; a mistyped
 path fails loudly instead of silently running your script under a different interpreter. If no host
-is found at all, the rotation fails with `credentials_unresolved`; the daemon still starts, so a box
-with no PowerShell can serve non-PowerShell targets.
+is found at all, the rotation fails with `credentials_unresolved`; the connector still starts, so a
+box with no PowerShell can serve non-PowerShell targets.
 
 ### Invocation
 
@@ -454,9 +455,9 @@ modules, so it receives a fixed allowlist instead: `SystemRoot`, `windir`, `PATH
 `LOCALAPPDATA`, `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `TEMP`, `TMP`, and on Unix `HOME`, `TMPDIR`,
 `LANG`.
 
-Nothing else is forwarded. The daemon token, every per-target credential, and the new password are
-all absent from the child environment; secrets still reach your script only through the stdin
-payload.
+Nothing else is forwarded. The access connector token, every per-target credential, and the new
+password are all absent from the child environment; secrets still reach your script only through the
+stdin payload.
 
 ### Example script skeleton
 
@@ -517,11 +518,11 @@ makes it easier to get wrong than a shell script does:
 
 ### Troubleshooting
 
-The daemon discards script stdout and stderr, because either can echo the credentials it just handed
-you. That also means a host-level failure (an execution-policy block, an unsigned script, a parse
-error, a module that will not load) arrives as `script_failed` with nothing but `exit code 1`.
+The connector discards script stdout and stderr, because either can echo the credentials it just
+handed you. That also means a host-level failure (an execution-policy block, an unsigned script, a
+parse error, a module that will not load) arrives as `script_failed` with nothing but `exit code 1`.
 
-To see the actual error, run the script by hand as the account the daemon runs under, which also
+To see the actual error, run the script by hand as the account the connector runs under, which also
 reproduces the environment allowlist:
 
 ```
@@ -564,5 +565,5 @@ ABC_1234_…_CLIENT_SECRET=<secret>
 ## References
 
 - Plan: `~/.claude/plans/let-s-explore-implementing-the-spicy-sun.md`
-- Spec: `rotation-daemon/rotation-daemon.allium`
+- Spec: `access-connector.allium`
 - Architecture: https://contributing.bitwarden.com/architecture/sdk/
