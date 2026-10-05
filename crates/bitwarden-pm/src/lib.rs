@@ -66,6 +66,7 @@ pub use bitwarden_unlock::{SessionKey, UnlockError, UnlockMethod};
 pub use builder::PasswordManagerClientBuilder;
 
 /// The main entry point for the Bitwarden Password Manager SDK
+#[derive(Clone)]
 pub struct PasswordManagerClient(pub bitwarden_core::Client);
 
 impl PasswordManagerClient {
