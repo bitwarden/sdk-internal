@@ -1,7 +1,8 @@
 # Performance harnesses
 
-Benchmarks for the WASM SDK, run through the Node build. Excluded from `npm test`; files match
-`perf/**/*.perf.ts`.
+Benchmarks for the WASM SDK, run through the Node build with
+[tinybench](https://github.com/tinylibs/tinybench). Excluded from `npm test`; files match
+`perf/*.perf.ts` and export `run()`.
 
 ```sh
 ./perf/build.sh                # release build of the Node target, with symbol names for profiling

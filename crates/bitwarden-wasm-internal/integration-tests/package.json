@@ -7,8 +7,8 @@
     "build:test": "bash ../build.sh && npm run test",
     "test": "npm run typecheck && NODE_OPTIONS=--experimental-vm-modules jest",
     "typecheck": "tsc --noEmit",
-    "perf": "NODE_OPTIONS=--experimental-vm-modules jest -c jest.perf.config.js --runInBand",
-    "perf:profile": "node --experimental-vm-modules --cpu-prof --cpu-prof-dir=perf/profiles node_modules/jest/bin/jest.js -c jest.perf.config.js --runInBand"
+    "perf": "node --import tsx perf/index.ts",
+    "perf:profile": "node --import tsx --cpu-prof --cpu-prof-dir=perf/profiles perf/index.ts"
   },
   "dependencies": {
     "@bitwarden/sdk-internal": "file:../npm/"
@@ -17,7 +17,9 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
     "jest": "^30.0.0",
+    "tinybench": "^6.2.0",
     "ts-jest": "^29.1.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.0"
   }
 }

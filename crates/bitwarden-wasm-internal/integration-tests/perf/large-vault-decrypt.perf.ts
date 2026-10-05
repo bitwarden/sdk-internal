@@ -19,9 +19,7 @@
 //   PERF_SCENARIOS   comma-separated scenario filter  (default all)
 //   PERF_LABEL       writes perf/results/<label>.json when set
 
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { ok, strictEqual } from "node:assert/strict";
 
 import type {
   Cipher,
@@ -33,17 +31,14 @@ import type {
 import { TEST_ORGANIZATION_ID } from "../tests/org-fixtures";
 import { makeOrgInitializedClient, makeStateBridge, makeV2AccountClient } from "../tests/utils";
 
+import { makeBench, report, type Stats } from "./bench";
 import { generateVault } from "./vault-generator";
 
 const VAULT_SIZE = Number(process.env.PERF_VAULT_SIZE ?? 10_000);
 const RUNS = Number(process.env.PERF_RUNS ?? 5);
-const WARMUP_RUNS = 1;
-const LABEL = process.env.PERF_LABEL;
 const SCENARIO_FILTER = process.env.PERF_SCENARIOS?.split(",");
 const CIPHER_KEY_FLAG = "enableCipherKeyEncryption";
 const MS_TO_US = 1000;
-
-const RESULTS_DIR = join(dirname(fileURLToPath(import.meta.url)), "results");
 
 interface Scenario {
   name: string;
@@ -56,17 +51,6 @@ const SCENARIOS: Scenario[] = [
   { name: "v1-personal", makeClient: makeOrgInitializedClient, orgId: undefined },
   { name: "v2-personal", makeClient: makeV2AccountClient, orgId: undefined },
 ].filter((s) => !SCENARIO_FILTER || SCENARIO_FILTER.includes(s.name));
-
-interface Stats {
-  scenario: string;
-  operation: string;
-  runsMs: number[];
-  medianMs: number;
-  minMs: number;
-  usPerCipher: number;
-}
-
-const allStats: Stats[] = [];
 
 /** Builds an encrypted vault in which every cipher has its own cipher key, as clients create today. */
 async function buildVault(
@@ -89,75 +73,33 @@ function formats(vault: Cipher[]): Record<string, number> {
   return counts;
 }
 
-async function measure(
-  scenario: string,
-  operation: string,
-  run: () => Promise<number>,
-): Promise<Stats> {
-  for (let i = 0; i < WARMUP_RUNS; i++) {
-    await run();
-  }
-
-  const runsMs: number[] = [];
-  for (let i = 0; i < RUNS; i++) {
-    const start = performance.now();
-    const decrypted = await run();
-    runsMs.push(performance.now() - start);
-
-    // Guards against silently measuring a failing decrypt.
-    expect(decrypted).toBe(VAULT_SIZE);
-  }
-
-  const sorted = [...runsMs].sort((a, b) => a - b);
-  const medianMs = sorted[Math.floor(sorted.length / 2)];
-  return {
-    scenario,
-    operation,
-    runsMs,
-    medianMs,
-    minMs: sorted[0],
-    usPerCipher: (medianMs * MS_TO_US) / VAULT_SIZE,
-  };
+function usPerCipher(s: Stats): Record<string, string> {
+  return { "µs/cipher": ((s.medianMs * MS_TO_US) / VAULT_SIZE).toFixed(1) };
 }
 
-function report(stats: Stats[]): void {
-  const rows = stats.map(
-    (s) =>
-      `${s.scenario.padEnd(12)} ${s.operation.padEnd(32)} median ${s.medianMs.toFixed(1).padStart(8)} ms` +
-      `  min ${s.minMs.toFixed(1).padStart(8)} ms  ${s.usPerCipher.toFixed(1).padStart(6)} µs/cipher`,
-  );
-  console.log(`vault size ${VAULT_SIZE}, ${RUNS} runs\n${rows.join("\n")}`);
+export async function run(): Promise<void> {
+  const bench = makeBench(`large vault decrypt, vault size ${VAULT_SIZE}, ${RUNS} runs`, RUNS);
 
-  if (!LABEL) {
-    return;
-  }
-  mkdirSync(RESULTS_DIR, { recursive: true });
-  const file = join(RESULTS_DIR, `${LABEL}.json`);
-  writeFileSync(file, JSON.stringify({ label: LABEL, vaultSize: VAULT_SIZE, stats }, null, 2));
-}
-
-describe("large vault decrypt performance", () => {
-  afterAll(() => report(allStats));
-
-  it.each(SCENARIOS)("$name: list and full decryption", async ({ name, makeClient, orgId }) => {
+  // Client and vault setup is untimed; each scenario adds its two decrypt tasks.
+  for (const { name, makeClient, orgId } of SCENARIOS) {
     const client = await makeClient(makeStateBridge());
     const vault = await buildVault(client, orgId);
-    expect(vault.every((cipher) => cipher.key !== undefined)).toBe(true);
+    ok(vault.every((cipher) => cipher.key !== undefined));
     console.log(`${name} formats ${JSON.stringify(formats(vault))}`);
 
     const ciphers = client.vault().ciphers();
 
-    allStats.push(
-      await measure(name, "decrypt_list_with_failures", async () => {
-        const result = await ciphers.decrypt_list_with_failures(vault);
-        return result.successes.length;
-      }),
-    );
-    allStats.push(
-      await measure(name, "decrypt_list_full_with_failures", async () => {
-        const result = await ciphers.decrypt_list_full_with_failures(vault);
-        return result.successes.length;
-      }),
-    );
-  });
-});
+    // Assertions guard against silently measuring a failing decrypt.
+    bench.add(`${name} decrypt_list_with_failures`, async () => {
+      const result = await ciphers.decrypt_list_with_failures(vault);
+      strictEqual(result.successes.length, VAULT_SIZE);
+    });
+    bench.add(`${name} decrypt_list_full_with_failures`, async () => {
+      const result = await ciphers.decrypt_list_full_with_failures(vault);
+      strictEqual(result.successes.length, VAULT_SIZE);
+    });
+  }
+
+  await bench.run();
+  report(bench, "", { vaultSize: VAULT_SIZE }, usPerCipher);
+}
