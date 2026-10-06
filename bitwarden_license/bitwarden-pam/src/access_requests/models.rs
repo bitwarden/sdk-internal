@@ -530,15 +530,6 @@ pub struct AccessRequestCreateRequest {
     pub reason: Option<String>,
 }
 
-/// Renders an instant for the wire as a `Z`-suffixed UTC timestamp, e.g.
-/// `2025-01-01T00:00:00.000Z`.
-///
-/// Not [`DateTime::to_rfc3339`], which spells a zero offset as `+00:00`: the server's .NET
-/// `DateTime` resolves an explicit offset against the API host's timezone, shifting the window.
-fn to_wire_timestamp(value: DateTime<Utc>) -> String {
-    value.to_rfc3339_opts(SecondsFormat::Millis, true)
-}
-
 impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
     type Error = AccessRequestWindowError;
 
@@ -551,8 +542,12 @@ impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
 
         Ok(Self {
             duration_seconds: request.duration_seconds.map(|d| d.get() as i32),
-            start: request.start.map(to_wire_timestamp),
-            end: request.end.map(to_wire_timestamp),
+            start: request
+                .start
+                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
+            end: request
+                .end
+                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
             reason: request.reason,
         })
     }
@@ -1099,7 +1094,6 @@ mod tests {
         assert_eq!(model.reason, Some("Need access".to_string()));
     }
 
-    /// Must be `Z`-suffixed; see `to_wire_timestamp`. Far future for the same reason as above.
     #[test]
     fn access_request_create_request_window_is_serialized_as_utc_with_a_z_designator() {
         let request = AccessRequestCreateRequest {
