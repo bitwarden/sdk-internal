@@ -38,6 +38,7 @@ bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=4.0.0
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=4.0.0" }
 bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=4.0.0" }
 bitwarden-crypto-sync-handler = { path = "crates/bitwarden-crypto-sync-handler", version = "=4.0.0" }
+bitwarden-emergency-access = { path = "crates/bitwarden-emergency-access", version = "=4.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=4.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=4.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=4.0.0" }
@@ -54,6 +55,7 @@ bitwarden-managed-settings = { path = "crates/bitwarden-managed-settings", versi
 bitwarden-managed-settings-types = { path = "crates/bitwarden-managed-settings-types", version = "=4.0.0" }
 bitwarden-member-administration = { path = "crates/bitwarden-member-administration", version = "=4.0.0" }
 bitwarden-organization-crypto = { path = "crates/bitwarden-organization-crypto", version = "=4.0.0" }
+bitwarden-organization-domains = { path = "crates/bitwarden-organization-domains", version = "=4.0.0" }
 bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-invite-link", version = "=4.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=4.0.0" }
 bitwarden-pam = { path = "bitwarden_license/bitwarden-pam", version = "=4.0.0" }

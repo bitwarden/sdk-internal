@@ -164,6 +164,16 @@ impl PasswordManagerClient {
         self.0.invite_link()
     }
 
+    /// Organization verified domain operations.
+    pub fn organization_domains(&self) -> OrganizationDomainsClient {
+        self.0.organization_domains()
+    }
+
+    /// Emergency access operations, performed as the grantee.
+    pub fn emergency_access(&self) -> EmergencyAccessClient {
+        self.0.emergency_access()
+    }
+
     /// Organization member administration operations.
     pub fn organization_users_management(&self) -> OrganizationUsersManagementClient {
         self.0.organization_users_management()
@@ -177,6 +187,15 @@ impl PasswordManagerClient {
     /// Whether the client is in Gov Mode.
     pub fn gov_mode(&self) -> bool {
         self.0.0.gov_mode()
+    }
+
+    /// Dev-only debug capabilities that reach past the public API into internal
+    /// state, for automated tooling. Rooted debug tree mirroring the client
+    /// tree. Available only when built with the `debug-capabilities` feature,
+    /// which must never be enabled in production.
+    #[cfg(feature = "debug-capabilities")]
+    pub fn debug(&self) -> bitwarden_pm::debug::DebugClient {
+        self.0.debug()
     }
 }
 

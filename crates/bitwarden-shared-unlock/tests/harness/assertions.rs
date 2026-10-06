@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use bitwarden_core::UserId;
-use bitwarden_shared_unlock::LockState;
+use bitwarden_shared_unlock::{LockState, PeerLockState};
 use bitwarden_threading::time::sleep;
 use web_time::Instant;
 
@@ -288,6 +288,41 @@ pub(crate) fn assert_still_responsive(
             ),
             topology,
         );
+    }
+}
+
+/// Waits until `device`'s driver is told a peer holds `user_id` in `expected`. This is what a
+/// client learns from, e.g. the CLI telling "my leader is locked" apart from "no leader answered".
+pub(crate) async fn wait_for_peer_state(
+    topology: &SharedUnlockTopology,
+    device: &str,
+    user_id: UserId,
+    expected: PeerLockState,
+) {
+    let user = user_id.to_string();
+    let detail = format!("{expected:?}");
+    let deadline = Instant::now() + CONVERGE_TIMEOUT;
+    loop {
+        let seen = events(topology.id()).into_iter().any(|event| {
+            event.device() == device
+                && event.kind() == Some(kind::PEER_STATE)
+                && event.user_id() == Some(user.as_str())
+                && event.field("detail") == Some(detail.as_str())
+        });
+        if seen {
+            return;
+        }
+
+        if Instant::now() >= deadline {
+            fail(
+                format!(
+                    "Timed out after {CONVERGE_TIMEOUT:?} waiting for \"{device}\" to be told a \
+                     peer holds user {user_id} {detail}"
+                ),
+                topology,
+            );
+        }
+        sleep(Duration::from_millis(5)).await;
     }
 }
 

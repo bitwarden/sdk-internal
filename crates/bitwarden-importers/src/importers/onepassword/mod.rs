@@ -3,10 +3,8 @@
 //! [`access`] is the Bitwarden-agnostic client that logs in and downloads the vaults.
 //! [`convert`] maps what it returns onto the importer's parsed shape.
 
-// Both are `pub` for the `test-utils` re-export.
-// TODO: Make them `pub(crate)` once the out-of-tree CLI is retired.
-pub mod access;
-pub mod convert;
+pub(crate) mod access;
+pub(crate) mod convert;
 
 use access::OnePasswordError;
 
@@ -19,6 +17,7 @@ impl From<OnePasswordError> for ImportError {
             OnePasswordError::InvalidSignInAddress(_) => {
                 ImportError::OnePasswordInvalidSignInAddress
             }
+            OnePasswordError::InvalidAccountKey(_) => ImportError::OnePasswordInvalidSecretKey,
             OnePasswordError::TwoFactorRequired => ImportError::OnePasswordTwoFactorRequired,
             OnePasswordError::TwoFactorFailed => ImportError::OnePasswordTwoFactorFailed,
             OnePasswordError::Unsupported(what) => ImportError::OnePasswordUnsupported(what),
@@ -34,6 +33,9 @@ impl From<OnePasswordError> for ImportError {
                 ImportError::OnePasswordNetwork("the account or vault was not found".to_string())
             }
             OnePasswordError::Internal(what) => ImportError::OnePasswordNetwork(what),
+            error @ OnePasswordError::UnexpectedStatus { .. } => {
+                ImportError::OnePasswordNetwork(error.to_string())
+            }
         }
     }
 }

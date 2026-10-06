@@ -15,6 +15,10 @@ const MAX_SUBDOMAIN_LENGTH: usize = 63;
 /// See <https://support.1password.com/regions/>.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify)
+)]
 pub enum SignInDomain {
     /// `1password.com`, the default. Data hosted in the United States.
     Global,
@@ -45,6 +49,10 @@ impl SignInDomain {
 /// record before using it because foreign bindings construct records directly.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify)
+)]
 pub struct SignInAddress {
     /// The account-specific DNS label, such as `my`.
     pub subdomain: String,

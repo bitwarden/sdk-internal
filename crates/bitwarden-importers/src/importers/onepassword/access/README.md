@@ -15,7 +15,7 @@ each one into a Bitwarden folder. 1P doesn't have folders, only tags.
 - Supports TOTP 2FA only ATM
 - No SSO support
 - No service account support (they are not so good for export/import)
-- One entry point, `Client::download_all_vaults`. No vault selection, no random access
+- One entry point, `Client::open_account`. No vault selection, no random access
 - Added `aes-gcm`, `hkdf`, `crypto-bigint` and `icu_normalizer` to the workspace, will increase the
   wasm size.
 - SRP uses `crypto-bigint` rather than `num-bigint` for the constant-time `modpow`
@@ -39,13 +39,8 @@ each one into a Bitwarden folder. 1P doesn't have folders, only tags.
 - This module reaches for `hkdf`, `aes-gcm` and `rsa` directly because `bitwarden-crypto` keeps
   those primitives private. Question: should `bitwarden-crypto` expose them, so feature crates do
   not each depend on RustCrypto themselves?
-- A wrong password reports as
-  `Internal("unexpected response from 'v2/auth/confirm-key' (HTTP 401)")` rather than
-  `BadCredentials`. The server only rejects at `confirm-key`, and its body there is not the
-  `errorCode` shape `parse_server_error` understands
-- A vault we hold no key for is skipped silently, and one undecryptable item aborts the whole import
-- `access` is `pub` only so the `test-utils` re-export can reach it, a `pub use` cannot re-export a
-  `pub(crate)` module
+- Decide partial-import policy: import valid data; report missing-access or explicitly unsupported
+  data as skipped; should unexpected JSON, decryption or internal failures abort or also be skipped?
 - The username goes on the wire raw, `v2/auth/methods` and `v3/auth/start` do not get the normalized
   one
 - `OnePasswordError::TwoFactorRequired` is never constructed

@@ -16,6 +16,8 @@ pub enum ImportError {
 
     #[error("The 1Password sign-in address is not valid")]
     OnePasswordInvalidSignInAddress,
+    #[error("The 1Password Secret Key is not valid")]
+    OnePasswordInvalidSecretKey,
     #[error("Incorrect 1Password email, password, or Secret Key")]
     OnePasswordBadCredentials,
     #[error("The 1Password account requires a two-factor code")]
