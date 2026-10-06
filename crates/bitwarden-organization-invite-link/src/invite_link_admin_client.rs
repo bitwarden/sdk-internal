@@ -13,14 +13,12 @@ use bitwarden_core::{
 use bitwarden_crypto::{EncString, KeyStore};
 use bitwarden_organization_crypto::invite::{Invite, InviteSecret};
 use http::StatusCode;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{InviteLinkError, OrganizationInviteLink, OrganizationInviteLinkView};
 
 /// Client for organization invite link administrative (organization-key) operations: creating,
 /// refreshing, updating, deleting, and inspecting invite links, and recovering the invite secret.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct InviteLinkAdminClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -31,7 +29,7 @@ pub struct InviteLinkAdminClient {
 // `refresh_invite_link`, and the `wasm_bindgen`-generated shims for those deprecated exports call
 // them; both would otherwise emit deprecation warnings from code we cannot annotate individually.
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl InviteLinkAdminClient {
     /// Get an existing invite link.
     pub async fn get(

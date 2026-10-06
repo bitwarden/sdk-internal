@@ -23,11 +23,7 @@ use crate::{
 /// This presumes the SDK is already unlocked (has user key in memory).
 #[derive(Serialize, Deserialize, Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReinitUserCryptoRequest {
     /// The user's account cryptographic state, encrypted under the user key

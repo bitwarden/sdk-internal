@@ -9,16 +9,15 @@ mod reinit_user_crypto;
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::AccountKeysRequestModel;
-#[expect(deprecated)]
 use bitwarden_crypto::{
-    CoseSerializable, CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable,
-    KeyEncryptable, MasterKey, PrimitiveEncryptable, PublicKey, RotateableKeySet,
-    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
-    TrustDeviceResponse, UnsignedSharedKey, dangerous_get_v2_rotated_account_keys,
-    derive_symmetric_key_from_prf,
-    safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
+    CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable, KeyEncryptable,
+    MasterKey, PrimitiveEncryptable, PublicKey, RotateableKeySet, SpkiPublicKeyBytes,
+    SymmetricCryptoKey, TrustDeviceResponse, UnsignedSharedKey, derive_symmetric_key_from_prf,
+    safe::{
+        PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError,
+        PasswordProtectedKeyEnvelopeNamespace,
+    },
 };
-use bitwarden_crypto::{SymmetricKeyAlgorithm, safe::PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 #[cfg(any(feature = "uniffi", feature = "wasm"))]
@@ -28,8 +27,6 @@ pub use reinit_user_crypto::{ReinitUserCryptoError, ReinitUserCryptoRequest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::info;
-#[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 #[cfg(feature = "wasm")]
 use crate::key_management::wasm_unlock_state::{copy_user_key_to_state, get_user_key_from_state};
@@ -40,10 +37,8 @@ use crate::{
         encryption_settings::EncryptionSettingsError,
         persisted_state::{ACCOUNT_CRYPTO_STATE, OrganizationSharedKey},
     },
-    error::StatefulCryptoError,
     key_management::{
-        MasterPasswordError, PrivateKeySlotId, SecurityState, SignedSecurityState,
-        SigningKeySlotId, SymmetricKeySlotId, V2UpgradeToken,
+        MasterPasswordError, SymmetricKeySlotId, V2UpgradeToken,
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
         },
@@ -83,7 +78,7 @@ pub enum CryptoClientError {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct InitUserCryptoRequest {
     /// The user's ID.
     pub user_id: Option<UserId>,
@@ -105,7 +100,7 @@ pub struct InitUserCryptoRequest {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[allow(clippy::large_enum_variant)]
 pub enum InitUserCryptoMethod {
     /// Master Password Unlock
@@ -181,7 +176,7 @@ pub enum InitUserCryptoMethod {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum AuthRequestMethod {
     /// User Key
     UserKey {
@@ -422,7 +417,7 @@ pub(super) async fn initialize_user_crypto(
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct InitOrgCryptoRequest {
     /// The encryption keys for all the organizations the user is a part of
     pub organization_keys: HashMap<OrganizationId, UnsignedSharedKey>,
@@ -474,7 +469,7 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<B64, Cryp
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct UpdateKdfResponse {
     /// The authentication data for the new KDF setting
     master_password_authentication_data: MasterPasswordAuthenticationData,
@@ -530,7 +525,7 @@ pub(super) async fn make_update_kdf(
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct UpdatePasswordResponse {
     /// Hash of the new password
     password_hash: B64,
@@ -579,7 +574,7 @@ pub(super) async fn make_update_password(
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct EnrollPinResponse {
     /// [UserKey][bitwarden_crypto::UserKey] protected by PIN
     pub pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
@@ -611,7 +606,7 @@ pub(super) fn enroll_pin(
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct DerivePinKeyResponse {
     /// [UserKey][bitwarden_crypto::UserKey] protected by PIN
     pin_protected_user_key: EncString,
@@ -724,7 +719,7 @@ pub(super) fn enroll_admin_password_reset(
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct DeriveKeyConnectorRequest {
     /// Encrypted user key, used to validate the master key
     pub user_key_encrypted: EncString,
@@ -756,148 +751,6 @@ pub(super) fn derive_key_connector(
         .map_err(|_| WrongPasswordError)?;
 
     Ok(master_key.to_base64())
-}
-
-/// Response for the `make_keys_for_user_crypto_v2`, containing a set of keys for a user
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct UserCryptoV2KeysResponse {
-    /// User key
-    user_key: B64,
-
-    /// Wrapped private key
-    private_key: EncString,
-    /// Public key
-    public_key: B64,
-    /// The user's public key, signed by the signing key
-    signed_public_key: SignedPublicKey,
-
-    /// Signing key, encrypted with the user's symmetric key
-    signing_key: EncString,
-    /// Base64 encoded verifying key
-    verifying_key: B64,
-
-    /// The user's signed security state
-    security_state: SignedSecurityState,
-    /// The security state's version
-    security_version: u64,
-}
-
-/// Creates the user's cryptographic state for v2 users. This includes ensuring signature key pair
-/// is present, a signed public key is present, a security state is present and signed, and the user
-/// key is a Cose key.
-#[deprecated(note = "Use AccountCryptographicState::rotate instead")]
-pub(crate) fn make_v2_keys_for_v1_user(
-    client: &Client,
-) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
-    let key_store = client.internal.get_key_store();
-    let mut ctx = key_store.context();
-
-    // Re-use existing private key
-    let private_key_id = PrivateKeySlotId::UserPrivateKey;
-
-    // Ensure that the function is only called for a V1 user.
-    if client.internal.get_security_version() != 1 {
-        return Err(StatefulCryptoError::WrongAccountCryptoVersion {
-            expected: "1".to_string(),
-            got: 2,
-        });
-    }
-
-    // Ensure the user has a private key.
-    // V1 user must have a private key to upgrade. This should be ensured by the client before
-    // calling the upgrade function.
-    if !ctx.has_private_key(PrivateKeySlotId::UserPrivateKey) {
-        return Err(StatefulCryptoError::Crypto(CryptoError::MissingKeyId(
-            "UserPrivateKey".to_string(),
-        )));
-    }
-
-    #[allow(deprecated)]
-    let private_key = ctx.dangerous_get_private_key(private_key_id)?.clone();
-
-    // New user key
-    let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm);
-
-    // New signing key
-    let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-    let temporary_signing_key_id = ctx.add_local_signing_key(signing_key.clone());
-
-    // Sign existing public key
-    let signed_public_key = ctx.make_signed_public_key(private_key_id, temporary_signing_key_id)?;
-    let public_key = private_key.to_public_key();
-
-    // Initialize security state for the user
-    let security_state = SecurityState::new();
-    let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
-
-    Ok(UserCryptoV2KeysResponse {
-        user_key: user_key.to_base64(),
-
-        private_key: private_key.to_der()?.encrypt_with_key(&user_key)?,
-        public_key: public_key.to_der()?.into(),
-        signed_public_key,
-
-        signing_key: signing_key.to_cose().encrypt_with_key(&user_key)?,
-        verifying_key: signing_key.to_verifying_key().to_cose().into(),
-
-        security_state: signed_security_state,
-        security_version: security_state.version(),
-    })
-}
-
-/// Gets a set of new wrapped account keys for a user, given a new user key.
-///
-/// In the current implementation, it just re-encrypts any existing keys. This function expects a
-/// user to be a v2 user; that is, they have a signing key, a cose user-key, and a private key
-#[deprecated(note = "Use AccountCryptographicState::rotate instead")]
-pub(crate) fn get_v2_rotated_account_keys(
-    client: &Client,
-) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
-    let key_store = client.internal.get_key_store();
-    let mut ctx = key_store.context();
-
-    // Ensure that the function is only called for a V2 user.
-    // V2 users have a security version 2 or higher.
-    if client.internal.get_security_version() == 1 {
-        return Err(StatefulCryptoError::WrongAccountCryptoVersion {
-            expected: "2+".to_string(),
-            got: 1,
-        });
-    }
-
-    let security_state = client
-        .internal
-        .security_state
-        .read()
-        .expect("RwLock is not poisoned")
-        .to_owned()
-        // This cannot occur since the security version check above already ensures that the
-        // security state is present.
-        .ok_or(StatefulCryptoError::MissingSecurityState)?;
-
-    #[expect(deprecated)]
-    let rotated_keys = dangerous_get_v2_rotated_account_keys(
-        PrivateKeySlotId::UserPrivateKey,
-        SigningKeySlotId::UserSigningKey,
-        &ctx,
-    )?;
-
-    Ok(UserCryptoV2KeysResponse {
-        user_key: rotated_keys.user_key.to_base64(),
-
-        private_key: rotated_keys.private_key,
-        public_key: rotated_keys.public_key.into(),
-        signed_public_key: rotated_keys.signed_public_key,
-
-        signing_key: rotated_keys.signing_key,
-        verifying_key: rotated_keys.verifying_key.into(),
-
-        security_state: security_state.sign(SigningKeySlotId::UserSigningKey, &mut ctx)?,
-        security_version: security_state.version(),
-    })
 }
 
 /// The response from `make_user_tde_registration`.
@@ -1178,7 +1031,8 @@ mod tests {
         Client,
         client::test_accounts::{test_bitwarden_com_account, test_bitwarden_com_account_v2},
         key_management::{
-            KeySlotIds, V2UpgradeToken, state_bridge::test_support::InMemoryStateBridge,
+            KeySlotIds, PrivateKeySlotId, V2UpgradeToken,
+            state_bridge::test_support::InMemoryStateBridge,
         },
     };
 
@@ -1748,181 +1602,6 @@ mod tests {
             result.to_string(),
             "ySXq1RVLKEaV1eoQE/ui9aFKIvXTl9PAXwp1MljfF50="
         );
-    }
-
-    #[tokio::test]
-    async fn test_make_v2_keys_for_v1_user() {
-        let client = Client::new_test(None);
-
-        let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
-        let encrypted_userkey: EncString = "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap();
-
-        initialize_user_crypto(
-            &client,
-            InitUserCryptoRequest {
-                user_id: Some(UserId::new_v4()),
-                kdf_params: Kdf::PBKDF2 {
-                    iterations: 100_000.try_into().unwrap(),
-                },
-                email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key: priv_key.to_owned(),
-                },
-                method: InitUserCryptoMethod::MasterPasswordUnlock {
-                    password: "asdfasdfasdf".into(),
-                    master_password_unlock: MasterPasswordUnlockData {
-                        kdf: Kdf::PBKDF2 {
-                            iterations: 100_000.try_into().unwrap(),
-                        },
-                        master_key_wrapped_user_key: encrypted_userkey.clone(),
-                        salt: "test@bitwarden.com".into(),
-                        contained_key_id: None,
-                    },
-                },
-                upgrade_token: None,
-            },
-        )
-        .await
-        .unwrap();
-
-        let master_key = MasterKey::derive(
-            "asdfasdfasdf",
-            "test@bitwarden.com",
-            &Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(100_000).unwrap(),
-            },
-        )
-        .unwrap();
-        #[expect(deprecated)]
-        let enrollment_response = make_v2_keys_for_v1_user(&client).unwrap();
-        let encrypted_userkey_v2 = master_key
-            .encrypt_user_key(
-                &SymmetricCryptoKey::try_from(enrollment_response.clone().user_key).unwrap(),
-            )
-            .unwrap();
-
-        let client2 = Client::new_test(None);
-
-        initialize_user_crypto(
-            &client2,
-            InitUserCryptoRequest {
-                user_id: Some(UserId::new_v4()),
-                kdf_params: Kdf::PBKDF2 {
-                    iterations: 100_000.try_into().unwrap(),
-                },
-                email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V2 {
-                    private_key: enrollment_response.private_key,
-                    signing_key: enrollment_response.signing_key,
-                    security_state: enrollment_response.security_state,
-                    signed_public_key: enrollment_response.signed_public_key,
-                },
-                method: InitUserCryptoMethod::MasterPasswordUnlock {
-                    password: "asdfasdfasdf".into(),
-                    master_password_unlock: MasterPasswordUnlockData {
-                        kdf: Kdf::PBKDF2 {
-                            iterations: 100_000.try_into().unwrap(),
-                        },
-                        master_key_wrapped_user_key: encrypted_userkey_v2,
-                        salt: "test@bitwarden.com".to_string(),
-                        contained_key_id: None,
-                    },
-                },
-                upgrade_token: None,
-            },
-        )
-        .await
-        .unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_make_v2_keys_for_v1_user_with_v2_user_fails() {
-        let client = Client::new_test(None);
-
-        initialize_user_crypto(
-            &client,
-            InitUserCryptoRequest {
-                user_id: Some(UserId::new_v4()),
-                kdf_params: Kdf::PBKDF2 {
-                    iterations: 100_000.try_into().unwrap(),
-                },
-                email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V2 {
-                    private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
-                    signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
-                    security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
-                    signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
-                },
-                method: InitUserCryptoMethod::DecryptedKey {
-                    decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
-                },
-                upgrade_token: None,
-            },
-        )
-        .await
-        .unwrap();
-
-        #[expect(deprecated)]
-        let result = make_v2_keys_for_v1_user(&client);
-        assert!(matches!(
-            result,
-            Err(StatefulCryptoError::WrongAccountCryptoVersion {
-                expected: _,
-                got: _
-            })
-        ));
-    }
-
-    #[test]
-    fn test_get_v2_rotated_account_keys_non_v2_user() {
-        let client = Client::new(None);
-        let mut ctx = client.internal.get_key_store().context_mut();
-        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
-            .unwrap();
-        drop(ctx);
-
-        #[expect(deprecated)]
-        let result = get_v2_rotated_account_keys(&client);
-        assert!(matches!(
-            result,
-            Err(StatefulCryptoError::WrongAccountCryptoVersion {
-                expected: _,
-                got: _
-            })
-        ));
-    }
-
-    #[tokio::test]
-    async fn test_get_v2_rotated_account_keys() {
-        let client = Client::new_test(None);
-
-        initialize_user_crypto(
-            &client,
-            InitUserCryptoRequest {
-                user_id: Some(UserId::new_v4()),
-                kdf_params: Kdf::PBKDF2 {
-                    iterations: 100_000.try_into().unwrap(),
-                },
-                email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V2 {
-                    private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
-                    signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
-                    security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
-                    signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
-                },
-                method: InitUserCryptoMethod::DecryptedKey {
-                    decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
-                },
-                upgrade_token: None,
-            },
-        )
-        .await
-        .unwrap();
-
-        #[expect(deprecated)]
-        let result = get_v2_rotated_account_keys(&client);
-        assert!(result.is_ok());
     }
 
     #[tokio::test]

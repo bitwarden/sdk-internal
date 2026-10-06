@@ -11,6 +11,10 @@ use bitwarden_core::{ClientSettings, auth::ClientManagedTokens};
 pub mod auth;
 #[allow(missing_docs)]
 pub mod crypto;
+/// Dev-only debug-capability tree, exposed to the mobile bindings. Compiled only
+/// under the `debug-capabilities` feature; never ship in production.
+#[cfg(feature = "debug-capabilities")]
+pub mod debug;
 #[allow(missing_docs)]
 pub mod error;
 mod log_callback;
@@ -182,6 +186,17 @@ impl Client {
             .map_err(|e| Error::Api(e.into()))?;
 
         res.text().await.map_err(|e| Error::Api(e.into()))
+    }
+}
+
+#[cfg(feature = "debug-capabilities")]
+#[uniffi::export]
+impl Client {
+    /// Dev-only debug capabilities that reach past the public API into internal
+    /// state, for automated tooling. Available only when built with the
+    /// `debug-capabilities` feature, which must never be enabled in production.
+    pub fn debug(&self) -> debug::DebugClient {
+        debug::DebugClient(self.0.debug())
     }
 }
 

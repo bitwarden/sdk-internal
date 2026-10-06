@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::PolicyType as ApiPolicyType;
-use bitwarden_core::{ApiError, MissingFieldError};
+use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
-use bitwarden_policies::Policy;
+use bitwarden_policies::{Policy, PolicyParseError};
 use thiserror::Error;
 
 use crate::{EmergencyAccessClient, EmergencyAccessId};
@@ -13,9 +13,9 @@ pub enum EmergencyAccessGetGrantorPoliciesError {
     /// The request to the server failed.
     #[error(transparent)]
     Api(#[from] ApiError),
-    /// A required field was missing from the server response.
+    /// A policy in the server response could not be parsed.
     #[error(transparent)]
-    MissingField(#[from] MissingFieldError),
+    PolicyParse(#[from] PolicyParseError),
 }
 
 #[bitwarden_ffi::wasm_export]

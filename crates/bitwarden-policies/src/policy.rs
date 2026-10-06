@@ -1,12 +1,9 @@
 //! The [`Policy`] record: the raw, persisted representation of an organization policy.
 
-use bitwarden_api_api::models::PolicyResponseModel;
 use bitwarden_core::{MissingFieldError, OrganizationId, require};
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::policy_type::PolicyType;
 
@@ -19,7 +16,7 @@ uuid_newtype!(pub PolicyId);
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Policy {
     /// The policy's unique ID.
     pub id: PolicyId,
@@ -35,28 +32,42 @@ pub struct Policy {
     pub revision_date: Option<DateTime<Utc>>,
 }
 
-impl TryFrom<PolicyResponseModel> for Policy {
-    type Error = MissingFieldError;
+bitwarden_state::register_repository_item!(PolicyId => Policy, "Policy");
 
-    fn try_from(response: PolicyResponseModel) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: PolicyId::new(require!(response.id)),
-            organization_id: OrganizationId::new(require!(response.organization_id)),
-            r#type: require!(response.r#type).try_into()?,
-            data: response.data.map(|data| data.to_string()),
-            enabled: require!(response.enabled),
-            revision_date: response
-                .revision_date
-                .map(|date| date.parse())
-                .transpose()
-                .map_err(|_| MissingFieldError("revision_date"))?,
+/// Errors that can occur when parsing a [`Policy`] from its raw API representation.
+#[derive(Debug, thiserror::Error)]
+pub enum PolicyParseError {
+    /// A required field was missing from the API response.
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
+    /// The server returned a policy type this SDK version does not recognize.
+    #[error("Unknown policy type: {0}")]
+    UnknownPolicyType(i64),
+    /// The revision date could not be parsed.
+    #[error(transparent)]
+    InvalidRevisionDate(#[from] chrono::ParseError),
+}
+
+impl TryFrom<bitwarden_api_api::models::PolicyResponseModel> for Policy {
+    type Error = PolicyParseError;
+
+    fn try_from(
+        policy: bitwarden_api_api::models::PolicyResponseModel,
+    ) -> Result<Self, Self::Error> {
+        Ok(Policy {
+            id: PolicyId::new(require!(policy.id)),
+            organization_id: OrganizationId::new(require!(policy.organization_id)),
+            r#type: require!(policy.r#type).try_into()?,
+            data: policy.data.map(|d| d.to_string()),
+            enabled: require!(policy.enabled),
+            revision_date: policy.revision_date.map(|d| d.parse()).transpose()?,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::models::PolicyType as ApiPolicyType;
+    use bitwarden_api_api::models::{PolicyResponseModel, PolicyType as ApiPolicyType};
 
     use super::*;
 
