@@ -16,9 +16,9 @@ pub const MAX_REQUEST_ACCESS_WINDOW_SECONDS: u32 = 86_400;
 /// A client collecting a window in a form validates it as the requester types - long before there
 /// is an [`AccessRequestCreateRequest`] to hand to
 /// [`request`](super::AccessRequestsClient::request), which is where
-/// [`validate`](AccessRequestCreateRequest::validate) applies the same cap. So the number has to be
-/// readable on its own, or every client hardcodes its own copy and they drift the day the server's
-/// cap moves. wasm-bindgen exports functions rather than constants, hence a getter.
+/// `validate` applies the same cap. So the number has to be readable on its own, or every client
+/// hardcodes its own copy and they drift the day the server's cap moves. wasm-bindgen exports
+/// functions rather than constants, hence a getter.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn max_request_access_window_seconds() -> u32 {
     MAX_REQUEST_ACCESS_WINDOW_SECONDS
