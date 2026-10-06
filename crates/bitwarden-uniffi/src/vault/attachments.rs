@@ -1,41 +1,11 @@
 use std::path::Path;
 
-use bitwarden_crypto::EncString;
 use bitwarden_vault::{
     Attachment, AttachmentEncryptResult, AttachmentView, Cipher, CipherId, CipherView,
-    CreatedAttachment,
+    CreateAttachmentRequest, CreatedAttachment,
 };
-use chrono::{DateTime, Utc};
 
 use crate::Result;
-
-/// Request to create an attachment slot on a cipher.
-///
-/// Mirrors [`bitwarden_vault::CreateAttachmentRequest`] without its admin flag, since mobile never
-/// uses the admin endpoints.
-#[derive(uniffi::Record)]
-pub struct CreateAttachmentRequest {
-    /// Encrypted attachment key.
-    pub key: EncString,
-    /// Encrypted file name.
-    pub file_name: EncString,
-    /// Encrypted file size in bytes.
-    pub file_size: u64,
-    /// Cipher revision date
-    pub last_known_revision_date: DateTime<Utc>,
-}
-
-impl From<CreateAttachmentRequest> for bitwarden_vault::CreateAttachmentRequest {
-    fn from(request: CreateAttachmentRequest) -> Self {
-        Self {
-            key: request.key,
-            file_name: request.file_name,
-            file_size: request.file_size,
-            last_known_revision_date: request.last_known_revision_date,
-            as_admin: false,
-        }
-    }
-}
 
 #[derive(uniffi::Object)]
 pub struct AttachmentsClient(pub(crate) bitwarden_vault::AttachmentsClient);
@@ -100,7 +70,7 @@ impl AttachmentsClient {
         cipher_id: CipherId,
         request: CreateAttachmentRequest,
     ) -> Result<CreatedAttachment> {
-        Ok(self.0.create_attachment(cipher_id, request.into()).await?)
+        Ok(self.0.create_attachment(cipher_id, request).await?)
     }
 
     /// Delete an attachment from a cipher, returning the updated cipher

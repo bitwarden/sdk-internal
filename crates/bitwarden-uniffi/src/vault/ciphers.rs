@@ -114,10 +114,7 @@ impl CiphersClient {
         cipher_id: CipherId,
         collection_ids: Vec<CollectionId>,
     ) -> Result<CipherView> {
-        Ok(self
-            .0
-            .update_collection(cipher_id, collection_ids, false)
-            .await?)
+        Ok(self.0.update_collection(cipher_id, collection_ids).await?)
     }
 
     /// Get a cipher from local state and decrypt it

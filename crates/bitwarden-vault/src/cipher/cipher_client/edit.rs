@@ -475,7 +475,6 @@ impl CiphersClient {
         &self,
         cipher_id: CipherId,
         collection_ids: Vec<CollectionId>,
-        is_admin: bool,
     ) -> Result<CipherView, EditCipherError> {
         let req = CipherCollectionsRequestModel {
             collection_ids: collection_ids
@@ -488,21 +487,14 @@ impl CiphersClient {
         let api_config = self.client.internal.get_api_configurations();
         let api = api_config.api_client.ciphers_api();
         let orig_cipher = repository.get(cipher_id).await?;
-        let cipher = if is_admin {
-            api.put_collections_admin(&cipher_id.to_string(), Some(req))
-                .await?
-                .merge_with_cipher(orig_cipher)?
-        } else {
-            let cipher_response = api
-                .put_collections_v_next(cipher_id.into(), Some(req))
-                .await?
-                .cipher
-                .map(|c| *c)
-                .ok_or(MissingFieldError("cipher"))?;
-            let response: Cipher = cipher_response.merge_with_cipher(orig_cipher)?;
-            repository.set(cipher_id, response.clone()).await?;
-            response
-        };
+        let cipher_response = api
+            .put_collections_v_next(cipher_id.into(), Some(req))
+            .await?
+            .cipher
+            .map(|c| *c)
+            .ok_or(MissingFieldError("cipher"))?;
+        let cipher: Cipher = cipher_response.merge_with_cipher(orig_cipher)?;
+        repository.set(cipher_id, cipher.clone()).await?;
 
         Ok(self
             .decrypt(cipher)
