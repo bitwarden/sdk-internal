@@ -173,7 +173,8 @@ describe("rotate user keys", () => {
           userKeys.push(await client.getPasswordManagerClient().crypto().get_user_encryption_key());
         }
 
-        // 2. Verify every round produced a key of its own
+        // 2. Verify every round produced a unique key. Set deduplicates items
+        // so comparing set length to array length will show if there were duplicates
         expect(new Set(userKeys).size).toBe(userKeys.length);
 
         // 3. Verify the account ended up V2, whichever version it started at
