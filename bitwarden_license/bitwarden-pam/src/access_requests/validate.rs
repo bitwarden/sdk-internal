@@ -10,29 +10,20 @@ use super::models::AccessRequestCreateRequest;
 /// [`duration_seconds`](AccessRequestCreateRequest::duration_seconds) and the human path's
 /// [`start`](AccessRequestCreateRequest::start)/[`end`](AccessRequestCreateRequest::end) span.
 ///
-/// A backstop, not a policy limit: holding a shorter value here refuses requests the server would
-/// accept, before they ever reach it.
+/// A backstop, not policy: lowering it refuses requests the server would accept.
 pub const MAX_REQUEST_ACCESS_WINDOW_SECONDS: u32 = 365 * 24 * 60 * 60;
 
 /// [`MAX_REQUEST_ACCESS_WINDOW_SECONDS`], for callers that cannot read a Rust `const`.
-///
-/// wasm-bindgen exports functions, not constants, so this is a getter rather than a re-exported
-/// value.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn max_request_access_window_seconds() -> u32 {
     MAX_REQUEST_ACCESS_WINDOW_SECONDS
 }
 
-/// Duration, in seconds, a request form pre-selects absent a rule- or server-named default;
-/// mirrors the server's global default.
-///
-/// Only a fallback for a pre-check response that predates
-/// [`default_duration_seconds`](super::AccessPreCheckView::default_duration_seconds).
+/// Duration, in seconds, to pre-select when the pre-check response names no default; mirrors the
+/// server's global default.
 pub const DEFAULT_REQUEST_ACCESS_DURATION_SECONDS: u32 = 3_600;
 
 /// [`DEFAULT_REQUEST_ACCESS_DURATION_SECONDS`], for callers that cannot read a Rust `const`.
-///
-/// A client hardcoding its own copy drifts the day the server's default moves.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn default_request_access_duration_seconds() -> u32 {
     DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
@@ -46,13 +37,10 @@ pub enum AccessRequestWindowError {
     #[error("end must be strictly after start")]
     EndBeforeStart,
     /// `end` had already passed, so the window could never be activated.
-    ///
-    /// Deliberately not the server's wording ("The end date must be in the future."): clients
-    /// catalog SDK and server errors separately.
     #[error("The requested window has already ended.")]
     EndInPast,
-    /// The requested window was longer than the global ceiling. Says nothing about the governing
-    /// rule's own cap, which this side cannot see.
+    /// The requested window was longer than the global ceiling. The rule's own cap is enforced
+    /// server-side.
     #[error(
         "The requested window exceeds the maximum of {MAX_REQUEST_ACCESS_WINDOW_SECONDS} seconds"
     )]

@@ -11,9 +11,9 @@ use crate::error::PamDecodeError;
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum ApprovalError {
-    /// A decision was submitted with a verdict this SDK cannot put on the wire.
-    /// [`AccessDecisionVerdict::Unknown`](crate::AccessDecisionVerdict::Unknown) is a read-side
-    /// spelling for a verdict a newer server returned, never something to submit.
+    /// A decision was submitted with
+    /// [`AccessDecisionVerdict::Unknown`](crate::AccessDecisionVerdict::Unknown), which is
+    /// read-only.
     #[error("An access-request decision cannot be submitted with an unrecognized verdict")]
     UnsubmittableVerdict,
     /// A server response could not be decoded into the requested type.

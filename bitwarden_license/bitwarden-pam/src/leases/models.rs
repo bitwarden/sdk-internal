@@ -71,12 +71,7 @@ pub struct AccessLeaseView {
     pub not_before: DateTime<Utc>,
     /// When the lease's access window closes (UTC).
     pub not_after: DateTime<Utc>,
-    /// How the lease's access ended ahead of its window, or `None` for an
-    /// [`Expired`](AccessLeaseStatus::Expired) or still-[`Active`](AccessLeaseStatus::Active)
-    /// lease.
-    ///
-    /// Carries what [`AccessLeaseStatus::Revoked`] alone cannot: it covers both a self-service
-    /// end and an operator revoke, and rules out incoherent states like a revoker with no time.
+    /// How the lease ended early; None if it expired or is still active.
     pub termination: Option<AccessLeaseTermination>,
 }
 

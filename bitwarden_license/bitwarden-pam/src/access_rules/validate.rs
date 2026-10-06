@@ -25,12 +25,10 @@ pub enum AccessRuleValidationError {
     /// positive.
     #[error("Lease durations must be positive")]
     InvalidLeaseDuration,
-    /// `default_lease_duration_seconds` exceeded `max_lease_duration_seconds`, which would pre-fill
-    /// every request under the rule with a duration the rule's own cap forbids.
+    /// `default_lease_duration_seconds` exceeded `max_lease_duration_seconds`.
     #[error("The default lease duration cannot exceed the maximum lease duration")]
     DefaultLeaseDurationExceedsMax,
-    /// A lease duration exceeded the global ceiling, refused where the rule is written rather than
-    /// narrowed on every read.
+    /// A lease duration exceeded the global ceiling.
     #[error("A lease duration cannot exceed {MAX_REQUEST_ACCESS_WINDOW_SECONDS} seconds")]
     LeaseDurationExceedsGlobalMax,
     /// More than 10 conditions were provided.

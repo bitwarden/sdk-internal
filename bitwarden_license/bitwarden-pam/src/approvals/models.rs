@@ -13,11 +13,9 @@ use crate::AccessDecisionVerdict;
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct AccessDecisionRequest {
-    /// The verdict to record. [`AccessDecisionVerdict::Unknown`] is a read-side spelling and
-    /// cannot be submitted.
+    /// The verdict to record; [`AccessDecisionVerdict::Unknown`] cannot be submitted.
     pub verdict: AccessDecisionVerdict,
-    /// An optional note recorded with the decision (e.g. denial context). Surfaced to the
-    /// requester.
+    /// An optional note shown to the requester.
     pub comment: Option<String>,
 }
 

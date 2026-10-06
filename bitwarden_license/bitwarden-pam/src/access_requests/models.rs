@@ -41,10 +41,8 @@ pub enum AccessRequestStatus {
     Denied,
     /// Cancelled by the requester before resolution; terminal.
     Canceled,
-    /// The window lapsed with nothing to show for it: either nobody answered an open request, or
-    /// an approval was never activated. Distinguish the two via
-    /// [`decisions`](AccessRequestView::decisions) (empty = unanswered, contains an approval =
-    /// unactivated). Terminal.
+    /// The window lapsed unanswered or unactivated; [`decisions`](AccessRequestView::decisions)
+    /// tells which. Terminal.
     Expired,
     /// A status value this SDK version does not recognize. Kept as a distinct variant so listing
     /// requests never fails on a newer server's status.
@@ -191,9 +189,7 @@ pub struct AccessRequestView {
     pub reason: Option<String>,
     /// When the request was opened (UTC).
     pub submitted_at: DateTime<Utc>,
-    /// Time a party approved, denied, or cancelled the request (UTC). None while pending, and
-    /// None for expired requests, which nobody resolved; see
-    /// [`lease_not_after`](Self::lease_not_after).
+    /// When the request was approved, denied, or cancelled (UTC); None while pending or expired.
     pub resolved_at: Option<DateTime<Utc>>,
     /// The request's decision log, oldest first. Empty only while pending.
     pub decisions: Vec<AccessRequestDecisionView>,
@@ -201,12 +197,8 @@ pub struct AccessRequestView {
     pub produced_lease_id: Option<AccessLeaseId>,
     /// The status of the produced lease at the time this view was fetched. None until activation.
     pub produced_lease_status: Option<AccessLeaseStatus>,
-    /// The produced lease's own end (UTC). None until activation.
-    ///
-    /// The authority for how long the access has left, unlike
-    /// [`lease_not_after`](Self::lease_not_after), which is the activation window pinned at
-    /// submit: an extension pushes the lease's end out in place and never restamps this
-    /// request.
+    /// The produced lease's current end (UTC); None until activation. Unlike
+    /// [`lease_not_after`](Self::lease_not_after), this moves when the lease is extended.
     pub produced_lease_not_after: Option<DateTime<Utc>>,
     /// The parent lease this request extends, if it is an extension request. None otherwise.
     pub extension_of_lease_id: Option<AccessLeaseId>,
@@ -216,14 +208,9 @@ pub struct AccessRequestView {
     /// The requester's email, denormalized by the server. None only when the user could not be
     /// resolved.
     pub requester_email: Option<String>,
-    /// True while this request is approved but not yet activated into a lease.
-    ///
-    /// Activation is not a status: an activated request stays
-    /// [`Approved`](AccessRequestStatus::Approved), recognised by its
-    /// [`produced_lease_id`](Self::produced_lease_id).
+    /// True while approved but not yet activated into a lease.
     pub awaiting_activation: bool,
-    /// The human decision recorded on this request: the deciding approver, or the holder ending
-    /// their own lease. None for a rule decision, or none yet.
+    /// The approver's or holder's decision, if any. None for automatic decisions.
     pub human_decision: Option<AccessRequestDecisionView>,
 }
 
@@ -240,8 +227,6 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
             .map(AccessRequestDecisionView::try_from)
             .collect::<Result<Vec<_>, _>>()?;
 
-        // An automatic decision carries no approver, so a human decision is simply one whose
-        // decider is not `Automatic`. v0/v1 records at most one.
         let human_decision = decisions
             .iter()
             .find(|decision| !matches!(decision.decider, AccessDecider::Automatic))
@@ -313,26 +298,18 @@ pub struct AccessPreCheckView {
     pub cipher_id: CipherId,
     /// The approval path a request for this cipher would take.
     pub approval_mode: AccessApprovalMode,
-    /// True when the caller already holds an active lease: reveal the credential, no request
-    /// needed.
+    /// True when the caller already holds an active lease, so no request is needed.
     pub has_active_lease: bool,
-    /// The duration, in seconds, a request form should pre-select - the governing rule's own
-    /// default where it sets one, already clamped to
+    /// Duration to pre-select, in seconds; never above
     /// [`max_duration_seconds`](Self::max_duration_seconds).
     pub default_duration_seconds: u32,
-    /// The longest duration (automatic path) or window span (human path), in seconds, the server
-    /// will accept for this cipher: the governing rule's cap narrowed by the global ceiling.
-    ///
-    /// Not advisory; submit enforces the same number.
+    /// Longest duration or window span, in seconds, that submit will accept for this cipher.
     pub max_duration_seconds: u32,
-    /// Whether access could be started right now, the spec's `RuleAllowsLease`; false only while
-    /// the per-cipher single-active-lease constraint binds and another member holds the slot.
-    ///
-    /// A hint, not a gate: the server re-checks it under a lock at start.
+    /// False while another member holds this cipher's single active lease. A hint; the server
+    /// re-checks at start.
     pub can_start_lease: bool,
-    /// End time of the lease holding the slot, for a retry time instead of polling. Absent
-    /// while [`can_start_lease`](Self::can_start_lease) holds; carries no holder identity by
-    /// design.
+    /// When the lease holding the slot ends; None while
+    /// [`can_start_lease`](Self::can_start_lease) is true.
     pub slot_frees_at: Option<DateTime<Utc>>,
 }
 
@@ -357,17 +334,15 @@ impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
                 .unwrap_or(DEFAULT_REQUEST_ACCESS_DURATION_SECONDS)
                 .min(max_duration_seconds),
             max_duration_seconds,
-            // Fails open like the bounds above: a predating server omits this field, and
-            // reading absence as false would block every gated cipher.
+            // Fails open: reading absence as false would block every gated cipher.
             can_start_lease: response.can_start_lease.unwrap_or(true),
             slot_frees_at: response.slot_frees_at.map(|d| d.parse()).transpose()?,
         })
     }
 }
 
-/// Reads an optional wire-side duration as a positive `u32`, mapping absent, zero, and negative
-/// alike onto `None` so the caller applies its fallback. Zero is not a meaningful duration bound,
-/// and a negative one only arises from a malformed response.
+/// Reads an optional wire-side duration, mapping absent, zero, and negative alike onto `None` so
+/// the caller applies its fallback.
 fn positive_u32(value: Option<i32>) -> Option<u32> {
     value.filter(|v| *v > 0).map(|v| v as u32)
 }
@@ -781,7 +756,6 @@ mod tests {
 
     #[test]
     fn pre_check_view_defaults_can_start_lease_to_true_when_absent() {
-        // A server predating the field omits it, and must not make a gated cipher look blocked.
         let response = pre_check_response(None, None);
 
         let view = AccessPreCheckView::try_from(response).unwrap();
