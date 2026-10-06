@@ -10,11 +10,9 @@ use crate::{AccessRequestId, access_requests::AccessRequestView};
 
 /// Client for a PAM approver's queue.
 ///
-/// Covers the approver side of the request lifecycle: reading the pending requests awaiting the
-/// caller's decision ([`list_inbox`](ApprovalsClient::list_inbox)), reading the ones the caller has
-/// already decided ([`list_history`](ApprovalsClient::list_history)), and
-/// [`decide`](ApprovalsClient::decide)ing a pending request. The requester side of the same
-/// lifecycle is [`AccessRequestsClient`](crate::AccessRequestsClient).
+/// Lists pending ([`list_inbox`](ApprovalsClient::list_inbox)) and decided
+/// ([`list_history`](ApprovalsClient::list_history)) requests, and decides one. The requester
+/// side is [`AccessRequestsClient`](crate::AccessRequestsClient).
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
 pub struct ApprovalsClient {
