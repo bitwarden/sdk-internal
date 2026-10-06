@@ -5,8 +5,8 @@ use bitwarden_core::{FromClient, client::ApiConfigurations};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::models::AccessDecisionRequest;
-use crate::{AccessRequestId, access_requests::AccessRequestView, error::LeasingError};
+use super::{error::ApprovalError, models::AccessDecisionRequest};
+use crate::{AccessRequestId, access_requests::AccessRequestView};
 
 /// Client for a PAM approver's queue.
 ///
@@ -28,7 +28,7 @@ impl ApprovalsClient {
     /// `GET /access-requests/inbox`. The server scopes this by Manage permission on the request's
     /// collection and returns only pending requests, so an empty list is the normal answer for a
     /// member who approves nothing.
-    pub async fn list_inbox(&self) -> Result<Vec<AccessRequestView>, LeasingError> {
+    pub async fn list_inbox(&self) -> Result<Vec<AccessRequestView>, ApprovalError> {
         let response = self
             .api_configurations
             .api_client
@@ -41,14 +41,15 @@ impl ApprovalsClient {
             .unwrap_or_default()
             .into_iter()
             .map(AccessRequestView::try_from)
-            .collect()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     /// Lists the decided access requests for collections the caller manages.
     ///
     /// `GET /access-requests/history`. Same response shape as [`list_inbox`](Self::list_inbox),
     /// not an audit-event shape.
-    pub async fn list_history(&self) -> Result<Vec<AccessRequestView>, LeasingError> {
+    pub async fn list_history(&self) -> Result<Vec<AccessRequestView>, ApprovalError> {
         let response = self
             .api_configurations
             .api_client
@@ -61,7 +62,8 @@ impl ApprovalsClient {
             .unwrap_or_default()
             .into_iter()
             .map(AccessRequestView::try_from)
-            .collect()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     /// Records a decision on a pending access request.
@@ -73,7 +75,7 @@ impl ApprovalsClient {
         &self,
         id: AccessRequestId,
         request: AccessDecisionRequest,
-    ) -> Result<AccessRequestView, LeasingError> {
+    ) -> Result<AccessRequestView, ApprovalError> {
         let model = AccessDecisionRequestModel::try_from(request)?;
 
         let response = self
@@ -83,7 +85,7 @@ impl ApprovalsClient {
             .decide(id.into(), model)
             .await?;
 
-        AccessRequestView::try_from(response)
+        Ok(AccessRequestView::try_from(response)?)
     }
 }
 
@@ -255,7 +257,7 @@ mod tests {
 
         let result = client(api_client).decide(request_id(), request).await;
 
-        assert!(matches!(result, Err(LeasingError::UnsubmittableVerdict)));
+        assert!(matches!(result, Err(ApprovalError::UnsubmittableVerdict)));
     }
 
     #[tokio::test]
@@ -281,6 +283,6 @@ mod tests {
 
         let result = client(api_client).decide(request_id(), request).await;
 
-        assert!(matches!(result, Err(LeasingError::Api(_))));
+        assert!(matches!(result, Err(ApprovalError::Api(_))));
     }
 }
