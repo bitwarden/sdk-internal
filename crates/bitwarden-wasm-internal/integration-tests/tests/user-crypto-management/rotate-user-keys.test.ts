@@ -1,4 +1,4 @@
-import type { PasswordManagerClient } from "@bitwarden/sdk-internal";
+import { isEncryptionSettingsError, type PasswordManagerClient } from "@bitwarden/sdk-internal";
 
 import type { ClientEmulator } from "../../client-emulator/client-emulator";
 import { IGNORED_FIELDS, validateVault } from "../../client-emulator/validate";
@@ -6,7 +6,7 @@ import type { SeededTestVector } from "../../server-emulator/server-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { testVectors } from "../../vectors/test-vectors";
 import { asKeyId } from "../type-assertion-helpers";
-import { TEST_PIN } from "../utils";
+import { rejection, TEST_PIN } from "../utils";
 
 const TIMEOUT = 120_000;
 
@@ -250,7 +250,11 @@ describe("rotate user keys", () => {
             await device.unlockWith({ pinState: { pin: TEST_PIN } });
           } else {
             // In AFU mode, after a restart, we cannot unlock with pin
-            await expect(device.unlockWith({ pinState: { pin: TEST_PIN } })).rejects.toThrow();
+            const error = await rejection(
+              device.unlockWith({ pinState: { pin: TEST_PIN } }),
+              isEncryptionSettingsError,
+            );
+            expect(error.variant).toBe("PinUnlockNotAvailable");
             await device.unlock(V1_VECTOR.account.password);
             await device.lock();
             await device.unlockWith({ pinState: { pin: TEST_PIN } });

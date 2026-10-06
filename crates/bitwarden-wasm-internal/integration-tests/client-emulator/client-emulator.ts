@@ -141,22 +141,18 @@ export class ClientEmulator {
       .reinit_user_crypto({ accountCryptographicState, upgradeToken });
   }
 
-  /** Drops the state a running process holds but a restarted one would not: a lock, not a logout. */
+  /** Drops the user key but keeps session-scoped state, as a process reload does */
   async lock(): Promise<void> {
-    // Simulate process reload
     await this.local.clearEphemeral("ProcessReload");
 
     // The client is part of that state: an unlocked one kept across a lock would still decrypt, so
-    // it is replaced by a fresh locked one, as restarting the app would.
+    // it is replaced by a fresh locked one.
     this.client = this.local.locked();
   }
 
+  /** Drops session-scoped state too, such as the ephemeral PIN envelope, as reopening the app does. */
   async restart(): Promise<void> {
-    // Simulate process restart
     await this.local.clearEphemeral("Restart");
-
-    // The client is part of that state: an unlocked one kept across a restart would still decrypt, so
-    // it is replaced by a fresh locked one, as restarting the app would.
     this.client = this.local.locked();
   }
 }
