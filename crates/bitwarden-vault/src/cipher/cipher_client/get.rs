@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::CiphersClient;
 use crate::{
-    Cipher, CipherView, ItemNotFoundError,
+    Cipher, CipherId, CipherView, ItemNotFoundError,
     cipher::cipher::{DecryptCipherListResult, DecryptCipherResult, StrictDecrypt},
 };
 
@@ -27,10 +27,9 @@ pub enum GetCipherError {
 async fn get_cipher(
     store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Cipher>,
-    id: &str,
+    id: CipherId,
     use_strict_decryption: bool,
 ) -> Result<CipherView, GetCipherError> {
-    let id = id.parse().map_err(|_| ItemNotFoundError)?;
     let cipher = repository.get(id).await?.ok_or(ItemNotFoundError)?;
 
     Ok(if use_strict_decryption {
@@ -118,7 +117,7 @@ impl CiphersClient {
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
-    pub async fn get(&self, cipher_id: &str) -> Result<CipherView, GetCipherError> {
+    pub async fn get(&self, cipher_id: CipherId) -> Result<CipherView, GetCipherError> {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 

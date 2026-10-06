@@ -7,7 +7,7 @@ import {
 
 import { testHarness, type TestHarness } from "../../test-harness";
 import type { ClientEmulator } from "../../client-emulator/client-emulator";
-import { asKeyId } from "../type-assertion-helpers";
+import { asCipherId, asKeyId } from "../type-assertion-helpers";
 import { MASTER_PASSWORD_ACCOUNT } from "../../vectors/accounts";
 import { TEST_EMAIL, TEST_PASSWORD, TEST_PIN } from "../utils";
 
@@ -100,7 +100,11 @@ describe("rotate user keys", () => {
       throw new Error("the sync handed the client no ciphers");
     }
 
-    const view = await client.getPasswordManagerClient().vault().ciphers().get(String(cipher.id));
+    const view = await client
+      .getPasswordManagerClient()
+      .vault()
+      .ciphers()
+      .get(asCipherId(String(cipher.id)));
 
     expect(view.name).toBe(NOTE_NAME);
     expect(view.notes).toBe(NOTE_CONTENT);

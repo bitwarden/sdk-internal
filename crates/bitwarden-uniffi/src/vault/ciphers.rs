@@ -119,7 +119,7 @@ impl CiphersClient {
 
     /// Get a cipher from local state and decrypt it
     pub async fn get(&self, cipher_id: CipherId) -> Result<CipherView> {
-        Ok(self.0.get(&cipher_id.to_string()).await?)
+        Ok(self.0.get(cipher_id).await?)
     }
 
     /// Get all ciphers from local state and decrypt them to list views, returning both successes
