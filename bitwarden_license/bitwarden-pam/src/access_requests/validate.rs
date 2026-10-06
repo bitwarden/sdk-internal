@@ -32,9 +32,7 @@ pub const DEFAULT_REQUEST_ACCESS_DURATION_SECONDS: u32 = 3_600;
 
 /// [`DEFAULT_REQUEST_ACCESS_DURATION_SECONDS`], for callers that cannot read a Rust `const`.
 ///
-/// Same reason [`max_request_access_window_seconds`] exists: wasm-bindgen exports functions rather
-/// than constants, and a client that hardcodes its own copy drifts the day the server's default
-/// moves.
+/// A client hardcoding its own copy drifts the day the server's default moves.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn default_request_access_duration_seconds() -> u32 {
     DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
@@ -49,8 +47,8 @@ pub enum AccessRequestWindowError {
     EndBeforeStart,
     /// `end` had already passed, so the window could never be activated.
     ///
-    /// Deliberately not the server's wording ("The end date must be in the future."): each has a
-    /// separate catalog entry (`REQUEST_ACCESS_SDK_ERRORS` vs `REQUEST_ACCESS_SERVER_ERRORS`).
+    /// Deliberately not the server's wording ("The end date must be in the future."): clients
+    /// catalog SDK and server errors separately.
     #[error("The requested window has already ended.")]
     EndInPast,
     /// The requested window was longer than the global ceiling. Says nothing about the governing
@@ -183,8 +181,7 @@ mod tests {
 
     #[test]
     fn window_that_has_already_ended_is_invalid() {
-        // A window dated days before submission. The server persisted this as a pending
-        // request that activation could never start.
+        // A window dated days before submission.
         let request = AccessRequestCreateRequest {
             start: Some("2024-12-23T07:00:00Z".parse().unwrap()),
             end: Some("2024-12-23T08:00:00Z".parse().unwrap()),
@@ -242,8 +239,6 @@ mod tests {
 
     #[test]
     fn validate_measures_against_the_real_clock() {
-        // `validate` is what `TryFrom` calls on the way to the wire; `validate_at` is only the
-        // seam the tests use.
         let request = AccessRequestCreateRequest {
             start: Some("2020-01-01T00:00:00Z".parse().unwrap()),
             end: Some("2020-01-01T01:00:00Z".parse().unwrap()),

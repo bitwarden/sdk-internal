@@ -122,9 +122,7 @@ impl TryFrom<AccessRuleResponseModel> for AccessRuleView {
 
 /// Rebuilds the write payload for a rule that already exists.
 ///
-/// The rule endpoints have no PATCH, so changing one field means PUTting the whole rule
-/// back; the web client's hand-enumerated mapping did exactly that incompletely, wiping a
-/// rule's extension settings on every `enabled` toggle.
+/// The rule endpoints have no PATCH, so changing one field means PUTting the whole rule back.
 ///
 /// Mapped field by field rather than via struct update syntax: the view carries server-owned
 /// fields (`id`, `organization_id`, timestamps) not part of the request, so adding one can't

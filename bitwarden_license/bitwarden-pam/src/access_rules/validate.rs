@@ -80,9 +80,8 @@ pub fn validate_request(
         return Err(AccessRuleValidationError::DefaultLeaseDurationExceedsMax);
     }
 
-    // Every rule-configurable duration: with no cap stored the default is bounded by nothing else,
-    // and the extension length is never measured against the ceiling by the lease paths at all.
-    // Bounds each configured value, not the cumulative length of a repeatedly extended lease.
+    // The lease paths never check an uncapped default or the extension length against the
+    // ceiling. Bounds each value, not the cumulative length of a repeatedly extended lease.
     let ceiling = i64::from(MAX_REQUEST_ACCESS_WINDOW_SECONDS);
     if [
         request.default_lease_duration_seconds,

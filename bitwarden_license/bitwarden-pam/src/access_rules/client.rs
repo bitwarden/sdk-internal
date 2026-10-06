@@ -326,9 +326,7 @@ mod tests {
         })
     }
 
-    /// This endpoint never 404s a missing rule; the server answers empty for absent, other-org
-    /// and disabled alike. A 404 is infrastructural (PAM flag off, or a server predating the
-    /// endpoint), not a missing rule.
+    /// This endpoint never 404s a missing rule, so a 404 here is infrastructural.
     #[tokio::test]
     async fn bypassable_ciphers_leaves_not_found_as_api() {
         let organization_id = org_id();
@@ -426,8 +424,7 @@ mod tests {
         assert!(matches!(result, Err(AccessRuleError::NotFound)));
     }
 
-    /// The org-scoped calls deliberately do NOT map `404` onto a missing rule - see
-    /// [`AccessRuleError::from_by_id_api_error`].
+    /// Org-scoped calls don't map `404` onto a missing rule the way by-id calls do.
     #[tokio::test]
     async fn list_leaves_not_found_as_api() {
         let organization_id = org_id();
@@ -543,9 +540,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    /// The regression this exists to prevent: flipping `enabled` must not disturb any other field.
-    /// The web client's hand-written equivalent previously omitted the two extension fields, so
-    /// toggling a rule silently wiped its extension settings.
+    /// Flipping `enabled` must not disturb any other field.
     #[tokio::test]
     async fn set_enabled_flips_enabled_and_preserves_every_other_field() {
         let organization_id = org_id();

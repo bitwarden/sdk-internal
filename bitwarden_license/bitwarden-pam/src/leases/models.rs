@@ -272,8 +272,6 @@ mod tests {
 
     #[test]
     fn a_revoker_without_a_revocation_time_is_not_a_termination() {
-        // Incoherent server data: `revoked_at` is the authoritative marker, so the lease stays
-        // readable rather than failing the whole list.
         let response = AccessLeaseResponseModel {
             revoked_at: None,
             revoked_by_user_id: Some(requester_id()),

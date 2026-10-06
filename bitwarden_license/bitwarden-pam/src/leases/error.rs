@@ -8,9 +8,8 @@ use crate::error::PamDecodeError;
 
 /// Errors returned from [`super::LeasesClient`] operations.
 ///
-/// Mostly the decode/transport variants every PAM call can produce, plus the access-request
-/// payload from [`extend`](super::LeasesClient::extend). [`VaultParse`](Self::VaultParse) and
-/// [`Crypto`](Self::Crypto) come only from [`leased_cipher`](super::LeasesClient::leased_cipher).
+/// [`VaultParse`](Self::VaultParse) and [`Crypto`](Self::Crypto) come only from
+/// [`leased_cipher`](super::LeasesClient::leased_cipher).
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum AccessLeaseError {

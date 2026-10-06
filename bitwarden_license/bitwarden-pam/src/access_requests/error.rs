@@ -7,9 +7,8 @@ use crate::error::PamDecodeError;
 
 /// Errors returned from [`super::AccessRequestsClient`] operations.
 ///
-/// Local validation is reachable only from
-/// [`request`](super::AccessRequestsClient::request) - the read paths cannot produce it - which is
-/// why the requester surface carries a `Validation` variant the approver and lease surfaces do not.
+/// [`Validation`](Self::Validation) comes only from
+/// [`request`](super::AccessRequestsClient::request).
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum AccessRequestError {

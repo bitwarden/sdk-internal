@@ -6,9 +6,8 @@ use crate::error::PamDecodeError;
 
 /// Errors returned from [`super::ApprovalsClient`] operations.
 ///
-/// [`UnsubmittableVerdict`](Self::UnsubmittableVerdict) is reachable only from
-/// [`decide`](super::ApprovalsClient::decide) - it is the one write path on the approver surface -
-/// so no other PAM client exposes it.
+/// [`UnsubmittableVerdict`](Self::UnsubmittableVerdict) comes only from
+/// [`decide`](super::ApprovalsClient::decide).
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum ApprovalError {

@@ -472,10 +472,6 @@ pub enum AccessBadgeState {
 
 /// A single-snapshot read of the caller's access state for one cipher, powering the cipher-view
 /// banner and the vault-row badge.
-///
-/// [`badge_state`](Self::badge_state) collapses [`active_lease`](Self::active_lease),
-/// [`pending_request`](Self::pending_request), and [`approved_request`](Self::approved_request)
-/// into the single badge to show.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
@@ -489,10 +485,7 @@ pub struct CipherAccessStateView {
     /// The caller's approved-but-not-yet-activated request on this cipher, if any. Lapsed
     /// approvals are never surfaced here.
     pub approved_request: Option<AccessRequestView>,
-    /// The single badge to show for this cipher, derived from
-    /// [`active_lease`](Self::active_lease), [`approved_request`](Self::approved_request), and
-    /// [`pending_request`](Self::pending_request) by precedence. See [`AccessBadgeState`] for
-    /// the precedence order and its rationale.
+    /// The single badge to show for this cipher; see [`AccessBadgeState`] for precedence.
     pub badge_state: AccessBadgeState,
     /// Whether the active lease can still be extended.
     pub extensions_allowed: bool,
@@ -518,8 +511,6 @@ impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
             .map(|request| AccessRequestView::try_from(*request))
             .transpose()?;
 
-        // active lease -> approved (ready to activate) -> pending approval -> privileged
-        // (resting). Mirrors the precedence documented on `AccessBadgeState`.
         let badge_state = if let Some(lease) = &active_lease {
             AccessBadgeState::Active {
                 expires_at: lease.not_after,
@@ -879,8 +870,7 @@ mod tests {
     fn pre_check_view_publishes_the_rule_cap_narrowed_only_by_the_global_ceiling() {
         let ceiling = i32::try_from(MAX_REQUEST_ACCESS_WINDOW_SECONDS).unwrap();
         for (sent, expected) in [
-            // The ceiling used to sit at 24h, narrowing every multi-day cap before the requester
-            // ever saw it.
+            // A multi-day cap under the ceiling must survive unclamped.
             (7 * 86_400, 7 * 86_400),
             (ceiling + 1, MAX_REQUEST_ACCESS_WINDOW_SECONDS),
         ] {
@@ -1135,8 +1125,7 @@ mod tests {
         assert_eq!(model.reason, Some("Need access".to_string()));
     }
 
-    /// Must be `Z`-suffixed, not `+00:00`: the server resolves an explicit offset against the
-    /// API host's timezone, shifting the stored window. Far future for the same reason as above.
+    /// Must be `Z`-suffixed; see `to_wire_timestamp`. Far future for the same reason as above.
     #[test]
     fn access_request_create_request_window_is_serialized_as_utc_with_a_z_designator() {
         let request = AccessRequestCreateRequest {
@@ -1155,8 +1144,6 @@ mod tests {
 
     #[test]
     fn access_request_create_request_conversion_enforces_validation() {
-        // The wire model is the only route to the server, so an invalid window
-        // can't skip validation by bypassing the client method.
         let request = AccessRequestCreateRequest {
             start: Some("2025-01-01T01:00:00Z".parse().unwrap()),
             end: Some("2025-01-01T00:00:00Z".parse().unwrap()),

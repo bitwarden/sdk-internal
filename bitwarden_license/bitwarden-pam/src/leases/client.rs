@@ -298,9 +298,7 @@ mod tests {
         assert!(result.is_none());
     }
 
-    /// A full payload is decrypted and handed back; plaintext correctness is bitwarden-vault's
-    /// own contract. What matters here: a non-restricted payload takes the decrypt branch and
-    /// comes back marked `partial: false`.
+    /// A non-restricted payload takes the decrypt branch and comes back marked `partial: false`.
     #[tokio::test]
     async fn leased_cipher_returns_a_view_for_a_full_payload() {
         let api_client = ApiClient::new_mocked(move |mock| {
