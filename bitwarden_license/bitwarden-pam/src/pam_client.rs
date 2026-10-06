@@ -3,7 +3,8 @@ use std::sync::Arc;
 use bitwarden_core::{Client, FromClient, client::ApiConfigurations};
 
 use crate::{
-    access_requests::AccessRequestsClient, access_rules::AccessRulesClient, leases::LeasesClient,
+    access_requests::AccessRequestsClient, access_rules::AccessRulesClient,
+    approvals::ApprovalsClient, leases::LeasesClient,
 };
 
 /// Entry point for Privileged Access Management (PAM) operations.
@@ -25,6 +26,13 @@ impl PamClient {
     /// Access request operations (activate, cancel, and read the caller's requests).
     pub fn access_requests(&self) -> AccessRequestsClient {
         AccessRequestsClient {
+            api_configurations: self.api_configurations.clone(),
+        }
+    }
+
+    /// Approver-side access request operations (inbox, history, and recording a decision).
+    pub fn approvals(&self) -> ApprovalsClient {
+        ApprovalsClient {
             api_configurations: self.api_configurations.clone(),
         }
     }
