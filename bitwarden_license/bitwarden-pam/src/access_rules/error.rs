@@ -30,13 +30,13 @@ pub enum AccessRuleError {
 }
 
 impl AccessRuleError {
-    /// Classifies a failed call that addressed one rule by id, mapping the server's `404` onto
-    /// [`NotFound`](Self::NotFound) and leaving every other failure as [`Api`](Self::Api).
+    /// Maps a `404` onto [`NotFound`](Self::NotFound) and every other failure onto
+    /// [`Api`](Self::Api).
     ///
-    /// Only by-id calls ([`get`](super::AccessRulesClient::get),
-    /// [`update`](super::AccessRulesClient::update), [`delete`](super::AccessRulesClient::delete))
-    /// route through this; an org-scoped `404` says nothing about a rule.
-    pub(crate) fn from_by_id_api_error(error: ApiError) -> Self {
+    /// Only use this for calls that address one rule ([`get`](super::AccessRulesClient::get),
+    /// [`update`](super::AccessRulesClient::update), [`delete`](super::AccessRulesClient::delete)):
+    /// an org-scoped `404` says nothing about a rule.
+    pub(crate) fn from_api_error(error: ApiError) -> Self {
         match &error {
             ApiError::Response(content) if content.status == StatusCode::NOT_FOUND => {
                 Self::NotFound

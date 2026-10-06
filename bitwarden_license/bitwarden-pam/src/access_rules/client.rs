@@ -52,7 +52,7 @@ impl AccessRulesClient {
             .access_rules_api()
             .get(organization_id.into(), id.into())
             .await
-            .map_err(AccessRuleError::from_by_id_api_error)?;
+            .map_err(AccessRuleError::from_api_error)?;
 
         AccessRuleView::try_from(response)
     }
@@ -91,7 +91,7 @@ impl AccessRulesClient {
             .access_rules_api()
             .put(organization_id.into(), id.into(), request.try_into()?)
             .await
-            .map_err(AccessRuleError::from_by_id_api_error)?;
+            .map_err(AccessRuleError::from_api_error)?;
 
         AccessRuleView::try_from(response)
     }
@@ -162,7 +162,7 @@ impl AccessRulesClient {
             .access_rules_api()
             .delete(organization_id.into(), id.into())
             .await
-            .map_err(AccessRuleError::from_by_id_api_error)?;
+            .map_err(AccessRuleError::from_api_error)?;
 
         Ok(())
     }
