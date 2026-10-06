@@ -370,7 +370,7 @@ pub enum GetFileDownloadDataError {
 
 // ===== HTTP request functions =====
 
-async fn access_send(
+pub(crate) async fn access_send(
     api_client: &ApiClient,
     access_token: &str,
 ) -> Result<SendAccessResponse, AccessSendError> {
@@ -381,7 +381,7 @@ async fn access_send(
     Ok(resp.try_into()?)
 }
 
-async fn get_file_download_data(
+pub(crate) async fn get_file_download_data(
     api_client: &ApiClient,
     file_id: &str,
     access_token: &str,
