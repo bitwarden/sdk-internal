@@ -12,7 +12,6 @@ use crate::{
 #[derive(Clone, FromClient)]
 #[bitwarden_ffi::wasm_object]
 pub struct PamClient {
-    /// Used only by [`LeasesClient`] to decrypt leased ciphers.
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
