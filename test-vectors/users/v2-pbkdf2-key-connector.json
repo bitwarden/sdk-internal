@@ -14,7 +14,6 @@
         "iterations": 600000
       }
     },
-    "password": "password-v2-pbkdf2-key-connector",
     "securityVersion": 2,
     "userId": "bc010800-0000-4000-8000-000000000000"
   },

@@ -11,8 +11,6 @@
         "iterations": 600000
       }
     },
-    "password": "password-v1-pbkdf2-key-connector",
-    "securityVersion": 1,
     "userId": "bc010400-0000-4000-8000-000000000000"
   },
   "description": "V1 account unlocked through a key connector, with no master password. Mixed vault.",

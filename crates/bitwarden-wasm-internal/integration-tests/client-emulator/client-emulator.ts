@@ -143,9 +143,19 @@ export class ClientEmulator {
 
   /** Drops the state a running process holds but a restarted one would not: a lock, not a logout. */
   async lock(): Promise<void> {
-    await this.local.clearEphemeral();
+    // Simulate process reload
+    await this.local.clearEphemeral("ProcessReload");
 
     // The client is part of that state: an unlocked one kept across a lock would still decrypt, so
+    // it is replaced by a fresh locked one, as restarting the app would.
+    this.client = this.local.locked();
+  }
+
+  async restart(): Promise<void> {
+    // Simulate process restart
+    await this.local.clearEphemeral("Restart");
+
+    // The client is part of that state: an unlocked one kept across a restart would still decrypt, so
     // it is replaced by a fresh locked one, as restarting the app would.
     this.client = this.local.locked();
   }

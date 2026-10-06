@@ -297,6 +297,9 @@ export class AccountKeysResponse {
     if (user.verifyingKey === null) {
       throw new Error(`V2 account ${user.email} has no verifying key`);
     }
+    if (user.securityVersion === undefined) {
+      throw new Error(`V2 account ${user.email} has no security version`);
+    }
 
     return AccountKeysResponse.fromAccountKeysResponse({
       object: "privateKeys",
@@ -585,7 +588,7 @@ export class MasterPasswordUnlockResponse {
       kdf: KdfModel.fromKdf(unlock.kdf),
       masterKeyEncryptedUserKey: unlock.masterKeyWrappedUserKey,
       salt: unlock.salt,
-      ...(unlock.containedKeyId === undefined ? {} : { containedKeyId: unlock.containedKeyId }),
+      containedKeyId: unlock.containedKeyId ?? undefined,
     };
   }
 }
@@ -623,7 +626,7 @@ export class UserDecryptionResponse {
               wrappedUserKey2: String(user.upgradeToken.wrapped_user_key_2),
             },
           }),
-      ...(user.userKeyId === undefined ? {} : { userKeyId: user.userKeyId }),
+      userKeyId: user.userKeyId ?? undefined,
     };
   }
 }

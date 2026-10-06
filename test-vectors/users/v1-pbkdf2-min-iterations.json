@@ -12,7 +12,6 @@
       }
     },
     "password": "password-v1-pbkdf2-min-iterations",
-    "securityVersion": 1,
     "userId": "bc010200-0000-4000-8000-000000000000"
   },
   "description": "V1 account at the minimum allowed PBKDF2 iteration count, guarding the KDF bounds check. Single keyless cipher.",

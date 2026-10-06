@@ -12,6 +12,8 @@ import { fileURLToPath } from "node:url";
 import type {
   Cipher,
   CipherView,
+  Collection,
+  CollectionView,
   Folder,
   FolderView,
   InitUserCryptoMethod,
@@ -26,6 +28,9 @@ import type { SeedAccount, SeedOrganization } from "../server-emulator/server-em
 import { asKeyId } from "../tests/type-assertion-helpers";
 
 const VECTORS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../test-vectors");
+
+/** The server's default, for a vector that records no KDF. */
+const DEFAULT_KDF: Kdf = { pBKDF2: { iterations: 600_000 } };
 
 /** The plaintext a vector records for its own key material, for asserting what a client derived. */
 export interface RawCryptographicStateVector {
@@ -43,7 +48,13 @@ export interface RawCryptographicStateVector {
   fingerprint: string;
 }
 
-/** Which generation of attachment key an attachment was recorded with. */
+/**
+ * Which generation of attachment key an attachment was recorded with.
+ *
+ * - `V0`: no attachment key, on a cipher with no cipher key; contents sealed under the user/org key.
+ * - `V1`: an attachment key of its own, wrapped by the user/org key, on a cipher with no cipher key.
+ * - `V2`: an attachment key of its own, wrapped by the cipher key.
+ */
 export type AttachmentVersion = "V0" | "V1" | "V2";
 
 export interface CipherKeysVector {
@@ -70,9 +81,9 @@ export interface CipherVectorItem extends VectorItem<Cipher, CipherView> {
 
 export interface VaultVector {
   ciphers: CipherVectorItem[];
-  folders: VectorItem<Folder, FolderView>[];
+  folders?: VectorItem<Folder, FolderView>[];
   sends: VectorItem<Send, SendView>[];
-  collections: unknown[];
+  collections?: VectorItem<Collection, CollectionView>[];
 }
 
 export interface UserVector {
@@ -81,9 +92,9 @@ export interface UserVector {
   account: {
     userId: string;
     email: string;
-    password: string;
-    kdf: Kdf;
-    securityVersion: number;
+    password?: string;
+    kdf?: Kdf;
+    securityVersion?: number;
     accountCryptographicState: WrappedAccountCryptographicState;
     upgradeToken?: V2UpgradeToken;
     organizationKeys?: Record<string, string>;
@@ -93,8 +104,12 @@ export interface UserVector {
   vault: VaultVector;
 }
 
+/** A user vector whose account has a master password. */
+export type MasterPasswordUserVector = UserVector & { account: { password: string } };
+
 export interface OrganizationMemberVector {
-  userVector: string;
+  /** Name of the user vector this member is. */
+  userVectorName: string;
   organizationKeySealedToMember: string;
   accountRecoveryKey?: string;
 }
@@ -105,8 +120,8 @@ export interface OrganizationVector {
   organizationId: string;
   organizationKey: string;
   organizationKeyId: string | null;
-  publicKey: string;
-  wrappedPrivateKey: string;
+  publicKey?: string;
+  wrappedPrivateKey?: string;
   members: OrganizationMemberVector[];
   vault: VaultVector;
 }
@@ -141,13 +156,17 @@ export const loadEmergencyAccessVectors = (): EmergencyAccessVector[] =>
   loadDir<EmergencyAccessVector>("emergency-access");
 
 /** The named vector, or a listing of what is available. */
-export function userVector(vectors: UserVector[], name: string): UserVector {
+function userVector(vectors: UserVector[], name: string): UserVector {
   const found = vectors.find((vector) => vector.name === name);
   if (found === undefined) {
     throw new Error(`no user vector ${name}; have ${vectors.map((v) => v.name).join(", ")}`);
   }
   return found;
 }
+
+/** Whether the vector's account has a master password. */
+export const hasMasterPassword = (vector: UserVector): vector is MasterPasswordUserVector =>
+  vector.account.password !== undefined;
 
 /** The variant tag of an unlock method, for naming a test case. */
 export function unlockMethodName(method: InitUserCryptoMethod): string {
@@ -156,21 +175,6 @@ export function unlockMethodName(method: InitUserCryptoMethod): string {
     throw new Error("unlock method has no variant");
   }
   return name;
-}
-
-/** `describe.each` / `it.each` rows, one per vector, named after it. */
-export const vectorCases = (vectors: UserVector[]): (readonly [string, UserVector])[] =>
-  vectors.map((vector) => [vector.name, vector] as const);
-
-/** `it.each` rows, one per unlock method each vector declares. */
-export function unlockCases(
-  vectors: UserVector[],
-): (readonly [string, string, UserVector, InitUserCryptoMethod])[] {
-  return vectors.flatMap((vector) =>
-    vector.unlockMethods.map(
-      (method) => [vector.name, unlockMethodName(method), vector, method] as const,
-    ),
-  );
 }
 
 /** A user vector as the server emulator seeds it. */
@@ -182,7 +186,7 @@ export function toSeedAccount(vector: UserVector): SeedAccount {
     account: {
       userId: vector.account.userId,
       email: vector.account.email,
-      kdf: vector.account.kdf,
+      kdf: vector.account.kdf ?? DEFAULT_KDF,
       securityVersion: vector.account.securityVersion,
       // A V2 account's user key carries a key id from the start, so the server has always had one.
       ...(raw.userKeyId === null ? {} : { userKeyId: asKeyId(raw.userKeyId) }),
@@ -221,7 +225,7 @@ export function toSeedOrganization(
     wrappedPrivateKey: vector.wrappedPrivateKey,
     organizationKeyId: vector.organizationKeyId,
     members: vector.members.map((member) => ({
-      userEmail: userVector(users, member.userVector).account.email,
+      userEmail: userVector(users, member.userVectorName).account.email,
       organizationKeySealedToMember: member.organizationKeySealedToMember,
       accountRecoveryKey: member.accountRecoveryKey ?? undefined,
     })),

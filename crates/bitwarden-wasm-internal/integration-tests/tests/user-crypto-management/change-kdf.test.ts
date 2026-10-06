@@ -2,7 +2,6 @@ import { Kdf, isChangeKdfError } from "@bitwarden/sdk-internal";
 
 import { validateVault } from "../../client-emulator/validate";
 import { testHarness, type TestHarness } from "../../test-harness";
-import { loadUserVectors, unlockMethodName, userVector, type UserVector } from "../../vectors/load";
 import { testVectors } from "../../vectors/test-vectors";
 import { rejection } from "../utils";
 
@@ -10,12 +9,8 @@ const NEW_PBKDF2: Kdf = { pBKDF2: { iterations: 700_000 } };
 const NEW_ARGON2: Kdf = { argon2id: { iterations: 3, memory: 16, parallelism: 4 } };
 const BELOW_MINIMUM: Kdf = { argon2id: { iterations: 1, memory: 16, parallelism: 1 } };
 
-/** Only a master-password account has a KDF to change. */
-const hasMasterPassword = (vector: UserVector): boolean =>
-  vector.unlockMethods.some((method) => unlockMethodName(method) === "masterPasswordUnlock");
-
 /** The account the failure cases run against, where the vector under test does not matter. */
-const V1_VECTOR = userVector(loadUserVectors(), "v1-pbkdf2-min-iterations");
+const V1_VECTOR = testVectors.users.withMasterPassword().get("v1-pbkdf2-min-iterations");
 
 const TIMEOUT = 120_000;
 
@@ -32,13 +27,10 @@ describe("change kdf", () => {
     { name: "pbkdf2", kdf: NEW_PBKDF2 },
     { name: "argon2id", kdf: NEW_ARGON2 },
   ])("change kdf to $name", ({ kdf }) => {
-    testVectors.eachUser()(
-      "%s keeps its user key and its vault",
-      async (_name, vector) => {
-        if (!hasMasterPassword(vector)) {
-          return;
-        }
-
+    // Only a master-password account has a KDF to change.
+    testVectors.users.withMasterPassword().each(
+      "$name keeps its user key and its vault",
+      async (vector) => {
         const seeded = harness.server.seedUserTestVector(vector);
         const client = harness.newClientEmulator();
         await client.login(seeded.email);
@@ -56,6 +48,7 @@ describe("change kdf", () => {
         await client.unlock(password);
         const lockUnlockSdk = client.getPasswordManagerClient();
         expect(await client.bridge.get_kdf_config()).toEqual(kdf);
+        await validateVault(client, seeded.seed);
 
         // 3. Verify server state is fine: Sync from new client and unlock
         const reloginClient = harness.newClientEmulator();

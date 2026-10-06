@@ -2,12 +2,10 @@ import type { InitUserCryptoMethod } from "@bitwarden/sdk-internal";
 
 import { validateVault } from "../../client-emulator/validate";
 import { testHarness } from "../../test-harness";
-import { loadUserVectors, type UserVector } from "../../vectors/load";
+import type { UserVector } from "../../vectors/load";
 import { testVectors } from "../../vectors/test-vectors";
 
 const UNLOCK_TIMEOUT = 120_000;
-
-const vectors = loadUserVectors();
 
 /** Seeds `vector` into the server, syncs it down, unlocks with `method` and decrypts its vault. */
 async function validateVector(vector: UserVector, method: InitUserCryptoMethod): Promise<void> {
@@ -33,7 +31,12 @@ describe("test vectors", () => {
    * communication, if this is intended.
    */
   it("loads the expected set of vectors", () => {
-    expect(vectors.map((vector) => vector.name).sort()).toEqual([
+    expect(
+      testVectors.users
+        .all()
+        .map((vector) => vector.name)
+        .sort(),
+    ).toEqual([
       "v1-argon2id-password",
       "v1-argon2id-tde",
       "v1-pbkdf2-key-connector",
@@ -46,11 +49,9 @@ describe("test vectors", () => {
     ]);
   });
 
-  testVectors.eachUserAndUnlockMethod()(
-    "%s decrypts its vault after unlocking via %s",
-    async (_name, _methodName, vector, method) => {
-      await validateVector(vector, method);
-    },
+  testVectors.users.eachUnlockMethod(
+    "$name decrypts its vault after unlocking via $methodName",
+    (vector, method) => validateVector(vector, method),
     UNLOCK_TIMEOUT,
   );
 });

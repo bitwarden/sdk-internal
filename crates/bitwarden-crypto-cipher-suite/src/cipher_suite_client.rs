@@ -1,20 +1,18 @@
 use bitwarden_core::{Client, FromClient, key_management::KeySlotIds};
 use bitwarden_crypto::{Kdf, KeyStore};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Tells you which cryptographic algorithms to use for the current account and environment.
 ///
 /// Some environments are restricted in which algorithms they may use — for example, government
 /// (FedRAMP) deployments must use FIPS-approved algorithms. Ask this client which algorithm to use
 /// instead of picking one yourself, so the choice stays correct as those rules change.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct CryptoCipherSuiteClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CryptoCipherSuiteClient {
     /// Returns the KDF a new account should use in the current environment.
     ///

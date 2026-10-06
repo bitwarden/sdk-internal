@@ -13,8 +13,6 @@
         "parallelism": 4
       }
     },
-    "password": "password-v1-argon2id-tde",
-    "securityVersion": 1,
     "userId": "bc010500-0000-4000-8000-000000000000"
   },
   "description": "V1 trusted-device account with no master password. Unlocks by device key or auth request.",

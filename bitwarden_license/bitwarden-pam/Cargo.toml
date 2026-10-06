@@ -19,6 +19,7 @@ wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-core/wasm",
     "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-vault/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -31,6 +32,7 @@ bitwarden-collections = { workspace = true }
 bitwarden-commercial-marker = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-uuid = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }

@@ -4,16 +4,16 @@
     {
       "accountRecoveryKey": "4.i13WwUOOdlUi9Fp/JgJ9c2K32PbX1PfJzUvEmeYUh7gKCdrdSTZMiELCjUaGf1/yK27LJdiGQ8+qUvqxfSyxRqnDI2vI+AYpCcuibUVM66bkXtI/BHlOdPYfbISJo7PpI6++npoy4ENXGC2Rf7REZ6TAzR+WNIoJVX/ChXZ4jLt4hYZQjjGO6/fG9Qu+JumTU3H4JmJMaqti/OqKtwtBXQJoGhsL9ei6LfYy8sq3iGLOeA2ZB1wtr6v3+k6y5l7WEuTWU73SBy5VwDHqDniF+XN/Rw7pbzcFTQhSrvbnjP/AeKanaQVjEEUwN/yiJEPnwrD8/fVk+b3MQ1JnIZwpvg==",
       "organizationKeySealedToMember": "4.vhbzMrSczyG4acviiclbnUnBYZGhn0GScTSV7CHy6LO9zONAeG091MP+6IOXfthw6HNY2YV+YI6TVaN1C8KbAh1q4gQRTMkM0vFF9iP0a2yGwh9aTa80Mx4ZN03/Ztzv5uM2qoSpi6a1HGuD99L5ykJOuFXYjmZ+IoByOiGHxuhUvc/qafLkCpvrpZP/uFpSmU8r+qrYBj0mtruqVvYPqn2zEZo8ddTPyF9jYWfMkug+pSQtKOakfiwtSok+IifWIVbfVVU0Lwi41hw5ZY8Sut7qrrooFeKCV6DUfT93tqdn2ScY+lBzZmARt/jXNNrGtZk2NvLYEhqRLI4NCs4k5w==",
-      "userVector": "v1-pbkdf2-password"
+      "userVectorName": "v1-pbkdf2-password"
     },
     {
       "organizationKeySealedToMember": "4.gSKekfA+ue8pQjsxXe8BXKA/VGKr2ggvxbcBzSLW58HVPTmQJdp1MPvk8UhuxNPvgsUC0FRMqmXUjci+gLz3eGNMadoVjjr4LLrg6T9VDs6rsQzMufXDheldAzQKvPMH+GRnhai/b1tC/YzNgFlDoTbHCic1PY8KTf/26rDkdnaWr1/AaBZnDHBvEFUIpEXvP5+GAijTP86yi6FGm0lvSAQM24xbkK8lnRtAHO5szsmnk4uxTwWHyLz6Zs2EvA3eOxrAUD9qQiq0Yllzs8fXGZ/qrdoNWhf/Fjnhov1aXVct+gnrjaQExMxn5wM1URJcd35we2oTVV5La8WdLZlH1Q==",
-      "userVector": "v1-argon2id-password"
+      "userVectorName": "v1-argon2id-password"
     },
     {
       "accountRecoveryKey": "4.Rph8feAE413i1LQ32BZisbRfF5/3uJLx6UsaR+rtmAvzJmlYRUfnHcyAqepDwesuigOr2gvc/hi+JWyIISQD2PKLBQXwjbV4cUQwBm+s+SpoaUb/NFZGxUvbvwYycr6GUR00+VZgYhVeEFmxxLyD/w/34PU42VkguX8ED46RXVoLjBcmbW5+N8JBt2OvZSmg7x48F0OT7J7vFgRBo+9jxI+0eGZlN7NOuKsR5sumQFBuRZU/EtE9O4Wp7KntFdSiOu1BZIWpLJtzyadx6Kqz+zA2fgMARh8VQuo6ouXxSOLPvAo0LBYQQyVoxdI/+2DjkU6EqizWEQO3Yf31xZK2Bg==",
       "organizationKeySealedToMember": "4.nwJeFaMJm+k4Np9q8l2dUu9R0HPJu7D/yo1r2pabNJlP5s7qh5BgP2xwvUx57w2DH2QsJklXTPkT31IjbJXo9qmzXN9xGLlDfrqZAKGcOcPA54n6TQqvZP1Jg/U65epG99n0WZbH+FKXxtLvmZPv0jhPzmr3fScTwzzvwpV8Cp1f7pmr+fqg9KKElzYqaKBxRiRUgpvjTcnx54MrL55bQENsYCUj3vZhKDyGMGQcGEzegl2eL66AVv3YDtnvUf/MKL32lnJeiU3kKzTwADVeZXbQVJUIDWvwfmg4gKE44TRS6iTSOymi2G1d/6qfgkWwux/q6v38TdcE1eRfAeE1Ag==",
-      "userVector": "v2-argon2id-blob"
+      "userVectorName": "v2-argon2id-blob"
     }
   ],
   "name": "example-org",

@@ -9,14 +9,12 @@ use bitwarden_core::{OrganizationId, UserId, require};
 use bitwarden_vault::CipherId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::{AccessLeaseId, AccessRequestId, error::LeasingError};
 
 /// The lifecycle state of an access lease.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessLeaseStatus {
     /// The lease is currently within its access window and grants access.
@@ -52,7 +50,7 @@ impl From<ApiAccessLeaseStatus> for AccessLeaseStatus {
 /// [`Expired`](AccessLeaseStatus::Expired) or is [`Revoked`](AccessLeaseStatus::Revoked) the cipher
 /// re-locks.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessLeaseView {
     /// The lease's unique identifier.
@@ -101,7 +99,7 @@ impl TryFrom<AccessLeaseResponseModel> for AccessLeaseView {
 
 /// Request to extend an active lease.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessLeaseExtensionRequest {
     /// How much further to push out the lease's end, in seconds. None asks the server to apply the
@@ -122,7 +120,7 @@ impl From<AccessLeaseExtensionRequest> for AccessLeaseExtensionRequestModel {
 
 /// Request to revoke (end) a lease before it expires.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessLeaseRevokeRequest {
     /// An optional note explaining the revocation. Recorded on the audit trail only.

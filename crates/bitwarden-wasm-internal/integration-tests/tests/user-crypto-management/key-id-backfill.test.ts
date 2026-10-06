@@ -3,15 +3,15 @@ import { isKeyIdBackfillError } from "@bitwarden/sdk-internal";
 import type { ClientEmulator } from "../../client-emulator/client-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { asKeyId } from "../type-assertion-helpers";
-import { loadUserVectors, userVector } from "../../vectors/load";
+import { testVectors } from "../../vectors/test-vectors";
 import { rejection } from "../utils";
 
 /** A V2 account: its user key carries a key id the server has held all along. */
-const V2_VECTOR = userVector(loadUserVectors(), "v2-pbkdf2-blob");
+const V2_VECTOR = testVectors.users.get("v2-pbkdf2-blob");
 const V2_USER_KEY = V2_VECTOR.rawCryptographicState.userKey;
 
 /** A V1 master-password account, whose user key carries no key id. */
-const V1_VECTOR = userVector(loadUserVectors(), "v1-pbkdf2-min-iterations");
+const V1_VECTOR = testVectors.users.withMasterPassword().get("v1-pbkdf2-min-iterations");
 
 /** Key ids travel as a lowercase hex encoding of 16 bytes. */
 const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
@@ -27,7 +27,7 @@ describe("user key id backfill", () => {
 
   afterEach(() => harness.restore());
 
-  /** Logs in and unlocks the V2 account, whose user key the vector records in the clear. */
+  /** Logs in and unlocks the V2 account, whose plaintext user key the vector records. */
   async function loginV2(): Promise<ClientEmulator> {
     const { email } = harness.server.seedUserTestVector(V2_VECTOR);
 

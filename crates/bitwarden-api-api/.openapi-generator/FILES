@@ -563,6 +563,7 @@ src/models/rotate_user_account_keys_and_data_request_model.rs
 src/models/rotate_user_keys_request_model.rs
 src/models/rotation_cipher_response_model.rs
 src/models/rotation_claim_response_model.rs
+src/models/rule_bypassable_ciphers_response_model.rs
 src/models/saml2_binding_type.rs
 src/models/saml2_name_id_format.rs
 src/models/saml2_signing_behavior.rs
@@ -604,6 +605,7 @@ src/models/send_encryption_type.rs
 src/models/send_file_download_data_response_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs
+src/models/send_item_metadata_model.rs
 src/models/send_request_model.rs
 src/models/send_response_model.rs
 src/models/send_response_model_list_response_model.rs

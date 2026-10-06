@@ -16,6 +16,11 @@ keywords.workspace = true
 
 [features]
 cli = ["bitwarden-unlock/cli"]
+# Dev-only debug-capability tree rooted on the top-level client.
+debug-capabilities = [
+    "bitwarden-core/debug-capabilities",
+    "bitwarden-state/debug-capabilities",
+]
 no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
 uniffi = [
     "bitwarden-collections/uniffi",
@@ -46,6 +51,7 @@ wasm = [
     "bitwarden-importers/wasm",
     "bitwarden-managed-settings/wasm",
     "bitwarden-member-administration/wasm",
+    "bitwarden-organization-domains/wasm",
     "bitwarden-organization-invite-link/wasm",
     "bitwarden-pam?/wasm",
     "bitwarden-policies/wasm",
@@ -75,6 +81,7 @@ bitwarden-generators = { workspace = true }
 bitwarden-importers = { workspace = true }
 bitwarden-managed-settings = { workspace = true }
 bitwarden-member-administration = { workspace = true }
+bitwarden-organization-domains = { workspace = true }
 bitwarden-organization-invite-link = { workspace = true }
 bitwarden-pam = { workspace = true, optional = true }
 bitwarden-policies = { workspace = true }

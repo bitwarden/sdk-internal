@@ -16,7 +16,6 @@
         "parallelism": 4
       }
     },
-    "password": "password-v2-argon2id-tde",
     "securityVersion": 2,
     "userId": "bc010900-0000-4000-8000-000000000000"
   },
