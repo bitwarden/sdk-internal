@@ -10,7 +10,7 @@ use bitwarden_api_api::models::{
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{OrganizationId, UserId, require};
 use bitwarden_vault::CipherId;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::validate::{
@@ -41,7 +41,11 @@ pub enum AccessRequestStatus {
     Denied,
     /// Cancelled by the requester before resolution; terminal.
     Canceled,
-    /// Approved but lapsed before the requester activated it; terminal.
+    /// The window lapsed with nothing to show for it: either nobody answered an open request, or
+    /// an approval was never activated. The two origins share this one value; distinguish them
+    /// via [`decisions`](AccessRequestView::decisions) (empty = unanswered, contains an approval
+    /// = unactivated). An expired request's end time is
+    /// [`lease_not_after`](AccessRequestView::lease_not_after); terminal.
     Expired,
     /// A status value this SDK version does not recognize. Kept as a distinct variant so listing
     /// requests never fails on a newer server's status.
@@ -188,12 +192,10 @@ pub struct AccessRequestView {
     pub reason: Option<String>,
     /// When the request was opened (UTC).
     pub submitted_at: DateTime<Utc>,
-    /// When the request was approved, denied, or cancelled (UTC); None while pending.
+    /// When a party approved, denied, or cancelled the request (UTC); None while pending - and
+    /// None for expired requests, which nobody resolved (their end time is
+    /// [`lease_not_after`](Self::lease_not_after)).
     pub resolved_at: Option<DateTime<Utc>>,
-    /// When an approved request lapsed unactivated (UTC); None otherwise. The server does not
-    /// track this in v1, so it is always None today - its absence does not prove the request
-    /// is still live.
-    pub expired_at: Option<DateTime<Utc>>,
     /// The request's decision log, oldest first. Empty only while pending.
     pub decisions: Vec<AccessRequestDecisionView>,
     /// The lease produced once this (approved) request was activated. None until activation.
@@ -208,12 +210,50 @@ pub struct AccessRequestView {
     /// The requester's email, denormalized by the server. None only when the user could not be
     /// resolved.
     pub requester_email: Option<String>,
+    /// True when this request is approved but has not been activated into a lease yet, so the
+    /// requester still has something to do with it.
+    ///
+    /// Activation is not a status: an activated request stays
+    /// [`Approved`](AccessRequestStatus::Approved) and is recognised by the
+    /// [`produced_lease_id`](Self::produced_lease_id) it minted. Every client needs this
+    /// distinction - to badge a navigation counter, to decide whether to offer a Start action, to
+    /// keep an already-started grant out of a pending list - and deriving it from two fields is
+    /// exactly the kind of rule each of them would otherwise get subtly wrong.
+    ///
+    /// Deliberately says nothing about whether the activation window is still open. That depends
+    /// on wall-clock time at the moment the client renders, not at the moment this view was
+    /// fetched, so it stays a client decision - the same line [`AccessBadgeState`] draws for its
+    /// "ending soon" escalation.
+    pub awaiting_activation: bool,
+    /// The human decision recorded on this request - the deciding approver, or the holder ending
+    /// their own lease - or None when only an access rule decided it, or nothing has yet.
+    ///
+    /// An automatic (access-rule) decision carries no approver identity, so "who approved this"
+    /// and "was this decided by a rule" are the same question, answered here once instead of by
+    /// each client scanning the decision log for a non-automatic decider.
+    pub human_decision: Option<AccessRequestDecisionView>,
 }
 
 impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
     type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestDetailsResponseModel) -> Result<Self, Self::Error> {
+        let status = AccessRequestStatus::from(require!(response.status));
+        let produced_lease_id = response.produced_lease_id.map(AccessLeaseId::new);
+        let decisions = response
+            .decisions
+            .unwrap_or_default()
+            .into_iter()
+            .map(AccessRequestDecisionView::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // An automatic decision carries no approver, so a human decision is simply one whose
+        // decider is not `Automatic`. v0/v1 records at most one.
+        let human_decision = decisions
+            .iter()
+            .find(|decision| !matches!(decision.decider, AccessDecider::Automatic))
+            .cloned();
+
         Ok(Self {
             id: AccessRequestId::new(require!(response.id)),
             cipher_id: CipherId::new(require!(response.cipher_id)),
@@ -221,20 +261,17 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
             organization_id: response.organization_id.map(OrganizationId::new),
             requester_id: UserId::new(require!(response.requester_id)),
             rule_id: response.rule_id.map(AccessRuleId::new),
-            status: AccessRequestStatus::from(require!(response.status)),
+            status,
             lease_not_before: require!(response.lease_not_before).parse()?,
             lease_not_after: require!(response.lease_not_after).parse()?,
             reason: response.reason,
             submitted_at: require!(response.submitted_at).parse()?,
             resolved_at: response.resolved_at.map(|d| d.parse()).transpose()?,
-            expired_at: response.expired_at.map(|d| d.parse()).transpose()?,
-            decisions: response
-                .decisions
-                .unwrap_or_default()
-                .into_iter()
-                .map(AccessRequestDecisionView::try_from)
-                .collect::<Result<Vec<_>, _>>()?,
-            produced_lease_id: response.produced_lease_id.map(AccessLeaseId::new),
+            awaiting_activation: status == AccessRequestStatus::Approved
+                && produced_lease_id.is_none(),
+            human_decision,
+            decisions,
+            produced_lease_id,
             produced_lease_status: response.produced_lease_status.map(AccessLeaseStatus::from),
             extension_of_lease_id: response.extension_of_lease_id.map(AccessLeaseId::new),
             requester_name: response.requester_name,
@@ -532,6 +569,20 @@ pub struct AccessRequestCreateRequest {
     pub reason: Option<String>,
 }
 
+/// Renders an instant for the wire as a `Z`-suffixed UTC timestamp, e.g.
+/// `2025-01-01T00:00:00.000Z`.
+///
+/// Not [`DateTime::to_rfc3339`], which spells a zero offset `+00:00`. Both name the same instant,
+/// but the server binds the requested window to a .NET `DateTime`, and its deserializer resolves
+/// *any* explicit offset against the API host's timezone — handing the command a local-kind value
+/// it then stores in a column read as UTC. On a host that is not UTC the window shifted by the
+/// host's offset (PM-42275). A `Z` designator is the one spelling that cannot be reinterpreted, and
+/// it matches what every other Bitwarden client sends (JavaScript's `toISOString()`) and what the
+/// rest of this SDK writes.
+fn to_wire_timestamp(value: DateTime<Utc>) -> String {
+    value.to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
 impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
     type Error = AccessRequestWindowError;
 
@@ -544,8 +595,8 @@ impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
 
         Ok(Self {
             duration_seconds: request.duration_seconds.map(|d| d.get() as i32),
-            start: request.start.map(|d| d.to_rfc3339()),
-            end: request.end.map(|d| d.to_rfc3339()),
+            start: request.start.map(to_wire_timestamp),
+            end: request.end.map(to_wire_timestamp),
             reason: request.reason,
         })
     }
@@ -598,7 +649,6 @@ mod tests {
             reason: Some("Need to fix an incident".to_string()),
             submitted_at: Some("2025-01-01T00:00:00Z".to_string()),
             resolved_at: Some("2025-01-01T00:30:00Z".to_string()),
-            expired_at: Some("2025-01-02T00:00:00Z".to_string()),
             decisions: Some(vec![automatic_decision(), human_decision()]),
             produced_lease_id: Some(Uuid::new_v4()),
             produced_lease_status: Some(ApiAccessLeaseStatus::Active),
@@ -643,18 +693,6 @@ mod tests {
         assert_eq!(approver.email.as_deref(), Some("ana@example.com"));
         assert_eq!(decision.comment.as_deref(), Some("Looks fine"));
         assert_eq!(decision.verdict, AccessDecisionVerdict::Approve);
-    }
-
-    #[test]
-    fn full_response_converts_expired_at() {
-        let response = full_response();
-
-        let view = AccessRequestView::try_from(response).unwrap();
-
-        assert_eq!(
-            view.expired_at,
-            Some("2025-01-02T00:00:00Z".parse().unwrap())
-        );
     }
 
     #[test]
@@ -1051,9 +1089,30 @@ mod tests {
         let model = AccessRequestCreateRequestModel::try_from(request).unwrap();
 
         assert_eq!(model.duration_seconds, Some(3600));
-        assert_eq!(model.start, Some("2025-01-01T00:00:00+00:00".to_string()));
-        assert_eq!(model.end, Some("2025-01-01T01:00:00+00:00".to_string()));
+        assert_eq!(model.start, Some("2025-01-01T00:00:00.000Z".to_string()));
+        assert_eq!(model.end, Some("2025-01-01T01:00:00.000Z".to_string()));
         assert_eq!(model.reason, Some("Need access".to_string()));
+    }
+
+    /// The window must go out `Z`-suffixed, not as a `+00:00` offset. The server resolves an
+    /// explicit offset against the API host's timezone, so the offset spelling shifted the
+    /// stored window by that host's offset (PM-42275). Pinned as its own test because the two
+    /// spellings name the same instant and the difference is invisible to a reader of the value
+    /// alone.
+    #[test]
+    fn access_request_create_request_window_is_serialized_as_utc_with_a_z_designator() {
+        let request = AccessRequestCreateRequest {
+            start: Some("2025-06-15T13:30:00.250Z".parse().unwrap()),
+            end: Some("2025-06-15T14:30:00Z".parse().unwrap()),
+            ..Default::default()
+        };
+
+        let model = AccessRequestCreateRequestModel::try_from(request).unwrap();
+
+        assert_eq!(model.start, Some("2025-06-15T13:30:00.250Z".to_string()));
+        assert_eq!(model.end, Some("2025-06-15T14:30:00.000Z".to_string()));
+        assert!(model.start.unwrap().ends_with('Z'));
+        assert!(model.end.unwrap().ends_with('Z'));
     }
 
     #[test]
@@ -1072,5 +1131,85 @@ mod tests {
             result.unwrap_err(),
             AccessRequestWindowError::EndBeforeStart
         );
+    }
+
+    #[test]
+    fn awaiting_activation_is_true_for_an_approved_request_with_no_lease_yet() {
+        let response = AccessRequestDetailsResponseModel {
+            status: Some(ApiAccessRequestStatus::Approved),
+            produced_lease_id: None,
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(view.awaiting_activation);
+    }
+
+    /// Activation does not change the status, so only the minted lease separates "still to start"
+    /// from "already running".
+    #[test]
+    fn awaiting_activation_is_false_once_the_request_has_minted_a_lease() {
+        let response = AccessRequestDetailsResponseModel {
+            status: Some(ApiAccessRequestStatus::Approved),
+            produced_lease_id: Some(Uuid::new_v4()),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(!view.awaiting_activation);
+        assert_eq!(view.status, AccessRequestStatus::Approved);
+    }
+
+    #[test]
+    fn awaiting_activation_is_false_for_a_request_still_pending() {
+        let response = AccessRequestDetailsResponseModel {
+            status: Some(ApiAccessRequestStatus::Pending),
+            produced_lease_id: None,
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(!view.awaiting_activation);
+    }
+
+    #[test]
+    fn human_decision_skips_the_automatic_one() {
+        let response = AccessRequestDetailsResponseModel {
+            decisions: Some(vec![automatic_decision(), human_decision()]),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        let decision = view.human_decision.expect("a human decided this request");
+        assert!(matches!(decision.decider, AccessDecider::Human(_)));
+        assert_eq!(decision.comment.as_deref(), Some("Looks fine"));
+    }
+
+    #[test]
+    fn human_decision_is_none_when_only_an_access_rule_decided() {
+        let response = AccessRequestDetailsResponseModel {
+            decisions: Some(vec![automatic_decision()]),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(view.human_decision.is_none());
+    }
+
+    #[test]
+    fn human_decision_is_none_while_the_request_is_undecided() {
+        let response = AccessRequestDetailsResponseModel {
+            decisions: Some(vec![]),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(view.human_decision.is_none());
     }
 }
