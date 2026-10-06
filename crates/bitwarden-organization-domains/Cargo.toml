@@ -1,5 +1,5 @@
 [package]
-name = "bitwarden-organization-invite-link"
+name = "bitwarden-organization-domains"
 description = """
 Internal crate for the bitwarden crate. Do not use.
 """
@@ -18,12 +18,7 @@ keywords.workspace = true
 default = []
 wasm = [
     "bitwarden-core/wasm",
-    "bitwarden-crypto/wasm",
-    "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
-    "bitwarden-ffi/wasm",
-    "bitwarden-organization-crypto/wasm",
-    "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
 ]
@@ -31,19 +26,8 @@ wasm = [
 [dependencies]
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
-bitwarden-crypto = { workspace = true }
-bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
-bitwarden-ffi = { workspace = true }
-bitwarden-organization-crypto = { workspace = true }
-chrono = { workspace = true }
-http = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 thiserror = { workspace = true }
-tracing = { workspace = true }
-tsify = { workspace = true, optional = true }
-uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 

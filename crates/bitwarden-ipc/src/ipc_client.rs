@@ -171,11 +171,7 @@ where
             stop_inner(&inner);
         };
 
-        #[cfg(not(target_arch = "wasm32"))]
-        tokio::spawn(future);
-
-        #[cfg(target_arch = "wasm32")]
-        wasm_bindgen_futures::spawn_local(future);
+        bitwarden_threading::spawn(future);
 
         Ok(())
     }
@@ -334,11 +330,7 @@ fn handle_rpc_request<Crypto, Com, Ses>(
         }
     };
 
-    #[cfg(not(target_arch = "wasm32"))]
-    tokio::spawn(future);
-
-    #[cfg(target_arch = "wasm32")]
-    wasm_bindgen_futures::spawn_local(future);
+    bitwarden_threading::spawn(future);
 }
 
 impl IpcClientSubscription {
