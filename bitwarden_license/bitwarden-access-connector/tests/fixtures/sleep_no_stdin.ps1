@@ -1,5 +1,5 @@
 # Fixture: blocks without ever reading stdin, so a payload larger than the pipe buffer leaves
-# the connector's write blocked. Proves the write is inside the timeout, not just the wait.
+# the connector's write blocked. Proves the timeout covers the write as well as the wait.
 
 param([string]$Operation)
 
