@@ -1,24 +1,22 @@
 // Deterministic plaintext vault for benchmarks: `count` logins named `name_1`, `name_2`, ...
 //
 // Each login has a username, a password and a URI, so every cipher carries several encrypted
-// fields. Every fifth login belongs to the organization, if one is given.
+// fields.
 
 import {
   CipherRepromptType,
   CipherType,
   type CipherView,
   type DateTime,
-  type OrganizationId,
   type Utc,
 } from "@bitwarden/sdk-internal";
 
-const ORG_EVERY = 5;
 const DATE = "2024-01-01T00:00:00.000Z" as unknown as DateTime<Utc>;
 
-function login(index: number, organizationId?: OrganizationId): CipherView {
+function login(index: number): CipherView {
   return {
     id: undefined,
-    organizationId,
+    organizationId: undefined,
     folderId: undefined,
     collectionIds: [],
     key: undefined,
@@ -65,10 +63,6 @@ function login(index: number, organizationId?: OrganizationId): CipherView {
 }
 
 /** Generates `count` logins, `name_1` to `name_<count>`. */
-export function generateVault(count: number, orgId?: OrganizationId): CipherView[] {
-  return Array.from({ length: count }, (_, i) => {
-    const index = i + 1;
-    const organizationId = orgId !== undefined && index % ORG_EVERY === 0 ? orgId : undefined;
-    return login(index, organizationId);
-  });
+export function generateVault(count: number): CipherView[] {
+  return Array.from({ length: count }, (_, i) => login(i + 1));
 }
