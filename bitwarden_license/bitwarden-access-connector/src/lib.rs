@@ -1,36 +1,7 @@
-//! Bitwarden PAM access connector library.
+//! Bitwarden PAM access connector library, the core of the `bwac` binary.
 //!
-//! Implements the core logic for the `bwac` binary, which continuously rotates
-//! PAM-managed credentials according to configured policies and schedules.
-//!
-//! The primary entry point is [`run`], which starts the polling loop and returns an
-//! [`executor::RunExit`] on clean shutdown. Callers build a [`executor::AccessConnectorConfig`] via
-//! [`crate::config::Config::from_cli`] and pass a
-//! [`bitwarden_threading::cancellation_token::CancellationToken`] for graceful shutdown.
-//!
-//! # Spec rule to executor mapping
-//!
-//! Maps spec rules from `access-connector.allium` to the executor module implementing them.
-//!
-//! | Spec rule                            | Implementation                                |
-//! |--------------------------------------|-----------------------------------------------|
-//! | `ConnectorStarts` / `OpenConnection` | `executor::run` startup / session build       |
-//! | `Reconnect` / `RefuseConnection`     | backoff loop + [`executor::RunExit`] variants |
-//! | `ConnectorConnects`                  | `auth::session::SessionManager::new`          |
-//! | `HandleAuthenticationSucceeded`      | `auth::session::SessionManager` refresh path  |
-//! | `SessionExpires` / `RefreshSession`  | `auth::session::SessionPhase::Expired`        |
-//! | `HandleAuthenticationRejected`       | `auth::session::SessionLost::Revoked`         |
-//! | `HandleSessionRevoked`               | 404-probe in `executor::run`                  |
-//! | `ClaimAvailableRotation`             | single-flight claim loop in `executor::run`   |
-//! | `StartRotation`                      | `executor::rotation::execute`                 |
-//! | `ExecuteRotation` (steps 0–7)        | `executor::rotation` step pipeline            |
-//! | `NoTargetActionPastSessionLoss`      | `executor::rotation::make_gate` + gated retry |
-//! | `VerifiedBeforeSuccess`              | proof tokens in `executor::rotation`          |
-//! | `TerminationNeverFailsRotation`      | step 6 returns `SessionTermination` value     |
-//! | `RotationByAdministrativeReset`      | integration contracts (scripting, entra)      |
-//! | `ServerZeroKnowledge`                | token / crypto / safe-detail secret handling  |
-//! | `AtMostOneActiveSession`             | singleton `SessionManager` by construction    |
-//! | `ReportOutcomeToServer`              | step 7 + report finality rules                |
+//! Build an [`executor::AccessConnectorConfig`] with [`crate::config::Config::from_cli`], then pass
+//! it to [`run`] with a cancellation token for graceful shutdown.
 
 bitwarden_commercial_marker::commercial_crate!();
 
@@ -50,14 +21,12 @@ pub(crate) mod integrations;
 pub(crate) mod policy;
 pub(crate) mod resolver;
 pub(crate) mod sys;
-/// Token parsing, key derivation, and C1 constants (exposed for `examples/register.rs`).
+/// Token parsing and key derivation (exposed for `examples/register.rs`).
 pub mod token;
 
-/// Start the connector poll loop.
-///
-/// Runs until a clean-exit condition: `cancel` cancelled ([`executor::RunExit::Shutdown`]),
-/// the credential rejected ([`executor::RunExit::CredentialRefused`]), or the connector not
-/// eligible for rotation endpoints ([`executor::RunExit::NotEligible`]).
+/// Start the connector poll loop. It runs until shutdown ([`executor::RunExit::Shutdown`]), a
+/// rejected credential ([`executor::RunExit::CredentialRefused`]) or an ineligible connector
+/// ([`executor::RunExit::NotEligible`]).
 pub async fn run(
     cfg: executor::AccessConnectorConfig,
     cancel: bitwarden_threading::cancellation_token::CancellationToken,
@@ -65,11 +34,7 @@ pub async fn run(
     executor::run(cfg, cancel).await
 }
 
-/// Shared mutex that serialises all tests mutating process-environment variables.
-///
-/// `std::env::set_var` / `remove_var` are `unsafe` in Rust 2024, since concurrent mutation is
-/// UB in a multi-threaded process. Tests touching any environment variable (e.g. `BWAC_TOKEN`)
-/// must hold this lock for the mutable window; different test modules share this process-wide
-/// lock to coordinate across threads.
+/// Serialises every test that mutates process environment variables, since concurrent mutation is
+/// UB (hence `unsafe` `set_var` in Rust 2024). Hold it for the whole mutation window.
 #[cfg(test)]
 pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

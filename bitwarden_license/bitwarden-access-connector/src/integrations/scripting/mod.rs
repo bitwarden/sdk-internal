@@ -1,40 +1,7 @@
-//! Rotation through an operator-supplied script.
+//! Rotation through an operator-supplied script, run directly or through a PowerShell host.
 //!
-//! This module owns the contract every rotation script obeys, whatever launches it: the stdin
-//! payload, the exit-code table, the timeout semantics, the `script_root` restriction, and the
-//! rule that secrets travel by stdin and nowhere else. [`custom_script`] is the
-//! [`super::Integration`] driver that applies it; [`powershell`] supplies a host for scripts
-//! that need one. Both go through the helpers below, so neither can drift from the contract.
-//!
-//! # Launchers
-//!
-//! A script is either executed directly (a shebang or a native executable) or launched through
-//! a PowerShell host. [`ScriptType::detect`] picks: the `SCRIPT_TYPE` credential when the
-//! operator set one, otherwise a `.ps1` extension means PowerShell. Only the spawned command
-//! differs; everything in this module applies either way.
-//!
-//! # Stdin payload
-//!
-//! One JSON document, written immediately after spawn, after which stdin is closed so the
-//! script reads to EOF. `newPassword` is absent for `terminate`, and the forwarded credential
-//! map excludes `SCRIPT` and `SCRIPT_TYPE`, which describe the connector's own invocation rather
-//! than the target.
-//!
-//! # Exit codes
-//!
-//! | Code    | Meaning                                                                      |
-//! |---------|------------------------------------------------------------------------------|
-//! | 0       | Success                                                                      |
-//! | 1       | Fatal, target unchanged                                                      |
-//! | 2       | Fatal, target updated (rotation applied, verify failed)                      |
-//! | 3       | Fatal, unknown sync state                                                    |
-//! | 4       | Transient, retry may succeed                                                 |
-//! | other   | Fatal, unknown sync state                                                    |
-//! | timeout | Killed by bwac; rotate → unknown, verify → applied, terminate → not_applied |
-//!
-//! Scripts must perform an administrative reset, not a change-password operation: a retried
-//! rotation sends a new `newPassword`, which a change-password script would reject after its
-//! "current" password goes stale. `verify` is mandatory even without round-trip auth.
+//! Both launchers share the contract documented in the crate README: secrets travel only on
+//! stdin, and `classify_outcome` maps exit codes to outcomes.
 
 pub(crate) mod custom_script;
 pub(crate) mod powershell;
@@ -85,7 +52,7 @@ impl ScriptType {
         }
     }
 
-    /// The launcher for `script`.
+    /// The launcher for `script`: `explicit` when set, otherwise PowerShell for a `.ps1`.
     pub(crate) fn detect(script: &Path, explicit: Option<ScriptType>) -> Self {
         if let Some(explicit) = explicit {
             return explicit;
@@ -106,11 +73,9 @@ struct ScriptPayload<'a> {
     account_identity: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     new_password: Option<&'a str>,
-    /// Credential map forwarded to the script; SCRIPT and SCRIPT_TYPE excluded.
     credentials: HashMap<&'a str, &'a str>,
 }
 
-/// Serialises the stdin payload for one operation.
 pub(crate) fn payload_json(
     operation: &str,
     ctx: &RotateContext,
@@ -118,8 +83,8 @@ pub(crate) fn payload_json(
 ) -> Result<Vec<u8>, InvokeError> {
     use bitwarden_sensitive_value::ExposeSensitive as _;
 
-    // Exclude the keys that configure the connector's own invocation rather than the target: the
-    // script already knows its own path and how it was launched.
+    // SCRIPT and SCRIPT_TYPE configure the connector's own invocation, not the target, so the
+    // script does not get them.
     let mut credentials: HashMap<&str, &str> = HashMap::new();
     for (k, v) in ctx.creds.iter() {
         if k != "SCRIPT" && k != "SCRIPT_TYPE" {
@@ -222,18 +187,17 @@ pub(crate) enum InvokeError {
 /// A process to run, as a plain value: no OS handles and no ambient state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CommandSpec {
-    /// The executable to run.
     pub(crate) program: PathBuf,
     /// Arguments, excluding the program name.
     pub(crate) args: Vec<OsString>,
-    /// The child's complete environment.
+    /// The child's complete environment; nothing is inherited.
     pub(crate) env: Vec<(OsString, OsString)>,
 }
 
 /// Runs a [`CommandSpec`] and reports how it exited.
 #[async_trait]
 pub(crate) trait ScriptRunner: Send + Sync {
-    /// Runs `spec`, writes `payload` to its stdin, and returns its exit code.
+    /// Runs `spec` with `payload` on stdin and returns its exit code, `None` if a signal ended it.
     async fn run(
         &self,
         spec: CommandSpec,
@@ -291,7 +255,8 @@ impl ScriptRunner for ProcessScriptRunner {
     }
 }
 
-/// Translates a [`ScriptRunner::run`] result into a rotation outcome via the exit-code table.
+/// Translates a [`ScriptRunner::run`] result into a rotation outcome, per the README's exit-code
+/// table.
 pub(crate) fn classify_outcome(
     outcome: Result<Option<i32>, InvokeError>,
     operation: &str,
@@ -503,9 +468,8 @@ mod tests {
         assert_eq!(detail_of(err), "error kind: ScriptOutsideRoot");
     }
 
-    /// Containment is decided after resolution, so a link inside the root that points out of
-    /// it is rejected. The real-symlink version of this lives in
-    /// `tests/scripting_integration.rs`, because a fake cannot prove the resolution itself.
+    /// Containment is checked after resolution, so a link inside the root that points out is
+    /// rejected. `tests/scripting_integration.rs` covers real symlinks, which a fake cannot.
     #[test]
     fn resolve_script_path_rejects_a_link_escaping_the_root() {
         let fs = FakeFs::empty()

@@ -29,8 +29,7 @@ pub fn default_request_access_duration_seconds() -> u32 {
     DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
 }
 
-/// Errors from a locally-constructed [`AccessRequestCreateRequest`] failing validation before
-/// being sent to the server.
+/// Errors from validating an [`AccessRequestCreateRequest`] before it is sent to the server.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum AccessRequestWindowError {
     /// `end` was not strictly after `start`.
@@ -49,10 +48,6 @@ pub enum AccessRequestWindowError {
 
 impl AccessRequestCreateRequest {
     /// Validates the request's activation window before it is sent to the server.
-    ///
-    /// The human path requires `end` strictly after `start`, not already passed, and within
-    /// `MAX_REQUEST_ACCESS_WINDOW_SECONDS`; the automatic path's `duration_seconds` faces the
-    /// same cap.
     pub(crate) fn validate(&self) -> Result<(), AccessRequestWindowError> {
         self.validate_at(Utc::now())
     }
@@ -90,8 +85,7 @@ mod tests {
 
     use super::*;
 
-    /// The instant the fixed-window cases are judged against. Pinned rather than `Utc::now()` so
-    /// the suite's verdicts do not change as the wall clock passes the dates written below.
+    /// Pinned so the verdicts don't change as the wall clock passes the dates below.
     fn now() -> DateTime<Utc> {
         "2024-12-31T23:00:00Z".parse().unwrap()
     }
@@ -112,8 +106,7 @@ mod tests {
 
     #[test]
     fn neither_duration_nor_window_is_not_rejected_locally() {
-        // The server decides which path applies to an incomplete request; an SDK-side rule here
-        // would reject requests the server accepts.
+        // Only the server knows which path applies, so it rejects an incomplete request.
         assert_eq!(base_request().validate_at(now()), Ok(()));
     }
 
@@ -184,7 +177,7 @@ mod tests {
 
     #[test]
     fn window_ending_exactly_now_is_invalid() {
-        // Matches activation's own already-expired refusal: a window with no time left isn't one.
+        // Matches activation's own already-expired refusal.
         let request = AccessRequestCreateRequest {
             start: Some("2024-12-31T22:00:00Z".parse().unwrap()),
             end: Some(now()),
@@ -199,8 +192,7 @@ mod tests {
 
     #[test]
     fn window_already_under_way_is_valid() {
-        // Deliberately not rejected: only the end is checked, so access starting immediately
-        // must be requestable.
+        // Only the end is checked, so access starting immediately stays requestable.
         let request = AccessRequestCreateRequest {
             start: Some("2024-12-31T22:00:00Z".parse().unwrap()),
             end: Some("2025-01-01T00:00:00Z".parse().unwrap()),
@@ -268,8 +260,7 @@ mod tests {
 
     #[test]
     fn only_start_without_end_is_not_window_checked_locally() {
-        // The human path isn't complete without both `start` and `end`; the server is the source
-        // of truth for rejecting an incomplete pair.
+        // The server rejects an incomplete `start`/`end` pair.
         let request = AccessRequestCreateRequest {
             start: Some("2025-01-01T00:00:00Z".parse().unwrap()),
             ..base_request()
