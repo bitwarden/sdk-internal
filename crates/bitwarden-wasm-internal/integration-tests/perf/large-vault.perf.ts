@@ -9,7 +9,8 @@
 //
 // Every arrow is timed; the vault encrypted during setup is the input to both decrypts.
 //
-// The vault is `PERF_VAULT_SIZE` logins (name, username, password, URI), each with a cipher key.
+// The vault is `PERF_VAULT_SIZE` logins (name, username, password, URI), each with a cipher key,
+// then a large vault of `LARGE_VAULT_SIZE` logins.
 // Scenarios differ in the account the vault is encrypted for; all ciphers are personal:
 //   v1 encryption  V1 account (AES-256-CBC-HMAC user key)
 //   v2 encryption  V2 account (XAES-256-GCM user key, COSE)
@@ -37,7 +38,10 @@ import { benchOptions, runOptions } from "./bench";
 import { generateVault } from "./vault-generator";
 
 const VAULT_SIZE = Number(process.env.PERF_VAULT_SIZE ?? 20_000);
+const LARGE_VAULT_SIZE = 200_000;
 const RUNS = Number(process.env.PERF_RUNS ?? 5);
+// A 200k vault run takes minutes; vitest's default timeout is 60 s.
+const TIMEOUT_MS = 15 * 60 * 1000;
 const CIPHER_KEY_FLAG = "enableCipherKeyEncryption";
 
 interface Scenario {
@@ -50,40 +54,49 @@ const SCENARIOS: Scenario[] = [
   { name: "v1 encryption", makeClient: makeOrgInitializedClient },
 ];
 
+// Every scenario at every vault size, e.g. { name: "v2 encryption", size: 200000, ... }.
+const CASES = SCENARIOS.flatMap((scenario) =>
+  [VAULT_SIZE, LARGE_VAULT_SIZE].map((size) => ({ ...scenario, size })),
+);
+
 /** Encrypts `views` so every cipher has its own cipher key, as clients create today. */
 async function encryptVault(client: PasswordManagerClient, views: CipherView[]): Promise<Cipher[]> {
   const encrypted = await client.vault().ciphers().encrypt_list(views);
   return encrypted.map((ctx) => ctx.cipher);
 }
 
-test.for(SCENARIOS)("large vault $name", async ({ name, makeClient }, { bench }) => {
-  // Client and vault setup is untimed.
-  const client = await makeClient(makeStateBridge());
-  await client.platform().load_flags(new Map([[CIPHER_KEY_FLAG, true]]));
+test.for(CASES)(
+  "large vault $name $size",
+  { timeout: TIMEOUT_MS },
+  async ({ name, makeClient, size }, { bench }) => {
+    // Client and vault setup is untimed.
+    const client = await makeClient(makeStateBridge());
+    await client.platform().load_flags(new Map([[CIPHER_KEY_FLAG, true]]));
 
-  const views = generateVault(VAULT_SIZE);
-  const vault = await encryptVault(client, views);
-  ok(vault.every((cipher) => cipher.key !== undefined));
+    const views = generateVault(size);
+    const vault = await encryptVault(client, views);
+    ok(vault.every((cipher) => cipher.key !== undefined));
 
-  const ciphers = client.vault().ciphers();
-  const encryptTask = `${name} encrypt_list`;
-  const listTask = `${name} decrypt_list_with_failures`;
-  const fullTask = `${name} decrypt_list_full_with_failures`;
+    const ciphers = client.vault().ciphers();
+    const encryptTask = `${name} ${size} encrypt_list`;
+    const listTask = `${name} ${size} decrypt_list_with_failures`;
+    const fullTask = `${name} ${size} decrypt_list_full_with_failures`;
 
-  // Assertions guard against silently measuring a failing encrypt or decrypt.
-  await bench.compare(
-    bench(encryptTask, benchOptions(encryptTask), async () => {
-      const result = await encryptVault(client, views);
-      strictEqual(result.length, VAULT_SIZE);
-    }),
-    bench(listTask, benchOptions(listTask), async () => {
-      const result = await ciphers.decrypt_list_with_failures(vault);
-      strictEqual(result.successes.length, VAULT_SIZE);
-    }),
-    bench(fullTask, benchOptions(fullTask), async () => {
-      const result = await ciphers.decrypt_list_full_with_failures(vault);
-      strictEqual(result.successes.length, VAULT_SIZE);
-    }),
-    runOptions(`large vault ${name}, vault size ${VAULT_SIZE}, ${RUNS} runs`, RUNS),
-  );
-});
+    // Assertions guard against silently measuring a failing encrypt or decrypt.
+    await bench.compare(
+      bench(encryptTask, benchOptions(encryptTask), async () => {
+        const result = await encryptVault(client, views);
+        strictEqual(result.length, size);
+      }),
+      bench(listTask, benchOptions(listTask), async () => {
+        const result = await ciphers.decrypt_list_with_failures(vault);
+        strictEqual(result.successes.length, size);
+      }),
+      bench(fullTask, benchOptions(fullTask), async () => {
+        const result = await ciphers.decrypt_list_full_with_failures(vault);
+        strictEqual(result.successes.length, size);
+      }),
+      runOptions(`large vault ${name}, vault size ${size}, ${RUNS} runs`, RUNS),
+    );
+  },
+);

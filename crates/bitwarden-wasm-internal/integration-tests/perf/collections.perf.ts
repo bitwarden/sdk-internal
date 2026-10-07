@@ -5,7 +5,8 @@
 //
 // Both arrows are timed; the collections encrypted during setup are the input to the decrypt.
 //
-// Collections are encrypted with the organization key of the V1 organization account.
+// Collections are encrypted with the organization key of the V1 organization account. Runs with
+// `PERF_COLLECTIONS` collections, then `LARGE_COUNT`.
 //
 // Env:
 //   PERF_COLLECTIONS  collections in the organization            (default 5000)
@@ -23,6 +24,7 @@ import { makeOrgInitializedClient, makeStateBridge } from "../tests/utils";
 import { benchOptions, runOptions } from "./bench";
 
 const COUNT = Number(process.env.PERF_COLLECTIONS ?? 5000);
+const LARGE_COUNT = 10_000;
 const RUNS = Number(process.env.PERF_RUNS ?? 5);
 
 /** Generates `count` shared collections, `collection_1` to `collection_<count>`. */
@@ -39,25 +41,25 @@ function generateCollections(count: number): CollectionView[] {
   }));
 }
 
-test("collections", async ({ bench }) => {
+test.for([COUNT, LARGE_COUNT])("collections %i", async (count, { bench }) => {
   // Client and collection setup is untimed.
   const client = await makeOrgInitializedClient(makeStateBridge());
   const collectionsClient = client.vault().collections();
-  const views = generateCollections(COUNT);
+  const views = generateCollections(count);
   const collections = collectionsClient.encrypt_list(views);
 
-  const encryptTask = "collections encrypt_list";
-  const decryptTask = "collections decrypt_list_with_failures";
+  const encryptTask = `collections ${count} encrypt_list`;
+  const decryptTask = `collections ${count} decrypt_list_with_failures`;
 
   // Assertions guard against silently measuring a failing encrypt or decrypt.
   await bench.compare(
     bench(encryptTask, benchOptions(encryptTask), () => {
-      strictEqual(collectionsClient.encrypt_list(views).length, COUNT);
+      strictEqual(collectionsClient.encrypt_list(views).length, count);
     }),
     bench(decryptTask, benchOptions(decryptTask), () => {
       const result = collectionsClient.decrypt_list_with_failures(collections);
-      strictEqual(result.successes.length, COUNT);
+      strictEqual(result.successes.length, count);
     }),
-    runOptions(`collections, ${COUNT} collections, ${RUNS} runs`, RUNS),
+    runOptions(`collections, ${count} collections, ${RUNS} runs`, RUNS),
   );
 });
