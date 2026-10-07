@@ -5,6 +5,7 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
+use bitwarden_core::OrganizationId;
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -140,7 +141,7 @@ pub struct Permissions {
 #[serde(rename_all = "camelCase")]
 pub struct ProfileOrganization {
     /// Unique identifier for the organization.
-    pub id: Uuid,
+    pub id: OrganizationId,
     /// Display name of the organization.
     pub name: String,
     /// The user's membership status in the organization.
@@ -179,6 +180,8 @@ pub struct ProfileOrganization {
     pub use_secrets_manager: bool,
     /// Whether the organization has access to Password Manager.
     pub use_password_manager: bool,
+    /// Whether the organization has access to Privileged Access Management features.
+    pub use_pam: bool,
     /// Whether the organization can use the activate autofill policy.
     pub use_activate_autofill_policy: bool,
     /// Whether the organization can automatically confirm new members without manual admin
@@ -257,8 +260,8 @@ pub struct ProfileOrganization {
     /// collections without requiring explicit collection assignments.
     /// When `false`, admins can only access collections where they have been explicitly assigned.
     pub allow_admin_access_to_all_collection_items: bool,
-    /// Whether the current user's account is managed by this organization.
-    pub user_is_managed_by_organization: bool,
+    /// Whether the current user's account is claimed by this organization.
+    pub user_is_claimed_by_organization: bool,
     /// Whether the organization has access to Access Intelligence features.
     pub use_access_intelligence: bool,
     /// Whether the organization can sponsor families plans for members (Families For Enterprises).
@@ -278,12 +281,16 @@ pub struct ProfileOrganization {
     /// This allows users to store personal items in the organization vault
     /// if the Centralize Organization Ownership policy is enabled.
     pub use_my_items: bool,
+    /// Whether the organization can invite members using invite links.
+    pub use_invite_links: bool,
 }
+
+bitwarden_state::register_repository_item!(OrganizationId => ProfileOrganization, "ProfileOrganization");
 
 impl Default for ProfileOrganization {
     fn default() -> Self {
         ProfileOrganization {
-            id: Uuid::nil(),
+            id: OrganizationId::new(Uuid::nil()),
             name: String::new(),
             status: OrganizationUserStatusType::Confirmed,
             r#type: OrganizationUserType::User,
@@ -303,6 +310,7 @@ impl Default for ProfileOrganization {
             use_reset_password: false,
             use_secrets_manager: false,
             use_password_manager: false,
+            use_pam: false,
             use_activate_autofill_policy: false,
             use_automatic_user_confirmation: false,
             self_host: false,
@@ -335,7 +343,7 @@ impl Default for ProfileOrganization {
             limit_collection_deletion: false,
             limit_item_deletion: false,
             allow_admin_access_to_all_collection_items: false,
-            user_is_managed_by_organization: false,
+            user_is_claimed_by_organization: false,
             use_access_intelligence: false,
             use_admin_sponsored_families: false,
             use_disable_sm_ads_for_users: false,
@@ -344,6 +352,125 @@ impl Default for ProfileOrganization {
             sso_member_decryption_type: None,
             use_phishing_blocker: false,
             use_my_items: false,
+            use_invite_links: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    /// A record shaped like a persisted TS `OrganizationData`.
+    fn organization_data_json() -> serde_json::Value {
+        serde_json::from_str(
+            r#"{
+            "id": "0b5a2d2c-6b39-4c7e-9f4a-0a1b2c3d4e5f",
+            "name": "Test Org",
+            "status": 2,
+            "type": 4,
+            "enabled": true,
+            "usePolicies": true,
+            "useGroups": true,
+            "useDirectory": false,
+            "useEvents": true,
+            "useTotp": true,
+            "use2fa": true,
+            "useApi": false,
+            "useSso": true,
+            "useOrganizationDomains": false,
+            "useKeyConnector": false,
+            "useScim": false,
+            "useCustomPermissions": true,
+            "useResetPassword": true,
+            "useSecretsManager": false,
+            "usePasswordManager": true,
+            "usePam": false,
+            "useActivateAutofillPolicy": false,
+            "useAutomaticUserConfirmation": false,
+            "selfHost": false,
+            "usersGetPremium": true,
+            "seats": 25,
+            "maxCollections": null,
+            "maxStorageGb": 5,
+            "ssoBound": false,
+            "identifier": null,
+            "permissions": {
+                "accessEventLogs": true,
+                "accessImportExport": false,
+                "accessReports": true,
+                "createNewCollections": false,
+                "editAnyCollection": false,
+                "deleteAnyCollection": false,
+                "manageGroups": true,
+                "manageSso": false,
+                "managePolicies": false,
+                "manageUsers": true,
+                "manageResetPassword": false,
+                "manageScim": false
+            },
+            "resetPasswordEnrolled": true,
+            "userId": "1c6b3e3d-7c4a-4d8f-8a5b-1b2c3d4e5f60",
+            "organizationUserId": "2d7c4f4e-8d5b-4e9a-9b6c-2c3d4e5f6071",
+            "hasPublicAndPrivateKeys": true,
+            "providerId": null,
+            "providerName": null,
+            "providerType": null,
+            "isProviderUser": false,
+            "isMember": true,
+            "familySponsorshipFriendlyName": null,
+            "familySponsorshipAvailable": false,
+            "productTierType": 3,
+            "keyConnectorEnabled": false,
+            "keyConnectorUrl": null,
+            "familySponsorshipLastSyncDate": "2024-01-02T03:04:05Z",
+            "familySponsorshipValidUntil": null,
+            "familySponsorshipToDelete": null,
+            "accessSecretsManager": false,
+            "limitCollectionCreation": true,
+            "limitCollectionDeletion": true,
+            "limitItemDeletion": false,
+            "allowAdminAccessToAllCollectionItems": true,
+            "userIsClaimedByOrganization": false,
+            "useAccessIntelligence": false,
+            "useAdminSponsoredFamilies": false,
+            "useDisableSMAdsForUsers": false,
+            "isAdminInitiated": false,
+            "ssoEnabled": true,
+            "ssoMemberDecryptionType": 0,
+            "usePhishingBlocker": false,
+            "useMyItems": false,
+            "useInviteLinks": true
+        }"#,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn round_trips_organization_data_json() {
+        let json = organization_data_json();
+
+        let organization: ProfileOrganization = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(
+            organization.id,
+            OrganizationId::new("0b5a2d2c-6b39-4c7e-9f4a-0a1b2c3d4e5f".parse().unwrap())
+        );
+        assert!(organization.use_invite_links);
+
+        assert_eq!(serde_json::to_value(&organization).unwrap(), json);
+    }
+
+    #[test]
+    fn deserializes_js_iso_date_strings() {
+        let mut json = organization_data_json();
+        json["familySponsorshipLastSyncDate"] = json!("2024-01-02T03:04:05.000Z");
+
+        let organization: ProfileOrganization = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            organization.family_sponsorship_last_sync_date,
+            Some("2024-01-02T03:04:05Z".parse().unwrap())
+        );
     }
 }

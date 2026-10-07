@@ -53,6 +53,7 @@ wasm = [
     "bitwarden-member-administration/wasm",
     "bitwarden-organization-domains/wasm",
     "bitwarden-organization-invite-link/wasm",
+    "bitwarden-organizations/wasm",
     "bitwarden-pam?/wasm",
     "bitwarden-policies/wasm",
     "bitwarden-send/wasm",
@@ -83,6 +84,7 @@ bitwarden-managed-settings = { workspace = true }
 bitwarden-member-administration = { workspace = true }
 bitwarden-organization-domains = { workspace = true }
 bitwarden-organization-invite-link = { workspace = true }
+bitwarden-organizations = { workspace = true }
 bitwarden-pam = { workspace = true, optional = true }
 bitwarden-policies = { workspace = true }
 bitwarden-send = { workspace = true }
