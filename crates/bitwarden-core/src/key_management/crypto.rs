@@ -286,7 +286,8 @@ pub(super) async fn initialize_user_crypto(
                 .await
                 .map_err(|err| match err {
                     UnlockError::PinWrong => EncryptionSettingsError::WrongPin,
-                    _ => EncryptionSettingsError::CryptoInitialization,
+                    UnlockError::NoPinSet => EncryptionSettingsError::PinUnlockNotAvailable,
+                    UnlockError::InternalError => EncryptionSettingsError::CryptoInitialization,
                 })?;
             // Note: PinLockSystem sets the user-key to state, and this section is reading it from
             // state, then re-setting it via `initialize_user_crypto_decrypted_key`.
@@ -1538,6 +1539,41 @@ mod tests {
         };
 
         assert_eq!(client1_key, client2_key);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_pin_state_without_envelope() {
+        // No PIN envelope in state, as after an app restart with an AfterFirstUnlock PIN
+        let client = Client::new_test(None);
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+
+        let result = initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: Kdf::default_pbkdf2(),
+                email: "test@bitwarden.com".into(),
+                account_cryptographic_state: {
+                    let store: KeyStore<KeySlotIds> = KeyStore::default();
+                    let mut ctx = store.context_mut();
+                    WrappedAccountCryptographicState::make_v1(&mut ctx)
+                        .unwrap()
+                        .1
+                },
+                method: InitUserCryptoMethod::PinState {
+                    pin: "1234".to_string(),
+                },
+                upgrade_token: None,
+            },
+        )
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(EncryptionSettingsError::PinUnlockNotAvailable)
+        ));
     }
 
     #[test]
