@@ -152,11 +152,7 @@ pub enum LockState {
 /// Reported to the driver on every sync this device accepts, so a client can tell "a peer
 /// answered, and it is locked" from "no peer answered at all".
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum PeerLockState {
     /// The peer reported the user as locked.
     Locked,
