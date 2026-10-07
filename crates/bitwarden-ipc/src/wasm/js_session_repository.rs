@@ -14,7 +14,7 @@ export interface IpcSessionRepository {
 }
 "#;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// JavaScript interface for handling outgoing messages from the IPC framework.
     #[wasm_bindgen(js_name = IpcSessionRepository, typescript_type = "IpcSessionRepository")]
@@ -37,8 +37,6 @@ extern "C" {
     #[wasm_bindgen(catch, method, structural)]
     pub async fn remove(this: &RawJsSessionRepository, endpoint: Endpoint) -> Result<(), JsValue>;
 }
-
-bitwarden_ffi::impl_wire_object!(RawJsSessionRepository);
 
 /// Thread safe JavaScript implementation of the `SessionRepository` trait for IPC sessions.
 pub struct JsSessionRepository(ThreadBoundRunner<RawJsSessionRepository>);

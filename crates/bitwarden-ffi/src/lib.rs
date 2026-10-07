@@ -7,7 +7,7 @@
 mod wire;
 mod wire_macros;
 
-pub use bitwarden_ffi_macro::{wasm_export, wasm_object, wasm_record};
+pub use bitwarden_ffi_macro::{wasm_export, wasm_import, wasm_object, wasm_record};
 #[cfg(feature = "wasm")]
 pub use wire::{FromWasm, ToWasm, WireError};
 #[cfg(feature = "wasm")]

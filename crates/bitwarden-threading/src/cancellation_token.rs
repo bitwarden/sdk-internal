@@ -6,7 +6,7 @@ pub mod wasm {
 
     use super::*;
 
-    #[wasm_bindgen]
+    #[bitwarden_ffi::wasm_import]
     extern "C" {
         #[wasm_bindgen(typescript_type = AbortController)]
         #[derive(Clone)]
@@ -71,7 +71,4 @@ pub mod wasm {
             token
         }
     }
-
-    bitwarden_ffi::impl_wire_object!(AbortController);
-    bitwarden_ffi::impl_wire_object!(AbortSignal);
 }

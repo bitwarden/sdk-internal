@@ -70,7 +70,7 @@ export interface IpcCommunicationBackendSender {
 }
 "#;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// JavaScript interface for handling outgoing messages from the IPC framework.
     #[wasm_bindgen(js_name = IpcCommunicationBackendSender, typescript_type = "IpcCommunicationBackendSender")]
@@ -87,8 +87,6 @@ extern "C" {
     #[wasm_bindgen(catch, method, structural)]
     pub async fn receive(this: &JsCommunicationBackendSender) -> Result<JsValue, JsValue>;
 }
-
-bitwarden_ffi::impl_wire_object!(JsCommunicationBackendSender);
 
 /// JavaScript implementation of the `CommunicationBackend` trait for IPC communication.
 #[wasm_bindgen(js_name = IpcCommunicationBackend)]

@@ -20,7 +20,7 @@ export interface SharedUnlockDriver {
 }
 "#;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// JavaScript implementation of shared unlock operations used by shared unlock protocol.
     #[wasm_bindgen(js_name = SharedUnlockDriver, typescript_type = "SharedUnlockDriver")]
@@ -65,8 +65,6 @@ extern "C" {
         lock_state: PeerLockState,
     ) -> Result<(), JsValue>;
 }
-
-bitwarden_ffi::impl_wire_object!(RawJsSharedUnlockDriver);
 
 pub(super) struct JsSharedUnlockDriver {
     runner: ThreadBoundRunner<RawJsSharedUnlockDriver>,

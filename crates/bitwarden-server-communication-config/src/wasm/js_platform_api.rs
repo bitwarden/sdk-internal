@@ -26,7 +26,7 @@ export interface ServerCommunicationConfigPlatformApi {
 }
 "#;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// JavaScript interface for the ServerCommunicationConfigPlatformApi
     #[wasm_bindgen(
@@ -42,8 +42,6 @@ extern "C" {
         vault_url: String,
     ) -> Result<JsValue, JsValue>;
 }
-
-bitwarden_ffi::impl_wire_object!(RawJsServerCommunicationConfigPlatformApi);
 
 /// Thread-safe JavaScript implementation of ServerCommunicationConfigPlatformApi
 ///

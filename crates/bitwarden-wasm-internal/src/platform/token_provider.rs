@@ -9,7 +9,7 @@ export interface TokenProvider {
 }
 "#;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     #[wasm_bindgen(js_name = TokenProvider)]
     pub type JsTokenProvider;
@@ -17,8 +17,6 @@ extern "C" {
     #[wasm_bindgen(method)]
     pub async fn get_access_token(this: &JsTokenProvider) -> JsValue;
 }
-
-bitwarden_ffi::impl_wire_object!(JsTokenProvider);
 
 /// Thread-bound runner for JavaScript token provider
 pub(crate) struct WasmClientManagedTokens(ThreadBoundRunner<JsTokenProvider>);

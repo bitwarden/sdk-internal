@@ -5,7 +5,7 @@
  * This looks something like this:
  *
  * ```rust,ignore
- * #[wasm_bindgen]
+ * #[bitwarden_ffi::wasm_import]
  * extern "C" {
  *     pub type CipherRepository;
  *
@@ -143,7 +143,7 @@ macro_rules! create_wasm_repositories {
             );
         };
 
-        #[wasm_bindgen]
+        #[bitwarden_ffi::wasm_import]
         extern "C" {
             #[wasm_bindgen(typescript_type = $container_name)]
             pub type $container_name;
@@ -153,8 +153,6 @@ macro_rules! create_wasm_repositories {
                 pub fn $field_name(this: &$container_name) -> Option<$repo_name>;
             )+
         }
-
-        ::bitwarden_ffi::impl_wire_object!($container_name);
 
         impl $container_name {
             pub fn register_all(self, client: &bitwarden_core::platform::StateClient) {
@@ -168,7 +166,7 @@ macro_rules! create_wasm_repositories {
         }
 
         $(
-            #[wasm_bindgen]
+            #[bitwarden_ffi::wasm_import]
             extern "C" {
                 #[wasm_bindgen]
                 pub type $repo_name;

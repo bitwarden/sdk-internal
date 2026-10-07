@@ -7,7 +7,7 @@
 /// Implements both traits for a type that crosses as itself: a `#[wasm_bindgen]` handle, an
 /// `extern "C"` type, or a primitive wasm_bindgen already understands.
 ///
-/// `#[wasm_object]` calls this for the types it declares.
+/// `#[wasm_object]` and `#[wasm_import]` call this for the types they declare.
 #[macro_export]
 macro_rules! impl_wire_object {
     ($($ty:ty),* $(,)?) => {
