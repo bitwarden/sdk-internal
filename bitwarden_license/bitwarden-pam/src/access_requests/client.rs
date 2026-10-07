@@ -13,13 +13,6 @@ use super::{
 use crate::{AccessRequestId, leases::AccessLeaseView};
 
 /// Client for a requester's PAM access requests.
-///
-/// Covers the requester side of the request lifecycle: reading a cipher's access state and
-/// approval outcome ([`pre_check`](AccessRequestsClient::pre_check),
-/// [`cipher_access_state`](AccessRequestsClient::cipher_access_state)), opening a request
-/// ([`request`](AccessRequestsClient::request)), listing and reading the caller's own requests,
-/// [`activate`](AccessRequestsClient::activate)ing an approved request to mint a lease, and
-/// [`cancel`](AccessRequestsClient::cancel)ling a request that is still pending.
 #[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct AccessRequestsClient {
@@ -29,8 +22,7 @@ pub struct AccessRequestsClient {
 #[bitwarden_ffi::wasm_export]
 impl AccessRequestsClient {
     /// Resolves the approval outcome for a cipher without submitting a request, so the client can
-    /// present the right workflow (pick a duration vs. pick a window and justify) before the
-    /// requester commits.
+    /// show the right form before the requester commits.
     pub async fn pre_check(
         &self,
         cipher_id: CipherId,
@@ -45,8 +37,8 @@ impl AccessRequestsClient {
         Ok(AccessPreCheckView::try_from(response)?)
     }
 
-    /// Reads the caller's current access state for a cipher - powers the cipher-view banner and
-    /// the vault-row badge.
+    /// Reads the caller's current access state for a cipher, for the cipher-view banner and the
+    /// vault-row badge.
     pub async fn cipher_access_state(
         &self,
         cipher_id: CipherId,
@@ -109,10 +101,6 @@ impl AccessRequestsClient {
     }
 
     /// Activates an approved request, minting and returning the resulting lease.
-    ///
-    /// This is the second half of the automatic flow: once a request reaches
-    /// [`Approved`](super::AccessRequestStatus::Approved), the requester activates it to obtain a
-    /// short-lived [`AccessLease`](AccessLeaseView) over the cipher.
     pub async fn activate(
         &self,
         id: AccessRequestId,
@@ -127,7 +115,7 @@ impl AccessRequestsClient {
         Ok(AccessLeaseView::try_from(response)?)
     }
 
-    /// Cancels the caller's own request while it is still pending.
+    /// Cancels the caller's own request while it is pending, or approved but not yet activated.
     pub async fn cancel(&self, id: AccessRequestId) -> Result<(), AccessRequestError> {
         self.api_configurations
             .api_client

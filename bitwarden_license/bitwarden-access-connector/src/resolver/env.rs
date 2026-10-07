@@ -14,18 +14,15 @@ pub(crate) fn required_suffixes(kind: TargetKind) -> &'static [&'static str] {
         TargetKind::Entra => &["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"],
         TargetKind::CustomScript => &["SCRIPT"],
         TargetKind::Mssql => &["HOST", "USER", "SECRET"],
-        // Unknown kinds have no required suffixes; the executor will report
-        // `unsupported_kind` before the resolver is invoked in practice.
+        // Unknown kinds require nothing, so resolution succeeds and the executor then reports
+        // `unsupported_kind`.
         TargetKind::Unknown(_) => &[],
     }
 }
 
-/// Converts a target system UUID into the environment variable prefix: the UUID
-/// stringified, uppercased, with `-` replaced by `_`, and a trailing `_` appended.
-/// Example: `"ABC_1234_..._"`.
+/// Env var prefix for a target, e.g. `EC2C1D46_6A4B_4751_A310_AF9601317F2D_`.
 pub(crate) fn prefix_for(id: Uuid) -> String {
     let mut s = id.to_string().to_uppercase();
-    // Safety: replace is purely ASCII.
     s = s.replace('-', "_");
     s.push('_');
     s
@@ -57,7 +54,7 @@ impl CredentialResolver for EnvCredentialResolver {
         let mut creds = ResolvedCredentials::new();
         let mut missing: Vec<String> = Vec::new();
 
-        // Collect ALL matching env vars into the map.
+        // Collect every matching env var, not only the required ones.
         for (name, value) in self.env.vars() {
             if let Some(suffix) = name.strip_prefix(&prefix)
                 && !suffix.is_empty()
@@ -66,7 +63,6 @@ impl CredentialResolver for EnvCredentialResolver {
             }
         }
 
-        // Verify all required suffixes are present.
         for &suffix in required {
             if creds.get(suffix).is_none() {
                 missing.push(format!("{prefix}{suffix}"));
@@ -90,8 +86,8 @@ mod tests {
     use super::*;
     use crate::{api::models::TargetKind, sys::FakeEnv};
 
-    /// Runs the resolver against exactly `vars` and nothing else. No process state is
-    /// touched, so these tests need no lock and cannot collide with each other.
+    /// Runs the resolver against exactly `vars`; no process state is touched, so no lock is
+    /// needed.
     fn run_resolver_with_env(
         id: Uuid,
         kind: TargetKind,
@@ -215,7 +211,6 @@ mod tests {
         let prefix = prefix_for(id);
         let mut vars = HashMap::new();
         vars.insert(format!("{prefix}TENANT_ID"), "t".to_string());
-        // CLIENT_ID and CLIENT_SECRET missing.
         let err = run_resolver_with_env(id, TargetKind::Entra, &vars).unwrap_err();
         match err {
             ResolveError::Missing(names) => {

@@ -1,17 +1,7 @@
-//! Microsoft Entra ID (Azure AD) integration for credential rotation.
+//! Microsoft Entra ID (Azure AD) integration.
 //!
-//! [`EntraIntegration`] rotates user passwords via the Microsoft Graph REST API using an
-//! administrative password reset. The connector never holds the account's current credential,
-//! only the new password.
-//!
-//! # URL-building security
-//!
-//! `account_identity` is attacker-influencable; Graph URLs are built via
-//! [`url::Url::path_segments_mut`] + `push`, never string-interpolated.
-//!
-//! # Secret handling
-//!
-//! The Graph bearer token, client secret, and new password are never logged.
+//! Passwords rotate by administrative reset through Microsoft Graph, so the connector never holds
+//! the current credential. The Graph token, client secret and new password are never logged.
 
 use std::time::Duration;
 
@@ -24,51 +14,32 @@ use url::Url;
 use super::{Integration, IntegrationError, RotateContext, TargetEffect};
 use crate::error::{ErrorClass, FailureCode, SafeDetail};
 
-/// Default Microsoft login endpoint for token acquisition.
 const DEFAULT_LOGIN_BASE: &str = "https://login.microsoftonline.com";
 
-/// Default Microsoft Graph API base URL.
 const DEFAULT_GRAPH_BASE: &str = "https://graph.microsoft.com";
 
-/// Graph API scope for client-credentials token requests.
 const GRAPH_SCOPE: &str = "https://graph.microsoft.com/.default";
 
-/// HTTP timeout applied to every individual request (token fetch, PATCH, GET, POST).
 const HTTP_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Clock-slack tolerance for `lastPasswordChangeDateTime` freshness check (5 minutes).
+/// Clock-slack tolerance for the `lastPasswordChangeDateTime` freshness check.
 const VERIFY_CLOCK_SLACK: chrono::Duration = chrono::Duration::seconds(300);
 
-/// Maximum time spent polling Graph for a fresh `lastPasswordChangeDateTime` (1 minute).
+/// How long `verify` polls Graph for a fresh `lastPasswordChangeDateTime`.
 const VERIFY_MAX_WAIT: Duration = Duration::from_secs(60);
 
-/// Interval between directory poll attempts inside `verify` (5 seconds).
 const VERIFY_POLL_INTERVAL: Duration = Duration::from_secs(5);
 
-/// Microsoft Entra ID integration driver.
-///
-/// Rotates credentials via `PATCH /v1.0/users/{id}/passwordProfile` using a
-/// service-principal client-credentials flow; the bearer token is fetched fresh per operation.
-///
-/// # Secret handling
-///
-/// Secrets live only on the stack inside operation bodies, never in `self`.
+/// Microsoft Entra ID integration driver. Each operation fetches a fresh service-principal token,
+/// and secrets live only inside operation bodies, never in `self`.
 pub(crate) struct EntraIntegration {
-    /// Shared HTTP client, built on construction and reused across operations.
     http: Client,
-    /// Whether to attempt an ROPC verify probe after directory confirmation.
-    ///
-    /// Off by default: MFA / Conditional Access blocks ROPC in most production tenants.
-    /// Enable via `entra_verify_probe = true`.
+    /// Whether `verify` tries an ROPC sign-in before the directory check. Off by default, since
+    /// MFA or Conditional Access blocks ROPC in most production tenants.
     verify_probe: bool,
-    /// Base URL for the Microsoft login (token) endpoint.  Overrideable in tests.
     login_base: String,
-    /// Base URL for the Graph API.  Overrideable in tests.
     graph_base: String,
-    /// Maximum time to wait for Graph to replicate the new `lastPasswordChangeDateTime`; zero in
-    /// tests.
     verify_max_wait: Duration,
-    /// Interval between directory poll retries inside `verify`; zero in tests (single-shot).
     verify_poll_interval: Duration,
 }
 
@@ -91,13 +62,11 @@ impl EntraIntegration {
         }
     }
 
-    /// Build a new `EntraIntegration` with injectable base URLs (test helper).
-    ///
-    /// Points at wiremock servers instead of real Microsoft endpoints.
+    /// Test constructor pointing at wiremock servers, with `verify` polling disabled.
     #[cfg(test)]
     fn new_with_bases(verify_probe: bool, login_base: String, graph_base: String) -> Self {
-        // Trigger the ring crypto provider's global install (idempotent) with a
-        // throwaway client, then build the real test client for http:// wiremock servers.
+        // The throwaway client installs the ring crypto provider (idempotent); the real client
+        // allows http:// for wiremock.
         let _ = bitwarden_api_base::new_http_client_builder()
             .build()
             .expect("provider install client");
@@ -115,11 +84,7 @@ impl EntraIntegration {
         }
     }
 
-    /// Build an `EntraIntegration` with injectable base URLs and custom settle timing (test
-    /// helper).
-    ///
-    /// For testing `verify`'s polling behavior with non-zero `verify_max_wait` /
-    /// `verify_poll_interval`.
+    /// Like `new_with_bases`, with explicit `verify` polling timings.
     #[cfg(test)]
     fn new_with_bases_and_settle(
         verify_probe: bool,
@@ -156,10 +121,8 @@ impl std::fmt::Debug for EntraIntegration {
     }
 }
 
-/// Fetches a Graph API bearer token using the client-credentials flow.
-///
-/// The client secret is sent only in the form body (HTTPS encrypted) and never stored
-/// beyond this call.
+/// Fetch a Graph bearer token by client-credentials grant. The client secret goes only into the
+/// form body and is not kept past this call.
 async fn fetch_graph_token(
     http: &Client,
     login_base: &str,
@@ -188,7 +151,6 @@ async fn fetch_graph_token(
         segments.push("token");
     }
 
-    // The form body contains the client_secret; we never log it.
     let form = [
         ("grant_type", "client_credentials"),
         ("scope", GRAPH_SCOPE),
@@ -224,7 +186,7 @@ async fn fetch_graph_token(
             detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
         })
     } else {
-        // 429 / 5xx
+        // 429, 5xx and any other status.
         Err(IntegrationError {
             class: ErrorClass::Transient,
             effect: TargetEffect::NotApplied,
@@ -234,23 +196,18 @@ async fn fetch_graph_token(
     }
 }
 
-/// Minimal OAuth2 token response; only `access_token` is consumed.
 #[derive(Deserialize)]
 struct TokenResponse {
     access_token: String,
 }
 
-/// Minimal Graph user resource; only `lastPasswordChangeDateTime` is consumed.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UserResource {
     last_password_change_date_time: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-/// Minimal Graph error envelope.
-///
-/// Only `error.code` is read; `error.message` is never read since it can echo
-/// user-supplied content.
+/// Graph error envelope. `error.message` is never read, since it can echo user-supplied content.
 #[derive(Deserialize, Default)]
 struct GraphError {
     #[serde(default)]
@@ -263,11 +220,9 @@ struct GraphErrorInner {
     code: Option<String>,
 }
 
-/// Build a Graph URL for a user identity, treating `identity` as a single
-/// opaque path segment.
-///
-/// `identity` is attacker-influencable; `path_segments_mut` + `push` encodes
-/// slashes and percent sequences as part of the segment, preventing path injection.
+/// Build a Graph user URL with `identity` as one opaque path segment. `identity` is
+/// attacker-influenced, and `push` encodes slashes and percent sequences, so it cannot inject a
+/// path.
 fn build_graph_user_url(
     graph_base: &str,
     identity: &str,
@@ -296,8 +251,7 @@ fn build_graph_user_url(
     Ok(url)
 }
 
-/// Maps a `reqwest::Error` from the connect phase (before data is sent) to an
-/// `IntegrationError`.  Connect errors are always Transient.
+/// Maps a send error for a request with no credential effect; always Transient.
 fn network_error_before_send(e: reqwest::Error, effect: TargetEffect) -> IntegrationError {
     IntegrationError {
         class: ErrorClass::Transient,
@@ -313,10 +267,8 @@ fn network_error_before_send(e: reqwest::Error, effect: TargetEffect) -> Integra
     }
 }
 
-/// Maps a `reqwest::Error` after a mutation request was sent to an `IntegrationError`.
-///
-/// After-send timeouts are `Unknown` effect since the mutation may have reached the
-/// server; connect errors stay `Transient` / `pre_send_effect`.
+/// Maps a send error for a mutation. A connect error stays `Transient` with `pre_send_effect`;
+/// anything else is `Unknown`, since the mutation may have reached Graph.
 fn network_error_after_send(e: reqwest::Error, pre_send_effect: TargetEffect) -> IntegrationError {
     if e.is_connect() {
         IntegrationError {
@@ -339,11 +291,8 @@ fn network_error_after_send(e: reqwest::Error, pre_send_effect: TargetEffect) ->
     }
 }
 
-/// Parse Graph `error.code` from a JSON error body without consuming secrets.
-///
-/// `error.message` is ignored since it can echo user-supplied content. A code that
-/// fails `^[A-Za-z0-9_]{1,64}$` is treated as absent, to avoid log-injection from
-/// attacker-influenced responses.
+/// Read Graph's `error.code` from an error body. A code that fails `^[A-Za-z0-9_]{1,64}$` counts
+/// as absent, to prevent log injection from attacker-influenced responses.
 async fn read_graph_error_code(response: reqwest::Response) -> Option<String> {
     let body = response.bytes().await.ok()?;
     let parsed: GraphError = serde_json::from_slice(&body).ok()?;
@@ -355,7 +304,6 @@ async fn read_graph_error_code(response: reqwest::Response) -> Option<String> {
     }
 }
 
-/// Whether `code` matches `^[A-Za-z0-9_]{1,64}$`.
 fn validate_graph_error_code(code: &str) -> bool {
     !code.is_empty()
         && code.len() <= 64
@@ -364,7 +312,7 @@ fn validate_graph_error_code(code: &str) -> bool {
 
 #[async_trait]
 impl Integration for EntraIntegration {
-    /// Rotate the user's password via `PATCH /v1.0/users/{identity}/passwordProfile`.
+    /// Reset the password with `PATCH /v1.0/users/{identity}` and a `passwordProfile` body.
     async fn rotate(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let tenant_id = get_cred(&ctx.creds, "TENANT_ID")?;
         let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
@@ -416,7 +364,7 @@ impl Integration for EntraIntegration {
                 detail: SafeDetail::from_http_status_and_graph_code(status_u16, graph_code_ref),
             })
         } else {
-            // 429, 5xx
+            // 429, 5xx and any other status.
             Err(IntegrationError {
                 class: ErrorClass::Transient,
                 effect: TargetEffect::NotApplied,
@@ -426,12 +374,9 @@ impl Integration for EntraIntegration {
         }
     }
 
-    /// Verify that the rotation applied via directory confirmation and optional ROPC probe.
-    ///
-    /// An enabled ROPC probe runs first, being authoritative and unaffected by Graph's
-    /// replication lag; `verify` also polls up to `verify_max_wait` for
-    /// `lastPasswordChangeDateTime` before failing with `StalePasswordChangeTimestamp`. All
-    /// errors carry `Applied`.
+    /// Verify with the optional ROPC probe first, since it is authoritative and immune to Graph's
+    /// replication lag, then poll up to `verify_max_wait` for a fresh `lastPasswordChangeDateTime`.
+    /// Graph and network errors carry `Applied`.
     async fn verify(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let tenant_id = get_cred(&ctx.creds, "TENANT_ID")?;
         let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
@@ -446,12 +391,11 @@ impl Integration for EntraIntegration {
         )
         .await
         .map_err(|mut e| {
-            // Rotation already applied; re-classify effect to Applied.
+            // The rotation already applied.
             e.effect = TargetEffect::Applied;
             e
         })?;
 
-        // Optional ROPC probe first; authoritative and unaffected by replication lag.
         if self.verify_probe {
             let probe_result = ropc_probe(
                 &self.http,
@@ -507,8 +451,7 @@ impl Integration for EntraIntegration {
                 let graph_code = read_graph_error_code(response).await;
                 let detail =
                     SafeDetail::from_http_status_and_graph_code(status_u16, graph_code.as_deref());
-                // 429 / 5xx → Transient; 4xx → Fatal; all carry Applied.
-                // HTTP failures are not retried by the poll loop.
+                // HTTP failures end the poll loop; the executor retries Transient ones.
                 let class = if status_u16 == 429 || status_u16 >= 500 {
                     ErrorClass::Transient
                 } else {
@@ -529,7 +472,6 @@ impl Integration for EntraIntegration {
                 detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
             })?;
 
-            // Freshness check: lastPasswordChangeDateTime must be recent enough.
             let is_fresh = match user.last_password_change_date_time {
                 Some(changed_at) => {
                     let earliest_acceptable = ctx.rotation_started_at - VERIFY_CLOCK_SLACK;
@@ -544,7 +486,7 @@ impl Integration for EntraIntegration {
 
             let now = tokio::time::Instant::now();
             if now >= deadline {
-                // Budget exhausted (or verify_max_wait was zero → single check).
+                // Budget exhausted; a zero verify_max_wait means a single check.
                 return Err(IntegrationError {
                     class: ErrorClass::Fatal,
                     effect: TargetEffect::Applied,
@@ -558,12 +500,8 @@ impl Integration for EntraIntegration {
         }
     }
 
-    /// Revoke all active sign-in sessions for `ctx.account_identity`.
-    ///
-    /// `POST /v1.0/users/{identity}/revokeSignInSessions`
-    ///
-    /// Session termination never changes the credential, so all errors carry
-    /// `NotApplied`.
+    /// Revoke sign-in sessions with `POST /v1.0/users/{identity}/revokeSignInSessions`. Errors
+    /// carry `NotApplied`, since termination never changes the credential.
     async fn terminate_sessions(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let tenant_id = get_cred(&ctx.creds, "TENANT_ID")?;
         let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
@@ -627,16 +565,14 @@ impl Integration for EntraIntegration {
 enum ProbeResult {
     /// Password accepted (or MFA required, confirming the password is correct).
     Verified,
-    /// Password explicitly rejected (`AADSTS50126`).
+    /// Password rejected (`AADSTS50126`).
     WrongPassword,
     /// Outcome inconclusive; fall back to the directory check.
     Inconclusive,
 }
 
-/// Attempts an ROPC grant to verify the new password was accepted.
-///
-/// The new password is sent only in the form body (HTTPS encrypted); it is
-/// never stored, logged, or returned.
+/// Attempt an ROPC grant with the new password, which goes only into the form body and is never
+/// stored, logged or returned.
 async fn ropc_probe(
     http: &Client,
     login_base: &str,
@@ -659,7 +595,6 @@ async fn ropc_probe(
         Err(_) => return ProbeResult::Inconclusive,
     }
 
-    // The form contains the new password; it is never stored or logged.
     let form = [
         ("grant_type", "password"),
         ("scope", GRAPH_SCOPE),
@@ -705,9 +640,8 @@ async fn ropc_probe(
     ProbeResult::Inconclusive
 }
 
-/// Look up a required credential suffix, or fail with `credentials_unresolved`.
-///
-/// The error detail names only the missing suffix, never a value.
+/// Look up a required credential suffix, or fail with `credentials_unresolved` naming only the
+/// suffix.
 fn get_cred<'a>(
     creds: &'a crate::resolver::ResolvedCredentials,
     suffix: &'static str,
@@ -1032,8 +966,7 @@ mod tests {
         let graph = MockServer::start().await;
         let tenant = "t1";
 
-        // Mount ROPC mock FIRST so wiremock prioritises it over the catch-all
-        // client_credentials mock that follows.
+        // Mounted first, so wiremock matches it ahead of the client_credentials mock below.
         Mock::given(method("POST"))
             .and(path(format!("/{tenant}/oauth2/v2.0/token")))
             .and(body_string_contains("grant_type=password"))
@@ -1048,10 +981,9 @@ mod tests {
             .mount(&login)
             .await;
 
-        // Client-credentials token for Graph GET (catch-all, lower priority).
         mount_token_ok(&login, tenant, "graph-tok").await;
 
-        // Directory GET: stale → without probe this would fail.
+        // A stale directory timestamp, which would fail without the probe.
         let stale_at = (Utc::now() - chrono::Duration::minutes(10)).to_rfc3339();
         Mock::given(method("GET"))
             .and(path("/v1.0/users/user@example.com"))
@@ -1068,7 +1000,6 @@ mod tests {
         let creds = make_creds(tenant, "cid", "csecret");
         let ctx = make_ctx(creds, "user@example.com", "P@ss1");
         let integ = integration(&login, &graph, true);
-        // Probe got AADSTS50076 → Verified regardless of directory timestamp.
         assert!(integ.verify(&ctx).await.is_ok());
     }
 
@@ -1078,8 +1009,7 @@ mod tests {
         let graph = MockServer::start().await;
         let tenant = "t1";
 
-        // Mount ROPC mock FIRST so wiremock's priority favours it over the
-        // catch-all client_credentials mock below.
+        // Mounted first, so wiremock matches it ahead of the client_credentials mock below.
         Mock::given(method("POST"))
             .and(path(format!("/{tenant}/oauth2/v2.0/token")))
             .and(body_string_contains("grant_type=password"))
@@ -1096,7 +1026,7 @@ mod tests {
 
         mount_token_ok(&login, tenant, "graph-tok").await;
 
-        // Directory GET: fresh timestamp.
+        // A fresh directory timestamp, which the probe's rejection overrides.
         let now = Utc::now();
         let fresh_at = (now + chrono::Duration::seconds(1)).to_rfc3339();
         Mock::given(method("GET"))
@@ -1301,7 +1231,6 @@ mod tests {
         let mut creds = ResolvedCredentials::new();
         creds.insert("CLIENT_ID".to_string(), "cid".to_string());
         creds.insert("CLIENT_SECRET".to_string(), "secret".to_string());
-        // TENANT_ID absent.
 
         let ctx = make_ctx(creds, "user@example.com", "P@ss1");
         let integ = integration(&login, &graph, false);
@@ -1316,8 +1245,6 @@ mod tests {
         );
     }
 
-    /// Hostile `error.code` values (control chars, punctuation, >64 chars)
-    /// must be rejected and the detail must not include the hostile code.
     #[tokio::test]
     async fn hostile_graph_error_code_is_omitted_from_detail() {
         let login = MockServer::start().await;
@@ -1326,7 +1253,6 @@ mod tests {
 
         mount_token_ok(&login, tenant, "tok").await;
 
-        // Hostile code: contains newline + very long + special chars.
         let hostile_code = "Inject\r\nEvil: value\x00\x01".repeat(5); // >64 chars with control chars
         Mock::given(method("PATCH"))
             .and(path("/v1.0/users/some-user"))
@@ -1345,20 +1271,16 @@ mod tests {
         let err = integ.rotate(&ctx).await.unwrap_err();
 
         let detail = err.detail.as_str();
-        // Status must appear.
         assert!(
             detail.contains("404"),
             "detail must contain status code: {detail}"
         );
-        // Hostile code must NOT appear in the detail.
         assert!(
             !detail.contains("Inject"),
             "hostile graph error.code must not appear in detail: {detail}"
         );
     }
 
-    /// A valid `error.code` (alphanumeric + underscores, ≤64 chars) must be
-    /// included in the detail.
     #[test]
     fn valid_graph_error_code_passes_validation() {
         assert!(super::validate_graph_error_code("Request_ResourceNotFound"));
@@ -1366,20 +1288,13 @@ mod tests {
         assert!(super::validate_graph_error_code(&"x".repeat(64)));
     }
 
-    /// Invalid `error.code` values must be rejected.
     #[test]
     fn invalid_graph_error_codes_are_rejected() {
-        // Too long (65 chars)
         assert!(!super::validate_graph_error_code(&"x".repeat(65)));
-        // Empty string
         assert!(!super::validate_graph_error_code(""));
-        // Contains newline
         assert!(!super::validate_graph_error_code("Code\nInjection"));
-        // Contains colon
         assert!(!super::validate_graph_error_code("Bad:Code"));
-        // Contains null byte
         assert!(!super::validate_graph_error_code("Code\x00bad"));
-        // Contains space
         assert!(!super::validate_graph_error_code("Bad Code"));
     }
 
@@ -1395,8 +1310,7 @@ mod tests {
         let stale_at = (now - chrono::Duration::minutes(10)).to_rfc3339();
         let fresh_at = (now + chrono::Duration::seconds(1)).to_rfc3339();
 
-        // First request returns stale; `up_to_n_times(1)` limits it to one fire.
-        // Earlier-mounted mocks take precedence in wiremock.
+        // Stale once, then fresh: earlier-mounted mocks take precedence in wiremock.
         Mock::given(method("GET"))
             .and(path("/v1.0/users/user@example.com"))
             .respond_with(
@@ -1410,7 +1324,6 @@ mod tests {
             .mount(&graph)
             .await;
 
-        // Subsequent requests return fresh.
         Mock::given(method("GET"))
             .and(path("/v1.0/users/user@example.com"))
             .respond_with(
@@ -1425,7 +1338,6 @@ mod tests {
 
         let creds = make_creds(tenant, "cid", "csecret");
         let ctx = make_ctx_started_at(creds, "user@example.com", "P@ss1", now);
-        // Tiny non-zero timing: max_wait 500 ms, poll_interval 10 ms.
         let integ = EntraIntegration::new_with_bases_and_settle(
             false,
             login.uri(),
@@ -1461,7 +1373,6 @@ mod tests {
 
         let creds = make_creds(tenant, "cid", "csecret");
         let ctx = make_ctx_started_at(creds, "user@example.com", "P@ss1", now);
-        // Tiny timing: max_wait 100 ms, poll_interval 10 ms.
         let integ = EntraIntegration::new_with_bases_and_settle(
             false,
             login.uri(),

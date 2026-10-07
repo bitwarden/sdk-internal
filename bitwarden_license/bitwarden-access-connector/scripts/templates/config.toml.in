@@ -3,7 +3,7 @@
 #
 # Secrets do not belong here. The connector treats a config containing a token as a
 # startup error, and rejects client_secret inside [targets], because config files end
-# up in repositories. Unknown keys are a startup error too, so a typo is loud.
+# up in repositories. Unknown keys are rejected too, so a typo is loud.
 #
 # Defaults not shown: poll_interval 15, heartbeat_interval 30, offline_grace 60,
 # max_retry_attempts 5, retry_base_delay 1, script_timeout 60. See OPERATIONS.md.

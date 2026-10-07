@@ -1,8 +1,4 @@
 //! Access connector token parsing and key derivation.
-//!
-//! Operator-provisioned format:
-//! `0.access-connector.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`, deriving
-//! the key via [`bitwarden_crypto::derive_shareable_key`] with `DERIVE_NAME`/`DERIVE_INFO`.
 
 use std::{fmt, str::FromStr};
 
@@ -13,27 +9,20 @@ use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
-/// The token's client-kind segment, and the prefix of the OAuth `client_id`.
-///
-/// Three components must agree on this string: here, `TOKEN_CLIENT_KIND` in
-/// `bitwarden-pam`'s `rotation::registration` (which issues the token), and
-/// `PamAccessConnectorClientProvider.AccessConnectorPrefix` on the server (which resolves the
-/// client).
+/// The token's client-kind segment and the OAuth `client_id` prefix. It must match
+/// `TOKEN_CLIENT_KIND` in `bitwarden-pam`, which issues the token, and the server's
+/// `PamAccessConnectorClientProvider.AccessConnectorPrefix`.
 pub const TOKEN_CLIENT_KIND: &str = "access-connector";
 
-/// CONTRACT ITEM C1: key-derivation name constant.
-///
-/// Provisionally SM-identical; pinned in e2e (see plan §1, C1). Published so the
-/// registration helper (`examples/register.rs`) can use the same derivation path.
+/// Key-derivation name, shared with Secrets Manager. It must match `bitwarden-pam`'s registration;
+/// public so `examples/register.rs` derives the same key.
 pub const DERIVE_NAME: &str = "accesstoken";
 
-/// CONTRACT ITEM C1: key-derivation info constant.
-///
-/// Provisionally SM-identical; pinned in e2e (see plan §1, C1). Published so the
-/// registration helper (`examples/register.rs`) can use the same derivation path.
+/// Key-derivation info, shared with Secrets Manager. It must match `bitwarden-pam`'s registration;
+/// public so `examples/register.rs` derives the same key.
 pub const DERIVE_INFO: &str = "sm-access-token";
 
-/// Errors that can occur while parsing a [`AccessConnectorToken`] from its string representation.
+/// Errors from parsing an [`AccessConnectorToken`].
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum AccessConnectorTokenInvalidError {
@@ -51,10 +40,8 @@ pub enum AccessConnectorTokenInvalidError {
     InvalidLength { expected: usize, got: usize },
 }
 
-/// A parsed and validated access connector credential token.
-///
-/// Parsed from the operator-provisioned token string:
-/// `0.access-connector.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`
+/// A parsed access connector token, from the operator-provisioned string
+/// `0.access-connector.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`.
 pub struct AccessConnectorToken {
     /// The API key identifier used to construct the OAuth `client_id`.
     pub api_key_id: Uuid,
@@ -65,7 +52,7 @@ pub struct AccessConnectorToken {
     pub encryption_key: SymmetricCryptoKey,
 }
 
-// Manual Debug implementation; redacts client_secret and encryption_key.
+// Hand-written to leave out client_secret and encryption_key.
 impl fmt::Debug for AccessConnectorToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AccessConnectorToken")
@@ -75,9 +62,7 @@ impl fmt::Debug for AccessConnectorToken {
 }
 
 impl AccessConnectorToken {
-    /// Returns the OAuth `client_id` for this access connector token.
-    ///
-    /// Format: `<TOKEN_CLIENT_KIND>.<api_key_id>`.
+    /// The OAuth `client_id`: `<TOKEN_CLIENT_KIND>.<api_key_id>`.
     pub fn client_id(&self) -> String {
         format!("{TOKEN_CLIENT_KIND}.{}", self.api_key_id)
     }
@@ -87,12 +72,10 @@ impl FromStr for AccessConnectorToken {
     type Err = AccessConnectorTokenInvalidError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Split into the dot-separated prefix and the b64 encryption key.
         let (first_part, encryption_key_b64) = s
             .split_once(':')
             .ok_or(AccessConnectorTokenInvalidError::WrongParts)?;
 
-        // The left half must have exactly 4 dot-separated parts.
         let [version, prefix, api_key_id_str, client_secret_str]: [&str; 4] = first_part
             .split('.')
             .collect::<Vec<_>>()
@@ -111,7 +94,6 @@ impl FromStr for AccessConnectorToken {
             .parse()
             .map_err(|_| AccessConnectorTokenInvalidError::InvalidUuid)?;
 
-        // Decode and validate the 16-byte encryption key seed.
         let key_bytes: B64 = encryption_key_b64.parse()?;
         let key_seed: Zeroizing<[u8; 16]> =
             Zeroizing::new(key_bytes.as_bytes().try_into().map_err(|_| {
@@ -121,7 +103,6 @@ impl FromStr for AccessConnectorToken {
                 }
             })?);
 
-        // Derive the symmetric key from the seed using the C1 constants.
         let derived = derive_shareable_key(key_seed, DERIVE_NAME, Some(DERIVE_INFO));
         let encryption_key = SymmetricCryptoKey::Aes256CbcHmacKey(derived);
 
@@ -141,13 +122,10 @@ mod tests {
 
     use super::{AccessConnectorToken, AccessConnectorTokenInvalidError, TOKEN_CLIENT_KIND};
 
-    /// Token built from the SM test vector's key material, adapted to the 4-part connector format.
-    ///
-    /// Original SM vector (access_token.rs): key `X8vbvA0bduihIDe/qrzIQQ==`, uuid
-    /// `ec2c1d46-6a4b-4751-a310-af9601317f2d`, secret `C2IgxjjLF7qSshsbwe8JGcbM075YXw`.
+    /// The Secrets Manager access-token test vector, in the connector's 4-part format.
     const VALID_TOKEN: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    /// Known-answer derived key for the SM test vector (same C1 constants as access_token.rs).
+    /// Known-answer derived key for that vector.
     const EXPECTED_KEY_B64: &str =
         "H9/oIRLtL9nGCQOVDjSMoEbJsjWXSOCb3qeyDt6ckzS3FhyboEDWyTP/CQfbIszNmAVg2ExFganG1FVFGXO/Jg==";
 
@@ -169,11 +147,9 @@ mod tests {
         );
     }
 
-    /// The one thing three components have to agree on. If this fails, check
-    /// `bitwarden-pam`'s `TOKEN_CLIENT_KIND` and the server's
-    /// `PamAccessConnectorClientProvider.AccessConnectorPrefix` before changing it here: a
-    /// connector that parses a token it cannot then authenticate with is the failure this
-    /// guards.
+    /// If this fails, check `bitwarden-pam`'s `TOKEN_CLIENT_KIND` and the server's
+    /// `PamAccessConnectorClientProvider.AccessConnectorPrefix` before changing it, since a
+    /// mismatch yields tokens that parse but cannot authenticate.
     #[test]
     fn client_kind_matches_the_issuer_and_the_server() {
         assert_eq!(TOKEN_CLIENT_KIND, "access-connector");
@@ -199,7 +175,6 @@ mod tests {
 
     #[test]
     fn base64_without_padding_is_accepted() {
-        // The SM test shows padding-free b64 is accepted.
         let t = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ";
         assert!(AccessConnectorToken::from_str(t).is_ok());
     }
@@ -224,7 +199,7 @@ mod tests {
 
     #[test]
     fn missing_colon_gives_wrong_parts() {
-        // SM format (3 dot-parts); missing the colon/key entirely.
+        // The key follows a dot instead of the colon.
         let t = "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw.X8vbvA0bduihIDe/qrzIQQ==";
         assert!(matches!(
             AccessConnectorToken::from_str(t),
@@ -234,7 +209,6 @@ mod tests {
 
     #[test]
     fn too_few_dot_parts_gives_wrong_parts() {
-        // Only 3 dot-parts before the colon (SM format).
         let t = "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
         assert!(matches!(
             AccessConnectorToken::from_str(t),
@@ -263,7 +237,6 @@ mod tests {
 
     #[test]
     fn invalid_base64_is_rejected() {
-        // '!' is not a valid base64 character.
         let t = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:!!!notbase64!!!";
         assert!(matches!(
             AccessConnectorToken::from_str(t),
@@ -273,7 +246,6 @@ mod tests {
 
     #[test]
     fn wrong_key_length_is_rejected() {
-        // 15-byte key (too short).
         use bitwarden_encoding::B64;
         let short_key = B64::from([0u8; 15].as_slice()).to_string();
         let t =
@@ -292,17 +264,14 @@ mod tests {
         let token = AccessConnectorToken::from_str(VALID_TOKEN).expect("valid token must parse");
         let debug_str = format!("{token:?}");
 
-        // Must not contain the client secret.
         assert!(
             !debug_str.contains("C2IgxjjLF7qSshsbwe8JGcbM075YXw"),
             "debug output leaked client_secret: {debug_str}"
         );
-        // Must not contain key material.
         assert!(
             !debug_str.contains("X8vbvA0bduihIDe"),
             "debug output leaked key bytes: {debug_str}"
         );
-        // Should identify the struct and include the non-sensitive api_key_id.
         assert!(debug_str.contains("AccessConnectorToken"));
         assert!(debug_str.contains("ec2c1d46-6a4b-4751-a310-af9601317f2d"));
     }

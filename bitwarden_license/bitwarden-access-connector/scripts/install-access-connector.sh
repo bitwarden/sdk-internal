@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Installs bwac as a system service. A URL, and an optional name.
+# Installs bwac as a system service. Takes a URL and an optional name.
 #
 #   sudo -E ./install-access-connector.sh https://bitwarden.example.com
 #   sudo -E ./install-access-connector.sh https://bitwarden.example.com acme
@@ -8,29 +8,27 @@
 #   Linux  -> systemd unit    /etc/systemd/system/bwac.service
 #   macOS  -> launchd daemon  /Library/LaunchDaemons/com.bitwarden.bwac.plist
 #
-# The binary is the one sitting next to this script, which is how the release archive
-# is laid out. The layout it installs is fixed, and is the one OPERATIONS.md documents:
+# The binary is the one next to this script, as in the release archive. The layout it installs
+# is fixed:
 #
-#   /usr/local/bin/bwac   binary            root  0755  (shared)
+#   /usr/local/bin/bwac                 binary            root  0755  (shared)
 #   /etc/bwac/config.toml               settings          root  0644  (never secrets)
 #   /etc/bwac/env                       token + creds     root  0400  (Linux only)
 #   /opt/bwac/scripts                   rotation scripts  root  0755  (shared, connector cannot write)
 #   /var/lib/bwac                       state             bwac  0700
 #   /var/log/bwac                       connector log     bwac  0750  (macOS only)
 #
-# A name is only needed to run more than one connector on one host, which a host rotating
-# for more than one organisation has to do, since an access connector token belongs to a single
-# organisation. It moves everything the connector writes, or reads its token from, one
-# level down, and leaves the shared pieces alone:
+# A name is only needed to run more than one connector on one host, as a host rotating for
+# several organisations must, since a token belongs to one organisation. It moves the
+# connector's config, token, state and log one level down:
 #
 #   /etc/bwac/<name>/config.toml, /etc/bwac/<name>/env, /var/lib/bwac/<name>,
 #   /var/log/bwac/<name>, and the service becomes bwac-<name>.service
 #   or com.bitwarden.bwac.<name>.
 #
-# The binary, the service account and /opt/bwac/scripts stay shared: the connector cannot
-# write to the script directory, so there is nothing to keep apart there, and one script
-# can serve every connector. Point that connector's script_root elsewhere if you would rather
-# they were separate.
+# The binary, the service account and /opt/bwac/scripts stay shared; the connector cannot write
+# to the script directory, so one script can serve every connector. Point a connector's
+# script_root elsewhere to give it scripts of its own.
 #
 # None of that is configurable. If you want a different layout, a different service
 # account, or Bitwarden Cloud's separate api and identity URLs, install by hand: the
@@ -43,14 +41,12 @@
 #     BWAC_TOKEN, or let the script prompt for it with echo off.
 #
 #   * On macOS the token and per-target credentials live in the plist's
-#     <EnvironmentVariables> dict rather than an env file. launchd has no
-#     EnvironmentFile=, and most target UUIDs begin with a digit, which no POSIX shell
-#     can export; launchd sets the dict without a shell, so digits are fine there.
+#     <EnvironmentVariables> dict. launchd has no EnvironmentFile=, and sets the dict without
+#     a shell, which could not export the digit-led names most target UUIDs produce.
 #
-# Re-running replaces the binary and leaves config.toml, the env file, the systemd unit
-# and the plist alone, so upgrading cannot lose credentials or hardening you added to
-# them. Every connector on the host runs the one binary, so replacing it replaces it for
-# all of them, and the ones already running keep the old one until they are restarted.
+# Re-running replaces the binary, shared by every connector on the host, and leaves config.toml,
+# the env file, the systemd unit and the plist alone, so your edits survive. Running connectors
+# keep the old binary until restarted.
 #
 # To remove it, on Linux:
 #
@@ -67,10 +63,10 @@
 #
 # A named connector comes off the same way, with -<name> on the unit or .<name> on the
 # label, and /etc/bwac/<name>, /var/lib/bwac/<name> and /var/log/bwac/<name> in place of
-# the directories above. Leave the binary, the service account and /opt/bwac/scripts
-# until the last connector on the host is gone.
+# the directories above.
 #
-# Rotation scripts in /opt/bwac/scripts are yours; nothing above deletes them.
+# Leave the binary, the service account and /opt/bwac/scripts until the last connector on the
+# host is gone. Rotation scripts in /opt/bwac/scripts are yours; nothing above deletes them.
 
 set -euo pipefail
 
@@ -88,8 +84,7 @@ readonly LOG_ROOT="/var/log/bwac"
 # directory: the env file here, and the scripts and logs directories on Windows.
 readonly RESERVED_NAMES="env logs scripts"
 
-# Set by set_paths. An unnamed connector gets the roots above as they are, which is the
-# layout every install had before names existed.
+# Set by set_paths.
 NAME=""
 LAUNCHD_LABEL=""
 SYSTEMD_UNIT=""
@@ -120,10 +115,8 @@ write_file() {
     mv -f "$tmp" "$path"
 }
 
-# Fills in a template from templates/. The substitution is done with shell parameter
-# expansion rather than sed because two of these carry the access connector token, and a sed
-# replacement would put it in argv where ps can read it. It also sidesteps having to
-# escape the delimiter and & in paths and URLs.
+# Fills in a template from templates/. Uses parameter expansion rather than sed, since two
+# templates carry the token and a sed replacement would put it in argv, where ps can read it.
 render() {
     local template="$TEMPLATE_DIR/$1" line
 
@@ -185,8 +178,6 @@ validate_name() {
     done
 }
 
-# Everything a second connector on this host must not share with the first: its config, its
-# token, its state, its log and its service.
 set_paths() {
     NAME="$1"
 
@@ -231,9 +222,8 @@ detect_platform() {
     esac
 }
 
-# Copies the bundled binary into place after checking it runs here. Those are the two
-# checks CI runs after building, and they catch an archive for the wrong architecture
-# now rather than as a service that will not start.
+# Copies the bundled binary into place after the same two checks CI runs, so an archive for the
+# wrong architecture fails here rather than as a service that will not start.
 install_binary() {
     step "Binary"
     local bundled="$SELF_DIR/$BINARY_NAME"
@@ -252,9 +242,8 @@ install_binary() {
     info "$BINARY_PATH ($("$BINARY_PATH" --version))"
 }
 
-# Reads the token from the environment or prompts for it, then checks the two things
-# that actually go wrong when a token is pasted: it gets cut at the ':', or it is not
-# an access connector token at all. The connector validates the rest properly at startup.
+# Reads the token from the environment or a prompt and catches the two usual paste mistakes: a
+# token cut at the ':', or not an access connector token at all. The connector checks the rest.
 acquire_token() {
     step "Access connector token"
 
@@ -330,9 +319,8 @@ create_service_account() {
 create_directories() {
     step "Directories"
 
-    # A named connector's directories sit inside these, which are the unnamed connector's own
-    # if there is one on this host. Created when missing rather than installed, so that
-    # connector's mode and owner are left as they are.
+    # A named connector's directories sit inside these, which may belong to an unnamed
+    # connector. Created only when missing, so that connector's mode and owner stay as they are.
     if [ -n "$NAME" ]; then
         [ -d "$CONFIG_ROOT" ] || install -d -m 0755 -o root -g "$ROOT_GROUP" "$CONFIG_ROOT"
         [ -d "$STATE_ROOT" ] || install -d -m 0755 -o root -g "$ROOT_GROUP" "$STATE_ROOT"

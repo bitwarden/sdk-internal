@@ -1,11 +1,8 @@
-//! Command-line interface argument parsing for the access connector.
+//! Command-line arguments for the access connector.
 //!
-//! Minimal by design: connector settings live in the TOML config file (`--config <PATH>` or
-//! `BWAC_CONFIG`), not CLI flags. `BWAC_API_URL`/`BWAC_IDENTITY_URL` override the file's URLs;
-//! `BWAC_TOKEN` supplies the token. See [`crate::config::Config::from_cli`] for precedence.
-//!
-//! The connector token is never a CLI argument, since `argv` is visible via `ps` and
-//! `/proc/<pid>/cmdline`, and never accepted in the config file; only `BWAC_TOKEN`.
+//! Settings live in the TOML config file, not flags; see [`crate::config::Config::from_cli`]. The
+//! token comes only from `BWAC_TOKEN`, since `argv` is visible through `ps` and
+//! `/proc/<pid>/cmdline`.
 
 use std::path::PathBuf;
 
@@ -61,7 +58,7 @@ mod tests {
 
     #[test]
     fn cli_rejects_unknown_token_arg() {
-        // `--token` must not be accepted as a clap arg (would expose value via ps).
+        // A token flag would expose the value through `ps`.
         let result = Cli::try_parse_from([
             "bwac",
             "run",
@@ -76,7 +73,7 @@ mod tests {
 
     #[test]
     fn cli_rejects_unknown_token_file_arg() {
-        // `--token-file` must not be accepted either; the token is env-only.
+        // The token is env-only.
         let result = Cli::try_parse_from(["bwac", "run", "--token-file", "/etc/bwac/token"]);
         assert!(
             result.is_err(),
@@ -86,7 +83,7 @@ mod tests {
 
     #[test]
     fn cli_rejects_removed_settings_flags() {
-        // Per-setting flags were removed; settings live in the config file only.
+        // Settings live in the config file only.
         for args in [
             ["bwac", "run", "--poll-interval", "30"].as_slice(),
             ["bwac", "run", "--api-url", "https://api.example.com"].as_slice(),

@@ -4,11 +4,9 @@
 
 set -e
 
-# Read all of stdin.
 payload=$(cat)
 
-# Extract OUT_PATH from the credentials map using basic POSIX tools.
-# The value is on a line like: "OUT_PATH": "/some/path"
+# Basic POSIX tools only; the value appears as "OUT_PATH": "/some/path".
 out_path=$(printf '%s' "$payload" \
     | grep -o '"OUT_PATH"[[:space:]]*:[[:space:]]*"[^"]*"' \
     | sed 's/"OUT_PATH"[[:space:]]*:[[:space:]]*"\([^"]*\)"/\1/')

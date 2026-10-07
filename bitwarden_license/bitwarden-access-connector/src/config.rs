@@ -1,18 +1,7 @@
 //! Configuration loading and validation for the access connector.
 //!
-//! [`crate::config::Config::from_cli`] resolves URLs from `BWAC_API_URL` / `BWAC_IDENTITY_URL`,
-//! then `[environment]`, then derivation from `[environment].base`, or a hard startup error.
-//! Unknown TOML keys are also a hard startup error.
-//!
-//! # Per-target credential configuration (`[targets]`)
-//!
-//! `[targets]` entries take precedence over environment variables per key; `client_secret`
-//! must come from an environment variable, not the file.
-//!
-//! # Token intake
-//!
-//! `BWAC_TOKEN` is the only way to supply the access connector token; never echoed, and not
-//! settable via the config file.
+//! Unknown TOML keys are a startup error. `[targets]` entries override per-target environment
+//! variables, except `client_secret`, which only the environment can supply.
 
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 
@@ -23,30 +12,26 @@ use crate::{
     token::AccessConnectorToken,
 };
 
-/// Minimum poll interval the connector will accept (spec `HeartbeatMinInterval`).
 const MIN_POLL_INTERVAL_SECS: u64 = 15;
 
-/// Maximum heartbeat interval the connector will accept.
+/// Exclusive upper bound on the heartbeat interval.
 const MAX_HEARTBEAT_INTERVAL_SECS: u64 = 120;
 
-/// Server environment configuration from the `[environment]` TOML section.
-///
-/// All three fields are optional. URLs resolve as env var, then `[environment]` field,
-/// then derived from `base`, then a hard startup error naming all three options.
+/// The `[environment]` TOML section. Each URL resolves from its env var, then its field here, then
+/// `base`; with none of them, startup fails.
 #[derive(Debug, Default, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct EnvironmentConfig {
-    /// Base self-hosted URL (e.g. `https://bitwarden.example.com`), used to derive `api`
-    /// and `identity`. Trailing slashes are stripped before derivation.
+    /// Self-hosted base URL (e.g. `https://bitwarden.example.com`) from which `api` and `identity`
+    /// derive. Trailing slashes are stripped.
     base: Option<String>,
-    /// Bitwarden API server URL.  Overrides a `base`-derived value.
+    /// Bitwarden API server URL. Overrides a `base`-derived value.
     api: Option<String>,
-    /// Bitwarden identity server URL.  Overrides a `base`-derived value.
+    /// Bitwarden identity server URL. Overrides a `base`-derived value.
     identity: Option<String>,
 }
 
 impl EnvironmentConfig {
-    /// Derives the effective API URL.
     fn derive_api(&self) -> Option<String> {
         self.api.clone().or_else(|| {
             self.base
@@ -55,7 +40,6 @@ impl EnvironmentConfig {
         })
     }
 
-    /// Derives the effective identity URL.
     fn derive_identity(&self) -> Option<String> {
         self.identity.clone().or_else(|| {
             self.base
@@ -65,14 +49,11 @@ impl EnvironmentConfig {
     }
 }
 
-/// On-disk connector configuration (TOML). Every key is optional; `BWAC_API_URL` /
-/// `BWAC_IDENTITY_URL` override the `[environment]` section's URLs.
-///
-/// A `token` key is rejected at parse time; use `BWAC_TOKEN` instead.
+/// On-disk connector configuration (TOML); every key is optional. A `token` key is rejected as
+/// unknown, since the token comes only from `BWAC_TOKEN`.
 #[derive(Debug, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct FileConfig {
-    /// Server environment (API and identity URLs / base URL).
     environment: EnvironmentConfig,
     /// Poll interval in seconds.
     poll_interval: u64,
@@ -84,17 +65,15 @@ struct FileConfig {
     max_retry_attempts: u32,
     /// Base delay for exponential backoff in seconds.
     retry_base_delay: u64,
-    /// Root directory for custom scripts.  No built-in default.
+    /// Root directory for custom scripts. No built-in default.
     script_root: Option<PathBuf>,
     /// Custom-script timeout in seconds.
     script_timeout: u64,
-    /// Explicit PowerShell host path.  `None` discovers `pwsh`, then `powershell.exe`, on `PATH`.
+    /// Explicit PowerShell host path. `None` discovers `pwsh`, then `powershell.exe`, on `PATH`.
     powershell_path: Option<PathBuf>,
-    /// `-ExecutionPolicy` value passed to the PowerShell host.
-    ///
-    /// Defaults to `Bypass`, because Windows Server ships `RemoteSigned` and refuses to run
-    /// an unsigned `.ps1`.  The script path is already pinned by `script_root`, so little is
-    /// given up.  Sites that sign their rotation scripts should set `AllSigned`.
+    /// `-ExecutionPolicy` for the PowerShell host. Defaults to `Bypass`, since Windows Server
+    /// ships `RemoteSigned`, which refuses an unsigned `.ps1`, and `script_root` already pins
+    /// the path. Sites that sign their scripts should set `AllSigned`.
     powershell_execution_policy: String,
     /// Whether the Entra ROPC verify probe is enabled.
     entra_verify_probe: bool,
@@ -103,8 +82,7 @@ struct FileConfig {
     targets: HashMap<uuid::Uuid, crate::resolver::config::TargetEntry>,
 }
 
-/// The connector's built-in defaults: the lowest-priority configuration layer
-/// (env URLs, then config file `[environment]`, then base derivation, then error).
+/// Built-in defaults for keys the file omits.
 impl Default for FileConfig {
     fn default() -> Self {
         Self {
@@ -125,10 +103,8 @@ impl Default for FileConfig {
 }
 
 impl FileConfig {
-    /// Load a [`FileConfig`] from a TOML file at `path`.
-    ///
-    /// Only the last line of the TOML error (its human-readable description) is kept;
-    /// the source snippet, which could echo config values, is stripped.
+    /// Load a [`FileConfig`] from `path`. A parse error keeps only its last line, since the source
+    /// snippet could echo config values.
     fn load(path: &std::path::Path) -> Result<Self, AccessConnectorError> {
         let contents = std::fs::read_to_string(path).map_err(|e| {
             AccessConnectorError::InvalidConfig(format!(
@@ -137,7 +113,6 @@ impl FileConfig {
             ))
         })?;
         toml::from_str(&contents).map_err(|e| {
-            // Drop the source snippet; keep only the human-readable description.
             let summary = e.to_string();
             let description = summary.lines().last().unwrap_or("parse error");
             AccessConnectorError::InvalidConfig(format!(
@@ -148,9 +123,7 @@ impl FileConfig {
     }
 }
 
-/// Validated configuration for the connector run loop.
-///
-/// Constructed from [`RunArgs`] by [`Config::from_cli`].
+/// Validated configuration for the connector run loop, built by [`Config::from_cli`].
 pub struct Config {
     inner: AccessConnectorConfig,
 }
@@ -165,15 +138,13 @@ impl std::fmt::Debug for Config {
 }
 
 impl Config {
-    /// Build a validated [`Config`] from the parsed CLI arguments.
-    ///
-    /// `BWAC_API_URL` / `BWAC_IDENTITY_URL` env vars override file-level URL settings; other
-    /// settings fall back to built-in defaults.
+    /// Build a validated [`Config`] from the CLI arguments. `BWAC_API_URL` and `BWAC_IDENTITY_URL`
+    /// override the file's URLs.
     ///
     /// # Errors
     ///
-    /// [`AccessConnectorError::InvalidConfig`] for a validation failure, or
-    /// [`AccessConnectorError::InvalidToken`] for an unparseable token; never echoes secrets.
+    /// [`AccessConnectorError::InvalidConfig`] or [`AccessConnectorError::InvalidToken`], never
+    /// echoing secrets.
     pub fn from_cli(args: RunArgs) -> Result<Self, AccessConnectorError> {
         // SAFETY: single-threaded startup; no other thread can observe or mutate
         // BWAC_TOKEN. Removed immediately after reading so child processes don't inherit it.
@@ -184,7 +155,6 @@ impl Config {
             }
         }
 
-        // Empty or whitespace-only values are treated as absent.
         let token_str: String = match env_token.filter(|t| !t.trim().is_empty()) {
             Some(t) => t,
             None => {
@@ -194,13 +164,13 @@ impl Config {
             }
         };
 
-        // Parse the token; error messages must not echo the token string.
+        // Token parse errors must not echo the token string.
         let token: AccessConnectorToken = token_str
             .trim()
             .parse()
             .map_err(|e| AccessConnectorError::InvalidToken(format!("{e}")))?;
 
-        // Drop the plaintext token string as soon as we have the parsed form.
+        // Drop the plaintext token as soon as it is parsed.
         drop(token_str);
 
         let file = match &args.config {
@@ -230,7 +200,6 @@ impl Config {
                 )
             })?;
 
-        // Missing TOML keys fall back to `FileConfig`'s `#[serde(default)]` values.
         if file.poll_interval < MIN_POLL_INTERVAL_SECS {
             return Err(AccessConnectorError::InvalidConfig(format!(
                 "poll_interval must be >= {MIN_POLL_INTERVAL_SECS} seconds (got {})",
@@ -277,26 +246,21 @@ impl Config {
 mod tests {
     use super::*;
 
-    /// A valid token string for testing (same vector used in token.rs tests).
     const VALID_TOKEN: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    /// Use the process-wide env lock so config tests and custom_script tests
-    /// serialise all environment mutations across modules.
     use crate::TEST_ENV_LOCK as ENV_LOCK;
 
-    /// [`RunArgs`] pointing at no config file.
     fn empty_args() -> RunArgs {
         RunArgs { config: None }
     }
 
-    /// [`RunArgs`] pointing at the given config file.
     fn file_args(f: &tempfile::NamedTempFile) -> RunArgs {
         RunArgs {
             config: Some(f.path().to_path_buf()),
         }
     }
 
-    /// Write a TOML string to a tempfile and return the file (kept open for lifetime).
+    /// Keep the returned file alive; dropping it deletes the file.
     fn write_toml(contents: &str) -> tempfile::NamedTempFile {
         use std::io::Write as _;
         let mut f = tempfile::NamedTempFile::new().expect("tempfile");
@@ -389,7 +353,6 @@ mod tests {
             std::env::set_var("BWAC_API_URL", "https://api.example.com");
             std::env::set_var("BWAC_IDENTITY_URL", "https://identity.example.com");
         }
-        // Verify the var is present before the call.
         assert!(
             std::env::var("BWAC_TOKEN").is_ok(),
             "BWAC_TOKEN must be present before from_cli"
@@ -401,7 +364,6 @@ mod tests {
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
         assert!(result.is_ok(), "expected Ok, got {result:?}");
-        // BWAC_TOKEN must have been removed inside from_cli.
         assert!(
             std::env::var("BWAC_TOKEN").is_err(),
             "BWAC_TOKEN must be absent from environment after from_cli consumes it"
@@ -414,12 +376,11 @@ mod tests {
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: leaked URL env vars must not override the config file under test.
+            // Leaked URL env vars would override the config file under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        // poll_interval is below the 15 s minimum.
         let toml = r#"
 poll_interval = 14
 
@@ -446,7 +407,7 @@ identity = "https://identity.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: leaked URL env vars must not override the config file under test.
+            // Leaked URL env vars would override the config file under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -476,12 +437,12 @@ identity = "https://identity.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: leaked URL env vars must not override the config file under test.
+            // Leaked URL env vars would override the config file under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        // heartbeat_interval must be STRICTLY less than 120.
+        // The bound is exclusive.
         let toml = r#"
 heartbeat_interval = 120
 
@@ -508,7 +469,7 @@ identity = "https://identity.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: leaked URL env vars must not override the config file under test.
+            // Leaked URL env vars would override the config file under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -580,7 +541,6 @@ identity = "https://identity.file.example.com"
         }
 
         let inner = result.expect("expected Ok").into_access_connector_config();
-        // Environment URLs win over file URLs.
         assert_eq!(inner.api_url, "https://api.env.example.com");
         assert_eq!(inner.identity_url, "https://identity.env.example.com");
     }
@@ -592,7 +552,7 @@ identity = "https://identity.file.example.com"
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "  ");
-            // Defensive: a leaked BWAC_IDENTITY_URL would override the file value under test.
+            // A leaked BWAC_IDENTITY_URL would override the file value under test.
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
@@ -611,7 +571,6 @@ identity = "https://identity.file.example.com"
         }
 
         let inner = result.expect("expected Ok").into_access_connector_config();
-        // Whitespace-only BWAC_API_URL is treated as unset.
         assert_eq!(inner.api_url, "https://api.file.example.com");
         assert_eq!(inner.identity_url, "https://identity.file.example.com");
     }
@@ -622,12 +581,11 @@ identity = "https://identity.file.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: a leaked URL env var would satisfy the requirement under test.
+            // A leaked URL env var would satisfy the requirement under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        // File only has identity; api is missing from all layers.
         let toml = r#"
 [environment]
 identity = "https://identity.example.com"
@@ -657,12 +615,11 @@ identity = "https://identity.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: a leaked URL env var would satisfy the requirement under test.
+            // A leaked URL env var would satisfy the requirement under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        // File only has api; identity is missing from all layers.
         let toml = r#"
 [environment]
 api = "https://api.example.com"
@@ -692,7 +649,7 @@ api = "https://api.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: leaked URL env vars must not override the config file under test.
+            // Leaked URL env vars would override the config file under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -737,12 +694,11 @@ identity = "https://identity.file.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: leaked URL env vars must not override the config file under test.
+            // Leaked URL env vars would override the config file under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        // Only the required fields are set here; the rest use defaults.
         let toml = r#"
 [environment]
 api      = "https://api.example.com"
@@ -855,7 +811,7 @@ identity = "https://identity.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: leaked URL env vars must not override the config file under test.
+            // Leaked URL env vars would override the config file under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -889,7 +845,7 @@ identity = "https://identity.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Defensive: leaked URL env vars must not override the config file under test.
+            // Leaked URL env vars would override the config file under test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -952,7 +908,6 @@ base = "https://bitwarden.example.com/"
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        // Mixed case: explicit api, identity falls back to base derivation.
         let toml = r#"
 [environment]
 base = "https://bitwarden.example.com"
@@ -986,7 +941,6 @@ api  = "https://custom-api.example.com/v2"
             );
         }
 
-        // File has explicit urls that must lose to env vars.
         let toml = r#"
 [environment]
 base     = "https://bitwarden.example.com"
@@ -1023,7 +977,6 @@ identity = "https://identity.file.example.com"
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        // Old-format top-level key; must be rejected as unknown field.
         let toml = r#"
 api_url      = "https://api.example.com"
 identity_url = "https://identity.example.com"
@@ -1048,12 +1001,10 @@ identity_url = "https://identity.example.com"
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Ensure no URL env vars are set.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
-        // Config file with no [environment] section and no URL env vars.
         let toml = r#"
 poll_interval = 15
 "#;
@@ -1067,7 +1018,6 @@ poll_interval = 15
 
         match result {
             Err(AccessConnectorError::InvalidConfig(msg)) => {
-                // Error message should name the supply methods for api URL.
                 assert!(
                     msg.contains("BWAC_API_URL") && msg.contains("[environment]"),
                     "error should name how to supply the api URL; got: {msg}"
@@ -1081,7 +1031,6 @@ poll_interval = 15
 
     #[test]
     fn targets_script_entry_parsed() {
-        // Parse a [targets.<uuid>] with a script key.
         let _guard = ENV_LOCK.lock().unwrap();
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);

@@ -1,16 +1,7 @@
 //! Entry point for the `bwac` binary.
 //!
-//! Parses CLI arguments, initialises tracing, and delegates to
-//! [`bitwarden_access_connector::run`].
-//!
-//! # Exit codes
-//!
-//! | Code | Meaning                                                          |
-//! |------|-------------------------------------------------------------------|
-//! | `0`  | Clean shutdown (SIGTERM / Ctrl-C)                                |
-//! | `1`  | Startup error (invalid config, I/O error, parse failure)         |
-//! | `2`  | Credential refused; reissue via `ReissueConnectorCredential` and restart |
-//! | `3`  | Not eligible for rotation endpoints (record, license, `UsePam`)  |
+//! Exit codes: 0 clean shutdown (SIGTERM or Ctrl-C), 1 invalid configuration or token, 2 credential
+//! refused or first authentication failed, 3 not eligible for the rotation endpoints.
 
 use bitwarden_access_connector::{
     cli::{Cli, Command},
@@ -25,8 +16,7 @@ use tracing_subscriber::{
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    // from_env_lossy reads RUST_LOG at runtime, parsing filter strings leniently; an unset
-    // or empty value falls back to the INFO default below.
+    // RUST_LOG is parsed leniently; unset or empty falls back to INFO.
     let filter = EnvFilter::builder()
         .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
         .from_env_lossy();
@@ -49,7 +39,6 @@ async fn main() {
 
     let cancel = CancellationToken::new();
 
-    // Spawn a watcher task that cancels the token on Ctrl-C or SIGTERM.
     let watcher_cancel = cancel.clone();
     tokio::spawn(async move {
         wait_for_shutdown_signal().await;

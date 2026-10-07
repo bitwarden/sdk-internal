@@ -3,18 +3,18 @@
 
 <#
 .SYNOPSIS
-    Installs bwac as a scheduled task that starts at boot. A URL, and an
+    Installs bwac as a scheduled task that starts at boot. Takes a URL and an
     optional name.
 
 .DESCRIPTION
         .\Install-AccessConnector.ps1 https://bitwarden.example.com
         .\Install-AccessConnector.ps1 https://bitwarden.example.com acme
 
-    The binary is the bwac.exe sitting next to this script, which is how
-    the release archive is laid out. The layout it installs is fixed:
+    The binary is the bwac.exe next to this script, as in the release archive. The layout it
+    installs is fixed:
 
         C:\Program Files\Bitwarden\bwac\
-            bwac.exe          the connector; shared
+            bwac.exe                        the connector; shared
             Start-AccessConnector.ps1       launcher (see below); shared
         C:\ProgramData\Bitwarden\bwac\
             config.toml                     settings; never secrets
@@ -22,20 +22,20 @@
             scripts\                        script_root; the connector reads, cannot write
             logs\                           stderr, rolled at 10 MB
 
-    A name is only needed to run more than one connector on one host, which a host rotating
-    for more than one organisation has to do, since an access connector token belongs to a single
-    organisation. It moves everything the connector writes, or reads its token from, into a
-    directory of its own, and leaves the shared pieces alone:
+    A name is only needed to run more than one connector on one host, as a host rotating for
+    several organisations must, since a token belongs to one organisation. It moves the
+    connector's config, token and logs into a directory of its own:
 
         C:\ProgramData\Bitwarden\bwac\<name>\
             config.toml
             env
             logs\
 
-    with the task named 'Bitwarden PAM access connector (<name>)'. The binary, the
-    launcher and scripts\ stay shared: the connector cannot write to the script directory,
-    so there is nothing to keep apart there, and one script can serve every connector.
-    Point that connector's script_root elsewhere if you would rather they were separate.
+    with the task named 'Bitwarden PAM access connector (<name>)'.
+
+    The binary, the launcher and scripts\ stay shared; the connector cannot write to the
+    script directory, so one script can serve every connector. Point a connector's
+    script_root elsewhere to give it scripts of its own.
 
     None of that is configurable. If you want a different layout, a different task
     principal, or Bitwarden Cloud's separate api and identity URLs, install by hand:
@@ -43,40 +43,29 @@
 
     Four things here are not arbitrary:
 
-    * It registers a scheduled task, not a Windows service. bwac is an
-      ordinary console program with no service control handler, so sc.exe would start
-      it and then fail with error 1053 when it never called StartServiceCtrlDispatcher.
-      A scheduled task with an at-startup trigger is the built-in way to run a console
-      program unattended; the alternative is a third-party wrapper such as NSSM.
+    * It registers a scheduled task, not a Windows service. bwac has no service control
+      handler, so the service manager would fail it with error 1053 unless a wrapper such as
+      NSSM ran it.
 
-    * A launcher sits between the task and the connector. The connector reads its token and
-      every per-target credential from environment variables, and most target UUIDs
-      begin with a digit. A machine-level environment variable is the wrong place for a
-      token -- it lands in a registry key any user can read -- so the launcher reads the
-      ACL-restricted env file and sets the values on its own process only. It also
-      captures stderr, which a scheduled task otherwise discards.
+    * A launcher sits between the task and the connector. It loads the ACL-locked env file into
+      its own process only, as a machine-level variable lands in a registry key any user can
+      read, and captures stderr, which a scheduled task discards.
 
-    * The token is not a parameter. It comes from BWAC_TOKEN or a hidden prompt. A
-      -Token parameter would put it in this process's command line, readable by anything
-      that can call Get-CimInstance Win32_Process -- the same reason the connector itself
-      refuses --token.
+    * The token is not a parameter; it comes from BWAC_TOKEN or a hidden prompt. A -Token
+      parameter would put it in the command line, readable through Get-CimInstance
+      Win32_Process, which is also why the connector refuses --token.
 
-    * Windows locks a running image, so the binary cannot be replaced while any connector
-      on the host is running from it. Nothing has to stop when the bundled binary is the
-      one already installed, which is the usual case when a second connector comes from the
-      same archive; an actual upgrade means stopping the other tasks first, and the
-      installer says so rather than failing obscurely.
+    * Windows locks a running image, so an upgrade means stopping every other connector on the
+      host first, and the installer says so. A second connector from the same archive leaves
+      the installed binary in place, so nothing has to stop.
 
-    OPERATIONS.md lists Windows among the supported platforms. Entra ID targets work
-    here, and a CustomScript target runs a .ps1 through a PowerShell host.
+    Entra ID targets work here, and a CustomScript target runs a .ps1 through a PowerShell host.
 
     Re-running replaces the binary and the launcher and leaves config.toml and the env
-    file alone, so upgrading cannot lose credentials you added. Every connector on the host
-    runs the one binary, so replacing it replaces it for all of them.
+    file alone, so upgrading cannot lose credentials you added.
 
-    Stopping the task terminates the connector rather than asking it to shut down, because
-    Windows has no SIGTERM. A rotation interrupted that way is abandoned without a
-    report and the server reconciles it, as OPERATIONS.md describes for a hard restart.
+    Stopping the task kills the connector, since Windows has no SIGTERM. A rotation interrupted
+    that way is abandoned without a report, and the server handles the unreported attempt.
 
     To remove it:
 
@@ -124,10 +113,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-# ---------------------------------------------------------------------------
-# Fixed layout
-# ---------------------------------------------------------------------------
-
 $BinaryName   = 'bwac.exe'
 $LauncherName = 'Start-AccessConnector.ps1'
 $TaskPrefix   = 'Bitwarden PAM access connector'
@@ -144,8 +129,7 @@ $LauncherPath = Join-Path $InstallDir $LauncherName
 # directory.
 $ReservedNames = @('scripts', 'logs', 'env')
 
-# Set by Resolve-Layout, once the name has been checked. An unnamed connector gets the data
-# directory itself, which is the layout every install had before names existed.
+# Set by Resolve-Layout.
 $TaskName     = $null
 $ConnectorDir = $null
 $LogDir       = $null
@@ -184,12 +168,8 @@ function Write-TextFile {
         (New-Object Text.UTF8Encoding($false)))
 }
 
-# ---------------------------------------------------------------------------
-
-# Checks the name and settles everything that depends on it: the task, and the directory
-# holding this connector's config, token and logs. The name becomes part of a scheduled task
-# name, a systemd unit file name on the other platforms, and a path, so it is kept to a
-# plain lowercase word.
+# The name becomes part of a scheduled task name, a systemd unit file name on the other
+# platforms, and a path, so it is kept to a plain lowercase word.
 function Resolve-Layout {
     param([string] $Name)
 
@@ -245,9 +225,8 @@ function Get-ExitCodeHint {
     }
 }
 
-# Copies the bundled binary into place after checking it runs here. Those are the two
-# checks CI runs after building, and they catch a binary that cannot start on this host
-# now rather than as a task that will not stay running.
+# Copies the bundled binary into place after the same two checks CI runs, so a binary that
+# cannot start here fails now rather than as a task that will not stay running.
 function Install-AccessConnectorBinary {
     Write-Step 'Binary'
     $bundled = Join-Path $PSScriptRoot $BinaryName
@@ -299,9 +278,8 @@ function Install-AccessConnectorBinary {
     Write-Item "$ExePath ($version)"
 }
 
-# Reads the token from the environment or prompts for it, then checks the two things
-# that actually go wrong when a token is pasted: it gets cut at the ':', or it is not a
-# access connector token at all. The connector validates the rest properly at startup.
+# Reads the token from the environment or a prompt and catches the two usual paste mistakes: a
+# token cut at the ':', or not an access connector token at all. The connector checks the rest.
 function Get-AccessConnectorToken {
     Write-Step 'Access connector token'
 
@@ -345,9 +323,9 @@ function Initialize-Layout {
         }
     }
 
-    # InstallDir sits under Program Files and inherits the right thing already:
-    # administrators and SYSTEM can write, everyone else reads and executes. A named
-    # connector's directory inherits this one, which is read-only for the task principal.
+    # InstallDir inherits Program Files' ACL: administrators and SYSTEM write, everyone else reads
+    # and executes. A named connector's directory inherits this DataDir ACL, read-only for the
+    # task principal.
     Set-ExplicitAcl -Path $DataDir -What 'the data directory' -Grants @(
         "$($SidAdministrators):(OI)(CI)F", "$($SidSystem):(OI)(CI)F", "*$($sid):(OI)(CI)R")
 
@@ -475,8 +453,6 @@ function Register-AccessConnectorTask {
     Start-ScheduledTask -TaskName $TaskName
     Write-Item "registered '$TaskName' as $RunAsUser, started, and set to start at boot"
 }
-
-# ---------------------------------------------------------------------------
 
 try {
     Resolve-Layout -Name $Name

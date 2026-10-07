@@ -7,9 +7,8 @@ pub(crate) trait EnvSource: Send + Sync {
     /// The value of a single variable, or `None` if it is unset.
     fn var(&self, key: &str) -> Option<OsString>;
 
-    /// Every variable whose name and value are valid Unicode.
-    ///
-    /// Mirrors `std::env::vars`, which skips non-Unicode entries rather than panicking.
+    /// Every variable as a `(name, value)` pair. `SystemEnv` reads `std::env::vars`, which panics
+    /// on a non-Unicode entry.
     fn vars(&self) -> Vec<(String, String)>;
 }
 
@@ -201,7 +200,7 @@ mod tests {
 
     #[test]
     fn fake_env_does_not_see_the_real_environment() {
-        // The point of the seam: PATH is set in every real process, and must not leak in.
+        // PATH is set in every real process, so it must not leak into the fake.
         assert!(SystemEnv.var("PATH").is_some());
         assert_eq!(FakeEnv::empty().var("PATH"), None);
     }

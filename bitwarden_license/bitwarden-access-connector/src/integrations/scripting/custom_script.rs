@@ -16,17 +16,13 @@ use super::{
 use crate::sys::Platform;
 
 pub(crate) struct CustomScriptIntegration {
-    /// The script root.
     pub(crate) script_root: Option<PathBuf>,
-    /// Maximum time to wait for the script to complete.
     pub(crate) timeout: Duration,
     /// Explicit PowerShell host path; `None` discovers one on `PATH`.
     pub(crate) powershell_path: Option<PathBuf>,
-    /// `-ExecutionPolicy` value passed to the PowerShell host.
     pub(crate) powershell_execution_policy: String,
     /// Where host discovery and the environment allowlist read from.
     pub(crate) platform: Platform,
-    /// What actually executes the script.
     pub(crate) runner: Arc<dyn ScriptRunner>,
 }
 
@@ -132,8 +128,7 @@ impl Integration for CustomScriptIntegration {
             self.platform.fs.as_ref(),
         )?;
         let script_type = resolve_script_type(&ctx.creds, &script)?;
-        // newPassword is OMITTED for terminate (script has no need for it; withholding
-        // it prevents accidental echo in any script-side logging).
+        // terminate gets no newPassword, so script-side logging cannot echo it.
         self.run_operation(&script, script_type, "terminate", ctx, None)
             .await
     }
@@ -159,9 +154,8 @@ mod tests {
         sys::{FakeEnv, FakeFs, Platform},
     };
 
-    /// Paths are never touched here: `build_command` and `run_operation` take the script path
-    /// as given, and only the public `rotate`/`verify`/`terminate_sessions` entry points
-    /// canonicalise. Those are covered by `tests/scripting_integration.rs`.
+    /// Never touched on disk: only `rotate`/`verify`/`terminate_sessions` canonicalise the path,
+    /// and `tests/scripting_integration.rs` covers those.
     const SH_SCRIPT: &str = "/opt/bwac/rotate.sh";
     const PS_SCRIPT: &str = "/opt/bwac/rotate.ps1";
     const HOST: &str = "/usr/local/bin/pwsh";

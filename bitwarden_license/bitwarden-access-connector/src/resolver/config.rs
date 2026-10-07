@@ -1,13 +1,6 @@
-//! Config-file-based credential resolver.
-//!
-//! [`ConfigCredentialResolver`] layers per-target TOML (`[targets.<uuid>]`) over
-//! [`crate::resolver::env::EnvCredentialResolver`]: the file wins per key, the env var is the
-//! fallback. A missing required key always reports the env var name as the hint.
-//!
-//! # Security note
-//!
-//! `client_secret` is deliberately absent from [`TargetEntry`]; secrets must come from
-//! environment variables only, since the config file is typically checked into a repo.
+//! Config-file-based credential resolver: `[targets.<uuid>]` entries win per key over the
+//! target's environment variables. `client_secret` is env-only, since the config file is often
+//! checked into a repo.
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -21,11 +14,8 @@ use crate::{
     sys::EnvSource,
 };
 
-/// Per-target credential overrides from the `[targets]` TOML section.
-///
-/// All fields are optional; any `Some` value shadows the corresponding environment
-/// variable. `client_secret` is intentionally absent, since secrets must come from
-/// environment variables only.
+/// Per-target overrides from the `[targets]` TOML section; each `Some` field shadows its
+/// environment variable. There is no `client_secret` field, so secrets stay env-only.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct TargetEntry {
@@ -40,7 +30,6 @@ pub(crate) struct TargetEntry {
 }
 
 impl TargetEntry {
-    /// An iterator over `(suffix, value)` pairs for all `Some` fields.
     fn overrides(&self) -> impl Iterator<Item = (&'static str, &str)> {
         [
             ("SCRIPT", self.script.as_deref()),
@@ -53,19 +42,14 @@ impl TargetEntry {
     }
 }
 
-/// A credential resolver that merges config-file overrides with environment-variable fallbacks.
-///
-/// Scans env vars matching the target's prefix, overlays any `Some` fields from
-/// [`TargetEntry`], and checks required suffixes for `kind`, reporting missing keys as env
-/// var names.
+/// Merges config-file overrides over the target's environment variables, reporting a missing
+/// required key by its env var name.
 pub(crate) struct ConfigCredentialResolver {
     targets: HashMap<Uuid, TargetEntry>,
     env: Arc<dyn EnvSource>,
 }
 
 impl ConfigCredentialResolver {
-    /// Create a new resolver with the given per-target config entries, falling back to `env`
-    /// for any key the config file does not set.
     pub(crate) fn new(targets: HashMap<Uuid, TargetEntry>, env: Arc<dyn EnvSource>) -> Self {
         Self { targets, env }
     }
@@ -81,7 +65,6 @@ impl CredentialResolver for ConfigCredentialResolver {
         let prefix = prefix_for(target_system_id);
         let required = required_suffixes(kind);
 
-        // Step 1: collect all matching env vars.
         let mut creds = ResolvedCredentials::new();
         for (name, value) in self.env.vars() {
             if let Some(suffix) = name.strip_prefix(&prefix)
@@ -91,14 +74,13 @@ impl CredentialResolver for ConfigCredentialResolver {
             }
         }
 
-        // Step 2: overlay config-file values (config wins per key).
+        // Config-file values win per key.
         if let Some(entry) = self.targets.get(&target_system_id) {
             for (suffix, value) in entry.overrides() {
                 creds.insert(suffix.to_string(), value.to_string());
             }
         }
 
-        // Step 3: check required suffixes; report as env var names.
         let missing: Vec<String> = required
             .iter()
             .filter(|&&suffix| creds.get(suffix).is_none())
@@ -122,8 +104,8 @@ mod tests {
     use super::*;
     use crate::{api::models::TargetKind, resolver::env::prefix_for, sys::FakeEnv};
 
-    /// Runs the resolver against exactly `vars` and nothing else. No process state is
-    /// touched, so these tests need no lock and cannot collide with each other.
+    /// Runs the resolver against exactly `vars`; no process state is touched, so no lock is
+    /// needed.
     fn run_resolver_with_env(
         id: Uuid,
         kind: TargetKind,
@@ -154,7 +136,6 @@ mod tests {
                 client_id: None,
             },
         );
-        // No env vars set for this ID.
         let creds = run_resolver_with_env(id, TargetKind::CustomScript, targets, &HashMap::new())
             .expect("config-only script should resolve");
         use bitwarden_sensitive_value::ExposeSensitive as _;
@@ -181,7 +162,6 @@ mod tests {
             },
         );
 
-        // Env has all three Entra vars; config overrides TENANT_ID.
         let mut vars = HashMap::new();
         vars.insert(format!("{prefix}TENANT_ID"), "env-tenant".to_string());
         vars.insert(format!("{prefix}CLIENT_ID"), "my-client".to_string());
@@ -192,14 +172,11 @@ mod tests {
 
         use bitwarden_sensitive_value::ExposeSensitive as _;
         let tenant = creds.get("TENANT_ID").expect("TENANT_ID present").expose();
-        // Config wins over env.
         assert_eq!(**tenant, "config-tenant");
 
-        // CLIENT_ID comes from env.
         let client = creds.get("CLIENT_ID").expect("CLIENT_ID present").expose();
         assert_eq!(**client, "my-client");
 
-        // CLIENT_SECRET comes from env.
         assert!(creds.get("CLIENT_SECRET").is_some());
     }
 
@@ -240,7 +217,6 @@ mod tests {
             },
         );
 
-        // CLIENT_ID and CLIENT_SECRET not in env and not in config.
         let vars: HashMap<String, String> = HashMap::new();
 
         let err = run_resolver_with_env(id, TargetKind::Entra, targets, &vars)
@@ -248,7 +224,6 @@ mod tests {
 
         match err {
             ResolveError::Missing(names) => {
-                // Error must report the env var names (not some other format).
                 assert!(
                     names.iter().any(|n| n == &format!("{prefix}CLIENT_ID")),
                     "must list CLIENT_ID env var: {names:?}"
@@ -257,7 +232,6 @@ mod tests {
                     names.iter().any(|n| n == &format!("{prefix}CLIENT_SECRET")),
                     "must list CLIENT_SECRET env var: {names:?}"
                 );
-                // TENANT_ID was supplied via config; must not appear in missing.
                 assert!(
                     !names.iter().any(|n| n.ends_with("TENANT_ID")),
                     "TENANT_ID was in config and must not be listed as missing: {names:?}"

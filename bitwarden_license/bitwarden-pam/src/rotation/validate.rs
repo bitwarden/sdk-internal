@@ -16,7 +16,7 @@ const MIN_PASSWORD_LENGTH: i32 = 1;
 /// Longest generated credential a policy may ask for.
 const MAX_PASSWORD_LENGTH: i32 = 999;
 
-/// Errors from a locally-constructed rotation request failing validation before being sent.
+/// Errors from validating a rotation request before it is sent to the server.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum RotationValidationError {
     /// A `name` was empty (after trimming) or exceeded the server's length limit.
@@ -39,10 +39,8 @@ pub enum RotationValidationError {
     InvalidCron,
 }
 
-/// Validates a name against the server's length limit.
-///
-/// Counted in UTF-16 code units to match the server's `nvarchar` column, so a name of astral
-/// characters is measured the way the database will measure it rather than by Rust `char` count.
+/// Validates a name against the server's length limit, counted in UTF-16 code units as the
+/// server's `nvarchar` column counts them.
 pub(super) fn validate_name(name: &str) -> Result<(), RotationValidationError> {
     let trimmed = name.trim();
     if trimmed.is_empty() || trimmed.encode_utf16().count() > MAX_NAME_LENGTH {
@@ -61,11 +59,8 @@ fn validate_account_identity(identity: &str) -> Result<(), RotationValidationErr
     Ok(())
 }
 
-/// Validates a password policy.
-///
-/// Both checks mirror failures the connector's own generator raises at rotation time, so an
-/// operator learns while editing the target system rather than from a rotation that fails
-/// hours later.
+/// Validates a password policy. Both checks mirror failures the connector's generator raises at
+/// rotation time, so the operator learns while editing rather than from a failed rotation.
 fn validate_password_policy(policy: &PasswordPolicy) -> Result<(), RotationValidationError> {
     if policy.min_length < MIN_PASSWORD_LENGTH
         || policy.max_length > MAX_PASSWORD_LENGTH
@@ -85,10 +80,8 @@ fn validate_password_policy(policy: &PasswordPolicy) -> Result<(), RotationValid
     Ok(())
 }
 
-/// Validates a set cron expression; `None` means no scheduled rotation, which is valid.
-///
-/// Only the shape is checked; the server owns the minimum-interval floor, since only it knows
-/// the current limit, and duplicating the number here would let the two disagree.
+/// Validates a set cron expression; `None` means no schedule. Only the shape is checked, since the
+/// server owns the minimum-interval floor.
 fn validate_schedule_cron(cron: Option<&String>) -> Result<(), RotationValidationError> {
     match cron {
         Some(cron) if !is_likely_quartz_cron(cron) => Err(RotationValidationError::InvalidCron),
@@ -96,7 +89,6 @@ fn validate_schedule_cron(cron: Option<&String>) -> Result<(), RotationValidatio
     }
 }
 
-/// Validates a target-system create request.
 pub(super) fn validate_target_system_create(
     request: &TargetSystemCreateRequest,
 ) -> Result<(), RotationValidationError> {
@@ -104,7 +96,6 @@ pub(super) fn validate_target_system_create(
     validate_password_policy(request.password_policy())
 }
 
-/// Validates a target-system update request.
 pub(super) fn validate_target_system_update(
     request: &TargetSystemUpdateRequest,
 ) -> Result<(), RotationValidationError> {
@@ -112,7 +103,6 @@ pub(super) fn validate_target_system_update(
     validate_password_policy(&request.password_policy)
 }
 
-/// Validates a rotation-config create request.
 pub(super) fn validate_config_create(
     request: &RotationConfigCreateRequest,
 ) -> Result<(), RotationValidationError> {
@@ -120,7 +110,6 @@ pub(super) fn validate_config_create(
     validate_schedule_cron(request.schedule_cron.as_ref())
 }
 
-/// Validates a rotation-config update request.
 pub(super) fn validate_config_update(
     request: &RotationConfigUpdateRequest,
 ) -> Result<(), RotationValidationError> {
@@ -195,9 +184,8 @@ mod tests {
         );
     }
 
-    /// The limit is the server's `nvarchar` budget, which counts UTF-16 code units. An astral
-    /// character costs two, so 100 of them exactly fill a 200-unit column and 101 overflow it -
-    /// a `char`-based count would wave both through.
+    /// An astral character costs two UTF-16 code units, so 100 of them fill the 200-unit limit and
+    /// 101 overflow it; a `char` count would pass both.
     #[test]
     fn name_length_is_counted_in_utf16_code_units() {
         let at_limit = "😀".repeat(MAX_NAME_LENGTH / 2);
@@ -320,7 +308,7 @@ mod tests {
 
     #[test]
     fn a_malformed_cron_is_rejected() {
-        // A 5-field UNIX cron - the likeliest operator mistake.
+        // A 5-field UNIX cron, the likeliest operator mistake.
         assert_eq!(
             validate_config_create(&config_create("svc_rotation", Some("0 0 * * *"))),
             Err(RotationValidationError::InvalidCron)

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::{conditions::AccessCondition, error::AccessRuleError};
 use crate::AccessRuleId;
 
-/// A decrypted view of an access rule, as returned by the server.
+/// An access rule, as returned by the server.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
@@ -16,16 +16,15 @@ pub struct AccessRuleView {
     pub id: AccessRuleId,
     /// The organization this rule belongs to.
     pub organization_id: OrganizationId,
-    /// The rule's display name, shown wherever rules are listed and managed.
+    /// The rule's display name.
     pub name: String,
     /// Optional free-text describing the rule's intent.
     pub description: Option<String>,
     /// When false, the rule is inactive and does not gate access for the collections it governs.
     pub enabled: bool,
-    /// The condition tree that decides how access is granted under this rule.
+    /// The conditions that decide how access is granted under this rule.
     pub conditions: Vec<AccessCondition>,
-    /// When true, the rule enforces a per-cipher singleton (at most one active lease per cipher
-    /// across all users).
+    /// When true, a cipher may have at most one active lease at a time, across all users.
     pub single_active_lease: bool,
     /// Default lease duration in seconds, used to pre-fill a request opened under this rule. None
     /// means the backend default applies.
@@ -50,18 +49,15 @@ pub struct AccessRuleView {
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRuleAddEditRequest {
-    /// The rule's display name, shown wherever rules are listed and managed. Must be non-empty
-    /// (after trimming whitespace) and no more than 256 characters.
+    /// The rule's display name. Must be non-empty after trimming and at most 256 characters.
     pub name: String,
     /// Optional free-text describing the rule's intent.
     pub description: Option<String>,
     /// When false, the rule is inactive and does not gate access for the collections it governs.
     pub enabled: bool,
-    /// The condition tree that decides how access is granted under this rule. Limited to at most
-    /// 10 conditions.
+    /// The conditions that decide how access is granted under this rule, at most 10.
     pub conditions: Vec<AccessCondition>,
-    /// When true, the rule enforces a per-cipher singleton (at most one active lease per cipher
-    /// across all users).
+    /// When true, a cipher may have at most one active lease at a time, across all users.
     pub single_active_lease: bool,
     /// Default lease duration in seconds, used to pre-fill a request opened under this rule. None
     /// means the backend default applies.
@@ -75,8 +71,8 @@ pub struct AccessRuleAddEditRequest {
     /// The longest a single extension may run, in seconds. Required to be positive when
     /// `allows_extensions` is true.
     pub max_extension_duration_seconds: Option<i32>,
-    /// The complete set of collections this rule governs. The rule's associations are replaced
-    /// to match exactly this set; an empty list clears all associations.
+    /// The complete set of collections this rule governs. Writing it replaces the existing
+    /// associations, so an empty list clears them.
     pub collections: Vec<CollectionId>,
 }
 
