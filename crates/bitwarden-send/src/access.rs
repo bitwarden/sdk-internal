@@ -434,11 +434,17 @@ impl From<models::SendFileDownloadDataResponseModel> for SendFileDownloadData {
 
 // ===== SendClient methods =====
 
+// wasm_bindgen generates glue that calls the deprecated methods below, which would otherwise
+// warn.
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl SendClient {
     /// Accesses a send, authenticated with a send access token.
     /// The returned [SendAccessResponse] contains encrypted fields that must be decrypted
     /// client-side using the key derived from the URL fragment.
+    #[deprecated(
+        note = "use `SendReceiveClient::access_send` instead; a `SendClient` is tied to the signed-in instance"
+    )]
     pub async fn access_send(
         &self,
         access_token: String,
@@ -448,6 +454,9 @@ impl SendClient {
     }
 
     /// Gets file download data for a file send, authenticated with a send access token.
+    #[deprecated(
+        note = "use `SendReceiveClient::get_file_download_data` instead; a `SendClient` is tied to the signed-in instance"
+    )]
     pub async fn get_file_download_data(
         &self,
         access_token: String,
@@ -463,6 +472,9 @@ impl SendClient {
     /// fragment (16 bytes when decoded) — the same form [`SendAccessKey::from_url_b64`] accepts
     ///
     /// This is a temporary function to support the transition to fully using the SDK for Send logic
+    #[deprecated(
+        note = "use `SendReceiveClient::decrypt_send_access` instead; a `SendClient` is tied to the signed-in instance"
+    )]
     pub fn decrypt_send_access(
         key_b64: String,
         response: SendAccessResponse,
@@ -473,6 +485,7 @@ impl SendClient {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use bitwarden_api_api::{
         apis::ApiClient,

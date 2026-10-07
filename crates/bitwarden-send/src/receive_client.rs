@@ -1,10 +1,14 @@
+use bitwarden_auth::{
+    AuthClientExt as _,
+    send_access::{SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse},
+};
 use bitwarden_core::{Client, ClientSettings};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
     AccessSendError, GetFileDownloadDataError, SendAccessDecryptError, SendAccessKey,
-    SendAccessResponse, SendAccessView, SendFileDownloadData,
+    SendAccessKeyError, SendAccessResponse, SendAccessView, SendFileDownloadData,
     access::{access_send, get_file_download_data},
 };
 
@@ -29,6 +33,33 @@ impl SendReceiveClient {
         Self {
             client: Client::new(settings),
         }
+    }
+
+    /// Requests a send access token from the identity server of the instance this client targets.
+    ///
+    /// For a password-protected Send, the request's credentials carry the hash returned by
+    /// [`Self::hash_send_password`]. Minting the token here, rather than through a signed-in
+    /// client, guarantees it (and any password hash) is only ever sent to the server that hosts
+    /// the Send.
+    pub async fn request_send_access_token(
+        &self,
+        request: SendAccessTokenRequest,
+    ) -> Result<SendAccessTokenResponse, SendAccessTokenError> {
+        self.client
+            .auth_new()
+            .send_access()
+            .request_send_access_token(request)
+            .await
+    }
+
+    /// Hash `password` with the URL-safe-base64 send key into the `password_hash_b64` credential
+    /// expected by [`Self::request_send_access_token`].
+    pub fn hash_send_password(
+        &self,
+        key_b64: String,
+        password: String,
+    ) -> Result<String, SendAccessKeyError> {
+        Ok(SendAccessKey::from_url_b64(&key_b64)?.hash_password_b64(&password))
     }
 
     /// Accesses a send, authenticated with a send access token.
@@ -222,5 +253,153 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(err, SendAccessDecryptError::Crypto(_)));
+    }
+
+    // ===== Network calls go to the configured instance =====
+
+    use bitwarden_auth::send_access::{
+        SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest,
+        SendPasswordCredentials,
+    };
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_string_contains, method, path},
+    };
+
+    fn client_for(server: &MockServer) -> SendReceiveClient {
+        SendReceiveClient::new(Some(ClientSettings {
+            api_url: format!("{}/api", server.uri()),
+            identity_url: format!("{}/identity", server.uri()),
+            ..Default::default()
+        }))
+    }
+
+    #[tokio::test]
+    async fn access_send_calls_the_configured_api_with_the_token() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/sends/access"))
+            .and(wiremock::matchers::header(
+                "authorization",
+                "Bearer the-token",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": "access-id",
+                "type": 0,
+                "name": "encrypted-name",
+                "text": { "text": "encrypted-text", "hidden": false },
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = client_for(&server)
+            .access_send("the-token".to_owned())
+            .await
+            .expect("access succeeds");
+
+        assert_eq!(response.id.as_deref(), Some("access-id"));
+    }
+
+    #[tokio::test]
+    async fn get_file_download_data_calls_the_configured_api() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/sends/access/file/file-id"))
+            .and(wiremock::matchers::header(
+                "authorization",
+                "Bearer the-token",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": "file-id",
+                "url": "https://files.example.invalid/blob",
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let data = client_for(&server)
+            .get_file_download_data("the-token".to_owned(), "file-id".to_owned())
+            .await
+            .expect("download data resolves");
+
+        assert_eq!(
+            data.url.as_deref(),
+            Some("https://files.example.invalid/blob")
+        );
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_goes_to_the_configured_identity_server() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/identity/connect/token"))
+            .and(body_string_contains("send_id=send-id"))
+            .and(body_string_contains("password_hash_b64=hash"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "access_token": "minted-token",
+                "token_type": "bearer",
+                "expires_in": 3600,
+                "scope": "api.send.access",
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let token = client_for(&server)
+            .request_send_access_token(SendAccessTokenRequest {
+                send_id: "send-id".to_owned(),
+                send_access_credentials: Some(SendAccessCredentials::Password(
+                    SendPasswordCredentials {
+                        password_hash_b64: "hash".to_owned(),
+                    },
+                )),
+            })
+            .await
+            .expect("token is minted");
+
+        assert_eq!(token.token, "minted-token");
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_surfaces_server_rejection() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/identity/connect/token"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        let err = client_for(&server)
+            .request_send_access_token(SendAccessTokenRequest {
+                send_id: "send-id".to_owned(),
+                send_access_credentials: None,
+            })
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, SendAccessTokenError::Unexpected(_)));
+    }
+
+    #[test]
+    fn hash_send_password_matches_send_access_key() {
+        let expected = SendAccessKey::from_url_b64(URL_KEY)
+            .unwrap()
+            .hash_password_b64("hunter2");
+
+        let hash = client()
+            .hash_send_password(URL_KEY.to_owned(), "hunter2".to_owned())
+            .expect("hashes");
+
+        assert_eq!(hash, expected);
+    }
+
+    #[test]
+    fn hash_send_password_rejects_malformed_key() {
+        let err = client()
+            .hash_send_password("not valid base64!".to_owned(), "hunter2".to_owned())
+            .unwrap_err();
+
+        assert!(matches!(err, SendAccessKeyError::InvalidEncoding));
     }
 }
