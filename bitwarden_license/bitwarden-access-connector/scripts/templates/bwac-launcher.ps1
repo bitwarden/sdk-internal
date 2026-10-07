@@ -2,21 +2,13 @@
 <#
     Launcher for bwac, written by Install-AccessConnector.ps1.
 
-    It exists for two reasons.
+    Sets the env file's variables on this process only, for the connector to inherit. A
+    machine-level variable would put the token in a registry key any user can read, and
+    PowerShell cannot assign $env:85808642_... by name at all.
 
-    The connector takes its token and every per-target credential from environment
-    variables, and most target UUIDs start with a digit. A machine-level environment
-    variable would put the token in a registry key any user can read, and PowerShell
-    cannot assign $env:85808642_... by name at all. Reading the ACL-restricted env file
-    here and calling SetEnvironmentVariable(..., 'Process') avoids both: the values
-    exist only in this process and the connector it starts.
-
-    And the connector logs to stderr, which a scheduled task discards. This captures it to
-    a log file that rolls at 10 MB, since Windows has no logrotate.
-
-    Only stderr is redirected. The connector writes nothing to stdout, and leaving that
-    handle inherited means there is no second pipe to drain and so no way for the connector
-    to block on a full one.
+    Captures the connector's stderr, which a scheduled task discards, to a log that rolls at
+    10 MB. stdout stays inherited, as the connector writes nothing there, so no second pipe can
+    fill up and block it.
 
     The connector's exit code is passed through, so the task's LastTaskResult is the
     connector's own: 0 clean shutdown, 1 startup error, 2 credential refused, 3 not
