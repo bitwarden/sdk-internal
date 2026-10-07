@@ -167,6 +167,8 @@ pub enum EventType {
     Send_Deleted_File,
     Send_Accessed_Text,
     Send_Accessed_File,
+    Send_PolicyDisabled,
+    Send_PolicyEnabled,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -328,6 +330,8 @@ impl EventType {
             Self::Send_Deleted_File => 2509,
             Self::Send_Accessed_Text => 2510,
             Self::Send_Accessed_File => 2511,
+            Self::Send_PolicyDisabled => 2512,
+            Self::Send_PolicyEnabled => 2513,
             Self::__Unknown(v) => *v,
         }
     }
@@ -491,6 +495,8 @@ impl EventType {
             2509 => Self::Send_Deleted_File,
             2510 => Self::Send_Accessed_Text,
             2511 => Self::Send_Accessed_File,
+            2512 => Self::Send_PolicyDisabled,
+            2513 => Self::Send_PolicyEnabled,
             v => Self::__Unknown(v),
         }
     }

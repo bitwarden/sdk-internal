@@ -82,6 +82,9 @@ pub struct SendText {
 pub struct SendItemView {
     /// The item content of the send
     pub data: CipherView,
+    /// Unencrypted metadata used to display item information that is not
+    /// stored directly on the CipherView (e.g. folder/collection names)
+    pub metadata: SendItemMetadataView,
 }
 
 /// Item-based send content
@@ -93,6 +96,8 @@ pub struct SendItem {
     pub encryption_version: SendEncryptionType,
     /// Opaque sealed cipher blob, see [`CipherView::seal_blob_for_item_sends`].
     pub data: String,
+    /// Partially encrypted metadata used to display item information that is
+    /// not stored directly on the CipherView (e.g. folder/collection names)
     pub metadata: SendItemMetadata,
 }
 
@@ -101,9 +106,39 @@ pub struct SendItem {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct SendItemMetadataView {
+    /// Id of the vault item being sent
+    pub item_id: CipherId,
+    /// The name of the folder the vault item being sent belongs to
+    pub folder_name: Option<String>,
+    /// The names of the collections the vault item being sent belongs to
+    pub collection_names: Option<Vec<String>>,
+    /// The name of the organization the vault item being sent belongs to
+    pub organization_name: Option<String>,
+    /// The date the vault item being sent was created
+    pub creation_date: DateTime<Utc>,
+    /// The date the vault item being sent was last edited
+    pub revision_date: DateTime<Utc>,
+}
+
+/// Encrypted metadata of an Item Send
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendItemMetadata {
     /// Id of the vault item being sent
     pub item_id: CipherId,
+    /// The name of the folder the vault item being sent belongs to
+    pub folder_name: Option<EncString>,
+    /// The name of the collections the vault item being sent belongs to
+    pub collection_names: Option<Vec<EncString>>,
+    /// The name of the organization the vault item being sent belongs to
+    pub organization_name: Option<EncString>,
+    /// The date the vault item being sent was created
+    pub creation_date: DateTime<Utc>,
+    /// The date the vault item being sent was last edited
+    pub revision_date: DateTime<Utc>,
 }
 
 /// View model for decrypted SendText
@@ -544,9 +579,14 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendItemView> for SendItem {
         key: SymmetricKeySlotId,
     ) -> Result<SendItemView, CryptoError> {
         let mut data = CipherView::unseal_blob_for_item_sends(&self.data, ctx, key)?;
-        // The blob holds no id; restore it from the metadata.
+        // The blob holds no id or dates; restore them from the metadata.
         data.id = Some(self.metadata.item_id);
-        Ok(SendItemView { data })
+        data.creation_date = self.metadata.creation_date;
+        data.revision_date = self.metadata.revision_date;
+        Ok(SendItemView {
+            data,
+            metadata: self.metadata.clone().decrypt(ctx, key)?,
+        })
     }
 }
 
@@ -559,9 +599,51 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendItem> for SendItem
         Ok(SendItem {
             encryption_version: DEFAULT_SEND_ENCRYPTION,
             data: self.data.seal_blob_for_item_sends(ctx, key)?,
-            metadata: SendItemMetadata {
-                item_id: self.data.id.ok_or(CryptoError::MissingField("id"))?,
-            },
+            metadata: self.metadata.encrypt_composite(ctx, key)?,
+        })
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendItemMetadataView> for SendItemMetadata {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<SendItemMetadataView, CryptoError> {
+        Ok(SendItemMetadataView {
+            item_id: self.item_id,
+            folder_name: self.folder_name.decrypt(ctx, key)?,
+            collection_names: self
+                .collection_names
+                .as_ref()
+                .map(|cols| cols.iter().map(|c| c.decrypt(ctx, key)).collect())
+                .transpose()?,
+            organization_name: self.organization_name.decrypt(ctx, key)?,
+            creation_date: self.creation_date,
+            revision_date: self.revision_date,
+        })
+    }
+}
+
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendItemMetadata>
+    for SendItemMetadataView
+{
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<SendItemMetadata, CryptoError> {
+        Ok(SendItemMetadata {
+            item_id: self.item_id,
+            folder_name: self.folder_name.encrypt(ctx, key)?,
+            collection_names: self
+                .collection_names
+                .as_ref()
+                .map(|cols| cols.iter().map(|c| c.encrypt(ctx, key)).collect())
+                .transpose()?,
+            organization_name: self.organization_name.encrypt(ctx, key)?,
+            creation_date: self.creation_date,
+            revision_date: self.revision_date,
         })
     }
 }
@@ -881,6 +963,16 @@ impl TryFrom<SendDataModel> for SendItem {
             data: sealed,
             metadata: SendItemMetadata {
                 item_id: CipherId::new(data.metadata.item_id),
+                creation_date: data.metadata.creation_date.parse()?,
+                revision_date: data.metadata.revision_date.parse()?,
+                folder_name: EncString::try_from_optional(data.metadata.folder_name)?,
+                collection_names: data
+                    .metadata
+                    .collection_names
+                    .as_ref()
+                    .map(|cols| cols.iter().map(|c| EncString::parse_strict(c)).collect())
+                    .transpose()?,
+                organization_name: EncString::try_from_optional(data.metadata.organization_name)?,
             },
         })
     }
@@ -893,6 +985,14 @@ impl From<SendItem> for SendDataModel {
             data: Some(item.data),
             metadata: Box::new(SendItemMetadataModel {
                 item_id: item.metadata.item_id.into(),
+                creation_date: item.metadata.creation_date.to_rfc3339(),
+                revision_date: item.metadata.revision_date.to_rfc3339(),
+                folder_name: item.metadata.folder_name.map(|f| f.to_string()),
+                collection_names: item
+                    .metadata
+                    .collection_names
+                    .map(|cols| cols.iter().map(|c| c.to_string()).collect()),
+                organization_name: item.metadata.organization_name.map(|o| o.to_string()),
             }),
         }
     }
@@ -988,6 +1088,16 @@ pub(crate) mod tests {
             text: None,
             data: Some(SendItemView {
                 data: item_send_cipher_view(),
+                metadata: SendItemMetadataView {
+                    item_id: TEST_ITEM_ID
+                        .parse()
+                        .expect("TEST_ITEM_ID should be a valid CipherId"),
+                    creation_date: Default::default(),
+                    revision_date: Default::default(),
+                    folder_name: None,
+                    collection_names: None,
+                    organization_name: None,
+                },
             }),
             max_access_count: None,
             access_count: 0,
@@ -1024,6 +1134,11 @@ pub(crate) mod tests {
             data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
             metadata: Box::new(SendItemMetadataModel {
                 item_id: TEST_ITEM_ID.parse().unwrap(),
+                creation_date: Default::default(),
+                revision_date: Default::default(),
+                folder_name: None,
+                collection_names: None,
+                organization_name: None,
             }),
         })
         .unwrap();
@@ -1080,7 +1195,12 @@ pub(crate) mod tests {
         assert_eq!(
             item.metadata,
             SendItemMetadata {
-                item_id: TEST_ITEM_ID.parse().unwrap()
+                item_id: TEST_ITEM_ID.parse().unwrap(),
+                creation_date: Default::default(),
+                revision_date: Default::default(),
+                folder_name: None,
+                collection_names: None,
+                organization_name: None,
             }
         );
 
@@ -1462,6 +1582,11 @@ pub(crate) mod tests {
                 data: TEST_VECTOR_ITEM_SEND_DATA.to_string(),
                 metadata: SendItemMetadata {
                     item_id: TEST_ITEM_ID.parse().unwrap(),
+                    creation_date: Default::default(),
+                    revision_date: Default::default(),
+                    folder_name: None,
+                    collection_names: None,
+                    organization_name: None,
                 },
             }),
             key: TEST_SEND_KEY.parse().unwrap(),
