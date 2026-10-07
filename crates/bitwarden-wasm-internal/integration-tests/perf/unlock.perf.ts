@@ -6,20 +6,20 @@
 // unlock. The KDF dominates; client and state setup are negligible next to it.
 //
 // Env:
-//   PERF_UNLOCK_RUNS  timed runs per KDF                     (default 5)
-//   PERF_LABEL        writes perf/results/<label>-unlock.json when set
+//   PERF_UNLOCK_RUNS  timed runs per KDF                              (default 5)
+//   PERF_LABEL        writes perf/results/<label>/unlock-<kdf>.json when set
 
 import { strictEqual } from "node:assert/strict";
 
 import { init_sdk, PureCrypto, type Kdf } from "@bitwarden/sdk-internal";
+import { beforeAll, test } from "vitest";
 
-import { makeBench, report } from "./bench";
+import { benchOptions, runOptions } from "./bench";
 
 const RUNS = Number(process.env.PERF_UNLOCK_RUNS ?? 5);
 const PASSWORD = "correct horse battery staple";
 const EMAIL = "perf@bitwarden.com";
 const USER_KEY_SIZE = 64;
-const RESULTS_SUFFIX = "-unlock";
 
 // Bitwarden's current defaults for new accounts.
 const KDFS: { name: string; kdf: Kdf }[] = [
@@ -27,26 +27,20 @@ const KDFS: { name: string; kdf: Kdf }[] = [
   { name: "argon2id-3-64MiB-4", kdf: { argon2id: { iterations: 3, memory: 64, parallelism: 4 } } },
 ];
 
-export async function run(): Promise<void> {
-  init_sdk();
-  const bench = makeBench(`unlock, ${RUNS} runs`, RUNS);
+beforeAll(() => init_sdk());
 
-  for (const { name, kdf } of KDFS) {
-    const userKey = PureCrypto.make_user_key_aes256_cbc_hmac();
-    const wrapped = PureCrypto.encrypt_user_key_with_master_password(userKey, PASSWORD, EMAIL, kdf);
+test.for(KDFS)("unlock $name", async ({ name, kdf }, { bench }) => {
+  const userKey = PureCrypto.make_user_key_aes256_cbc_hmac();
+  const wrapped = PureCrypto.encrypt_user_key_with_master_password(userKey, PASSWORD, EMAIL, kdf);
 
-    // The assertion guards against silently measuring a failing unlock.
-    bench.add(name, () => {
-      const unlocked = PureCrypto.decrypt_user_key_with_master_password(
-        wrapped,
-        PASSWORD,
-        EMAIL,
-        kdf,
-      );
-      strictEqual(unlocked.length, USER_KEY_SIZE);
-    });
-  }
-
-  await bench.run();
-  report(bench, RESULTS_SUFFIX);
-}
+  // The assertion guards against silently measuring a failing unlock.
+  await bench(name, benchOptions(`unlock-${name}`), () => {
+    const unlocked = PureCrypto.decrypt_user_key_with_master_password(
+      wrapped,
+      PASSWORD,
+      EMAIL,
+      kdf,
+    );
+    strictEqual(unlocked.length, USER_KEY_SIZE);
+  }).run(runOptions(`unlock ${name}, ${RUNS} runs`, RUNS));
+});

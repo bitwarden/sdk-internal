@@ -14,10 +14,11 @@
 //   v2-personal V2 account (XAES-256-GCM user key, COSE), personal ciphers only
 //
 // Env:
-//   PERF_VAULT_SIZE  ciphers in the vault             (default 10000)
-//   PERF_RUNS        timed runs per operation         (default 5)
-//   PERF_SCENARIOS   comma-separated scenario filter  (default all)
-//   PERF_LABEL       writes perf/results/<label>.json when set
+//   PERF_VAULT_SIZE  ciphers in the vault                       (default 10000)
+//   PERF_RUNS        timed runs per operation                   (default 5)
+//   PERF_LABEL       writes perf/results/<label>/<task>.json when set
+//
+// Run one scenario with vitest's name filter, e.g. `npm run perf -- -t v2-personal`.
 
 import { ok, strictEqual } from "node:assert/strict";
 
@@ -27,16 +28,16 @@ import type {
   PasswordManagerClient,
   WasmStateBridge,
 } from "@bitwarden/sdk-internal";
+import { test } from "vitest";
 
 import { TEST_ORGANIZATION_ID } from "../tests/org-fixtures";
 import { makeOrgInitializedClient, makeStateBridge, makeV2AccountClient } from "../tests/utils";
 
-import { makeBench, report, type Stats } from "./bench";
+import { benchOptions, runOptions } from "./bench";
 import { generateVault } from "./vault-generator";
 
 const VAULT_SIZE = Number(process.env.PERF_VAULT_SIZE ?? 10_000);
 const RUNS = Number(process.env.PERF_RUNS ?? 5);
-const SCENARIO_FILTER = process.env.PERF_SCENARIOS?.split(",");
 const CIPHER_KEY_FLAG = "enableCipherKeyEncryption";
 const MS_TO_US = 1000;
 
@@ -50,7 +51,7 @@ const SCENARIOS: Scenario[] = [
   { name: "v1", makeClient: makeOrgInitializedClient, orgId: TEST_ORGANIZATION_ID },
   { name: "v1-personal", makeClient: makeOrgInitializedClient, orgId: undefined },
   { name: "v2-personal", makeClient: makeV2AccountClient, orgId: undefined },
-].filter((s) => !SCENARIO_FILTER || SCENARIO_FILTER.includes(s.name));
+];
 
 /** Builds an encrypted vault in which every cipher has its own cipher key, as clients create today. */
 async function buildVault(
@@ -73,33 +74,36 @@ function formats(vault: Cipher[]): Record<string, number> {
   return counts;
 }
 
-function usPerCipher(s: Stats): Record<string, string> {
-  return { "µs/cipher": ((s.medianMs * MS_TO_US) / VAULT_SIZE).toFixed(1) };
+function usPerCipher(medianMs: number): string {
+  return ((medianMs * MS_TO_US) / VAULT_SIZE).toFixed(1);
 }
 
-export async function run(): Promise<void> {
-  const bench = makeBench(`large vault decrypt, vault size ${VAULT_SIZE}, ${RUNS} runs`, RUNS);
+test.for(SCENARIOS)("large vault decrypt $name", async ({ name, makeClient, orgId }, { bench }) => {
+  // Client and vault setup is untimed.
+  const client = await makeClient(makeStateBridge());
+  const vault = await buildVault(client, orgId);
+  ok(vault.every((cipher) => cipher.key !== undefined));
+  console.log(`${name} formats ${JSON.stringify(formats(vault))}`);
 
-  // Client and vault setup is untimed; each scenario adds its two decrypt tasks.
-  for (const { name, makeClient, orgId } of SCENARIOS) {
-    const client = await makeClient(makeStateBridge());
-    const vault = await buildVault(client, orgId);
-    ok(vault.every((cipher) => cipher.key !== undefined));
-    console.log(`${name} formats ${JSON.stringify(formats(vault))}`);
+  const ciphers = client.vault().ciphers();
+  const listTask = `${name} decrypt_list_with_failures`;
+  const fullTask = `${name} decrypt_list_full_with_failures`;
 
-    const ciphers = client.vault().ciphers();
-
-    // Assertions guard against silently measuring a failing decrypt.
-    bench.add(`${name} decrypt_list_with_failures`, async () => {
+  // Assertions guard against silently measuring a failing decrypt.
+  const results = await bench.compare(
+    bench(listTask, benchOptions(listTask), async () => {
       const result = await ciphers.decrypt_list_with_failures(vault);
       strictEqual(result.successes.length, VAULT_SIZE);
-    });
-    bench.add(`${name} decrypt_list_full_with_failures`, async () => {
+    }),
+    bench(fullTask, benchOptions(fullTask), async () => {
       const result = await ciphers.decrypt_list_full_with_failures(vault);
       strictEqual(result.successes.length, VAULT_SIZE);
-    });
-  }
+    }),
+    runOptions(`large vault decrypt ${name}, vault size ${VAULT_SIZE}, ${RUNS} runs`, RUNS),
+  );
 
-  await bench.run();
-  report(bench, "", { vaultSize: VAULT_SIZE }, usPerCipher);
-}
+  // vitest's table has no per-cipher column; e.g. `v1 µs/cipher: list 12.3, full 45.6`.
+  const list = usPerCipher(results.get(listTask).latency.p50);
+  const full = usPerCipher(results.get(fullTask).latency.p50);
+  console.log(`${name} µs/cipher: list ${list}, full ${full}`);
+});
