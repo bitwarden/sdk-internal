@@ -6,8 +6,6 @@ use bitwarden_core::{
 };
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Errors returned from [`OrganizationDomainsClient`] operations.
 #[bitwarden_error(flat)]
@@ -22,13 +20,13 @@ pub enum OrganizationDomainsError {
 }
 
 /// Client for reading an organization's verified domains.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct OrganizationDomainsClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl OrganizationDomainsClient {
     /// Returns the names of every domain the organization has claimed and verified, for example
     /// `example.com`.
