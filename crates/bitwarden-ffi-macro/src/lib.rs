@@ -55,7 +55,10 @@ pub fn wasm_export(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// `#[serde(..)]` and `#[tsify(..)]` attributes are left in place for `Tsify`'s derive to read, and
 /// the `#[derive(..)]` for `Serialize` / `Deserialize` / UniFFI stays where it is — this macro only
-/// owns the wasm side. Takes no arguments.
+/// owns the wasm side.
+///
+/// `#[wasm_record(input)]` declares only the JavaScript-to-Rust direction, for a type that must not
+/// be serialized back out (for example, one holding a password).
 ///
 /// ```ignore
 /// #[wasm_record]
