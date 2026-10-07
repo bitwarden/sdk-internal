@@ -17,14 +17,16 @@ development = ["tokio-test"] # only used in doc-tests
 
 [features]
 wasm = [
+    "bitwarden-ffi/wasm",
+    "dep:gloo-timers",
+    "dep:js-sys",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:js-sys",
-    "dep:gloo-timers",
 ]
 
 [dependencies]
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 js-sys = { workspace = true, optional = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

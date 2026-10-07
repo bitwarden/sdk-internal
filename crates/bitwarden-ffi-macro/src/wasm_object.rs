@@ -4,7 +4,8 @@ use syn::{Item, parse2};
 
 use crate::attrs;
 
-/// Declares a `#[wasm_bindgen]` handle type, forwarding this macro's arguments to it.
+/// Declares a `#[wasm_bindgen]` handle type, forwarding this macro's arguments to it, and
+/// implements the wire traits so the type crosses as itself.
 pub(crate) fn wasm_object(attr: TokenStream, item: TokenStream) -> TokenStream {
     let forwarded = match attrs::parse_args(attr) {
         Ok(args) => args,
@@ -20,11 +21,19 @@ pub(crate) fn wasm_object(attr: TokenStream, item: TokenStream) -> TokenStream {
         return err.to_compile_error();
     }
 
+    let ident = match &item {
+        Item::Struct(item) => &item.ident,
+        Item::Enum(item) => &item.ident,
+        _ => unreachable!("check_exportable_type rejects every other item"),
+    };
+
     let bindgen = attrs::wasm_bindgen_attr(&forwarded);
-    let item = item.to_token_stream();
+    let body = item.to_token_stream();
     quote! {
         #bindgen
-        #item
+        #body
+
+        ::bitwarden_ffi::impl_wire_object!(#ident);
     }
 }
 
@@ -48,6 +57,10 @@ mod tests {
         assert!(!out.contains("compile_error!"), "{out}");
         assert!(
             out.contains("#[cfg_attr(feature=\"wasm\",::bitwarden_ffi::_macro::wasm_bindgen)]"),
+            "{out}"
+        );
+        assert!(
+            out.contains("::bitwarden_ffi::impl_wire_object!(CiphersClient);"),
             "{out}"
         );
     }

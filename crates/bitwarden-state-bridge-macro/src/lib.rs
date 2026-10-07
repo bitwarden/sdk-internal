@@ -329,7 +329,7 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
         const TS_CUSTOM_TYPES_STATE_BRIDGE: &'static str = #ts_iface;
 
         #[cfg(target_arch = "wasm32")]
-        #[::wasm_bindgen::prelude::wasm_bindgen]
+        #[::bitwarden_ffi::wasm_import]
         extern "C" {
             #(#extern_methods)*
         }

@@ -6,8 +6,6 @@ use coset::iana::{EnumI64, KeyParameter, KeyType, RsaKeyParameter};
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey, traits::PublicKeyParts};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
 
 use super::key_encryptable::CryptoKey;
 use crate::{
@@ -22,25 +20,16 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type PublicKey = Tagged<string, "PublicKey">;
 "#;
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for PublicKey {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for PublicKey {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-
-        let s = unsafe { String::from_abi(abi) };
-        let bytes: Vec<u8> = s.parse::<bitwarden_encoding::B64>().unwrap_throw().into();
-        PublicKey::from_der(&SpkiPublicKeyBytes::from(bytes)).unwrap_throw()
-    }
-}
+bitwarden_ffi::impl_wire_string!(
+    PublicKey,
+    parse = |wire: String| {
+        let bytes: Vec<u8> = wire
+            .parse::<bitwarden_encoding::B64>()
+            .map_err(|err| err.to_string())?
+            .into();
+        PublicKey::from_der(&SpkiPublicKeyBytes::from(bytes)).map_err(|err| err.to_string())
+    },
+);
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
 #[derive(Debug, Serialize_repr, Deserialize_repr)]

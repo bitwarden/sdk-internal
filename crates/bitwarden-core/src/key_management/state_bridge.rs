@@ -85,7 +85,7 @@ impl StateBridgeClient {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// Raw JavaScript-side state bridge implementation. The corresponding TypeScript
     /// interface (`WasmStateBridge`) and the per-method extern bindings are generated

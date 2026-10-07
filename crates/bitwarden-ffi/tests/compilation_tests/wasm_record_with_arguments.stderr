@@ -1,4 +1,4 @@
-error: #[wasm_record] takes no arguments
+error: #[wasm_record] takes no arguments other than `input`
  --> tests/compilation_tests/wasm_record_with_arguments.rs:3:15
   |
 3 | #[wasm_record(into_wasm_abi)]
