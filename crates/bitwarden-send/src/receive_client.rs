@@ -362,6 +362,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn requests_carry_the_configured_device_identifier_and_user_agent() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/identity/connect/token"))
+            .and(wiremock::matchers::header(
+                "device-identifier",
+                "device-123",
+            ))
+            .and(wiremock::matchers::header(
+                "user-agent",
+                "Bitwarden_CLI/test",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "access_token": "minted-token",
+                "token_type": "bearer",
+                "expires_in": 3600,
+                "scope": "api.send.access",
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = SendReceiveClient::new(Some(ClientSettings {
+            api_url: format!("{}/api", server.uri()),
+            identity_url: format!("{}/identity", server.uri()),
+            user_agent: "Bitwarden_CLI/test".to_owned(),
+            device_identifier: Some("device-123".to_owned()),
+            ..Default::default()
+        }));
+
+        client
+            .request_send_access_token(SendAccessTokenRequest {
+                send_id: "send-id".to_owned(),
+                send_access_credentials: None,
+            })
+            .await
+            .expect("token is minted");
+    }
+
+    #[tokio::test]
     async fn request_send_access_token_surfaces_server_rejection() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
