@@ -32,15 +32,13 @@ pub struct AccessConnector {
     pub id: AccessConnectorId,
     /// The organization this connector belongs to.
     pub organization_id: OrganizationId,
-    /// Display name.
-    ///
-    /// Stored as a plaintext server column, not vault data, and audit rows snapshot it at write
-    /// time - so it is visible to the server and should not be used to carry anything sensitive.
+    /// Display name, stored in plaintext on the server and copied into audit rows, so it must not
+    /// carry anything sensitive.
     pub name: String,
     /// Lifecycle state.
     pub status: AccessConnectorStatus,
-    /// Whether the connector is currently connected. Reflects the server's presence check, so it
-    /// can lag reality by up to one heartbeat interval.
+    /// Whether the connector has heartbeated within the server's offline threshold, so it can lag
+    /// a disconnect by up to that threshold.
     pub is_connected: bool,
     /// The last heartbeat the server recorded (UTC), or `None` absent any connection.
     pub last_heartbeat_at: Option<DateTime<Utc>>,
@@ -85,10 +83,8 @@ impl TryFrom<PamAccessConnectorResponseModel> for AccessConnector {
 pub struct AccessConnectorDetail {
     /// The connector itself.
     pub connector: AccessConnector,
-    /// The jobs this connector has worked, newest first, carrying the attempts it recorded.
-    ///
-    /// The server caps how many it returns, so this is recent activity rather than the connector's
-    /// whole history.
+    /// The jobs this connector has worked, newest first, with the attempts it recorded. The server
+    /// caps the count, so this is recent activity only.
     pub jobs: Vec<RotationJob>,
 }
 
@@ -140,11 +136,8 @@ pub struct AccessConnectorRegistrationResponse {
     pub creation_date: DateTime<Utc>,
     /// The credential the operator provisions into the connector's configuration.
     ///
-    /// Format: `0.access-connector.<api-key-id>.<client-secret>:<b64-seed>`.
-    ///
-    /// Returned a single time and unrecoverable: the server keeps only a hash of the client
-    /// secret. Show it to the operator to copy out-of-band, never persisted or logged; a lost
-    /// token means deleting the connector and registering again.
+    /// Returned once and unrecoverable, so never persist or log it. A lost token means deleting
+    /// the connector and registering again.
     pub token: String,
 }
 
@@ -194,11 +187,8 @@ impl AccessConnectorsClient {
         AccessConnectorDetail::try_from(response)
     }
 
-    /// Registers a connector and returns its one-time token.
-    ///
-    /// The token is the only copy - see [`AccessConnectorRegistrationResponse::token`] for the
-    /// handling obligation, and the [`registration`](super::registration) module docs for what
-    /// it contains and why.
+    /// Registers a connector and returns its one-time token; see
+    /// [`AccessConnectorRegistrationResponse::token`].
     pub async fn register(
         &self,
         organization_id: OrganizationId,
@@ -252,11 +242,9 @@ impl AccessConnectorsClient {
         Ok(())
     }
 
-    /// Disables a connector: it stops claiming new jobs and its running jobs are released.
-    ///
-    /// Reversible - the credential is retained, so [`enable`](AccessConnectorsClient::enable) puts
-    /// it back to work. To retire a connector for good, use
-    /// [`delete`](AccessConnectorsClient::delete).
+    /// Disables a connector, so it cannot authenticate or claim jobs. Reversible with
+    /// [`enable`](AccessConnectorsClient::enable); use [`delete`](AccessConnectorsClient::delete)
+    /// to retire it for good.
     pub async fn disable(
         &self,
         organization_id: OrganizationId,
@@ -271,11 +259,8 @@ impl AccessConnectorsClient {
         Ok(())
     }
 
-    /// Permanently deletes a connector and invalidates its credential.
-    ///
-    /// The connector held the plaintext organization key in memory, so deletion alone does not
-    /// undo a compromise: rotating the organization key remains the remediation for a
-    /// suspected compromise.
+    /// Permanently deletes a connector and invalidates its credential. The connector held the
+    /// plaintext organization key, so a suspected compromise still needs that key rotated.
     pub async fn delete(
         &self,
         organization_id: OrganizationId,
@@ -483,8 +468,8 @@ mod tests {
         );
     }
 
-    /// A connector that has never phoned home reports no heartbeat and no assignments. Neither is
-    /// an error, and `is_connected` has to read as *not connected* rather than defaulting true.
+    /// A connector that has never connected has no heartbeat or assignments, which is not an
+    /// error, and `is_connected` must read false.
     #[test]
     fn a_connector_that_has_never_connected_maps_to_disconnected_with_no_heartbeat() {
         let response = PamAccessConnectorResponseModel {
@@ -559,8 +544,7 @@ mod tests {
         }
     }
 
-    /// A newer server naming a status this version does not model must not fail the whole list -
-    /// see the forward-compatibility note in the module docs.
+    /// A newer server naming a status this version does not model must not fail the whole list.
     #[test]
     fn an_unrecognized_status_degrades_to_unknown() {
         let response = PamAccessConnectorResponseModel {
@@ -573,9 +557,8 @@ mod tests {
         assert_eq!(connector.status, AccessConnectorStatus::Unknown);
     }
 
-    /// The detail conversion hand-copies the connector's nine fields out of the flattened payload,
-    /// so a field dropped there would silently read as absent. Comparing against the list
-    /// conversion of the same connector pins all nine together.
+    /// The detail conversion hand-copies each field of the flattened payload, so a dropped one
+    /// would silently read as absent.
     #[test]
     fn the_detail_payload_yields_the_same_connector_as_the_list_payload() {
         let detail =
@@ -605,7 +588,7 @@ mod tests {
         assert_eq!(detail.jobs[0].status, RotationJobStatus::Succeeded);
     }
 
-    /// A connector that has never been dispatched work is not an error - it has no jobs.
+    /// A connector that has never been dispatched work has no jobs, which is not an error.
     #[test]
     fn a_detail_payload_without_jobs_has_no_jobs() {
         let detail =
@@ -761,9 +744,9 @@ mod tests {
         assert!(matches!(result, Err(RotationError::Api(_))));
     }
 
-    /// The whole point of `register`: the connector must recover the organization key from
-    /// its token plus the server's `encryptedPayload`. Walks that path through the public
-    /// method, so a mint/parse mismatch fails here.
+    /// The connector must recover the organization key from its token plus the server's
+    /// `encryptedPayload`. Walks that path through the public method, so a mint/parse mismatch
+    /// fails here.
     #[tokio::test]
     async fn register_returns_a_token_that_recovers_the_organization_key() {
         let organization_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -821,8 +804,8 @@ mod tests {
         );
     }
 
-    /// The token is unrecoverable, so the caller has to be able to show the operator which
-    /// connector it belongs to, regardless of whether the server echoes a name back.
+    /// The token is unrecoverable, so the caller must be able to name its connector even when the
+    /// server echoes no name back.
     #[tokio::test]
     async fn register_falls_back_to_the_requested_name_when_the_server_omits_it() {
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -845,9 +828,8 @@ mod tests {
         assert_eq!(registered.name, "Prod connector");
     }
 
-    /// A registration that cannot produce a usable token must not leave a registered connector
-    /// behind: the operator would have no way to provision it or recover the secret. The mock
-    /// has no expectations, so any call to the server fails the test.
+    /// A registration that cannot produce a usable token must not leave a connector behind. The
+    /// mock has no expectations, so any call to the server fails the test.
     #[tokio::test]
     async fn register_rejects_an_invalid_name_before_calling_the_server() {
         for name in ["", "   ", &"a".repeat(201)] {
@@ -872,7 +854,7 @@ mod tests {
     #[tokio::test]
     async fn register_without_the_organization_key_never_reaches_the_server() {
         let client = AccessConnectorsClient {
-            // A store with a user key but no organization key - the caller is not a member.
+            // A store with a user key but no organization key, as for a non-member.
             key_store: create_test_crypto_with_user_key(SymmetricCryptoKey::make(
                 SymmetricKeyAlgorithm::Aes256CbcHmac,
             )),
@@ -1015,7 +997,7 @@ mod tests {
     }
 
     /// `unassign_target` puts the target system in the path rather than a body, so it takes three
-    /// same-typed identifiers in a row - transposing two would still compile.
+    /// same-typed identifiers in a row, and transposing two would still compile.
     #[tokio::test]
     async fn unassign_target_sends_the_identifiers_in_the_right_order() {
         let api_client = ApiClient::new_mocked(move |mock| {

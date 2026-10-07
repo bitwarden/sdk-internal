@@ -66,13 +66,10 @@ impl TryFrom<PamTargetSystemResponseModel> for TargetSystem {
     }
 }
 
-/// Request to create a target system.
+/// Request to create a target system. An automatic target needs an integration and a
+/// session-termination capability; a manual one has neither.
 ///
-/// A discriminated union rather than a struct of optional fields: an automatic target needs
-/// an integration and session-termination capability, a manual one has neither.
-///
-/// Serializes with a `method` discriminant matching the server's own, e.g.
-/// `{"method":"manual","name":"...","passwordPolicy":{...}}`.
+/// Serializes with a `method` discriminant matching the server's own.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(tag = "method", rename_all = "snake_case")]
@@ -144,8 +141,8 @@ impl TryFrom<TargetSystemCreateRequest> for RegisterTargetSystemRequestModel {
             } => Self {
                 name,
                 method: TargetSystemMethod::Manual.try_into()?,
-                // A manual target has no integration and no session to terminate. Sending either
-                // would have the server store a capability nothing can act on.
+                // A manual target has no integration and no session to terminate, and the server
+                // rejects either field on one.
                 kind: None,
                 password_policy: Some(Box::new(password_policy.into())),
                 supports_session_termination: None,
@@ -154,11 +151,8 @@ impl TryFrom<TargetSystemCreateRequest> for RegisterTargetSystemRequestModel {
     }
 }
 
-/// Request to update an existing target system.
-///
-/// Name and policy travel together since the server takes them in one `PUT`; changing only
-/// one still requires sending the other's current value. Method and integration kind cannot
-/// change after creation.
+/// Request to update an existing target system. The server writes every field as sent, so a
+/// partial edit still sends the current values; method and kind are fixed at creation.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -167,11 +161,8 @@ pub struct TargetSystemUpdateRequest {
     pub name: String,
     /// Constraints on generating a rotated credential.
     pub password_policy: PasswordPolicy,
-    /// Whether the integration can terminate the account's sessions after rotating.
-    ///
-    /// Applies only to automatic targets; the server rejects a manual one that claims it. A caller
-    /// should warn before flipping this to `false`, since a live config depending on it can be
-    /// rejected.
+    /// Whether the integration can terminate the account's sessions after rotating. The server
+    /// refuses `true` on a manual target, and `false` while a config on the target relies on it.
     pub supports_session_termination: bool,
 }
 
@@ -186,10 +177,6 @@ impl From<TargetSystemUpdateRequest> for UpdateTargetSystemRequestModel {
 }
 
 /// Client for PAM rotation target-system operations.
-///
-/// [`disable`](TargetSystemsClient::disable) is reversible and leaves the target's configs
-/// intact; [`delete`](TargetSystemsClient::delete) is permanent, and the server refuses it
-/// while any config still names the target.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
 pub struct TargetSystemsClient {
@@ -236,11 +223,8 @@ impl TargetSystemsClient {
         TargetSystem::try_from(response)
     }
 
-    /// Validates and updates a target system's name, policy, and session-termination capability.
-    ///
-    /// The server answers with no content, so a caller that renders the result should re-read
-    /// through [`list`](TargetSystemsClient::list) rather than assume the request body is now the
-    /// stored state.
+    /// Validates and updates a target system. The server answers with no content, so re-read
+    /// through [`list`](TargetSystemsClient::list) to render the stored state.
     pub async fn update(
         &self,
         organization_id: OrganizationId,
@@ -289,13 +273,9 @@ impl TargetSystemsClient {
         Ok(())
     }
 
-    /// Permanently deletes a target system.
-    ///
-    /// The server refuses this while any rotation config still names the target; delete those
-    /// configs first.
-    ///
-    /// Narrower than [`disable`](TargetSystemsClient::disable): disable is for a target that's
-    /// merely unavailable, delete for one that has left the estate.
+    /// Permanently deletes a target system. The server refuses while any rotation config still
+    /// names the target; delete those configs first, or [`disable`](TargetSystemsClient::disable)
+    /// a target that is only unavailable.
     pub async fn delete(
         &self,
         organization_id: OrganizationId,
@@ -443,8 +423,8 @@ mod tests {
         assert_eq!(target.password_policy, None);
     }
 
-    /// A policy the server sent with flags omitted must read as those classes being *off*. Reading
-    /// them as on would show an operator a policy the connector will not generate under.
+    /// Omitted policy flags must read as off; reading them as on would show an operator a policy
+    /// the connector will not generate under.
     #[test]
     fn omitted_policy_flags_read_as_disabled() {
         let response = PamTargetSystemResponseModel {
@@ -558,8 +538,8 @@ mod tests {
         assert_eq!(sent_policy.include_symbols, Some(false));
     }
 
-    /// A manual target must send neither field. Sending `Some(false)` for the capability would have
-    /// the server store a session-termination answer for a rotation no connector performs.
+    /// A manual target must send neither field; the server rejects a manual target carrying either,
+    /// even `Some(false)`.
     #[test]
     fn a_manual_create_request_sends_no_integration_and_no_capability() {
         let model = RegisterTargetSystemRequestModel::try_from(manual_create_request())
@@ -574,8 +554,8 @@ mod tests {
         );
     }
 
-    /// The write-side refusal from the module docs: a kind this SDK could not name on the way in
-    /// cannot be sent back out, since `__Unknown` would serialize a meaningless tinyint.
+    /// A kind this SDK could not name on the way in cannot be sent back out, since `Unknown`
+    /// carries no wire value.
     #[test]
     fn an_unrecognized_kind_cannot_be_written_back() {
         let request = TargetSystemCreateRequest::Automatic {
@@ -603,9 +583,8 @@ mod tests {
         );
     }
 
-    /// The create request crosses the WASM boundary as plain data, and the documented wire shape is
-    /// a `method` discriminant matching the server's. A renamed variant would silently produce a
-    /// body the server rejects.
+    /// The create request crosses the WASM boundary as plain data, so its `method` tag and field
+    /// names are the shape TypeScript callers build.
     #[test]
     fn a_create_request_serializes_with_the_servers_method_discriminant() {
         let automatic = serde_json::to_value(automatic_create_request()).expect("it serializes");
@@ -763,9 +742,9 @@ mod tests {
         assert_eq!(target.kind, None);
     }
 
-    /// Validation runs before the request is sent, for both methods - the accessors it reads the
-    /// name and policy through have to work on either variant. The mock has no expectations, so
-    /// any call to the server fails the test.
+    /// Validation runs before the request is sent, for both methods, so the name and policy
+    /// accessors must work on either variant. The mock has no expectations, so any call to the
+    /// server fails the test.
     #[tokio::test]
     async fn create_rejects_an_invalid_request_before_calling_the_server() {
         let unsatisfiable = PasswordPolicy {
@@ -827,8 +806,8 @@ mod tests {
         }
     }
 
-    /// A kind the SDK cannot name is refused while building the body, which is still before the
-    /// call - so no half-described target system is created.
+    /// A kind the SDK cannot name is refused while building the body, before the call, so no
+    /// half-described target system is created.
     #[tokio::test]
     async fn create_refuses_an_unrecognized_kind_before_calling_the_server() {
         let result = client(ApiClient::new_mocked(|_| {}))
@@ -979,9 +958,8 @@ mod tests {
             .expect("deleting succeeds");
     }
 
-    /// The server, not the SDK, holds the "no config may still name it" precondition. That refusal
-    /// has to reach the caller as an error - reading it as success would take a target off the
-    /// operator's list while the server still has it.
+    /// The server holds the "no config may still name it" precondition, and its refusal must reach
+    /// the caller as an error rather than read as a deleted target.
     #[tokio::test]
     async fn delete_surfaces_the_refusal_when_a_config_still_names_the_target() {
         let api_client = ApiClient::new_mocked(move |mock| {

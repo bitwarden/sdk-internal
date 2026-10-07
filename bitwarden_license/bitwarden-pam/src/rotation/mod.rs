@@ -1,17 +1,7 @@
 //! PAM credential rotation operations.
 //!
-//! Credential rotation replaces a managed account's secret on schedule or on demand, writing
-//! it into both the target system and the vault cipher. Three clients configure it:
-//! [`AccessConnectorsClient`] (the unattended rotation agent), [`TargetSystemsClient`] (what's
-//! being rotated against), and [`RotationConfigsClient`] (the cipher-to-target link).
-//!
-//! A dispatch is a [`RotationJob`]; each [`RotationAttempt`] reports the target and vault
-//! outcomes separately via [`sync_state`](RotationAttempt::sync_state) and
-//! [`cipher_updated`](RotationAttempt::cipher_updated), since they can disagree.
-//!
-//! Every enum carries an `Unknown` variant for forward compatibility; writing one back is
-//! refused with [`RotationError::UnrecognizedVariant`]. Requests are validated locally
-//! ([`RotationValidationError`]) before being sent.
+//! Credential rotation replaces a managed account's secret on schedule or on demand, writing it
+//! into both the target system and the vault cipher.
 
 use std::sync::Arc;
 
@@ -86,7 +76,7 @@ impl RotationClient {
         }
     }
 
-    /// Quartz cron schedule helpers. Pure functions - no network access.
+    /// Quartz cron schedule helpers, with no network access.
     pub fn schedule(&self) -> RotationScheduleClient {
         RotationScheduleClient
     }
