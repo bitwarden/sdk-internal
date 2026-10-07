@@ -21,9 +21,9 @@ use crate::key_management::crypto::{
 use crate::key_management::{
     SymmetricKeySlotId,
     crypto::{
-        DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
-        derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-        initialize_org_crypto, initialize_user_crypto, make_prf_user_key_set,
+        InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
+        enroll_admin_password_reset, get_user_encryption_key, initialize_org_crypto,
+        initialize_user_crypto, make_prf_user_key_set,
     },
 };
 use crate::{
@@ -79,29 +79,6 @@ impl CryptoClient {
         make_update_kdf(&self.client, &password, &kdf).await
     }
 
-    /// Protects the current user key with the provided PIN. The result can be stored and later
-    /// used to initialize another client instance by using the PIN and the PIN key with
-    /// `initialize_user_crypto`.
-    pub fn enroll_pin(&self, pin: String) -> Result<EnrollPinResponse, CryptoClientError> {
-        enroll_pin(&self.client, pin)
-    }
-
-    /// Protects the current user key with the provided PIN. The result can be stored and later
-    /// used to initialize another client instance by using the PIN and the PIN key with
-    /// `initialize_user_crypto`. The provided pin is encrypted with the user key.
-    pub fn enroll_pin_with_encrypted_pin(
-        &self,
-        // Note: This will be replaced by `EncString` with https://bitwarden.atlassian.net/browse/PM-24775
-        encrypted_pin: String,
-    ) -> Result<EnrollPinResponse, CryptoClientError> {
-        let encrypted_pin: EncString = encrypted_pin.parse()?;
-        let pin = encrypted_pin.decrypt(
-            &mut self.client.internal.get_key_store().context_mut(),
-            SymmetricKeySlotId::User,
-        )?;
-        enroll_pin(&self.client, pin)
-    }
-
     /// A stop gap-solution for encrypting with the local user data key, until the WASM client's
     /// password generator history encryption and email forwarders encryption is fully migrated to
     /// SDK.
@@ -153,6 +130,29 @@ impl CryptoClient {
 }
 
 impl CryptoClient {
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`.
+    pub fn enroll_pin(&self, pin: String) -> Result<EnrollPinResponse, CryptoClientError> {
+        enroll_pin(&self.client, pin)
+    }
+
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`. The provided pin is encrypted with the user key.
+    pub fn enroll_pin_with_encrypted_pin(
+        &self,
+        // Note: This will be replaced by `EncString` with https://bitwarden.atlassian.net/browse/PM-24775
+        encrypted_pin: String,
+    ) -> Result<EnrollPinResponse, CryptoClientError> {
+        let encrypted_pin: EncString = encrypted_pin.parse()?;
+        let pin = encrypted_pin.decrypt(
+            &mut self.client.internal.get_key_store().context_mut(),
+            SymmetricKeySlotId::User,
+        )?;
+        enroll_pin(&self.client, pin)
+    }
+
     /// Create the data necessary to update the user's password. The user's encryption key is
     /// re-encrypted with the new password. This returns the new encrypted user key and the new
     /// password hash but does not update sdk state.
@@ -161,25 +161,6 @@ impl CryptoClient {
         new_password: String,
     ) -> Result<UpdatePasswordResponse, CryptoClientError> {
         make_update_password(&self.client, new_password).await
-    }
-
-    /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
-    /// used to initialize another client instance by using the PIN and the PIN key with
-    /// `initialize_user_crypto`.
-    pub async fn derive_pin_key(
-        &self,
-        pin: String,
-    ) -> Result<DerivePinKeyResponse, CryptoClientError> {
-        derive_pin_key(&self.client, pin).await
-    }
-
-    /// Derives the pin protected user key from encrypted pin. Used when pin requires master
-    /// password on first unlock.
-    pub async fn derive_pin_user_key(
-        &self,
-        encrypted_pin: EncString,
-    ) -> Result<EncString, CryptoClientError> {
-        derive_pin_user_key(&self.client, encrypted_pin).await
     }
 
     /// Creates a new rotateable key set for the current user key protected

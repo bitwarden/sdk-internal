@@ -1,44 +1,9 @@
-use bitwarden_crypto::{
-    EncString, PinKey,
-    safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace},
-};
+use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use tracing::info;
 
-use crate::{
-    Client, NotAuthenticatedError, auth::AuthValidateError, client::UserLoginMethod,
-    key_management::SymmetricKeySlotId,
-};
-
-pub(crate) async fn validate_pin(
-    client: &Client,
-    pin: String,
-    pin_protected_user_key: EncString,
-) -> Result<bool, AuthValidateError> {
-    let login_method = client
-        .internal
-        .get_login_method()
-        .await
-        .ok_or(NotAuthenticatedError)?;
-
-    match login_method {
-        UserLoginMethod::Username { email, kdf, .. }
-        | UserLoginMethod::ApiKey { email, kdf, .. } => {
-            let key_store = client.internal.get_key_store();
-            let ctx = key_store.context();
-            // FIXME: [PM-18099] Once PinKey deals with KeySlotIds, this should be updated
-            #[allow(deprecated)]
-            let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
-
-            let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), &kdf)?;
-
-            let Ok(decrypted_key) = pin_key.decrypt_user_key(pin_protected_user_key) else {
-                return Ok(false);
-            };
-
-            Ok(*user_key == decrypted_key)
-        }
-    }
-}
+use crate::Client;
+#[cfg(test)]
+use crate::key_management::SymmetricKeySlotId;
 
 /// Validates a PIN-protected user key envelope by attempting to unseal it with the provided PIN.
 pub(crate) fn validate_pin_protected_user_key_envelope(
@@ -112,36 +77,6 @@ mod tests {
             .unwrap();
 
         client
-    }
-
-    #[tokio::test]
-    async fn test_validate_valid_pin() {
-        let pin = "1234".to_string();
-        let pin_protected_user_key = "2.BXgvdBUeEMyvumqAJkAzPA==|JScDPoqOkVdrC1X755Ubt8tS9pC/thvrvNf5CyNcRg8HZtZ466EcRo7aCqwUzLyTVNRkbCYtFYT+09acGGHur8tGuS7Kmg/pYeaUo4K0UKI=|NpIFg5P9z0SN1MffbixD9OQE0l+NiNmnRQJs/kTsyoQ="
-        .parse()
-        .unwrap();
-
-        let client = init_client().await;
-        assert!(
-            validate_pin(&client, pin.clone(), pin_protected_user_key)
-                .await
-                .unwrap()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_validate_invalid_pin() {
-        let pin = "1234".to_string();
-        let pin_protected_user_key = "2.BXgvdBUeEMyvumqAJkAyPA==|JScDPoqOkVdrC1X755Ubt8tS9pC/thvrvNf5CyNcRg8HZtZ466EcRo7aCqwUzLyTVNRkbCYtFYT+09acGGHur8tGuS7Kmg/pYeaUo4K0UKI=|NpIFg5P9z0SN1MffbixD9OQE0l+NiNmnRQJs/kTsyoQ="
-        .parse()
-        .unwrap();
-
-        let client = init_client().await;
-        assert!(
-            !validate_pin(&client, pin.clone(), pin_protected_user_key)
-                .await
-                .unwrap()
-        );
     }
 
     #[tokio::test]

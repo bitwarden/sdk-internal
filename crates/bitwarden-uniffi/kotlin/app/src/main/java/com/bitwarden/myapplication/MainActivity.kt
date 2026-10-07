@@ -305,7 +305,7 @@ class MainActivity : FragmentActivity() {
         }
 
         if (setupPin) {
-            val pinOptions = client.crypto().derivePinKey(PIN);
+            val pinOptions = client.crypto().enrollPin(PIN)
 
             val sharedPref = getPreferences(Context.MODE_PRIVATE)
             with(sharedPref.edit()) {
@@ -317,8 +317,8 @@ class MainActivity : FragmentActivity() {
                 putInt("kdfMemory", (prelogin_body.kdfMemory ?: 0u).toInt())
                 putInt("kdfParallelism", (prelogin_body.kdfParallelism ?: 0u).toInt())
 
-                putString("encryptedPin", pinOptions.encryptedPin)
-                putString("pinProtectedUserKey", pinOptions.pinProtectedUserKey)
+                putString("encryptedPin", pinOptions.userKeyEncryptedPin)
+                putString("pinProtectedUserKeyEnvelope", pinOptions.pinProtectedUserKeyEnvelope)
                 apply()
             }
         }
@@ -386,7 +386,7 @@ class MainActivity : FragmentActivity() {
         }
 
         val encryptedPin = pref.getString("encryptedPin", "")!!
-        val pinProtectedUserKey = pref.getString("pinProtectedUserKey", "")!!
+        val pinProtectedUserKeyEnvelope = pref.getString("pinProtectedUserKeyEnvelope", "")!!
 
         GlobalScope.launch {
             client.crypto().initializeUserCrypto(
@@ -395,8 +395,8 @@ class MainActivity : FragmentActivity() {
                     kdfParams = kdf,
                     email = EMAIL,
                     accountCryptographicState = WrappedAccountCryptographicState.V1(privateKey = privateKey!!),
-                    method = InitUserCryptoMethod.Pin(
-                        pinProtectedUserKey = pinProtectedUserKey, pin = PIN
+                    method = InitUserCryptoMethod.PinEnvelope(
+                        pin = PIN, pinProtectedUserKeyEnvelope = pinProtectedUserKeyEnvelope
                     ),
                     upgradeToken = null
                 )

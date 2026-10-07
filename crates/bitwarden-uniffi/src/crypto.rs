@@ -1,8 +1,8 @@
 use bitwarden_core::key_management::{
     V2UpgradeToken,
     crypto::{
-        DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
-        InitUserCryptoRequest, ReinitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
+        DeriveKeyConnectorRequest, EnrollPinResponse, InitOrgCryptoRequest, InitUserCryptoRequest,
+        ReinitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
     },
 };
 use bitwarden_crypto::{EncString, Kdf, RotateableKeySet, UnsignedSharedKey};
@@ -49,19 +49,6 @@ impl CryptoClient {
         new_password: String,
     ) -> Result<UpdatePasswordResponse> {
         Ok(self.0.make_update_password(new_password).await?)
-    }
-
-    /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
-    /// used to initialize another client instance by using the PIN and the PIN key with
-    /// `initialize_user_crypto`.
-    pub async fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse> {
-        Ok(self.0.derive_pin_key(pin).await?)
-    }
-
-    /// Derives the pin protected user key from encrypted pin. Used when pin requires master
-    /// password on first unlock.
-    pub async fn derive_pin_user_key(&self, encrypted_pin: EncString) -> Result<EncString> {
-        Ok(self.0.derive_pin_user_key(encrypted_pin).await?)
     }
 
     /// Protects the current user key with the provided PIN. The result can be stored and later

@@ -223,7 +223,7 @@ struct ContentView: View {
         }
 
         if setupPin {
-            let pinOptions = try await clientCrypto.derivePinKey(pin: PIN)
+            let pinOptions = try clientCrypto.enrollPin(pin: PIN)
 
             let defaults = UserDefaults.standard
             defaults.set(loginData.PrivateKey, forKey: "privateKey")
@@ -232,8 +232,8 @@ struct ContentView: View {
             defaults.set(preloginData.kdfMemory, forKey: "kdfMemory")
             defaults.set(preloginData.kdfParallelism, forKey: "kdfParallelism")
 
-            defaults.set(pinOptions.encryptedPin, forKey: "encryptedPin")
-            defaults.set(pinOptions.pinProtectedUserKey, forKey: "pinProtectedUserKey")
+            defaults.set(pinOptions.userKeyEncryptedPin, forKey: "encryptedPin")
+            defaults.set(pinOptions.pinProtectedUserKeyEnvelope, forKey: "pinProtectedUserKeyEnvelope")
 
             defaults.synchronize()
         }
@@ -280,14 +280,14 @@ struct ContentView: View {
         }
 
         let encryptedPin = defaults.string(forKey: "encryptedPin")!
-        let pinProtectedUserKey = defaults.string(forKey: "pinProtectedUserKey")!
+        let pinProtectedUserKeyEnvelope = defaults.string(forKey: "pinProtectedUserKeyEnvelope")!
 
         try await clientCrypto.initializeUserCrypto(req: InitUserCryptoRequest(
             userId: nil,
             kdfParams: kdf,
             email: EMAIL,
             accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: privateKey),
-            method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey),
+            method: InitUserCryptoMethod.pinEnvelope(pin: PIN, pinProtectedUserKeyEnvelope: pinProtectedUserKeyEnvelope),
             upgradeToken: nil
         ))
     }

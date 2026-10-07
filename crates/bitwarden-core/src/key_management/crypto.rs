@@ -10,9 +10,9 @@ use std::collections::HashMap;
 
 use bitwarden_api_api::models::AccountKeysRequestModel;
 use bitwarden_crypto::{
-    CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable, KeyEncryptable,
-    MasterKey, PrimitiveEncryptable, PublicKey, RotateableKeySet, SpkiPublicKeyBytes,
-    SymmetricCryptoKey, TrustDeviceResponse, UnsignedSharedKey, derive_symmetric_key_from_prf,
+    CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, MasterKey, PrimitiveEncryptable,
+    PublicKey, RotateableKeySet, SpkiPublicKeyBytes, SymmetricCryptoKey, TrustDeviceResponse,
+    UnsignedSharedKey, derive_symmetric_key_from_prf,
     safe::{
         PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError,
         PasswordProtectedKeyEnvelopeNamespace,
@@ -124,8 +124,7 @@ pub enum InitUserCryptoMethod {
     Pin {
         /// The user's PIN
         pin: String,
-        /// The user's symmetric crypto key, encrypted with the PIN. Use `derive_pin_key` to obtain
-        /// this.
+        /// The user's symmetric crypto key, encrypted with the PIN.
         pin_protected_user_key: EncString,
     },
     /// PIN state, where the PIN envelope is stored in persistent client-managed state
@@ -600,80 +599,6 @@ pub(super) fn enroll_pin(
         pin_protected_user_key_envelope: key_envelope,
         user_key_encrypted_pin: encrypted_pin,
     })
-}
-
-/// Request for deriving a pin protected user key
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[bitwarden_ffi::wasm_record]
-pub struct DerivePinKeyResponse {
-    /// [UserKey][bitwarden_crypto::UserKey] protected by PIN
-    pin_protected_user_key: EncString,
-    /// PIN protected by [UserKey][bitwarden_crypto::UserKey]
-    encrypted_pin: EncString,
-}
-
-pub(super) async fn derive_pin_key(
-    client: &Client,
-    pin: String,
-) -> Result<DerivePinKeyResponse, CryptoClientError> {
-    let login_method = client
-        .internal
-        .get_login_method()
-        .await
-        .ok_or(NotAuthenticatedError)?;
-
-    let key_store = client.internal.get_key_store();
-    let ctx = key_store.context();
-    // FIXME: [PM-18099] Once PinKey deals with KeySlotIds, this should be updated
-    #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
-
-    let pin_protected_user_key = derive_pin_protected_user_key(&pin, &login_method, user_key)?;
-
-    Ok(DerivePinKeyResponse {
-        pin_protected_user_key,
-        encrypted_pin: pin.encrypt_with_key(user_key)?,
-    })
-}
-
-pub(super) async fn derive_pin_user_key(
-    client: &Client,
-    encrypted_pin: EncString,
-) -> Result<EncString, CryptoClientError> {
-    let login_method = client
-        .internal
-        .get_login_method()
-        .await
-        .ok_or(NotAuthenticatedError)?;
-
-    let key_store = client.internal.get_key_store();
-    let ctx = key_store.context();
-    // FIXME: [PM-18099] Once PinKey deals with KeySlotIds, this should be updated
-    #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
-
-    let pin: String = encrypted_pin.decrypt_with_key(user_key)?;
-
-    derive_pin_protected_user_key(&pin, &login_method, user_key)
-}
-
-fn derive_pin_protected_user_key(
-    pin: &str,
-    login_method: &UserLoginMethod,
-    user_key: &SymmetricCryptoKey,
-) -> Result<EncString, CryptoClientError> {
-    use bitwarden_crypto::PinKey;
-
-    let derived_key = match login_method {
-        UserLoginMethod::Username { email, kdf, .. }
-        | UserLoginMethod::ApiKey { email, kdf, .. } => {
-            PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?
-        }
-    };
-
-    Ok(derived_key.encrypt_user_key(user_key)?)
 }
 
 pub(super) fn make_prf_user_key_set(
@@ -1324,60 +1249,27 @@ mod tests {
             .await
             .unwrap();
 
-        let pin_key = derive_pin_key(&client, "1234".into()).await.unwrap();
+        // Legacy PIN-protected user key, as stored by older clients
+        let pin_protected_user_key = {
+            let key_store = client.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            let user_key = ctx
+                .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+                .unwrap();
+            let kdf = Kdf::PBKDF2 {
+                iterations: 100_000.try_into().unwrap(),
+            };
+            bitwarden_crypto::PinKey::derive(b"1234", b"test@bitwarden.com", &kdf)
+                .unwrap()
+                .encrypt_user_key(user_key)
+                .unwrap()
+        };
 
         // Verify we can unlock with the pin
         let client2 = Client::new_test(None);
         initialize_user_crypto(
             &client2,
-            InitUserCryptoRequest {
-                user_id: Some(UserId::new_v4()),
-                kdf_params: Kdf::PBKDF2 {
-                    iterations: 100_000.try_into().unwrap(),
-                },
-                email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key: priv_key.to_owned(),
-                },
-                method: InitUserCryptoMethod::Pin {
-                    pin: "1234".into(),
-                    pin_protected_user_key: pin_key.pin_protected_user_key,
-                },
-                upgrade_token: None,
-            },
-        )
-        .await
-        .unwrap();
-
-        let client_key = {
-            let key_store = client.internal.get_key_store();
-            let ctx = key_store.context();
-            #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
-                .unwrap()
-                .to_base64()
-        };
-
-        let client2_key = {
-            let key_store = client2.internal.get_key_store();
-            let ctx = key_store.context();
-            #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
-                .unwrap()
-                .to_base64()
-        };
-
-        assert_eq!(client_key, client2_key);
-
-        // Verify we can derive the pin protected user key from the encrypted pin
-        let pin_protected_user_key = derive_pin_user_key(&client, pin_key.encrypted_pin)
-            .await
-            .unwrap();
-
-        let client3 = Client::new_test(None);
-
-        initialize_user_crypto(
-            &client3,
             InitUserCryptoRequest {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
@@ -1406,8 +1298,8 @@ mod tests {
                 .to_base64()
         };
 
-        let client3_key = {
-            let key_store = client3.internal.get_key_store();
+        let client2_key = {
+            let key_store = client2.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
             ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
@@ -1415,7 +1307,7 @@ mod tests {
                 .to_base64()
         };
 
-        assert_eq!(client_key, client3_key);
+        assert_eq!(client_key, client2_key);
     }
 
     #[tokio::test]
