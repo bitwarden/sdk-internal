@@ -349,9 +349,12 @@ impl SendAccessKey {
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum AccessSendError {
+    /// The send does not exist, has expired, or has been deleted (the server answered 404).
+    #[error("The send was not found")]
+    NotFound,
     /// An API or network error occurred.
     #[error(transparent)]
-    Api(#[from] ApiError),
+    Api(ApiError),
     /// The response body could not be parsed into a [`SendAccessResponse`] — either a
     /// required field was missing, the send type was an unrecognized value, or a date
     /// field was malformed.
@@ -363,9 +366,37 @@ pub enum AccessSendError {
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum GetFileDownloadDataError {
+    /// The send or its file does not exist, has expired, or has been deleted (the server
+    /// answered 404).
+    #[error("The send file was not found")]
+    NotFound,
     /// An API or network error occurred.
     #[error(transparent)]
-    Api(#[from] ApiError),
+    Api(ApiError),
+}
+
+fn is_not_found(error: &ApiError) -> bool {
+    matches!(error, ApiError::Response(r) if r.status == reqwest::StatusCode::NOT_FOUND)
+}
+
+impl From<ApiError> for AccessSendError {
+    fn from(error: ApiError) -> Self {
+        if is_not_found(&error) {
+            Self::NotFound
+        } else {
+            Self::Api(error)
+        }
+    }
+}
+
+impl From<ApiError> for GetFileDownloadDataError {
+    fn from(error: ApiError) -> Self {
+        if is_not_found(&error) {
+            Self::NotFound
+        } else {
+            Self::Api(error)
+        }
+    }
 }
 
 // ===== HTTP request functions =====
@@ -609,6 +640,48 @@ mod tests {
         assert!(matches!(result.unwrap_err(), AccessSendError::Api(_)));
     }
 
+    #[tokio::test]
+    async fn test_access_send_404_is_not_found() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_access_using_auth()
+                .returning(|_token| Err(not_found_response()))
+                .once();
+        });
+
+        let result = access_send(&api_client, ACCESS_TOKEN).await;
+
+        assert!(matches!(result.unwrap_err(), AccessSendError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn test_access_send_other_status_stays_api_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_access_using_auth()
+                .returning(|_token| {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
+                            status: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                            message: "boom".to_string(),
+                        },
+                    ))
+                })
+                .once();
+        });
+
+        let result = access_send(&api_client, ACCESS_TOKEN).await;
+
+        assert!(matches!(result.unwrap_err(), AccessSendError::Api(_)));
+    }
+
+    fn not_found_response() -> bitwarden_api_api::ApiError {
+        bitwarden_api_api::ApiError::Response(bitwarden_api_api::ResponseContent {
+            status: reqwest::StatusCode::NOT_FOUND,
+            message: "Not Found".to_string(),
+        })
+    }
+
     // ===== get_file_download_data =====
 
     #[tokio::test]
@@ -654,6 +727,23 @@ mod tests {
         assert!(matches!(
             result.unwrap_err(),
             GetFileDownloadDataError::Api(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_get_file_download_data_404_is_not_found() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_get_send_file_download_data_using_auth()
+                .returning(|_file_id, _token| Err(not_found_response()))
+                .once();
+        });
+
+        let result = get_file_download_data(&api_client, FILE_ID, ACCESS_TOKEN).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            GetFileDownloadDataError::NotFound
         ));
     }
 
