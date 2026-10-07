@@ -5,11 +5,11 @@ Benchmarks for the WASM SDK, run through the Node build with
 `perf/*.perf.ts`.
 
 ```sh
-./perf/build.sh                # release build of the Node target, with symbol names for profiling
-npm run perf                   # run all harnesses
-npm run perf -- unlock         # run one harness
-npm run perf -- -t v2-personal # run matching benchmarks only
-npm run perf:profile           # same, writing a V8 CPU profile to perf/profiles/
+./perf/build.sh                    # release build of the Node target, with symbol names for profiling
+npm run perf                       # run all harnesses
+npm run perf -- unlock             # run one harness
+npm run perf -- -t "v2 encryption" # run matching benchmarks only
+npm run perf:profile               # same, writing a V8 CPU profile to perf/profiles/
 ```
 
 `perf/build.sh` takes overrides to compare build configurations:

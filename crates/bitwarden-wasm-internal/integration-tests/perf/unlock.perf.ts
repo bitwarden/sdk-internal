@@ -21,10 +21,15 @@ const PASSWORD = "correct horse battery staple";
 const EMAIL = "perf@bitwarden.com";
 const USER_KEY_SIZE = 64;
 
-// Bitwarden's current defaults for new accounts.
+// Bitwarden's current defaults for new accounts, then high-cost settings.
 const KDFS: { name: string; kdf: Kdf }[] = [
   { name: "pbkdf2-600k", kdf: { pBKDF2: { iterations: 600_000 } } },
   { name: "argon2id-3-64MiB-4", kdf: { argon2id: { iterations: 3, memory: 64, parallelism: 4 } } },
+  { name: "pbkdf2-2m", kdf: { pBKDF2: { iterations: 2_000_000 } } },
+  {
+    name: "argon2id-3-1024MiB-4",
+    kdf: { argon2id: { iterations: 3, memory: 1024, parallelism: 4 } },
+  },
 ];
 
 beforeAll(() => init_sdk());
