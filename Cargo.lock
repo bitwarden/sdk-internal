@@ -1134,6 +1134,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-error",
+ "bitwarden-ffi",
  "thiserror",
  "tokio",
  "wasm-bindgen",
