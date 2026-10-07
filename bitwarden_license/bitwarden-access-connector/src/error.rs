@@ -4,8 +4,6 @@
 use thiserror::Error;
 
 /// Failure reason reported to the server for a failed rotation attempt.
-///
-/// Serialised as `snake_case` over the wire.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum FailureCode {
@@ -17,8 +15,8 @@ pub(crate) enum FailureCode {
     InvalidPolicy,
     /// The target-system kind is not supported by this connector build.
     UnsupportedKind,
-    /// The target system explicitly rejected the rotation (e.g. wrong account, policy
-    /// violation at the target).
+    /// The target system rejected the rotation (e.g. wrong account, policy violation at the
+    /// target).
     TargetRejected,
     /// The target system could not be reached (network or connectivity error).
     TargetUnreachable,
@@ -36,44 +34,33 @@ pub(crate) enum FailureCode {
     Internal,
 }
 
-/// Vault-to-target synchronisation state reported alongside a failure.
-///
-/// Tells the server whether the target credential changed before the attempt
-/// failed, so the vault/target sync state is known. Wire encoding is pinned by
-/// the generated bitwarden-api-api models.
+/// Whether the target credential changed before the attempt failed, reported alongside a failure.
+/// On the wire it is the generated model's integer enum, not this serde form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SyncState {
     /// The target system's credential was not changed; vault and target remain in sync.
     TargetUnchanged,
-    /// The target system's credential was successfully changed but the vault was not
-    /// updated, so they are out of sync.
+    /// The target credential changed but the vault was not updated, so they are out of sync.
     TargetUpdated,
-    /// It is not known whether the target system's credential was changed (e.g. a timeout
-    /// occurred after the rotation request was submitted but before a response was received).
+    /// Unknown whether the target credential changed (e.g. a timeout after the request was sent).
     Indeterminate,
 }
 
-/// Outcome of the best-effort session-termination step (step 6 of `ExecuteRotation`).
-///
-/// A termination failure never fails the overall rotation; the step returns this value
-/// instead of propagating an error.
-///
-/// `TermFailed` (D3) also covers termination never running (lease expiry or a connectivity
-/// pause before step 6): the only honest value in the bounded enum for that case.
+/// Outcome of the best-effort session-termination step, which never fails the rotation.
+/// `TermFailed` also covers termination that never ran (lease expiry or a connectivity pause).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SessionTermination {
-    /// Session termination was not requested (the `terminate_sessions` flag was not set).
+    /// The claim's `terminate_sessions` flag was not set.
     NotRequested,
     /// Session termination completed successfully.
     Terminated,
-    /// Session termination failed, or was never initiated (see D3 above).
+    /// Session termination failed or never ran.
     TermFailed,
 }
 
-/// Classifies an integration or server error as transient (eligible for local retry) or
-/// fatal (retry would not help; propagate immediately).
+/// Whether an integration or server error is worth a local retry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ErrorClass {
     /// The error is likely temporary; the operation may be retried after a delay.
@@ -82,11 +69,8 @@ pub(crate) enum ErrorClass {
     Fatal,
 }
 
-/// A bounded, zero-knowledge detail string that may be included in a failure report.
-///
-/// Constructible only from vetted scalars (HTTP status codes, exit codes, env var and error
-/// kind names); no `From<String>` impl exists. The server-mirrored 500-char limit is
-/// enforced locally.
+/// A bounded, zero-knowledge detail for a failure report. It is built only from vetted scalars
+/// (status codes, exit codes, env var and error kind names), never an arbitrary `String`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SafeDetail(String);
 
@@ -94,55 +78,45 @@ impl SafeDetail {
     /// Maximum byte length of a detail string (server contract).
     pub(crate) const MAX_LEN: usize = 500;
 
-    /// Truncates `s` to [`Self::MAX_LEN`] characters (Unicode-aware).
+    /// Truncates `s` to at most [`Self::MAX_LEN`] bytes, on a char boundary.
     fn truncate(s: String) -> String {
         if s.len() <= Self::MAX_LEN {
             s
         } else {
-            // Truncate on a char boundary: walk back from MAX_LEN until we land on one.
             let mut end = Self::MAX_LEN;
             while !s.is_char_boundary(end) {
                 end -= 1;
             }
-            // end is now a verified char boundary, so str::get is guaranteed to return Some.
+            // `end` is a char boundary, so `get` returns Some.
             s.get(..end).unwrap_or_default().to_owned()
         }
     }
 
-    /// Build a detail from an HTTP status code.
     #[cfg(test)]
     pub(crate) fn from_status(status: u16) -> Self {
         Self(Self::truncate(format!("HTTP {status}")))
     }
 
-    /// Build a detail from a process exit code (custom script integration).
     pub(crate) fn from_exit_code(code: i32) -> Self {
         Self(Self::truncate(format!("exit code {code}")))
     }
 
-    /// Build a detail from the names of missing environment variables.
-    ///
-    /// Variable **names** are safe; values are never included.
+    /// Variable names are safe to report; values never are.
     pub(crate) fn from_missing_vars(names: &[String]) -> Self {
         let joined = names.join(", ");
         Self(Self::truncate(format!("missing vars: {joined}")))
     }
 
-    /// Build a detail from an opaque error kind name (a `'static` string constant such
-    /// as `"GraphRequest"` or `"ParseError"`, never a user-supplied string).
+    /// `kind` is a `'static` constant such as `"GraphRequest"`, never user-supplied input.
     pub(crate) fn from_kind(kind: &'static str) -> Self {
         Self(Self::truncate(format!("error kind: {kind}")))
     }
 
-    /// Build a detail indicating a timeout after the given number of seconds.
     pub(crate) fn timed_out(secs: u64) -> Self {
         Self(Self::truncate(format!("timed out after {secs}s")))
     }
 
-    /// Build a detail from an HTTP status code and an optional Graph `error.code`.
-    ///
-    /// The Graph `error.message` field is never included, since it can echo
-    /// user-supplied content (e.g. account identities, policy text).
+    /// Never includes Graph's `error.message`, which can echo user-supplied content.
     pub(crate) fn from_http_status_and_graph_code(status: u16, graph_code: Option<&str>) -> Self {
         let s = match graph_code {
             Some(code) => format!("HTTP {status} ({code})"),
@@ -151,27 +125,23 @@ impl SafeDetail {
         Self(Self::truncate(s))
     }
 
-    /// Returns the detail string as a `&str`.
     pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-// Implement Display so it can be included in log messages, but explicitly do NOT implement
-// Display for upstream error objects (those could echo secrets).
+// Safe to log, since the content is vetted at construction.
 impl std::fmt::Display for SafeDetail {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
     }
 }
 
-/// Top-level errors produced during CLI parsing and connector startup.
-///
-/// Printed to stderr with a non-zero exit code. No `#[bitwarden_error]` attribute
-/// is needed; the connector has no language bindings.
+/// Startup errors, printed to stderr with a non-zero exit code. No `#[bitwarden_error]`, since the
+/// connector has no language bindings.
 #[derive(Debug, Error)]
 pub enum AccessConnectorError {
-    /// The configuration supplied is invalid (bad URL, conflicting options, etc.).
+    /// The configuration supplied is invalid, such as a missing URL or an out-of-range interval.
     #[error("invalid configuration: {0}")]
     InvalidConfig(String),
 
@@ -187,7 +157,7 @@ pub enum AccessConnectorError {
     #[error("credential refused by identity server: {0}")]
     CredentialRefused(String),
 
-    /// An I/O error occurred (e.g. reading a token file).
+    /// An I/O error occurred.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -242,23 +212,21 @@ mod tests {
     #[test]
     fn safe_detail_exactly_500_chars_not_truncated() {
         let exactly = "a".repeat(500);
-        // from_missing_vars adds a prefix; use from_kind with a leaked str for exactness.
+        // Every constructor adds a prefix, so call truncate directly.
         let d = SafeDetail(SafeDetail::truncate(exactly.clone()));
         assert_eq!(d.as_str().len(), 500);
     }
 
     #[test]
     fn safe_detail_truncation_respects_char_boundary() {
-        // Build a string where the 500-byte mark falls inside a 2-byte char (é = 0xC3 0xA9).
-        // Pad to 499 ASCII bytes then append multi-byte chars.
+        // The 500-byte mark falls inside a 2-byte é.
         let base = "a".repeat(499);
-        let long = base + &"é".repeat(10); // each é is 2 bytes → total > 500
+        let long = base + &"é".repeat(10);
         let d = SafeDetail(SafeDetail::truncate(long));
         assert!(
             d.as_str().len() <= SafeDetail::MAX_LEN,
             "truncated string must not exceed MAX_LEN bytes"
         );
-        // as_str() would panic on invalid UTF-8; confirm explicitly.
         assert!(std::str::from_utf8(d.as_str().as_bytes()).is_ok());
     }
 

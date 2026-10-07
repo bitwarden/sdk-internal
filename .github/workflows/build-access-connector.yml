@@ -1,13 +1,6 @@
-# Builds the `bwac` binary (bitwarden_license/bitwarden-access-connector) in release
-# mode for each supported platform and uploads it as a workflow artifact, so the connector can be
-# picked up for QA / self-hosted testing without a local Rust toolchain.
-#
-# Each archive holds the binary and the installer script for that platform. Unpack it on the
-# target host and run the installer; it uses the binary sitting next to it, so nothing has to
-# be downloaded or pointed at separately.
-#
-# Unit and integration tests for the crate already run in rust-test.yml as part of
-# `cargo test --workspace`; this workflow only produces the binaries.
+# Builds `bwac` in release mode for each supported platform and uploads it with its installer
+# and templates as a workflow artifact, so QA and self-hosted testers need no Rust toolchain.
+# The crate's tests run in rust-test.yml.
 
 name: Build access connector
 
@@ -101,9 +94,8 @@ jobs:
           "${BINARY}" --version
           "${BINARY}" run --help
 
-      # The installer now ships to operators inside the archive, so a syntax error in it
-      # would be published rather than caught at review time. These parse it without
-      # running it; each platform uses the interpreter the script will actually run under.
+      # The installer ships inside the archive, so a syntax error in it would reach operators.
+      # Each platform parses it, without running it, with the interpreter that will run it.
       - name: Check the bundled installer parses - shell
         if: endsWith(matrix.installer, '.sh')
         run: bash -n "bitwarden_license/bitwarden-access-connector/scripts/${{ matrix.installer }}"

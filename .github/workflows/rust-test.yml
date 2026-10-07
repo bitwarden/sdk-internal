@@ -53,9 +53,8 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-features
 
-      # The access connector's script launchers have a few tests that need a real child
-      # process and real files, so they are #[ignore]d and skipped by the run above. All
-      # three runner images ship pwsh, so these run on each of them.
+      # The run above skips the access connector's #[ignore]d script-launcher tests, which need a
+      # real child process and real files. All three runner images ship pwsh, so they run on each.
       - name: Test (integration, requires pwsh)
         run: cargo test -p bitwarden-access-connector --all-features -- --ignored
 

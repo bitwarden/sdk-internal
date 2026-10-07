@@ -1,17 +1,12 @@
-//! Shared harness for the connector's integration tests.
+//! Shared harness for the connector's integration tests: wiremock identity and API servers with
+//! self-consistent token, payload and cipher fixtures.
 //!
-//! Stands up wiremock identity and API servers with self-consistent token, payload, and cipher
-//! fixtures, so each test file drives the real `bitwarden_access_connector::run` rather than
-//! reaching into crate internals.
-//!
-//! These tests do mutate the real process environment: the connector resolves per-target
-//! credentials from it, and exercising that is the point. Every test that does so takes
-//! [`ENV_LOCK`] first.
+//! Tests set per-target credentials in the real process environment, so each takes [`ENV_LOCK`]
+//! first.
 
 #![allow(dead_code)]
 
-// Re-exported so each test file gets the harness and the things it drives the harness with
-// from a single `use common::*;`.
+// Re-exported so each test file needs only `use common::*;`.
 pub use std::time::Duration;
 use std::{path::PathBuf, str::FromStr, sync::Mutex};
 
@@ -27,7 +22,7 @@ pub use wiremock::{
 };
 use zeroize::Zeroizing;
 
-/// Serialises tests that mutate env vars, for safe concurrent mutation.
+/// Serialises tests that mutate env vars.
 pub static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 /// The test access connector token (SM test vector, adapted to the 4-part connector format).
@@ -37,7 +32,7 @@ pub fn test_token() -> AccessConnectorToken {
     AccessConnectorToken::from_str(TEST_TOKEN_STR).expect("test token must parse")
 }
 
-/// Derive the token's encryption key (mirrors token.rs C1 derivation).
+/// The token's encryption key, derived as token.rs does.
 pub fn token_encryption_key() -> SymmetricCryptoKey {
     use bitwarden_crypto::derive_shareable_key;
     let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().expect("valid b64");
@@ -65,7 +60,6 @@ pub fn make_org_key_and_payload() -> (SymmetricCryptoKey, String) {
     (org_key, encrypted_payload)
 }
 
-/// Mount a permanent identity success mock.
 pub async fn mount_identity_ok(server: &MockServer, encrypted_payload: &str) {
     let body = format!(
         r#"{{"access_token":"test-bearer","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
@@ -81,8 +75,7 @@ pub async fn mount_identity_ok(server: &MockServer, encrypted_payload: &str) {
         .await;
 }
 
-/// Build a cipher data JSON string (password encrypted under org_key, plus a
-/// Username field) — this is what the cipher-read endpoint returns.
+/// The cipher-read endpoint's `data`: the password encrypted under `org_key`, plus a username.
 pub fn make_cipher_data(org_key: &SymmetricCryptoKey, password: &str) -> String {
     let enc = password
         .encrypt_with_key(org_key)
@@ -91,13 +84,11 @@ pub fn make_cipher_data(org_key: &SymmetricCryptoKey, password: &str) -> String 
     serde_json::json!({ "Password": enc, "Username": "testuser" }).to_string()
 }
 
-/// Path to the `tests/fixtures/` directory.
 pub fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
 }
 
-/// Convert a target_system_id UUID into the env-var prefix used by the
-/// connector's `EnvCredentialResolver`.
+/// Convert a target_system_id UUID into the connector's per-target env-var prefix.
 pub fn env_prefix(target_id: Uuid) -> String {
     let mut s = target_id.to_string().to_uppercase();
     s = s.replace('-', "_");
@@ -105,7 +96,6 @@ pub fn env_prefix(target_id: Uuid) -> String {
     s
 }
 
-/// Build a minimal fast `AccessConnectorConfig` for integration tests.
 pub fn make_cfg(
     api_url: String,
     identity_url: String,
@@ -120,7 +110,6 @@ pub fn make_cfg(
     )
 }
 
-/// An RFC-3339 execute_by timestamp 5 minutes in the future.
 pub fn execute_by_future() -> String {
     chrono::Utc::now()
         .checked_add_signed(chrono::Duration::minutes(5))
@@ -128,7 +117,6 @@ pub fn execute_by_future() -> String {
         .to_rfc3339()
 }
 
-/// Build a claim response body for a CustomScript job.
 pub fn claim_body(
     attempt_id: Uuid,
     job_id: Uuid,
