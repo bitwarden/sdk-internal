@@ -14,7 +14,7 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi"]
-wasm = ["bitwarden-threading/wasm"]
+wasm = ["bitwarden-ffi/wasm", "bitwarden-threading/wasm"]
 # Dev-only: generic debug browse over registered repositories, exposed to JS as
 # a typed handle. Never enable in production. The wasm deps are pulled here (not
 # by the `wasm` feature) so production wasm builds don't carry them.
@@ -26,6 +26,7 @@ browser-tests = []
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-threading = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

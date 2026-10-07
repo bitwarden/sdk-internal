@@ -3,8 +3,6 @@ use std::str::FromStr;
 use data_encoding::BASE64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::{FromStrVisitor, chunked::chunked_encode};
 
@@ -14,8 +12,7 @@ use crate::{FromStrVisitor, chunked::chunked_encode};
 #[cfg(feature = "wasm")]
 #[derive(Debug, Serialize, Clone, Hash, PartialEq, Eq)]
 #[serde(into = "String")]
-#[derive(Tsify)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[bitwarden_ffi::wasm_record]
 pub struct B64(#[tsify(type = "string")] Vec<u8>);
 
 /// Base64 encoded data
