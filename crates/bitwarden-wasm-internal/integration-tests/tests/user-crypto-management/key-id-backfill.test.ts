@@ -44,7 +44,7 @@ describe("user key id backfill", () => {
 
     const client = harness.newClientEmulator();
     await client.login(email, LoginMethod.Password, vector.account.password);
-    await client.unlock(V1_VECTOR.account.password);
+    await client.unlock(vector.account.password);
 
     return client;
   }

@@ -124,9 +124,9 @@ export interface SeededAccount {
 }
 
 /** A seeded account, alongside the vector it was seeded from. */
-export interface SeededTestVector extends SeededAccount {
+export interface SeededTestVector<V extends UserVector = UserVector> extends SeededAccount {
   /** The vector, for the password and the plaintext it records. */
-  vector: UserVector;
+  vector: V;
   /** The seed account the vector produced, for asserting what the account decrypts to. */
   seed: SeedAccount;
 }
@@ -202,10 +202,10 @@ export class ServerEmulator {
    * `modify` rewrites the seed account before it is stored, for a test that needs an account the
    * vector does not record — a server that has not stored a key id yet, say.
    */
-  seedUserTestVector(
-    vector: UserVector,
+  seedUserTestVector<V extends UserVector>(
+    vector: V,
     modify: (account: SeedAccount) => SeedAccount = (account) => account,
-  ): SeededTestVector {
+  ): SeededTestVector<V> {
     const seed = modify(toSeedAccount(vector));
 
     return { vector, seed, ...this.seedUser(seed) };
