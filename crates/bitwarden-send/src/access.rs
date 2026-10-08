@@ -20,7 +20,7 @@ use zeroize::Zeroizing;
 
 use crate::{
     SendParseError, SendType,
-    send::{SEND_ITERATIONS, SendItemMetadata},
+    send::{SEND_ITERATIONS, SendItemMetadataView},
     send_client::SendClient,
 };
 
@@ -92,8 +92,26 @@ pub struct SendAccessItemResponse {
     pub encryption_version: Option<SendEncryptionType>,
     /// The encrypted item data
     pub data: Option<String>,
-    /// Unencrypted item metadata
-    pub metadata: SendItemMetadata,
+    /// Partially encrypted item metadata
+    pub metadata: SendAccessItemMetadataResponse,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+pub struct SendAccessItemMetadataResponse {
+    /// Id of the vault item being sent
+    pub item_id: CipherId,
+    /// The encrypted name of the folder the vault item being sent belongs to
+    pub folder_name: Option<String>,
+    /// The encrypted names of the collections the vault item being sent belongs to
+    pub collection_names: Option<Vec<String>>,
+    /// The encrypted name of the organization the vault item being sent belongs to
+    pub organization_name: Option<String>,
+    /// The date the vault item being sent was created
+    pub creation_date: DateTime<Utc>,
+    /// The date the vault item being sent was last edited
+    pub revision_date: DateTime<Utc>,
 }
 
 /// File download URL data returned from a send file access call.
@@ -178,6 +196,8 @@ pub struct SendAccessFileView {
 pub struct SendAccessItemView {
     /// The decrypted Cipher data
     pub data: Option<CipherView>,
+    /// Unencrypted metadata that travels alongside the item data
+    pub metadata: SendItemMetadataView,
 }
 
 // ===== Error types =====
@@ -305,10 +325,29 @@ impl SendAccessKey {
                     )));
                 };
                 let mut cipher_view = CipherView::unseal_blob_for_item_sends(&data, &mut ctx, key)?;
-                // The blob holds no id; restore it from the metadata.
+                // The blob holds no id or dates; restore them from the metadata.
                 cipher_view.id = Some(d.metadata.item_id);
+                cipher_view.creation_date = d.metadata.creation_date;
+                cipher_view.revision_date = d.metadata.revision_date;
                 Some(SendAccessItemView {
                     data: Some(cipher_view),
+                    metadata: SendItemMetadataView {
+                        item_id: d.metadata.item_id,
+                        folder_name: self.decrypt_optional(d.metadata.folder_name)?,
+                        collection_names: d
+                            .metadata
+                            .collection_names
+                            .as_ref()
+                            .map(|cols| {
+                                cols.iter()
+                                    .map(|c| self.decrypt_required(c.to_string()))
+                                    .collect()
+                            })
+                            .transpose()?,
+                        organization_name: self.decrypt_optional(d.metadata.organization_name)?,
+                        creation_date: d.metadata.creation_date,
+                        revision_date: d.metadata.revision_date,
+                    },
                 })
             }
             None => None,
@@ -343,6 +382,11 @@ impl SendAccessKey {
             Some(s) => Ok(Some(s.parse::<EncString>()?.decrypt_with_key(&self.key)?)),
             None => Ok(None),
         }
+    }
+
+    /// Parse and decrypt a required wire-format [`EncString`] field.
+    fn decrypt_required(&self, value: String) -> Result<String, SendAccessDecryptError> {
+        Ok(EncString::parse_strict(value.as_str())?.decrypt_with_key(&self.key)?)
     }
 }
 
@@ -414,13 +458,23 @@ impl TryFrom<models::SendAccessResponseModel> for SendAccessResponse {
                 size: f.size,
                 size_name: f.size_name,
             }),
-            data: r.data.map(|dat| SendAccessItemResponse {
-                encryption_version: dat.encryption_version,
-                data: dat.data,
-                metadata: SendItemMetadata {
-                    item_id: CipherId::new(dat.metadata.item_id),
-                },
-            }),
+            data: r
+                .data
+                .map(|dat| {
+                    Ok::<SendAccessItemResponse, SendParseError>(SendAccessItemResponse {
+                        encryption_version: dat.encryption_version,
+                        data: dat.data,
+                        metadata: SendAccessItemMetadataResponse {
+                            item_id: CipherId::new(dat.metadata.item_id),
+                            folder_name: dat.metadata.folder_name,
+                            collection_names: dat.metadata.collection_names,
+                            organization_name: dat.metadata.organization_name,
+                            creation_date: dat.metadata.creation_date.parse()?,
+                            revision_date: dat.metadata.revision_date.parse()?,
+                        },
+                    })
+                })
+                .transpose()?,
             expiration_date: r.expiration_date.map(|s| s.parse()).transpose()?,
             creator_identifier: r.creator_identifier,
         })
@@ -662,11 +716,8 @@ mod tests {
             Send, SendAccessDecryptError, SendAccessFileResponse, SendAccessKey,
             SendAccessKeyError, SendAccessResponse, SendAccessTextResponse, SendAuthType,
             SendClient, SendFileView, SendTextView, SendType, SendView,
-            access::SendAccessItemResponse,
-            send::{
-                SendItemMetadata,
-                tests::{TEST_ITEM_ID, TEST_VECTOR_ITEM_SEND_DATA},
-            },
+            access::{SendAccessItemMetadataResponse, SendAccessItemResponse},
+            send::tests::{TEST_ITEM_ID, TEST_VECTOR_ITEM_SEND_DATA},
         };
 
         /// The url-safe-base64 form of a 16-byte send key, as it appears in the trailing
@@ -949,7 +1000,14 @@ mod tests {
                 data: Some(SendAccessItemResponse {
                     encryption_version: None,
                     data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_owned()),
-                    metadata: SendItemMetadata { item_id },
+                    metadata: SendAccessItemMetadataResponse {
+                        item_id,
+                        creation_date: Default::default(),
+                        revision_date: Default::default(),
+                        folder_name: None,
+                        collection_names: None,
+                        organization_name: None,
+                    },
                 }),
                 expiration_date: None,
                 creator_identifier: None,

@@ -409,6 +409,14 @@ pub struct Organization {
         skip_serializing_if = "Option::is_none"
     )]
     pub max_autoscale_pam_seats: Option<i32>,
+    /// The minimum number of Privileged Access Management seats the organization's subscription
+    /// must retain. NULL if the organization has never purchased Privileged Access Management.
+    #[serde(
+        rename = "pamSeatMinimum",
+        alias = "PamSeatMinimum",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pam_seat_minimum: Option<i32>,
     /// If set to true, only owners, admins, and some custom users can create and delete
     /// collections. If set to false, any organization member can create a collection, and any
     /// member can delete a collection that they have Can Manage permissions for.
@@ -588,6 +596,7 @@ impl Organization {
             max_autoscale_sm_service_accounts: None,
             pam_seats: None,
             max_autoscale_pam_seats: None,
+            pam_seat_minimum: None,
             limit_collection_creation: None,
             limit_collection_deletion: None,
             allow_admin_access_to_all_collection_items: None,
