@@ -40,10 +40,10 @@ describe("user key id backfill", () => {
 
   /** Logs in and unlocks the V1 master-password account, whose user key carries no key id. */
   async function loginV1(): Promise<ClientEmulator> {
-    const { email } = harness.server.seedUserTestVector(V1_VECTOR);
+    const { email, vector } = harness.server.seedUserTestVector(V1_VECTOR);
 
     const client = harness.newClientEmulator();
-    await client.login(email, LoginMethod.Password, V1_VECTOR.account.password);
+    await client.login(email, LoginMethod.Password, vector.account.password);
     await client.unlock(V1_VECTOR.account.password);
 
     return client;

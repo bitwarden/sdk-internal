@@ -601,31 +601,33 @@ export class PasswordPreloginRequest {
   email!: string;
 }
 
-/**
- * `PasswordPreloginResponseModel` — what a client learns before deriving its master key.
- *
- * `kdfSettings` is required: the SDK maps an absent one to a missing-field error rather than
- * reading the legacy flat `kdf`/`kdfIterations` fields.
- */
+/** `PasswordPreloginResponseModel`. */
 export class PasswordPreloginResponse {
-  kdfSettings!: KdfModel;
-  salt!: string;
+  // PM-28143: legacy flat KDF fields, removed with the cleanup
+  kdf?: KdfTypeValue;
+  kdfIterations?: number;
+  kdfMemory?: number;
+  kdfParallelism?: number;
 
-  /** An account's prelogin data. The KDF is the account's own, not its unlock data's. */
-  static fromUser(user: UserEntity): PasswordPreloginResponse {
+  kdfSettings?: KdfModel;
+  salt?: string;
+
+  /** The server echoes the request email as salt until PM-28143. */
+  static fromUser(user: UserEntity, email: string): PasswordPreloginResponse {
+    const kdfSettings = KdfModel.fromKdf(user.kdf);
+
     return {
-      kdfSettings: KdfModel.fromKdf(user.kdf),
-      salt: user.masterPasswordUnlock?.salt ?? user.email,
+      kdf: kdfSettings.kdfType,
+      kdfIterations: kdfSettings.iterations,
+      kdfMemory: kdfSettings.memory,
+      kdfParallelism: kdfSettings.parallelism,
+      kdfSettings,
+      salt: email,
     };
   }
 }
 
-/**
- * `LoginSuccessResponseModel` — a successful `POST /connect/token`.
- *
- * The access token is the account's user id, the same convention every other service in the
- * emulator reads, so a token issued here authenticates against them unchanged.
- */
+/** `LoginSuccessResponseModel`. The access token is the user id, as other services expect. */
 export class TokenResponse {
   access_token!: string;
   expires_in!: number;
@@ -634,8 +636,6 @@ export class TokenResponse {
   Key?: string;
   PrivateKey?: string;
   AccountKeys?: AccountKeysResponse;
-  // Unlike the api server's models, the token endpoint's user decryption options carry no
-  // camelCase alias, so the key has to be PascalCase to be read at all.
   UserDecryptionOptions!: { MasterPasswordUnlock?: MasterPasswordUnlockResponse };
 
   static forUser(user: UserEntity): TokenResponse {
@@ -646,18 +646,17 @@ export class TokenResponse {
       expires_in: TOKEN_LIFETIME_SECONDS,
       token_type: "Bearer",
       scope: "api offline_access",
-      ...(unlock === null ? {} : { Key: String(unlock.masterKeyWrappedUserKey) }),
+      Key: unlock?.masterKeyWrappedUserKey,
       PrivateKey: AccountKeysResponse.wrappedPrivateKeyOf(user),
       AccountKeys: AccountKeysResponse.fromUser(user),
-      UserDecryptionOptions:
-        unlock === null
-          ? {}
-          : { MasterPasswordUnlock: MasterPasswordUnlockResponse.fromStored(unlock) },
+      UserDecryptionOptions: {
+        MasterPasswordUnlock: unlock ? MasterPasswordUnlockResponse.fromStored(unlock) : undefined,
+      },
     };
   }
 }
 
-/** `ErrorResponseModel` as the token endpoint answers it: OAuth2, not the api server's shape. */
+/** OAuth2 error, as the token endpoint answers. */
 export class OAuth2ErrorResponse {
   error!: string;
   error_description!: string;

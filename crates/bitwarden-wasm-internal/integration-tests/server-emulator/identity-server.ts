@@ -39,7 +39,7 @@ export class IdentityServer {
       return oauth2Error(HTTP_NOT_FOUND, "invalid_request", `no account for ${posted.email}`);
     }
 
-    return { json: PasswordPreloginResponse.fromUser(user) };
+    return { json: PasswordPreloginResponse.fromUser(user, posted.email) };
   }
 
   /**

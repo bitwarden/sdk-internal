@@ -91,11 +91,11 @@ describe("change kdf", () => {
       // 1. Two unlocked clients, and a kdf change by the first
       const seeded = harness.server.seedUserTestVector(V1_VECTOR);
       const client = harness.newClientEmulator();
-      await client.login(seeded.email, LoginMethod.Password, V1_VECTOR.account.password);
+      await client.login(seeded.email, LoginMethod.Password, seeded.vector.account.password);
       await client.unlock(V1_VECTOR.account.password);
 
       const second = harness.newClientEmulator();
-      await second.login(seeded.email, LoginMethod.Password, V1_VECTOR.account.password);
+      await second.login(seeded.email, LoginMethod.Password, seeded.vector.account.password);
       await second.unlock(V1_VECTOR.account.password);
 
       await client
@@ -124,7 +124,7 @@ describe("change kdf", () => {
       async () => {
         const seeded = harness.server.seedUserTestVector(V1_VECTOR);
         const client = harness.newClientEmulator();
-        await client.login(seeded.email, LoginMethod.Password, V1_VECTOR.account.password);
+        await client.login(seeded.email, LoginMethod.Password, seeded.vector.account.password);
         await client.unlock(V1_VECTOR.account.password);
 
         // 1. Change the KDF to settings the SDK must refuse before asking the server
