@@ -9,11 +9,7 @@ use super::{
     models::{TargetSystemMethod, TargetSystemStatus},
 };
 
-/// The actions a rotation config offers right now.
-///
-/// Computed together rather than one predicate at a time: they are not independent
-/// (`can_pause`/`can_resume` are exclusive; `can_rotate_now`/`can_record_manual` share the
-/// same method field), so deriving them together avoids a contradictory pair.
+/// The actions a rotation config offers right now, derived together so no pair contradicts.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -30,10 +26,8 @@ pub struct RotationConfigActions {
     pub can_resume: bool,
 }
 
-/// Derives the actions a config offers, given the status of its target system.
-///
-/// `target_status` is `None` before the target system loads (the common case on first paint,
-/// since the two lists are separate calls); every dependent predicate fails closed.
+/// Derives the actions a config offers, given the status of its target system. Pass `None` while
+/// the target system has not loaded; every dependent predicate then fails closed.
 pub fn rotation_config_actions(
     config: &RotationConfig,
     target_status: Option<TargetSystemStatus>,
@@ -66,8 +60,8 @@ mod tests {
         "2026-01-01T00:00:00Z".parse().expect("a valid timestamp")
     }
 
-    /// An automatic, enabled, idle config - the one shape that offers a rotation. Each test varies
-    /// exactly one field so the failing condition is unambiguous.
+    /// An automatic, enabled, idle config, the one shape that offers a rotation. Each test varies
+    /// one field so the failing condition is unambiguous.
     fn rotatable_config() -> RotationConfig {
         RotationConfig {
             id: RotationConfigId::new(uuid!("11111111-1111-1111-1111-111111111111")),
@@ -141,9 +135,8 @@ mod tests {
         assert!(!actions.can_rotate_now);
     }
 
-    /// First paint: the configs list has arrived, the target-systems list has not. Offering a
-    /// rotation here would let the operator dispatch a job against a target that turns out to be
-    /// disabled.
+    /// The configs list can arrive before the target systems; offering a rotation then could
+    /// target a disabled one.
     #[test]
     fn an_unloaded_target_system_blocks_rotation() {
         let actions = rotation_config_actions(&rotatable_config(), None);

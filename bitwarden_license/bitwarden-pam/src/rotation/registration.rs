@@ -1,18 +1,7 @@
-//! The cryptographic half of registering an access connector.
+//! The cryptographic half of connector registration.
 //!
-//! A connector runs unattended, so the organization key is wrapped so only the holder of the
-//! operator-provisioned token can unwrap it: a fresh 16-byte seed becomes the token's `:`
-//! suffix; a key derived from it (via
-//! [`derive_shareable_key`](bitwarden_crypto::derive_shareable_key) with [`DERIVE_NAME`] and
-//! [`DERIVE_INFO`]) encrypts `encryptedPayload`; and `key` is that derived key's base64,
-//! encrypted under the organization key so it can be re-wrapped on rotation.
-//!
-//! [`DERIVE_NAME`] / [`DERIVE_INFO`] are this module's single definition of that contract:
-//! they previously lived in the web client's TypeScript with a different `info` string, so a
-//! connector registered from the web derived a key it could not reproduce.
-//!
-//! The token is returned a single time and is never recoverable: the server stores only a
-//! hash of the client secret. Show it to the operator to copy; never persist or log it.
+//! A key derived from the token's seed encrypts the organization key (`encryptedPayload`), so only
+//! the token holder can recover it. `key` wraps that derived key under the organization key.
 
 use std::{fmt, str::FromStr};
 
@@ -28,15 +17,11 @@ use zeroize::Zeroizing;
 
 use super::{connectors::AccessConnectorsClient, error::RotationError};
 
-/// Key-derivation name. Combined by `derive_shareable_key` into the HKDF salt
-/// `bitwarden-accesstoken`.
-///
-/// Contract with the connector - see the module docs before changing.
+/// Key-derivation name, which `derive_shareable_key` turns into the HKDF salt
+/// `bitwarden-accesstoken`. Must match the connector's copy.
 const DERIVE_NAME: &str = "accesstoken";
 
-/// Key-derivation info, used as the HKDF `info` parameter.
-///
-/// Contract with the connector - see the module docs before changing.
+/// Key-derivation info, used as the HKDF `info` parameter. Must match the connector's copy.
 const DERIVE_INFO: &str = "sm-access-token";
 
 /// The token version prefix. `0` is the only version the connector accepts.
@@ -55,16 +40,14 @@ pub(super) struct RegistrationSecrets {
     /// The derived key's base64, encrypted under the organization key. Sent to the server as
     /// `key`.
     pub(super) key: EncString,
-    /// The raw seed, base64-encoded. Never sent to the server - it goes only into the token.
+    /// The raw seed, base64-encoded. It goes only into the token, never to the server.
     seed_b64: B64,
 }
 
 impl RegistrationSecrets {
-    /// Assembles the one-time connector token from the server's response and the local seed.
+    /// Assembles the one-time token, `0.access-connector.<api-key-id>.<client-secret>:<b64-seed>`.
     ///
-    /// Format: `0.access-connector.<api-key-id>.<client-secret>:<b64-seed>`.
-    ///
-    /// Consumes `self` so the seed cannot be used to mint a second token for the same connector.
+    /// Consumes `self` so the seed cannot mint a second token for the same connector.
     pub(super) fn into_token(self, api_key_id: Uuid, client_secret: &str) -> String {
         format!(
             "{TOKEN_VERSION}.{TOKEN_CLIENT_KIND}.{api_key_id}.{client_secret}:{}",
@@ -100,16 +83,13 @@ pub enum ConnectorTokenInvalidError {
     InvalidLength {
         /// The length the format requires.
         expected: usize,
-        /// The length actually decoded.
+        /// The decoded length.
         got: usize,
     },
 }
 
-/// A parsed connector token.
-///
-/// The consumer half of registration; lives next to [`RegistrationSecrets::into_token`]
-/// since token format and key derivation are one contract that drifted across split crates.
-/// The access connector should converge on this parser.
+/// A parsed connector token, the consumer half of registration. The access connector parses
+/// tokens with its own copy of this logic, so keep the two in step.
 pub struct ConnectorToken {
     /// The API key identifier. The connector's OAuth `client_id` is
     /// `access-connector.<api_key_id>`.
@@ -199,7 +179,7 @@ impl AccessConnectorsClient {
         let derived_key = ctx.derive_shareable_key(seed, DERIVE_NAME, Some(DERIVE_INFO))?;
 
         // The payload hands the connector the organization key itself, so it is encrypted under the
-        // derived key - the one secret only the token holder can reproduce.
+        // derived key, which only the token holder can reproduce.
         #[allow(deprecated)]
         let organization_key_b64 = ctx
             .dangerous_get_symmetric_key(organization_key)?
@@ -254,9 +234,9 @@ mod tests {
         }
     }
 
-    /// The contract that matters: the connector re-derives its key from the token's seed alone,
-    /// then decrypts `encryptedPayload` to recover the org key. Walks that path via
-    /// [`ConnectorToken`] so a mint/parse drift fails here.
+    /// The connector re-derives its key from the token's seed alone, then decrypts
+    /// `encryptedPayload` to recover the org key. Walks that path via [`ConnectorToken`] so a
+    /// mint/parse drift fails here.
     #[test]
     fn a_connector_recovers_the_organization_key_from_its_token_alone() {
         let organization_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -311,8 +291,7 @@ mod tests {
     }
 
     /// The `key` field is not read during registration, so a mistake in it would go unnoticed until
-    /// an organization-key rotation. It must be the derived key's base64, wrapped under the
-    /// organization key.
+    /// an organization-key rotation.
     #[test]
     fn the_key_field_wraps_the_derived_key_under_the_organization_key() {
         let organization_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -366,7 +345,7 @@ mod tests {
     #[test]
     fn registering_without_the_organization_key_fails_before_any_network_call() {
         let client = AccessConnectorsClient {
-            // A store with a user key but no organization key - the caller is not a member.
+            // A store with a user key but no organization key, as for a non-member.
             key_store: create_test_crypto_with_user_key(SymmetricCryptoKey::make(
                 SymmetricKeyAlgorithm::Aes256CbcHmac,
             )),

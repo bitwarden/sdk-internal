@@ -31,22 +31,16 @@ pub struct RotationConfig {
     pub id: RotationConfigId,
     /// The organization this config belongs to.
     pub organization_id: OrganizationId,
-    /// The vault cipher whose credential this config manages.
-    ///
-    /// Only the id is here. The cipher's name is vault data and has to be decrypted from the
-    /// caller's own cipher state - the rotation endpoints never carry it.
+    /// The vault cipher whose credential this config manages. Its name is vault data, so decrypt
+    /// it from the caller's own cipher state.
     pub cipher_id: CipherId,
     /// The target system credentials are rotated against.
     pub target_system_id: TargetSystemId,
-    /// The target system's display name as of the config's last write.
-    ///
-    /// Denormalized by the server, so it can lag a rename. Prefer the loaded target system's
-    /// own name; treat this as the fallback.
+    /// The target system's display name, as of this read.
     pub target_system_name: String,
-    /// The target system's rotation method as of the config's last write. Denormalized, and the
-    /// field that decides which actions the config offers.
+    /// The target system's rotation method, which decides the actions the config offers.
     pub target_system_method: TargetSystemMethod,
-    /// The account within the target system - a username, UPN, or service-account name.
+    /// The account within the target system: a username, UPN, or service-account name.
     pub account_identity: String,
     /// Whether the connector terminates the account's sessions after a successful rotation.
     pub terminate_sessions: bool,
@@ -58,9 +52,10 @@ pub struct RotationConfig {
     pub enabled: bool,
     /// The most recent completed rotation (UTC), or `None` absent any rotation.
     pub last_rotation_at: Option<DateTime<Utc>>,
-    /// The next scheduled rotation (UTC), or `None` absent a schedule or while paused.
+    /// When the config is next due for rotation (UTC), or `None` when nothing is due.
     pub next_rotation_at: Option<DateTime<Utc>>,
-    /// Whether a job is currently pending or claimed for this config.
+    /// Whether the config has a pending or claimed job, or a timed-out one the sweep has not yet
+    /// recorded.
     pub has_active_job: bool,
     /// Whether a manual-method config is waiting for an operator to record an out-of-band
     /// rotation.
@@ -96,7 +91,6 @@ impl TryFrom<PamRotationConfigResponseModel> for RotationConfig {
             terminate_sessions: response.terminate_sessions.unwrap_or(false),
             schedule_cron: response.schedule_cron,
             rotate_on_access_end: response.rotate_on_access_end.unwrap_or(false),
-            // The server omits `enabled` on an active config rather than sending `true`.
             enabled: response.enabled.unwrap_or(true),
             last_rotation_at: response
                 .last_rotation_at
@@ -138,7 +132,7 @@ impl TryFrom<PamRotationConfigDetailResponseModel> for RotationConfigDetail {
             .collect::<Result<Vec<_>, _>>()?;
 
         // The server flattens the config's own fields onto the detail payload, so the list model is
-        // rebuilt from the same object rather than a nested one.
+        // rebuilt from it.
         let config = RotationConfig::try_from(PamRotationConfigResponseModel {
             object: response.object,
             id: response.id,
@@ -196,11 +190,9 @@ impl From<RotationConfigCreateRequest> for CreateRotationConfigRequestModel {
     }
 }
 
-/// Request to update a rotation config.
-///
-/// Account identity and schedule travel together in one `PUT`; a caller changing only the
-/// schedule still sends the current identity. The server locks identity during an in-flight
-/// job; see [`RotationConfigActions::mutations_locked`].
+/// Request to update a rotation config. The server writes every field as sent, so a partial edit
+/// still sends the current values, and it refuses the update while
+/// [`mutations_locked`](RotationConfigActions::mutations_locked) holds.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -289,7 +281,7 @@ impl RotationConfigsClient {
         RotationConfigDetail::try_from(response)
     }
 
-    /// Validates and updates a rotation config's account and schedule.
+    /// Validates and updates a rotation config.
     pub async fn update(
         &self,
         organization_id: OrganizationId,
@@ -385,11 +377,8 @@ impl RotationConfigsClient {
         Ok(())
     }
 
-    /// Which actions a config offers, given the status of its target system.
-    ///
-    /// Exposed on the client for non-Rust callers, since a tsify struct crosses the WASM
-    /// boundary as plain data and leaves [`RotationConfig::actions`]'s methods behind. See
-    /// [`RotationConfigActions`].
+    /// Which actions a config offers, given the status of its target system. Exposed here because
+    /// a tsify struct crosses the WASM boundary as plain data, without [`RotationConfig::actions`].
     pub fn actions(
         &self,
         config: RotationConfig,
@@ -563,9 +552,7 @@ mod tests {
         );
     }
 
-    /// The one inverted default on this payload: the server omits `enabled` on an active config
-    /// rather than sending `true`. Defaulting it to `false` like the other flags would render every
-    /// running config as paused, and offer resume instead of pause.
+    /// Unlike the other flags, an absent `enabled` reads as active.
     #[test]
     fn an_omitted_enabled_flag_means_the_config_is_active() {
         let config = RotationConfig::try_from(PamRotationConfigResponseModel {
@@ -579,8 +566,8 @@ mod tests {
         assert!(!config.actions(Some(TargetSystemStatus::Active)).can_resume);
     }
 
-    /// Every other flag defaults the other way: absent means *not* set. A config the server has
-    /// never rotated has no timestamps, and an unnamed target reads as empty rather than failing.
+    /// Every other absent field means not set; a never-rotated config has no timestamps, and an
+    /// unnamed target reads as empty rather than failing.
     #[test]
     fn the_remaining_absent_fields_default_to_not_set() {
         let config = RotationConfig::try_from(PamRotationConfigResponseModel {
@@ -687,9 +674,8 @@ mod tests {
         assert_eq!(config.target_system_method, TargetSystemMethod::Unknown);
     }
 
-    /// The detail conversion hand-copies eighteen fields out of the flattened payload; a
-    /// dropped field would silently read as absent (flipping an active `enabled` to paused).
-    /// This pins all eighteen against the list conversion of the same config.
+    /// The detail conversion hand-copies each field of the flattened payload, so a dropped one
+    /// would silently read as absent.
     #[test]
     fn the_detail_payload_yields_the_same_config_as_the_list_payload() {
         let detail = RotationConfigDetail::try_from(sample_detail_response(Some(vec![
@@ -718,7 +704,7 @@ mod tests {
         assert_eq!(detail.jobs[0].status, RotationJobStatus::Pending);
     }
 
-    /// A config that has never rotated is not an error - it has no history.
+    /// A config that has never rotated has no history, which is not an error.
     #[test]
     fn a_detail_payload_without_jobs_has_no_jobs() {
         let detail =
@@ -751,8 +737,8 @@ mod tests {
         assert_eq!(model.rotate_on_access_end, Some(true));
     }
 
-    /// Clearing a schedule has to send `null`, not omit the field - an omitted cron would leave the
-    /// server's stored schedule in place and the config would keep rotating.
+    /// A `None` cron is left out of the body, which the server binds as null and so clears the
+    /// schedule.
     #[test]
     fn clearing_the_schedule_sends_an_explicit_absence() {
         let model = UpdateRotationConfigRequestModel::from(RotationConfigUpdateRequest {
@@ -936,7 +922,7 @@ mod tests {
         assert_eq!(detail.config.id, config_id());
     }
 
-    /// A config with no schedule is valid - it rotates on demand or on access end only.
+    /// A config with no schedule is valid; it rotates on demand or on access end only.
     #[tokio::test]
     async fn a_config_can_be_created_without_a_schedule() {
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -1078,8 +1064,7 @@ mod tests {
             .expect("resuming succeeds");
     }
 
-    /// `rotate_now` maps onto the server's `rotate` route. The four unit-returning actions here are
-    /// distinguishable only by which route they hit, so each is pinned to its own.
+    /// The unit-returning actions differ only in the route they hit, so each test pins its own.
     #[tokio::test]
     async fn rotate_now_dispatches_an_on_demand_rotation() {
         let api_client = ApiClient::new_mocked(move |mock| {

@@ -5,13 +5,7 @@ use thiserror::Error;
 
 use super::validate::RotationValidationError;
 
-/// Errors returned from the PAM rotation clients
-/// ([`AccessConnectorsClient`](crate::AccessConnectorsClient),
-/// [`TargetSystemsClient`](crate::TargetSystemsClient), and
-/// [`RotationConfigsClient`](crate::RotationConfigsClient)).
-///
-/// The three clients share one error type since they decode the same payloads and fail the
-/// same ways.
+/// Errors returned from the PAM rotation clients.
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum RotationError {
@@ -24,16 +18,12 @@ pub enum RotationError {
     /// A date field in the server response could not be parsed.
     #[error(transparent)]
     Chrono(#[from] chrono::ParseError),
-    /// A caller passed `Unknown` (the variant for a value only a newer server would return)
-    /// in a position that has to be written back to the server.
-    ///
-    /// Distinct from [`Validation`](RotationError::Validation): the SDK simply cannot name
-    /// the value on the wire.
+    /// A caller passed an `Unknown` variant (a value only a newer server returns) in a field sent
+    /// back to the server, which the SDK cannot name on the wire.
     #[error("Cannot send a variant this SDK version does not recognize to the server")]
     UnrecognizedVariant,
     /// The caller is not a member of the organization they addressed, or its key is not in the
-    /// key store. Registering a connector hands it the organization key, so it cannot proceed
-    /// without one.
+    /// key store. Registering a connector hands it the organization key, so it needs one.
     #[error("The organization key is unavailable")]
     MissingOrganizationKey,
     /// A cryptographic operation failed while registering a connector.

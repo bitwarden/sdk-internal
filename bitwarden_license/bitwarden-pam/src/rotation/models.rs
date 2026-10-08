@@ -17,19 +17,16 @@ use tsify::Tsify;
 use super::error::RotationError;
 use crate::{AccessConnectorId, RotationAttemptId, RotationConfigId, RotationJobId};
 
-/// Lifecycle state of an access connector.
-///
-/// [`Disabled`](AccessConnectorStatus::Disabled) is reversible; removing a connector
-/// entirely (invalidating its credential) is a delete, not a disable. A connector holds the
-/// plaintext organization key, so a suspected compromise is remediated by rotating that key.
+/// Lifecycle state of an access connector. Removing a connector for good is a delete, not a
+/// status.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
 pub enum AccessConnectorStatus {
     /// The connector may authenticate and claim rotation jobs.
     Enabled,
-    /// The connector cannot claim new jobs and its running jobs are released. Its credential is
-    /// retained so it can be re-enabled.
+    /// The connector cannot authenticate or claim jobs. Its credential is kept so it can be
+    /// re-enabled.
     Disabled,
     /// A status this SDK version does not recognize. Kept as a distinct variant so listing
     /// connectors never fails against a newer server.
@@ -76,8 +73,7 @@ impl TryFrom<TargetSystemMethod> for ApiTargetSystemMethod {
         match method {
             TargetSystemMethod::Automatic => Ok(Self::Automatic),
             TargetSystemMethod::Manual => Ok(Self::Manual),
-            // A caller cannot ask the server to store a method this SDK could not name in the
-            // first place; sending `__Unknown` would serialize a meaningless tinyint.
+            // `Unknown` carries no wire value to send back.
             TargetSystemMethod::Unknown => Err(RotationError::UnrecognizedVariant),
         }
     }
@@ -177,15 +173,15 @@ impl From<ApiRotationSource> for RotationSource {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
 pub enum RotationJobStatus {
-    /// Queued, not yet claimed by a connector.
+    /// Queued and waiting for a connector to claim it.
     Pending,
     /// A connector is executing the job.
     Claimed,
-    /// Every attempt succeeded and the vault cipher has been updated.
+    /// An attempt succeeded and updated the vault cipher.
     Succeeded,
     /// The job exhausted its retry budget.
     Failed,
-    /// The connector did not report back within the deadline.
+    /// The job passed its deadline without a successful attempt.
     TimedOut,
     /// A status this SDK version does not recognize.
     Unknown,
@@ -211,11 +207,12 @@ impl From<ApiRotationJobStatus> for RotationJobStatus {
 pub enum RotationAttemptStatus {
     /// The connector is actively running this attempt.
     Executing,
-    /// The target system accepted the new credential.
+    /// The target system accepted the new credential and the vault cipher was updated.
     Rotated,
     /// The attempt failed; see [`RotationAttempt::failure_reason`].
     Errored,
-    /// The attempt was abandoned (e.g. the connector was revoked mid-job).
+    /// The job was released or timed out mid-attempt; this does not count against the retry
+    /// budget.
     Abandoned,
     /// A status this SDK version does not recognize.
     Unknown,
@@ -233,14 +230,14 @@ impl From<ApiRotationAttemptStatus> for RotationAttemptStatus {
     }
 }
 
-/// Whether the target system ended up holding the rotated credential.
+/// Whether a failed rotation attempt left the target system's credential changed.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
 pub enum RotationSyncState {
-    /// The target system was not modified, so no vault write was attempted.
+    /// The target's credential is unchanged, so the vault still matches it.
     TargetUnchanged,
-    /// The target system accepted the new credential and the vault cipher was updated.
+    /// The target accepted the new credential but the vault was not updated, so they disagree.
     TargetUpdated,
     /// The target-system call may or may not have applied (network error or timeout). No vault
     /// write was attempted, so the vault and the target may disagree until the next rotation.
@@ -286,11 +283,8 @@ impl From<ApiSessionTerminationOutcome> for SessionTerminationOutcome {
     }
 }
 
-/// Password generation policy for a target system.
-///
-/// For [`Automatic`](TargetSystemMethod::Automatic) systems the connector generates the new
-/// credential under these constraints. For [`Manual`](TargetSystemMethod::Manual) systems they
-/// are the rules the operator is expected to follow by hand; nothing enforces them.
+/// Password generation policy for a target system. For [`Manual`](TargetSystemMethod::Manual)
+/// systems it is guidance for the operator that nothing enforces.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -348,17 +342,14 @@ pub struct RotationAttempt {
     pub claimed_by_access_connector_id: Option<AccessConnectorId>,
     /// Current execution state of the attempt.
     pub status: RotationAttemptStatus,
-    /// Operator-facing failure reason, set for an errored or abandoned attempt.
-    ///
-    /// Server-authored text describing the failure, never the credential: safe to render, but
-    /// it originates off-client, so treat it as untrusted for anything beyond display.
+    /// Operator-facing failure reason, set for an errored attempt. Reported by the connector and
+    /// never raw target output; treat it as untrusted text for display only.
     pub failure_reason: Option<String>,
     /// Whether the vault cipher was written with the rotated credential.
     pub cipher_updated: bool,
-    /// Whether the target system ended up holding the rotated credential. `None` until the
-    /// attempt resolves.
+    /// Whether a failure left the target's credential changed. `None` unless the attempt errored.
     pub sync_state: Option<RotationSyncState>,
-    /// Whether active sessions were terminated after rotating. `None` until the attempt resolves.
+    /// Whether active sessions were terminated after rotating. `None` unless the attempt rotated.
     pub session_termination: Option<SessionTerminationOutcome>,
     /// The connector's start time for this attempt (UTC).
     pub started_at: DateTime<Utc>,
@@ -390,9 +381,8 @@ impl TryFrom<PamRotationAttemptResponseModel> for RotationAttempt {
     }
 }
 
-/// One dispatch of the rotation workflow for a config.
-///
-/// A job may carry several attempts - retries, or several assigned connectors racing to claim it.
+/// One dispatch of the rotation workflow for a config. Each claim records an attempt, so a retried
+/// or released job carries several.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]

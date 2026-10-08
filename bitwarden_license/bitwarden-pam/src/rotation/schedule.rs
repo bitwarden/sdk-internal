@@ -6,22 +6,15 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-/// The canonical Quartz cron expression for each named preset.
-///
-/// Quartz's format is `seconds minutes hours day-of-month month day-of-week [year]`: 6 or 7
-/// fields, one more than the 5-field UNIX cron. These are constants rather than assembled per
-/// call site, since a wrong field count shifts every field by one position.
+/// The canonical Quartz cron expression for each named preset. Quartz has 6 or 7 fields
+/// (`seconds minutes hours day-of-month month day-of-week [year]`), one more than UNIX cron.
 const HOURLY_CRON: &str = "0 0 * * * ?";
 const EVERY_6_HOURS_CRON: &str = "0 0 */6 * * ?";
 const DAILY_CRON: &str = "0 0 0 * * ?";
 const WEEKLY_CRON: &str = "0 0 0 ? * SUN";
 const MONTHLY_CRON: &str = "0 0 0 1 * ?";
 
-/// A named rotation schedule, or the escape hatches either side of the presets.
-///
-/// A presentation concept, not a server one: the server stores only the cron string.
-/// [`Custom`](QuartzSchedulePreset::Custom) means "a valid cron matching no preset" and
-/// round-trips unchanged.
+/// A named rotation schedule, for presentation only; the server stores only the cron string.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
@@ -43,9 +36,8 @@ pub enum QuartzSchedulePreset {
 }
 
 impl QuartzSchedulePreset {
-    /// The cron expression for this preset, or `None` for the two presets that have no fixed
-    /// expression: [`None`](QuartzSchedulePreset::None) (no schedule at all) and
-    /// [`Custom`](QuartzSchedulePreset::Custom) (whatever the operator wrote).
+    /// The cron expression for this preset, or `None` for [`None`](QuartzSchedulePreset::None)
+    /// and [`Custom`](QuartzSchedulePreset::Custom), which have no fixed expression.
     pub fn cron(&self) -> Option<&'static str> {
         match self {
             Self::Hourly => Some(HOURLY_CRON),
@@ -58,11 +50,9 @@ impl QuartzSchedulePreset {
     }
 }
 
-/// Derives the preset that best describes a stored cron expression.
-///
-/// `None` maps to [`QuartzSchedulePreset::None`]; an exact match against a preset's expression
-/// (ignoring surrounding whitespace) maps to that preset; every other value, including blank,
-/// is [`Custom`](QuartzSchedulePreset::Custom).
+/// Derives the preset that best describes a stored cron expression. Absent or blank is
+/// [`QuartzSchedulePreset::None`], an exact match (ignoring surrounding whitespace) is that
+/// preset, and anything else is [`Custom`](QuartzSchedulePreset::Custom).
 pub fn preset_for_cron(cron: Option<&str>) -> QuartzSchedulePreset {
     let Some(cron) = cron else {
         return QuartzSchedulePreset::None;
@@ -85,10 +75,8 @@ pub fn preset_for_cron(cron: Option<&str>) -> QuartzSchedulePreset {
     .unwrap_or(QuartzSchedulePreset::Custom)
 }
 
-/// Reports whether a string is shaped like a Quartz cron expression.
-///
-/// Advisory only: checks field count and character set, not that the expression describes a
-/// reachable time. Errs towards accepting; the server is authoritative.
+/// Reports whether a string is shaped like a Quartz cron expression. Checks only field count and
+/// character set; the server is authoritative.
 pub fn is_likely_quartz_cron(value: &str) -> bool {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -110,9 +98,6 @@ pub fn is_likely_quartz_cron(value: &str) -> bool {
 }
 
 /// The WASM-facing surface for the schedule helpers.
-///
-/// The functions above are plain Rust and usable directly elsewhere in the crate; this
-/// zero-sized client exists only because `wasm_bindgen` cannot export free functions.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct RotationScheduleClient;
 
@@ -173,15 +158,15 @@ mod tests {
         );
     }
 
-    /// A blank string is not a schedule. The server should have stored `null`, but reporting
-    /// `Custom` would render an empty cron as though the operator had authored one.
+    /// A blank string is not a schedule; reporting `Custom` would render an empty cron as though
+    /// the operator had authored one.
     #[test]
     fn a_blank_expression_is_not_a_custom_schedule() {
         assert_eq!(preset_for_cron(Some("   ")), QuartzSchedulePreset::None);
     }
 
-    /// The presets differ only in a couple of fields, so an off-by-one in `cron()` would still look
-    /// plausible. Pinning the strings catches that.
+    /// The presets differ only in a couple of fields, so a dropped or extra field would still look
+    /// plausible; counting the fields catches it.
     #[test]
     fn preset_crons_are_six_field_quartz_expressions() {
         for preset in [
@@ -236,8 +221,8 @@ mod tests {
         assert!(!is_likely_quartz_cron("0 0 0 * * $(date)"));
     }
 
-    /// Irregular internal spacing is an operator typo, not a different schedule -
-    /// `split_whitespace` collapses runs, so this must not be read as an extra empty field.
+    /// `split_whitespace` collapses runs of spaces, so irregular spacing is not read as an extra
+    /// empty field.
     #[test]
     fn runs_of_internal_whitespace_collapse() {
         assert!(is_likely_quartz_cron("0  0   0 * * ?"));
