@@ -8,8 +8,7 @@
 //!     Slow Crypto   [ Argon2id ]          [ RSA decrypt ]   [ ML-DSA sign ]
 //! ```
 //!
-//! Other environments ignore the metadata and record a plain measure. Outside WASM the span
-//! compiles to nothing. Recording is best effort and never affects the operation.
+//! Outside of WASM the span compiles to a no-op.
 
 /// A slow cryptographic operation shown on the performance timeline.
 #[derive(Clone, Copy)]
@@ -63,8 +62,7 @@ impl Drop for SlowCryptoSpan {
     }
 }
 
-/// Bindings to the `performance` global. Every call is caught, so a missing or restricted API
-/// (e.g. no `performance` in the realm) never throws into Rust.
+/// Bindings to the `performance` API
 #[cfg(all(feature = "wasm", target_arch = "wasm32"))]
 mod timeline {
     use wasm_bindgen::prelude::*;
