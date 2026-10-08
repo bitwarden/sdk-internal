@@ -63,7 +63,6 @@ export class IdentityServer {
     return { json: TokenResponse.forUser(user) };
   }
 
-  /** The seeded account with this email, addressed as the rest of the harness does. */
   private userFor(email: string): UserEntity | undefined {
     const [user] = this.db.users.filter((candidate) => candidate.email === email);
 

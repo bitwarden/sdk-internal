@@ -1,9 +1,3 @@
-// Password login against the identity service emulator.
-//
-// The two calls are separate on purpose: prelogin tells a client how to derive its master key, and
-// `login_via_password` derives the authentication hash against *that* KDF rather than any stored
-// one. A client that reused the wrong KDF would still produce a hash, just not the right one.
-
 import { SETTINGS } from "../../client-emulator/local-state";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { makePasswordManagerClient, makeStateBridge } from "../utils";
