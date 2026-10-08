@@ -1,11 +1,7 @@
 //! Cryptographic helpers used by the access connector.
 
-use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, EncString, KeyDecryptable, KeyStore, PrimitiveEncryptable,
-    SymmetricCryptoKey, key_slot_ids,
-};
-use bitwarden_encoding::B64;
-use serde::Deserialize;
+use bitwarden_access_token::{AccessToken, AccessTokenError};
+use bitwarden_crypto::{EncString, KeyStore, PrimitiveEncryptable, key_slot_ids};
 use thiserror::Error;
 
 // Private and signing slots are stubs; the macro requires all three slot enum types.
@@ -60,41 +56,26 @@ pub enum CryptoModuleError {
     Json(#[from] serde_json::Error),
 }
 
-/// Decrypt the identity server's `encrypted_payload` with `token_key` and install the org key into
-/// `store`. The key bytes are never returned, and errors carry no payload content.
+/// Decrypt the identity server's `encrypted_payload` with `token`'s derived key and install the org
+/// key into `store`. The key bytes are never returned, and errors carry no payload content.
 pub fn unwrap_org_key(
     store: &AccessConnectorKeyStore,
-    token_key: &SymmetricCryptoKey,
+    token: &AccessToken,
     encrypted_payload: &str,
 ) -> Result<(), CryptoModuleError> {
-    let payload_enc: EncString = encrypted_payload
-        .parse()
-        .map_err(|_| CryptoModuleError::InvalidPayload)?;
+    let mut ctx = store.context_mut();
 
-    let decrypted: Vec<u8> = payload_enc
-        .decrypt_with_key(token_key)
-        .map_err(|_| CryptoModuleError::InvalidPayload)?;
-
-    #[derive(Deserialize)]
-    struct Payload {
-        #[serde(rename = "encryptionKey")]
-        encryption_key: B64,
-    }
-
-    let payload: Payload =
-        serde_json::from_slice(&decrypted).map_err(|_| CryptoModuleError::InvalidPayload)?;
-
-    let encryption_key = BitwardenLegacyKeyBytes::from(&payload.encryption_key);
-    let org_key = SymmetricCryptoKey::try_from(&encryption_key)
-        .map_err(|_| CryptoModuleError::InvalidOrgKey)?;
-
-    #[allow(deprecated)]
-    store
-        .context_mut()
-        .set_symmetric_key(AccessConnectorSymmSlotId::Organization, org_key)
-        .map_err(CryptoModuleError::Crypto)?;
-
-    Ok(())
+    token
+        .open_payload(
+            &mut ctx,
+            encrypted_payload,
+            AccessConnectorSymmSlotId::Organization,
+        )
+        .map_err(|e| match e {
+            AccessTokenError::InvalidPayload => CryptoModuleError::InvalidPayload,
+            AccessTokenError::InvalidOrgKey => CryptoModuleError::InvalidOrgKey,
+            AccessTokenError::Crypto(c) => CryptoModuleError::Crypto(c),
+        })
 }
 
 /// The server's `CipherLoginData` serializes as a flat PascalCase object that omits `Password`
@@ -143,11 +124,10 @@ pub fn encrypt_cipher_password(
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{
-        KeyDecryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
-    };
+    use bitwarden_access_token::{AccessTokenKind, make_access_token_secrets};
+    use bitwarden_crypto::{KeyDecryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use serde_json::json;
-    use zeroize::Zeroizing;
+    use uuid::uuid;
 
     use super::*;
 
@@ -164,42 +144,29 @@ mod tests {
         (store, org_key)
     }
 
-    /// Mirrors the derivation in `token.rs`, with the constants kept local.
-    fn derive_token_key(secret: Zeroizing<[u8; 16]>) -> SymmetricCryptoKey {
-        SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
-            secret,
-            "accesstoken",
-            Some("sm-access-token"),
-        ))
-    }
-
-    /// The identity server's `encrypted_payload`: `{"encryptionKey": <b64 org key>}` encrypted
-    /// under `token_key`.
-    fn make_encrypted_payload(
-        token_key: &SymmetricCryptoKey,
-        org_key: &SymmetricCryptoKey,
-    ) -> String {
-        let org_key_bytes = org_key.to_encoded();
-        let org_key_b64 = bitwarden_encoding::B64::from(org_key_bytes.as_ref());
-        let org_key_b64_str: String = org_key_b64.into();
-
-        let payload_json = format!(r#"{{"encryptionKey":"{org_key_b64_str}"}}"#);
-
-        use bitwarden_crypto::KeyEncryptable;
-        let enc: EncString = payload_json
-            .as_str()
-            .encrypt_with_key(token_key)
-            .expect("encrypt payload");
-        enc.to_string()
+    /// Mints a token the way `bitwarden-pam` does, keyed to the organization key in
+    /// `issuer_store`, plus the `encrypted_payload` that goes with it.
+    fn mint_token_and_payload(issuer_store: &AccessConnectorKeyStore) -> (AccessToken, String) {
+        let secrets = {
+            let mut ctx = issuer_store.context_mut();
+            make_access_token_secrets(
+                &mut ctx,
+                AccessConnectorSymmSlotId::Organization,
+                AccessTokenKind::AccessConnector,
+            )
+            .expect("mint secrets")
+        };
+        let encrypted_payload = secrets.encrypted_payload.to_string();
+        let token_str = secrets.into_token(uuid!("22222222-2222-2222-2222-222222222222"), "secret");
+        let token = AccessToken::parse(&token_str, AccessTokenKind::AccessConnector)
+            .expect("the token parses");
+        (token, encrypted_payload)
     }
 
     #[test]
     fn unwrap_org_key_round_trip() {
-        let secret = Zeroizing::new([0x42u8; 16]);
-        let token_key = derive_token_key(secret);
-
-        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let encrypted_payload = make_encrypted_payload(&token_key, &org_key);
+        let (issuer_store, org_key) = make_store_with_org_key();
+        let (token, encrypted_payload) = mint_token_and_payload(&issuer_store);
 
         let store: AccessConnectorKeyStore = KeyStore::default();
         assert!(
@@ -208,13 +175,12 @@ mod tests {
                 .has_symmetric_key(AccessConnectorSymmSlotId::Organization)
         );
 
-        unwrap_org_key(&store, &token_key, &encrypted_payload).expect("unwrap_org_key");
+        unwrap_org_key(&store, &token, &encrypted_payload).expect("unwrap_org_key");
 
         // Probe that the org key is installed.
         let probe = "probe value";
         let encrypted_probe = {
             let mut ctx = store.context();
-            use bitwarden_crypto::PrimitiveEncryptable;
             probe
                 .encrypt(&mut ctx, AccessConnectorSymmSlotId::Organization)
                 .expect("encrypt probe")
@@ -228,11 +194,11 @@ mod tests {
 
     #[test]
     fn unwrap_org_key_bad_payload_returns_error() {
-        let secret = Zeroizing::new([0x01u8; 16]);
-        let token_key = derive_token_key(secret);
+        let (issuer_store, _org_key) = make_store_with_org_key();
+        let (token, _payload) = mint_token_and_payload(&issuer_store);
         let store: AccessConnectorKeyStore = KeyStore::default();
 
-        let result = unwrap_org_key(&store, &token_key, "not-an-enc-string");
+        let result = unwrap_org_key(&store, &token, "not-an-enc-string");
         assert!(
             matches!(result, Err(CryptoModuleError::InvalidPayload)),
             "expected InvalidPayload, got {result:?}",

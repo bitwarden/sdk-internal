@@ -459,10 +459,16 @@ fn failure_code_string(code: FailureCode) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Instant};
+    use std::{
+        sync::{Arc, LazyLock},
+        time::Instant,
+    };
 
+    use bitwarden_access_token::{AccessToken, AccessTokenKind, make_access_token_secrets};
     use bitwarden_api_api::models::PamPasswordPolicyResponseModel;
     use bitwarden_api_base::Configuration;
+    use bitwarden_crypto::{BitwardenLegacyKeyBytes, KeyDecryptable, KeyStore};
+    use bitwarden_encoding::B64;
     use reqwest_middleware::ClientBuilder;
     use tokio::sync::watch;
     use wiremock::{
@@ -473,28 +479,59 @@ mod tests {
     use super::*;
     use crate::{
         auth::{identity::IdentityClient, session::SessionManager},
+        crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId},
         error::{FailureCode, SafeDetail, SyncState},
     };
 
-    const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
+    /// A real access-connector token and its derived key, minted once through the crate's own
+    /// `make_access_token_secrets` (never a hand-rolled copy of the KDF) and shared by every test
+    /// below, so `test_token()` and `token_encryption_key()` always agree.
+    static TEST_CREDENTIAL: LazyLock<(String, bitwarden_crypto::SymmetricCryptoKey)> =
+        LazyLock::new(|| {
+            use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
-    fn test_token() -> crate::token::AccessConnectorToken {
-        use std::str::FromStr;
-        crate::token::AccessConnectorToken::from_str(VALID_TOKEN_STR).expect("valid token")
+            let wrapping_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            let store: AccessConnectorKeyStore = KeyStore::default();
+            #[allow(deprecated)]
+            store
+                .context_mut()
+                .set_symmetric_key(
+                    AccessConnectorSymmSlotId::Organization,
+                    wrapping_key.clone(),
+                )
+                .expect("set_symmetric_key");
+
+            let secrets = {
+                let mut ctx = store.context_mut();
+                make_access_token_secrets(
+                    &mut ctx,
+                    AccessConnectorSymmSlotId::Organization,
+                    AccessTokenKind::AccessConnector,
+                )
+                .expect("mint secrets")
+            };
+
+            // Recovered the same way an organization would: decrypt the `key` field the crate
+            // itself produced, rather than re-deriving it by hand.
+            let derived_key_b64: String = secrets
+                .key
+                .decrypt_with_key(&wrapping_key)
+                .expect("decrypt key field");
+            let b64: B64 = derived_key_b64.parse().expect("valid b64");
+            let derived_key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(&b64))
+                .expect("valid derived key");
+
+            let token_str = secrets.into_token(uuid::Uuid::new_v4(), "test-secret");
+            (token_str, derived_key)
+        });
+
+    fn test_token() -> AccessToken {
+        AccessToken::parse(&TEST_CREDENTIAL.0, AccessTokenKind::AccessConnector)
+            .expect("valid token")
     }
 
     fn token_encryption_key() -> bitwarden_crypto::SymmetricCryptoKey {
-        use bitwarden_crypto::{SymmetricCryptoKey, derive_shareable_key};
-        use bitwarden_encoding::B64;
-        use zeroize::Zeroizing;
-        let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().expect("valid b64");
-        let key_bytes: Zeroizing<[u8; 16]> =
-            Zeroizing::new(b64.as_bytes().try_into().expect("16 bytes"));
-        SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
-            key_bytes,
-            "accesstoken",
-            Some("sm-access-token"),
-        ))
+        TEST_CREDENTIAL.1.clone()
     }
 
     fn make_encrypted_payload(

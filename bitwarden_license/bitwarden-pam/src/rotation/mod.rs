@@ -35,7 +35,6 @@ pub use models::{
     RotationJobStatus, RotationSource, RotationSyncState, SessionTerminationOutcome,
     TargetSystemKind, TargetSystemMethod, TargetSystemStatus,
 };
-pub use registration::{ConnectorToken, ConnectorTokenInvalidError};
 pub use schedule::{
     QuartzSchedulePreset, RotationScheduleClient, is_likely_quartz_cron, preset_for_cron,
 };

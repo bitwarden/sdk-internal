@@ -8,11 +8,21 @@
 
 // Re-exported so each test file needs only `use common::*;`.
 pub use std::time::Duration;
-use std::{path::PathBuf, str::FromStr, sync::Mutex};
+use std::{
+    path::PathBuf,
+    sync::{LazyLock, Mutex},
+};
 
 pub use bitwarden_access_connector::executor::RunExit;
-use bitwarden_access_connector::{executor::AccessConnectorConfig, token::AccessConnectorToken};
-use bitwarden_crypto::{KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
+use bitwarden_access_connector::{
+    crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId},
+    executor::AccessConnectorConfig,
+};
+use bitwarden_access_token::{AccessToken, AccessTokenKind, make_access_token_secrets};
+use bitwarden_crypto::{
+    BitwardenLegacyKeyBytes, KeyDecryptable, KeyEncryptable, KeyStore, SymmetricCryptoKey,
+    SymmetricKeyAlgorithm,
+};
 use bitwarden_encoding::B64;
 pub use bitwarden_threading::cancellation_token::CancellationToken;
 pub use uuid::Uuid;
@@ -20,28 +30,57 @@ pub use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path},
 };
-use zeroize::Zeroizing;
 
 /// Serialises tests that mutate env vars.
 pub static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-/// The test access connector token (SM test vector, adapted to the 4-part connector format).
-pub const TEST_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
+/// A real access-connector token and its derived key, minted once through the crate's own
+/// `make_access_token_secrets` (never a hand-rolled copy of the KDF) and shared by every
+/// integration test, so `test_token()` and `token_encryption_key()` always agree.
+static TEST_CREDENTIAL: LazyLock<(String, SymmetricCryptoKey)> = LazyLock::new(|| {
+    let wrapping_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+    let store: AccessConnectorKeyStore = KeyStore::default();
+    #[allow(deprecated)]
+    store
+        .context_mut()
+        .set_symmetric_key(
+            AccessConnectorSymmSlotId::Organization,
+            wrapping_key.clone(),
+        )
+        .expect("set_symmetric_key");
 
-pub fn test_token() -> AccessConnectorToken {
-    AccessConnectorToken::from_str(TEST_TOKEN_STR).expect("test token must parse")
+    let secrets = {
+        let mut ctx = store.context_mut();
+        make_access_token_secrets(
+            &mut ctx,
+            AccessConnectorSymmSlotId::Organization,
+            AccessTokenKind::AccessConnector,
+        )
+        .expect("mint secrets")
+    };
+
+    // Recovered the same way an organization would: decrypt the `key` field the crate itself
+    // produced, rather than re-deriving it by hand.
+    let derived_key_b64: String = secrets
+        .key
+        .decrypt_with_key(&wrapping_key)
+        .expect("decrypt key field");
+    let b64: B64 = derived_key_b64.parse().expect("valid b64");
+    let derived_key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(&b64))
+        .expect("valid derived key");
+
+    let token_str = secrets.into_token(Uuid::new_v4(), "test-secret");
+    (token_str, derived_key)
+});
+
+pub fn test_token() -> AccessToken {
+    AccessToken::parse(&TEST_CREDENTIAL.0, AccessTokenKind::AccessConnector)
+        .expect("test token must parse")
 }
 
-/// The token's encryption key, derived as token.rs does.
+/// The token's encryption key, minted the same way `test_token` was (not hand-derived).
 pub fn token_encryption_key() -> SymmetricCryptoKey {
-    use bitwarden_crypto::derive_shareable_key;
-    let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().expect("valid b64");
-    let seed: Zeroizing<[u8; 16]> = Zeroizing::new(b64.as_bytes().try_into().expect("16 bytes"));
-    SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
-        seed,
-        "accesstoken",
-        Some("sm-access-token"),
-    ))
+    TEST_CREDENTIAL.1.clone()
 }
 
 /// Generate a fresh org key and its matching `encryptedPayload` for the
