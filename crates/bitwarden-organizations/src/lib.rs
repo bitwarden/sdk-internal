@@ -314,7 +314,7 @@ pub struct OrganizationMembership {
     pub user_id: UserId,
     /// The current user's organization membership ID.
     /// None if the current user has access only through a provider.
-    pub organization_user_id: Option<Uuid>,
+    pub organization_user_id: Option<OrganizationUserId>,
     /// Whether the current user is a direct member of this organization (as opposed to
     /// provider-only access).
     pub is_member: bool,
