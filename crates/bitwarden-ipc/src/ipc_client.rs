@@ -293,7 +293,9 @@ fn handle_rpc_request<Crypto, Com, Ses>(
                 |e: serde_utils::DeserializeError| HandleError::Deserialize(e.to_string()),
             )?;
 
-            let response = handlers.handle(&request).await;
+            let response = handlers
+                .handle(&request, incoming_message.source.clone())
+                .await;
 
             let response_message = OutgoingRpcResponseMessage {
                 request_id: request.request_id(),
@@ -904,7 +906,7 @@ mod tests {
         impl RpcHandler for TestHandler {
             type Request = TestRequest;
 
-            async fn handle(&self, request: Self::Request) -> TestResponse {
+            async fn handle(&self, request: Self::Request, _source: Source) -> TestResponse {
                 TestResponse {
                     result: request.a + request.b,
                 }

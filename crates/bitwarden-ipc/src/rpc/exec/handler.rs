@@ -3,6 +3,7 @@ use std::future::Future;
 use erased_serde::Serialize as ErasedSerialize;
 
 use crate::{
+    endpoint::Source,
     rpc::{error::RpcError, request::RpcRequest, request_message::RpcRequestPayload},
     serde_utils,
 };
@@ -15,9 +16,13 @@ pub trait RpcHandler {
 
     /// Handle the request. Any errors that occur should be defined as part of the `RpcRequest`
     /// type.
+    ///
+    /// `source` identifies the endpoint that sent the request, including the per-variant
+    /// metadata handlers can use for security decisions (e.g. the `origin` of a web source).
     fn handle(
         &self,
         request: Self::Request,
+        source: Source,
     ) -> impl Future<Output = <Self::Request as RpcRequest>::Response> + Send;
 }
 
@@ -76,6 +81,7 @@ pub trait ErasedRpcHandler: Send + Sync {
     async fn handle(
         &self,
         serialized_request: &RpcRequestPayload,
+        source: Source,
     ) -> Result<Box<dyn ErasedSerialize>, RpcError>;
 }
 
@@ -87,10 +93,11 @@ where
     async fn handle(
         &self,
         serialized_request: &RpcRequestPayload,
+        source: Source,
     ) -> Result<Box<dyn ErasedSerialize>, RpcError> {
         let request: H::Request = serialized_request.deserialize_full()?.request;
 
-        let response = self.handle(request).await;
+        let response = self.handle(request, source).await;
 
         Ok(Box::new(response) as Box<dyn ErasedSerialize>)
     }

@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
-use bitwarden_ipc::{Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest};
+use bitwarden_ipc::{Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest, Source};
 use bitwarden_threading::{
     ThreadBoundRunner,
     cancellation_token::wasm::{AbortSignal, AbortSignalExt},
@@ -211,7 +211,7 @@ impl GetBiometricsStatusHandler {
 impl RpcHandler for GetBiometricsStatusHandler {
     type Request = GetBiometricsStatusRequest;
 
-    async fn handle(&self, request: Self::Request) -> BiometricsStatus {
+    async fn handle(&self, request: Self::Request, _source: Source) -> BiometricsStatus {
         self.biometrics_unlock
             .get_biometrics_status(request.user_id)
             .await
@@ -233,7 +233,7 @@ impl UnlockBiometricsHandler {
 impl RpcHandler for UnlockBiometricsHandler {
     type Request = UnlockBiometricsRequest;
 
-    async fn handle(&self, request: Self::Request) -> UnlockBiometricsResponse {
+    async fn handle(&self, request: Self::Request, _source: Source) -> UnlockBiometricsResponse {
         let user_key = self
             .biometrics_unlock
             .unlock_biometrics(request.user_id)
@@ -257,7 +257,7 @@ impl AuthenticateBiometricsHandler {
 impl RpcHandler for AuthenticateBiometricsHandler {
     type Request = AuthenticateBiometricsRequest;
 
-    async fn handle(&self, _: Self::Request) -> bool {
+    async fn handle(&self, _: Self::Request, _source: Source) -> bool {
         self.biometrics_unlock.authenticate_biometrics().await
     }
 }
