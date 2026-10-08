@@ -24,22 +24,20 @@ use crate::{
 
 /// The lifecycle state of an access request.
 ///
-/// The automatic (no human approval) path moves `Pending -> Approved`; the requester activates the
-/// approved request to mint a lease. Activation does not change the status — it is observed through
+/// Activation does not change the status; it shows in
 /// [`produced_lease_id`](AccessRequestView::produced_lease_id) and
-/// [`produced_lease_status`](AccessRequestView::produced_lease_status). `Denied`, `Canceled`, and
-/// `Expired` are terminal states in which no lease exists.
+/// [`produced_lease_status`](AccessRequestView::produced_lease_status).
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessRequestStatus {
-    /// Awaiting a decision (or, on the automatic path, awaiting the server's auto-approval).
+    /// Awaiting an approver's decision.
     Pending,
     /// Approved; the requester may activate it to mint a lease.
     Approved,
-    /// Denied by an approver; terminal.
+    /// Denied by an approver, or automatically; terminal.
     Denied,
-    /// Cancelled by the requester before resolution; terminal.
+    /// Withdrawn by the requester before activation; terminal.
     Canceled,
     /// The window lapsed unanswered or unactivated; [`decisions`](AccessRequestView::decisions)
     /// tells which. Terminal.
@@ -87,11 +85,6 @@ impl From<ApiAccessDecisionVerdict> for AccessDecisionVerdict {
 }
 
 /// A single decision recorded on an access request's decision log.
-///
-/// Every decision carries a [`verdict`](Self::verdict), an optional [`comment`](Self::comment), and
-/// the time it was [`decided_at`](Self::decided_at). [`decider`](Self::decider) distinguishes an
-/// automatic (access-rule) decision from a human one and, for a human, carries the approver's
-/// identity.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
@@ -111,8 +104,7 @@ pub struct AccessRequestDecisionView {
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub enum AccessDecider {
-    /// The decision was made automatically by the governing access rule; no human approval was
-    /// required.
+    /// Decided automatically by the governing access rule.
     Automatic,
     /// The decision was made by a human approver, whose identity is denormalized by the server.
     Human(AccessApprover),
@@ -156,11 +148,7 @@ impl TryFrom<AccessRequestDecisionResponseModel> for AccessRequestDecisionView {
     }
 }
 
-/// A decrypted view of an access request, as its requester sees it.
-///
-/// An access request is a member's ask to open a PAM-gated cipher. Once approved, the requester
-/// [`activate`](crate::AccessRequestsClient::activate)s it to mint an
-/// [`AccessLease`](crate::AccessLeaseView).
+/// An access request, as returned by the server.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
@@ -175,13 +163,13 @@ pub struct AccessRequestView {
     pub organization_id: Option<OrganizationId>,
     /// The member who opened the request.
     pub requester_id: UserId,
-    /// The access rule pinned to the request at submit time. None for requests created before rule
-    /// pinning existed.
+    /// The access rule pinned to the request at submit. None for requests that predate rule
+    /// pinning.
     pub rule_id: Option<AccessRuleId>,
     /// The request's lifecycle state.
     pub status: AccessRequestStatus,
-    /// The start of the activation window resolved at submit (UTC) - the earliest the request may
-    /// be promoted to a lease.
+    /// The start of the activation window resolved at submit (UTC), the earliest the request may
+    /// be activated.
     pub lease_not_before: DateTime<Utc>,
     /// The end of the activation window resolved at submit (UTC).
     pub lease_not_after: DateTime<Utc>,
@@ -191,16 +179,16 @@ pub struct AccessRequestView {
     pub submitted_at: DateTime<Utc>,
     /// When the request was approved, denied, or cancelled (UTC); None while pending or expired.
     pub resolved_at: Option<DateTime<Utc>>,
-    /// The request's decision log, oldest first. Empty only while pending.
+    /// The request's decision log, oldest first.
     pub decisions: Vec<AccessRequestDecisionView>,
-    /// The lease produced once this (approved) request was activated. None until activation.
+    /// The lease this request produced on activation. None until activation.
     pub produced_lease_id: Option<AccessLeaseId>,
     /// The status of the produced lease at the time this view was fetched. None until activation.
     pub produced_lease_status: Option<AccessLeaseStatus>,
     /// The produced lease's current end (UTC); None until activation. Unlike
     /// [`lease_not_after`](Self::lease_not_after), this moves when the lease is extended.
     pub produced_lease_not_after: Option<DateTime<Utc>>,
-    /// The parent lease this request extends, if it is an extension request. None otherwise.
+    /// The parent lease, if this is an extension request.
     pub extension_of_lease_id: Option<AccessLeaseId>,
     /// The requester's display name, denormalized by the server. None only when the user could
     /// not be resolved.
@@ -262,18 +250,14 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
     }
 }
 
-/// The approval path a lease request will take, surfaced by
-/// [`pre_check`](crate::AccessRequestsClient::pre_check) so the client can present the right
-/// workflow before the requester commits.
+/// The approval path an access request takes.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessApprovalMode {
-    /// A request would be approved immediately - the client should let the requester pick a
-    /// duration.
+    /// Approved on submit; the requester picks a duration.
     Automatic,
-    /// A request would need an approver - the client should let the requester pick a window and
-    /// justify it.
+    /// Needs an approver; the requester picks a window and gives a reason.
     Human,
     /// An approval mode value this SDK version does not recognize.
     Unknown,
@@ -317,8 +301,8 @@ impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
     type Error = PamDecodeError;
 
     fn try_from(response: AccessPreCheckResponseModel) -> Result<Self, Self::Error> {
-        // Absent and non-positive both mean "no cap", which resolves to the ceiling exactly as the
-        // server's own `EffectiveMax` does for a rule storing none.
+        // Absent and non-positive both mean "no cap", resolving to the ceiling as the server's
+        // `EffectiveMax` does.
         let max_duration_seconds = positive_u32(response.max_duration_seconds)
             .map_or(MAX_REQUEST_ACCESS_WINDOW_SECONDS, |max| {
                 max.min(MAX_REQUEST_ACCESS_WINDOW_SECONDS)
@@ -347,11 +331,8 @@ fn positive_u32(value: Option<i32>) -> Option<u32> {
     value.filter(|v| *v > 0).map(|v| v as u32)
 }
 
-/// A decrypted view of an access request as its requester sees it right after submitting it.
-///
-/// A lighter sibling of [`AccessRequestView`]: the create response doesn't carry a decision log,
-/// pinned rule, produced-lease linkage, or denormalized requester identity, since none of those
-/// exist yet for a request that was just opened.
+/// A just-submitted access request, as its requester sees it; a lighter sibling of
+/// [`AccessRequestView`].
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
@@ -396,7 +377,7 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestSummaryView {
 
 /// The result of submitting a cipher-lease request.
 ///
-/// No lease is minted at submit on either path - the requester
+/// No lease is minted at submit on either path; the requester
 /// [`activate`](crate::AccessRequestsClient::activate)s the request to start the lease.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
@@ -421,12 +402,9 @@ impl TryFrom<AccessRequestResultResponseModel> for AccessRequestResultView {
     }
 }
 
-/// The single badge to show for a gated cipher, derived from [`CipherAccessStateView`]'s active
-/// lease, approved request, and pending request, in that precedence order. Absent all three, the
-/// item is gated but resting.
-///
-/// Does not model `unavailable` or `expired`: the per-cipher access-state response is scoped to
-/// the calling user, so there is no data to derive either from.
+/// The single badge to show for a gated cipher: an active lease outranks an approved request,
+/// which outranks a pending one. Has no `unavailable` or `expired` state, since the access-state
+/// response covers only the caller.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
@@ -441,7 +419,7 @@ pub enum AccessBadgeState {
     Ready,
     /// The caller has a request awaiting a decision.
     Pending,
-    /// No active lease, approved request, or pending request - the item is gated and resting.
+    /// No active lease, approved request, or pending request; the item is gated and resting.
     Privileged,
 }
 
@@ -464,8 +442,8 @@ pub struct CipherAccessStateView {
     pub badge_state: AccessBadgeState,
     /// Whether the active lease can still be extended.
     pub extensions_allowed: bool,
-    /// The longest a single extension of the active lease may run, in seconds; None when there is
-    /// no cap or no active lease.
+    /// The longest a single extension of the active lease may run, in seconds; None without an
+    /// active lease or when its rule does not allow extensions.
     pub max_extension_duration_seconds: Option<i32>,
 }
 
@@ -513,9 +491,7 @@ impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
 /// Request to lease a cipher.
 ///
 /// Supply [`duration_seconds`](Self::duration_seconds) for the automatic path, or
-/// [`start`](Self::start)/[`end`](Self::end) + [`reason`](Self::reason) for the human path. Run a
-/// [`pre_check`](crate::AccessRequestsClient::pre_check) first to know which shape the server
-/// expects.
+/// [`start`](Self::start)/[`end`](Self::end) + [`reason`](Self::reason) for the human path.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
@@ -533,10 +509,8 @@ pub struct AccessRequestCreateRequest {
 impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
     type Error = AccessRequestWindowError;
 
-    /// Validates the request's activation window on the way to the wire model.
-    ///
-    /// Validation lives here rather than at the call site so it cannot be circumvented: building
-    /// the model *is* the only way to reach the server, so every path is checked.
+    /// Validates the request's activation window on the way to the wire model, so no path to the
+    /// server skips it.
     fn try_from(request: AccessRequestCreateRequest) -> Result<Self, Self::Error> {
         request.validate()?;
 
@@ -778,8 +752,6 @@ mod tests {
 
     #[test]
     fn pre_check_view_maps_a_taken_slot_without_a_free_time() {
-        // canStartLease is the load-bearing field; the timestamp is a nicety the client must be
-        // able to render without.
         let response = AccessPreCheckResponseModel {
             can_start_lease: Some(false),
             slot_frees_at: None,
