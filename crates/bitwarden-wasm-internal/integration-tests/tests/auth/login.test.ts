@@ -10,7 +10,7 @@ import { makePasswordManagerClient, makeStateBridge } from "../utils";
 import { toSeedAccount } from "../../vectors/load";
 import { testVectors } from "../../vectors/test-vectors";
 
-import type { LoginClient, LoginRequest, PasswordPreloginResponse } from "@bitwarden/sdk-internal";
+import type { LoginClient, LoginRequest } from "@bitwarden/sdk-internal";
 
 /** A real KDF derivation per login, and one of the accounts uses argon2id. */
 const TIMEOUT = 120_000;
@@ -24,12 +24,6 @@ const LOGIN_REQUEST: LoginRequest = {
     devicePushToken: undefined,
   },
 };
-
-/** Only a master-password account can log in by password. */
-const PASSWORD_VECTORS = testVectors.users.withMasterPassword();
-
-/** The account the failure cases run against, where the vector under test does not matter. */
-const PASSWORD_VECTOR = PASSWORD_VECTORS.get("v1-pbkdf2-password");
 
 describe("login via password", () => {
   let harness: TestHarness;
@@ -45,21 +39,7 @@ describe("login via password", () => {
     return makePasswordManagerClient(makeStateBridge(), SETTINGS).auth().login();
   }
 
-  async function login(
-    client: LoginClient,
-    email: string,
-    password: string,
-    prelogin: PasswordPreloginResponse,
-  ) {
-    return await client.login_via_password({
-      loginRequest: LOGIN_REQUEST,
-      email,
-      password,
-      preloginResponse: prelogin,
-    });
-  }
-
-  PASSWORD_VECTORS.each(
+  testVectors.users.withMasterPassword().each(
     "$name learns its KDF from prelogin",
     async (vector) => {
       harness.server.seedUser(toSeedAccount(vector));
@@ -72,14 +52,19 @@ describe("login via password", () => {
     TIMEOUT,
   );
 
-  PASSWORD_VECTORS.each(
+  testVectors.users.withMasterPassword().each(
     "$name authenticates and is handed unlock data that opens its vault",
     async (vector) => {
       harness.server.seedUser(toSeedAccount(vector));
       const client = loginClient();
 
       const prelogin = await client.get_password_prelogin(vector.account.email);
-      const response = await login(client, vector.account.email, vector.account.password, prelogin);
+      const response = await client.login_via_password({
+        loginRequest: LOGIN_REQUEST,
+        email: vector.account.email,
+        password: vector.account.password,
+        preloginResponse: prelogin,
+      });
 
       // The account is now reachable with the issued token, and the unlock data it came back with
       // is the account's own.
@@ -96,14 +81,19 @@ describe("login via password", () => {
   it(
     "refuses a wrong password",
     async () => {
-      const vector = PASSWORD_VECTOR;
+      const vector = testVectors.users.withMasterPassword().get("v1-pbkdf2-password");
       harness.server.seedUser(toSeedAccount(vector));
       const client = loginClient();
 
       const prelogin = await client.get_password_prelogin(vector.account.email);
 
       await expect(
-        login(client, vector.account.email, "not-the-password", prelogin),
+        client.login_via_password({
+          loginRequest: LOGIN_REQUEST,
+          email: vector.account.email,
+          password: "not-the-password",
+          preloginResponse: prelogin,
+        }),
       ).rejects.toBeDefined();
     },
     TIMEOUT,
