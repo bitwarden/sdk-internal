@@ -43,7 +43,7 @@ export class IdentityServer {
   }
 
   /**
-   * Issues an access token for an account that proved its master password.
+   * Issues an access token for an account that proved possession of its master password.
    *
    * The account's expected authentication hash is data the emulator holds, not something it
    * derives: the real server never sees a password either.
