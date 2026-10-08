@@ -69,7 +69,7 @@ impl SerializedMessage {
             return Err(EncodingError::InvalidValue("Unsupported content type"));
         }
 
-        ciborium::de::from_reader(self.serialized_message_bytes.as_slice())
+        ciborium::de::from_slice(self.serialized_message_bytes.as_slice())
             .map_err(|_| EncodingError::InvalidCborSerialization)
     }
 }

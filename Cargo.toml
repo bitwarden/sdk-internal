@@ -235,3 +235,9 @@ opt-level = 3
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.
 # This is fine as long as we don't have any unhandled panics, but let's keep it disabled for now
 # strip = true
+
+# PoC: ciborium with slice deserialization, https://github.com/enarx/ciborium/pull/170
+[patch.crates-io]
+ciborium = { git = "https://github.com/hoxxep/ciborium", rev = "8885c1ca08d4bf5384ba863e69f32fe096a880a2" }
+ciborium-io = { git = "https://github.com/hoxxep/ciborium", rev = "8885c1ca08d4bf5384ba863e69f32fe096a880a2" }
+ciborium-ll = { git = "https://github.com/hoxxep/ciborium", rev = "8885c1ca08d4bf5384ba863e69f32fe096a880a2" }
