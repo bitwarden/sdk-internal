@@ -30,6 +30,7 @@ dangerous-crypto-debug = ["bitwarden-core/dangerous-crypto-debug"]
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-agent-fill = { workspace = true, features = ["uniffi"] }
 bitwarden-auth = { workspace = true, features = ["uniffi"] }
 bitwarden-collections = { workspace = true, features = ["uniffi"] }
 bitwarden-core = { workspace = true, features = ["uniffi"] }

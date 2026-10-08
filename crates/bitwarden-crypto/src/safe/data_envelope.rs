@@ -508,6 +508,10 @@ pub enum DataEnvelopeNamespace {
     /// registration-finish so an anonymous, email-verified new user can complete an open
     /// organization invite in a single flow.
     RegistrationOpenOrgInviteData = 3,
+    /// Agent fill approval request, sealed by the desktop app with the user key.
+    AgentFillApprovalRequest = 4,
+    /// Agent fill approval response, sealed by the answering device with the user key.
+    AgentFillApprovalResponse = 5,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -531,6 +535,8 @@ impl TryFrom<i128> for DataEnvelopeNamespace {
             1 => Ok(DataEnvelopeNamespace::VaultItem),
             2 => Ok(DataEnvelopeNamespace::OrganizationInvite),
             3 => Ok(DataEnvelopeNamespace::RegistrationOpenOrgInviteData),
+            4 => Ok(DataEnvelopeNamespace::AgentFillApprovalRequest),
+            5 => Ok(DataEnvelopeNamespace::AgentFillApprovalResponse),
             #[cfg(test)]
             -1 => Ok(DataEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
@@ -807,6 +813,26 @@ mod tests {
         assert_eq!(
             i128::from(DataEnvelopeNamespace::RegistrationOpenOrgInviteData),
             3
+        );
+    }
+
+    #[test]
+    fn test_agent_fill_approval_namespaces_map_to_expected_discriminants() {
+        assert_eq!(
+            DataEnvelopeNamespace::try_from(4i128).unwrap(),
+            DataEnvelopeNamespace::AgentFillApprovalRequest
+        );
+        assert_eq!(
+            i128::from(DataEnvelopeNamespace::AgentFillApprovalRequest),
+            4
+        );
+        assert_eq!(
+            DataEnvelopeNamespace::try_from(5i128).unwrap(),
+            DataEnvelopeNamespace::AgentFillApprovalResponse
+        );
+        assert_eq!(
+            i128::from(DataEnvelopeNamespace::AgentFillApprovalResponse),
+            5
         );
     }
 

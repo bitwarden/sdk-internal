@@ -10,6 +10,7 @@ pub mod debug;
 
 use std::sync::Arc;
 
+use bitwarden_agent_fill::AgentFillClientExt as _;
 use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
     ClientBuilder, FromClient,
@@ -40,6 +41,7 @@ uniffi::setup_scaffolding!();
 
 /// Re-export subclients for easier access
 pub mod clients {
+    pub use bitwarden_agent_fill::{AgentFillApprovalClient, AgentFillClient};
     pub use bitwarden_auth::AuthClient;
     pub use bitwarden_collections::collection_client::CollectionsClient;
     pub use bitwarden_core::key_management::CryptoClient;
@@ -134,6 +136,11 @@ impl PasswordManagerClient {
     /// Administrator-enforced settings operations.
     pub fn managed_settings(&self) -> ManagedSettingsClient {
         self.0.managed_settings()
+    }
+
+    /// Agent fill approval operations
+    pub fn agent_fill(&self) -> bitwarden_agent_fill::AgentFillClient {
+        self.0.agent_fill()
     }
 
     /// Auth operations

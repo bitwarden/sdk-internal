@@ -23,6 +23,7 @@ debug-capabilities = [
 ]
 no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
 uniffi = [
+    "bitwarden-agent-fill/uniffi",
     "bitwarden-collections/uniffi",
     "bitwarden-core/uniffi",
     "bitwarden-crypto-cipher-suite/uniffi",
@@ -39,6 +40,7 @@ uniffi = [
     "dep:uniffi",
 ]
 wasm = [
+    "bitwarden-agent-fill/wasm",
     "bitwarden-auth/wasm",
     "bitwarden-collections/wasm",
     "bitwarden-commercial-vault?/wasm",
@@ -67,6 +69,7 @@ bitwarden-license = ["dep:bitwarden-commercial-vault", "dep:bitwarden-pam"]
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-agent-fill = { workspace = true }
 bitwarden-auth = { workspace = true }
 bitwarden-collections = { workspace = true }
 bitwarden-commercial-vault = { workspace = true, optional = true }

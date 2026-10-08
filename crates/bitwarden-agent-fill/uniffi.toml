@@ -1,0 +1,11 @@
+[bindings.kotlin]
+package_name = "com.bitwarden.agentfill"
+generate_immutable_records = true
+android = true
+# Temporary workaround for https://github.com/mozilla/uniffi-rs/issues/2740
+omit_checksums = true
+
+[bindings.swift]
+ffi_module_name = "BitwardenAgentFillFFI"
+module_name = "BitwardenAgentFill"
+generate_immutable_records = true

@@ -79,6 +79,11 @@ impl PasswordManagerClient {
         res.text().await.map_err(|e| e.to_string())
     }
 
+    /// Agent fill approval operations.
+    pub fn agent_fill(&self) -> AgentFillClient {
+        self.0.agent_fill()
+    }
+
     /// Auth related operations.
     pub fn auth(&self) -> AuthClient {
         self.0.auth()
