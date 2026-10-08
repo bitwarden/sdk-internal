@@ -215,7 +215,7 @@ export function toSeedAccount(vector: UserVector): SeedAccount {
       organizationKeys: vector.account.organizationKeys ?? undefined,
     },
     unlockMethods: vector.unlockMethods,
-    masterPasswordAuthenticationHash: vector.masterPasswordAuthenticationHash ?? undefined,
+    masterPasswordAuthenticationHash: vector.masterPasswordAuthenticationHash,
     rawCryptographicState: {
       userKey: raw.userKey,
       privateKey: raw.privateKey,
