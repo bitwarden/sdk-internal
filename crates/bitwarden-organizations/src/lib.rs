@@ -5,9 +5,12 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
-use bitwarden_core::OrganizationId;
+mod organizations_client;
+
+use bitwarden_core::{OrganizationId, UserId};
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
+pub use organizations_client::{OrganizationsClient, OrganizationsClientExt};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
@@ -186,9 +189,6 @@ impl Default for OrganizationDetails {
 }
 
 /// The organization's plan or license: its tier, limits, and feature entitlements.
-///
-/// The `use_*` flags are entitlements set from the plan or license, not settings that
-/// organization admins can toggle.
 #[derive(PartialEq, Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[bitwarden_ffi::wasm_record]
@@ -311,8 +311,9 @@ pub struct OrganizationMembership {
     /// the user's `type`.
     pub permissions: Permissions,
     /// The current user's personal user ID.
-    pub user_id: Option<Uuid>,
+    pub user_id: UserId,
     /// The current user's organization membership ID.
+    /// None if the current user has access only through a provider.
     pub organization_user_id: Option<Uuid>,
     /// Whether the current user is a direct member of this organization (as opposed to
     /// provider-only access).
@@ -321,7 +322,7 @@ pub struct OrganizationMembership {
     pub is_provider_user: bool,
     /// Whether the current user is enrolled in account recovery for this organization.
     pub reset_password_enrolled: bool,
-    /// Whether the current user's account is bound to this organization via SSO.
+    /// Whether the current user's account is linked to this organization via SSO.
     pub sso_bound: bool,
     /// Whether the current user's account is claimed by this organization.
     pub user_is_claimed_by_organization: bool,
@@ -335,7 +336,7 @@ impl Default for OrganizationMembership {
             status: OrganizationUserStatusType::Confirmed,
             r#type: OrganizationUserType::User,
             permissions: Permissions::default(),
-            user_id: None,
+            user_id: UserId::new(Uuid::nil()),
             organization_user_id: None,
             is_member: true,
             is_provider_user: false,
@@ -385,7 +386,8 @@ pub struct OrganizationProvider {
     pub id: Uuid,
     /// The type of provider.
     pub r#type: ProviderType,
-    /// The name of the provider. `None` while the provider is pending setup.
+    /// The name of the provider.
+    /// Should never be None, but server validation is not strict enough to guarantee this.
     pub name: Option<String>,
 }
 
@@ -422,8 +424,8 @@ pub struct FamilySponsorship {
     /// Whether the organization can sponsor a families plan for the current user. This can be
     /// `true` while a sponsorship exists.
     pub available: bool,
-    /// The friendly name of the sponsorship, usually the recipient's email address. Set whenever
-    /// a sponsorship exists.
+    /// The friendly name of the sponsorship, usually the recipient's email address.
+    /// Should never be None, but server validation is not strict enough to guarantee this.
     pub friendly_name: Option<String>,
     /// The date the sponsorship expires. `None` while the sponsorship has been offered but not
     /// yet redeemed.
