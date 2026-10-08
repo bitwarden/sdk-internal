@@ -13,14 +13,12 @@
 
 use std::io::{self, BufRead};
 
-use bitwarden_access_connector::token::{DERIVE_INFO, DERIVE_NAME};
-use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, EncString, KeyEncryptable, SymmetricCryptoKey, derive_shareable_key,
-    generate_random_bytes,
-};
+use bitwarden_access_connector::crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId};
+use bitwarden_access_token::{AccessTokenKind, make_access_token_secrets};
+use bitwarden_crypto::{BitwardenLegacyKeyBytes, KeyStore, SymmetricCryptoKey};
 use bitwarden_encoding::B64;
 use clap::Parser;
-use zeroize::Zeroizing;
+use uuid::Uuid;
 
 /// TEST-ONLY access connector registration payload generator.
 ///
@@ -37,17 +35,17 @@ struct Cli {
     name: String,
 }
 
-/// A generated registration payload. `Debug` redacts `encryption_key_b64`.
+/// A generated registration payload. `Debug` redacts `token_template`, which carries the seed.
 pub struct RegisterPayload {
     /// The connector display name.
     pub name: String,
     /// The `encryptedPayload` field for the register API call.
     pub encrypted_payload: String,
-    /// The 16-byte seed's base64, encrypted under the org key.
+    /// The derived key's base64, encrypted under the org key.
     pub key: String,
-    /// The raw 16-byte seed encoded as base64 (the `:` suffix of the token).
-    /// Never log this value.
-    pub encryption_key_b64: Zeroizing<String>,
+    /// `0.access-connector.<apiKeyId>.<clientSecret>:<b64-seed>`, with the two unknowns left as
+    /// literal placeholders for the operator to fill in from the register API response.
+    pub token_template: String,
 }
 
 impl std::fmt::Debug for RegisterPayload {
@@ -56,7 +54,7 @@ impl std::fmt::Debug for RegisterPayload {
             .field("name", &self.name)
             .field("encrypted_payload", &"<EncString>")
             .field("key", &"<EncString>")
-            .field("encryption_key_b64", &"[REDACTED]")
+            .field("token_template", &"[REDACTED]")
             .finish()
     }
 }
@@ -80,35 +78,39 @@ pub fn generate_registration_payload(
     let org_key = SymmetricCryptoKey::try_from(&org_key_bytes)
         .map_err(|_| "org key bytes have the wrong length for a symmetric key".to_string())?;
 
-    let seed: Zeroizing<[u8; 16]> = generate_random_bytes();
+    // A throwaway store, just so make_access_token_secrets has a key slot to read the org key from.
+    let store: AccessConnectorKeyStore = KeyStore::default();
+    #[allow(deprecated)]
+    store
+        .context_mut()
+        .set_symmetric_key(AccessConnectorSymmSlotId::Organization, org_key)
+        .map_err(|e| format!("failed to install org key: {e}"))?;
 
-    let seed_b64 = B64::from(seed.as_slice());
-    let encryption_key_b64 = Zeroizing::new(seed_b64.to_string());
+    let secrets = {
+        let mut ctx = store.context_mut();
+        make_access_token_secrets(
+            &mut ctx,
+            AccessConnectorSymmSlotId::Organization,
+            AccessTokenKind::AccessConnector,
+        )
+        .map_err(|e| format!("failed to mint registration secrets: {e}"))?
+    };
 
-    // Must match AccessConnectorToken::from_str.
-    let derived = derive_shareable_key(seed, DERIVE_NAME, Some(DERIVE_INFO));
-    let derived_key = SymmetricCryptoKey::Aes256CbcHmacKey(derived);
+    let encrypted_payload = secrets.encrypted_payload.to_string();
+    let key = secrets.key.to_string();
 
-    // The identity server returns this after authentication; the connector
-    // decrypts it (using derived_key) to recover the org key.
-    let org_key_b64_str = org_key_b64_parsed.to_string();
-    let payload_json = format!(r#"{{"encryptionKey":"{org_key_b64_str}"}}"#);
-
-    let encrypted_payload: EncString = payload_json
-        .as_str()
-        .encrypt_with_key(&derived_key)
-        .map_err(|e| format!("failed to encrypt payload: {e}"))?;
-
-    let key_enc: EncString = encryption_key_b64
-        .as_str()
-        .encrypt_with_key(&org_key)
-        .map_err(|e| format!("failed to encrypt key field: {e}"))?;
+    // A nil api_key_id and a literal client_secret, so into_token builds the real wire format; the
+    // nil UUID is then swapped for a placeholder the operator fills in from the register response.
+    let placeholder_id = Uuid::nil();
+    let token_template = secrets
+        .into_token(placeholder_id, "<clientSecret>")
+        .replacen(&placeholder_id.to_string(), "<apiKeyId>", 1);
 
     Ok(RegisterPayload {
         name: name.to_string(),
-        encrypted_payload: encrypted_payload.to_string(),
-        key: key_enc.to_string(),
-        encryption_key_b64,
+        encrypted_payload,
+        key,
+        token_template,
     })
 }
 
@@ -163,10 +165,7 @@ fn main() {
 
     // The seed goes to stdout, never a log, because the operator embeds it in the token.
     println!();
-    println!(
-        "token template: 0.access-connector.<apiKeyId>.<clientSecret>:{}",
-        payload.encryption_key_b64.as_str()
-    );
+    println!("token template: {}", payload.token_template);
     println!("(substitute <apiKeyId> and <clientSecret> from the register API response)");
 }
 
@@ -174,11 +173,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_access_connector::{
-        crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId, unwrap_org_key},
-        token::AccessConnectorToken,
-    };
-    use bitwarden_crypto::{KeyDecryptable, KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
+    use bitwarden_access_connector::crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId};
+    use bitwarden_access_token::{AccessToken, AccessTokenKind};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use bitwarden_encoding::B64;
 
     use super::generate_registration_payload;
@@ -189,7 +186,8 @@ mod tests {
         (org_key, b64)
     }
 
-    /// Full round-trip: generate payload → parse token → unwrap org key → probe.
+    /// Full round-trip: generate payload → fill in the token template → parse → open_payload →
+    /// probe.
     #[test]
     fn register_round_trip() {
         let (org_key, org_key_b64) = make_test_org_key_b64();
@@ -197,41 +195,35 @@ mod tests {
         let payload = generate_registration_payload(&org_key_b64, "round-trip-connector")
             .expect("generate_registration_payload should succeed");
 
-        // Placeholder apiKeyId and clientSecret; only the seed suffix feeds the derived key.
-        let fake_api_key_id = "00000000-0000-0000-0000-000000000001";
-        let fake_client_secret = "testsecret";
-        let token_str = format!(
-            "0.access-connector.{}.{}:{}",
-            fake_api_key_id,
-            fake_client_secret,
-            payload.encryption_key_b64.as_str()
-        );
+        // Placeholder apiKeyId and clientSecret, as an operator would substitute them.
+        let token_str = payload
+            .token_template
+            .replace("<apiKeyId>", "00000000-0000-0000-0000-000000000001")
+            .replace("<clientSecret>", "testsecret");
 
         // Parsing re-derives the full symmetric key from the seed.
-        let token: AccessConnectorToken = token_str
-            .parse()
+        let token = AccessToken::parse(&token_str, AccessTokenKind::AccessConnector)
             .expect("synthetic token must parse successfully");
 
         let store: AccessConnectorKeyStore = KeyStore::default();
-        unwrap_org_key(&store, &token.encryption_key, &payload.encrypted_payload)
-            .expect("unwrap_org_key must succeed with the correct derived key");
+        token
+            .open_payload(
+                &mut store.context_mut(),
+                &payload.encrypted_payload,
+                AccessConnectorSymmSlotId::Organization,
+            )
+            .expect("open_payload must succeed with the correct derived key");
 
-        // Encrypt under the recovered org key and decrypt under the original one.
-        let probe = "access-connector-register-round-trip-probe";
-        let encrypted_probe = {
-            use bitwarden_crypto::PrimitiveEncryptable;
-            let mut ctx = store.context_mut();
-            probe
-                .encrypt(&mut ctx, AccessConnectorSymmSlotId::Organization)
-                .expect("encrypt probe under recovered org key")
-        };
-
-        let decrypted: String = encrypted_probe
-            .decrypt_with_key(&org_key)
-            .expect("decrypt probe under original org key");
+        let ctx = store.context();
+        #[allow(deprecated)]
+        let recovered_b64 = ctx
+            .dangerous_get_symmetric_key(AccessConnectorSymmSlotId::Organization)
+            .expect("the slot was just populated")
+            .to_base64();
 
         assert_eq!(
-            decrypted, probe,
+            recovered_b64.to_string(),
+            org_key.to_base64().to_string(),
             "org key recovered from encryptedPayload must match the original"
         );
     }
@@ -253,9 +245,8 @@ mod tests {
         let p1 = generate_registration_payload(&org_key_b64, "d1").unwrap();
         let p2 = generate_registration_payload(&org_key_b64, "d2").unwrap();
         assert_ne!(
-            p1.encryption_key_b64.as_str(),
-            p2.encryption_key_b64.as_str(),
-            "two registrations must produce distinct encryption_key seeds"
+            p1.token_template, p2.token_template,
+            "two registrations must produce distinct seeds"
         );
     }
 }

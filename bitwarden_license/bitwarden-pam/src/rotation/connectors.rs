@@ -316,8 +316,9 @@ impl AccessConnectorsClient {
 
 #[cfg(test)]
 mod tests {
-    use std::{str::FromStr, sync::Mutex};
+    use std::sync::Mutex;
 
+    use bitwarden_access_token::{AccessToken, AccessTokenKind};
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{
@@ -331,13 +332,13 @@ mod tests {
         SymmetricKeySlotId, create_test_crypto_with_user_and_org_key,
         create_test_crypto_with_user_key,
     };
-    use bitwarden_crypto::{Decryptable, EncString, SymmetricCryptoKey, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
+    use bitwarden_sensitive_value::ExposeSensitive as _;
     use uuid::{Uuid, uuid};
 
     use super::*;
     use crate::rotation::{
         models::{RotationJobStatus, RotationSource},
-        registration::ConnectorToken,
         validate::RotationValidationError,
     };
 
@@ -778,28 +779,36 @@ mod tests {
         assert_eq!(registered.status, AccessConnectorStatus::Enabled);
 
         // Everything below is what a connector does with the token it was provisioned.
-        let token = ConnectorToken::from_str(&registered.token).expect("the token parses");
-        assert_eq!(token.api_key_id, api_key_id());
-        assert_eq!(token.client_secret, "client-secret-value");
+        let token = AccessToken::parse(&registered.token, AccessTokenKind::AccessConnector)
+            .expect("the token parses");
+        assert_eq!(token.api_key_id(), api_key_id());
+        assert_eq!(token.client_secret().expose(), "client-secret-value");
 
-        let payload: EncString = sent_payload
+        let payload = sent_payload
             .lock()
             .expect("the lock is not poisoned")
             .clone()
-            .expect("the request carried an encrypted payload")
-            .parse()
-            .expect("the payload is an EncString");
+            .expect("the request carried an encrypted payload");
 
-        let connector_store = create_test_crypto_with_user_key(token.encryption_key);
-        let decrypted: String = payload
-            .decrypt(&mut connector_store.context(), SymmetricKeySlotId::User)
+        let connector_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let organization_key_slot = SymmetricKeySlotId::Organization(organization_id());
+        token
+            .open_payload(
+                &mut connector_store.context_mut(),
+                &payload,
+                organization_key_slot,
+            )
             .expect("the key derived from the token decrypts the payload");
-        let recovered: serde_json::Value =
-            serde_json::from_str(&decrypted).expect("the payload is JSON");
 
+        let ctx = connector_store.context();
+        #[allow(deprecated)]
+        let recovered_b64 = ctx
+            .dangerous_get_symmetric_key(organization_key_slot)
+            .expect("the slot was just populated")
+            .to_base64();
         assert_eq!(
-            recovered["encryptionKey"].as_str(),
-            Some(organization_key.to_base64().to_string().as_str()),
+            recovered_b64.to_string(),
+            organization_key.to_base64().to_string(),
             "the connector must recover the organization key verbatim"
         );
     }
