@@ -88,6 +88,9 @@ xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = [
 zeroize = { workspace = true, features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 
+[target.'cfg(target_family = "wasm")'.dependencies]
+talc = ">=5.1.1, <6"
+
 [dev-dependencies]
 criterion = "0.8.0"
 rand_chacha = { workspace = true }

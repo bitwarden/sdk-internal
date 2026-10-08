@@ -8,9 +8,22 @@
 //! moving this struct around, we use a Box to keep the values on the heap. We also pin the box to
 //! make sure that the contents can't be pulled out of the box and moved.
 
-#[cfg(not(feature = "no-memory-hardening"))]
+#[cfg(all(
+    not(feature = "no-memory-hardening"),
+    not(all(target_family = "wasm", not(target_feature = "atomics")))
+))]
 #[global_allocator]
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
+
+// PoC: on single-threaded WASM, talc replaces the default dlmalloc. Freed memory is still zeroized.
+#[cfg(all(
+    not(feature = "no-memory-hardening"),
+    target_family = "wasm",
+    not(target_feature = "atomics")
+))]
+#[global_allocator]
+static ALLOC: ZeroizingAllocator<talc::wasm::WasmDynamicTalc> =
+    ZeroizingAllocator(talc::wasm::new_wasm_dynamic_allocator());
 
 mod content_format;
 pub use content_format::*;
