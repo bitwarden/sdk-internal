@@ -103,12 +103,18 @@ Prefer, in order:
      `newClientEmulator()`. Call `restore()` in `afterEach`.
    - `server-emulator/` — backend model. **Seed state through the server and sync**; never write
      client state or bridges directly, and never mock individual routes.
-   - `client-emulator/` — platform services / local state.
-   - `vectors/` + repo-root `test-vectors/` — recorded accounts for every crypto version.
-     `testVectors.eachUser()` / `eachUserAndUnlockMethod()` run one body against all of them — use
-     this when the bug may depend on account crypto version.
-   - Existing tests under `tests/` (e.g. `unlock/`, `user-crypto-management/`, `crypto/`) — copy the
-     closest one.
+     `server.seedUserTestVector(vector, modify?)` seeds a vector account (`modify` rewrites it, e.g.
+     to drop a key id); `seedUser()` / `seedOrganization()` for hand-built accounts.
+   - `client-emulator/` — platform services / local state. `login(email)`, `unlockWith(method)`,
+     `sync(email)`, `lock()`, `restart()`. `validate.ts` `validateVault(client, seed, ignore?)`
+     asserts the whole vault decrypts to the vector's plaintext.
+   - `vectors/` (loaders) + repo-root `test-vectors/` (JSON) — recorded accounts for every crypto
+     version. `testVectors.users` selects them: narrow with `.withMasterPassword()` /
+     `.except(name)`, pick one with `.get(name)`, or run one body against each with
+     `.each("$name …", fn)` / `.eachUnlockMethod("$name via $methodName", fn)` — use these when the
+     bug may depend on account crypto version or unlock method.
+   - Existing tests under `tests/` (e.g. `unlock/test-vector-stability.test.ts`,
+     `user-crypto-management/`, `key-management/`, `crypto/`) — copy the closest one.
 3. **Rust integration test** (`crates/<crate>/tests/`) only when the path is not reachable through
    the WASM surface, or the bug is below the bindings and a WASM test adds nothing.
 
@@ -150,7 +156,9 @@ If the test fails for a different reason than the theory predicts, or passes une
 - Add temporary `tracing::debug!`/`info!` statements at the hops from 1.3 that distinguish the
   theories (which key id, which branch, which encryption type). Log identifiers and types, **never
   key material or plaintext**.
-- For WASM, call `init_sdk(LogLevel.Debug)` in the test so they reach the console.
+- For WASM, call `init_sdk(LogLevel.Debug)` at the top of the test file, before any client is
+  created — only the first `init_sdk` call takes effect, and client creation calls it with the
+  default `Info` level.
 - Re-run, compare against the theory's predicted values, update or discard the theory, and loop.
 
 Mark every temporary log statement (e.g. `// TEMP investigate`) and remove them all before
