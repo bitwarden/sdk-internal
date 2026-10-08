@@ -13,7 +13,10 @@ use crate::{
     },
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
     rpc::{
-        exec::{handler::ErasedRpcHandler, handler_registry::RpcHandlerRegistry},
+        exec::{
+            handler::{ErasedRpcHandler, RpcRequestInfo},
+            handler_registry::RpcHandlerRegistry,
+        },
         request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestPayload},
         response_message::OutgoingRpcResponseMessage,
     },
@@ -293,7 +296,10 @@ fn handle_rpc_request<Crypto, Com, Ses>(
                 |e: serde_utils::DeserializeError| HandleError::Deserialize(e.to_string()),
             )?;
 
-            let response = handlers.handle(&request).await;
+            let info = RpcRequestInfo {
+                source: incoming_message.source.clone(),
+            };
+            let response = handlers.handle(&request, info).await;
 
             let response_message = OutgoingRpcResponseMessage {
                 request_id: request.request_id(),
@@ -880,7 +886,7 @@ mod tests {
 
     mod request {
         use super::*;
-        use crate::RpcHandler;
+        use crate::{RpcHandler, RpcRequestInfo};
 
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestRequest {
@@ -904,10 +910,31 @@ mod tests {
         impl RpcHandler for TestHandler {
             type Request = TestRequest;
 
-            async fn handle(&self, request: Self::Request) -> TestResponse {
+            async fn handle(&self, request: Self::Request, _info: RpcRequestInfo) -> TestResponse {
                 TestResponse {
                     result: request.a + request.b,
                 }
+            }
+        }
+
+        /// A request whose handler responds with the source it was given, so tests can observe
+        /// what the IPC client passes to handlers.
+        #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+        struct EchoSourceRequest;
+
+        impl RpcRequest for EchoSourceRequest {
+            type Response = Source;
+
+            const NAME: &str = "EchoSourceRequest";
+        }
+
+        struct EchoSourceHandler;
+
+        impl RpcHandler for EchoSourceHandler {
+            type Request = EchoSourceRequest;
+
+            async fn handle(&self, _request: Self::Request, info: RpcRequestInfo) -> Source {
+                info.source
             }
         }
 
@@ -1199,6 +1226,47 @@ mod tests {
             assert_eq!(outgoing_messages[0].topic, Some(response_topic));
             assert_eq!(outgoing_response.request_type, "TestRequest");
             assert_eq!(outgoing_response.result, Ok(response));
+        }
+
+        #[tokio::test]
+        async fn incoming_rpc_message_passes_message_source_to_handler() {
+            let crypto_provider = NoEncryptionCryptoProvider;
+            let communication_provider = TestCommunicationBackend::new();
+            let session_map = InMemorySessionRepository::default();
+            let client =
+                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
+            let _ = client.start(None).await;
+            client.register_rpc_handler(EchoSourceHandler).await;
+
+            let source = Source::Web {
+                tab_id: 9001,
+                document_id: "doc-1".to_string(),
+                origin: "https://example.com".to_string(),
+            };
+            let request_id = uuid::Uuid::new_v4().to_string();
+            let simulated_request = RpcRequestMessage {
+                request: EchoSourceRequest,
+                request_id: request_id.clone(),
+                request_type: EchoSourceRequest::NAME.to_string(),
+                response_topic: format!("RpcResponseMessage:{request_id}"),
+            };
+            communication_provider.push_incoming(IncomingMessage {
+                payload: serde_utils::to_vec(&simulated_request)
+                    .expect("Serialization should not fail"),
+                source: source.clone(),
+                destination: Endpoint::BrowserBackground { id: HostId::Own },
+                topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
+            });
+
+            // Give the client some time to process the request
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            let outgoing_messages = communication_provider.outgoing().await;
+            let outgoing_response: IncomingRpcResponseMessage<Source> =
+                serde_utils::from_slice(&outgoing_messages[0].payload)
+                    .expect("Deserialization should not fail");
+
+            assert_eq!(outgoing_response.result, Ok(source));
         }
     }
 }
