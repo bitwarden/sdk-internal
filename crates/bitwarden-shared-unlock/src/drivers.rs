@@ -30,6 +30,13 @@ pub trait SharedUnlockDriver {
     /// with a peer device.
     async fn on_peer_state(&self, user_id: UserId, lock_state: PeerLockState);
 
+    /// Persist the date (milliseconds since the Unix epoch) of the user's last manual lock. Must
+    /// survive a process reload, so a lock that was not synced before the reload still wins
+    /// against an older unlock held by a peer.
+    async fn set_last_manual_lock(&self, user_id: UserId, locked_at: u64);
+    /// The date persisted by [`SharedUnlockDriver::set_last_manual_lock`], if any.
+    async fn get_last_manual_lock(&self, user_id: UserId) -> Option<u64>;
+
     /// Discovers the endpoint of the peer above this one in the device hierarchy or none
     /// if this device is at the top of the hierarchy. The local peer disables vault timeout
     /// if it is not at the top of the hierarchy.

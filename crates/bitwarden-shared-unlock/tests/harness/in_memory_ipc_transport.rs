@@ -1,7 +1,7 @@
 //! The endpoint-routed transport the devices talk over.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     future::pending,
     sync::{Arc, Mutex},
 };
@@ -41,6 +41,10 @@ pub(super) struct TransportPeer {
 /// unregistered destination is unreachable, which is how a test makes a peer unavailable.
 pub(crate) struct InMemoryIpcTransport {
     peers: Mutex<HashMap<Endpoint, TransportPeer>>,
+    /// Names of devices that receive nothing, while their process and state stay up. What they
+    /// send is still delivered, so they keep their sessions and never race a fresh peer to a
+    /// handshake.
+    disconnected: Mutex<HashSet<String>>,
     topology: TopologyId,
 }
 
@@ -48,6 +52,7 @@ impl InMemoryIpcTransport {
     pub(super) fn new(topology: TopologyId) -> Arc<Self> {
         Arc::new(Self {
             peers: Mutex::new(HashMap::new()),
+            disconnected: Mutex::new(HashSet::new()),
             topology,
         })
     }
@@ -77,6 +82,14 @@ impl InMemoryIpcTransport {
         self.lock_peers().remove(endpoint);
     }
 
+    pub(super) fn disconnect(&self, name: &str) {
+        self.lock_disconnected().insert(name.to_owned());
+    }
+
+    pub(super) fn reconnect(&self, name: &str) {
+        self.lock_disconnected().remove(name);
+    }
+
     fn route(
         &self,
         from_name: &str,
@@ -95,6 +108,18 @@ impl InMemoryIpcTransport {
             return Err(TransportError::Unreachable);
         };
 
+        // A disconnected destination looks the same as a peer that is not running.
+        if self.lock_disconnected().contains(&peer.name) {
+            emit_log(
+                self.topology,
+                from_name,
+                kind::IPC_UNREACHABLE,
+                None,
+                &format!("-> {} (link cut)", peer.name),
+            );
+            return Err(TransportError::Unreachable);
+        }
+
         emit_log(
             self.topology,
             from_name,
@@ -111,6 +136,12 @@ impl InMemoryIpcTransport {
             topic: message.topic,
         });
         Ok(())
+    }
+
+    fn lock_disconnected(&self) -> std::sync::MutexGuard<'_, HashSet<String>> {
+        self.disconnected
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     fn lock_peers(&self) -> std::sync::MutexGuard<'_, HashMap<Endpoint, TransportPeer>> {
