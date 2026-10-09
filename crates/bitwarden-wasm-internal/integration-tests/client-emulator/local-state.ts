@@ -4,6 +4,7 @@ import type {
   Folder,
   InitUserCryptoMethod,
   PasswordManagerClient,
+  Policy,
   Repository,
 } from "@bitwarden/sdk-internal";
 
@@ -68,10 +69,13 @@ export interface LocalIdentity {
   email: string;
 }
 
+type ClearMode = "ProcessReload" | "Restart";
+
 export class LocalState {
   readonly bridge = makeStateBridge();
   readonly ciphers = new TestRepository<Cipher>();
   readonly folders = new TestRepository<Folder>();
+  readonly policies = new TestRepository<Policy>();
 
   /** Organization keys sealed to this account, keyed by organization id. */
   organizationKeys: Record<string, string> = {};
@@ -92,7 +96,11 @@ export class LocalState {
   }
 
   /** Replaces the repositories' contents. An omitted collection is left alone. */
-  async seedVault(vault: { ciphers?: Cipher[]; folders?: Folder[] }): Promise<void> {
+  async seedVault(vault: {
+    ciphers?: Cipher[];
+    folders?: Folder[];
+    policies?: Policy[];
+  }): Promise<void> {
     if (vault.ciphers !== undefined) {
       await this.ciphers.removeAll();
       await this.ciphers.setBulk(vault.ciphers.map((cipher) => [String(cipher.id), cipher]));
@@ -101,6 +109,10 @@ export class LocalState {
       await this.folders.removeAll();
       await this.folders.setBulk(vault.folders.map((folder) => [String(folder.id), folder]));
     }
+    if (vault.policies !== undefined) {
+      await this.policies.removeAll();
+      await this.policies.setBulk(vault.policies.map((policy) => [String(policy.id), policy]));
+    }
   }
 
   /**
@@ -108,9 +120,17 @@ export class LocalState {
    *
    * This is what separates "the app is locked" from "the app was closed", and therefore what
    * separates a PIN unlock before the first unlock from one after it.
+   *
+   * - `ProcessReload` keeps the ephemeral PIN envelope, so an AfterFirstUnlock PIN still unlocks.
+   * - `Restart` drops it too, so an AfterFirstUnlock PIN needs another unlock method first.
    */
-  async clearEphemeral(): Promise<void> {
+  async clearEphemeral(mode: ClearMode): Promise<void> {
     await this.bridge.clear_user_key();
+
+    if (mode === "ProcessReload") {
+      return;
+    }
+
     await this.bridge.clear_ephemeral_pin_envelope();
   }
 
@@ -129,6 +149,7 @@ export class LocalState {
       local_user_data_key_state: null,
       organization_shared_key: null,
       send: null,
+      policy: this.policies,
     });
 
     return client;

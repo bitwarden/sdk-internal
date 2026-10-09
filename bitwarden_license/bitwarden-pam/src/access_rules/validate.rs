@@ -3,6 +3,7 @@ use std::net::IpAddr;
 use thiserror::Error;
 
 use super::{conditions::AccessCondition, models::AccessRuleAddEditRequest};
+use crate::MAX_REQUEST_ACCESS_WINDOW_SECONDS;
 
 /// Maximum length of an access rule's `name` field, matching the server's constraint.
 const MAX_NAME_LENGTH: usize = 256;
@@ -24,6 +25,12 @@ pub enum AccessRuleValidationError {
     /// positive.
     #[error("Lease durations must be positive")]
     InvalidLeaseDuration,
+    /// `default_lease_duration_seconds` exceeded `max_lease_duration_seconds`.
+    #[error("The default lease duration cannot exceed the maximum lease duration")]
+    DefaultLeaseDurationExceedsMax,
+    /// A lease duration exceeded the global ceiling.
+    #[error("A lease duration cannot exceed {MAX_REQUEST_ACCESS_WINDOW_SECONDS} seconds")]
+    LeaseDurationExceedsGlobalMax,
     /// More than 10 conditions were provided.
     #[error("A rule may have at most {MAX_CONDITIONS} conditions")]
     TooManyConditions,
@@ -60,6 +67,29 @@ pub fn validate_request(
         || request.max_lease_duration_seconds.is_some_and(|m| m <= 0)
     {
         return Err(AccessRuleValidationError::InvalidLeaseDuration);
+    }
+
+    // An absent max is "no cap", so it never constrains the default.
+    if let (Some(default), Some(max)) = (
+        request.default_lease_duration_seconds,
+        request.max_lease_duration_seconds,
+    ) && default > max
+    {
+        return Err(AccessRuleValidationError::DefaultLeaseDurationExceedsMax);
+    }
+
+    // The lease paths never check an uncapped default or the extension length against the
+    // ceiling. Bounds each value, not the cumulative length of a repeatedly extended lease.
+    let ceiling = i64::from(MAX_REQUEST_ACCESS_WINDOW_SECONDS);
+    if [
+        request.default_lease_duration_seconds,
+        request.max_lease_duration_seconds,
+        request.max_extension_duration_seconds,
+    ]
+    .iter()
+    .any(|seconds| seconds.is_some_and(|s| i64::from(s) > ceiling))
+    {
+        return Err(AccessRuleValidationError::LeaseDurationExceedsGlobalMax);
     }
 
     if request.conditions.len() > MAX_CONDITIONS {
@@ -478,9 +508,75 @@ mod tests {
     }
 
     #[test]
+    fn lease_durations_past_the_global_ceiling_are_invalid() {
+        let ceiling = i32::try_from(MAX_REQUEST_ACCESS_WINDOW_SECONDS).unwrap();
+        for (default, max) in [(None, Some(ceiling + 1)), (Some(ceiling + 1), None)] {
+            let mut request = base_request();
+            request.default_lease_duration_seconds = default;
+            request.max_lease_duration_seconds = max;
+
+            assert_eq!(
+                validate_request(&request),
+                Err(AccessRuleValidationError::LeaseDurationExceedsGlobalMax),
+                "default {default:?} max {max:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_max_extension_past_the_global_ceiling_is_invalid() {
+        let mut request = base_request();
+        request.allows_extensions = true;
+        request.max_extension_duration_seconds =
+            Some(i32::try_from(MAX_REQUEST_ACCESS_WINDOW_SECONDS).unwrap() + 1);
+
+        assert_eq!(
+            validate_request(&request),
+            Err(AccessRuleValidationError::LeaseDurationExceedsGlobalMax)
+        );
+    }
+
+    #[test]
+    fn lease_durations_at_the_global_ceiling_are_valid() {
+        let ceiling = i32::try_from(MAX_REQUEST_ACCESS_WINDOW_SECONDS).unwrap();
+        let mut request = base_request();
+        request.default_lease_duration_seconds = None;
+        request.max_lease_duration_seconds = Some(ceiling);
+        assert_eq!(validate_request(&request), Ok(()));
+    }
+
+    #[test]
     fn none_lease_durations_are_valid() {
         let mut request = base_request();
         request.default_lease_duration_seconds = None;
+        request.max_lease_duration_seconds = None;
+        assert_eq!(validate_request(&request), Ok(()));
+    }
+
+    #[test]
+    fn default_lease_duration_above_max_is_invalid() {
+        let mut request = base_request();
+        request.default_lease_duration_seconds = Some(3600);
+        request.max_lease_duration_seconds = Some(900);
+        assert_eq!(
+            validate_request(&request),
+            Err(AccessRuleValidationError::DefaultLeaseDurationExceedsMax)
+        );
+    }
+
+    #[test]
+    fn default_lease_duration_equal_to_max_is_valid() {
+        let mut request = base_request();
+        request.default_lease_duration_seconds = Some(900);
+        request.max_lease_duration_seconds = Some(900);
+        assert_eq!(validate_request(&request), Ok(()));
+    }
+
+    #[test]
+    fn default_lease_duration_without_a_max_is_valid() {
+        // An absent max is "no cap" - it cannot be exceeded.
+        let mut request = base_request();
+        request.default_lease_duration_seconds = Some(7 * 86_400);
         request.max_lease_duration_seconds = None;
         assert_eq!(validate_request(&request), Ok(()));
     }

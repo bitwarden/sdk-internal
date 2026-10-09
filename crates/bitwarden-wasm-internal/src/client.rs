@@ -164,6 +164,11 @@ impl PasswordManagerClient {
         self.0.invite_link()
     }
 
+    /// Organization verified domain operations.
+    pub fn organization_domains(&self) -> OrganizationDomainsClient {
+        self.0.organization_domains()
+    }
+
     /// Emergency access operations, performed as the grantee.
     pub fn emergency_access(&self) -> EmergencyAccessClient {
         self.0.emergency_access()

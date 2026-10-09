@@ -1,3 +1,4 @@
+use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 
 use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
@@ -10,6 +11,10 @@ impl PolicyDefinition for AutomaticAppLogInPolicy {
 
     fn policy_type(&self) -> PolicyType {
         PolicyType::AutomaticAppLogIn
+    }
+
+    fn exempt_roles(&self) -> &[OrganizationUserType] {
+        &[]
     }
 
     fn to_erased(&self, data: Self::Data) -> PolicyDataType {

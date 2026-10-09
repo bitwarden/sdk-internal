@@ -17,7 +17,7 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_ipc::{
     Endpoint, IpcClient, IpcClientExt, RequestError, Source, SubscribeError, TypedIncomingMessage,
 };
-use bitwarden_threading::{cancellation_token, time::sleep};
+use bitwarden_threading::{cancellation_token, spawn, time::sleep};
 use thiserror::Error;
 use tracing::warn;
 
@@ -503,14 +503,4 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             },
         );
     }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn spawn(future: impl std::future::Future<Output = ()> + Send + 'static) {
-    tokio::spawn(future);
-}
-
-#[cfg(target_arch = "wasm32")]
-fn spawn(future: impl std::future::Future<Output = ()> + 'static) {
-    wasm_bindgen_futures::spawn_local(future);
 }

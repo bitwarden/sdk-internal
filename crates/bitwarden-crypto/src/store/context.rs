@@ -11,11 +11,11 @@ use super::{CipherSuite, KeyStoreInner};
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeySlotId, KeySlotIds, LocalId,
-    Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
-    RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
-    derive_shareable_key, error::UnsupportedOperationError,
-    hazmat::symmetric_encryption::Aes256CbcHmacSha256, signing, store::backend::StoreBackend,
+    Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result, Signature,
+    SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey,
+    SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey, derive_shareable_key,
+    error::UnsupportedOperationError, hazmat::symmetric_encryption::Aes256CbcHmacSha256, signing,
+    store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -857,20 +857,6 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         self.get_signing_key(key)?.sign_detached(message, namespace)
     }
 
-    /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
-    pub fn dangerous_get_v2_rotated_account_keys(
-        &self,
-        current_user_private_key_id: Ids::Private,
-        current_user_signing_key_id: Ids::Signing,
-    ) -> Result<RotatedUserKeys> {
-        #[expect(deprecated)]
-        crate::dangerous_get_v2_rotated_account_keys(
-            current_user_private_key_id,
-            current_user_signing_key_id,
-            self,
-        )
-    }
-
     /// A test helper to assert that the symmetric keys corresponding to the given identifiers are
     /// equal.
     #[cfg(any(test, feature = "test-utils"))]
@@ -918,10 +904,8 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable, EncString,
-        KeyDecryptable, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm,
-        SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
-        SymmetricKeyAlgorithm,
+        CompositeEncryptable, CryptoError, Decryptable, EncString, SignatureAlgorithm, SigningKey,
+        SigningNamespace, SymmetricCryptoKey, SymmetricKeyAlgorithm,
         store::{
             KeyStore,
             tests::{Data, DataView},
@@ -1092,83 +1076,6 @@ mod tests {
             &verifying_key,
             &SigningNamespace::ExampleNamespace
         ))
-    }
-
-    #[test]
-    fn test_account_key_rotation() {
-        let store: KeyStore<TestIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-
-        // Make the keys
-        let current_user_signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
-        let current_user_private_key_id =
-            ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-
-        // Get the rotated account keys
-        let rotated_keys = ctx
-            .dangerous_get_v2_rotated_account_keys(
-                current_user_private_key_id,
-                current_user_signing_key_id,
-            )
-            .unwrap();
-
-        // Public/Private key
-        assert_eq!(
-            PublicKey::from_der(&rotated_keys.public_key)
-                .unwrap()
-                .to_der()
-                .unwrap(),
-            ctx.get_private_key(current_user_private_key_id)
-                .unwrap()
-                .to_public_key()
-                .to_der()
-                .unwrap()
-        );
-        let decrypted_private_key: Vec<u8> = rotated_keys
-            .private_key
-            .decrypt_with_key(&rotated_keys.user_key)
-            .unwrap();
-        let private_key =
-            PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key)).unwrap();
-        assert_eq!(
-            private_key.to_der().unwrap(),
-            ctx.get_private_key(current_user_private_key_id)
-                .unwrap()
-                .to_der()
-                .unwrap()
-        );
-
-        // Signing Key
-        let decrypted_signing_key: Vec<u8> = rotated_keys
-            .signing_key
-            .decrypt_with_key(&rotated_keys.user_key)
-            .unwrap();
-        let signing_key =
-            SigningKey::from_cose(&CoseKeyBytes::from(decrypted_signing_key)).unwrap();
-        assert_eq!(
-            signing_key.to_cose(),
-            ctx.get_signing_key(current_user_signing_key_id)
-                .unwrap()
-                .to_cose(),
-        );
-
-        // Signed Public Key
-        let signed_public_key = rotated_keys.signed_public_key;
-        let unwrapped_key = signed_public_key
-            .verify_and_unwrap(
-                &ctx.get_signing_key(current_user_signing_key_id)
-                    .unwrap()
-                    .to_verifying_key(),
-            )
-            .unwrap();
-        assert_eq!(
-            unwrapped_key.to_der().unwrap(),
-            ctx.get_private_key(current_user_private_key_id)
-                .unwrap()
-                .to_public_key()
-                .to_der()
-                .unwrap()
-        );
     }
 
     #[test]

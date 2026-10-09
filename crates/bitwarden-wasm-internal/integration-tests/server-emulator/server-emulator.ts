@@ -9,7 +9,13 @@ import { IdentityServer } from "./identity-server";
 import { KeyConnectorServer } from "./key-connector-server";
 import { API_URL, IDENTITY_URL, KEY_CONNECTOR_URL } from "./urls";
 
-import { asEncString, asOrganizationId } from "../tests/type-assertion-helpers";
+import { asEncString, fromUuid } from "../tests/type-assertion-helpers";
+import {
+  toSeedAccount,
+  type PrivateKey,
+  type UserVector,
+  type VerifyingKey,
+} from "../vectors/load";
 
 import type {
   Cipher,
@@ -19,6 +25,10 @@ import type {
   InitUserCryptoMethod,
   Kdf,
   KeyId,
+  OrganizationId,
+  PublicKey,
+  SymmetricKey,
+  UserId,
   V2UpgradeToken,
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
@@ -38,11 +48,11 @@ export interface SeedAccount {
   /** The vector's slug, for error messages. */
   name: string;
   account: {
-    userId: string;
+    userId: UserId;
     email: string;
     kdf: Kdf;
     userKeyId?: KeyId;
-    securityVersion: number;
+    securityVersion?: number;
     accountCryptographicState: WrappedAccountCryptographicState;
     upgradeToken?: V2UpgradeToken;
     organizationKeys?: Record<string, string>;
@@ -50,11 +60,10 @@ export interface SeedAccount {
   unlockMethods: InitUserCryptoMethod[];
   /** Plaintext the account is defined by, and which must therefore never reach the server. */
   rawCryptographicState: {
-    userKey: string;
-    masterKey: string | null;
-    privateKey: string;
-    publicKey: string;
-    verifyingKey?: string | null;
+    userKey: SymmetricKey;
+    privateKey: PrivateKey;
+    publicKey: PublicKey;
+    verifyingKey?: VerifyingKey | null;
   };
   vault?: SeedVault;
 }
@@ -87,10 +96,10 @@ export interface SeedVault {
 
 /** An organization to seed, in the shape the committed test vectors record. */
 export interface SeedOrganization {
-  organizationId: string;
+  organizationId: OrganizationId;
   name: string;
-  publicKey: string;
-  wrappedPrivateKey: string;
+  publicKey?: PublicKey;
+  wrappedPrivateKey?: string;
   organizationKeyId?: string | null;
   members: {
     userEmail: string;
@@ -106,6 +115,14 @@ export interface SeededAccount {
   email: string;
   ciphers(): Cipher[];
   folders(): Folder[];
+}
+
+/** A seeded account, alongside the vector it was seeded from. */
+export interface SeededTestVector extends SeededAccount {
+  /** The vector, for the password and the plaintext it records. */
+  vector: UserVector;
+  /** The seed account the vector produced, for asserting what the account decrypts to. */
+  seed: SeedAccount;
 }
 
 export class ServerEmulator {
@@ -138,7 +155,7 @@ export class ServerEmulator {
     const raw = vector.rawCryptographicState;
 
     const user: UserEntity = {
-      userId: account.userId,
+      userId: fromUuid(account.userId),
       email: account.email,
       accountCryptographicState: account.accountCryptographicState,
       publicKey: raw.publicKey,
@@ -173,6 +190,21 @@ export class ServerEmulator {
   }
 
   /**
+   * Seeds a committed user vector.
+   *
+   * `modify` rewrites the seed account before it is stored, for a test that needs an account the
+   * vector does not record — a server that has not stored a key id yet, say.
+   */
+  seedUserTestVector(
+    vector: UserVector,
+    modify: (account: SeedAccount) => SeedAccount = (account) => account,
+  ): SeededTestVector {
+    const seed = modify(toSeedAccount(vector));
+
+    return { vector, seed, ...this.seedUser(seed) };
+  }
+
+  /**
    * Seeds an organization and its members.
    *
    * Members are named by email, as everything else in the harness is, and resolved against the
@@ -190,8 +222,11 @@ export class ServerEmulator {
       });
     }
 
-    this.db.organizations.set(vector.organizationId, {
-      organizationId: vector.organizationId,
+    // The database keys on strings; the seed carries the SDK's id type.
+    const organizationId = fromUuid(vector.organizationId);
+
+    this.db.organizations.set(organizationId, {
+      organizationId,
       name: vector.name,
       publicKey: vector.publicKey,
       wrappedPrivateKey: vector.wrappedPrivateKey,
@@ -202,9 +237,9 @@ export class ServerEmulator {
     for (const cipher of vector.vault?.ciphers ?? []) {
       this.db.ciphers.set(cipher.id, {
         userId: null,
-        organizationId: vector.organizationId,
+        organizationId,
         // The row and the model have to agree: the response is built from the model.
-        cipher: { ...cipher.encrypted, organizationId: asOrganizationId(vector.organizationId) },
+        cipher: { ...cipher.encrypted, organizationId: vector.organizationId },
       });
     }
   }
