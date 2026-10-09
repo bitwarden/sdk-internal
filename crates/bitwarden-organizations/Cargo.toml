@@ -16,7 +16,13 @@ keywords.workspace = true
 
 [features]
 uniffi = ["bitwarden-core/uniffi", "dep:uniffi"]
-wasm = ["bitwarden-ffi/wasm", "bitwarden-state/wasm", "dep:tsify", "dep:wasm-bindgen"]
+wasm = [
+    "bitwarden-core/wasm",
+    "bitwarden-ffi/wasm",
+    "bitwarden-state/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+]
 
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
