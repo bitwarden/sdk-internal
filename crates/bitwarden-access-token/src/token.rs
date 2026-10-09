@@ -3,8 +3,8 @@
 use std::fmt;
 
 use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, EncString, KeyDecryptable, KeySlotIds, KeyStoreContext,
-    SymmetricCryptoKey, derive_shareable_key,
+    BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeySlotIds,
+    KeyStoreContext, SymmetricCryptoKey, derive_shareable_key,
 };
 use bitwarden_encoding::{B64, NotB64EncodedError};
 use bitwarden_sensitive_value::SensitiveString;
@@ -20,7 +20,9 @@ use crate::{
 
 /// A parsed access token: the holder's recovered OAuth credential and the key derived from the
 /// token's seed. The derived key is private and only reaches a [`bitwarden_crypto::KeyStore`]
-/// through [`AccessToken::open_payload`], so raw key material never leaves this crate's API.
+/// through [`AccessToken::open_payload`], or is used directly to encrypt/decrypt arbitrary data
+/// via [`AccessToken::encrypt`] / [`AccessToken::decrypt`], so raw key material never leaves this
+/// crate's API.
 pub struct AccessToken {
     kind: AccessTokenKind,
     api_key_id: Uuid,
@@ -187,6 +189,28 @@ impl AccessToken {
         let local = ctx.add_local_symmetric_key(key);
         ctx.persist_symmetric_key(local, organization_key)?;
         Ok(())
+    }
+
+    /// The key derived from this token's seed. Crate-private: raw key material must stay behind
+    /// this crate's API ([`Self::open_payload`], [`Self::encrypt`], [`Self::decrypt`]).
+    pub(crate) fn derived_key(&self) -> &SymmetricCryptoKey {
+        &self.encryption_key
+    }
+
+    /// Encrypts `plaintext` under this token's derived key. `plaintext` must be valid UTF-8 (the
+    /// only encryption path this crate exposes publicly is byte-compatible with, but typed as,
+    /// text); callers persisting non-text data should encode it as UTF-8 text (e.g. JSON) first.
+    ///
+    /// Persistence-neutral: this crate does not know or care what `plaintext` means, or where the
+    /// resulting [`EncString`] is stored.
+    pub fn encrypt(&self, plaintext: &[u8]) -> Result<EncString, AccessTokenError> {
+        let text = std::str::from_utf8(plaintext).map_err(|_| CryptoError::InvalidUtf8String)?;
+        Ok(text.encrypt_with_key(self.derived_key())?)
+    }
+
+    /// Decrypts `ciphertext` with this token's derived key.
+    pub fn decrypt(&self, ciphertext: &EncString) -> Result<Vec<u8>, AccessTokenError> {
+        Ok(ciphertext.decrypt_with_key(self.derived_key())?)
     }
 }
 
@@ -422,5 +446,57 @@ mod tests {
         );
         assert!(debug_str.contains("AccessToken"));
         assert!(debug_str.contains("ec2c1d46-6a4b-4751-a310-af9601317f2d"));
+    }
+
+    fn sm_token() -> AccessToken {
+        AccessToken::parse(VALID_SM_TOKEN, AccessTokenKind::SecretsManager)
+            .expect("valid SM token must parse")
+    }
+
+    /// [`VALID_SM_TOKEN`]'s derived key, computed independently of [`AccessToken`], the way older
+    /// SDKs (which encrypted the state file directly under this key) did.
+    fn raw_derived_key() -> SymmetricCryptoKey {
+        let seed: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
+        let seed: Zeroizing<[u8; 16]> = Zeroizing::new(seed.as_bytes().try_into().unwrap());
+        SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
+            seed,
+            "accesstoken",
+            Some("sm-access-token"),
+        ))
+    }
+
+    #[test]
+    fn encrypt_then_decrypt_round_trips() {
+        let token = sm_token();
+        let encrypted = token.encrypt(b"plaintext bytes").expect("encrypt");
+        let decrypted = token.decrypt(&encrypted).expect("decrypt");
+        assert_eq!(decrypted, b"plaintext bytes");
+    }
+
+    /// Data this crate encrypts must stay readable by older SDKs, which decrypt a `String`
+    /// directly with the raw derived key (no key store involved).
+    #[test]
+    fn encrypt_output_decrypts_with_the_raw_derived_key() {
+        let token = sm_token();
+        let encrypted = token.encrypt(b"a-jwt").expect("encrypt");
+
+        let decrypted: String = encrypted
+            .decrypt_with_key(&raw_derived_key())
+            .expect("decrypt_with_key");
+        assert_eq!(decrypted, "a-jwt");
+    }
+
+    /// Data older SDKs wrote (a `String` encrypted directly under the raw derived key) must still
+    /// decrypt through this crate's API.
+    #[test]
+    fn decrypt_reads_data_encrypted_with_the_raw_derived_key() {
+        let token = sm_token();
+        let encrypted: EncString = "a-jwt"
+            .to_string()
+            .encrypt_with_key(&raw_derived_key())
+            .expect("encrypt_with_key");
+
+        let decrypted = token.decrypt(&encrypted).expect("decrypt");
+        assert_eq!(decrypted, b"a-jwt");
     }
 }

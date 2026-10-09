@@ -107,8 +107,7 @@ impl MiddlewareExt for SecretsManagerTokenHandler {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
+    use bitwarden_access_token::AccessTokenKind;
     use bitwarden_api_api::apis::AuthRequired;
     use bitwarden_core::{auth::AccessToken, client::login_method::ServiceAccountLoginMethod};
     use bitwarden_state::registry::StateRegistry;
@@ -118,8 +117,9 @@ mod tests {
     use crate::token_management::test_utils::*;
 
     fn service_account_login_method() -> ServiceAccountLoginMethod {
-        let access_token = AccessToken::from_str(
+        let access_token = AccessToken::parse(
             "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==",
+            AccessTokenKind::SecretsManager,
         )
         .unwrap();
 

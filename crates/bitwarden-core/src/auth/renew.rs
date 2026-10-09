@@ -1,5 +1,9 @@
 #[cfg(feature = "secrets")]
+use bitwarden_access_token::ExportedKey;
+#[cfg(feature = "secrets")]
 use bitwarden_crypto::KeyStore;
+#[cfg(feature = "secrets")]
+use bitwarden_sensitive_value::ExposeSensitive as _;
 
 use super::login::LoginError;
 use crate::{
@@ -11,8 +15,7 @@ use crate::{
 use crate::{
     auth::api::request::AccessTokenRequest,
     client::ServiceAccountLoginMethod,
-    key_management::KeySlotIds,
-    key_management::SymmetricKeySlotId,
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     secrets_manager::state::{self, ClientState},
 };
 
@@ -64,17 +67,24 @@ pub async fn renew_sm_token_sdk_managed(
             state_file,
             ..
         } => {
-            let result =
-                AccessTokenRequest::new(access_token.access_token_id, &access_token.client_secret)
-                    .send(&identity_config)
-                    .await?;
+            let result = AccessTokenRequest::new(
+                access_token.api_key_id(),
+                access_token.client_secret().expose(),
+            )
+            .send(&identity_config)
+            .await?;
 
             if let (IdentityTokenResponse::Payload(r), Some(state_file)) = (&result, state_file) {
-                let ctx = key_store.context();
-                #[allow(deprecated)]
-                if let Ok(enc_key) = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User) {
-                    let state = ClientState::new(r.access_token.clone(), enc_key.to_base64());
-                    _ = state::set(state_file, access_token, state);
+                // Service accounts never populate `User`, so this write silently does nothing.
+                // Pre-existing behaviour, kept unchanged here.
+                if let Ok(key) =
+                    ExportedKey::from_slot(&key_store.context(), SymmetricKeySlotId::User)
+                {
+                    _ = state::set(
+                        state_file,
+                        access_token,
+                        &ClientState::new(r.access_token.clone(), key),
+                    );
                 }
             }
 

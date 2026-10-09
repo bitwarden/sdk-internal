@@ -608,6 +608,7 @@ name = "bitwarden-auth"
 version = "4.0.0"
 dependencies = [
  "async-trait",
+ "bitwarden-access-token",
  "bitwarden-api-api",
  "bitwarden-api-identity",
  "bitwarden-api-key-connector",
@@ -695,6 +696,7 @@ name = "bitwarden-core"
 version = "4.0.0"
 dependencies = [
  "async-trait",
+ "bitwarden-access-token",
  "bitwarden-api-api",
  "bitwarden-api-base",
  "bitwarden-api-identity",
@@ -707,6 +709,7 @@ dependencies = [
  "bitwarden-logging",
  "bitwarden-managed-settings-types",
  "bitwarden-random",
+ "bitwarden-sensitive-value",
  "bitwarden-state",
  "bitwarden-state-bridge-macro",
  "bitwarden-test",

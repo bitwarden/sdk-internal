@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use bitwarden_crypto::{BitwardenLegacyKeyBytes, EncString, KeyDecryptable, SymmetricCryptoKey};
-use bitwarden_encoding::B64;
+use bitwarden_access_token::{AccessTokenKind, ExportedKey};
+use bitwarden_sensitive_value::ExposeSensitive as _;
 use chrono::Utc;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,7 @@ use crate::{
         login::{PasswordLoginResponse, response::two_factor::TwoFactorProviders},
     },
     client::{LoginMethod, ServiceAccountLoginMethod},
+    key_management::SymmetricKeySlotId,
     require,
     secrets_manager::state::{self, ClientState},
 };
@@ -26,7 +27,7 @@ pub(crate) async fn login_access_token(
     //info!("api key logging in");
     //debug!("{:#?}, {:#?}", client, input);
 
-    let access_token: AccessToken = input.access_token.parse()?;
+    let access_token = AccessToken::parse(&input.access_token, AccessTokenKind::SecretsManager)?;
 
     if let Some(state_file) = &input.state_file
         && let Ok(organization_id) = load_tokens_from_state(client, state_file, &access_token).await
@@ -53,32 +54,28 @@ pub(crate) async fn login_access_token(
     let response = request_access_token(client, &access_token).await?;
 
     if let IdentityTokenResponse::Payload(r) = &response {
-        // Extract the encrypted payload and use the access token encryption key to decrypt it
-        let payload: EncString = r.encrypted_payload.parse()?;
-
-        let decrypted_payload: Vec<u8> = payload.decrypt_with_key(&access_token.encryption_key)?;
-
-        // Once decrypted, we have to JSON decode to extract the organization encryption key
-        #[derive(serde::Deserialize)]
-        struct Payload {
-            #[serde(rename = "encryptionKey")]
-            encryption_key: B64,
-        }
-
-        let payload: Payload = serde_json::from_slice(&decrypted_payload)?;
-        let encryption_key = BitwardenLegacyKeyBytes::from(&payload.encryption_key);
-        let encryption_key = SymmetricCryptoKey::try_from(&encryption_key)?;
-
         let access_token_obj: JwtToken = r.access_token.parse()?;
 
         // This should always be Some() when logging in with an access token
-        let organization_id = require!(access_token_obj.organization)
+        let organization_id: OrganizationId = require!(access_token_obj.organization)
             .parse()
             .map_err(|_| LoginError::InvalidResponse)?;
+        let organization_key_id = SymmetricKeySlotId::Organization(organization_id);
+
+        // The payload holds the organization key, encrypted under the access token's key
+        let key_store = client.internal.get_key_store();
+        access_token.open_payload(
+            &mut key_store.context_mut(),
+            &r.encrypted_payload,
+            organization_key_id,
+        )?;
 
         if let Some(state_file) = &input.state_file {
-            let state = ClientState::new(r.access_token.clone(), payload.encryption_key);
-            _ = state::set(state_file, &access_token, state);
+            let new_state = ClientState::new(
+                r.access_token.clone(),
+                ExportedKey::from_slot(&key_store.context(), organization_key_id)?,
+            );
+            _ = state::set(state_file, &access_token, &new_state);
         }
 
         client
@@ -89,10 +86,6 @@ pub(crate) async fn login_access_token(
                 r.expires_in,
             )
             .await;
-
-        client
-            .internal
-            .initialize_crypto_single_org_key(organization_id, encryption_key);
 
         client
             .internal
@@ -114,7 +107,7 @@ async fn request_access_token(
     input: &AccessToken,
 ) -> Result<IdentityTokenResponse, LoginError> {
     let config = client.internal.get_api_configurations();
-    AccessTokenRequest::new(input.access_token_id, &input.client_secret)
+    AccessTokenRequest::new(input.api_key_id(), input.client_secret().expose())
         .send(&config.identity_config)
         .await
 }
@@ -124,9 +117,8 @@ async fn load_tokens_from_state(
     state_file: &Path,
     access_token: &AccessToken,
 ) -> Result<OrganizationId, LoginError> {
-    let client_state = state::get(state_file, access_token)?;
-
-    let token: JwtToken = client_state.token.parse()?;
+    let state = state::get(state_file, access_token)?;
+    let token: JwtToken = state.token.parse()?;
 
     if let Some(organization_id) = token.organization {
         let time_till_expiration = (token.exp as i64) - Utc::now().timestamp();
@@ -135,15 +127,17 @@ async fn load_tokens_from_state(
             let organization_id: OrganizationId = organization_id
                 .parse()
                 .map_err(|_| LoginError::InvalidOrganizationId)?;
-            let encryption_key = SymmetricCryptoKey::try_from(client_state.encryption_key)?;
 
             client
                 .internal
-                .set_tokens(client_state.token, None, time_till_expiration as u64)
+                .set_tokens(state.token.clone(), None, time_till_expiration as u64)
                 .await;
-            client
-                .internal
-                .initialize_crypto_single_org_key(organization_id, encryption_key);
+
+            let key_store = client.internal.get_key_store();
+            state.encryption_key.install(
+                &mut key_store.context_mut(),
+                SymmetricKeySlotId::Organization(organization_id),
+            )?;
 
             return Ok(organization_id);
         }

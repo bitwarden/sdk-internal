@@ -57,6 +57,8 @@ pub enum LoginError {
     #[error(transparent)]
     AccessTokenInvalid(#[from] super::AccessTokenInvalidError),
     #[error(transparent)]
+    AccessTokenPayload(#[from] bitwarden_access_token::AccessTokenError),
+    #[error(transparent)]
     NotAuthenticated(#[from] super::NotAuthenticatedError),
     #[cfg(feature = "secrets")]
     #[error(transparent)]

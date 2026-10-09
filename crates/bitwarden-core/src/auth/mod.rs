@@ -6,7 +6,6 @@ use thiserror::Error;
 
 use crate::{NotAuthenticatedError, WrongPasswordError};
 
-mod access_token;
 // API is intentionally not visible outside of `auth` as these should be considered private.
 mod api;
 #[cfg(feature = "internal")]
@@ -25,8 +24,8 @@ pub mod password;
 pub mod pin;
 #[doc(hidden)]
 pub mod renew;
-pub use access_token::{AccessToken, AccessTokenInvalidError};
 pub use auth_tokens::{ClientManagedTokenHandler, ClientManagedTokens, TokenHandler};
+pub use bitwarden_access_token::{AccessToken, AccessTokenInvalidError};
 pub use jwt_token::*;
 
 #[cfg(feature = "internal")]

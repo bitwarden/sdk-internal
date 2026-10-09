@@ -2,9 +2,8 @@
 
 Minting, wire format, and opening of access-token credentials: one-time tokens that let an
 unattended client authenticate and recover an organization key, without a human ever handling the
-key directly. Supports two [`AccessTokenKind`]s: the PAM access connector, and Secrets Manager. The
-Secrets Manager kind's key derivation matches the web vault's and `bitwarden-core`'s existing access
-tokens, so a token minted by either derives the same key here.
+key directly. Supports two [`AccessTokenKind`]s: the PAM access connector, and Secrets Manager's
+access-token format, which `bitwarden-core::auth::AccessToken` parses through this crate.
 
 ## Format
 
@@ -44,3 +43,18 @@ Opening ([`AccessToken::open_payload`]) reverses the first half: given the token
 re-derived key) and the `encrypted_payload` string the server returned, it recovers the organization
 key and installs it at the caller-supplied slot in a [`bitwarden_crypto::KeyStoreContext`] — the raw
 key material never leaves this crate.
+
+## Encrypting arbitrary data
+
+[`AccessToken::encrypt`] / [`AccessToken::decrypt`] encrypt and decrypt arbitrary (UTF-8) bytes
+under the token's derived key, for callers that want to cache their own data next to an access token
+(e.g. Secrets Manager's state file). This crate is persistence-neutral: it has no opinion on the
+plaintext's shape, versioning, or where it's stored — that belongs to the caller.
+
+## `ExportedKey`
+
+[`ExportedKey`] lets a caller take an organization key out of a
+[`bitwarden_crypto::KeyStoreContext`] ([`ExportedKey::from_slot`]) and cache it (e.g. serialized
+next to an [`AccessToken::encrypt`]ed state file) without ever handling the raw key bytes, then
+later install it back into a key store ([`ExportedKey::install`]). It serializes to the same base64
+string [`bitwarden_crypto::SymmetricCryptoKey::to_base64`] produces.

@@ -1,30 +1,27 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
-    EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
+    EncString, Kdf, MasterKey, PinKey, SymmetricCryptoKey, UnsignedSharedKey,
+    safe::PasswordProtectedKeyEnvelope,
 };
 use bitwarden_managed_settings_types::ManagementProfile;
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info};
 
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::client::login_method::LoginMethod;
 use crate::{
     DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
     key_management::KeySlotIds,
 };
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::{
-    OrganizationId, client::encryption_settings::EncryptionSettings,
-    client::login_method::LoginMethod,
-};
 #[cfg(feature = "internal")]
 use crate::{
+    OrganizationId,
     client::{
-        encryption_settings::EncryptionSettingsError,
+        encryption_settings::{EncryptionSettings, EncryptionSettingsError},
         login_method::UserLoginMethod,
         persisted_state::{USER_ID, USER_LOGIN_METHOD},
     },
@@ -377,15 +374,6 @@ impl InternalClient {
             account_crypto_state,
             upgrade_token,
         )
-    }
-
-    #[cfg(feature = "secrets")]
-    pub(crate) fn initialize_crypto_single_org_key(
-        &self,
-        organization_id: OrganizationId,
-        key: SymmetricCryptoKey,
-    ) {
-        EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
     }
 
     #[allow(missing_docs)]

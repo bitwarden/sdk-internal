@@ -61,6 +61,7 @@ test-fixtures = ["bitwarden-test"]
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-access-token = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-base = { workspace = true }
 bitwarden-api-identity = { workspace = true }
@@ -73,6 +74,7 @@ bitwarden-ffi = { workspace = true }
 bitwarden-logging = { workspace = true }
 bitwarden-managed-settings-types = { workspace = true }
 bitwarden-random = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-state-bridge-macro = { workspace = true }
 bitwarden-test = { workspace = true, optional = true }
