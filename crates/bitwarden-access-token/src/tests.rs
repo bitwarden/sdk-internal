@@ -1,10 +1,9 @@
 //! Combined mint → parse → open round-trip tests, and anything else that exercises both halves of
 //! the format. Per-field parsing and minting edge cases live next to the code they test, in
-//! `token.rs`.
+//! `token.rs`. Crypto-only mint/open coverage (no wire format) lives in
+//! `bitwarden-access-token-crypto`.
 
-use bitwarden_crypto::{
-    Decryptable, KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm, key_slot_ids,
-};
+use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm, key_slot_ids};
 use bitwarden_sensitive_value::ExposeSensitive as _;
 use uuid::{Uuid, uuid};
 
@@ -52,7 +51,8 @@ fn api_key_id() -> Uuid {
 
 /// A token holder re-derives the key from the token's seed alone, then opens `encrypted_payload`
 /// to recover the organization key. Walks the whole path so a mint/parse/open drift fails here, for
-/// both machine-client kinds.
+/// both machine-client kinds. This is the end-to-end test proving the parse→derive wiring between
+/// this crate and `bitwarden-access-token-crypto`.
 #[test]
 fn mint_then_parse_then_open_round_trip() {
     for kind in [
@@ -116,56 +116,4 @@ fn the_token_has_the_format_parse_expects() {
     // The format requires exactly 16 bytes; a different length is rejected at parse time.
     let seed: bitwarden_encoding::B64 = seed_b64.parse().expect("the suffix is base64");
     assert_eq!(seed.as_bytes().len(), 16);
-}
-
-/// The `key` field is not read by `open_payload`, so a mistake in it would go unnoticed until an
-/// organization-key rotation.
-#[test]
-fn the_key_field_wraps_the_derived_key_under_the_organization_key() {
-    let (issuer_store, _org_key) = store_with_org_key();
-
-    let secrets = {
-        let mut ctx = issuer_store.context_mut();
-        make_access_token_secrets(
-            &mut ctx,
-            TestSymmSlotId::Organization,
-            AccessTokenKind::AccessConnector,
-        )
-        .expect("mint secrets")
-    };
-    let key_field = secrets.key.clone();
-    let token_str = secrets.into_token(api_key_id(), "secret");
-
-    let mut ctx = issuer_store.context();
-    let wrapped: String = key_field
-        .decrypt(&mut ctx, TestSymmSlotId::Organization)
-        .expect("the org key unwraps the key field");
-
-    let token =
-        AccessToken::parse(&token_str, AccessTokenKind::AccessConnector).expect("the token parses");
-    assert_eq!(
-        wrapped,
-        token.encryption_key_b64_for_tests(),
-        "the key field must hold the same derived key the token produces"
-    );
-}
-
-/// Each registration must mint fresh material, or two holders would share a key and revoking one
-/// would not lock out the other.
-#[test]
-fn each_registration_generates_a_distinct_seed() {
-    let (issuer_store, _org_key) = store_with_org_key();
-
-    let mint = || {
-        let mut ctx = issuer_store.context_mut();
-        make_access_token_secrets(
-            &mut ctx,
-            TestSymmSlotId::Organization,
-            AccessTokenKind::AccessConnector,
-        )
-        .expect("mint secrets")
-        .into_token(api_key_id(), "secret")
-    };
-
-    assert_ne!(mint(), mint());
 }

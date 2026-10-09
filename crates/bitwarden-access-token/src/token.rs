@@ -2,21 +2,14 @@
 
 use std::fmt;
 
-use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, EncString, KeyDecryptable, KeySlotIds, KeyStoreContext,
-    SymmetricCryptoKey, derive_shareable_key,
-};
+use bitwarden_access_token_crypto::{AccessTokenError, AccessTokenKey, AccessTokenSeed};
+use bitwarden_crypto::{KeySlotIds, KeyStoreContext};
 use bitwarden_encoding::{B64, NotB64EncodedError};
 use bitwarden_sensitive_value::SensitiveString;
-use serde::Deserialize;
 use thiserror::Error;
 use uuid::Uuid;
-use zeroize::Zeroizing;
 
-use crate::{
-    AccessTokenError, AccessTokenKind,
-    consts::{DERIVE_NAME, TOKEN_VERSION},
-};
+use crate::{AccessTokenKind, consts::TOKEN_VERSION};
 
 /// A parsed access token: the holder's recovered OAuth credential and the key derived from the
 /// token's seed. The derived key is private and only reaches a [`bitwarden_crypto::KeyStore`]
@@ -25,7 +18,7 @@ pub struct AccessToken {
     kind: AccessTokenKind,
     api_key_id: Uuid,
     client_secret: SensitiveString,
-    encryption_key: SymmetricCryptoKey,
+    key: AccessTokenKey,
 }
 
 // Redacts the secret and the derived key; only the kind and identifier are safe to log.
@@ -108,24 +101,19 @@ impl AccessToken {
             .parse()
             .map_err(|_| AccessTokenInvalidError::InvalidUuid)?;
 
-        let seed: B64 = seed_b64.parse()?;
-        let seed: Zeroizing<[u8; 16]> =
-            Zeroizing::new(seed.as_bytes().try_into().map_err(|_| {
-                AccessTokenInvalidError::InvalidLength {
-                    expected: 16,
-                    got: seed.as_bytes().len(),
-                }
-            })?);
+        let seed_b64: B64 = seed_b64.parse()?;
+        let seed = AccessTokenSeed::try_from(seed_b64.as_bytes()).map_err(|e| {
+            AccessTokenInvalidError::InvalidLength {
+                expected: e.expected,
+                got: e.got,
+            }
+        })?;
 
         Ok(Self {
             kind: expected,
             api_key_id,
             client_secret: SensitiveString::from(client_secret),
-            encryption_key: SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
-                seed,
-                DERIVE_NAME,
-                Some(expected.derive_info()),
-            )),
+            key: AccessTokenKey::derive(&seed, expected.key_purpose()),
         })
     }
 
@@ -163,39 +151,8 @@ impl AccessToken {
         encrypted_payload: &str,
         organization_key: Ids::Symmetric,
     ) -> Result<(), AccessTokenError> {
-        let encrypted_payload: EncString = encrypted_payload
-            .parse()
-            .map_err(|_| AccessTokenError::InvalidPayload)?;
-
-        let decrypted: Vec<u8> = encrypted_payload
-            .decrypt_with_key(&self.encryption_key)
-            .map_err(|_| AccessTokenError::InvalidPayload)?;
-
-        #[derive(Deserialize)]
-        struct Payload {
-            #[serde(rename = "encryptionKey")]
-            encryption_key: B64,
-        }
-
-        let payload: Payload =
-            serde_json::from_slice(&decrypted).map_err(|_| AccessTokenError::InvalidPayload)?;
-
-        let key_bytes = BitwardenLegacyKeyBytes::from(&payload.encryption_key);
-        let key = SymmetricCryptoKey::try_from(&key_bytes)
-            .map_err(|_| AccessTokenError::InvalidOrgKey)?;
-
-        let local = ctx.add_local_symmetric_key(key);
-        ctx.persist_symmetric_key(local, organization_key)?;
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-impl AccessToken {
-    /// Test-only accessor for the derived key's base64, since `encryption_key` is otherwise private
-    /// so it never leaves the key store in production code paths.
-    pub(crate) fn encryption_key_b64_for_tests(&self) -> String {
-        self.encryption_key.to_base64().to_string()
+        self.key
+            .open_payload(ctx, encrypted_payload, organization_key)
     }
 }
 
@@ -209,21 +166,13 @@ mod tests {
     /// The same test vector, in Secrets Manager's own three-part format (no client-kind segment).
     const VALID_SM_TOKEN: &str = "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    /// Known-answer derived key for [`VALID_SM_TOKEN`], under Secrets Manager's `derive_info`.
-    const EXPECTED_KEY_B64: &str =
-        "H9/oIRLtL9nGCQOVDjSMoEbJsjWXSOCb3qeyDt6ckzS3FhyboEDWyTP/CQfbIszNmAVg2ExFganG1FVFGXO/Jg==";
-
-    /// Known-answer derived key for [`VALID_TOKEN`], under the access connector's own
-    /// `derive_info`. Differs from [`EXPECTED_KEY_B64`] even though both vectors share the same
-    /// seed, because the two kinds derive with different HKDF info.
-    const EXPECTED_ACCESS_CONNECTOR_KEY_B64: &str =
-        "wshEbn7hhFOElbmxzNR4tpotgxjXhowvZH7xSbcpz03yV2cZmNE2/bdkhbzObwt7+mK/oHm+sryfUCXHe1N8pw==";
-
     fn parse_valid() -> AccessToken {
         AccessToken::parse(VALID_TOKEN, AccessTokenKind::AccessConnector)
             .expect("valid token must parse")
     }
 
+    /// The derived key's bytes are covered by `bitwarden-access-token-crypto`'s known-answer
+    /// tests; this only checks the wire-format fields `parse` is responsible for.
     #[test]
     fn valid_token_round_trip() {
         let token = parse_valid();
@@ -236,10 +185,6 @@ mod tests {
         assert_eq!(
             token.client_secret().expose(),
             "C2IgxjjLF7qSshsbwe8JGcbM075YXw"
-        );
-        assert_eq!(
-            token.encryption_key_b64_for_tests(),
-            EXPECTED_ACCESS_CONNECTOR_KEY_B64
         );
     }
 
@@ -337,26 +282,10 @@ mod tests {
         ));
     }
 
-    /// Same seed, different kind, different key — confirms `derive_info` actually separates the
-    /// two kinds' key spaces rather than both collapsing onto the shared `DERIVE_NAME` salt.
-    #[test]
-    fn access_connector_and_sm_derive_different_keys_from_the_same_seed() {
-        let ac_token = AccessToken::parse(VALID_TOKEN, AccessTokenKind::AccessConnector)
-            .expect("valid token must parse");
-        let sm_token = AccessToken::parse(VALID_SM_TOKEN, AccessTokenKind::SecretsManager)
-            .expect("valid token must parse");
-
-        assert_ne!(
-            ac_token.encryption_key_b64_for_tests(),
-            sm_token.encryption_key_b64_for_tests()
-        );
-    }
-
     #[test]
     fn sm_token_matches_the_known_answer() {
         let token = AccessToken::parse(VALID_SM_TOKEN, AccessTokenKind::SecretsManager)
             .expect("valid SM token must parse");
-        assert_eq!(token.encryption_key_b64_for_tests(), EXPECTED_KEY_B64);
         assert_eq!(token.client_id(), "ec2c1d46-6a4b-4751-a310-af9601317f2d");
         use bitwarden_sensitive_value::ExposeSensitive as _;
         assert_eq!(

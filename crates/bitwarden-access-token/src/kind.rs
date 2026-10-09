@@ -1,5 +1,7 @@
 //! The client-kind segment of an access token.
 
+use bitwarden_access_token_crypto::KeyPurpose;
+
 /// Which kind of unattended client a [`crate::AccessToken`] authenticates. Each variant's
 /// [`segment`](AccessTokenKind::segment) is the token's `<client-kind>` wire segment and must
 /// match the issuing server's provider prefix for that client, or tokens parse but cannot
@@ -23,13 +25,13 @@ impl AccessTokenKind {
         }
     }
 
-    /// The HKDF `info` parameter for this kind's key derivation. `SecretsManager`'s must stay
+    /// The key-derivation purpose for this kind. `SecretsManager`'s string must stay
     /// byte-identical with the clients' web vault, which mints Secrets Manager access tokens
     /// independently of this crate.
-    pub(crate) fn derive_info(&self) -> &'static str {
+    pub fn key_purpose(&self) -> KeyPurpose {
         match self {
-            Self::AccessConnector => "access-connector",
-            Self::SecretsManager => "sm-access-token",
+            Self::AccessConnector => KeyPurpose::new("access-connector"),
+            Self::SecretsManager => KeyPurpose::new("sm-access-token"),
         }
     }
 }
@@ -45,6 +47,26 @@ mod tests {
         assert_eq!(
             AccessTokenKind::AccessConnector.segment(),
             Some("access-connector")
+        );
+    }
+
+    /// Secrets Manager's three-part format has no client-kind segment.
+    #[test]
+    fn secrets_manager_has_no_segment() {
+        assert_eq!(AccessTokenKind::SecretsManager.segment(), None);
+    }
+
+    /// Both purposes are pinned by equality: changing either string would silently change which
+    /// key already-issued tokens of that kind derive.
+    #[test]
+    fn key_purposes_are_pinned() {
+        assert_eq!(
+            AccessTokenKind::SecretsManager.key_purpose(),
+            KeyPurpose::new("sm-access-token")
+        );
+        assert_eq!(
+            AccessTokenKind::AccessConnector.key_purpose(),
+            KeyPurpose::new("access-connector")
         );
     }
 }

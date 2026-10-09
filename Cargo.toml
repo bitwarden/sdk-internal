@@ -26,6 +26,7 @@ aes-gcm = { version = "0.11.0", features = ["zeroize"] }
 anyhow = ">=1.0, <2.0"
 async-trait = ">=0.1.80, <0.2"
 bitwarden-access-token = { path = "crates/bitwarden-access-token", version = "=4.0.0" }
+bitwarden-access-token-crypto = { path = "crates/bitwarden-access-token-crypto", version = "=4.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=4.0.0" }
 bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=4.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=4.0.0" }
