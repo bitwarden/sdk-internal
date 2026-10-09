@@ -32,6 +32,9 @@ import {
 
 import type { StoredMasterPasswordUnlock, UserEntity } from "./entities";
 
+/** How long an issued access token stays valid, as the identity service reports it. */
+const TOKEN_LIFETIME_SECONDS = 3600;
+
 /** The server's numeric `KdfType`. */
 export const KdfType = { pbkdf2Sha256: 0, argon2id: 1 } as const;
 export type KdfTypeValue = (typeof KdfType)[keyof typeof KdfType];
@@ -591,6 +594,72 @@ export class MasterPasswordUnlockResponse {
       containedKeyId: unlock.containedKeyId ?? undefined,
     };
   }
+}
+
+/** `PasswordPreloginRequestModel` — the body of `POST /accounts/prelogin/password`. */
+export class PasswordPreloginRequest {
+  email!: string;
+}
+
+/** `PasswordPreloginResponseModel`. */
+export class PasswordPreloginResponse {
+  // PM-28143: legacy flat KDF fields, removed with the cleanup
+  kdf?: KdfTypeValue;
+  kdfIterations?: number;
+  kdfMemory?: number;
+  kdfParallelism?: number;
+
+  kdfSettings?: KdfModel;
+  salt?: string;
+
+  /** The server echoes the request email as salt until PM-28143. */
+  static fromUser(user: UserEntity, email: string): PasswordPreloginResponse {
+    const kdfSettings = KdfModel.fromKdf(user.kdf);
+
+    return {
+      kdf: kdfSettings.kdfType,
+      kdfIterations: kdfSettings.iterations,
+      kdfMemory: kdfSettings.memory,
+      kdfParallelism: kdfSettings.parallelism,
+      kdfSettings,
+      salt: email,
+    };
+  }
+}
+
+/** `LoginSuccessResponseModel`. The access token is the user id, as other services expect. */
+export class TokenResponse {
+  access_token!: string;
+  expires_in!: number;
+  token_type!: string;
+  scope!: string;
+  Key?: string;
+  PrivateKey?: string;
+  AccountKeys?: AccountKeysResponse;
+  UserDecryptionOptions!: { MasterPasswordUnlock?: MasterPasswordUnlockResponse };
+
+  static forUser(user: UserEntity): TokenResponse {
+    const unlock = user.masterPasswordUnlock;
+
+    return {
+      access_token: user.userId,
+      expires_in: TOKEN_LIFETIME_SECONDS,
+      token_type: "Bearer",
+      scope: "api offline_access",
+      Key: unlock?.masterKeyWrappedUserKey,
+      PrivateKey: AccountKeysResponse.wrappedPrivateKeyOf(user),
+      AccountKeys: AccountKeysResponse.fromUser(user),
+      UserDecryptionOptions: {
+        MasterPasswordUnlock: unlock ? MasterPasswordUnlockResponse.fromStored(unlock) : undefined,
+      },
+    };
+  }
+}
+
+/** OAuth2 error, as the token endpoint answers. */
+export class OAuth2ErrorResponse {
+  error!: string;
+  error_description!: string;
 }
 
 /** `V2UpgradeTokenResponseModel`. */

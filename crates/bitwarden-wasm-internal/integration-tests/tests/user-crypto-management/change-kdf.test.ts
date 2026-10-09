@@ -1,5 +1,6 @@
 import { Kdf, isChangeKdfError } from "@bitwarden/sdk-internal";
 
+import { LoginMethod } from "../../client-emulator/client-emulator";
 import { validateVault } from "../../client-emulator/validate";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { testVectors } from "../../vectors/test-vectors";
@@ -33,7 +34,7 @@ describe("change kdf", () => {
       async (vector) => {
         const seeded = harness.server.seedUserTestVector(vector);
         const client = harness.newClientEmulator();
-        await client.login(seeded.email);
+        await client.login(seeded.email, LoginMethod.Password, vector.account.password);
         await client.unlock(vector.account.password);
 
         const passwordManagerClient = client.getPasswordManagerClient();
@@ -52,7 +53,7 @@ describe("change kdf", () => {
 
         // 3. Verify server state is fine: Sync from new client and unlock
         const reloginClient = harness.newClientEmulator();
-        await reloginClient.login(seeded.email);
+        await reloginClient.login(seeded.email, LoginMethod.Password, password);
         await reloginClient.unlock(password);
         const reloginSdk = reloginClient.getPasswordManagerClient();
 
@@ -90,17 +91,17 @@ describe("change kdf", () => {
       // 1. Two unlocked clients, and a kdf change by the first
       const seeded = harness.server.seedUserTestVector(V1_VECTOR);
       const client = harness.newClientEmulator();
-      await client.login(seeded.email);
-      await client.unlock(V1_VECTOR.account.password);
+      await client.login(seeded.email, LoginMethod.Password, seeded.vector.account.password);
+      await client.unlock(seeded.vector.account.password);
 
       const second = harness.newClientEmulator();
-      await second.login(seeded.email);
-      await second.unlock(V1_VECTOR.account.password);
+      await second.login(seeded.email, LoginMethod.Password, seeded.vector.account.password);
+      await second.unlock(seeded.vector.account.password);
 
       await client
         .getPasswordManagerClient()
         .user_crypto_management()
-        .change_kdf(V1_VECTOR.account.password, NEW_PBKDF2);
+        .change_kdf(seeded.vector.account.password, NEW_PBKDF2);
       // Sync is triggered by a push notification usually. In this case we do it manually
       // because push notifications are not implemented in the emulator.
       await second.sync(seeded.email);
@@ -109,7 +110,7 @@ describe("change kdf", () => {
       // 2. The second session locks and unlocks, picking up the new kdf and unlock data the sync
       //    brought down
       await second.lock();
-      await second.unlock(V1_VECTOR.account.password);
+      await second.unlock(seeded.vector.account.password);
 
       // 3. Verify the vault reads, with the plaintext unchanged
       await validateVault(second, seeded.seed);
@@ -123,15 +124,15 @@ describe("change kdf", () => {
       async () => {
         const seeded = harness.server.seedUserTestVector(V1_VECTOR);
         const client = harness.newClientEmulator();
-        await client.login(seeded.email);
-        await client.unlock(V1_VECTOR.account.password);
+        await client.login(seeded.email, LoginMethod.Password, seeded.vector.account.password);
+        await client.unlock(seeded.vector.account.password);
 
         // 1. Change the KDF to settings the SDK must refuse before asking the server
         const error = await rejection(
           client
             .getPasswordManagerClient()
             .user_crypto_management()
-            .change_kdf(V1_VECTOR.account.password, BELOW_MINIMUM),
+            .change_kdf(seeded.vector.account.password, BELOW_MINIMUM),
           isChangeKdfError,
         );
 

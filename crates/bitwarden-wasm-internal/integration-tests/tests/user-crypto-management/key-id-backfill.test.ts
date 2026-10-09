@@ -1,6 +1,6 @@
 import { isKeyIdBackfillError } from "@bitwarden/sdk-internal";
 
-import type { ClientEmulator } from "../../client-emulator/client-emulator";
+import { LoginMethod, type ClientEmulator } from "../../client-emulator/client-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { asKeyId } from "../type-assertion-helpers";
 import { testVectors } from "../../vectors/test-vectors";
@@ -32,7 +32,7 @@ describe("user key id backfill", () => {
     const { email } = harness.server.seedUserTestVector(V2_VECTOR);
 
     const client = harness.newClientEmulator();
-    await client.login(email);
+    await client.login(email, LoginMethod.ForceLogin);
     await client.unlockWithUserKey(V2_USER_KEY);
 
     return client;
@@ -40,11 +40,11 @@ describe("user key id backfill", () => {
 
   /** Logs in and unlocks the V1 master-password account, whose user key carries no key id. */
   async function loginV1(): Promise<ClientEmulator> {
-    const { email } = harness.server.seedUserTestVector(V1_VECTOR);
+    const { email, vector } = harness.server.seedUserTestVector(V1_VECTOR);
 
     const client = harness.newClientEmulator();
-    await client.login(email);
-    await client.unlock(V1_VECTOR.account.password);
+    await client.login(email, LoginMethod.Password, vector.account.password);
+    await client.unlock(vector.account.password);
 
     return client;
   }
@@ -111,7 +111,7 @@ describe("user key id backfill", () => {
 
         // 5. Verify a new client that only syncs sees the server's key id
         const returning = harness.newClientEmulator();
-        await returning.login(email);
+        await returning.login(email, LoginMethod.ForceLogin);
         expect(await returning.bridge.get_user_key_id()).toEqual(recorded);
       },
       TIMEOUT,

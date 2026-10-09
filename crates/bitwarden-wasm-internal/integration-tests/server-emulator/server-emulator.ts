@@ -58,6 +58,12 @@ export interface SeedAccount {
     organizationKeys?: Record<string, string>;
   };
   unlockMethods: InitUserCryptoMethod[];
+  /**
+   * The master password authentication hash the identity service compares against.
+   *
+   * Absent for an account with no master password.
+   */
+  masterPasswordAuthenticationHash?: string;
   /** Plaintext the account is defined by, and which must therefore never reach the server. */
   rawCryptographicState: {
     userKey: SymmetricKey;
@@ -118,9 +124,9 @@ export interface SeededAccount {
 }
 
 /** A seeded account, alongside the vector it was seeded from. */
-export interface SeededTestVector extends SeededAccount {
+export interface SeededTestVector<V extends UserVector = UserVector> extends SeededAccount {
   /** The vector, for the password and the plaintext it records. */
-  vector: UserVector;
+  vector: V;
   /** The seed account the vector produced, for asserting what the account decrypts to. */
   seed: SeedAccount;
 }
@@ -164,6 +170,7 @@ export class ServerEmulator {
       kdf: account.kdf,
       userKeyId: account.userKeyId,
       masterPasswordUnlock: toMasterPasswordUnlock(vector),
+      masterPasswordAuthenticationHash: vector.masterPasswordAuthenticationHash ?? null,
       upgradeToken: account.upgradeToken,
       organizationKeys: account.organizationKeys ?? {},
     };
@@ -195,10 +202,10 @@ export class ServerEmulator {
    * `modify` rewrites the seed account before it is stored, for a test that needs an account the
    * vector does not record — a server that has not stored a key id yet, say.
    */
-  seedUserTestVector(
-    vector: UserVector,
+  seedUserTestVector<V extends UserVector>(
+    vector: V,
     modify: (account: SeedAccount) => SeedAccount = (account) => account,
-  ): SeededTestVector {
+  ): SeededTestVector<V> {
     const seed = modify(toSeedAccount(vector));
 
     return { vector, seed, ...this.seedUser(seed) };
