@@ -17,6 +17,8 @@ export interface SharedUnlockDriver {
     get_client_name(): Promise<string>;
     get_vault_url(user_id: UserId): Promise<string | undefined>;
     on_peer_state(user_id: UserId, lock_state: PeerLockState): Promise<void>;
+    set_last_manual_lock(user_id: UserId, locked_at: number): Promise<void>;
+    get_last_manual_lock(user_id: UserId): Promise<number | undefined>;
 }
 "#;
 
@@ -64,6 +66,21 @@ extern "C" {
         user_id: UserId,
         lock_state: PeerLockState,
     ) -> Result<(), JsValue>;
+
+    /// Persist the date (milliseconds since the Unix epoch) of the user's last manual lock.
+    #[wasm_bindgen(method, catch)]
+    async fn set_last_manual_lock(
+        this: &RawJsSharedUnlockDriver,
+        user_id: UserId,
+        locked_at: f64,
+    ) -> Result<(), JsValue>;
+
+    /// Get the persisted date of the user's last manual lock, if any.
+    #[wasm_bindgen(method, catch)]
+    async fn get_last_manual_lock(
+        this: &RawJsSharedUnlockDriver,
+        user_id: UserId,
+    ) -> Result<JsValue, JsValue>;
 }
 
 pub(super) struct JsSharedUnlockDriver {
@@ -182,6 +199,40 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
                 tracing::error!(?error, %user_id, "Failed to report a peer's lock state")
             }
         }
+    }
+
+    async fn set_last_manual_lock(&self, user_id: UserId, locked_at: u64) {
+        let result = self
+            .runner
+            .run_in_thread(move |driver| async move {
+                driver.set_last_manual_lock(user_id, locked_at as f64).await
+            })
+            .await;
+
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                tracing::error!(?error, %user_id, "Failed to persist the last manual lock")
+            }
+            Err(error) => {
+                tracing::error!(?error, %user_id, "Failed to persist the last manual lock")
+            }
+        }
+    }
+
+    async fn get_last_manual_lock(&self, user_id: UserId) -> Option<u64> {
+        self.runner
+            .run_in_thread(move |driver| async move {
+                driver
+                    .get_last_manual_lock(user_id)
+                    .await
+                    .ok()
+                    .and_then(|js_value| js_value.as_f64())
+                    .map(|locked_at| locked_at as u64)
+            })
+            .await
+            .ok()
+            .flatten()
     }
 
     async fn discover_leader(&self) -> Option<Endpoint> {
