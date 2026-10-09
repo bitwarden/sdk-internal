@@ -12,17 +12,13 @@ use zeroize::Zeroizing;
 
 use crate::{AccessTokenError, AccessTokenSeed, purpose::KeyPurpose};
 
-/// Key-derivation name, which `derive_shareable_key` turns into the HKDF salt
-/// `bitwarden-accesstoken`. Shared across every [`crate::KeyPurpose`]; the HKDF `info` is what
-/// separates them.
+/// Becomes the HKDF salt `bitwarden-accesstoken`, shared by every [`KeyPurpose`].
 pub(crate) const DERIVE_NAME: &str = "accesstoken";
 
-/// A symmetric key derived from an [`AccessTokenSeed`] for one [`KeyPurpose`]. The raw key never
-/// leaves this crate's API: the only operation exposed on it is [`Self::open_payload`], which
-/// installs the organization key it unwraps straight into a [`KeyStoreContext`] slot.
+/// A key derived from an [`AccessTokenSeed`] for one [`KeyPurpose`]. The raw key never leaves this
+/// crate; [`Self::open_payload`] installs what it unwraps straight into a [`KeyStoreContext`].
 pub struct AccessTokenKey(SymmetricCryptoKey);
 
-// Redacts the key; nothing about it is safe to log.
 impl fmt::Debug for AccessTokenKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("AccessTokenKey")
@@ -32,8 +28,7 @@ impl fmt::Debug for AccessTokenKey {
 }
 
 impl AccessTokenKey {
-    /// Derives the key for `purpose` from `seed`. Deterministic: the same seed and purpose always
-    /// derive the same key, and distinct purposes derive distinct keys from the same seed.
+    /// Deterministically derives the key for `purpose` from `seed`.
     pub fn derive(seed: &AccessTokenSeed, purpose: KeyPurpose) -> Self {
         Self(SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
             Zeroizing::new(*seed.as_bytes()),
@@ -42,10 +37,8 @@ impl AccessTokenKey {
         )))
     }
 
-    /// Decrypts `encrypted_payload` with this key, recovers the organization key it carries, and
-    /// installs it at `organization_key` in `ctx`.
-    ///
-    /// The key material never leaves the store, and errors carry no payload content.
+    /// Decrypts `encrypted_payload` and installs the organization key it carries at
+    /// `organization_key` in `ctx`. Errors carry no payload content.
     pub fn open_payload<Ids: KeySlotIds>(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -81,8 +74,6 @@ impl AccessTokenKey {
 
 #[cfg(test)]
 impl AccessTokenKey {
-    /// Test-only accessor for the derived key's base64, since the raw key is otherwise private so
-    /// it never leaves this crate's API in production code paths.
     pub(crate) fn to_base64_for_tests(&self) -> String {
         self.0.to_base64().to_string()
     }

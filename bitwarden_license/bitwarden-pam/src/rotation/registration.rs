@@ -1,6 +1,5 @@
-//! The cryptographic half of connector registration; the key material itself is minted by
-//! `bitwarden-access-token`, shared with the access connector that parses and opens the resulting
-//! token.
+//! The cryptographic half of connector registration. Key material is minted by
+//! `bitwarden-access-token`.
 
 use bitwarden_access_token::{AccessTokenKind, AccessTokenSecrets, make_access_token_secrets};
 use bitwarden_core::{OrganizationId, key_management::SymmetricKeySlotId};

@@ -11,9 +11,8 @@ use uuid::Uuid;
 
 use crate::{AccessTokenKind, consts::TOKEN_VERSION};
 
-/// A parsed access token: the holder's recovered OAuth credential and the key derived from the
-/// token's seed. The derived key is private and only reaches a [`bitwarden_crypto::KeyStore`]
-/// through [`AccessToken::open_payload`], so raw key material never leaves this crate's API.
+/// A parsed access token. The derived key only reaches a key store through
+/// [`Self::open_payload`].
 pub struct AccessToken {
     kind: AccessTokenKind,
     api_key_id: Uuid,
@@ -21,7 +20,6 @@ pub struct AccessToken {
     key: AccessTokenKey,
 }
 
-// Redacts the secret and the derived key; only the kind and identifier are safe to log.
 impl fmt::Debug for AccessToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AccessToken")
@@ -36,9 +34,7 @@ impl fmt::Debug for AccessToken {
 /// Not `PartialEq`: the base64 variant wraps [`NotB64EncodedError`], which does not implement it.
 #[derive(Debug, Error)]
 pub enum AccessTokenInvalidError {
-    /// The token did not split into a `:`-separated prefix and seed, or the prefix's dot-segment
-    /// count did not match what the expected [`AccessTokenKind`] requires (four with a
-    /// client-kind segment, three without one).
+    /// Missing `:`, or the wrong number of dot-segments for the expected [`AccessTokenKind`].
     #[error("Has the wrong number of parts")]
     WrongParts,
     /// The version segment was not `0`.
@@ -64,8 +60,7 @@ pub enum AccessTokenInvalidError {
 }
 
 impl AccessToken {
-    /// Parses a token string against the shape `expected` requires, verifying its client-kind
-    /// segment, if `expected` has one, matches.
+    /// Parses a token in the shape `expected` requires, including its client-kind segment.
     pub fn parse(token: &str, expected: AccessTokenKind) -> Result<Self, AccessTokenInvalidError> {
         let (prefix, seed_b64) = token
             .split_once(':')
@@ -132,8 +127,8 @@ impl AccessToken {
         self.kind
     }
 
-    /// The OAuth `client_id`: `<kind>.<api_key_id>` when the kind has a wire segment, or the bare
-    /// `<api_key_id>` otherwise (Secrets Manager).
+    /// The OAuth `client_id`: `<kind>.<api_key_id>`, or the bare `<api_key_id>` for Secrets
+    /// Manager.
     pub fn client_id(&self) -> String {
         match self.kind.segment() {
             Some(segment) => format!("{segment}.{}", self.api_key_id),
@@ -141,10 +136,8 @@ impl AccessToken {
         }
     }
 
-    /// Parses and decrypts `encrypted_payload` with the key derived from this token's seed,
-    /// recovers the organization key, and installs it at `organization_key` in `ctx`.
-    ///
-    /// The key material never leaves the store, and errors carry no payload content.
+    /// Decrypts `encrypted_payload` and installs the organization key it carries at
+    /// `organization_key` in `ctx`. Errors carry no payload content.
     pub fn open_payload<Ids: KeySlotIds>(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -160,10 +153,10 @@ impl AccessToken {
 mod tests {
     use super::*;
 
-    /// The Secrets Manager access-token test vector, in the four-part access-token format.
+    /// The Secrets Manager test vector, in the four-part format.
     const VALID_TOKEN: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    /// The same test vector, in Secrets Manager's own three-part format (no client-kind segment).
+    /// The same vector in Secrets Manager's three-part format.
     const VALID_SM_TOKEN: &str = "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
     fn parse_valid() -> AccessToken {
@@ -171,8 +164,7 @@ mod tests {
             .expect("valid token must parse")
     }
 
-    /// The derived key's bytes are covered by `bitwarden-access-token-crypto`'s known-answer
-    /// tests; this only checks the wire-format fields `parse` is responsible for.
+    /// Derived-key bytes are covered by `bitwarden-access-token-crypto`'s known-answer tests.
     #[test]
     fn valid_token_round_trip() {
         let token = parse_valid();
@@ -309,8 +301,7 @@ mod tests {
         ));
     }
 
-    /// No version segment at all (just `<api-key-id>.<client-secret>`) — one dot-part short of
-    /// the three-part SM shape.
+    /// No version segment: one part short of the Secrets Manager shape.
     #[test]
     fn sm_missing_version_segment_is_wrong_parts() {
         let t = "ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";

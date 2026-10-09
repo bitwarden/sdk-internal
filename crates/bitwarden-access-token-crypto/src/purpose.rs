@@ -1,27 +1,19 @@
 //! The HKDF `info` that separates key-derivation purposes.
 
-/// The HKDF `info` parameter used when deriving an [`crate::AccessTokenKey`] from an
-/// [`crate::AccessTokenSeed`].
+/// The HKDF `info` that separates keys derived from the same [`crate::AccessTokenSeed`].
 ///
-/// Distinct purposes derive distinct keys from the same seed. This crate defines no purposes of
-/// its own: callers construct their own, typically one per kind of credential they build on top of
-/// this crate's key material. The caller is responsible for:
-///
-/// - keeping every purpose string it defines unique among the others it defines, since two purposes
-///   that collide derive the same key from the same seed, and
-/// - never changing the string of a purpose once it has been used to mint issued credentials, since
-///   that would silently change which key those credentials derive.
+/// Callers define their own purposes. Each string must be unique (colliding purposes derive the
+/// same key) and must never change once credentials are issued under it (they would derive a
+/// different key).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyPurpose(&'static str);
 
 impl KeyPurpose {
-    /// Defines a new key-derivation purpose. See the type documentation for the uniqueness and
-    /// stability requirements the caller must uphold for the `info` string it passes.
+    /// Defines a purpose. See the type docs for the caller's obligations.
     pub const fn new(info: &'static str) -> Self {
         Self(info)
     }
 
-    /// The HKDF `info` string this purpose wraps.
     pub(crate) fn as_str(&self) -> &'static str {
         self.0
     }

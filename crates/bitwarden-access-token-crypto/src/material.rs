@@ -5,38 +5,28 @@ use zeroize::Zeroizing;
 
 use crate::{AccessTokenError, AccessTokenSeed, key::DERIVE_NAME, purpose::KeyPurpose};
 
-/// Key material minted for a fresh access-token registration: the organization key wrapped both
-/// for the token holder (`encrypted_payload`) and for the organization itself (`key`), plus the
-/// seed the two were derived from.
+/// Key material for a new access-token registration.
 pub struct AccessTokenKeyMaterial {
-    /// The organization key, encrypted under the derived key. Handed to the token holder, who
-    /// recovers it with [`crate::AccessTokenKey::open_payload`].
+    /// The organization key, encrypted under the derived key, for the token holder.
     pub encrypted_payload: EncString,
-    /// The derived key's base64, encrypted under the organization key. Lets the organization
-    /// recover the derived key later without needing the credential itself.
+    /// The derived key's base64, encrypted under the organization key, so the organization can
+    /// recover it without the token.
     pub key: EncString,
-    /// The seed this key material was derived from. Private: reachable only by consuming the
-    /// material through [`Self::into_seed`], so a caller cannot read it without deliberately
-    /// taking ownership of it.
+    /// Only reachable through [`Self::into_seed`].
     seed: AccessTokenSeed,
 }
 
 impl AccessTokenKeyMaterial {
-    /// Consumes the key material to recover its seed, e.g. so a caller can encode it into its own
-    /// wire format. Consuming (rather than borrowing) makes it awkward to accidentally read the
-    /// seed more than once.
+    /// Consumes the key material to recover its seed.
     pub fn into_seed(self) -> AccessTokenSeed {
         self.seed
     }
 }
 
-/// Generates the key material for an access-token registration: a random 16-byte seed, the key
-/// derived from it for `purpose`, and the organization key wrapped both for the token holder
-/// (`encrypted_payload`) and for the organization itself (`key`).
+/// Generates a random seed, derives the key for `purpose`, and wraps the organization key for the
+/// token holder and the derived key for the organization.
 ///
-/// `organization_key` must already resolve in `ctx`; callers that want a dedicated error for a
-/// missing key should check [`KeyStoreContext::has_symmetric_key`] first; otherwise this surfaces
-/// as [`AccessTokenError::Crypto`].
+/// A missing `organization_key` surfaces as [`AccessTokenError::Crypto`].
 pub fn make_access_token_key_material<Ids: KeySlotIds>(
     ctx: &mut KeyStoreContext<Ids>,
     organization_key: Ids::Symmetric,
@@ -50,8 +40,7 @@ pub fn make_access_token_key_material<Ids: KeySlotIds>(
         Some(purpose.as_str()),
     )?;
 
-    // The payload hands the token holder the organization key itself, so it is encrypted under the
-    // derived key, which only they can reproduce.
+    // Encrypted under the derived key, which only the token holder can reproduce.
     #[allow(deprecated)]
     let organization_key_b64 = ctx
         .dangerous_get_symmetric_key(organization_key)?
