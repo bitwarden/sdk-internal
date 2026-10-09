@@ -1,4 +1,5 @@
 /target
+/support/protobuf/target
 # cargo-run-bin per-tool build cache
 /.bin
 .DS_Store
