@@ -28,10 +28,9 @@ A token is one of two shapes, depending on whether its [`AccessTokenKind`] has a
   the identity server. The OAuth `client_id` is `<client-kind>.<api-key-id>` for a kind with a
   segment, or the bare `<api-key-id>` otherwise.
 - The seed after the `:` never reaches the server. Both sides derive an
-  `bitwarden_access_token_crypto::AccessTokenKey` from it using
-  [`AccessTokenKind::key_purpose`], so the two kinds never share a key even from the same seed.
-  Secrets Manager's purpose is `"sm-access-token"`, which every issued Secrets Manager token depends
-  on, so it can never change.
+  `bitwarden_access_token_crypto::AccessTokenKey` from it using [`AccessTokenKind::key_purpose`], so
+  the two kinds never share a key even from the same seed. Secrets Manager's purpose is
+  `"sm-access-token"`, which every issued Secrets Manager token depends on, so it can never change.
 
 ## Minting and opening
 
