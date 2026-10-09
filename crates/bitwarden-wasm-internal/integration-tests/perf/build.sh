@@ -5,13 +5,13 @@
 # show Rust symbols instead of `wasm-function[1234]`. Names do not change generated code.
 #
 # PERF_WASM_CPU overrides the wasm target features, e.g.
-#   PERF_WASM_CPU="-Ctarget-cpu=generic -Ctarget-feature=+simd128" ./perf/build.sh
+#   PERF_WASM_CPU="-Ctarget-cpu=mvp" ./perf/build.sh
 # PERF_CARGO_ARGS adds cargo flags, e.g. per-crate opt-level overrides
 #   PERF_CARGO_ARGS="--config profile.release.package.argon2.opt-level=3" ./perf/build.sh
 set -eo pipefail
 
-# Default matches `../../build.sh`: MVP, required by the wasm2js fallback.
-WASM_CPU=${PERF_WASM_CPU:--Ctarget-cpu=mvp}
+# Default matches the shipped .wasm in `../../build.sh`.
+WASM_CPU=${PERF_WASM_CPU:--Ctarget-cpu=mvp -Ctarget-feature=+simd128,+bulk-memory,+sign-ext,+nontrapping-fptoint,+mutable-globals}
 
 cd "$(dirname "$0")/../../../.."
 
