@@ -1,3 +1,4 @@
+use bitwarden_access_token::AccessTokenError;
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
@@ -29,6 +30,9 @@ pub enum RotationError {
     /// A cryptographic operation failed while registering a connector.
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    /// Minting a connector's access-token secrets failed.
+    #[error(transparent)]
+    AccessToken(#[from] AccessTokenError),
     /// A network or (de)serialization error occurred while calling the server.
     #[error(transparent)]
     Api(#[from] ApiError),

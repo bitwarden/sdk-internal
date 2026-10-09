@@ -497,6 +497,7 @@ version = "4.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bitwarden-access-token",
  "bitwarden-api-api",
  "bitwarden-api-base",
  "bitwarden-commercial-marker",
@@ -522,6 +523,30 @@ dependencies = [
  "url",
  "uuid",
  "wiremock",
+ "zeroize",
+]
+
+[[package]]
+name = "bitwarden-access-token"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-access-token-crypto",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-sensitive-value",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "bitwarden-access-token-crypto"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "serde",
+ "serde_json",
+ "thiserror",
  "zeroize",
 ]
 
@@ -1210,14 +1235,15 @@ dependencies = [
 name = "bitwarden-pam"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-access-token",
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-commercial-marker",
  "bitwarden-core",
  "bitwarden-crypto",
- "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-ffi",
+ "bitwarden-sensitive-value",
  "bitwarden-uuid",
  "bitwarden-vault",
  "chrono",
@@ -1230,7 +1256,6 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "zeroize",
 ]
 
 [[package]]

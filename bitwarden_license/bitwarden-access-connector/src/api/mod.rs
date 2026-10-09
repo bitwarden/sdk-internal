@@ -474,44 +474,8 @@ mod tests {
     use crate::{
         auth::{identity::IdentityClient, session::SessionManager},
         error::{FailureCode, SafeDetail, SyncState},
+        test_support::{encrypted_payload_for, test_token},
     };
-
-    const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
-
-    fn test_token() -> crate::token::AccessConnectorToken {
-        use std::str::FromStr;
-        crate::token::AccessConnectorToken::from_str(VALID_TOKEN_STR).expect("valid token")
-    }
-
-    fn token_encryption_key() -> bitwarden_crypto::SymmetricCryptoKey {
-        use bitwarden_crypto::{SymmetricCryptoKey, derive_shareable_key};
-        use bitwarden_encoding::B64;
-        use zeroize::Zeroizing;
-        let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().expect("valid b64");
-        let key_bytes: Zeroizing<[u8; 16]> =
-            Zeroizing::new(b64.as_bytes().try_into().expect("16 bytes"));
-        SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
-            key_bytes,
-            "accesstoken",
-            Some("sm-access-token"),
-        ))
-    }
-
-    fn make_encrypted_payload(
-        token_key: &bitwarden_crypto::SymmetricCryptoKey,
-        org_key: &bitwarden_crypto::SymmetricCryptoKey,
-    ) -> String {
-        use bitwarden_crypto::KeyEncryptable;
-        let org_key_bytes = org_key.to_encoded();
-        let org_key_b64 = bitwarden_encoding::B64::from(org_key_bytes.as_ref());
-        let org_key_b64_str: String = org_key_b64.into();
-        let payload_json = format!(r#"{{"encryptionKey":"{org_key_b64_str}"}}"#);
-        payload_json
-            .as_str()
-            .encrypt_with_key(token_key)
-            .expect("encrypt payload")
-            .to_string()
-    }
 
     fn identity_success_response(
         bearer: &str,
@@ -527,11 +491,10 @@ mod tests {
     }
 
     async fn make_session(identity_server: &MockServer, bearer: &str) -> Arc<SessionManager> {
-        let token_key = token_encryption_key();
         let org_key = bitwarden_crypto::SymmetricCryptoKey::make(
             bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
         );
-        let payload = make_encrypted_payload(&token_key, &org_key);
+        let payload = encrypted_payload_for(&org_key);
 
         Mock::given(method("POST"))
             .and(path("/connect/token"))
@@ -1084,12 +1047,10 @@ mod tests {
 
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
-
-        let token_key = token_encryption_key();
         let org_key1 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload1 = make_encrypted_payload(&token_key, &org_key1);
+        let payload1 = encrypted_payload_for(&org_key1);
         let org_key2 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload2 = make_encrypted_payload(&token_key, &org_key2);
+        let payload2 = encrypted_payload_for(&org_key2);
 
         Mock::given(method("POST"))
             .and(path("/connect/token"))

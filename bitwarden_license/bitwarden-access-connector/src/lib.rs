@@ -21,8 +21,8 @@ pub(crate) mod integrations;
 pub(crate) mod policy;
 pub(crate) mod resolver;
 pub(crate) mod sys;
-/// Token parsing and key derivation (exposed for `examples/register.rs`).
-pub mod token;
+#[cfg(test)]
+mod test_support;
 
 /// Start the connector poll loop. It runs until shutdown ([`executor::RunExit::Shutdown`]), a
 /// rejected credential ([`executor::RunExit::CredentialRefused`]) or an ineligible connector
