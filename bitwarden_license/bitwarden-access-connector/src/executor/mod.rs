@@ -441,13 +441,10 @@ async fn handle_not_eligible(session: &SessionManager, api: &RotationApi) -> Not
 #[cfg(test)]
 mod tests {
     use std::{
-        sync::{Arc, LazyLock, Mutex},
+        sync::{Arc, Mutex},
         time::{Duration, Instant},
     };
 
-    use bitwarden_access_token::{AccessTokenKind, make_access_token_secrets};
-    use bitwarden_crypto::{BitwardenLegacyKeyBytes, KeyDecryptable, KeyStore};
-    use bitwarden_encoding::B64;
     use tokio::sync::watch;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -458,71 +455,8 @@ mod tests {
     use crate::{
         api::{RotationApi, build_api_client},
         auth::{identity::IdentityClient, session::SessionManager},
-        crypto::AccessConnectorSymmSlotId,
+        test_support::{encrypted_payload_for, test_token},
     };
-
-    /// A real token and its derived key, minted once via `make_access_token_secrets` so the two
-    /// always agree.
-    static TEST_CREDENTIAL: LazyLock<(String, bitwarden_crypto::SymmetricCryptoKey)> =
-        LazyLock::new(|| {
-            use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
-
-            let wrapping_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let store: AccessConnectorKeyStore = KeyStore::default();
-            #[allow(deprecated)]
-            store
-                .context_mut()
-                .set_symmetric_key(
-                    AccessConnectorSymmSlotId::Organization,
-                    wrapping_key.clone(),
-                )
-                .expect("set_symmetric_key");
-
-            let secrets = {
-                let mut ctx = store.context_mut();
-                make_access_token_secrets(
-                    &mut ctx,
-                    AccessConnectorSymmSlotId::Organization,
-                    AccessTokenKind::AccessConnector,
-                )
-                .expect("mint secrets")
-            };
-
-            // Recover the derived key from the `key` field, as an organization would.
-            let derived_key_b64: String = secrets
-                .key
-                .decrypt_with_key(&wrapping_key)
-                .expect("decrypt key field");
-            let b64: B64 = derived_key_b64.parse().expect("valid b64");
-            let derived_key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(&b64))
-                .expect("valid derived key");
-
-            let token_str = secrets.into_token(uuid::Uuid::new_v4(), "test-secret");
-            (token_str, derived_key)
-        });
-
-    fn test_token() -> AccessToken {
-        AccessToken::parse(&TEST_CREDENTIAL.0, AccessTokenKind::AccessConnector).unwrap()
-    }
-
-    fn token_encryption_key() -> bitwarden_crypto::SymmetricCryptoKey {
-        TEST_CREDENTIAL.1.clone()
-    }
-
-    fn make_encrypted_payload(
-        token_key: &bitwarden_crypto::SymmetricCryptoKey,
-        org_key: &bitwarden_crypto::SymmetricCryptoKey,
-    ) -> String {
-        use bitwarden_crypto::KeyEncryptable;
-        let org_key_bytes = org_key.to_encoded();
-        let b64_str: String = bitwarden_encoding::B64::from(org_key_bytes.as_ref()).into();
-        let payload_json = format!(r#"{{"encryptionKey":"{b64_str}"}}"#);
-        payload_json
-            .as_str()
-            .encrypt_with_key(token_key)
-            .unwrap()
-            .to_string()
-    }
 
     fn identity_ok(bearer: &str, encrypted_payload: &str) -> ResponseTemplate {
         ResponseTemplate::new(200)
@@ -533,11 +467,10 @@ mod tests {
     }
 
     async fn make_session(identity_server: &MockServer, bearer: &str) -> Arc<SessionManager> {
-        let token_key = token_encryption_key();
         let org_key = bitwarden_crypto::SymmetricCryptoKey::make(
             bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
         );
-        let payload = make_encrypted_payload(&token_key, &org_key);
+        let payload = encrypted_payload_for(&org_key);
 
         Mock::given(method("POST"))
             .and(path("/connect/token"))
