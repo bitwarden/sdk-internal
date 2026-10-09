@@ -1074,9 +1074,17 @@ name = "bitwarden-managed-settings"
 version = "4.0.0"
 dependencies = [
  "bitwarden-core",
+ "bitwarden-ipc",
  "bitwarden-managed-settings-types",
+ "bitwarden-threading",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "tokio",
  "tracing",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-time",
 ]
 
 [[package]]
