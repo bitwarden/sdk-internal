@@ -409,14 +409,11 @@ fn compute_sleep(delay: Duration, deadline: Option<Instant>) -> Duration {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::LazyLock, time::Duration};
+    use std::time::Duration;
 
-    use bitwarden_access_token::{AccessTokenKind, make_access_token_secrets};
     use bitwarden_crypto::{
-        BitwardenLegacyKeyBytes, KeyDecryptable, KeyStore, PrimitiveEncryptable,
-        SymmetricCryptoKey, SymmetricKeyAlgorithm,
+        KeyDecryptable, PrimitiveEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm,
     };
-    use bitwarden_encoding::B64;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{method, path},
@@ -425,70 +422,9 @@ mod tests {
     use super::*;
     use crate::{
         auth::identity::IdentityClient,
-        crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId},
+        crypto::AccessConnectorSymmSlotId,
+        test_support::{encrypted_payload_for, test_token},
     };
-
-    /// A real token and its derived key, minted once via `make_access_token_secrets` so the two
-    /// always agree.
-    static TEST_CREDENTIAL: LazyLock<(String, SymmetricCryptoKey)> = LazyLock::new(|| {
-        let wrapping_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let store: AccessConnectorKeyStore = KeyStore::default();
-        #[allow(deprecated)]
-        store
-            .context_mut()
-            .set_symmetric_key(
-                AccessConnectorSymmSlotId::Organization,
-                wrapping_key.clone(),
-            )
-            .expect("set_symmetric_key");
-
-        let secrets = {
-            let mut ctx = store.context_mut();
-            make_access_token_secrets(
-                &mut ctx,
-                AccessConnectorSymmSlotId::Organization,
-                AccessTokenKind::AccessConnector,
-            )
-            .expect("mint secrets")
-        };
-
-        // Recover the derived key from the `key` field, as an organization would.
-        let derived_key_b64: String = secrets
-            .key
-            .decrypt_with_key(&wrapping_key)
-            .expect("decrypt key field");
-        let b64: B64 = derived_key_b64.parse().expect("valid b64");
-        let derived_key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(&b64))
-            .expect("valid derived key");
-
-        let token_str = secrets.into_token(uuid::Uuid::new_v4(), "test-secret");
-        (token_str, derived_key)
-    });
-
-    fn test_token() -> AccessToken {
-        AccessToken::parse(&TEST_CREDENTIAL.0, AccessTokenKind::AccessConnector)
-            .expect("valid token")
-    }
-
-    fn token_encryption_key() -> SymmetricCryptoKey {
-        TEST_CREDENTIAL.1.clone()
-    }
-
-    fn make_encrypted_payload(
-        token_key: &SymmetricCryptoKey,
-        org_key: &SymmetricCryptoKey,
-    ) -> String {
-        let org_key_bytes = org_key.to_encoded();
-        let org_key_b64 = bitwarden_encoding::B64::from(org_key_bytes.as_ref());
-        let org_key_b64_str: String = org_key_b64.into();
-        let payload_json = format!(r#"{{"encryptionKey":"{org_key_b64_str}"}}"#);
-        use bitwarden_crypto::KeyEncryptable;
-        let enc = payload_json
-            .as_str()
-            .encrypt_with_key(token_key)
-            .expect("encrypt payload");
-        enc.to_string()
-    }
 
     fn success_response(
         bearer: &str,
@@ -511,9 +447,8 @@ mod tests {
 
     #[tokio::test]
     async fn successful_auth_populates_bearer_and_org_key() {
-        let token_key = token_encryption_key();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let encrypted_payload = make_encrypted_payload(&token_key, &org_key);
+        let encrypted_payload = encrypted_payload_for(&org_key);
 
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -548,11 +483,10 @@ mod tests {
     #[tokio::test]
     async fn expiry_margin_triggers_renewal() {
         // expires_in=0 puts the first token inside the renewal margin at once.
-        let token_key = token_encryption_key();
         let org_key1 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload1 = make_encrypted_payload(&token_key, &org_key1);
+        let payload1 = encrypted_payload_for(&org_key1);
         let org_key2 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload2 = make_encrypted_payload(&token_key, &org_key2);
+        let payload2 = encrypted_payload_for(&org_key2);
 
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -579,9 +513,8 @@ mod tests {
 
     #[tokio::test]
     async fn concurrent_bearer_calls_coalesce_to_single_renewal() {
-        let token_key = token_encryption_key();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload = make_encrypted_payload(&token_key, &org_key);
+        let payload = encrypted_payload_for(&org_key);
 
         let server = MockServer::start().await;
         // Initial auth: expires immediately.
@@ -593,7 +526,7 @@ mod tests {
             .await;
 
         let org_key2 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload2 = make_encrypted_payload(&token_key, &org_key2);
+        let payload2 = encrypted_payload_for(&org_key2);
         // The delay makes the concurrent callers overlap.
         Mock::given(method("POST"))
             .and(path("/connect/token"))
@@ -646,9 +579,8 @@ mod tests {
 
     #[tokio::test]
     async fn revoked_session_short_circuits_without_identity_hits() {
-        let token_key = token_encryption_key();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload = make_encrypted_payload(&token_key, &org_key);
+        let payload = encrypted_payload_for(&org_key);
 
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -685,9 +617,8 @@ mod tests {
 
     #[tokio::test]
     async fn close_transitions_to_closed_and_short_circuits() {
-        let token_key = token_encryption_key();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload = make_encrypted_payload(&token_key, &org_key);
+        let payload = encrypted_payload_for(&org_key);
 
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -715,9 +646,8 @@ mod tests {
 
     #[tokio::test]
     async fn secrets_cleared_on_revoked() {
-        let token_key = token_encryption_key();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload = make_encrypted_payload(&token_key, &org_key);
+        let payload = encrypted_payload_for(&org_key);
 
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -754,9 +684,8 @@ mod tests {
 
     #[tokio::test]
     async fn secrets_cleared_on_closed() {
-        let token_key = token_encryption_key();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload = make_encrypted_payload(&token_key, &org_key);
+        let payload = encrypted_payload_for(&org_key);
 
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -783,9 +712,8 @@ mod tests {
 
     #[tokio::test]
     async fn force_refresh_reuses_token_if_already_renewed() {
-        let token_key = token_encryption_key();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload = make_encrypted_payload(&token_key, &org_key);
+        let payload = encrypted_payload_for(&org_key);
 
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -816,11 +744,10 @@ mod tests {
 
     #[tokio::test]
     async fn org_key_re_derived_on_every_refresh() {
-        let token_key = token_encryption_key();
         let org_key1 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload1 = make_encrypted_payload(&token_key, &org_key1);
+        let payload1 = encrypted_payload_for(&org_key1);
         let org_key2 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload2 = make_encrypted_payload(&token_key, &org_key2);
+        let payload2 = encrypted_payload_for(&org_key2);
 
         let server = MockServer::start().await;
         Mock::given(method("POST"))
