@@ -43,8 +43,8 @@ pub struct RegisterPayload {
     pub encrypted_payload: String,
     /// The derived key's base64, encrypted under the org key.
     pub key: String,
-    /// `0.access-connector.<apiKeyId>.<clientSecret>:<b64-seed>`, with the two unknowns left as
-    /// literal placeholders for the operator to fill in from the register API response.
+    /// The access token, with `<apiKeyId>` and `<clientSecret>` placeholders for the operator to
+    /// fill in from the register API response.
     pub token_template: String,
 }
 
@@ -78,7 +78,7 @@ pub fn generate_registration_payload(
     let org_key = SymmetricCryptoKey::try_from(&org_key_bytes)
         .map_err(|_| "org key bytes have the wrong length for a symmetric key".to_string())?;
 
-    // A throwaway store, just so make_access_token_secrets has a key slot to read the org key from.
+    // Throwaway store so make_access_token_secrets can read the org key.
     let store: AccessConnectorKeyStore = KeyStore::default();
     #[allow(deprecated)]
     store
@@ -99,8 +99,7 @@ pub fn generate_registration_payload(
     let encrypted_payload = secrets.encrypted_payload.to_string();
     let key = secrets.key.to_string();
 
-    // A nil api_key_id and a literal client_secret, so into_token builds the real wire format; the
-    // nil UUID is then swapped for a placeholder the operator fills in from the register response.
+    // Build with a nil UUID, then swap it for the `<apiKeyId>` placeholder.
     let placeholder_id = Uuid::nil();
     let token_template = secrets
         .into_token(placeholder_id, "<clientSecret>")
@@ -186,8 +185,7 @@ mod tests {
         (org_key, b64)
     }
 
-    /// Full round-trip: generate payload → fill in the token template → parse → open_payload →
-    /// probe.
+    /// Generate payload → fill in the token template → parse → open_payload → probe.
     #[test]
     fn register_round_trip() {
         let (org_key, org_key_b64) = make_test_org_key_b64();

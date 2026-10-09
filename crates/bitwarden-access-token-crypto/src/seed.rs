@@ -6,15 +6,12 @@ use bitwarden_crypto::generate_random_bytes;
 use thiserror::Error;
 use zeroize::Zeroizing;
 
-/// The length an [`AccessTokenSeed`] must be.
 const SEED_LEN: usize = 16;
 
-/// The 16-byte secret an [`crate::AccessTokenKey`] is derived from. Never needs to reach a server;
-/// it is the caller's job to transport it (e.g. embedded in a token string) to whoever needs to
-/// re-derive the key.
+/// The 16-byte secret an [`crate::AccessTokenKey`] is derived from. Never sent to a server; the
+/// caller transports it to the token holder (e.g. inside a token string).
 pub struct AccessTokenSeed(Zeroizing<[u8; SEED_LEN]>);
 
-// Redacts the seed; nothing about it is safe to log.
 impl fmt::Debug for AccessTokenSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("AccessTokenSeed")
@@ -46,12 +43,11 @@ impl TryFrom<&[u8]> for AccessTokenSeed {
 }
 
 impl AccessTokenSeed {
-    /// Generates a fresh random seed.
     pub(crate) fn generate() -> Self {
         Self(generate_random_bytes())
     }
 
-    /// The raw seed bytes, e.g. so a caller can base64-encode them into its own wire format.
+    /// The raw seed bytes.
     pub fn as_bytes(&self) -> &[u8; SEED_LEN] {
         &self.0
     }

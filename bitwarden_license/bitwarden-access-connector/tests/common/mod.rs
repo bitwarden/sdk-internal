@@ -34,9 +34,8 @@ pub use wiremock::{
 /// Serialises tests that mutate env vars.
 pub static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-/// A real access-connector token and its derived key, minted once through the crate's own
-/// `make_access_token_secrets` (never a hand-rolled copy of the KDF) and shared by every
-/// integration test, so `test_token()` and `token_encryption_key()` always agree.
+/// A real token and its derived key, minted once via `make_access_token_secrets` so the two
+/// always agree.
 static TEST_CREDENTIAL: LazyLock<(String, SymmetricCryptoKey)> = LazyLock::new(|| {
     let wrapping_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
     let store: AccessConnectorKeyStore = KeyStore::default();
@@ -59,8 +58,7 @@ static TEST_CREDENTIAL: LazyLock<(String, SymmetricCryptoKey)> = LazyLock::new(|
         .expect("mint secrets")
     };
 
-    // Recovered the same way an organization would: decrypt the `key` field the crate itself
-    // produced, rather than re-deriving it by hand.
+    // Recover the derived key from the `key` field, as an organization would.
     let derived_key_b64: String = secrets
         .key
         .decrypt_with_key(&wrapping_key)
@@ -78,7 +76,6 @@ pub fn test_token() -> AccessToken {
         .expect("test token must parse")
 }
 
-/// The token's encryption key, minted the same way `test_token` was (not hand-derived).
 pub fn token_encryption_key() -> SymmetricCryptoKey {
     TEST_CREDENTIAL.1.clone()
 }

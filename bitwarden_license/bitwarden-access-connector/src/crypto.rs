@@ -57,7 +57,7 @@ pub enum CryptoModuleError {
 }
 
 /// Decrypt the identity server's `encrypted_payload` with `token`'s derived key and install the org
-/// key into `store`. The key bytes are never returned, and errors carry no payload content.
+/// key into `store`. Errors carry no payload content.
 pub fn unwrap_org_key(
     store: &AccessConnectorKeyStore,
     token: &AccessToken,
