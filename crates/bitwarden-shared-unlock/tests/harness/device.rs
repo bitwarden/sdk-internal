@@ -338,15 +338,15 @@ impl SimulatedDevice {
         );
     }
 
-    /// Cuts this device's links while its process keeps running, so it keeps its state but nothing
-    /// reaches it and nothing it sends arrives.
+    /// Stops anything reaching this device while its process keeps running, so it keeps its state
+    /// and misses whatever is sent to it. What it sends is still delivered.
     pub(crate) fn disconnect(&self) {
         emit_log(
             self.0.topology,
             &self.0.name,
             kind::OFFLINE,
             None,
-            "links cut",
+            "incoming cut",
         );
         self.0.transport.disconnect(&self.0.name);
     }
@@ -359,7 +359,7 @@ impl SimulatedDevice {
             &self.0.name,
             kind::ONLINE,
             None,
-            "links restored",
+            "incoming restored",
         );
     }
 

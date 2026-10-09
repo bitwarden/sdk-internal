@@ -41,8 +41,9 @@ pub(super) struct TransportPeer {
 /// unregistered destination is unreachable, which is how a test makes a peer unavailable.
 pub(crate) struct InMemoryIpcTransport {
     peers: Mutex<HashMap<Endpoint, TransportPeer>>,
-    /// Names of devices whose links are cut: nothing is delivered to or from them, while their
-    /// process and state stay up.
+    /// Names of devices that receive nothing, while their process and state stay up. What they
+    /// send is still delivered, so they keep their sessions and never race a fresh peer to a
+    /// handshake.
     disconnected: Mutex<HashSet<String>>,
     topology: TopologyId,
 }
@@ -107,9 +108,8 @@ impl InMemoryIpcTransport {
             return Err(TransportError::Unreachable);
         };
 
-        // A cut link looks the same as a peer that is not running.
-        let disconnected = self.lock_disconnected();
-        if disconnected.contains(from_name) || disconnected.contains(&peer.name) {
+        // A disconnected destination looks the same as a peer that is not running.
+        if self.lock_disconnected().contains(&peer.name) {
             emit_log(
                 self.topology,
                 from_name,
