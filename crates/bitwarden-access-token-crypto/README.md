@@ -7,8 +7,8 @@ secrets, or OAuth — see `bitwarden-access-token` for the credential built arou
 
 ## Derivation
 
-An [`AccessTokenSeed`] is 16 random bytes, generated when minting new key material. [`AccessTokenKey::derive`]
-turns a seed and a [`KeyPurpose`] into a symmetric key via
+An [`AccessTokenSeed`] is 16 random bytes, generated when minting new key material.
+[`AccessTokenKey::derive`] turns a seed and a [`KeyPurpose`] into a symmetric key via
 `derive_shareable_key(seed, "accesstoken", Some(purpose))`.
 
 A [`KeyPurpose`] is just a `&'static str` wrapped for type safety; this crate defines no purposes of
