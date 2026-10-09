@@ -4,9 +4,11 @@ use bitwarden_core::client::ApiConfigurations;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
+mod create;
 mod delete;
 mod download_url;
 
+pub use create::CreateAttachmentAdminError;
 pub use delete::DeleteAttachmentAdminError;
 pub use download_url::CipherAdminGetAttachmentDownloadUrlError;
 

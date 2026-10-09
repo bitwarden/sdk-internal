@@ -15,24 +15,31 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
+#[cfg(feature = "wasm")]
+use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt},
+    cipher::cipher::{DecryptCipherListResult, DecryptCipherResult, EncryptMode, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
-#[cfg(feature = "wasm")]
-use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
 mod bulk_update_collections;
 
 pub use admin::{GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError};
+pub use bulk_update_collections::BulkUpdateCollectionsCipherError;
 mod create;
+pub use create::{CipherCreateRequest, CreateCipherError};
 mod delete;
+pub use delete::DeleteCipherError;
 mod edit;
+pub use edit::{CipherEditRequest, CipherPartialEditRequest, EditCipherError};
 mod get;
+pub use get::GetCipherError;
 mod move_many;
+pub use move_many::MoveCipherError;
 mod restore;
+pub use restore::RestoreCipherError;
 mod share_cipher;
 
 /// Returns `true` when cipher data for the given scope should be written in the blob-encrypted
@@ -175,8 +182,7 @@ impl CiphersClient {
     ///
     /// This method attempts to encrypt all ciphers in the list. If any cipher
     /// fails to encrypt, the entire operation fails and an error is returned.
-    #[cfg(feature = "wasm")]
-    // The signature is part of the wasm public surface; keep it `async`.
+    // The signature is part of the UniFFI and wasm public surface; keep it `async`.
     #[allow(clippy::unused_async)]
     pub async fn encrypt_list(
         &self,
@@ -273,7 +279,6 @@ impl CiphersClient {
 
     /// Decrypt full cipher list
     /// Returns both successfully fully decrypted ciphers and any that failed to decrypt
-    #[cfg(feature = "wasm")]
     pub async fn decrypt_list_full_with_failures(
         &self,
         ciphers: Vec<Cipher>,
@@ -351,9 +356,12 @@ mod tests {
     use bitwarden_crypto::{CryptoError, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
     #[cfg(feature = "wasm")]
-    use crate::{AttachmentView, cipher::blob::try_parse_blob};
+    use crate::AttachmentView;
+    use crate::{
+        Attachment, CipherRepromptType, CipherType, Login, VaultClientExt,
+        cipher::blob::try_parse_blob,
+    };
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -400,7 +408,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "wasm")]
     fn test_cipher_view() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
@@ -772,7 +779,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "wasm")]
     async fn test_decrypt_list_full_with_failures_all_success() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
@@ -790,7 +796,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "wasm")]
     async fn test_decrypt_list_full_with_failures_mixed_results() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
         let valid_cipher = test_cipher();
@@ -813,7 +818,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "wasm")]
     async fn test_decrypt_list_full_with_failures_all_failures() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
         let mut invalid_cipher1 = test_cipher();
@@ -835,7 +839,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "wasm")]
     async fn test_decrypt_list_full_with_failures_empty_list() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
@@ -914,7 +917,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -933,7 +935,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list_empty() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -944,7 +945,6 @@ mod tests {
         assert!(result.unwrap().is_empty());
     }
 
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list_roundtrip() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -971,7 +971,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list_preserves_user_id() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -1029,7 +1028,6 @@ mod tests {
 
     /// At `BLOB_SECURITY_VERSION`, personal ciphers encrypt through the blob
     /// path, producing a blob-shaped `Cipher`.
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn encrypt_produces_blob_shape_at_blob_version() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -1051,7 +1049,6 @@ mod tests {
 
     /// `encrypt_list` at blob version, mixing a personal (blob-eligible) view
     /// with an organization-owned (legacy-only) view
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn encrypt_list_mixed_personal_and_organization() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
