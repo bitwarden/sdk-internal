@@ -1177,6 +1177,192 @@ mod tests {
             ));
         }
 
+        /// Builds a `TestRequest` response on the request's dedicated topic, as sent by `source`.
+        fn test_response_from(
+            request: &RpcRequestMessage<TestRequest>,
+            result: i32,
+            source: Source,
+        ) -> IncomingMessage {
+            let response = IncomingRpcResponseMessage {
+                result: Ok(TestResponse { result }),
+                request_id: request.request_id.clone(),
+                request_type: request.request_type.clone(),
+            };
+            IncomingMessage {
+                payload: serde_utils::to_vec(&response).expect("Serialization should not fail"),
+                source,
+                destination: Endpoint::DesktopRenderer,
+                topic: Some(request.response_topic.clone()),
+            }
+        }
+
+        /// A message on the response topic from a peer other than the destination must not be
+        /// accepted as the response, and must not stop the request from receiving the real one.
+        #[tokio::test]
+        async fn response_from_other_source_is_ignored_and_destination_response_is_returned() {
+            let communication_provider = TestCommunicationBackend::new();
+            let client = IpcClientImpl::new(
+                NoEncryptionCryptoProvider,
+                communication_provider.clone(),
+                InMemorySessionRepository::default(),
+            );
+            let _ = client.start(None).await;
+
+            let result_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::DesktopMain,
+                            None,
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            let outgoing = communication_provider.outgoing().await;
+            let request: RpcRequestMessage<TestRequest> =
+                serde_utils::from_slice(&outgoing[0].payload)
+                    .expect("Deserialization should not fail");
+
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                999,
+                Source::BrowserBackground { id: HostId::Id(42) },
+            ));
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                3,
+                Source::DesktopMain,
+            ));
+
+            let result = tokio::time::timeout(Duration::from_secs(5), result_handle)
+                .await
+                .expect("request must complete once the destination responds")
+                .unwrap();
+            assert_eq!(result, Ok(TestResponse { result: 3 }));
+        }
+
+        /// When only a peer other than the destination answers, the request keeps waiting and ends
+        /// through its cancellation token, never returning the other peer's result.
+        #[tokio::test]
+        async fn response_only_from_other_source_waits_until_cancelled() {
+            let communication_provider = TestCommunicationBackend::new();
+            let client = IpcClientImpl::new(
+                NoEncryptionCryptoProvider,
+                communication_provider.clone(),
+                InMemorySessionRepository::default(),
+            );
+            let _ = client.start(None).await;
+
+            let cancellation_token = CancellationToken::new();
+            let result_handle = {
+                let client = client.clone();
+                let cancellation_token = cancellation_token.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::DesktopMain,
+                            Some(cancellation_token),
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            let outgoing = communication_provider.outgoing().await;
+            let request: RpcRequestMessage<TestRequest> =
+                serde_utils::from_slice(&outgoing[0].payload)
+                    .expect("Deserialization should not fail");
+
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                999,
+                Source::DesktopRenderer,
+            ));
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            assert!(
+                !result_handle.is_finished(),
+                "request must not complete on a response from another source"
+            );
+
+            cancellation_token.cancel();
+            let result = tokio::time::timeout(Duration::from_secs(5), result_handle)
+                .await
+                .expect("request must end once cancelled")
+                .unwrap();
+            assert!(matches!(
+                result,
+                Err(crate::error::RequestError::Receive(
+                    TypedReceiveError::Cancelled
+                ))
+            ));
+        }
+
+        /// A web source carries an `origin` that its endpoint does not, so the response is matched
+        /// against the destination by endpoint identity (tab and document) alone.
+        #[tokio::test]
+        async fn response_from_web_destination_is_accepted_regardless_of_origin() {
+            let communication_provider = TestCommunicationBackend::new();
+            let client = IpcClientImpl::new(
+                NoEncryptionCryptoProvider,
+                communication_provider.clone(),
+                InMemorySessionRepository::default(),
+            );
+            let _ = client.start(None).await;
+
+            let result_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::Web {
+                                tab_id: 9001,
+                                document_id: "doc-1".to_string(),
+                            },
+                            None,
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            let outgoing = communication_provider.outgoing().await;
+            let request: RpcRequestMessage<TestRequest> =
+                serde_utils::from_slice(&outgoing[0].payload)
+                    .expect("Deserialization should not fail");
+
+            // Same tab, different document: a page the request was not sent to.
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                999,
+                Source::Web {
+                    tab_id: 9001,
+                    document_id: "doc-2".to_string(),
+                    origin: "https://vault.bitwarden.com".to_string(),
+                },
+            ));
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                3,
+                Source::Web {
+                    tab_id: 9001,
+                    document_id: "doc-1".to_string(),
+                    origin: "https://vault.bitwarden.com".to_string(),
+                },
+            ));
+
+            let result = tokio::time::timeout(Duration::from_secs(5), result_handle)
+                .await
+                .expect("request must complete once the destination responds")
+                .unwrap();
+            assert_eq!(result, Ok(TestResponse { result: 3 }));
+        }
+
         #[tokio::test]
         async fn incoming_rpc_message_handles_request_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
