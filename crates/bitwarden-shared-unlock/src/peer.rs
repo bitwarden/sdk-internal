@@ -499,9 +499,15 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
         Some(states.entry(user_id).or_insert(restored).clone())
     }
 
-    /// The state to advertise for a user: the restored one, or a presence marker.
+    /// The state to advertise for a user: 1. the active state, 2. the last lock persisted to disk,
+    /// or 3. a default null value.
     async fn advertised_state(&self, user_id: UserId) -> TimestampedLockState {
-        self.restored_state(user_id).await.unwrap_or_default()
+        self.restored_state(user_id)
+            .await
+            .unwrap_or(TimestampedLockState {
+                lock_state: LockState::Locked,
+                changed_at: 0,
+            })
     }
 
     /// Records a state reported by a peer, if it still supersedes what is recorded.
