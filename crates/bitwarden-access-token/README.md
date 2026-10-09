@@ -6,6 +6,10 @@ key directly. Supports two [`AccessTokenKind`]s: the PAM access connector, and S
 Secrets Manager kind's key derivation matches the web vault's and `bitwarden-core`'s existing access
 tokens, so a token minted by either derives the same key here.
 
+Key derivation and the key material itself (the seed, and wrapping/unwrapping the organization key)
+live in `bitwarden-access-token-crypto`, which this crate depends on; this crate owns only the wire
+format and OAuth credential built around that key material.
+
 ## Format
 
 A token is one of two shapes, depending on whether its [`AccessTokenKind`] has a wire segment:
@@ -23,24 +27,16 @@ A token is one of two shapes, depending on whether its [`AccessTokenKind`] has a
 - `<api-key-id>` and `<client-secret>` are the OAuth client-credentials pair the holder presents to
   the identity server. The OAuth `client_id` is `<client-kind>.<api-key-id>` for a kind with a
   segment, or the bare `<api-key-id>` otherwise.
-- The seed after the `:` never reaches the server. Both sides run it through
-  `derive_shareable_key(seed, "accesstoken", Some(kind.derive_info()))` to reach the same symmetric
-  key without it crossing the wire. `derive_info` is per [`AccessTokenKind`], so the two kinds never
-  share a key even from the same seed. Secrets Manager's info is `"sm-access-token"`, which every
-  issued Secrets Manager token depends on, so it can never change.
+- The seed after the `:` never reaches the server. Both sides derive an
+  `bitwarden_access_token_crypto::AccessTokenKey` from it using
+  [`AccessTokenKind::key_purpose`], so the two kinds never share a key even from the same seed.
+  Secrets Manager's purpose is `"sm-access-token"`, which every issued Secrets Manager token depends
+  on, so it can never change.
 
-## The three halves
+## Minting and opening
 
-Minting (`make_access_token_secrets`) produces:
-
-- `encrypted_payload`: `{"encryptionKey": <b64 organization key>}` encrypted under the derived key.
-  Sent to the issuing server, later returned to the token holder on authentication, and opened with
-  [`AccessToken::open_payload`].
-- `key`: the derived key's base64, encrypted under the organization key. Lets the organization
-  recover the derived key later without needing the token.
-- the seed, which only [`AccessTokenSecrets::into_token`] ever turns into the wire string.
-
-Opening ([`AccessToken::open_payload`]) reverses the first half: given the token (holding the
-re-derived key) and the `encrypted_payload` string the server returned, it recovers the organization
-key and installs it at the caller-supplied slot in a [`bitwarden_crypto::KeyStoreContext`] — the raw
-key material never leaves this crate.
+Minting ([`make_access_token_secrets`]) wraps `bitwarden-access-token-crypto`'s key material and
+also knows how to assemble the wire string ([`AccessTokenSecrets::into_token`]). Opening
+([`AccessToken::open_payload`]) parses the token, re-derives the key, and forwards to the crypto
+crate to recover the organization key — see that crate's README for what the `encrypted_payload` and
+`key` fields actually hold and how derivation works.
