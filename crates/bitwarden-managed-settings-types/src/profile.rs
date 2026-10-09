@@ -6,13 +6,21 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-/// Errors that can occur while reading a [`ManagementProfile`].
+/// Errors that can occur while building or reading a [`ManagementProfile`].
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum ManagedSettingsError {
     /// The value stored under the requested key could not be parsed as the expected shape.
     #[error("Failed to decode managed settings value: {0}")]
     Decode(String),
+    /// The administrator's settings are not valid JSON. Carries the parser's description of where
+    /// parsing failed, never the input itself.
+    #[error("Managed settings are not valid JSON: {0}")]
+    InvalidJson(String),
+    /// The administrator's settings are valid JSON, but the top level is not an object. Carries
+    /// the JSON type found instead.
+    #[error("Managed settings must be a JSON object, found {0}")]
+    NotAnObject(String),
 }
 
 /// A point-in-time snapshot of administrator-forced configuration for this client.

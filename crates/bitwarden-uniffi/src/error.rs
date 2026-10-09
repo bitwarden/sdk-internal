@@ -52,6 +52,9 @@ pub enum BitwardenError {
     #[error(transparent)]
     StateRegistry(#[from] bitwarden_state::registry::StateRegistryError),
 
+    #[error(transparent)]
+    ManagedSettings(#[from] bitwarden_managed_settings_types::ManagedSettingsError),
+
     // Generators
     #[error(transparent)]
     Username(#[from] UsernameError),

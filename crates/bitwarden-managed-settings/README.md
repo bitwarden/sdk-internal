@@ -5,9 +5,16 @@ administrators enforce through the host operating system's Unified Endpoint Mana
 channel.
 
 The host application constructs a [`ManagedSettingsClient`] at startup with
-[`ManagedSettingsClient::new`], acquires a [`ManagementProfile`] from the host platform, and pushes
-it in with [`ManagedSettingsClient::update_profile`]. Passing `None` clears the profile. Clones of
+[`ManagedSettingsClient::new`], reads the administrator's settings object from the host platform,
+and passes it as a JSON string to [`ManagedSettingsClient::update_from_json`], which normalizes it
+into a [`ManagementProfile`] of dotted keys. A host that already holds a profile pushes it in with
+[`ManagedSettingsClient::update_profile`]. Passing `None` to either clears the profile. Clones of
 the handle share one profile, so an update pushed through any clone is observed by all of them.
+
+In WASM builds, a host can subscribe to profile changes, and can mirror one client's profile to a
+client in another process over `bitwarden-ipc`: the acquiring client calls `mirror_to` with the
+other process's endpoint, and the other client calls `mirror_from` with the acquiring process's
+endpoint.
 
 The same shared cell, obtained from [`ManagedSettingsClient::cell`], is handed to
 [`bitwarden_core::ClientBuilder::with_managed_profile`], so SDK feature crates read the current
