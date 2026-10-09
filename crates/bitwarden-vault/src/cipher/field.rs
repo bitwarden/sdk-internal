@@ -12,10 +12,6 @@ use bitwarden_crypto::{
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{cipher::StrictDecrypt, linked_id::LinkedIdType};
 use crate::{PasswordHistoryView, VaultParseError};
@@ -24,7 +20,7 @@ use crate::{PasswordHistoryView, VaultParseError};
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum FieldType {
     /// Text field
     Text = 0,
@@ -54,7 +50,7 @@ impl TryFrom<u8> for FieldType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Field {
     name: Option<EncString>,
     value: Option<EncString>,
@@ -68,7 +64,7 @@ pub struct Field {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct FieldView {
     pub name: Option<String>,
     pub value: Option<String>,
@@ -84,7 +80,7 @@ pub struct FieldView {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct FieldListView {
     /// Only populated if the field has a name.
     pub name: Option<String>,

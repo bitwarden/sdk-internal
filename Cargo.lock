@@ -639,6 +639,7 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-commercial-marker",
  "bitwarden-core",
+ "bitwarden-ffi",
  "serde",
  "serde_json",
  "serde_repr",
@@ -1657,6 +1658,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-logging",
  "bitwarden-ssh",
  "bitwarden-state",

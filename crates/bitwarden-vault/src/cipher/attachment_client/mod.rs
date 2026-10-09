@@ -5,8 +5,6 @@ use bitwarden_crypto::{EncString, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::Repository;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
@@ -55,7 +53,7 @@ pub enum DecryptFileError {
 }
 
 /// Wrapper for attachment-specific cipher operations.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct AttachmentsClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -64,7 +62,7 @@ pub struct AttachmentsClient {
     pub(crate) http_client: reqwest::Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Returns a new client for performing attachment admin operations.
     /// Uses the admin server API endpoints and does not modify local state.
