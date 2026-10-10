@@ -4,6 +4,7 @@
 import { ApiServer } from "./api-server";
 import { Database } from "./database";
 import { EmergencyAccessServer } from "./emergency-access-server";
+import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
 import type { OrganizationMember, StoredMasterPasswordUnlock, UserEntity } from "./entities";
 import { installHttpMock, type HttpMock, type Routes } from "./http-mock";
 import { IdentityServer } from "./identity-server";
@@ -122,8 +123,8 @@ export interface SeededAccount {
 
 /** Where a seeded emergency access grant starts, and what it grants. */
 export interface SeedGrant {
-  type: number;
-  status: number;
+  type: EmergencyAccessTypeValue;
+  status: EmergencyAccessStatusValue;
   waitTimeDays?: number;
 }
 

@@ -27,6 +27,8 @@ import {
   ListResponse,
   MasterPasswordUnlockDataModel,
   type EmergencyAccessAcceptRequest,
+  type EmergencyAccessStatusValue,
+  type EmergencyAccessTypeValue,
   type EmergencyAccessConfirmRequest,
   type EmergencyAccessInviteRequest,
   type EmergencyAccessPasswordRequest,
@@ -41,6 +43,11 @@ import { error, HTTP_BAD_REQUEST } from "./replies";
 
 /** The server refuses every invalid emergency access request with the same message. */
 const NOT_VALID = "Emergency Access not valid.";
+
+/** A grant's id, so it cannot be swapped for another id. */
+type GrantId = string & { readonly __brand: "GrantId" };
+
+const asGrantId = (value: string): GrantId => value as GrantId;
 
 /** Which side of a grant a request must come from. */
 enum Side {
@@ -60,28 +67,42 @@ export class EmergencyAccessServer {
       ),
 
       "GET /emergency-access/:id": authenticatedRoute(this.db, (user, request) =>
-        this.get(user, request.params.id),
+        this.get(user, asGrantId(request.params.id)),
       ),
       "PUT /emergency-access/:id": authenticatedRoute(this.db, (user, request) =>
-        this.update(user, request.params.id, request.json<EmergencyAccessUpdateRequest>()),
+        this.update(
+          user,
+          asGrantId(request.params.id),
+          request.json<EmergencyAccessUpdateRequest>(),
+        ),
       ),
       "DELETE /emergency-access/:id": authenticatedRoute(this.db, (user, request) =>
-        this.delete(user, request.params.id),
+        this.delete(user, asGrantId(request.params.id)),
       ),
 
       "POST /emergency-access/:id/reinvite": authenticatedRoute(this.db, (user, request) =>
-        this.transition(user, request.params.id, Side.Grantor, [EmergencyAccessStatus.invited]),
+        this.transition(user, asGrantId(request.params.id), Side.Grantor, [
+          EmergencyAccessStatus.invited,
+        ]),
       ),
       "POST /emergency-access/:id/accept": authenticatedRoute(this.db, (user, request) =>
-        this.accept(user, request.params.id, request.json<EmergencyAccessAcceptRequest>()),
+        this.accept(
+          user,
+          asGrantId(request.params.id),
+          request.json<EmergencyAccessAcceptRequest>(),
+        ),
       ),
       "POST /emergency-access/:id/confirm": authenticatedRoute(this.db, (user, request) =>
-        this.confirm(user, request.params.id, request.json<EmergencyAccessConfirmRequest>()),
+        this.confirm(
+          user,
+          asGrantId(request.params.id),
+          request.json<EmergencyAccessConfirmRequest>(),
+        ),
       ),
       "POST /emergency-access/:id/initiate": authenticatedRoute(this.db, (user, request) =>
         this.transition(
           user,
-          request.params.id,
+          asGrantId(request.params.id),
           Side.Grantee,
           [EmergencyAccessStatus.confirmed],
           EmergencyAccessStatus.recoveryInitiated,
@@ -90,7 +111,7 @@ export class EmergencyAccessServer {
       "POST /emergency-access/:id/approve": authenticatedRoute(this.db, (user, request) =>
         this.transition(
           user,
-          request.params.id,
+          asGrantId(request.params.id),
           Side.Grantor,
           [EmergencyAccessStatus.recoveryInitiated],
           EmergencyAccessStatus.recoveryApproved,
@@ -99,7 +120,7 @@ export class EmergencyAccessServer {
       "POST /emergency-access/:id/reject": authenticatedRoute(this.db, (user, request) =>
         this.transition(
           user,
-          request.params.id,
+          asGrantId(request.params.id),
           Side.Grantor,
           [EmergencyAccessStatus.recoveryInitiated, EmergencyAccessStatus.recoveryApproved],
           EmergencyAccessStatus.confirmed,
@@ -107,22 +128,26 @@ export class EmergencyAccessServer {
       ),
 
       "POST /emergency-access/:id/view": authenticatedRoute(this.db, (user, request) =>
-        this.view(user, request.params.id),
+        this.view(user, asGrantId(request.params.id)),
       ),
       "POST /emergency-access/:id/takeover": authenticatedRoute(this.db, (user, request) =>
-        this.takeover(user, request.params.id),
+        this.takeover(user, asGrantId(request.params.id)),
       ),
       "POST /emergency-access/:id/password": authenticatedRoute(this.db, (user, request) =>
-        this.password(user, request.params.id, request.json<EmergencyAccessPasswordRequest>()),
+        this.password(
+          user,
+          asGrantId(request.params.id),
+          request.json<EmergencyAccessPasswordRequest>(),
+        ),
       ),
       "GET /emergency-access/:id/policies": authenticatedRoute(this.db, (user, request) =>
-        this.policies(user, request.params.id),
+        this.policies(user, asGrantId(request.params.id)),
       ),
     };
   }
 
   /** The grant `id`, if `user` is on `side` of it. */
-  private grantFor(user: UserEntity, id: string, side: Side): EmergencyAccessEntity | undefined {
+  private grantFor(user: UserEntity, id: GrantId, side: Side): EmergencyAccessEntity | undefined {
     const grant = this.db.emergencyAccess.get(id);
     if (grant === undefined) {
       return undefined;
@@ -135,8 +160,8 @@ export class EmergencyAccessServer {
   /** The grant `id`, if `user` is its grantee and it is approved for `type`. */
   private approvedFor(
     user: UserEntity,
-    id: string,
-    type: number,
+    id: GrantId,
+    type: EmergencyAccessTypeValue,
   ): EmergencyAccessEntity | undefined {
     const grant = this.grantFor(user, id, Side.Grantee);
     if (grant === undefined) {
@@ -190,7 +215,7 @@ export class EmergencyAccessServer {
     return {};
   }
 
-  private get(user: UserEntity, id: string): MockReply {
+  private get(user: UserEntity, id: GrantId): MockReply {
     const grant = this.grantFor(user, id, Side.Grantor);
     if (grant === undefined) {
       return error(HTTP_BAD_REQUEST, NOT_VALID);
@@ -200,7 +225,7 @@ export class EmergencyAccessServer {
     return { json: EmergencyAccessGranteeDetailsResponse.fromEntity(grant, grantee) };
   }
 
-  private update(user: UserEntity, id: string, posted: EmergencyAccessUpdateRequest): MockReply {
+  private update(user: UserEntity, id: GrantId, posted: EmergencyAccessUpdateRequest): MockReply {
     const grant = this.grantFor(user, id, Side.Grantor);
     if (grant === undefined) {
       return error(HTTP_BAD_REQUEST, NOT_VALID);
@@ -217,7 +242,7 @@ export class EmergencyAccessServer {
   }
 
   /** Either side may end a grant. */
-  private delete(user: UserEntity, id: string): MockReply {
+  private delete(user: UserEntity, id: GrantId): MockReply {
     const grant = this.grantFor(user, id, Side.Grantor) ?? this.grantFor(user, id, Side.Grantee);
     if (grant === undefined) {
       return error(HTTP_BAD_REQUEST, NOT_VALID);
@@ -234,10 +259,10 @@ export class EmergencyAccessServer {
    */
   private transition(
     user: UserEntity,
-    id: string,
+    id: GrantId,
     side: Side,
-    from: number[],
-    to?: number,
+    from: EmergencyAccessStatusValue[],
+    to?: EmergencyAccessStatusValue,
   ): MockReply {
     const grant = this.grantFor(user, id, side);
     if (grant === undefined || !from.includes(grant.status)) {
@@ -253,7 +278,7 @@ export class EmergencyAccessServer {
   }
 
   /** The invited account claims the grant, proving it received the invite email. */
-  private accept(user: UserEntity, id: string, posted: EmergencyAccessAcceptRequest): MockReply {
+  private accept(user: UserEntity, id: GrantId, posted: EmergencyAccessAcceptRequest): MockReply {
     const grant = this.db.emergencyAccess.get(id);
     if (grant === undefined) {
       return error(HTTP_BAD_REQUEST, NOT_VALID);
@@ -279,7 +304,7 @@ export class EmergencyAccessServer {
   }
 
   /** The grantor seals their user key to the grantee, which is what later grants access at all. */
-  private confirm(user: UserEntity, id: string, posted: EmergencyAccessConfirmRequest): MockReply {
+  private confirm(user: UserEntity, id: GrantId, posted: EmergencyAccessConfirmRequest): MockReply {
     const grant = this.grantFor(user, id, Side.Grantor);
     if (grant === undefined || grant.status !== EmergencyAccessStatus.accepted) {
       return error(HTTP_BAD_REQUEST, NOT_VALID);
@@ -296,7 +321,7 @@ export class EmergencyAccessServer {
   }
 
   /** The grantor's own items only: organization items stay under keys the grantee never gets. */
-  private view(user: UserEntity, id: string): MockReply {
+  private view(user: UserEntity, id: GrantId): MockReply {
     const grant = this.approvedFor(user, id, EmergencyAccessType.view);
     if (grant?.keyEncrypted == null) {
       return error(HTTP_BAD_REQUEST, NOT_VALID);
@@ -315,7 +340,7 @@ export class EmergencyAccessServer {
   }
 
   /** What the grantee needs to set the grantor a new master password: the key and its KDF. */
-  private takeover(user: UserEntity, id: string): MockReply {
+  private takeover(user: UserEntity, id: GrantId): MockReply {
     const grant = this.approvedFor(user, id, EmergencyAccessType.takeover);
     if (grant?.keyEncrypted == null) {
       return error(HTTP_BAD_REQUEST, NOT_VALID);
@@ -333,7 +358,7 @@ export class EmergencyAccessServer {
 
   private password(
     user: UserEntity,
-    id: string,
+    id: GrantId,
     posted: EmergencyAccessPasswordRequest,
   ): MockReply {
     const grant = this.approvedFor(user, id, EmergencyAccessType.takeover);
@@ -357,8 +382,7 @@ export class EmergencyAccessServer {
     return {};
   }
 
-  /** The emulator models no policies, so an approved takeover always sees none. */
-  private policies(user: UserEntity, id: string): MockReply {
+  private policies(user: UserEntity, id: GrantId): MockReply {
     if (this.approvedFor(user, id, EmergencyAccessType.takeover) === undefined) {
       return error(HTTP_BAD_REQUEST, NOT_VALID);
     }
@@ -366,7 +390,6 @@ export class EmergencyAccessServer {
     return { json: ListResponse.of([]) };
   }
 
-  /** A grant always references a seeded account, so a missing one is a harness bug. */
   private requireUser(userId: string): UserEntity {
     const user = this.db.users.get(userId);
     if (user === undefined) {

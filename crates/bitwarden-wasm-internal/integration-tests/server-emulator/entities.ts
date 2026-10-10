@@ -8,6 +8,8 @@ import type {
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
 
+import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
+
 /** Master-password unlock data as the server holds it. */
 export interface StoredMasterPasswordUnlock {
   masterKeyWrappedUserKey: EncString;
@@ -93,8 +95,8 @@ export interface EmergencyAccessEntity {
   granteeId: string | null;
   /** The address the grantor invited. */
   email: string;
-  type: number;
-  status: number;
+  type: EmergencyAccessTypeValue;
+  status: EmergencyAccessStatusValue;
   waitTimeDays: number;
   /** The grantor's user key sealed to the grantee, `null` until the grantor confirms. */
   keyEncrypted: string | null;

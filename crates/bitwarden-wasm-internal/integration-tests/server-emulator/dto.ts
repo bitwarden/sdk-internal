@@ -713,6 +713,8 @@ export class ErrorResponse {
 
 /** The server's numeric `EmergencyAccessType`. */
 export const EmergencyAccessType = { view: 0, takeover: 1 } as const;
+export type EmergencyAccessTypeValue =
+  (typeof EmergencyAccessType)[keyof typeof EmergencyAccessType];
 
 /** The server's numeric `EmergencyAccessStatusType`. */
 export const EmergencyAccessStatus = {
@@ -722,6 +724,8 @@ export const EmergencyAccessStatus = {
   recoveryInitiated: 3,
   recoveryApproved: 4,
 } as const;
+export type EmergencyAccessStatusValue =
+  (typeof EmergencyAccessStatus)[keyof typeof EmergencyAccessStatus];
 
 /** `ListResponseModel<T>`. */
 export class ListResponse<T> {
@@ -798,13 +802,13 @@ export class EmergencyAccessGrantorDetailsResponse {
 /** `EmergencyAccessInviteRequestModel`. */
 export class EmergencyAccessInviteRequest {
   email!: string;
-  type!: number;
+  type!: EmergencyAccessTypeValue;
   waitTimeDays!: number;
 }
 
 /** `EmergencyAccessUpdateRequestModel`. */
 export class EmergencyAccessUpdateRequest {
-  type!: number;
+  type!: EmergencyAccessTypeValue;
   waitTimeDays!: number;
   keyEncrypted?: string | null;
 }
