@@ -1,7 +1,5 @@
 use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
@@ -28,7 +26,7 @@ impl PolicyDefinition for MaximumVaultTimeoutPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum VaultTimeoutType {
     /// The vault never times out.
     Never,
@@ -47,7 +45,7 @@ pub enum VaultTimeoutType {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum VaultTimeoutAction {
     /// Lock the vault, requiring the member to unlock it again.
     Lock,
@@ -59,11 +57,7 @@ pub enum VaultTimeoutAction {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct MaximumVaultTimeoutPolicyData {
     /// The kind of vault timeout enforced. Serialized as `type` on the wire.
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]

@@ -21,11 +21,7 @@ impl PolicyDefinition for ResetPasswordPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct ResetPasswordPolicyData {
     /// Whether members are automatically enrolled in account recovery when
     /// they join the organization.

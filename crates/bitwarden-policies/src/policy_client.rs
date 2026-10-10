@@ -3,8 +3,6 @@
 use std::collections::HashMap;
 
 use bitwarden_core::{Client, OrganizationId};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{OrganizationUserPolicyContext, Policy, PolicyType, models::PolicyDecisionErased};
 // The strongly-typed native enforcement API is test-only for now: it is exercised by tests but
@@ -15,7 +13,7 @@ use crate::{PolicyDefinition, models::PolicyDecision, policy_definition::Enforce
 /// Client for policy domain operations.
 ///
 /// Obtained via [`PoliciesClientExt::policies`] on a [`Client`].
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct PolicyClient;
 
 impl Default for PolicyClient {
@@ -33,7 +31,7 @@ impl PolicyClient {
 
 /// FFI client using type erasure to cross the boundary.
 /// Native rust callers should use the non-erased interfaces instead.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl PolicyClient {
     /// Evaluate enforcement of the given policy type across all organizations,
     /// returning type-erased decisions for the FFI boundary.
@@ -564,6 +562,24 @@ mod tests {
             let result = filter(policies, orgs, PolicyType::MasterPassword);
 
             assert_eq!(result.len(), 1);
+        }
+
+        #[test]
+        fn applies_automatic_app_log_in_to_owners_and_admins() {
+            // AutomaticAppLogInPolicy has no exempt roles, so it applies to all members.
+            let org_id = OrganizationId::new_v4();
+            for role in [OrganizationUserType::Owner, OrganizationUserType::Admin] {
+                let label = format!("expected {role:?} to be subject");
+                let policies = vec![policy(org_id, PolicyType::AutomaticAppLogIn, None)];
+                let orgs = vec![OrganizationUserPolicyContext {
+                    role,
+                    ..confirmed_member(org_id)
+                }];
+
+                let result = filter(policies, orgs, PolicyType::AutomaticAppLogIn);
+
+                assert_eq!(result.len(), 1, "{label}");
+            }
         }
 
         #[test]

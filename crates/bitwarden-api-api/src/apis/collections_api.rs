@@ -55,6 +55,12 @@ pub trait CollectionsApi: Send + Sync {
         org_id: uuid::Uuid,
     ) -> Result<models::CollectionResponseModelListResponseModel, Error>;
 
+    /// GET /organizations/{orgId}/collections/access
+    async fn get_all_with_access<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::CollectionAccessDetailsResponseModelListResponseModel, Error>;
+
     /// GET /organizations/{orgId}/collections/{id}/details
     async fn get_details<'a>(
         &self,
@@ -207,6 +213,27 @@ impl CollectionsApi for CollectionsApiClient {
 
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/collections",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_all_with_access<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::CollectionAccessDetailsResponseModelListResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/collections/access",
             local_var_configuration.base_path,
             orgId = org_id
         );

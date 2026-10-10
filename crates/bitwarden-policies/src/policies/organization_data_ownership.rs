@@ -25,11 +25,7 @@ impl PolicyDefinition for OrganizationDataOwnershipPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct OrganizationDataOwnershipPolicyData {
     /// Whether members may transfer individual items into their personal vault.
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -56,7 +56,9 @@
 //! 2. Drops it if the user is not in [`SharedUnlockDriver::list_users`] — that is how a peer knows
 //!    it has no account for a user, and it never advertises such a user either.
 //! 3. Drops it if `changed_at` is older than the date this device has recorded. A user this device
-//!    has recorded nothing for counts as date `0`.
+//!    has recorded nothing for counts as locked at [`SharedUnlockDriver::get_last_manual_lock`], or
+//!    at date `0` if there is none. The persisted date keeps a lock made just before a process
+//!    reload from losing to an older unlock its peers still hold.
 //! 4. On an *equal* date, drops it unless it is a `Locked` arriving at an unlocked device. Equal
 //!    dates mean two devices acted inside the same millisecond without having seen each other, so
 //!    the tie is broken toward `Locked`: both sides then resolve it identically and converge
@@ -147,7 +149,32 @@ pub enum LockState {
     },
 }
 
+/// A peer's lock state for a user, stripped of the key material [`LockState::Unlocked`] carries.
+///
+/// Reported to the driver on every sync this device accepts, so a client can tell "a peer
+/// answered, and it is locked" from "no peer answered at all".
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+pub enum PeerLockState {
+    /// The peer reported the user as locked.
+    Locked,
+    /// The peer reported the user as unlocked.
+    Unlocked,
+}
+
 impl LockState {
+    /// The state as reported to a driver, which is never handed key material.
+    pub(crate) fn peer_state(&self) -> PeerLockState {
+        match self {
+            LockState::Locked => PeerLockState::Locked,
+            LockState::Unlocked { .. } => PeerLockState::Unlocked,
+        }
+    }
+
     /// Names the state without touching the key it may carry, so it is safe to log.
     pub(crate) fn describe(&self) -> &'static str {
         match self {
@@ -160,11 +187,7 @@ impl LockState {
 /// The device (client) has several events that need to be reported to the shared unlock system.
 /// This enum represents the events that need to be reported.
 #[derive(Serialize, Deserialize, zeroize::ZeroizeOnDrop)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum DeviceEvent {
     /// The user with the given user id has been locked manually in the UI
     ManualLock {
@@ -186,14 +209,12 @@ pub enum DeviceEvent {
 /// A kind of client a peer may share unlock state with, independent of the IPC endpoint variants
 /// that address its individual contexts (foreground/background, renderer/main).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum SharedUnlockClient {
     /// The browser extension, in any of its contexts.
     Browser,
+    /// The command-line interface, in any of its invocations.
+    Cli,
     /// The desktop app, in any of its processes.
     Desktop,
     /// A web vault tab.
@@ -208,6 +229,7 @@ impl SharedUnlockClient {
             Endpoint::BrowserForeground { .. } | Endpoint::BrowserBackground { .. } => {
                 SharedUnlockClient::Browser
             }
+            Endpoint::Cli { .. } => SharedUnlockClient::Cli,
             Endpoint::DesktopRenderer | Endpoint::DesktopMain => SharedUnlockClient::Desktop,
         }
     }

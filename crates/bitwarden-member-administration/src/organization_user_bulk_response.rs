@@ -2,13 +2,11 @@ use bitwarden_api_api::models::OrganizationUserBulkResponseModel;
 use bitwarden_core::{MissingFieldError, require};
 use bitwarden_organizations::OrganizationUserId;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 /// The outcome of a bulk member operation for one organization member.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct OrganizationUserBulkResponse {
     /// The organization membership this outcome refers to.
     pub id: OrganizationUserId,

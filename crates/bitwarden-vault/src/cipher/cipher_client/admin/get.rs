@@ -8,7 +8,9 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, VaultParseError,
-    cipher::cipher::{ListOrganizationCiphersResult, PartialCipher, StrictDecrypt},
+    cipher::cipher::{
+        DecryptCipherResult, ListOrganizationCiphersResult, PartialCipher, StrictDecrypt,
+    },
     cipher_client::admin::CipherAdminClient,
 };
 
@@ -66,6 +68,40 @@ pub async fn list_org_ciphers(
     })
 }
 
+/// Get all Login ciphers for an organization, decrypted to full [crate::CipherView].
+pub async fn list_org_login_ciphers(
+    org_id: OrganizationId,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
+) -> Result<DecryptCipherResult, GetOrganizationCiphersAdminError> {
+    let response: CipherMiniDetailsResponseModelListResponseModel = api_client
+        .ciphers_api()
+        .get_organization_login_ciphers(Some(org_id.into()))
+        .await?;
+    let ciphers = response
+        .data
+        .into_iter()
+        .flatten()
+        .map(|model| model.merge_with_cipher(None))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+        DecryptCipherResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        }
+    } else {
+        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+        DecryptCipherResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
+    })
+}
+
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CipherAdminClient {
     /// Fetches and decrypts all ciphers assigned to the current user for an organization.
@@ -113,6 +149,20 @@ impl CipherAdminClient {
         list_org_ciphers(
             org_id,
             include_member_items,
+            &self.api_configurations.api_client,
+            &self.key_store,
+            self.is_strict_decrypt().await,
+        )
+        .await
+    }
+
+    /// Fetches all Login ciphers for an organization and decrypts them to full [crate::CipherView].
+    pub async fn list_org_login_ciphers(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<DecryptCipherResult, GetOrganizationCiphersAdminError> {
+        list_org_login_ciphers(
+            org_id,
             &self.api_configurations.api_client,
             &self.key_store,
             self.is_strict_decrypt().await,
@@ -303,6 +353,89 @@ mod tests {
 
         assert!(result.ciphers.is_empty());
         assert!(result.list_views.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_org_login_ciphers_all_success() {
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_get_organization_login_ciphers()
+                .withf(|org_id| *org_id == TEST_ORG_ID.parse().ok())
+                .returning(move |_org_id| {
+                    Ok(CipherMiniDetailsResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![
+                            mock_mini_cipher(TEST_CIPHER_ID_1),
+                            mock_mini_cipher(TEST_CIPHER_ID_2),
+                        ]),
+                        continuation_token: None,
+                    })
+                });
+        });
+
+        let client = create_test_client(api_client);
+        let result = client
+            .list_org_login_ciphers(TEST_ORG_ID.parse().unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 2);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.successes[0].id, TEST_CIPHER_ID_1.parse().ok());
+        assert_eq!(result.successes[1].id, TEST_CIPHER_ID_2.parse().ok());
+        assert!(result.successes[0].login.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_list_org_login_ciphers_with_failures() {
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_get_organization_login_ciphers()
+                .returning(move |_org_id| {
+                    let mut bad = mock_mini_cipher(TEST_CIPHER_ID_2);
+                    bad.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".to_string());
+                    Ok(CipherMiniDetailsResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![mock_mini_cipher(TEST_CIPHER_ID_1), bad]),
+                        continuation_token: None,
+                    })
+                });
+        });
+
+        let client = create_test_client(api_client);
+        let result = client
+            .list_org_login_ciphers(TEST_ORG_ID.parse().unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.successes[0].id, TEST_CIPHER_ID_1.parse().ok());
+        assert_eq!(result.failures.len(), 1);
+        assert_eq!(result.failures[0].id, TEST_CIPHER_ID_2.parse().ok());
+    }
+
+    #[tokio::test]
+    async fn test_list_org_login_ciphers_empty() {
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_get_organization_login_ciphers()
+                .returning(move |_org_id| {
+                    Ok(CipherMiniDetailsResponseModelListResponseModel {
+                        object: None,
+                        data: None,
+                        continuation_token: None,
+                    })
+                });
+        });
+
+        let client = create_test_client(api_client);
+        let result = client
+            .list_org_login_ciphers(TEST_ORG_ID.parse().unwrap())
+            .await
+            .unwrap();
+
+        assert!(result.successes.is_empty());
+        assert!(result.failures.is_empty());
     }
 
     #[tokio::test]

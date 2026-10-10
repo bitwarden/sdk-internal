@@ -11,15 +11,13 @@ use bitwarden_crypto::KeyStoreContext;
 use bitwarden_organization_crypto::invite::Invite;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 use uuid::Uuid;
 
 use crate::InviteLinkError;
 
 /// An organization invite link as persisted by the server.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationInviteLink {
     /// Unique identifier of the invite link.
@@ -88,7 +86,7 @@ impl OrganizationInviteLink {
 
 /// An organization invite link with reconstructed URL for display by the client.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationInviteLinkView {
     /// Unique identifier of the invite link.
@@ -109,7 +107,7 @@ pub struct OrganizationInviteLinkView {
 /// The status of an organization invite link, used to verify basic availability before an invitee
 /// attempts to accept.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationInviteLinkStatusView {
     /// The name of the organization the invite link belongs to.
@@ -126,7 +124,7 @@ pub struct OrganizationInviteLinkStatusView {
 
 /// SSO details for an organization referenced by an invite link status.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationInviteLinkSsoView {
     /// The organization's SSO identifier, when configured.

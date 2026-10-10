@@ -8,12 +8,10 @@ use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use tracing::{error, info};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::UserCryptoManagementClient;
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl UserCryptoManagementClient {
     /// Migrates an initialized account to Key Connector unlock.
     ///

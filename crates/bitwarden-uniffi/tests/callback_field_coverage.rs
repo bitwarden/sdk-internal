@@ -23,11 +23,11 @@ impl bitwarden_core::auth::ClientManagedTokens for MockTokenProvider {
 
 /// Test callback that captures logs
 struct TestCallback {
-    logs: Arc<Mutex<Vec<(String, String, String)>>>,
+    logs: Arc<Mutex<Vec<(LogLevel, String, String)>>>,
 }
 
 impl LogCallback for TestCallback {
-    fn on_log(&self, level: String, target: String, message: String) -> Result<()> {
+    fn on_log(&self, level: LogLevel, target: String, message: String) -> Result<()> {
         self.logs
             .lock()
             .expect("Failed to lock logs mutex")
@@ -46,7 +46,7 @@ fn test_message_visitor_captures_message_field() {
     let callback = Arc::new(TestCallback { logs: logs.clone() });
 
     // Initialize logger with callback
-    init_logger(Some(callback), None);
+    init_logger(Some(callback), None, true);
 
     let _client = Client::new(
         Arc::new(MockTokenProvider),
@@ -70,17 +70,17 @@ fn test_message_visitor_captures_message_field() {
     // Find our specific log messages
     let info_log = captured
         .iter()
-        .find(|(lvl, _, msg)| lvl == "INFO" && msg.contains("info message"))
+        .find(|(lvl, _, msg)| *lvl == LogLevel::Info && msg.contains("info message"))
         .expect("INFO message should be captured");
 
     let warn_log = captured
         .iter()
-        .find(|(lvl, _, msg)| lvl == "WARN" && msg.contains("warn message"))
+        .find(|(lvl, _, msg)| *lvl == LogLevel::Warn && msg.contains("warn message"))
         .expect("WARN message should be captured");
 
     let error_log = captured
         .iter()
-        .find(|(lvl, _, msg)| lvl == "ERROR" && msg.contains("error message"))
+        .find(|(lvl, _, msg)| *lvl == LogLevel::Error && msg.contains("error message"))
         .expect("ERROR message should be captured");
 
     // Validate message field extraction
@@ -101,7 +101,7 @@ fn test_message_visitor_captures_message_field() {
     );
 
     // Validate levels
-    assert_eq!(info_log.0, "INFO");
-    assert_eq!(warn_log.0, "WARN");
-    assert_eq!(error_log.0, "ERROR");
+    assert_eq!(info_log.0, LogLevel::Info);
+    assert_eq!(warn_log.0, LogLevel::Warn);
+    assert_eq!(error_log.0, LogLevel::Error);
 }

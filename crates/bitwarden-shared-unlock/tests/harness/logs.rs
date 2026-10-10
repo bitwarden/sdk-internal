@@ -71,6 +71,7 @@ pub(crate) mod kind {
     pub(crate) const UNLOCK_END: &str = "unlock_end";
     pub(crate) const DEVICE_EVENT: &str = "device_event";
     pub(crate) const SUPPRESS_TIMEOUT: &str = "suppress_timeout";
+    pub(crate) const PEER_STATE: &str = "peer_state";
     pub(crate) const IPC_SEND: &str = "ipc_send";
     pub(crate) const IPC_UNREACHABLE: &str = "ipc_unreachable";
     pub(crate) const RELOAD: &str = "reload";

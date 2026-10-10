@@ -26,11 +26,7 @@ impl PolicyDefinition for FillAssistPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct FillAssistPolicyData {
     /// Overrides the default Fill Assist rules feed URL. Absent when the organization has
     /// not configured a custom URL, in which case clients fall back to their server

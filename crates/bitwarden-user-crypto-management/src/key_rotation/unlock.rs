@@ -22,8 +22,6 @@ use bitwarden_encoding::B64;
 use bitwarden_organization_crypto::account_recovery::AccountRecoveryKey;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, debug_span, error, info};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::key_rotation::{
     KeyRotationDataParseError, partial_rotateable_keyset::PartialRotateableKeyset,
@@ -32,7 +30,7 @@ use crate::key_rotation::{
 /// The data necessary to re-share the user-key to a V1 emergency access membership. Note: The
 /// Public-key must be verified/trusted. Further, there is no sender authentication possible here.
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct V1EmergencyAccessMembership {
     pub id: uuid::Uuid,
     pub grantee_id: uuid::Uuid,
@@ -61,7 +59,7 @@ impl TryFrom<EmergencyAccessKeyDataResponseModel> for V1EmergencyAccessMembershi
 /// The data necessary to re-share the user-key to a V1 organization membership. Note: The
 /// Public-key must be verified/trusted. Further, there is no sender authentication possible here.
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct V1OrganizationMembership {
     pub organization_id: uuid::Uuid,
     pub name: String,

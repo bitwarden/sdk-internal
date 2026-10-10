@@ -1,3 +1,4 @@
+use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 
 use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
@@ -12,6 +13,10 @@ impl PolicyDefinition for AutomaticAppLogInPolicy {
         PolicyType::AutomaticAppLogIn
     }
 
+    fn exempt_roles(&self) -> &[OrganizationUserType] {
+        &[]
+    }
+
     fn to_erased(&self, data: Self::Data) -> PolicyDataType {
         PolicyDataType::AutomaticAppLogIn(data)
     }
@@ -21,11 +26,7 @@ impl PolicyDefinition for AutomaticAppLogInPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct AutomaticAppLogInPolicyData {
     /// The identity provider host used for automatic single sign-on into apps.
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::{RpcHandler, rpc::request::RpcRequest};
+use crate::{RpcHandler, RpcRequestInfo, rpc::request::RpcRequest};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// A request to discover/ping a client.
@@ -40,7 +40,7 @@ impl DiscoverHandler {
 impl RpcHandler for DiscoverHandler {
     type Request = DiscoverRequest;
 
-    async fn handle(&self, _request: Self::Request) -> DiscoverResponse {
+    async fn handle(&self, _request: Self::Request, _info: RpcRequestInfo) -> DiscoverResponse {
         self.response.clone()
     }
 }

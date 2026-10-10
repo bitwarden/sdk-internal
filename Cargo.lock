@@ -492,8 +492,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
 
 [[package]]
+name = "bitwarden-access-connector"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-commercial-marker",
+ "clap",
+]
+
+[[package]]
 name = "bitwarden-api-api"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-base",
@@ -509,7 +517,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-api-base"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-uniffi-error",
  "http",
@@ -525,7 +533,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-api-identity"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-base",
@@ -541,7 +549,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-api-key-connector"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-base",
@@ -556,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-auth"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -566,6 +574,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-policies",
  "bitwarden-state",
  "bitwarden-test",
@@ -592,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-cli"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "clap",
  "color-eyre",
@@ -602,12 +611,13 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-collections"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-uuid",
  "serde",
  "serde_repr",
@@ -621,11 +631,11 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-commercial-marker"
-version = "3.0.0"
+version = "4.0.0"
 
 [[package]]
 name = "bitwarden-commercial-vault"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-commercial-marker",
  "bitwarden-core",
@@ -641,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-core"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -652,6 +662,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-logging",
  "bitwarden-managed-settings-types",
  "bitwarden-random",
@@ -694,7 +705,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-core-macro"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -703,7 +714,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-crypto"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "aes 0.9.2",
  "aes-gcm 0.11.0",
@@ -711,6 +722,7 @@ dependencies = [
  "bitwarden-api-key-connector",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-logging",
  "bitwarden-random",
  "bitwarden-sensitive-value",
@@ -758,10 +770,11 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-crypto-cipher-suite"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-ffi",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -769,12 +782,13 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-crypto-sync-handler"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-ffi",
  "bitwarden-member-administration",
  "bitwarden-organizations",
  "bitwarden-sync",
@@ -790,8 +804,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-emergency-access"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-error",
+ "bitwarden-ffi",
+ "bitwarden-policies",
+ "bitwarden-uuid",
+ "bitwarden-vault",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "thiserror",
+ "tokio",
+ "tsify",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-encoding"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-uniffi-error",
  "data-encoding",
@@ -808,7 +846,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-error"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-error-macro",
  "js-sys",
@@ -821,7 +859,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-error-macro"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "darling 0.20.11",
  "js-sys",
@@ -836,7 +874,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-exporters"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
@@ -865,7 +903,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ffi"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-ffi-macro",
  "serde",
@@ -877,7 +915,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ffi-macro"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -886,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-fido"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -896,7 +934,7 @@ dependencies = [
  "bitwarden-vault",
  "chrono",
  "coset",
- "itertools 0.15.0",
+ "itertools 0.13.0",
  "p256 0.13.2",
  "passkey",
  "passkey-client",
@@ -912,7 +950,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-generators"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-api-base",
  "bitwarden-core",
@@ -936,7 +974,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-importers"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "aes 0.9.2",
  "aes-gcm 0.11.0",
@@ -950,6 +988,7 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-random",
  "bitwarden-ssh",
+ "bitwarden-threading",
  "bitwarden-vault",
  "cbc",
  "chrono",
@@ -984,7 +1023,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ipc"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -1010,7 +1049,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-logging"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-logging-macro",
  "chrono",
@@ -1026,7 +1065,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-logging-macro"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1035,7 +1074,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-managed-settings"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-managed-settings-types",
@@ -1045,7 +1084,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-managed-settings-types"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-error",
  "serde",
@@ -1058,12 +1097,13 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-member-administration"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-organization-crypto",
  "bitwarden-organizations",
  "serde",
@@ -1078,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-organization-crypto"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
@@ -1096,20 +1136,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-organization-domains"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-error",
+ "thiserror",
+ "tokio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-organization-invite-link"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-organization-crypto",
  "chrono",
  "http",
  "serde",
+ "serde_json",
  "thiserror",
  "tokio",
+ "tracing",
  "tsify",
  "uuid",
  "wasm-bindgen",
@@ -1118,9 +1174,10 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-organizations"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-core",
+ "bitwarden-ffi",
  "bitwarden-uuid",
  "chrono",
  "serde",
@@ -1133,13 +1190,15 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-pam"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-commercial-marker",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-uuid",
  "bitwarden-vault",
  "chrono",
@@ -1156,7 +1215,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-pm"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-auth",
@@ -1166,12 +1225,14 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-crypto-cipher-suite",
  "bitwarden-crypto-sync-handler",
+ "bitwarden-emergency-access",
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-importers",
  "bitwarden-managed-settings",
  "bitwarden-member-administration",
+ "bitwarden-organization-domains",
  "bitwarden-organization-invite-link",
  "bitwarden-pam",
  "bitwarden-policies",
@@ -1193,16 +1254,23 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-policies"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-api-api",
  "bitwarden-core",
+ "bitwarden-ffi",
  "bitwarden-organizations",
+ "bitwarden-state",
+ "bitwarden-sync",
+ "bitwarden-test",
  "bitwarden-uuid",
  "chrono",
  "serde",
  "serde_json",
  "serde_repr",
+ "thiserror",
+ "tokio",
  "tracing",
  "tsify",
  "uniffi",
@@ -1213,9 +1281,10 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-random"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-error",
+ "bitwarden-ffi",
  "getrandom 0.4.3",
  "rand 0.10.2",
  "rand_chacha 0.10.0",
@@ -1229,7 +1298,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-send"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -1264,7 +1333,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-sensitive-value"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -1274,7 +1343,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-server-communication-config"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -1297,13 +1366,14 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-shared-unlock"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-ipc",
  "bitwarden-shared-unlock",
  "bitwarden-threading",
@@ -1322,7 +1392,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-sm"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-auth",
@@ -1344,7 +1414,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ssh"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-error",
  "bitwarden-random",
@@ -1370,7 +1440,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-state"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -1385,12 +1455,14 @@ dependencies = [
  "tracing",
  "tsify",
  "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
 ]
 
 [[package]]
 name = "bitwarden-state-bridge-macro"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1399,7 +1471,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-sync"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -1418,7 +1490,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-test"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -1438,7 +1510,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-test-macro"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1447,7 +1519,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-threading"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -1509,14 +1581,14 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uniffi-error"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "anyhow",
 ]
 
 [[package]]
 name = "bitwarden-unlock"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
@@ -1532,7 +1604,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-user-crypto-management"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-api-key-connector",
@@ -1540,6 +1612,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-logging",
  "bitwarden-organization-crypto",
  "bitwarden-send",
@@ -1563,7 +1636,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uuid"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitwarden-uuid-macro",
  "serde",
@@ -1575,7 +1648,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uuid-macro"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "quote",
  "syn 2.0.119",
@@ -1583,7 +1656,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-vault"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -1608,6 +1681,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
+ "serde_with",
  "sha1",
  "sha2 0.11.0",
  "subtle",
@@ -1633,7 +1707,9 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-crypto-sync-handler",
+ "bitwarden-emergency-access",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-ipc",
  "bitwarden-logging",
  "bitwarden-managed-settings",
@@ -2278,9 +2354,9 @@ dependencies = [
 
 [[package]]
 name = "credential-exchange-format"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d1ea47a553efe5bd0a5ab9cd8dda95c99540a3873f0f599f9e1fc67ccf13ab3"
+checksum = "288cce1d17f7263796be2c92ce6abe994d0b5257614bbc02b92129fb6bea5224"
 dependencies = [
  "chrono",
  "data-encoding",
@@ -5399,9 +5475,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.42"
+version = "0.23.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c54fcab019b409d04215d3a17cb438fd7fbf192ee61461f20f4fe18704bc138"
+checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
 dependencies = [
  "log",
  "once_cell",
@@ -5462,9 +5538,9 @@ checksum = "f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.13"
+version = "0.103.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
+checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
 dependencies = [
  "ring",
  "rustls-pki-types",

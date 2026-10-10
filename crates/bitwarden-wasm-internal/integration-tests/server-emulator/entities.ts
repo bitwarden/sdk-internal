@@ -24,7 +24,8 @@ export interface UserEntity {
   accountCryptographicState: WrappedAccountCryptographicState;
   publicKey: string;
   verifyingKey: string | null;
-  securityVersion: number;
+  /** Absent for a V1 account, which has no security state. */
+  securityVersion?: number;
   /**
    * The account's KDF settings, held separately from {@link masterPasswordUnlock} because an account
    * with none — key connector, trusted device — still has them and still needs them to initialize.
@@ -78,8 +79,8 @@ export interface OrganizationMember {
 export interface OrganizationEntity {
   organizationId: string;
   name: string;
-  publicKey: string;
-  wrappedPrivateKey: string;
+  publicKey?: string;
+  wrappedPrivateKey?: string;
   organizationKeyId: string | null;
   members: OrganizationMember[];
 }

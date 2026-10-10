@@ -1,6 +1,6 @@
 // Happy-path stand-ins for the eight endpoints `InviteLinkClient` calls.
 
-import { Routes } from "../../server-emulator/http-mock";
+import { MockReply, Routes } from "../../server-emulator/http-mock";
 import {
   TEST_INVITE,
   TEST_ORGANIZATION_ID,
@@ -25,6 +25,30 @@ export const ROUTES = {
 export const LINK_ID = "1c4d9d5a-0000-4000-8000-000000000001";
 export const LINK_CODE = "1c4d9d5a-0000-4000-8000-000000000002";
 export const CREATION_DATE = "2024-01-01T00:00:00Z";
+
+/**
+ * A `400` validation problem carrying a single error `code` under `property`, the shape the server
+ * uses for invite link failures that have a stable error code.
+ */
+export function validationProblem(property: string, code: string): MockReply {
+  return {
+    status: 400,
+    json: {
+      type: "validation_error",
+      title: "One or more validation errors occurred.",
+      status: 400,
+      errors: { [property]: [{ type: code, detail: "Some detail." }] },
+    },
+  };
+}
+
+/** An error in the legacy `ErrorResponseModel` format, which carries no error code. */
+export function legacyError(status: number, message: string): MockReply {
+  return {
+    status,
+    json: { message, validationErrors: null, object: "error" },
+  };
+}
 
 export interface InviteLinkServerOptions {
   /**

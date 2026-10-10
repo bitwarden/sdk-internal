@@ -5,8 +5,6 @@ use std::{any::TypeId, collections::HashMap};
 use bitwarden_core::OrganizationId;
 use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::{Policy, PolicyDefinition, policy_type::PolicyDataType};
 
@@ -16,7 +14,7 @@ use crate::{Policy, PolicyDefinition, policy_type::PolicyDataType};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct OrganizationUserPolicyContext {
     /// The organization's unique ID.
     pub id: OrganizationId,
@@ -82,7 +80,7 @@ impl<P: PolicyDefinition> PolicyDecision<P> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct PolicyDecisionErased {
     /// The organization this enforcement decision is for.
     pub organization_id: OrganizationId,

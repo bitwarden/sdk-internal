@@ -13,7 +13,10 @@ use crate::{
     },
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
     rpc::{
-        exec::{handler::ErasedRpcHandler, handler_registry::RpcHandlerRegistry},
+        exec::{
+            handler::{ErasedRpcHandler, RpcRequestInfo},
+            handler_registry::RpcHandlerRegistry,
+        },
         request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestPayload},
         response_message::OutgoingRpcResponseMessage,
     },
@@ -171,11 +174,7 @@ where
             stop_inner(&inner);
         };
 
-        #[cfg(not(target_arch = "wasm32"))]
-        tokio::spawn(future);
-
-        #[cfg(target_arch = "wasm32")]
-        wasm_bindgen_futures::spawn_local(future);
+        bitwarden_threading::spawn(future);
 
         Ok(())
     }
@@ -297,7 +296,10 @@ fn handle_rpc_request<Crypto, Com, Ses>(
                 |e: serde_utils::DeserializeError| HandleError::Deserialize(e.to_string()),
             )?;
 
-            let response = handlers.handle(&request).await;
+            let info = RpcRequestInfo {
+                source: incoming_message.source.clone(),
+            };
+            let response = handlers.handle(&request, info).await;
 
             let response_message = OutgoingRpcResponseMessage {
                 request_id: request.request_id(),
@@ -334,11 +336,7 @@ fn handle_rpc_request<Crypto, Com, Ses>(
         }
     };
 
-    #[cfg(not(target_arch = "wasm32"))]
-    tokio::spawn(future);
-
-    #[cfg(target_arch = "wasm32")]
-    wasm_bindgen_futures::spawn_local(future);
+    bitwarden_threading::spawn(future);
 }
 
 impl IpcClientSubscription {
@@ -888,7 +886,7 @@ mod tests {
 
     mod request {
         use super::*;
-        use crate::RpcHandler;
+        use crate::{RpcHandler, RpcRequestInfo};
 
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestRequest {
@@ -912,10 +910,31 @@ mod tests {
         impl RpcHandler for TestHandler {
             type Request = TestRequest;
 
-            async fn handle(&self, request: Self::Request) -> TestResponse {
+            async fn handle(&self, request: Self::Request, _info: RpcRequestInfo) -> TestResponse {
                 TestResponse {
                     result: request.a + request.b,
                 }
+            }
+        }
+
+        /// A request whose handler responds with the source it was given, so tests can observe
+        /// what the IPC client passes to handlers.
+        #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+        struct EchoSourceRequest;
+
+        impl RpcRequest for EchoSourceRequest {
+            type Response = Source;
+
+            const NAME: &str = "EchoSourceRequest";
+        }
+
+        struct EchoSourceHandler;
+
+        impl RpcHandler for EchoSourceHandler {
+            type Request = EchoSourceRequest;
+
+            async fn handle(&self, _request: Self::Request, info: RpcRequestInfo) -> Source {
+                info.source
             }
         }
 
@@ -1158,6 +1177,192 @@ mod tests {
             ));
         }
 
+        /// Builds a `TestRequest` response on the request's dedicated topic, as sent by `source`.
+        fn test_response_from(
+            request: &RpcRequestMessage<TestRequest>,
+            result: i32,
+            source: Source,
+        ) -> IncomingMessage {
+            let response = IncomingRpcResponseMessage {
+                result: Ok(TestResponse { result }),
+                request_id: request.request_id.clone(),
+                request_type: request.request_type.clone(),
+            };
+            IncomingMessage {
+                payload: serde_utils::to_vec(&response).expect("Serialization should not fail"),
+                source,
+                destination: Endpoint::DesktopRenderer,
+                topic: Some(request.response_topic.clone()),
+            }
+        }
+
+        /// A message on the response topic from a peer other than the destination must not be
+        /// accepted as the response, and must not stop the request from receiving the real one.
+        #[tokio::test]
+        async fn response_from_other_source_is_ignored_and_destination_response_is_returned() {
+            let communication_provider = TestCommunicationBackend::new();
+            let client = IpcClientImpl::new(
+                NoEncryptionCryptoProvider,
+                communication_provider.clone(),
+                InMemorySessionRepository::default(),
+            );
+            let _ = client.start(None).await;
+
+            let result_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::DesktopMain,
+                            None,
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            let outgoing = communication_provider.outgoing().await;
+            let request: RpcRequestMessage<TestRequest> =
+                serde_utils::from_slice(&outgoing[0].payload)
+                    .expect("Deserialization should not fail");
+
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                999,
+                Source::BrowserBackground { id: HostId::Id(42) },
+            ));
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                3,
+                Source::DesktopMain,
+            ));
+
+            let result = tokio::time::timeout(Duration::from_secs(5), result_handle)
+                .await
+                .expect("request must complete once the destination responds")
+                .unwrap();
+            assert_eq!(result, Ok(TestResponse { result: 3 }));
+        }
+
+        /// When only a peer other than the destination answers, the request keeps waiting and ends
+        /// through its cancellation token, never returning the other peer's result.
+        #[tokio::test]
+        async fn response_only_from_other_source_waits_until_cancelled() {
+            let communication_provider = TestCommunicationBackend::new();
+            let client = IpcClientImpl::new(
+                NoEncryptionCryptoProvider,
+                communication_provider.clone(),
+                InMemorySessionRepository::default(),
+            );
+            let _ = client.start(None).await;
+
+            let cancellation_token = CancellationToken::new();
+            let result_handle = {
+                let client = client.clone();
+                let cancellation_token = cancellation_token.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::DesktopMain,
+                            Some(cancellation_token),
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            let outgoing = communication_provider.outgoing().await;
+            let request: RpcRequestMessage<TestRequest> =
+                serde_utils::from_slice(&outgoing[0].payload)
+                    .expect("Deserialization should not fail");
+
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                999,
+                Source::DesktopRenderer,
+            ));
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            assert!(
+                !result_handle.is_finished(),
+                "request must not complete on a response from another source"
+            );
+
+            cancellation_token.cancel();
+            let result = tokio::time::timeout(Duration::from_secs(5), result_handle)
+                .await
+                .expect("request must end once cancelled")
+                .unwrap();
+            assert!(matches!(
+                result,
+                Err(crate::error::RequestError::Receive(
+                    TypedReceiveError::Cancelled
+                ))
+            ));
+        }
+
+        /// A web source carries an `origin` that its endpoint does not, so the response is matched
+        /// against the destination by endpoint identity (tab and document) alone.
+        #[tokio::test]
+        async fn response_from_web_destination_is_accepted_regardless_of_origin() {
+            let communication_provider = TestCommunicationBackend::new();
+            let client = IpcClientImpl::new(
+                NoEncryptionCryptoProvider,
+                communication_provider.clone(),
+                InMemorySessionRepository::default(),
+            );
+            let _ = client.start(None).await;
+
+            let result_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::Web {
+                                tab_id: 9001,
+                                document_id: "doc-1".to_string(),
+                            },
+                            None,
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            let outgoing = communication_provider.outgoing().await;
+            let request: RpcRequestMessage<TestRequest> =
+                serde_utils::from_slice(&outgoing[0].payload)
+                    .expect("Deserialization should not fail");
+
+            // Same tab, different document: a page the request was not sent to.
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                999,
+                Source::Web {
+                    tab_id: 9001,
+                    document_id: "doc-2".to_string(),
+                    origin: "https://vault.bitwarden.com".to_string(),
+                },
+            ));
+            communication_provider.push_incoming(test_response_from(
+                &request,
+                3,
+                Source::Web {
+                    tab_id: 9001,
+                    document_id: "doc-1".to_string(),
+                    origin: "https://vault.bitwarden.com".to_string(),
+                },
+            ));
+
+            let result = tokio::time::timeout(Duration::from_secs(5), result_handle)
+                .await
+                .expect("request must complete once the destination responds")
+                .unwrap();
+            assert_eq!(result, Ok(TestResponse { result: 3 }));
+        }
+
         #[tokio::test]
         async fn incoming_rpc_message_handles_request_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
@@ -1207,6 +1412,47 @@ mod tests {
             assert_eq!(outgoing_messages[0].topic, Some(response_topic));
             assert_eq!(outgoing_response.request_type, "TestRequest");
             assert_eq!(outgoing_response.result, Ok(response));
+        }
+
+        #[tokio::test]
+        async fn incoming_rpc_message_passes_message_source_to_handler() {
+            let crypto_provider = NoEncryptionCryptoProvider;
+            let communication_provider = TestCommunicationBackend::new();
+            let session_map = InMemorySessionRepository::default();
+            let client =
+                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
+            let _ = client.start(None).await;
+            client.register_rpc_handler(EchoSourceHandler).await;
+
+            let source = Source::Web {
+                tab_id: 9001,
+                document_id: "doc-1".to_string(),
+                origin: "https://example.com".to_string(),
+            };
+            let request_id = uuid::Uuid::new_v4().to_string();
+            let simulated_request = RpcRequestMessage {
+                request: EchoSourceRequest,
+                request_id: request_id.clone(),
+                request_type: EchoSourceRequest::NAME.to_string(),
+                response_topic: format!("RpcResponseMessage:{request_id}"),
+            };
+            communication_provider.push_incoming(IncomingMessage {
+                payload: serde_utils::to_vec(&simulated_request)
+                    .expect("Serialization should not fail"),
+                source: source.clone(),
+                destination: Endpoint::BrowserBackground { id: HostId::Own },
+                topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
+            });
+
+            // Give the client some time to process the request
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            let outgoing_messages = communication_provider.outgoing().await;
+            let outgoing_response: IncomingRpcResponseMessage<Source> =
+                serde_utils::from_slice(&outgoing_messages[0].payload)
+                    .expect("Deserialization should not fail");
+
+            assert_eq!(outgoing_response.result, Ok(source));
         }
     }
 }

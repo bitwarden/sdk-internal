@@ -18,6 +18,7 @@ keywords.workspace = true
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-organization-crypto/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -37,6 +38,7 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true } 
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-logging = { workspace = true }
 bitwarden-organization-crypto = { workspace = true }
 bitwarden-send = { workspace = true }

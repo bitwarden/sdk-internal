@@ -27,7 +27,7 @@ use crate::{
 /// Converts the captured account. The vaults come out of the production download path, driven
 /// over the recorded server responses, so these tests see exactly what an import would.
 async fn converted() -> ParsedImport {
-    convert(download_captured_account().await)
+    convert(download_captured_account().await.vaults)
 }
 
 fn cipher<'a>(parsed: &'a ParsedImport, name: &str) -> &'a ImportingCipher {

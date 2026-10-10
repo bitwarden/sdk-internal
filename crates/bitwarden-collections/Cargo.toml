@@ -16,13 +16,19 @@ uniffi = [
     "bitwarden-crypto/uniffi",
     "dep:uniffi",
 ] # Uniffi bindings
-wasm = ["bitwarden-core/wasm", "dep:tsify", "dep:wasm-bindgen"] # WASM support
+wasm = [
+    "bitwarden-core/wasm",
+    "bitwarden-ffi/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+] # WASM support
 
 [dependencies]
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-uuid = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }

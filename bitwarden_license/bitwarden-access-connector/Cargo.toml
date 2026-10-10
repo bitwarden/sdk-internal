@@ -1,0 +1,23 @@
+[package]
+name = "bitwarden-access-connector"
+description = "Bitwarden PAM access connector, which rotates managed credentials."
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE_SDK.txt"
+keywords.workspace = true
+
+[[bin]]
+name = "bwac"
+path = "src/main.rs"
+
+[dependencies]
+bitwarden-commercial-marker = { workspace = true }
+clap = { workspace = true, features = ["env"] }
+
+[lints]
+workspace = true

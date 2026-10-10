@@ -171,10 +171,6 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView
     }
 }
 
-// `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
-// short-lived feature-rollout flags that will be removed once their migrations
-// complete, at which point the argument count drops back under the limit.
-#[allow(clippy::too_many_arguments)]
 async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -182,7 +178,6 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     encrypted_for: UserId,
     request: CipherEditRequest,
     use_strict_decryption: bool,
-    enable_cipher_key_encryption: bool,
     use_blob: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
@@ -214,7 +209,6 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         &original_cipher_view,
         original_cipher,
         use_strict_decryption,
-        enable_cipher_key_encryption,
         use_blob,
     )
     .await
@@ -227,7 +221,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
 /// The paths differ only in where the original comes from — local state for [`edit_cipher`], the
 /// caller for [`edit_gated_cipher`], because a gated cipher has no full copy in state — so that is
 /// all either one is left holding.
-// `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
+// `use_strict_decryption` and `use_blob` are
 // short-lived feature-rollout flags that will be removed once their migrations
 // complete, at which point the argument count drops back under the limit.
 #[allow(clippy::too_many_arguments)]
@@ -240,7 +234,6 @@ async fn submit_cipher_edit<R: Repository<Cipher> + ?Sized>(
     original_cipher_view: &CipherView,
     stored_cipher: Cipher,
     use_strict_decryption: bool,
-    enable_cipher_key_encryption: bool,
     use_blob: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
@@ -248,12 +241,6 @@ async fn submit_cipher_edit<R: Repository<Cipher> + ?Sized>(
 
     let mut view: CipherView = convert_request_to_cipher_view(request);
     view.update_password_history(original_cipher_view);
-
-    // TODO: Once this flag is removed, the key generation logic should be
-    // moved directly into the CompositeEncryptable implementation.
-    if view.key.is_none() && enable_cipher_key_encryption {
-        view.upgrade_to_cipher_key_encryption(&mut key_store.context())?;
-    }
 
     let encrypted_by_key_id = key_store
         .context()
@@ -304,7 +291,7 @@ async fn submit_cipher_edit<R: Repository<Cipher> + ?Sized>(
 /// lease-authorised single-cipher read instead, so password history carries forward correctly.
 /// It mirrors the admin edit path, which takes its original as an argument for the same reason:
 /// no usable copy exists in local state.
-// `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
+// `use_strict_decryption` and `use_blob` are
 // short-lived feature-rollout flags that will be removed once their migrations
 // complete, at which point the argument count drops back under the limit.
 #[allow(clippy::too_many_arguments)]
@@ -316,7 +303,6 @@ async fn edit_gated_cipher<R: Repository<Cipher> + ?Sized>(
     request: CipherEditRequest,
     original_cipher_view: CipherView,
     use_strict_decryption: bool,
-    enable_cipher_key_encryption: bool,
     use_blob: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
@@ -340,7 +326,6 @@ async fn edit_gated_cipher<R: Repository<Cipher> + ?Sized>(
         &original_cipher_view,
         stored_cipher,
         use_strict_decryption,
-        enable_cipher_key_encryption,
         use_blob,
     )
     .await
@@ -394,9 +379,6 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let enable_cipher_key_encryption =
-            self.client.flags().get().await.enable_cipher_key_encryption;
-
         let use_blob = self.should_use_blob_encryption(request.organization_id);
 
         edit_cipher(
@@ -406,7 +388,6 @@ impl CiphersClient {
             user_id,
             request,
             self.is_strict_decrypt().await,
-            enable_cipher_key_encryption,
             use_blob,
         )
         .await
@@ -436,9 +417,6 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let enable_cipher_key_encryption =
-            self.client.flags().get().await.enable_cipher_key_encryption;
-
         let use_blob = self.should_use_blob_encryption(request.organization_id);
 
         edit_gated_cipher(
@@ -449,7 +427,6 @@ impl CiphersClient {
             request,
             original_cipher_view,
             self.is_strict_decrypt().await,
-            enable_cipher_key_encryption,
             use_blob,
         )
         .await
@@ -735,7 +712,6 @@ mod tests {
             request,
             false,
             false,
-            false,
         )
         .await
         .unwrap();
@@ -843,7 +819,6 @@ mod tests {
             cipher_view.try_into().unwrap(),
             false,
             false,
-            false,
         )
         .await;
 
@@ -876,7 +851,6 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             cipher_view.try_into().unwrap(),
             original,
-            false,
             false,
             false,
         )
@@ -922,7 +896,6 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             cipher_view.try_into().unwrap(),
             gated_original_view(org),
-            false,
             false,
             false,
         )
@@ -976,7 +949,6 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             cipher_view.try_into().unwrap(),
             gated_original_view(org),
-            false,
             false,
             false,
         )
@@ -1164,7 +1136,6 @@ mod tests {
             request,
             false,
             false,
-            false,
         )
         .await;
 
@@ -1205,7 +1176,6 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
-            false,
             false,
             false,
         )
