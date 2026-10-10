@@ -847,8 +847,8 @@ export class EmergencyAccessTakeoverResponse {
       keyEncrypted,
       kdf: kdf.kdfType,
       kdfIterations: kdf.iterations,
-      ...(kdf.memory === undefined ? {} : { kdfMemory: kdf.memory }),
-      ...(kdf.parallelism === undefined ? {} : { kdfParallelism: kdf.parallelism }),
+      kdfMemory: kdf.memory,
+      kdfParallelism: kdf.parallelism,
       salt: unlock.salt,
     };
   }

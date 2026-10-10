@@ -1,63 +1,18 @@
-import {
-  EmergencyAccessStatus,
-  EmergencyAccessType,
-  type EmergencyAccessClient,
-} from "@bitwarden/sdk-internal";
+import { EmergencyAccessStatus, EmergencyAccessType } from "@bitwarden/sdk-internal";
 
 import { validateCiphers, validateVault } from "../../client-emulator/validate";
 import {
   EmergencyAccessStatus as ServerStatus,
   EmergencyAccessType as ServerType,
 } from "../../server-emulator/dto";
-import type { SeededTestVector } from "../../server-emulator/server-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
-import { loadEmergencyAccessVectors, type EmergencyAccessVector } from "../../vectors/load";
 import { testVectors } from "../../vectors/test-vectors";
 import { asB64, asEmergencyAccessId } from "../type-assertion-helpers";
 
 const UNLOCK_TIMEOUT = 120_000;
 const WAIT_TIME_DAYS = 7;
 const NEW_PASSWORD = "a new master password set by the grantee";
-
-const vectors = loadEmergencyAccessVectors();
-
-/** Both sides of a grant unlock by master password. */
-const passwordOf = (account: SeededTestVector): string =>
-  testVectors.users.withMasterPassword().get(account.vector.name).account.password;
-
-/** Logs `account` in on a fresh client and unlocks it with its own password. */
-async function unlocked(harness: TestHarness, account: SeededTestVector) {
-  const client = harness.newClientEmulator();
-  await client.login(account.email);
-  await client.unlock(passwordOf(account));
-
-  return client;
-}
-
-/** An unlocked account's emergency access client. */
-async function emergencyAccessOf(
-  harness: TestHarness,
-  account: SeededTestVector,
-): Promise<EmergencyAccessClient> {
-  return (await unlocked(harness, account)).getPasswordManagerClient().emergency_access();
-}
-
-/** Seeds a vector's grant at `status`, then unlocks both sides. */
-async function seededGrant(
-  harness: TestHarness,
-  vector: EmergencyAccessVector,
-  type: number,
-  status: number,
-) {
-  const seeded = harness.server.seedEmergencyAccessTestVector(vector, { type, status });
-
-  return {
-    ...seeded,
-    id: asEmergencyAccessId(seeded.id),
-    grantorClient: await emergencyAccessOf(harness, seeded.grantor),
-    granteeClient: await emergencyAccessOf(harness, seeded.grantee),
-  };
-}
+const V1_GRANTS_V2 = "v1-grants-v2";
 
 describe("emergency access", () => {
   let harness: TestHarness;
@@ -77,63 +32,90 @@ describe("emergency access", () => {
      * customer communication, if this is intended.
      */
     it("loads the expected set of vectors", () => {
-      expect(vectors.map((vector) => vector.name).sort()).toEqual(["v1-grants-v2", "v2-grants-v1"]);
+      expect(
+        testVectors.emergencyAccess
+          .all()
+          .map((vector) => vector.name)
+          .sort(),
+      ).toEqual(["v1-grants-v2", "v2-grants-v1"]);
     });
 
-    testVectors.eachEmergencyAccess(
+    testVectors.emergencyAccess.each(
       "$name: the grantee decrypts the grantor's vault with the recorded key",
       async (vector) => {
-        const { id, grantor, granteeClient } = await seededGrant(
-          harness,
-          vector,
-          ServerType.view,
-          ServerStatus.recoveryApproved,
-        );
+        const users = testVectors.users.withMasterPassword();
+        const seeded = harness.server.seedEmergencyAccessTestVector(vector, {
+          type: ServerType.view,
+          status: ServerStatus.recoveryApproved,
+        });
+        const id = asEmergencyAccessId(seeded.id);
+
+        const grantee = harness.newClientEmulator();
+        await grantee.login(seeded.grantee.email);
+        await grantee.unlock(users.get(vector.granteeVectorName).account.password);
+        const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
         const result = await granteeClient.view_vault_items(id);
 
-        expect(result.successes).toHaveLength(grantor.ciphers().length);
-        validateCiphers(result, grantor.seed, []);
+        expect(result.successes).toHaveLength(seeded.grantor.ciphers().length);
+        validateCiphers(result, seeded.grantor.seed, []);
       },
       UNLOCK_TIMEOUT,
     );
 
-    testVectors.eachEmergencyAccess(
+    testVectors.emergencyAccess.each(
       "$name: the grantee takes over, and the grantor unlocks with the new password",
       async (vector) => {
-        const { id, grantor, granteeClient } = await seededGrant(
-          harness,
-          vector,
-          ServerType.takeover,
-          ServerStatus.recoveryApproved,
-        );
+        const users = testVectors.users.withMasterPassword();
+        const seeded = harness.server.seedEmergencyAccessTestVector(vector, {
+          type: ServerType.takeover,
+          status: ServerStatus.recoveryApproved,
+        });
+        const id = asEmergencyAccessId(seeded.id);
 
-        await granteeClient.takeover(id, NEW_PASSWORD, grantor.email);
+        const grantee = harness.newClientEmulator();
+        await grantee.login(seeded.grantee.email);
+        await grantee.unlock(users.get(vector.granteeVectorName).account.password);
+        const granteeClient = grantee.getPasswordManagerClient().emergency_access();
+
+        await granteeClient.takeover(id, NEW_PASSWORD, seeded.grantor.email);
 
         // The old password no longer unlocks: the server now serves the unlock data the grantee set.
         const stale = harness.newClientEmulator();
-        await stale.login(grantor.email);
-        await expect(stale.unlock(passwordOf(grantor))).rejects.toBeDefined();
+        await stale.login(seeded.grantor.email);
+        await expect(
+          stale.unlock(users.get(vector.grantorVectorName).account.password),
+        ).rejects.toBeDefined();
 
         // The new one unlocks to the same user key, so the vault decrypts unchanged.
         const client = harness.newClientEmulator();
-        await client.login(grantor.email);
+        await client.login(seeded.grantor.email);
         await client.unlock(NEW_PASSWORD);
-        await validateVault(client, grantor.seed, []);
+        await validateVault(client, seeded.grantor.seed, []);
       },
       UNLOCK_TIMEOUT,
     );
   });
 
   describe("lifecycle", () => {
-    testVectors.eachEmergencyAccess(
+    testVectors.emergencyAccess.each(
       "$name: invite, accept, confirm, initiate, approve, then view",
       async (vector) => {
         const users = testVectors.users.withMasterPassword();
-        const grantor = harness.server.seedUserTestVector(users.get(vector.grantorVectorName));
-        const grantee = harness.server.seedUserTestVector(users.get(vector.granteeVectorName));
-        const grantorClient = await emergencyAccessOf(harness, grantor);
-        const granteeClient = await emergencyAccessOf(harness, grantee);
+        const grantorVector = users.get(vector.grantorVectorName);
+        const granteeVector = users.get(vector.granteeVectorName);
+        const grantor = harness.server.seedUserTestVector(grantorVector);
+        const grantee = harness.server.seedUserTestVector(granteeVector);
+
+        const grantorEmulator = harness.newClientEmulator();
+        await grantorEmulator.login(grantor.email);
+        await grantorEmulator.unlock(grantorVector.account.password);
+        const grantorClient = grantorEmulator.getPasswordManagerClient().emergency_access();
+
+        const granteeEmulator = harness.newClientEmulator();
+        await granteeEmulator.login(grantee.email);
+        await granteeEmulator.unlock(granteeVector.account.password);
+        const granteeClient = granteeEmulator.getPasswordManagerClient().emergency_access();
 
         // 1. The grantor invites; the grantee accepts with the token the invite email carries
         await grantorClient.invite(grantee.email, EmergencyAccessType.View, WAIT_TIME_DAYS);
@@ -182,12 +164,23 @@ describe("emergency access", () => {
     it(
       "reject returns an approved grant to confirmed and revokes the view",
       async () => {
-        const { id, grantorClient, granteeClient } = await seededGrant(
-          harness,
-          vectors[0],
-          ServerType.view,
-          ServerStatus.recoveryApproved,
-        );
+        const vector = testVectors.emergencyAccess.get(V1_GRANTS_V2);
+        const users = testVectors.users.withMasterPassword();
+        const seeded = harness.server.seedEmergencyAccessTestVector(vector, {
+          type: ServerType.view,
+          status: ServerStatus.recoveryApproved,
+        });
+        const id = asEmergencyAccessId(seeded.id);
+
+        const grantor = harness.newClientEmulator();
+        await grantor.login(seeded.grantor.email);
+        await grantor.unlock(users.get(vector.grantorVectorName).account.password);
+        const grantorClient = grantor.getPasswordManagerClient().emergency_access();
+
+        const grantee = harness.newClientEmulator();
+        await grantee.login(seeded.grantee.email);
+        await grantee.unlock(users.get(vector.granteeVectorName).account.password);
+        const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
         await grantorClient.reject(id);
 
@@ -200,12 +193,23 @@ describe("emergency access", () => {
     it(
       "update changes what the grantee is granted",
       async () => {
-        const { id, grantorClient, granteeClient } = await seededGrant(
-          harness,
-          vectors[0],
-          ServerType.view,
-          ServerStatus.confirmed,
-        );
+        const vector = testVectors.emergencyAccess.get(V1_GRANTS_V2);
+        const users = testVectors.users.withMasterPassword();
+        const seeded = harness.server.seedEmergencyAccessTestVector(vector, {
+          type: ServerType.view,
+          status: ServerStatus.confirmed,
+        });
+        const id = asEmergencyAccessId(seeded.id);
+
+        const grantor = harness.newClientEmulator();
+        await grantor.login(seeded.grantor.email);
+        await grantor.unlock(users.get(vector.grantorVectorName).account.password);
+        const grantorClient = grantor.getPasswordManagerClient().emergency_access();
+
+        const grantee = harness.newClientEmulator();
+        await grantee.login(seeded.grantee.email);
+        await grantee.unlock(users.get(vector.granteeVectorName).account.password);
+        const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
         await grantorClient.update(id, EmergencyAccessType.Takeover, WAIT_TIME_DAYS);
 
@@ -219,12 +223,23 @@ describe("emergency access", () => {
     it(
       "delete by the grantee removes the grant from both sides",
       async () => {
-        const { id, grantorClient, granteeClient } = await seededGrant(
-          harness,
-          vectors[0],
-          ServerType.view,
-          ServerStatus.confirmed,
-        );
+        const vector = testVectors.emergencyAccess.get(V1_GRANTS_V2);
+        const users = testVectors.users.withMasterPassword();
+        const seeded = harness.server.seedEmergencyAccessTestVector(vector, {
+          type: ServerType.view,
+          status: ServerStatus.confirmed,
+        });
+        const id = asEmergencyAccessId(seeded.id);
+
+        const grantor = harness.newClientEmulator();
+        await grantor.login(seeded.grantor.email);
+        await grantor.unlock(users.get(vector.grantorVectorName).account.password);
+        const grantorClient = grantor.getPasswordManagerClient().emergency_access();
+
+        const grantee = harness.newClientEmulator();
+        await grantee.login(seeded.grantee.email);
+        await grantee.unlock(users.get(vector.granteeVectorName).account.password);
+        const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
         await granteeClient.delete(id);
 
@@ -237,12 +252,18 @@ describe("emergency access", () => {
     it(
       "reinvite is refused once the invite was accepted",
       async () => {
-        const { id, grantorClient } = await seededGrant(
-          harness,
-          vectors[0],
-          ServerType.view,
-          ServerStatus.accepted,
-        );
+        const vector = testVectors.emergencyAccess.get(V1_GRANTS_V2);
+        const users = testVectors.users.withMasterPassword();
+        const seeded = harness.server.seedEmergencyAccessTestVector(vector, {
+          type: ServerType.view,
+          status: ServerStatus.accepted,
+        });
+        const id = asEmergencyAccessId(seeded.id);
+
+        const grantor = harness.newClientEmulator();
+        await grantor.login(seeded.grantor.email);
+        await grantor.unlock(users.get(vector.grantorVectorName).account.password);
+        const grantorClient = grantor.getPasswordManagerClient().emergency_access();
 
         await expect(grantorClient.reinvite(id)).rejects.toBeDefined();
       },
@@ -252,16 +273,27 @@ describe("emergency access", () => {
     it(
       "a view grant does not allow a takeover",
       async () => {
-        const { id, grantor, granteeClient } = await seededGrant(
-          harness,
-          vectors[0],
-          ServerType.view,
-          ServerStatus.recoveryApproved,
-        );
-        const unlockBefore = harness.server.getUser(grantor.email).masterPasswordUnlock;
+        const vector = testVectors.emergencyAccess.get(V1_GRANTS_V2);
+        const users = testVectors.users.withMasterPassword();
+        const seeded = harness.server.seedEmergencyAccessTestVector(vector, {
+          type: ServerType.view,
+          status: ServerStatus.recoveryApproved,
+        });
+        const id = asEmergencyAccessId(seeded.id);
 
-        await expect(granteeClient.takeover(id, NEW_PASSWORD, grantor.email)).rejects.toBeDefined();
-        expect(harness.server.getUser(grantor.email).masterPasswordUnlock).toBe(unlockBefore);
+        const grantee = harness.newClientEmulator();
+        await grantee.login(seeded.grantee.email);
+        await grantee.unlock(users.get(vector.granteeVectorName).account.password);
+        const granteeClient = grantee.getPasswordManagerClient().emergency_access();
+
+        const unlockBefore = harness.server.getUser(seeded.grantor.email).masterPasswordUnlock;
+
+        await expect(
+          granteeClient.takeover(id, NEW_PASSWORD, seeded.grantor.email),
+        ).rejects.toBeDefined();
+        expect(harness.server.getUser(seeded.grantor.email).masterPasswordUnlock).toBe(
+          unlockBefore,
+        );
       },
       UNLOCK_TIMEOUT,
     );
@@ -269,12 +301,18 @@ describe("emergency access", () => {
     it(
       "an approved takeover reads the grantor's policies",
       async () => {
-        const { id, granteeClient } = await seededGrant(
-          harness,
-          vectors[0],
-          ServerType.takeover,
-          ServerStatus.recoveryApproved,
-        );
+        const vector = testVectors.emergencyAccess.get(V1_GRANTS_V2);
+        const users = testVectors.users.withMasterPassword();
+        const seeded = harness.server.seedEmergencyAccessTestVector(vector, {
+          type: ServerType.takeover,
+          status: ServerStatus.recoveryApproved,
+        });
+        const id = asEmergencyAccessId(seeded.id);
+
+        const grantee = harness.newClientEmulator();
+        await grantee.login(seeded.grantee.email);
+        await grantee.unlock(users.get(vector.granteeVectorName).account.password);
+        const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
         expect(await granteeClient.get_grantor_policies(id)).toEqual([]);
       },

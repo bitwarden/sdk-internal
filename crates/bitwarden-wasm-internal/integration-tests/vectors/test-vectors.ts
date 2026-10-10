@@ -90,15 +90,42 @@ class UserVectors<V extends UserVector = UserVector> {
   }
 }
 
-export const testVectors = {
-  users: new UserVectors(loadUserVectors()),
+/**
+ * The emergency access vectors.
+ *
+ * ```ts
+ * const vector = testVectors.emergencyAccess.get("v1-grants-v2");
+ * ```
+ */
+class EmergencyAccessVectors {
+  constructor(private readonly vectors: readonly EmergencyAccessVector[]) {}
 
-  /** `it.each` over every emergency access vector. `$name` in the title is the vector's name. */
-  eachEmergencyAccess(
+  /** The named vector. Throws, listing the selection, when it is not in it. */
+  get(name: string): EmergencyAccessVector {
+    const found = this.vectors.find((vector) => vector.name === name);
+    if (found === undefined) {
+      const available = this.vectors.map((vector) => vector.name).join(", ");
+      throw new Error(`no emergency access vector ${name}; have ${available}`);
+    }
+
+    return found;
+  }
+
+  all(): EmergencyAccessVector[] {
+    return [...this.vectors];
+  }
+
+  /** `it.each` over the selection. `$name` in the title is the vector's name. */
+  each(
     title: string,
     fn: (vector: EmergencyAccessVector) => Promise<void>,
     timeout?: number,
   ): void {
-    it.each(loadEmergencyAccessVectors())(title, (vector) => fn(vector), timeout);
-  },
+    it.each(this.all())(title, (vector) => fn(vector), timeout);
+  }
+}
+
+export const testVectors = {
+  users: new UserVectors(loadUserVectors()),
+  emergencyAccess: new EmergencyAccessVectors(loadEmergencyAccessVectors()),
 };
