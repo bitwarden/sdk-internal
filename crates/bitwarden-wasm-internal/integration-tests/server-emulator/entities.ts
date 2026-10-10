@@ -4,9 +4,12 @@ import type {
   Folder,
   Kdf,
   KeyId,
+  UnsignedSharedKey,
   V2UpgradeToken,
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
+
+import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
 
 /** Master-password unlock data as the server holds it. */
 export interface StoredMasterPasswordUnlock {
@@ -17,9 +20,12 @@ export interface StoredMasterPasswordUnlock {
   containedKeyId?: string;
 }
 
+/** An account's id, so it cannot be swapped for another id. */
+export type AccountId = string & { readonly __brand: "AccountId" };
+
 /** An account as the server holds it. */
 export interface UserEntity {
-  userId: string;
+  userId: AccountId;
   email: string;
   accountCryptographicState: WrappedAccountCryptographicState;
   publicKey: string;
@@ -83,4 +89,21 @@ export interface OrganizationEntity {
   wrappedPrivateKey?: string;
   organizationKeyId: string | null;
   members: OrganizationMember[];
+}
+
+/** An emergency access grant, as the server holds it. */
+export interface EmergencyAccessEntity {
+  id: string;
+  grantorId: AccountId;
+  /** `null` until the invited account accepts. */
+  granteeId: AccountId | null;
+  /** The address the grantor invited. */
+  email: string;
+  type: EmergencyAccessTypeValue;
+  status: EmergencyAccessStatusValue;
+  waitTimeDays: number;
+  /** The grantor's user key sealed to the grantee, `null` until the grantor confirms. */
+  keyEncrypted: UnsignedSharedKey | null;
+  /** The token the invite email carries, which the grantee accepts with. */
+  inviteToken: string;
 }
