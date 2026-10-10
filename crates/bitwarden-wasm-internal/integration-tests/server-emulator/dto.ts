@@ -16,6 +16,7 @@ import type {
   Passport,
   SecureNote,
   SshKey,
+  UnsignedSharedKey,
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
 
@@ -820,7 +821,7 @@ export class EmergencyAccessAcceptRequest {
 
 /** `OrganizationUserConfirmRequestModel`, which the confirm route reuses. */
 export class EmergencyAccessConfirmRequest {
-  key!: string;
+  key!: UnsignedSharedKey;
 }
 
 /** `EmergencyAccessViewResponseModel`. */

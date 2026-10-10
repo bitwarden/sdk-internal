@@ -5,13 +5,18 @@ import { ApiServer } from "./api-server";
 import { Database } from "./database";
 import { EmergencyAccessServer } from "./emergency-access-server";
 import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
-import type { OrganizationMember, StoredMasterPasswordUnlock, UserEntity } from "./entities";
+import type {
+  AccountId,
+  OrganizationMember,
+  StoredMasterPasswordUnlock,
+  UserEntity,
+} from "./entities";
 import { installHttpMock, type HttpMock, type Routes } from "./http-mock";
 import { IdentityServer } from "./identity-server";
 import { KeyConnectorServer } from "./key-connector-server";
 import { API_URL, IDENTITY_URL, KEY_CONNECTOR_URL } from "./urls";
 
-import { asEncString, fromUuid } from "../tests/type-assertion-helpers";
+import { asAccountId, asEncString, fromUuid } from "../tests/type-assertion-helpers";
 import {
   toSeedAccount,
   type EmergencyAccessVector,
@@ -115,7 +120,7 @@ export interface SeedOrganization {
 
 /** What {@link ApiServer.seedUser} hands back, so a test does not have to dig the account out again. */
 export interface SeededAccount {
-  userId: string;
+  userId: AccountId;
   email: string;
   ciphers(): Cipher[];
   folders(): Folder[];
@@ -180,7 +185,7 @@ export class ServerEmulator {
     const raw = vector.rawCryptographicState;
 
     const user: UserEntity = {
-      userId: fromUuid(account.userId),
+      userId: asAccountId(fromUuid(account.userId)),
       email: account.email,
       accountCryptographicState: account.accountCryptographicState,
       publicKey: raw.publicKey,

@@ -35,7 +35,7 @@ import {
   type EmergencyAccessUpdateRequest,
   type EmergencyAccessViewResponse,
 } from "./dto";
-import type { EmergencyAccessEntity, UserEntity } from "./entities";
+import type { AccountId, EmergencyAccessEntity, UserEntity } from "./entities";
 import type { MockReply, Routes } from "./http-mock";
 
 import { authenticatedRoute } from "./authentication";
@@ -390,7 +390,7 @@ export class EmergencyAccessServer {
     return { json: ListResponse.of([]) };
   }
 
-  private requireUser(userId: string): UserEntity {
+  private requireUser(userId: AccountId): UserEntity {
     const user = this.db.users.get(userId);
     if (user === undefined) {
       throw new Error(`emergency access references unknown account ${userId}`);
