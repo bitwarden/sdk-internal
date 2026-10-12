@@ -199,6 +199,13 @@ fn is_web_url(url: &str) -> bool {
     Url::parse(url).is_ok_and(|url| has_allowed_scheme(&url) && url.has_host())
 }
 
+/// The identity provider sends the user back here. For the desktop client 1Password picks its own
+/// app scheme, `onepassword://`, which the UI catches before anything opens it.
+fn is_redirect_uri(url: &str) -> bool {
+    is_web_url(url)
+        || Url::parse(url).is_ok_and(|url| url.scheme() == "onepassword" && url.has_host())
+}
+
 /// Asks for the URL of the identity provider login.
 pub(super) async fn start_sso_login(
     account: &SsoAccount,
@@ -226,9 +233,9 @@ pub(super) async fn perform_sso_login(
     let redirect_to = url_parameter(sso_login_url, "redirect_uri").ok_or_else(|| {
         OnePasswordError::Internal("no redirect_uri found in the SSO login URL".into())
     })?;
-    if !is_web_url(&redirect_to) {
+    if !is_redirect_uri(&redirect_to) {
         return Err(OnePasswordError::Internal(
-            "the SSO redirect URI is not an https URL".into(),
+            "the SSO redirect URI is neither an https nor a onepassword URL".into(),
         ));
     }
 
@@ -656,6 +663,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn perform_accepts_the_desktop_app_redirect_uri() {
+        let login_url = "https://idp.example.com/authorize?client_id=abc\
+            &redirect_uri=onepassword%3A%2F%2Fsso%2Foidc%2Fredirect&response_mode=query";
+        let ui = ScriptedUi::redirected_to("onepassword://sso/oidc/redirect?code=c0de&state=st4te");
+
+        let (code, state) = perform_sso_login(login_url, &ui).await.expect("performs");
+
+        assert_eq!((code.as_str(), state.as_str()), ("c0de", "st4te"));
+        assert_eq!(
+            ui.calls(),
+            [(
+                login_url.to_string(),
+                "onepassword://sso/oidc/redirect".to_string()
+            )]
+        );
+    }
+
+    #[tokio::test]
     async fn perform_reads_the_parameters_from_the_query_too() {
         let ui = ScriptedUi::redirected_to("https://acme.1password.com/cb?code=c0de&state=st4te");
 
@@ -746,6 +771,7 @@ mod tests {
             "ftp%3A%2F%2Facme.1password.com%2Fcb",
             "%2F%2Facme.1password.com%2Fcb",
             "acme.1password.com%2Fcb",
+            "onepassword%3A%2Fsso",
         ] {
             let login_url = format!(
                 "https://idp.example.com/authorize?redirect_uri={redirect_uri}&state=SECRET"
