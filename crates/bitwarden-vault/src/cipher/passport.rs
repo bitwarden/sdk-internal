@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::cipher::CipherKind;
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -30,6 +31,7 @@ pub struct Passport {
     pub expiration_date: Option<EncString>,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

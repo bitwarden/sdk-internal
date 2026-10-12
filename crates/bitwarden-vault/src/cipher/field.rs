@@ -46,6 +46,7 @@ impl TryFrom<u8> for FieldType {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -58,6 +59,7 @@ pub struct Field {
     linked_id: Option<LinkedIdType>,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -73,6 +75,7 @@ pub struct FieldView {
 
 /// Minimal field view for list/search operations.
 /// Contains only the fields needed for search indexing.
+#[serde_with::skip_serializing_none]
 #[cfg(feature = "wasm")]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

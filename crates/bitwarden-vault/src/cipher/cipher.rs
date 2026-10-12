@@ -108,6 +108,7 @@ pub enum CipherRepromptType {
     Password = 1,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -293,6 +294,7 @@ impl From<EncryptionContext> for CipherRequestModel {
 ///
 /// Decrypt to [`CipherView`] or [`CipherListView`] to inspect item contents (e.g. whether a
 /// login has a TOTP or passkey).
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -463,6 +465,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -568,6 +571,7 @@ pub enum CopyableCipherFields {
     DriversLicenseLicenseNumber,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

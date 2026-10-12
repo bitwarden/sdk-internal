@@ -3,6 +3,7 @@ use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreC
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -12,6 +13,7 @@ pub struct LocalData {
     last_launched: Option<DateTime<Utc>>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

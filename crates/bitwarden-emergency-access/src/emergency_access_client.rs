@@ -7,7 +7,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyStore;
 
-/// Client for emergency access operations, performed as the grantee.
+/// Client for emergency access operations, performed as the grantor or the grantee.
 #[bitwarden_ffi::wasm_object]
 pub struct EmergencyAccessClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,

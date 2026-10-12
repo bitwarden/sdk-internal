@@ -1,5 +1,3 @@
-#[cfg(any(feature = "wasm", test))]
-use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, Decryptable, Kdf, PrimitiveEncryptable, RotateableKeySet,
     SymmetricCryptoKey, SymmetricKeyAlgorithm,
@@ -15,7 +13,6 @@ use super::crypto::{
     make_user_jit_master_password_registration, make_user_key_connector_registration,
     make_user_password_registration,
 };
-use crate::key_management::V2UpgradeToken;
 #[cfg(any(feature = "uniffi", feature = "wasm"))]
 use crate::key_management::crypto::{
     ReinitUserCryptoError, ReinitUserCryptoRequest, reinit_user_crypto,
@@ -29,16 +26,17 @@ use crate::key_management::{
         initialize_org_crypto, initialize_user_crypto, make_prf_user_key_set,
     },
 };
-#[expect(deprecated)]
 use crate::{
     Client,
     client::encryption_settings::EncryptionSettingsError,
-    error::{NotAuthenticatedError, StatefulCryptoError},
-    key_management::crypto::{
-        CryptoClientError, EnrollPinResponse, MakeKeysError, MakeTdeRegistrationResponse,
-        UpdateKdfResponse, UserCryptoV2KeysResponse, enroll_pin, get_v2_rotated_account_keys,
-        make_update_kdf, make_update_password, make_user_tde_registration,
-        make_v2_keys_for_v1_user,
+    error::NotAuthenticatedError,
+    key_management::{
+        V2UpgradeToken,
+        crypto::{
+            CryptoClientError, EnrollPinResponse, MakeKeysError, MakeTdeRegistrationResponse,
+            UpdateKdfResponse, enroll_pin, make_update_kdf, make_update_password,
+            make_user_tde_registration,
+        },
     },
 };
 
@@ -66,22 +64,6 @@ impl CryptoClient {
         req: InitOrgCryptoRequest,
     ) -> Result<(), EncryptionSettingsError> {
         initialize_org_crypto(&self.client, req).await
-    }
-
-    /// Makes a new signing key pair and signs the public key for the user
-    pub fn make_keys_for_user_crypto_v2(
-        &self,
-    ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
-        #[expect(deprecated)]
-        make_v2_keys_for_v1_user(&self.client)
-    }
-
-    /// Creates a rotated set of account keys for the current state
-    pub fn get_v2_rotated_account_keys(
-        &self,
-    ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
-        #[expect(deprecated)]
-        get_v2_rotated_account_keys(&self.client)
     }
 
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
@@ -118,25 +100,6 @@ impl CryptoClient {
             SymmetricKeySlotId::User,
         )?;
         enroll_pin(&self.client, pin)
-    }
-
-    /// Decrypts a `PasswordProtectedKeyEnvelope`, returning the user key, if successful.
-    /// This is a stop-gap solution, until initialization of the SDK is used.
-    #[cfg(any(feature = "wasm", test))]
-    pub fn unseal_password_protected_key_envelope(
-        &self,
-        pin: String,
-        envelope: PasswordProtectedKeyEnvelope,
-    ) -> Result<Vec<u8>, CryptoClientError> {
-        let mut ctx = self.client.internal.get_key_store().context_mut();
-        let key_slot = envelope.unseal(
-            pin.as_str(),
-            PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
-            &mut ctx,
-        )?;
-        #[allow(deprecated)]
-        let key = ctx.dangerous_get_symmetric_key(key_slot)?;
-        Ok(key.to_encoded().to_vec())
     }
 
     /// A stop gap-solution for encrypting with the local user data key, until the WASM client's
@@ -359,7 +322,9 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{BitwardenLegacyKeyBytes, KeyStore, SymmetricCryptoKey};
+    use bitwarden_crypto::{
+        KeyStore, SymmetricCryptoKey, safe::PasswordProtectedKeyEnvelopeNamespace,
+    };
 
     use super::*;
     use crate::{
@@ -371,9 +336,6 @@ mod tests {
     async fn test_enroll_pin_envelope() {
         // Initialize a test client with user crypto
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
-        let user_key_initial =
-            SymmetricCryptoKey::try_from(client.crypto().get_user_encryption_key().await.unwrap())
-                .unwrap();
 
         // Enroll with a PIN, then re-enroll
         let pin = "1234";
@@ -383,17 +345,16 @@ mod tests {
             .enroll_pin_with_encrypted_pin(enroll_response.user_key_encrypted_pin.to_string())
             .unwrap();
 
-        let secret = BitwardenLegacyKeyBytes::from(
-            client
-                .crypto()
-                .unseal_password_protected_key_envelope(
-                    pin.to_string(),
-                    re_enroll_response.pin_protected_user_key_envelope,
-                )
-                .unwrap(),
-        );
-        let user_key_final = SymmetricCryptoKey::try_from(&secret).expect("valid user key");
-        assert_eq!(user_key_initial, user_key_final);
+        let mut ctx = client.internal.get_key_store().context_mut();
+        let unsealed_user_key = re_enroll_response
+            .pin_protected_user_key_envelope
+            .unseal(
+                pin,
+                PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+                &mut ctx,
+            )
+            .unwrap();
+        ctx.assert_symmetric_keys_equal(unsealed_user_key, SymmetricKeySlotId::User);
     }
 
     #[test]

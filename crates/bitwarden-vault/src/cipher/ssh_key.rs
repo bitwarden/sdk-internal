@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use super::cipher::CipherKind;
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

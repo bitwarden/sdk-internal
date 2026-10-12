@@ -69,6 +69,8 @@ export interface LocalIdentity {
   email: string;
 }
 
+type ClearMode = "ProcessReload" | "Restart";
+
 export class LocalState {
   readonly bridge = makeStateBridge();
   readonly ciphers = new TestRepository<Cipher>();
@@ -118,9 +120,17 @@ export class LocalState {
    *
    * This is what separates "the app is locked" from "the app was closed", and therefore what
    * separates a PIN unlock before the first unlock from one after it.
+   *
+   * - `ProcessReload` keeps the ephemeral PIN envelope, so an AfterFirstUnlock PIN still unlocks.
+   * - `Restart` drops it too, so an AfterFirstUnlock PIN needs another unlock method first.
    */
-  async clearEphemeral(): Promise<void> {
+  async clearEphemeral(mode: ClearMode): Promise<void> {
     await this.bridge.clear_user_key();
+
+    if (mode === "ProcessReload") {
+      return;
+    }
+
     await this.bridge.clear_ephemeral_pin_envelope();
   }
 

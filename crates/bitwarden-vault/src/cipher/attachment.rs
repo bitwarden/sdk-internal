@@ -19,6 +19,7 @@ pub(crate) struct AttachmentMaterial {
     pub(crate) encrypted_file_name: EncString,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -62,6 +63,7 @@ impl Attachment {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

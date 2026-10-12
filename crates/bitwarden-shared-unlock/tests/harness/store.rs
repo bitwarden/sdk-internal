@@ -38,6 +38,10 @@ impl LockOrigin {
 
 type ProtocolLockHook = Box<dyn Fn(UserId) + Send + Sync>;
 
+/// Per user, the date of the last manual lock. Owned by the device rather than the store, so it
+/// outlives a process reload the way state on disk does.
+pub(crate) type PersistedManualLocks = Arc<Mutex<HashMap<UserId, u64>>>;
+
 /// In-memory lock state implementing [`SharedUnlockDriver`].
 ///
 /// Lock and unlock flip the state *immediately* and then await a settling tail. Because a peer's
@@ -59,6 +63,7 @@ struct StoreInner {
     in_flight: Mutex<HashMap<UserId, usize>>,
     delays: LockDelays,
     vault_url: Option<String>,
+    last_manual_locks: PersistedManualLocks,
     topology: TopologyId,
     /// Called after a protocol-driven lock has fully settled. Used to implement device quirks.
     on_protocol_lock_settled: Mutex<Option<ProtocolLockHook>>,
@@ -71,6 +76,7 @@ impl LockStateStore {
         users: &[UserId],
         delays: LockDelays,
         vault_url: Option<String>,
+        last_manual_locks: PersistedManualLocks,
         topology: TopologyId,
     ) -> Self {
         Self(Arc::new(StoreInner {
@@ -80,6 +86,7 @@ impl LockStateStore {
             in_flight: Mutex::new(HashMap::new()),
             delays,
             vault_url,
+            last_manual_locks,
             topology,
             on_protocol_lock_settled: Mutex::new(None),
         }))
@@ -198,6 +205,13 @@ impl LockStateStore {
         Ok(())
     }
 
+    fn lock_manual_locks(&self) -> std::sync::MutexGuard<'_, HashMap<UserId, u64>> {
+        self.0
+            .last_manual_locks
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn lock_states(
         &self,
     ) -> std::sync::MutexGuard<'_, HashMap<UserId, Option<SymmetricCryptoKey>>> {
@@ -258,6 +272,14 @@ impl SharedUnlockDriver for LockStateStore {
             Some(user_id),
             &format!("{lock_state:?}"),
         );
+    }
+
+    async fn set_last_manual_lock(&self, user_id: UserId, locked_at: u64) {
+        self.lock_manual_locks().insert(user_id, locked_at);
+    }
+
+    async fn get_last_manual_lock(&self, user_id: UserId) -> Option<u64> {
+        self.lock_manual_locks().get(&user_id).copied()
     }
 
     async fn discover_leader(&self) -> Option<Endpoint> {

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -34,6 +35,7 @@ pub struct Identity {
     pub license_number: Option<EncString>,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

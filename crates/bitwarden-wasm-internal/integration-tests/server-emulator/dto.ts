@@ -36,8 +36,8 @@ import type { StoredMasterPasswordUnlock, UserEntity } from "./entities";
 export const KdfType = { pbkdf2Sha256: 0, argon2id: 1 } as const;
 export type KdfTypeValue = (typeof KdfType)[keyof typeof KdfType];
 
-function optionalString(value: { toString(): string } | undefined): string | null {
-  return value === undefined ? null : String(value);
+function optionalString(value: { toString(): string } | null | undefined): string | null {
+  return value === null || value === undefined ? null : String(value);
 }
 
 function optionalEnc(value: string | null | undefined) {
@@ -296,6 +296,9 @@ export class AccountKeysResponse {
 
     if (user.verifyingKey === null) {
       throw new Error(`V2 account ${user.email} has no verifying key`);
+    }
+    if (user.securityVersion === undefined) {
+      throw new Error(`V2 account ${user.email} has no security version`);
     }
 
     return AccountKeysResponse.fromAccountKeysResponse({
@@ -624,6 +627,27 @@ export class UserDecryptionResponse {
             },
           }),
       userKeyId: user.userKeyId ?? undefined,
+    };
+  }
+}
+
+export class KeysResponse {
+  object!: "keys";
+  key!: string | null;
+  publicKey!: string;
+  privateKey!: string;
+  accountKeys!: AccountKeysResponse;
+
+  static fromUser(user: UserEntity): KeysResponse {
+    return {
+      object: "keys",
+      key:
+        user.masterPasswordUnlock === null
+          ? null
+          : String(user.masterPasswordUnlock.masterKeyWrappedUserKey),
+      publicKey: user.publicKey,
+      privateKey: AccountKeysResponse.wrappedPrivateKeyOf(user),
+      accountKeys: AccountKeysResponse.fromUser(user),
     };
   }
 }
