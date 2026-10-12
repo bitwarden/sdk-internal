@@ -398,8 +398,7 @@ fn parse_work_snapshot(
         .map_err(|_| ApiError::Protocol("invalid executeBy timestamp".to_owned()))?;
 
     // The two sealed blobs are not `required!`: a missing blob is a sealed-data integrity
-    // failure (`executor::verify::SealRejection::MissingTargetBlob` /
-    // `MissingConfigBlob`), reported as `sealed_data_rejected`, not a protocol error.
+    // failure (see `executor::verify`), not a protocol error.
     Ok(WorkSnapshot {
         attempt_id,
         job_id,

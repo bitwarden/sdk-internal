@@ -4,10 +4,9 @@
 //! the gate. `execute_by` bounds only target-side steps (3, 4, 6), not server-side 5 and 7.
 //!
 //! [`execute`] takes a [`VerifiedJob`], never a [`crate::api::models::WorkSnapshot`]: every
-//! security-relevant value it reads was already cross-checked by `executor::verify::verify`
-//! before the job reached here. The pre-flight cipher read below (check 8 of the plan's
-//! "Connector checks on claim") runs before anything else — before credential resolution — so a
-//! bad cipher ID or an undecryptable per-item key is caught before the target is touched.
+//! security-relevant value was already cross-checked by `executor::verify`. The pre-flight
+//! cipher read (check 8) runs before credential resolution, so a bad cipher ID or an
+//! undecryptable per-item key is caught before the target is touched.
 
 use std::{
     sync::Arc,
@@ -107,10 +106,8 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         }
     }
 
-    // Check 8 (pre-flight cipher read): fetch the cipher before anything target-side runs, so a
-    // claim whose cipher ID does not match what was sealed, or whose per-item key cannot be
-    // unwrapped under the org key, is rejected before the target is touched. The existing
-    // pre-write read in step 5 repeats the ID check once more.
+    // Check 8 (pre-flight cipher read): catches a cipher ID mismatch or an unwrappable per-item
+    // key before the target is touched. Step 5's pre-write read repeats the ID check.
     {
         let cipher = match fetch_cipher(&ctx.api, &ctx.retry_cfg, attempt_id).await {
             Ok(c) => c,
@@ -362,9 +359,8 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             }
         };
 
-        // Check 8, repeated: the cipher could in principle have changed between the pre-flight
-        // read and here. The target has already been rotated, so a mismatch now means
-        // target_updated rather than target_unchanged.
+        // Check 8, repeated: the target is already rotated by now, so a mismatch here means
+        // target_updated, not target_unchanged.
         if cipher.cipher_id != job.cipher_id() {
             report_failure_absorb(
                 &ctx.api,
@@ -702,10 +698,8 @@ fn datetime_to_instant(dt: chrono::DateTime<chrono::Utc>) -> Instant {
 }
 
 /// Fetch the cipher for `attempt_id`, retried per `retry_cfg` with the standard transient/fatal
-/// classification. Shared by the pre-flight read (check 8, before anything target-side runs) and
-/// the pre-write read (step 5, after rotate/verify); the two call sites handle a failure
-/// differently, since the pre-flight read happens before anything was rotated and the pre-write
-/// read happens after, so this only wraps the retry loop.
+/// classification. Shared by the pre-flight read (check 8) and the pre-write read (step 5); the
+/// two call sites handle a failure differently, so this only wraps the retry loop.
 async fn fetch_cipher(
     api: &RotationApi,
     retry_cfg: &RetryCfg,
@@ -723,8 +717,8 @@ async fn fetch_cipher(
 }
 
 /// Report a rotation failure, logging it and absorbing any report error; the rotation still counts
-/// as `Reported`. `pub(crate)` so `executor::mod`'s claim loop can report a `verify` rejection
-/// the same way, before an `ExecutionContext` even exists.
+/// as `Reported`. `pub(crate)` so `executor::mod`'s claim loop can also report a `verify`
+/// rejection, before an `ExecutionContext` exists.
 pub(crate) async fn report_failure_absorb(
     api: &RotationApi,
     attempt_id: uuid::Uuid,
@@ -1107,9 +1101,9 @@ mod tests {
         let target_system_id = uuid::Uuid::new_v4();
         let cipher_id = uuid::Uuid::new_v4();
 
-        // The first GET /cipher call is the pre-flight read (check 8), which must succeed so
-        // rotate/verify can run; the second is the pre-write read after rotate/verify, which
-        // this test deliberately breaks to exercise the protocol-error path.
+        // The first GET /cipher call is the pre-flight read (check 8), which must succeed; the
+        // second is the pre-write read, which this test deliberately breaks to exercise the
+        // protocol-error path.
         Mock::given(method("GET"))
             .and(path(format!(
                 "/access-connectors/rotation/attempts/{attempt_id}/cipher"
@@ -1239,9 +1233,8 @@ mod tests {
         );
     }
 
-    /// Check 8: the pre-flight cipher read happens before credential resolution. A cipher ID
-    /// mismatch there must reject the attempt with `sealed_data_rejected` / `target_unchanged`
-    /// and never call the integration's `rotate`.
+    /// Check 8: a cipher ID mismatch in the pre-flight read must reject with
+    /// `sealed_data_rejected` / `target_unchanged` and never call the integration's `rotate`.
     #[tokio::test]
     async fn preflight_cipher_id_mismatch_rejects_before_any_integration_call() {
         use std::str::FromStr;

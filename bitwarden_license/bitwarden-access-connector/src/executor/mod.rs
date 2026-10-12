@@ -339,12 +339,9 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             continue;
         };
 
-        // Verify the claim's two sealed blobs before anything else: unseal them, cross-check
-        // every ID against the plaintext claim and against each other, require an automatic
-        // target, and enforce the password-strength floor (checks 1–7 of the plan's "Connector
-        // checks on claim"). A rejection is reported and the job abandoned without ever
-        // constructing an `ExecutionContext` or touching the resolver/integration layer, so no
-        // credential resolution, integration, or cipher call can happen for a rejected claim.
+        // Unseal and cross-check the claim's two sealed blobs (checks 1–7) before anything else.
+        // A rejection is reported and the job abandoned without ever touching the
+        // resolver/integration layer or making a cipher call.
         let attempt_id = snap.attempt_id;
         let verified = match verify::verify(snap, &key_store) {
             Ok(v) => v,
@@ -766,9 +763,7 @@ mod tests {
     }
 
     /// A claim with no `targetSystemSealedData` blob must be rejected by `verify` before
-    /// `execute` ever runs: exactly one `sealed_data_rejected` / `target_unchanged` failure
-    /// report, and no call to the cipher route (the only place `execute` touches the API besides
-    /// the outcome report).
+    /// `execute` ever runs, with no call to the cipher route.
     #[tokio::test]
     async fn claim_with_missing_target_blob_reports_sealed_data_rejected_and_never_executes() {
         let identity_server = MockServer::start().await;

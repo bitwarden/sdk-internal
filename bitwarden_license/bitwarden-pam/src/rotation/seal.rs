@@ -1,13 +1,10 @@
 //! Shared sealing/unsealing helpers for PAM target systems and rotation configs.
 //!
-//! Both [`crate::TargetSystemsClient`] and [`crate::RotationConfigsClient`] store the
-//! security-relevant fields of their rows as opaque blobs, sealed under the organization key (see
-//! `docs/pam-rotation-sealed-config-plan.md` in the repo root). Reading them back can fail in ways
-//! a hostile or merely buggy server can trigger — a missing blob, one that does not unseal under
-//! the org key, one cut-and-pasted from a different row, or one that is a different org's blob
-//! served to the wrong org — and none of those may fail the whole `list`. This module centralizes
-//! that "unseal and validate, degrading to `None` rather than erroring" logic so both clients
-//! apply the exact same rules.
+//! Both [`crate::TargetSystemsClient`] and [`crate::RotationConfigsClient`] store their
+//! security-relevant fields as opaque blobs sealed under the organization key (see
+//! `docs/pam-rotation-sealed-config-plan.md`). Reading one back can fail in ways a hostile or
+//! buggy server can trigger, none of which may fail the whole `list`, so this module centralizes
+//! "unseal and validate, degrading to `None`" so both clients apply the same rules.
 
 use bitwarden_core::{
     OrganizationId,
@@ -28,14 +25,12 @@ use super::{
 use crate::{RotationConfigId, TargetSystemId};
 
 /// Unseals a target system's blob and validates it against the row's own plaintext `id` and
-/// `method`. Never fails outright: any problem (the target is still `PendingSeal`, a missing
-/// blob, a key mismatch, tampering, or a blob swapped from another target) degrades to `None`, so
-/// one bad item cannot fail a `list`. Logs at debug on failure, without field values.
+/// `method`. Never fails outright: any problem degrades to `None` (so one bad item cannot fail a
+/// `list`), logged at debug without field values.
 ///
-/// Callers must pass the organization id they queried under (not one echoed back on the
-/// server's own response): that id picks the organization key used to unseal, so trusting the
-/// server's copy would let a hostile server serve org B's validly-sealed blob into org A's list
-/// and have it unseal as genuine, for a caller who holds both orgs' keys.
+/// `organization_id` must be the id the caller queried under, not one echoed back by the server:
+/// trusting the server's copy would let it substitute another organization's validly-sealed blob
+/// into this one's list.
 pub(super) fn unseal_target(
     sealed_data: Option<&str>,
     status: TargetSystemStatus,
@@ -88,10 +83,9 @@ pub(super) fn unseal_target(
 
 /// Unseals a rotation config's blob and validates it against the row's own plaintext
 /// `target_system_id` and `cipher_id`. Never fails outright: any problem degrades to `None`, so
-/// one bad item cannot fail a `list`. Logs at debug on failure, without field values.
+/// one bad item cannot fail a `list`. Logs at debug, without field values.
 ///
-/// Callers must pass the organization id they queried under (not one read back off the server's
-/// own response) — see [`unseal_target`].
+/// `organization_id` must be the caller's queried id, not the server's — see [`unseal_target`].
 pub(super) fn unseal_config(
     sealed_data: Option<&str>,
     config_id: RotationConfigId,

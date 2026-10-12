@@ -1,13 +1,11 @@
 //! Verifies a claim's two sealed blobs against each other and against the plaintext claim before
-//! any plaintext claim field is trusted, implementing checks 1–7 of
-//! `docs/pam-rotation-sealed-config-plan.md`'s "Connector checks on claim". Check 8 (the
-//! pre-flight cipher read) happens later, in `executor::rotation`, since it needs a network round
-//! trip this synchronous function cannot make.
+//! any plaintext claim field is trusted (checks 1–7). Check 8, the pre-flight cipher read, happens
+//! later in `executor::rotation`, since it needs a network round trip this sync function can't
+//! make.
 //!
 //! [`verify`] is the only place that can construct [`VerifiedJob`]: its fields are private, so
-//! `rotation::execute` (which takes a `VerifiedJob`, not a [`WorkSnapshot`]) cannot read a
-//! plaintext claim field that was not already cross-checked against the sealed blobs. Mirrors the
-//! `Verified` / `CipherWritten` step tokens in `executor::rotation`.
+//! `rotation::execute` can never read a plaintext claim field that wasn't cross-checked against
+//! the sealed blobs.
 
 use bitwarden_pam_sealed::{
     RotationConfigSealedV1, SealedPasswordPolicy, SealedTargetSystemMethod, TargetSystemSealedV1,
@@ -22,16 +20,14 @@ use crate::{
 };
 
 /// Why [`verify`] refused a claim. Never carries field values from the claim or the sealed blobs —
-/// only which check failed. Reported to the server as `FailureCode::SealedDataRejected` with a
-/// [`crate::error::SafeDetail`] built from [`SealRejection::as_str`].
+/// only which check failed, reported as `FailureCode::SealedDataRejected`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SealRejection {
     /// The claim carried no `target_system_sealed_data` blob (check 1).
     MissingTargetBlob,
     /// The claim carried no `rotation_config_sealed_data` blob (check 1).
     MissingConfigBlob,
-    /// The target blob did not unseal: wrong key, corrupt envelope, wrong namespace, or an
-    /// unsupported format version (check 1).
+    /// The target blob did not unseal: wrong key, envelope, namespace, or version (check 1).
     TargetBlobInvalid,
     /// The rotation-config blob did not unseal (check 1).
     ConfigBlobInvalid,
@@ -68,9 +64,8 @@ impl SealRejection {
 }
 
 /// A claim whose sealed blobs have been unsealed and cross-checked against each other and the
-/// plaintext claim by [`verify`]. Every security-relevant value `rotation::execute` reads comes
-/// from here, never from a [`WorkSnapshot`]; fields are private so only [`verify`] can construct
-/// one.
+/// plaintext claim by [`verify`]. Fields are private so only [`verify`] can construct one, keeping
+/// `rotation::execute` from ever reading an uncross-checked claim field.
 #[derive(Debug)]
 pub(crate) struct VerifiedJob {
     attempt_id: Uuid,
@@ -134,8 +129,8 @@ impl VerifiedJob {
     }
 }
 
-/// Implements checks 1–7 of the plan's "Connector checks on claim": unseals both blobs, cross
-/// checks every ID, requires an automatic target, and enforces the password-strength floor.
+/// Implements checks 1–7: unseals both blobs, cross-checks every ID, requires an automatic
+/// target, and enforces the password-strength floor.
 pub(crate) fn verify(
     snapshot: WorkSnapshot,
     key_store: &AccessConnectorKeyStore,
@@ -184,9 +179,8 @@ pub(crate) fn verify(
         return Err(SealRejection::TargetMethodNotAutomatic);
     }
 
-    // Check 5: kind, policy and account identity come from the blobs only, never the plaintext
-    // claim. A well-formed automatic target always carries a kind; its absence here means a
-    // malformed blob, not a legitimate manual target (already excluded by check 4).
+    // Check 5: kind, policy, and account identity come from the blobs only, never the plaintext
+    // claim.
     let kind = target.kind.ok_or(SealRejection::TargetKindMissing)?;
 
     // Check 6: the policy must meet the shared strength floor and generator bounds.
@@ -195,8 +189,8 @@ pub(crate) fn verify(
         .validate()
         .map_err(|_| SealRejection::PolicyRejected)?;
 
-    // Check 7: terminate only if both the config asks for it and the target can honor it. A
-    // target that cannot honor it is not a rejection — the flag is simply ANDed to false.
+    // Check 7: terminate only if the config asks for it and the target can honor it; unsupported
+    // is ANDed to false, not a rejection.
     let terminate_sessions =
         config.terminate_sessions && target.supports_session_termination == Some(true);
 
@@ -214,9 +208,8 @@ pub(crate) fn verify(
     })
 }
 
-/// Test-only fixture builders shared with `executor::rotation`'s and `executor::mod`'s own tests,
-/// which need a real [`VerifiedJob`] (obtained by calling [`verify`] for real, since its fields
-/// are private) without repeating the sealing boilerplate at every call site.
+/// Test-only fixture builders shared with `executor::rotation` and `executor::mod`'s tests, which
+/// need a real [`VerifiedJob`] without repeating the sealing boilerplate at every call site.
 #[cfg(test)]
 pub(crate) mod test_support {
     use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
@@ -639,8 +632,6 @@ mod tests {
 
     #[test]
     fn automatic_target_with_missing_kind_is_rejected() {
-        // Defensive: a malformed blob claiming Automatic but omitting kind must not reach
-        // execution with a bogus kind.
         let (store, _org_key) = store_with_org_key();
         let target_system_id = Uuid::new_v4();
         let cipher_id = Uuid::new_v4();

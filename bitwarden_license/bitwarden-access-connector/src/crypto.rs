@@ -103,8 +103,7 @@ const CIPHER_PASSWORD_KEY: &str = "Password";
 
 /// Resolves the key slot a cipher's password should be encrypted under: the per-item key
 /// (unwrapped by the org key) when `cipher_key` is present, else the org key directly. Shared by
-/// [`encrypt_cipher_password`] and [`cipher_key_unwraps`], the latter using it purely to check
-/// decryptability without encrypting anything.
+/// [`encrypt_cipher_password`] and [`cipher_key_unwraps`], which only checks decryptability.
 fn resolve_encrypt_slot(
     ctx: &mut KeyStoreContext<'_, AccessConnectorKeySlotIds>,
     cipher_key: Option<&str>,
@@ -122,9 +121,8 @@ fn resolve_encrypt_slot(
 }
 
 /// Verifies that a cipher's per-item key (if any) unwraps under the organization key, without
-/// encrypting anything. Used by the rotation pipeline's pre-flight cipher read (check 8 in
-/// `docs/pam-rotation-sealed-config-plan.md`): a cipher whose key the connector cannot unwrap
-/// would otherwise only be discovered after the target had already been rotated.
+/// encrypting anything. Used by the pre-flight cipher read (check 8), so an unwrappable key is
+/// caught before the target is rotated, not after.
 pub fn cipher_key_unwraps(
     store: &AccessConnectorKeyStore,
     cipher_key: Option<&str>,

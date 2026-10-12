@@ -19,22 +19,20 @@ use crate::container::{SealedContainer, SealedDataError};
 /// whether sessions are terminated.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct RotationConfigSealedV1 {
-    /// Must match the target system's own sealed `target_system_id`. The connector checks this
-    /// against both the plaintext claim and [`crate::TargetSystemSealedV1::target_system_id`] to
-    /// prevent blobs from being swapped between targets or configs.
+    /// Checked against both the plaintext claim and
+    /// [`crate::TargetSystemSealedV1::target_system_id`] to prevent blobs from being swapped
+    /// between targets or configs.
     pub target_system_id: Uuid,
     /// The cipher the rotated credential is written to. Checked against the plaintext claim's
     /// `cipher_id`.
     pub cipher_id: Uuid,
     /// The account identity on the target system to rotate (e.g. a username or object ID).
-    ///
-    /// Treated as untrusted input by consumers once unsealed: a custom-script connector passes it
-    /// to the script, so it must never be interpolated unsanitized into a shell command or query.
+    /// Treated as untrusted once unsealed: a custom-script connector passes it to the script, so
+    /// it must never be interpolated unsanitized into a shell command or query.
     pub account_identity: String,
-    /// Whether the connector should terminate the account's active sessions after rotation. The
-    /// connector ANDs this with the target's
-    /// [`crate::TargetSystemSealedV1::supports_session_termination`] before acting, so this alone
-    /// cannot force termination on a target that cannot honor it.
+    /// Whether the connector should terminate the account's active sessions after rotation. ANDed
+    /// with the target's [`crate::TargetSystemSealedV1::supports_session_termination`], so this
+    /// alone cannot force termination on a target that cannot honor it.
     pub terminate_sessions: bool,
 }
 impl SealableData for RotationConfigSealedV1 {}
@@ -60,9 +58,8 @@ pub fn seal_rotation_config<Ids: KeySlotIds>(
 /// Unseals a [`RotationConfigSealedV1`] from an opaque string produced by
 /// [`seal_rotation_config`], using `org_key` to unwrap the content-encryption key.
 ///
-/// Returns the latest version, converting from older versions if any exist (currently only `V1`
-/// exists, so this is a direct unwrap). Fails if `blob` was sealed under a different namespace
-/// (e.g. as a [`crate::TargetSystemSealedV1`]) or with a different key.
+/// Fails if `blob` was sealed under a different namespace (e.g. as a
+/// [`crate::TargetSystemSealedV1`]) or with a different key.
 pub fn unseal_rotation_config<Ids: KeySlotIds>(
     blob: &str,
     org_key: &Ids::Symmetric,

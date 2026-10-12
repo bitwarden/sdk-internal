@@ -10,12 +10,9 @@ use crate::{
     error::{SessionTermination, SyncState},
 };
 
-/// The target-system kind understood by this connector build.
-///
-/// Built only from [`SealedTargetSystemKind`] (the unsealed blob), never from the claim's
-/// plaintext `kind` field directly — see `executor::verify`. [`SealedTargetSystemKind`] has no
-/// catch-all variant: an unrecognised kind fails to unseal at all, rejected before it ever
-/// reaches this type.
+/// The target-system kind understood by this connector build. Built only from the unsealed
+/// [`SealedTargetSystemKind`] blob, never the claim's plaintext `kind` field — an unrecognised
+/// kind fails to unseal, so there is no catch-all variant here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum TargetKind {
     /// Microsoft Entra ID (Azure AD).
@@ -44,8 +41,7 @@ pub(crate) struct JobRef {
 
 /// The work snapshot returned by a successful claim. Every security-relevant field (kind,
 /// password policy, account identity, terminate-sessions) lives only inside the two opaque sealed
-/// blobs; `executor::verify` unseals and cross-checks them, producing an
-/// `executor::verify::VerifiedJob`, before anything about this claim is trusted.
+/// blobs — `executor::verify` unseals and cross-checks them before anything here is trusted.
 #[derive(Debug, Clone)]
 pub(crate) struct WorkSnapshot {
     /// Keys every attempt-scoped request (cipher read/write, outcome reports).

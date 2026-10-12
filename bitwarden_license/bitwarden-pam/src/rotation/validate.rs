@@ -20,27 +20,25 @@ pub enum RotationValidationError {
     /// `account_identity` was empty (after trimming) or exceeded the server's length limit.
     #[error("Account identity must be between 1 and {MAX_ACCOUNT_IDENTITY_LENGTH} characters")]
     InvalidAccountIdentity,
-    /// A password policy's length bounds were outside the generator's supported range
-    /// (`bitwarden_pam_sealed::GENERATOR_MIN_LENGTH`..
-    /// =`bitwarden_pam_sealed::GENERATOR_MAX_LENGTH`), or `min_length` exceeded `max_length`.
+    /// A password policy's length bounds fall outside the generator's supported range
+    /// (`GENERATOR_MIN_LENGTH..=GENERATOR_MAX_LENGTH`), or `min_length` exceeds `max_length`.
     #[error("Password length bounds are outside the generator's supported range")]
     InvalidPasswordLengthBounds,
     /// A password policy enabled no character classes, so no credential could satisfy it.
     #[error("A password policy must allow at least one character class")]
     NoCharacterClasses,
     /// A password policy's generated password would fall below the shared strength floor
-    /// (`bitwarden_pam_sealed::MIN_PASSWORD_ENTROPY_BITS`). The blobs stop a hostile server
-    /// changing a policy in transit, but not replaying an old weak one, so both this client and
-    /// the access connector enforce the same floor independently.
+    /// (`MIN_PASSWORD_ENTROPY_BITS`). Sealing stops a hostile server changing a policy in
+    /// transit, but not replaying an old weak one, so both this client and the access connector
+    /// enforce the floor independently.
     #[error("Password policy falls below the minimum password strength floor")]
     BelowPasswordStrengthFloor,
     /// `schedule_cron` was present but is not shaped like a Quartz cron expression.
     #[error("Schedule must be a 6- or 7-field Quartz cron expression")]
     InvalidCron,
-    /// `terminate_sessions` was requested, but the target system does not confirm it supports
-    /// session termination: its unsealed `supports_session_termination` is not `Some(true)`. A
-    /// `PendingSeal` or `Invalid` target's capability is unknown, which is treated the same as
-    /// unsupported.
+    /// `terminate_sessions` was requested, but the target's unsealed
+    /// `supports_session_termination` is not `Some(true)`. A `PendingSeal` or unverifiable
+    /// target's capability is unknown, and treated as unsupported.
     #[error("The target system does not confirm it supports session termination")]
     SessionTerminationUnsupported,
     /// The rotation config's target system exists but its sealed blob is `Invalid` (missing,
@@ -48,20 +46,17 @@ pub enum RotationValidationError {
     #[error("The target system's sealed data is invalid")]
     TargetSystemSealInvalid,
     /// [`TargetSystemsClient::update`](super::TargetSystemsClient::update)'s request named a
-    /// different `method` than the target system's own plaintext `method`. Method is fixed at
-    /// registration; nothing lets a target switch between automatic and manual.
+    /// different `method` than the target system's own plaintext `method`.
     #[error("Target system method cannot be changed")]
     TargetSystemMethodMismatch,
     /// [`TargetSystemsClient::update`](super::TargetSystemsClient::update)'s request named a
-    /// different `kind` than the target system's own sealed `kind` (only checked once the
+    /// different `kind` than the target system's own sealed `kind`, checked only once the
     /// existing blob's [`TargetSystemSealedFields`](crate::TargetSystemSealedFields) are
-    /// confirmed present). Kind is fixed at registration; nothing lets a target switch
-    /// integrations.
+    /// confirmed present.
     #[error("Target system kind cannot be changed")]
     TargetSystemKindMismatch,
     /// [`RotationConfigsClient::update`](super::RotationConfigsClient::update)'s request named a
-    /// different `cipher_id` or `target_system_id` than the config's own plaintext copies. Both
-    /// are fixed at creation; nothing lets a config move to a different cipher or target.
+    /// different `cipher_id` or `target_system_id` than the config's own plaintext copies.
     #[error("Rotation config cipher or target system cannot be changed")]
     RotationConfigImmutableFieldMismatch,
 }
@@ -96,10 +91,9 @@ fn validate_account_identity(identity: &str) -> Result<(), RotationValidationErr
     Ok(())
 }
 
-/// Validates a password policy against the shared `bitwarden-pam-sealed` strength floor: the
-/// generator's supported length range plus a minimum entropy bound. Both this client and the
-/// access connector enforce the same rule, so an operator learns about a weak policy while
-/// editing rather than from a silently-clamped or refused rotation.
+/// Validates a password policy against the shared `bitwarden-pam-sealed` strength floor (length
+/// range plus minimum entropy). Both this client and the access connector enforce the same rule,
+/// so an operator learns about a weak policy while editing rather than from a refused rotation.
 pub(super) fn validate_password_policy(
     policy: &PasswordPolicy,
 ) -> Result<(), RotationValidationError> {
@@ -119,9 +113,7 @@ fn validate_schedule_cron(cron: Option<&String>) -> Result<(), RotationValidatio
 
 /// Validates a target system request. Shared by
 /// [`TargetSystemsClient::create`](super::TargetSystemsClient::create) and
-/// [`TargetSystemsClient::update`](super::TargetSystemsClient::update), which take the same
-/// request shape — see [`TargetSystemsClient::update`](super::TargetSystemsClient::update)'s docs
-/// for why.
+/// [`TargetSystemsClient::update`](super::TargetSystemsClient::update).
 pub(super) fn validate_target_system_request(
     request: &TargetSystemCreateRequest,
 ) -> Result<(), RotationValidationError> {
@@ -131,10 +123,9 @@ pub(super) fn validate_target_system_request(
 
 /// Validates a rotation config request. Shared by
 /// [`RotationConfigsClient::create`](super::RotationConfigsClient::create) and
-/// [`RotationConfigsClient::update`](super::RotationConfigsClient::update), which take the same
-/// request shape — see [`RotationConfigsClient::update`](super::RotationConfigsClient::update)'s
-/// docs for why. Does not validate `terminate_sessions` against the target system's capability;
-/// that needs a network round trip and is done separately by the caller.
+/// [`RotationConfigsClient::update`](super::RotationConfigsClient::update). Does not validate
+/// `terminate_sessions` against the target system's capability; that needs a network round trip
+/// done separately by the caller.
 pub(super) fn validate_config_request(
     request: &RotationConfigCreateRequest,
 ) -> Result<(), RotationValidationError> {
@@ -250,8 +241,6 @@ mod tests {
         );
     }
 
-    /// Length bounds outside the generator's supported range are rejected, even when the bounds
-    /// are correctly ordered.
     #[test]
     fn length_bounds_outside_the_generator_range_are_rejected() {
         let min = i32::try_from(GENERATOR_MIN_LENGTH).expect("fits in i32");
@@ -326,8 +315,6 @@ mod tests {
         assert!(validate_target_system_request(&request).is_ok());
     }
 
-    /// The blobs stop a hostile server changing a policy in transit, but not replaying an old
-    /// weak one, so the strength floor is enforced here too, not just length bounds.
     #[test]
     fn a_policy_below_the_strength_floor_is_rejected() {
         // 20 * log2(10) ~= 66.4 bits < 80.

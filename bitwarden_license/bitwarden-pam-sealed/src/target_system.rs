@@ -39,15 +39,13 @@ pub enum SealedTargetSystemKind {
 
 /// The security-relevant fields of a PAM target system.
 ///
-/// Sealed by the admin client and unsealed by the access connector on claim, so a hostile server
-/// (or a MitM on the connector's TLS) cannot change the kind, password policy, or
-/// session-termination support of a target between the admin saving it and the connector acting
-/// on it.
+/// Sealed by the admin client and unsealed by the access connector on claim, so neither a hostile
+/// server nor a MitM on the connector's TLS can change a target's kind, password policy, or
+/// session-termination support.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct TargetSystemSealedV1 {
-    /// Binds this blob to its own target-system row. The connector checks this against the
-    /// plaintext claim's `target_system_id` (and the rotation config's own sealed copy) to
-    /// prevent blobs from being swapped between targets.
+    /// Checked against the plaintext claim's `target_system_id` (and the rotation config's own
+    /// sealed copy) to prevent blobs from being swapped between targets.
     pub target_system_id: Uuid,
     /// Whether this target is dispatched automatically. The connector requires this to be
     /// [`SealedTargetSystemMethod::Automatic`] before running a job; a manual target's plaintext
@@ -85,9 +83,8 @@ pub fn seal_target_system<Ids: KeySlotIds>(
 /// Unseals a [`TargetSystemSealedV1`] from an opaque string produced by
 /// [`seal_target_system`], using `org_key` to unwrap the content-encryption key.
 ///
-/// Returns the latest version, converting from older versions if any exist (currently only `V1`
-/// exists, so this is a direct unwrap). Fails if `blob` was sealed under a different namespace
-/// (e.g. as a [`crate::RotationConfigSealedV1`]) or with a different key.
+/// Fails if `blob` was sealed under a different namespace (e.g. as a
+/// [`crate::RotationConfigSealedV1`]) or with a different key.
 pub fn unseal_target_system<Ids: KeySlotIds>(
     blob: &str,
     org_key: &Ids::Symmetric,
@@ -141,8 +138,8 @@ mod tests {
 
     #[test]
     fn opaque_string_round_trip() {
-        // The server stores the sealed value as a plain string; cloning/reparsing it (simulating
-        // a round trip through storage) must not change what unseals.
+        // Simulates a round trip through storage: reparsing the string must not change what
+        // unseals.
         let store = KeyStore::<TestIds>::default();
         let mut ctx = store.context_mut();
         let org_key = ctx.generate_symmetric_key();
@@ -190,9 +187,7 @@ mod tests {
 
     #[test]
     fn target_system_blob_cannot_be_unsealed_as_rotation_config() {
-        // Namespace separation: a target-system blob is sealed under
-        // DataEnvelopeNamespace::PamTargetSystem, so it must be rejected by
-        // `unseal_rotation_config`, which only accepts PamRotationConfig.
+        // Namespace separation: `unseal_rotation_config` only accepts PamRotationConfig.
         let store = KeyStore::<TestIds>::default();
         let mut ctx = store.context_mut();
         let org_key = ctx.generate_symmetric_key();

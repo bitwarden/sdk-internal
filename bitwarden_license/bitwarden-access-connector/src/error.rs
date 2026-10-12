@@ -30,11 +30,8 @@ pub(crate) enum FailureCode {
     CipherWriteRejected,
     /// Encrypting the updated cipher data failed.
     CipherEncryptFailed,
-    /// A sealed-data integrity check failed: the claim's `target_system_sealed_data` or
-    /// `rotation_config_sealed_data` blob was missing, did not unseal, disagreed with the claim
-    /// or with each other, named a non-automatic target, carried a sub-floor password policy, or
-    /// the pre-flight cipher read (check 8) did not match. See `executor::verify` and the
-    /// `SafeDetail` reported alongside this code for which check failed.
+    /// A sealed-data integrity check failed (checks 1–8); see `executor::verify` and the
+    /// `SafeDetail` reported alongside this code for which one.
     SealedDataRejected,
     /// An unexpected internal error occurred.
     Internal,
@@ -122,10 +119,9 @@ impl SafeDetail {
         Self(Self::truncate(format!("timed out after {secs}s")))
     }
 
-    /// Names which sealed-data integrity check rejected a rotation claim: one of
-    /// `executor::verify::SealRejection`'s checks (1–7), or the pre-flight cipher check (8) in
-    /// `executor::rotation`. `reason` must be a `'static` check-name constant — e.g.
-    /// `"target_method_not_automatic"` — never a field value from the claim or the sealed blobs.
+    /// Names which sealed-data check (1–8) rejected a claim. `reason` must be a `'static`
+    /// constant, e.g. `"target_method_not_automatic"` — never a field value from the claim or the
+    /// sealed blobs.
     pub(crate) fn from_seal_rejection(reason: &'static str) -> Self {
         Self(Self::truncate(format!("sealed data rejected: {reason}")))
     }

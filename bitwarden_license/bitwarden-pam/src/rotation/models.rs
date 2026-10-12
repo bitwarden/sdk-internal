@@ -81,10 +81,9 @@ impl TryFrom<TargetSystemMethod> for ApiTargetSystemMethod {
 /// The technology a target system represents. Only meaningful for
 /// [`Automatic`](TargetSystemMethod::Automatic) systems; a manual rotation has no integration.
 ///
-/// The server never sees this value: it lives only inside the sealed blob
-/// (`bitwarden_pam_sealed::SealedTargetSystemKind`), so it is populated from the unsealed blob
-/// rather than a server response field. See
-/// [`TargetSystemSealedFields::kind`](super::TargetSystemSealedFields::kind).
+/// The server never sees this value: it lives only in the sealed blob
+/// (`bitwarden_pam_sealed::SealedTargetSystemKind`), populated from the unsealed blob rather
+/// than a server response field.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
@@ -131,10 +130,10 @@ pub enum TargetSystemStatus {
     Active,
     /// No new rotation jobs are dispatched; jobs already in flight run to completion.
     Disabled,
-    /// Registered (phase 1) but not yet sealed (phase 2): [`TargetSystemsClient::create`] hides
-    /// both calls behind one method, but a row can be left here if phase 2 fails. Call
-    /// [`TargetSystemsClient::update`] with the same request to finish sealing, or
-    /// [`TargetSystemsClient::delete`] to discard it. The only way out of this status.
+    /// Registered but not yet sealed: [`TargetSystemsClient::create`] hides both phases behind
+    /// one call, but a row can be left here if sealing fails. Call
+    /// [`TargetSystemsClient::update`] to finish sealing, or [`TargetSystemsClient::delete`] to
+    /// discard it.
     ///
     /// [`TargetSystemsClient::create`]: super::TargetSystemsClient::create
     /// [`TargetSystemsClient::update`]: super::TargetSystemsClient::update
@@ -299,11 +298,9 @@ impl From<ApiSessionTerminationOutcome> for SessionTerminationOutcome {
 /// Password generation policy for a target system. For [`Manual`](TargetSystemMethod::Manual)
 /// systems it is guidance for the operator that nothing enforces.
 ///
-/// The server never sees this value: it lives only inside the sealed blob
-/// (`bitwarden_pam_sealed::SealedPasswordPolicy`), so it is populated from the unsealed blob
-/// rather than a server response field, and validating it (see
-/// `crate::rotation::validate::validate_password_policy`) delegates to the shared strength floor
-/// in `bitwarden-pam-sealed` rather than checking length bounds alone.
+/// The server never sees this value: it lives only in the sealed blob
+/// (`bitwarden_pam_sealed::SealedPasswordPolicy`). Validation delegates to the shared strength
+/// floor in `bitwarden-pam-sealed`, not just length bounds.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -325,10 +322,8 @@ pub struct PasswordPolicy {
 impl From<SealedPasswordPolicy> for PasswordPolicy {
     fn from(policy: SealedPasswordPolicy) -> Self {
         Self {
-            // `SealedPasswordPolicy::validate` bounds both fields to
-            // `[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]` (<=128) before a policy is ever
-            // sealed, so these always fit in an `i32`; a policy sealed by a future SDK version
-            // with looser bounds would saturate rather than panic.
+            // `validate` bounds both fields to <=128 before sealing, so these fit in `i32` today;
+            // a future SDK with looser bounds would saturate here rather than panic.
             min_length: i32::try_from(policy.min_length).unwrap_or(i32::MAX),
             max_length: i32::try_from(policy.max_length).unwrap_or(i32::MAX),
             include_uppercase: policy.include_uppercase,

@@ -1,12 +1,8 @@
-//! Converts a verified job's [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`] for the
-//! generators crate.
+//! Converts a verified job's [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`].
 //!
-//! The password-strength floor itself (minimum entropy, generator-range length bounds) is
-//! enforced once, by [`SealedPasswordPolicy::validate`], before a claim's policy is trusted at
-//! all (see `executor::verify`). This module re-validates defensively — cheap and pure — so a
-//! future call site that forgets to run `verify` first still fails closed instead of silently
-//! generating a below-floor password, then maps the (already valid) policy onto the generator's
-//! request shape.
+//! The strength floor is already enforced once by [`SealedPasswordPolicy::validate`] in
+//! `executor::verify`; this module re-validates defensively, so a future call site that skips
+//! `verify` still fails closed instead of generating a below-floor password.
 
 use bitwarden_generators::PasswordGeneratorRequest;
 use bitwarden_pam_sealed::{

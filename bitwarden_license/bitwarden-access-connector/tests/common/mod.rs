@@ -126,8 +126,7 @@ pub fn execute_by_future() -> String {
 }
 
 /// Seal a well-formed target-system and rotation-config blob pair under `org_key`. Sealing needs
-/// a `KeyStoreContext`, not the org key value directly, so this installs `org_key` into a scratch
-/// key store first.
+/// a `KeyStoreContext`, so this installs `org_key` into a scratch key store first.
 pub fn seal_claim_blobs(
     org_key: &SymmetricCryptoKey,
     target_id: Uuid,

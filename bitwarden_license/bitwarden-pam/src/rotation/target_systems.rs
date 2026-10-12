@@ -42,16 +42,12 @@ pub struct TargetSystem {
     pub name: String,
     /// How credentials are rotated for this target.
     pub method: TargetSystemMethod,
-    /// Lifecycle state, as the server sees it. `PendingSeal` already says why `sealed` is absent
-    /// for a brand-new target; see [`Self::sealed`].
+    /// Lifecycle state. `PendingSeal` explains why `sealed` is absent; see [`Self::sealed`].
     pub status: TargetSystemStatus,
     /// The target's security-relevant fields, read from the unsealed blob — `None` whenever the
-    /// blob could not be verified: `status` is `PendingSeal` (nothing sealed yet), the blob is
-    /// missing or fails to unseal under the organization key, or its sealed IDs/method disagree
-    /// with this row's own plaintext copies. The UI does not need to distinguish *why*; a `None`
-    /// here either means "not set up yet" (the common `PendingSeal` case) or "something is wrong
-    /// with this row" — either way, there is nothing trustworthy to show. The item itself is
-    /// still returned: one target's bad blob never fails [`TargetSystemsClient::list`].
+    /// blob could not be verified (not yet sealed, fails to unseal, or its sealed IDs/method
+    /// disagree with this row's plaintext copies). One target's bad blob never fails
+    /// [`TargetSystemsClient::list`].
     pub sealed: Option<TargetSystemSealedFields>,
     /// The target system's creation time (UTC).
     pub creation_date: DateTime<Utc>,
@@ -69,7 +65,7 @@ pub struct TargetSystemSealedFields {
     /// [`Manual`](TargetSystemMethod::Manual) target, which names no integration; an
     /// [`Automatic`](TargetSystemMethod::Automatic) target always carries one once sealed.
     pub kind: Option<TargetSystemKind>,
-    /// Constraints on generating a rotated credential.
+    /// Constraints the rotated credential must satisfy.
     pub password_policy: PasswordPolicy,
     /// Whether the integration can terminate sessions after rotating. `None` for
     /// [`Manual`](TargetSystemMethod::Manual) targets, which have no integration to ask.
@@ -78,16 +74,13 @@ pub struct TargetSystemSealedFields {
 
 impl TargetSystem {
     /// Builds a [`TargetSystem`] from the server's response, unsealing its blob (if any) against
-    /// `ctx`. Only fails on a structurally malformed response (a missing required field or an
-    /// unparseable date); a blob that fails to unseal or validate degrades [`Self::sealed`] to
-    /// `None` rather than failing, so one bad item cannot fail [`TargetSystemsClient::list`].
+    /// `ctx`. Only fails on a structurally malformed response; a blob that fails to unseal or
+    /// validate degrades [`Self::sealed`] to `None` rather than failing, so one bad item cannot
+    /// fail [`TargetSystemsClient::list`].
     ///
-    /// `organization_id` must be the id the caller queried under, not read back from
-    /// `response.organization_id`: the latter is server-controlled, and a caller holding more
-    /// than one organization's key must not let a hostile server substitute another
-    /// organization's validly-sealed blob into this one's list. If the response's own
-    /// `organization_id` disagrees with the queried one, the blob is treated as unverifiable
-    /// (`sealed: None`) rather than trusting either copy.
+    /// `organization_id` must be the id the caller queried under, not `response.organization_id`:
+    /// a hostile server could otherwise substitute another organization's validly-sealed blob
+    /// into this one's list for a caller holding both orgs' keys.
     pub(super) fn from_response(
         organization_id: OrganizationId,
         response: PamTargetSystemResponseModel,
@@ -126,9 +119,7 @@ impl TargetSystem {
 
 /// Request to create or update a target system. An automatic target needs an integration and a
 /// session-termination capability; a manual one has neither. Method and kind cannot actually
-/// change after creation (the server does not accept a different `method`, and a target has no
-/// way to change technology), but [`TargetSystemsClient::update`] still takes this full shape —
-/// see its docs for why.
+/// change after creation, but [`TargetSystemsClient::update`] still takes this full shape.
 ///
 /// Serializes with a `method` discriminant matching the server's own.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -193,20 +184,17 @@ impl From<&TargetSystemCreateRequest> for RegisterTargetSystemRequestModel {
 
 /// Failure from [`TargetSystemsClient::create`]'s two-phase registration.
 ///
-/// Unlike [`RotationError`] (`flat` mode, which only exposes a variant name to WASM/TypeScript
-/// callers — see `bitwarden-error`'s docs), this is `full` mode so [`Self::id`] crosses the FFI
+/// Unlike [`RotationError`] (`flat` mode), this is `full` mode so [`Self::id`] crosses the FFI
 /// boundary: phase 2 (sealing and the `PUT`) can fail after phase 1 (the `POST`) already assigned
-/// an ID, and the caller needs that ID to retry via [`TargetSystemsClient::update`] or delete the
-/// incomplete row. [`Self::message`] is a rendering of the underlying [`RotationError`] — never
-/// sensitive, since `RotationError`'s own `Display` never includes policy values, account
-/// identities, or other sealed field contents.
+/// an ID, and the caller needs it to retry via [`TargetSystemsClient::update`] or delete the
+/// incomplete row. [`Self::message`] is never sensitive: `RotationError`'s `Display` never
+/// includes policy values or other sealed field contents.
 #[bitwarden_error(full)]
 #[derive(Debug, Error)]
 #[error("{message}")]
 pub struct TargetSystemCreateError {
-    /// The target system's ID, once phase 1 (registration) assigned one — i.e. whenever the
-    /// failure happened during or after phase 2. `None` means nothing was created: local
-    /// validation failed, or phase 1's own call to the server failed.
+    /// The target system's ID, once phase 1 assigned one. `None` means nothing was created:
+    /// local validation failed, or phase 1's call to the server failed.
     pub id: Option<TargetSystemId>,
     /// A human-readable, non-sensitive description of the failure.
     pub message: String,
@@ -243,18 +231,15 @@ impl TargetSystemsClient {
             .collect()
     }
 
-    /// Registers a target system and seals its blob, in two calls (spec `RegisterTargetSystem` /
+    /// Registers a target system and seals its blob in two calls (spec `RegisterTargetSystem` /
     /// `SealTargetSystem`): a `POST` creates the row in
-    /// [`PendingSeal`](TargetSystemStatus::PendingSeal) and assigns its ID, then this method
-    /// seals [`bitwarden_pam_sealed::TargetSystemSealedV1`] with that ID and `PUT`s it — the
-    /// only transition out of `PendingSeal`.
+    /// [`PendingSeal`](TargetSystemStatus::PendingSeal) and assigns its ID, then this seals
+    /// [`bitwarden_pam_sealed::TargetSystemSealedV1`] with that ID and `PUT`s it — the only
+    /// transition out of `PendingSeal`.
     ///
-    /// If the `PUT` (or sealing itself) fails, the row is left in `PendingSeal` rather than
-    /// rolled back: there is no delete-on-failure here, since a partial failure should be
-    /// recoverable rather than silently discarded. The returned [`TargetSystemCreateError`]
-    /// carries the new target's ID (see [`TargetSystemCreateError::id`]) so the caller can retry
-    /// sealing via [`Self::update`] with the same request, or [`Self::delete`] the incomplete
-    /// row.
+    /// If the `PUT` (or sealing) fails, the row stays in `PendingSeal` rather than being rolled
+    /// back. The returned [`TargetSystemCreateError`] carries the new ID so the caller can retry
+    /// via [`Self::update`] with the same request, or [`Self::delete`] the incomplete row.
     pub async fn create(
         &self,
         organization_id: OrganizationId,
@@ -345,31 +330,22 @@ impl TargetSystemsClient {
         })
     }
 
-    /// Re-seals and replaces a target system's blob wholesale: a fresh content-encryption key,
-    /// the complete sealed content built from `request`. This moves a
+    /// Re-seals and replaces a target system's blob wholesale. This moves a
     /// [`PendingSeal`](TargetSystemStatus::PendingSeal) row to
-    /// [`Active`](TargetSystemStatus::Active) (a [`Disabled`](TargetSystemStatus::Disabled) row
-    /// stays `Disabled`) — the only transition out of `PendingSeal`, so this is also how a target
-    /// left incomplete by a failed [`Self::create`] finishes setup: call `update` with the same
-    /// request. There is no separate `finish_setup` method.
+    /// [`Active`](TargetSystemStatus::Active) — the only transition out of `PendingSeal` — so
+    /// this is also how a target left incomplete by a failed [`Self::create`] finishes setup:
+    /// call `update` with the same request.
     ///
     /// Takes the same [`TargetSystemCreateRequest`] shape `create` does, including `method` and
-    /// `kind`, even though neither can actually change: since each `PUT` replaces the blob
-    /// wholesale rather than patching it, every field the blob carries has to be resupplied every
-    /// time, not just the ones being edited. Pass the target's current `method`/`kind` back
-    /// unchanged (read them from a prior [`Self::list`]).
+    /// `kind`, even though neither can change: each `PUT` replaces the blob wholesale, so every
+    /// field must be resupplied, not just the ones being edited.
     ///
-    /// Fetches the row first (there is no single-target `GET`, so this lists and finds `id`) and
-    /// rejects rather than silently sealing a blob that disagrees with the server: a different
-    /// `method` than the row's own plaintext `method` is always rejected
-    /// ([`RotationValidationError::TargetSystemMethodMismatch`]), and — once the existing blob is
-    /// confirmed sealed (see [`TargetSystem::sealed`]) — a different `kind` than the sealed one is
-    /// too ([`RotationValidationError::TargetSystemKindMismatch`]). Both are fixed at
-    /// registration. A request against a target with no existing sealed fields (`PendingSeal`
-    /// or unverifiable) cannot be kind-checked (there is nothing trustworthy to compare
-    /// against), so only the method check applies there — consistent with
-    /// [`Self::create`]/finishing setup, where the caller is choosing `kind` for the first
-    /// time.
+    /// Fetches the row first (there is no single-target `GET`) and rejects a request whose
+    /// `method` disagrees with the row's plaintext `method`
+    /// ([`RotationValidationError::TargetSystemMethodMismatch`]) or whose `kind` disagrees with
+    /// an existing sealed `kind` ([`RotationValidationError::TargetSystemKindMismatch`]) — both
+    /// fixed at registration. A `PendingSeal` or unverifiable target has nothing trustworthy to
+    /// kind-check against, so only the method check applies there.
     pub async fn update(
         &self,
         organization_id: OrganizationId,
@@ -704,8 +680,7 @@ mod tests {
         );
     }
 
-    /// A target in `PendingSeal` has no blob to unseal; its sealed fields must read `None` rather
-    /// than attempt to unseal a blob that is not there.
+    /// A target in `PendingSeal` has no blob to unseal, so its sealed fields must read `None`.
     #[test]
     fn a_pending_seal_target_has_no_sealed_fields() {
         let organization_key = organization_key();
@@ -775,12 +750,10 @@ mod tests {
         }
     }
 
-    /// A hostile server could echo a different organization's id on an item served as part of
-    /// org A's `list`, hoping a caller who also holds org B's key (a multi-org admin) unseals
-    /// org B's validly-sealed blob as if it belonged to this org-A row. The key used must always
-    /// be the queried `organization_id`, never `response.organization_id` — so a blob that would
-    /// otherwise unseal and validate perfectly under org B's key must still read `sealed: None`
-    /// here, because it was requested for org A.
+    /// A hostile server could echo org B's id on an item served in org A's `list`, hoping a
+    /// multi-org caller unseals org B's validly-sealed blob as if it belonged to this org-A row.
+    /// The key used must always be the queried `organization_id`, never
+    /// `response.organization_id`.
     #[test]
     fn a_blob_from_a_different_organization_is_not_trusted() {
         let org_a = organization_id();
@@ -788,8 +761,7 @@ mod tests {
         let org_a_key = organization_key();
         let org_b_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
-        // A blob that validly seals and would validate (right id, right method) under org B's
-        // key — the caller holds both orgs' keys, as a multi-org admin would.
+        // Validly seals and would validate under org B's key; the caller holds both orgs' keys.
         let org_b_blob = seal_with(&org_b_key, sample_sealed_data());
 
         let store = KeyStore::<KeySlotIds>::default();
@@ -804,8 +776,7 @@ mod tests {
         }
 
         let response = PamTargetSystemResponseModel {
-            // The server claims this item belongs to org B, even though it is being served as
-            // part of org A's list.
+            // The server claims this item belongs to org B, though it's served in org A's list.
             organization_id: Some(org_b.into()),
             sealed_data: Some(org_b_blob),
             ..sample_response(&organization_key())
@@ -834,9 +805,9 @@ mod tests {
                 id: None,
                 ..sample_response(&organization_key)
             },
-            // Note: `organization_id: None` is deliberately not a case here — a mismatched or
-            // missing `organization_id` degrades `sealed` to `None` rather than failing the
-            // whole item; see `an_organization_id_mismatch_is_treated_as_unverifiable`.
+            // Note: `organization_id: None` is not a case here — a mismatched organization_id
+            // degrades `sealed` to `None` rather than failing the item; see
+            // `a_blob_from_a_different_organization_is_not_trusted`.
             PamTargetSystemResponseModel {
                 name: None,
                 ..sample_response(&organization_key)
@@ -1357,8 +1328,7 @@ mod tests {
     }
 
     /// A request naming a different `method` than the existing target's own plaintext `method`
-    /// must be refused before sealing or sending anything: method is fixed at registration. The
-    /// mock sets no `put` expectation, so a call that reached it would fail the test.
+    /// is refused before sealing or sending anything: method is fixed at registration.
     #[tokio::test]
     async fn update_rejects_a_method_different_from_the_existing_target() {
         let organization_key = organization_key();
@@ -1395,10 +1365,8 @@ mod tests {
         ));
     }
 
-    /// A request naming a different `kind` than the existing, already-`Sealed` target's own
-    /// sealed `kind` must be refused before sealing or sending anything: kind is fixed at
-    /// registration. The mock sets no `put` expectation, so a call that reached it would fail the
-    /// test.
+    /// A request naming a different `kind` than the existing target's own sealed `kind` is
+    /// refused before sealing or sending anything: kind is fixed at registration.
     #[tokio::test]
     async fn update_rejects_a_kind_different_from_the_existing_sealed_target() {
         let organization_key = organization_key();
@@ -1409,7 +1377,7 @@ mod tests {
                     .expect_get_all()
                     .returning(move |_org_id| {
                         Ok(PamTargetSystemResponseModelListResponseModel {
-                            // Existing target is Sealed with kind Mssql (see `sample_sealed_data`).
+                            // Existing target has sealed kind Mssql (see `sample_sealed_data`).
                             data: Some(vec![sample_response(&organization_key)]),
                             ..Default::default()
                         })

@@ -508,14 +508,12 @@ pub enum DataEnvelopeNamespace {
     /// registration-finish so an anonymous, email-verified new user can complete an open
     /// organization invite in a single flow.
     RegistrationOpenOrgInviteData = 3,
-    /// Namespace for PAM target systems (`bitwarden-pam-sealed::TargetSystemSealed`): the
-    /// method, kind, password policy and session-termination support of a target system, sealed
-    /// by the admin client so a hostile server cannot change what the access connector rotates
-    /// or how, between the admin saving the target and the connector claiming a rotation job.
+    /// Namespace for PAM target systems (`bitwarden-pam-sealed::TargetSystemSealed`), sealed by
+    /// the admin client so a hostile server cannot change what the access connector rotates or
+    /// how.
     PamTargetSystem = 4,
-    /// Namespace for PAM rotation configs (`bitwarden-pam-sealed::RotationConfigSealed`): which
-    /// account and cipher a rotation targets, and whether sessions are terminated, sealed for the
-    /// same reason as [`DataEnvelopeNamespace::PamTargetSystem`].
+    /// Namespace for PAM rotation configs (`bitwarden-pam-sealed::RotationConfigSealed`), sealed
+    /// for the same reason as [`DataEnvelopeNamespace::PamTargetSystem`].
     PamRotationConfig = 5,
     /// This namespace is only used in tests
     #[cfg(test)]
@@ -872,8 +870,7 @@ mod tests {
     #[test]
     fn test_pam_target_system_rejects_cross_namespace_unseal() {
         // A target-system blob must not unseal under the sibling PamRotationConfig namespace (or
-        // vice versa), mirroring
-        // `test_registration_open_org_invite_data_rejects_cross_namespace_unseal`.
+        // vice versa).
         let data: TestData = TestDataV1 { field: 42 }.into();
 
         let cek = Aes256GcmKey::make();

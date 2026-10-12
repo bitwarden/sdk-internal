@@ -2,9 +2,8 @@
 //!
 //! The sealed blobs stop a hostile server from *changing* a target's password policy in transit,
 //! but not from replaying an old, weak policy, or one sealed by a colluding org member. Both the
-//! admin client (when saving a policy) and the access connector (when honoring a claim) must
-//! therefore refuse any policy whose generated password falls below a fixed entropy floor. Living
-//! here means both call sites enforce exactly the same rule.
+//! admin client and the access connector must therefore refuse any policy whose generated password
+//! falls below a fixed entropy floor.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -14,9 +13,8 @@ use thiserror::Error;
 pub const MIN_PASSWORD_ENTROPY_BITS: f64 = 80.0;
 
 /// Shortest password length the generator (`bitwarden_generators::MINIMUM_PASSWORD_LENGTH`) will
-/// produce. Duplicated here (rather than depending on `bitwarden-generators` directly) because
-/// this crate must stay dependency-light for the access connector; a unit test asserts the two
-/// stay equal.
+/// produce. Duplicated here, rather than depending on `bitwarden-generators` directly, to keep
+/// this crate dependency-light for the access connector; a unit test asserts the two stay equal.
 pub const GENERATOR_MIN_LENGTH: u32 = 5;
 /// Longest password length the generator (`bitwarden_generators::MAXIMUM_PASSWORD_LENGTH`) will
 /// produce. See [`GENERATOR_MIN_LENGTH`] for why this is duplicated rather than imported.
@@ -34,16 +32,14 @@ const SYMBOL_SET_SIZE: u32 = 8;
 /// Errors returned by [`SealedPasswordPolicy::validate`].
 #[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
 pub enum PolicyStrengthError {
-    /// No character class (uppercase, lowercase, digits or symbols) is enabled, so no password
-    /// could be generated.
+    /// No character class is enabled, so no password could be generated.
     #[error("No character classes are enabled")]
     NoCharacterClasses,
     /// `min_length` and `max_length` are out of order, or fall outside the generator's supported
     /// range (`[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]`).
     #[error("Invalid length bounds")]
     InvalidLengthBounds,
-    /// The policy's generated password would have less than [`MIN_PASSWORD_ENTROPY_BITS`] of
-    /// entropy.
+    /// Fewer than [`MIN_PASSWORD_ENTROPY_BITS`] bits of entropy.
     #[error("Policy falls below the minimum password strength floor")]
     BelowStrengthFloor,
 }
@@ -90,8 +86,8 @@ impl SealedPasswordPolicy {
     }
 
     /// The entropy, in bits, of a password generated under this policy: `length × log2(pool)`,
-    /// where `length` is `max_length` clamped to the generator's supported range and `pool` is the
-    /// size of the enabled character pool (0 if no class is enabled, giving 0 bits of entropy).
+    /// where `length` is `max_length` clamped to the generator's supported range (0 if no class is
+    /// enabled).
     pub fn entropy_bits(&self) -> f64 {
         let pool = self.character_pool_size();
         if pool == 0 {
@@ -103,9 +99,7 @@ impl SealedPasswordPolicy {
         f64::from(length) * f64::from(pool).log2()
     }
 
-    /// Validates this policy against the shared strength floor: at least one character class is
-    /// enabled, the length bounds are sane and within the generator's supported range, and the
-    /// resulting entropy meets [`MIN_PASSWORD_ENTROPY_BITS`].
+    /// Validates this policy against the shared strength floor.
     pub fn validate(&self) -> Result<(), PolicyStrengthError> {
         if self.character_pool_size() == 0 {
             return Err(PolicyStrengthError::NoCharacterClasses);
@@ -150,12 +144,9 @@ mod tests {
         );
     }
 
-    /// Exercises the real generator with a single character class enabled at a time, at the
-    /// maximum password length, across many independently-seeded passwords, and checks the union
-    /// of observed characters has exactly the size hard-coded in this module. With length 128 and
-    /// 40 passwords (5120 draws from a <=26-symbol pool), the chance any reachable character is
-    /// never drawn is astronomically small (coupon-collector tail), so this reliably catches drift
-    /// between the generator's actual character sets and the consts above.
+    /// Runs the real generator with one character class at a time and checks the set of observed
+    /// characters matches the size hard-coded above; 40 passwords at length 128 gives enough draws
+    /// that every reachable character shows up, so this catches drift in the generator's char sets.
     #[test]
     fn generator_char_set_sizes_match_hardcoded_consts() {
         use std::collections::BTreeSet;
