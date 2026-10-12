@@ -1,6 +1,7 @@
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
+use bitwarden_pam_sealed::SealedDataError;
 use thiserror::Error;
 
 use super::validate::RotationValidationError;
@@ -23,12 +24,21 @@ pub enum RotationError {
     #[error("Cannot send a variant this SDK version does not recognize to the server")]
     UnrecognizedVariant,
     /// The caller is not a member of the organization they addressed, or its key is not in the
-    /// key store. Registering a connector hands it the organization key, so it needs one.
+    /// key store. Registering a connector, and sealing a target system or rotation config, hands
+    /// out or uses the organization key, so each needs one.
     #[error("The organization key is unavailable")]
     MissingOrganizationKey,
     /// A cryptographic operation failed while registering a connector.
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    /// Sealing a target system or rotation config blob failed before it was sent to the server.
+    /// (Unsealing failures when reading a blob back do not raise this: they degrade the item's
+    /// sealed fields to `None` instead, so one bad item cannot fail a `list`.)
+    #[error(transparent)]
+    Sealed(#[from] SealedDataError),
+    /// A rotation config named a `target_system_id` that does not exist in this organization.
+    #[error("Target system not found")]
+    TargetSystemNotFound,
     /// A network or (de)serialization error occurred while calling the server.
     #[error(transparent)]
     Api(#[from] ApiError),

@@ -54,7 +54,7 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{RotationConfigId, TargetSystemId};
+    use crate::{RotationConfigId, RotationConfigSealedFields, TargetSystemId};
 
     fn timestamp() -> DateTime<Utc> {
         "2026-01-01T00:00:00Z".parse().expect("a valid timestamp")
@@ -74,8 +74,10 @@ mod tests {
             target_system_id: TargetSystemId::new(uuid!("44444444-4444-4444-4444-444444444444")),
             target_system_name: "Prod SQL".to_string(),
             target_system_method: TargetSystemMethod::Automatic,
-            account_identity: "svc_rotation".to_string(),
-            terminate_sessions: false,
+            sealed: Some(RotationConfigSealedFields {
+                account_identity: "svc_rotation".to_string(),
+                terminate_sessions: false,
+            }),
             schedule_cron: None,
             rotate_on_access_end: false,
             enabled: true,

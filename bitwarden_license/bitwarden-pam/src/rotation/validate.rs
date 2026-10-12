@@ -1,20 +1,15 @@
+use bitwarden_pam_sealed::{PolicyStrengthError, SealedPasswordPolicy};
 use thiserror::Error;
 
 use super::{
-    configs::{RotationConfigCreateRequest, RotationConfigUpdateRequest},
-    models::PasswordPolicy,
-    schedule::is_likely_quartz_cron,
-    target_systems::{TargetSystemCreateRequest, TargetSystemUpdateRequest},
+    configs::RotationConfigCreateRequest, models::PasswordPolicy, schedule::is_likely_quartz_cron,
+    target_systems::TargetSystemCreateRequest,
 };
 
 /// Maximum length of a connector or target-system `name`, matching the server's column.
 const MAX_NAME_LENGTH: usize = 200;
 /// Maximum length of a config's `account_identity`, matching the server's column.
 const MAX_ACCOUNT_IDENTITY_LENGTH: usize = 500;
-/// Shortest generated credential a policy may ask for.
-const MIN_PASSWORD_LENGTH: i32 = 1;
-/// Longest generated credential a policy may ask for.
-const MAX_PASSWORD_LENGTH: i32 = 999;
 
 /// Errors from validating a rotation request before it is sent to the server.
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -25,18 +20,60 @@ pub enum RotationValidationError {
     /// `account_identity` was empty (after trimming) or exceeded the server's length limit.
     #[error("Account identity must be between 1 and {MAX_ACCOUNT_IDENTITY_LENGTH} characters")]
     InvalidAccountIdentity,
-    /// A password policy's length bounds were outside the permitted range, or `min_length`
-    /// exceeded `max_length`.
-    #[error(
-        "Password length bounds must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH}, with the minimum no greater than the maximum"
-    )]
+    /// A password policy's length bounds were outside the generator's supported range
+    /// (`bitwarden_pam_sealed::GENERATOR_MIN_LENGTH`..
+    /// =`bitwarden_pam_sealed::GENERATOR_MAX_LENGTH`), or `min_length` exceeded `max_length`.
+    #[error("Password length bounds are outside the generator's supported range")]
     InvalidPasswordLengthBounds,
     /// A password policy enabled no character classes, so no credential could satisfy it.
     #[error("A password policy must allow at least one character class")]
     NoCharacterClasses,
+    /// A password policy's generated password would fall below the shared strength floor
+    /// (`bitwarden_pam_sealed::MIN_PASSWORD_ENTROPY_BITS`). The blobs stop a hostile server
+    /// changing a policy in transit, but not replaying an old weak one, so both this client and
+    /// the access connector enforce the same floor independently.
+    #[error("Password policy falls below the minimum password strength floor")]
+    BelowPasswordStrengthFloor,
     /// `schedule_cron` was present but is not shaped like a Quartz cron expression.
     #[error("Schedule must be a 6- or 7-field Quartz cron expression")]
     InvalidCron,
+    /// `terminate_sessions` was requested, but the target system does not confirm it supports
+    /// session termination: its unsealed `supports_session_termination` is not `Some(true)`. A
+    /// `PendingSeal` or `Invalid` target's capability is unknown, which is treated the same as
+    /// unsupported.
+    #[error("The target system does not confirm it supports session termination")]
+    SessionTerminationUnsupported,
+    /// The rotation config's target system exists but its sealed blob is `Invalid` (missing,
+    /// undecryptable, or mismatched), so nothing about it can be trusted.
+    #[error("The target system's sealed data is invalid")]
+    TargetSystemSealInvalid,
+    /// [`TargetSystemsClient::update`](super::TargetSystemsClient::update)'s request named a
+    /// different `method` than the target system's own plaintext `method`. Method is fixed at
+    /// registration; nothing lets a target switch between automatic and manual.
+    #[error("Target system method cannot be changed")]
+    TargetSystemMethodMismatch,
+    /// [`TargetSystemsClient::update`](super::TargetSystemsClient::update)'s request named a
+    /// different `kind` than the target system's own sealed `kind` (only checked once the
+    /// existing blob's [`TargetSystemSealedFields`](crate::TargetSystemSealedFields) are
+    /// confirmed present). Kind is fixed at registration; nothing lets a target switch
+    /// integrations.
+    #[error("Target system kind cannot be changed")]
+    TargetSystemKindMismatch,
+    /// [`RotationConfigsClient::update`](super::RotationConfigsClient::update)'s request named a
+    /// different `cipher_id` or `target_system_id` than the config's own plaintext copies. Both
+    /// are fixed at creation; nothing lets a config move to a different cipher or target.
+    #[error("Rotation config cipher or target system cannot be changed")]
+    RotationConfigImmutableFieldMismatch,
+}
+
+impl From<PolicyStrengthError> for RotationValidationError {
+    fn from(error: PolicyStrengthError) -> Self {
+        match error {
+            PolicyStrengthError::NoCharacterClasses => Self::NoCharacterClasses,
+            PolicyStrengthError::InvalidLengthBounds => Self::InvalidPasswordLengthBounds,
+            PolicyStrengthError::BelowStrengthFloor => Self::BelowPasswordStrengthFloor,
+        }
+    }
 }
 
 /// Validates a name against the server's length limit, counted in UTF-16 code units as the
@@ -59,24 +96,15 @@ fn validate_account_identity(identity: &str) -> Result<(), RotationValidationErr
     Ok(())
 }
 
-/// Validates a password policy. Both checks mirror failures the connector's generator raises at
-/// rotation time, so the operator learns while editing rather than from a failed rotation.
-fn validate_password_policy(policy: &PasswordPolicy) -> Result<(), RotationValidationError> {
-    if policy.min_length < MIN_PASSWORD_LENGTH
-        || policy.max_length > MAX_PASSWORD_LENGTH
-        || policy.min_length > policy.max_length
-    {
-        return Err(RotationValidationError::InvalidPasswordLengthBounds);
-    }
-
-    if !policy.include_uppercase
-        && !policy.include_lowercase
-        && !policy.include_digits
-        && !policy.include_symbols
-    {
-        return Err(RotationValidationError::NoCharacterClasses);
-    }
-
+/// Validates a password policy against the shared `bitwarden-pam-sealed` strength floor: the
+/// generator's supported length range plus a minimum entropy bound. Both this client and the
+/// access connector enforce the same rule, so an operator learns about a weak policy while
+/// editing rather than from a silently-clamped or refused rotation.
+pub(super) fn validate_password_policy(
+    policy: &PasswordPolicy,
+) -> Result<(), RotationValidationError> {
+    let sealed: SealedPasswordPolicy = policy.clone().try_into()?;
+    sealed.validate()?;
     Ok(())
 }
 
@@ -89,29 +117,26 @@ fn validate_schedule_cron(cron: Option<&String>) -> Result<(), RotationValidatio
     }
 }
 
-pub(super) fn validate_target_system_create(
+/// Validates a target system request. Shared by
+/// [`TargetSystemsClient::create`](super::TargetSystemsClient::create) and
+/// [`TargetSystemsClient::update`](super::TargetSystemsClient::update), which take the same
+/// request shape — see [`TargetSystemsClient::update`](super::TargetSystemsClient::update)'s docs
+/// for why.
+pub(super) fn validate_target_system_request(
     request: &TargetSystemCreateRequest,
 ) -> Result<(), RotationValidationError> {
     validate_name(request.name())?;
     validate_password_policy(request.password_policy())
 }
 
-pub(super) fn validate_target_system_update(
-    request: &TargetSystemUpdateRequest,
-) -> Result<(), RotationValidationError> {
-    validate_name(&request.name)?;
-    validate_password_policy(&request.password_policy)
-}
-
-pub(super) fn validate_config_create(
+/// Validates a rotation config request. Shared by
+/// [`RotationConfigsClient::create`](super::RotationConfigsClient::create) and
+/// [`RotationConfigsClient::update`](super::RotationConfigsClient::update), which take the same
+/// request shape — see [`RotationConfigsClient::update`](super::RotationConfigsClient::update)'s
+/// docs for why. Does not validate `terminate_sessions` against the target system's capability;
+/// that needs a network round trip and is done separately by the caller.
+pub(super) fn validate_config_request(
     request: &RotationConfigCreateRequest,
-) -> Result<(), RotationValidationError> {
-    validate_account_identity(&request.account_identity)?;
-    validate_schedule_cron(request.schedule_cron.as_ref())
-}
-
-pub(super) fn validate_config_update(
-    request: &RotationConfigUpdateRequest,
 ) -> Result<(), RotationValidationError> {
     validate_account_identity(&request.account_identity)?;
     validate_schedule_cron(request.schedule_cron.as_ref())
@@ -119,6 +144,7 @@ pub(super) fn validate_config_update(
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_pam_sealed::{GENERATOR_MAX_LENGTH, GENERATOR_MIN_LENGTH};
     use bitwarden_vault::CipherId;
     use uuid::uuid;
 
@@ -126,6 +152,7 @@ mod tests {
     use crate::{TargetSystemId, rotation::models::TargetSystemKind};
 
     fn policy() -> PasswordPolicy {
+        // 64 * log2(26+26+10+10) ~= 64 * 6.17 ~= 395 bits, comfortably above the 80-bit floor.
         PasswordPolicy {
             min_length: 14,
             max_length: 64,
@@ -158,14 +185,14 @@ mod tests {
 
     #[test]
     fn a_well_formed_create_request_passes() {
-        assert!(validate_target_system_create(&create_request("Prod SQL")).is_ok());
+        assert!(validate_target_system_request(&create_request("Prod SQL")).is_ok());
     }
 
     #[test]
     fn a_blank_name_is_rejected() {
         for name in ["", "   ", "\t\n"] {
             assert_eq!(
-                validate_target_system_create(&create_request(name)),
+                validate_target_system_request(&create_request(name)),
                 Err(RotationValidationError::InvalidName),
                 "for {name:?}"
             );
@@ -175,11 +202,11 @@ mod tests {
     #[test]
     fn a_name_at_the_limit_passes_and_one_over_is_rejected() {
         let at_limit = "a".repeat(MAX_NAME_LENGTH);
-        assert!(validate_target_system_create(&create_request(&at_limit)).is_ok());
+        assert!(validate_target_system_request(&create_request(&at_limit)).is_ok());
 
         let over_limit = "a".repeat(MAX_NAME_LENGTH + 1);
         assert_eq!(
-            validate_target_system_create(&create_request(&over_limit)),
+            validate_target_system_request(&create_request(&over_limit)),
             Err(RotationValidationError::InvalidName)
         );
     }
@@ -189,11 +216,11 @@ mod tests {
     #[test]
     fn name_length_is_counted_in_utf16_code_units() {
         let at_limit = "😀".repeat(MAX_NAME_LENGTH / 2);
-        assert!(validate_target_system_create(&create_request(&at_limit)).is_ok());
+        assert!(validate_target_system_request(&create_request(&at_limit)).is_ok());
 
         let over_limit = "😀".repeat(MAX_NAME_LENGTH / 2 + 1);
         assert_eq!(
-            validate_target_system_create(&create_request(&over_limit)),
+            validate_target_system_request(&create_request(&over_limit)),
             Err(RotationValidationError::InvalidName)
         );
     }
@@ -203,7 +230,7 @@ mod tests {
     #[test]
     fn surrounding_whitespace_does_not_count_towards_the_limit() {
         let padded = format!("  {}  ", "a".repeat(MAX_NAME_LENGTH));
-        assert!(validate_target_system_create(&create_request(&padded)).is_ok());
+        assert!(validate_target_system_request(&create_request(&padded)).is_ok());
     }
 
     #[test]
@@ -218,14 +245,19 @@ mod tests {
         };
 
         assert_eq!(
-            validate_target_system_create(&request),
+            validate_target_system_request(&request),
             Err(RotationValidationError::InvalidPasswordLengthBounds)
         );
     }
 
+    /// Length bounds outside the generator's supported range are rejected, even when the bounds
+    /// are correctly ordered.
     #[test]
-    fn length_bounds_outside_the_permitted_range_are_rejected() {
-        for (min_length, max_length) in [(0, 64), (-1, 64), (14, MAX_PASSWORD_LENGTH + 1)] {
+    fn length_bounds_outside_the_generator_range_are_rejected() {
+        let min = i32::try_from(GENERATOR_MIN_LENGTH).expect("fits in i32");
+        let max = i32::try_from(GENERATOR_MAX_LENGTH).expect("fits in i32");
+
+        for (min_length, max_length) in [(0, 64), (-1, 64), (14, max + 1), (min - 1, max)] {
             let request = TargetSystemCreateRequest::Manual {
                 name: "Manual".to_string(),
                 password_policy: PasswordPolicy {
@@ -236,7 +268,7 @@ mod tests {
             };
 
             assert_eq!(
-                validate_target_system_create(&request),
+                validate_target_system_request(&request),
                 Err(RotationValidationError::InvalidPasswordLengthBounds),
                 "for {min_length}..{max_length}"
             );
@@ -254,7 +286,7 @@ mod tests {
             },
         };
 
-        assert!(validate_target_system_create(&request).is_ok());
+        assert!(validate_target_system_request(&request).is_ok());
     }
 
     /// A policy with every class off is unsatisfiable, and the connector's generator raises the
@@ -273,7 +305,7 @@ mod tests {
         };
 
         assert_eq!(
-            validate_target_system_create(&request),
+            validate_target_system_request(&request),
             Err(RotationValidationError::NoCharacterClasses)
         );
     }
@@ -291,18 +323,43 @@ mod tests {
             },
         };
 
-        assert!(validate_target_system_create(&request).is_ok());
+        assert!(validate_target_system_request(&request).is_ok());
+    }
+
+    /// The blobs stop a hostile server changing a policy in transit, but not replaying an old
+    /// weak one, so the strength floor is enforced here too, not just length bounds.
+    #[test]
+    fn a_policy_below_the_strength_floor_is_rejected() {
+        // 20 * log2(10) ~= 66.4 bits < 80.
+        let weak = PasswordPolicy {
+            min_length: i32::try_from(GENERATOR_MIN_LENGTH).expect("fits in i32"),
+            max_length: 20,
+            include_uppercase: false,
+            include_lowercase: false,
+            include_digits: true,
+            include_symbols: false,
+        };
+
+        let request = TargetSystemCreateRequest::Manual {
+            name: "Manual".to_string(),
+            password_policy: weak,
+        };
+
+        assert_eq!(
+            validate_target_system_request(&request),
+            Err(RotationValidationError::BelowPasswordStrengthFloor)
+        );
     }
 
     #[test]
     fn a_config_with_no_schedule_is_valid() {
-        assert!(validate_config_create(&config_create("svc_rotation", None)).is_ok());
+        assert!(validate_config_request(&config_create("svc_rotation", None)).is_ok());
     }
 
     #[test]
     fn a_config_with_a_well_formed_cron_is_valid() {
         assert!(
-            validate_config_create(&config_create("svc_rotation", Some("0 0 0 * * ?"))).is_ok()
+            validate_config_request(&config_create("svc_rotation", Some("0 0 0 * * ?"))).is_ok()
         );
     }
 
@@ -310,7 +367,7 @@ mod tests {
     fn a_malformed_cron_is_rejected() {
         // A 5-field UNIX cron, the likeliest operator mistake.
         assert_eq!(
-            validate_config_create(&config_create("svc_rotation", Some("0 0 * * *"))),
+            validate_config_request(&config_create("svc_rotation", Some("0 0 * * *"))),
             Err(RotationValidationError::InvalidCron)
         );
     }
@@ -318,7 +375,7 @@ mod tests {
     #[test]
     fn a_blank_account_identity_is_rejected() {
         assert_eq!(
-            validate_config_create(&config_create("   ", None)),
+            validate_config_request(&config_create("   ", None)),
             Err(RotationValidationError::InvalidAccountIdentity)
         );
     }
@@ -326,42 +383,12 @@ mod tests {
     #[test]
     fn an_account_identity_at_the_limit_passes_and_one_over_is_rejected() {
         let at_limit = "a".repeat(MAX_ACCOUNT_IDENTITY_LENGTH);
-        assert!(validate_config_create(&config_create(&at_limit, None)).is_ok());
+        assert!(validate_config_request(&config_create(&at_limit, None)).is_ok());
 
         let over_limit = "a".repeat(MAX_ACCOUNT_IDENTITY_LENGTH + 1);
         assert_eq!(
-            validate_config_create(&config_create(&over_limit, None)),
+            validate_config_request(&config_create(&over_limit, None)),
             Err(RotationValidationError::InvalidAccountIdentity)
-        );
-    }
-
-    /// The update path guards the same fields as create; a caller must not be able to reach an
-    /// invalid state by editing into it.
-    #[test]
-    fn the_update_path_applies_the_same_guards() {
-        let request = RotationConfigUpdateRequest {
-            account_identity: String::new(),
-            terminate_sessions: false,
-            schedule_cron: None,
-            rotate_on_access_end: false,
-        };
-        assert_eq!(
-            validate_config_update(&request),
-            Err(RotationValidationError::InvalidAccountIdentity)
-        );
-
-        let request = TargetSystemUpdateRequest {
-            name: "Renamed".to_string(),
-            password_policy: PasswordPolicy {
-                min_length: 64,
-                max_length: 14,
-                ..policy()
-            },
-            supports_session_termination: false,
-        };
-        assert_eq!(
-            validate_target_system_update(&request),
-            Err(RotationValidationError::InvalidPasswordLengthBounds)
         );
     }
 }
