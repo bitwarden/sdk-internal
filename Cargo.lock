@@ -1776,6 +1776,7 @@ dependencies = [
 name = "bitwarden-uuid"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-ffi",
  "bitwarden-uuid-macro",
  "serde",
  "serde-wasm-bindgen",
