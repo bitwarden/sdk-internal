@@ -1,12 +1,7 @@
 use std::collections::HashMap;
 
 use bitwarden_core::{Client, FromClient};
-#[cfg(feature = "wasm")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     collection::{Collection, CollectionId, CollectionView},
@@ -14,8 +9,23 @@ use crate::{
     tree::{NodeItem, Tree},
 };
 
+/// Represents the result of decrypting a list of collections.
+///
+/// This struct contains two vectors: `successes` and `failures`.
+/// `successes` contains the decrypted `CollectionView` objects,
+/// while `failures` contains the original `Collection` objects that failed to decrypt.
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
+pub struct DecryptCollectionListResult {
+    /// The decrypted `CollectionView` objects.
+    pub successes: Vec<CollectionView>,
+    /// The original `Collection` objects that failed to decrypt.
+    pub failures: Vec<Collection>,
+}
+
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(Clone)]
 pub struct CollectionsClient {
     pub(crate) client: Client,
@@ -29,7 +39,7 @@ impl FromClient for CollectionsClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CollectionsClient {
     /// Encrypts a [CollectionView] into an encrypted [Collection] using the organization key.
     pub fn encrypt(
@@ -72,6 +82,22 @@ impl CollectionsClient {
         Ok(views)
     }
 
+    /// Decrypts a list of collections, returning successes and failures separately.
+    ///
+    /// Unlike `decrypt_list`, a single collection that fails to decrypt (e.g. due to a missing
+    /// organization key) does not abort the entire batch — it is returned in `failures` instead.
+    pub fn decrypt_list_with_failures(
+        &self,
+        collections: Vec<Collection>,
+    ) -> DecryptCollectionListResult {
+        let key_store = self.client.internal.get_key_store();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&collections);
+        DecryptCollectionListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
+    }
+
     ///
     /// Returns the vector of CollectionView objects in a tree structure based on its implemented
     /// path().
@@ -82,27 +108,24 @@ impl CollectionsClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CollectionViewTree {
     tree: Tree<CollectionView>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CollectionViewNodeItem {
     node_item: NodeItem<CollectionView>,
 }
 
-#[cfg_attr(
-    feature = "wasm",
-    derive(Tsify, Serialize, Deserialize),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
 pub struct AncestorMap {
     pub ancestors: HashMap<CollectionId, String>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CollectionViewNodeItem {
     pub fn get_item(&self) -> CollectionView {
         self.node_item.item.clone()
@@ -128,7 +151,7 @@ impl CollectionViewNodeItem {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CollectionViewTree {
     pub fn get_item_for_view(
         &self,
@@ -158,7 +181,7 @@ impl CollectionViewTree {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
+    use bitwarden_core::{OrganizationId, client::test_accounts::test_bitwarden_com_account};
 
     use super::*;
     use crate::collection::CollectionType;
@@ -198,6 +221,51 @@ mod tests {
         let dec = collections.decrypt(test_collection()).unwrap();
 
         assert_eq!(dec.name, "Default collection");
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_all_success() {
+        let collections = test_collections_client().await;
+
+        let result = collections.decrypt_list_with_failures(vec![test_collection()]);
+
+        assert_eq!(result.successes.len(), 1);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.successes[0].name, "Default collection");
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_mixed_results() {
+        let client = test_collections_client().await;
+
+        let valid_collection = test_collection();
+        let mut invalid_collection = test_collection();
+        // No organization key exists in the test account's key store for this id, so
+        // decryption of this single item must fail without affecting the others.
+        invalid_collection.organization_id = OrganizationId::new_v4();
+
+        let collections = vec![valid_collection, invalid_collection.clone()];
+
+        let result = client.decrypt_list_with_failures(collections);
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.successes[0].name, "Default collection");
+
+        assert_eq!(result.failures.len(), 1);
+        // The failed item must be returned unchanged (still ciphertext) — decryption
+        // failures must never leak partially-decrypted or plaintext data.
+        assert_eq!(result.failures[0].id, invalid_collection.id);
+        assert_eq!(result.failures[0].name, invalid_collection.name);
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_empty_list() {
+        let collections = test_collections_client().await;
+
+        let result = collections.decrypt_list_with_failures(vec![]);
+
+        assert!(result.successes.is_empty());
+        assert!(result.failures.is_empty());
     }
 
     #[tokio::test]

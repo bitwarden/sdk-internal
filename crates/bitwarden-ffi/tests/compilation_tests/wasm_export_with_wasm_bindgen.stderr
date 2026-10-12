@@ -1,0 +1,5 @@
+error: #[wasm_export] replaces #[wasm_bindgen]; pass its arguments to #[wasm_export] instead, as in #[wasm_export(js_class = Foo)]
+ --> tests/compilation_tests/wasm_export_with_wasm_bindgen.rs:8:1
+  |
+8 | #[wasm_bindgen(js_class = Canvas)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

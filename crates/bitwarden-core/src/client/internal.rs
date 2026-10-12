@@ -1,6 +1,4 @@
-#[cfg(feature = "internal")]
-use std::sync::RwLock;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -9,6 +7,7 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_crypto::{
     EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
 };
+use bitwarden_managed_settings_types::ManagementProfile;
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info};
@@ -123,13 +122,18 @@ pub struct InternalClient {
     // TODO: Flags have been migrated to Setting but this will have to stay temporarily until the
     // feature flags are removed.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
-    pub(crate) state_registry: StateRegistry,
+    pub(crate) state_registry: Arc<StateRegistry>,
 
     // A bridge used to map in KM state into the SDK, until a more robust solution is implemented
     // by platform. This is not a stable API and other teams should not use it. It will be
     // removed as soon as KM state can be mapped via the platform APIs.
     #[cfg(feature = "internal")]
     pub(crate) state_bridge: StateBridge,
+
+    /// Administrator-forced settings acquired from the operating system's device-management
+    /// channel. The host application owns this cell and pushes profiles into it. The SDK only
+    /// reads. Shared with the host, so updates are observed without rebuilding the client.
+    pub(crate) managed_profile: Arc<RwLock<Option<ManagementProfile>>>,
 }
 
 impl InternalClient {
@@ -195,6 +199,23 @@ impl InternalClient {
     /// the Bitwarden services.
     pub fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
         self.api_configurations.clone()
+    }
+
+    /// Get the shared managed-settings profile cell.
+    ///
+    /// Prefer `ManagedSettingsClientExt::managed_settings` from `bitwarden-managed-settings` over
+    /// reading this handle directly.
+    pub fn managed_profile_handle(&self) -> Arc<RwLock<Option<ManagementProfile>>> {
+        self.managed_profile.clone()
+    }
+
+    /// Shared handle to the SDK's state registry, for the dev-only debug browse.
+    ///
+    /// Prefer `bitwarden_state::debug::StateDebug` (reached through the client's
+    /// debug tree) over reading this handle directly.
+    #[cfg(feature = "debug-capabilities")]
+    pub fn state_registry(&self) -> Arc<StateRegistry> {
+        self.state_registry.clone()
     }
 
     #[allow(missing_docs)]
@@ -289,7 +310,10 @@ impl InternalClient {
 
         // Note: The actual key does not get logged unless the crypto crate has the
         // dangerous-crypto-debug feature enabled, so this is safe
-        info!("Setting user key with ID {:?}", user_key_id);
+        info!(
+            "Setting user key with ID {:?}",
+            ctx.get_symmetric_key_id(user_key_id)
+        );
 
         // The key store should not already have any keys initialized
         if ctx.has_symmetric_key(SymmetricKeySlotId::User)

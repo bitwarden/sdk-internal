@@ -18,7 +18,7 @@ const DEVICE_ENDPOINT: &str = "v1/device";
 ///
 /// A fresh id per import is expected: the login registers it with the account and nothing uses it
 /// afterwards.
-pub fn generate_device_uuid() -> String {
+pub(super) fn generate_device_uuid() -> String {
     let mut rng = bitwarden_random::rng();
     (0..DEVICE_UUID_LENGTH)
         .map(|_| BASE32_ALPHABET[(rng.next_u32() % 32) as usize] as char)

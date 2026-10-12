@@ -7,8 +7,12 @@ channel.
 The host application constructs a [`ManagedSettingsClient`] at startup with
 [`ManagedSettingsClient::new`], acquires a [`ManagementProfile`] from the host platform, and pushes
 it in with [`ManagedSettingsClient::update_profile`]. Passing `None` clears the profile. Clones of
-the handle share one profile, so an update pushed through any clone is observed by all of them, as
-does the shared cell returned by [`ManagedSettingsClient::cell`].
+the handle share one profile, so an update pushed through any clone is observed by all of them.
+
+The same shared cell, obtained from [`ManagedSettingsClient::cell`], is handed to
+[`bitwarden_core::ClientBuilder::with_managed_profile`], so SDK feature crates read the current
+profile through [`ManagedSettingsClientExt::managed_settings`] on a [`bitwarden_core::Client`]. A
+client built without a cell gets a fresh empty one and simply manages nothing.
 
 Consumers read a value with [`ManagedSettingsClient::get`] for the raw JSON-encoded string, or
 decode it into a concrete type with [`ManagementProfile::get_as`] on the profile returned by
@@ -18,10 +22,6 @@ decode it into a concrete type with [`ManagementProfile::get_as`] on the profile
 The first profile push is asynchronous on every platform, so a consumer may not observe a managed
 setting immediately after startup.
 
-A managed setting overrides user and global state and built-in defaults. It carries no automatic
-precedence over an enterprise policy — where a policy and a managed setting both bear on one
-effective setting, the consuming feature is responsible for resolving the conflict.
-
-> **Not yet wired into `bitwarden-core`.** Attaching this handle to a `Client`, so SDK feature
-> crates read the profile the host pushes, lands in a follow-up alongside the WASM and UniFFI
-> bindings.
+Generally, a managed setting overrides user state, global state, and any defaults. When a policy and
+a managed setting both affect a given setting, the consuming feature is responsible for resolving
+the conflict.

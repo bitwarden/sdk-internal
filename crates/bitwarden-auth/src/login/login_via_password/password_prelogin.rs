@@ -2,8 +2,6 @@ use bitwarden_api_identity::models::PasswordPreloginRequestModel;
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::login::{LoginClient, login_via_password::PasswordPreloginResponse};
 
@@ -31,7 +29,7 @@ impl From<bitwarden_core::MissingFieldError> for PasswordPreloginError {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl LoginClient {
     /// Retrieves the data required before authenticating with a password.
     /// This includes the user's KDF configuration needed to properly derive the master key.
@@ -60,7 +58,7 @@ mod tests {
 
     use bitwarden_api_api::ResponseContent;
     use bitwarden_api_identity::models::KdfType;
-    use bitwarden_core::{ClientSettings, DeviceType};
+    use bitwarden_core::{Client, ClientSettings, DeviceType};
     use bitwarden_crypto::Kdf;
     use bitwarden_test::start_api_mock;
     use wiremock::{Mock, ResponseTemplate, matchers};
@@ -81,7 +79,7 @@ mod tests {
             bitwarden_client_version: None,
             bitwarden_package_type: None,
         };
-        LoginClient::new(settings)
+        LoginClient::new(Client::new(Some(settings)))
     }
 
     fn mock_default_pbkdf2_iterations() -> NonZeroU32 {

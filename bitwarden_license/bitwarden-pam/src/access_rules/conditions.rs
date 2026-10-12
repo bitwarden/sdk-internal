@@ -1,13 +1,11 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 /// A single condition that gates access under an access rule.
 ///
 /// Serialized using the server's wire format: an object tagged by a `kind` discriminant, e.g.
 /// `{"kind":"human_approval"}` or `{"kind":"ip_allowlist","cidrs":["10.0.0.0/8"]}`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AccessCondition {
     /// Requires a human approval before access is granted.

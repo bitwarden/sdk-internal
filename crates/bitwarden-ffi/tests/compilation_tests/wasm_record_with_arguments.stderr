@@ -1,0 +1,5 @@
+error: #[wasm_record] takes no arguments
+ --> tests/compilation_tests/wasm_record_with_arguments.rs:3:15
+  |
+3 | #[wasm_record(into_wasm_abi)]
+  |               ^^^^^^^^^^^^^

@@ -16,28 +16,24 @@ use crate::models;
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AssertionResponse {
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(
-        rename = "authenticatorData",
-        alias = "AuthenticatorData",
-        skip_serializing_if = "Option::is_none"
+    #[serde_as(
+        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
     )]
+    #[serde(rename = "authenticatorData", alias = "AuthenticatorData")]
     pub authenticator_data: Option<Vec<u8>>,
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(
-        rename = "signature",
-        alias = "Signature",
-        skip_serializing_if = "Option::is_none"
+    #[serde_as(
+        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
     )]
+    #[serde(rename = "signature", alias = "Signature")]
     pub signature: Option<Vec<u8>>,
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(
-        rename = "clientDataJSON",
-        alias = "ClientDataJson",
-        skip_serializing_if = "Option::is_none"
+    #[serde_as(
+        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
     )]
+    #[serde(rename = "clientDataJSON", alias = "ClientDataJson")]
     pub client_data_json: Option<Vec<u8>>,
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
+    #[serde_as(
+        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
+    )]
     #[serde(
         rename = "userHandle",
         alias = "UserHandle",
@@ -47,11 +43,15 @@ pub struct AssertionResponse {
 }
 
 impl AssertionResponse {
-    pub fn new() -> AssertionResponse {
+    pub fn new(
+        authenticator_data: Option<Vec<u8>>,
+        signature: Option<Vec<u8>>,
+        client_data_json: Option<Vec<u8>>,
+    ) -> AssertionResponse {
         AssertionResponse {
-            authenticator_data: None,
-            signature: None,
-            client_data_json: None,
+            authenticator_data,
+            signature,
+            client_data_json,
             user_handle: None,
         }
     }

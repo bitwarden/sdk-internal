@@ -32,6 +32,13 @@ pub trait OrganizationSubscriptionsApi: Send + Sync {
         &self,
         organization_id: uuid::Uuid,
     ) -> Result<models::SubscriptionPreview, Error>;
+
+    /// POST /organizations/billing/subscription/purchase/preview
+    /// Previews the invoice for purchasing an organization subscription.
+    async fn preview_organization_subscription_purchase<'a>(
+        &self,
+        preview_organization_subscription_purchase_request: models::PreviewOrganizationSubscriptionPurchaseRequest,
+    ) -> Result<models::InvoicePreview, Error>;
 }
 
 pub struct OrganizationSubscriptionsApiClient {
@@ -65,6 +72,29 @@ impl OrganizationSubscriptionsApi for OrganizationSubscriptionsApiClient {
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    /// Previews the invoice for purchasing an organization subscription.
+    async fn preview_organization_subscription_purchase<'a>(
+        &self,
+        preview_organization_subscription_purchase_request: models::PreviewOrganizationSubscriptionPurchaseRequest,
+    ) -> Result<models::InvoicePreview, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/billing/subscription/purchase/preview",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&preview_organization_subscription_purchase_request);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }

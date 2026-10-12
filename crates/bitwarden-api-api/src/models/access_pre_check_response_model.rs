@@ -43,6 +43,41 @@ pub struct AccessPreCheckResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub has_active_lease: Option<bool>,
+    /// The duration, in seconds, the request form should pre-select: the governing rule's default,
+    /// or the global default, clamped to
+    /// Bit.Services.Pam.Api.Models.Response.AccessPreCheckResponseModel.MaxDurationSeconds.
+    #[serde(
+        rename = "defaultDurationSeconds",
+        alias = "DefaultDurationSeconds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_duration_seconds: Option<i32>,
+    /// The longest duration (automatic path) or window span (human path), in seconds, that a
+    /// request for this cipher may ask for: the governing rule's cap narrowed by the global
+    /// ceiling. Submit enforces the same limit.
+    #[serde(
+        rename = "maxDurationSeconds",
+        alias = "MaxDurationSeconds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_duration_seconds: Option<i32>,
+    /// Whether access could be started right now. False only when the per-cipher
+    /// single-active-lease constraint binds for this caller and another member holds the slot. A
+    /// hint, re-checked at start; an absent value means true.
+    #[serde(
+        rename = "canStartLease",
+        alias = "CanStartLease",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub can_start_lease: Option<bool>,
+    /// When the lease holding the slot ends. Null when
+    /// Bit.Services.Pam.Api.Models.Response.AccessPreCheckResponseModel.CanStartLease is true.
+    #[serde(
+        rename = "slotFreesAt",
+        alias = "SlotFreesAt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub slot_frees_at: Option<String>,
 }
 
 impl AccessPreCheckResponseModel {
@@ -55,6 +90,10 @@ impl AccessPreCheckResponseModel {
             cipher_id: None,
             approval_mode: None,
             has_active_lease: None,
+            default_duration_seconds: None,
+            max_duration_seconds: None,
+            can_start_lease: None,
+            slot_frees_at: None,
         }
     }
 }

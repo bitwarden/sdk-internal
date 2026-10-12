@@ -2,19 +2,15 @@
 
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{MasterPasswordPolicyResponse, policies::*, policy::ErasedPolicy};
+use crate::{PolicyParseError, policies::*, policy_definition::ErasedPolicy};
 
 /// The type of an organization policy.
 ///
 /// The integer value matches the server's wire format.
 #[derive(PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr, Debug, Copy, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[repr(u8)]
 pub enum PolicyType {
     /// Requires members to have two-step login enabled on their account.
@@ -78,6 +74,40 @@ pub enum PolicyType {
     FillAssist = 22,
 }
 
+impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
+    type Error = PolicyParseError;
+
+    fn try_from(value: bitwarden_api_api::models::PolicyType) -> Result<Self, Self::Error> {
+        use bitwarden_api_api::models::PolicyType as Api;
+        Ok(match value {
+            Api::TwoFactorAuthentication => PolicyType::TwoFactorAuthentication,
+            Api::MasterPassword => PolicyType::MasterPassword,
+            Api::PasswordGenerator => PolicyType::PasswordGenerator,
+            Api::SingleOrg => PolicyType::SingleOrg,
+            Api::RequireSso => PolicyType::RequireSso,
+            Api::OrganizationDataOwnership => PolicyType::OrganizationDataOwnership,
+            Api::DisableSend => PolicyType::DisableSend,
+            Api::SendOptions => PolicyType::SendOptions,
+            Api::ResetPassword => PolicyType::ResetPassword,
+            Api::MaximumVaultTimeout => PolicyType::MaximumVaultTimeout,
+            Api::DisablePersonalVaultExport => PolicyType::DisablePersonalVaultExport,
+            Api::ActivateAutofill => PolicyType::ActivateAutofill,
+            Api::AutomaticAppLogIn => PolicyType::AutomaticAppLogIn,
+            Api::FreeFamiliesSponsorshipPolicy => PolicyType::FreeFamiliesSponsorship,
+            Api::RemoveUnlockWithPin => PolicyType::RemoveUnlockWithPin,
+            Api::RestrictedItemTypesPolicy => PolicyType::RestrictedItemTypes,
+            Api::UriMatchDefaults => PolicyType::UriMatchDefaults,
+            Api::AutotypeDefaultSetting => PolicyType::AutotypeDefaultSetting,
+            Api::AutomaticUserConfirmation => PolicyType::AutomaticUserConfirmation,
+            Api::BlockClaimedDomainAccountCreation => PolicyType::BlockClaimedDomainAccountCreation,
+            Api::OrganizationUserNotification => PolicyType::OrganizationUserNotification,
+            Api::SendControls => PolicyType::SendControls,
+            Api::FillAssist => PolicyType::FillAssist,
+            Api::__Unknown(value) => return Err(PolicyParseError::UnknownPolicyType(value)),
+        })
+    }
+}
+
 impl PolicyType {
     /// Dispatches this runtime policy type to its concrete (zero-sized)
     /// [`crate::Policy`] implementation, erased behind [`ErasedPolicy`] so the
@@ -121,28 +151,34 @@ impl PolicyType {
 /// generic `Policy::Data` used on the native side. Variants are
 /// named identically to (and documented by) the matching [`PolicyType`] variant.
 ///
-/// TODO: this is missing policy data for current policies.
+/// The discriminator is serialized under `_policyType` rather than `type` so it
+/// cannot collide with a policy data field named `type` (e.g.
+/// [`MaximumVaultTimeoutPolicyData`]), which the internally-tagged
+/// representation flattens alongside the discriminator.
 // Variants mirror the already-documented `PolicyType`, so per-variant docs would
 // be redundant boilerplate.
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase", tag = "type")]
+#[serde(rename_all = "camelCase", tag = "_policyType")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
+// TODO: `SendControls` and `UriMatchDefaults` are temporarily unit variants. They gain
+// their data models in follow-up PRs, once `SendType`/`UriMatchType` move into
+// lower-level crates that this crate can depend on without a cycle.
 pub enum PolicyDataType {
     TwoFactorAuthentication,
-    MasterPassword(MasterPasswordPolicyResponse),
-    PasswordGenerator,
+    MasterPassword(MasterPasswordPolicyData),
+    PasswordGenerator(PasswordGeneratorPolicyData),
     SingleOrg,
     RequireSso,
-    OrganizationDataOwnership,
+    OrganizationDataOwnership(OrganizationDataOwnershipPolicyData),
     DisableSend,
-    SendOptions,
-    ResetPassword,
-    MaximumVaultTimeout,
+    SendOptions(SendOptionsPolicyData),
+    ResetPassword(ResetPasswordPolicyData),
+    MaximumVaultTimeout(MaximumVaultTimeoutPolicyData),
     DisablePersonalVaultExport,
     ActivateAutofill,
-    AutomaticAppLogIn,
+    AutomaticAppLogIn(AutomaticAppLogInPolicyData),
     FreeFamiliesSponsorship,
     RemoveUnlockWithPin,
     RestrictedItemTypes,
@@ -150,7 +186,7 @@ pub enum PolicyDataType {
     AutotypeDefaultSetting,
     AutomaticUserConfirmation,
     BlockClaimedDomainAccountCreation,
-    OrganizationUserNotification,
+    OrganizationUserNotification(OrganizationUserNotificationPolicyData),
     SendControls,
-    FillAssist,
+    FillAssist(FillAssistPolicyData),
 }

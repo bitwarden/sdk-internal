@@ -3,22 +3,32 @@
 #[cfg(feature = "bitwarden-license")]
 mod commercial;
 
+/// Dev-only debug-capability tree rooted on the top-level client. Compiled only
+/// under the `debug-capabilities` feature.
+#[cfg(feature = "debug-capabilities")]
+pub mod debug;
+
 use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
-    FromClient,
+    ClientBuilder, FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
+    client::tracing_middleware::ReqwestTracingMiddleware,
 };
 use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClientExt as _;
 #[cfg(not(target_arch = "wasm32"))]
 use bitwarden_crypto_sync_handler::CryptoSyncHandler;
 use bitwarden_crypto_sync_handler::CryptoSyncHandlerClientExt as _;
+use bitwarden_emergency_access::EmergencyAccessClientExt as _;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
+use bitwarden_managed_settings::{ManagedSettingsClient, ManagedSettingsClientExt as _};
+use bitwarden_member_administration::OrganizationUsersManagementClientExt as _;
+use bitwarden_organization_domains::OrganizationDomainsClientExt as _;
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
-use bitwarden_policies::PoliciesClientExt as _;
+use bitwarden_policies::{PoliciesClientExt as _, PolicySyncHandler};
 use bitwarden_send::{SendClientExt as _, SendSyncHandler, SendSyncHandlerClientExt as _};
 use bitwarden_sync::SyncClientExt as _;
 use bitwarden_unlock::UnlockClientExt as _;
@@ -35,9 +45,12 @@ pub mod clients {
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClient;
     pub use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
+    pub use bitwarden_emergency_access::EmergencyAccessClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_importers::ImporterClient;
+    pub use bitwarden_member_administration::OrganizationUsersManagementClient;
+    pub use bitwarden_organization_domains::OrganizationDomainsClient;
     pub use bitwarden_organization_invite_link::InviteLinkClient;
     pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::{SendClient, SendSyncHandlerClient};
@@ -55,6 +68,7 @@ pub use bitwarden_unlock::{SessionKey, UnlockError, UnlockMethod};
 pub use builder::PasswordManagerClientBuilder;
 
 /// The main entry point for the Bitwarden Password Manager SDK
+#[derive(Clone)]
 pub struct PasswordManagerClient(pub bitwarden_core::Client);
 
 impl PasswordManagerClient {
@@ -72,15 +86,25 @@ impl PasswordManagerClient {
         PasswordManagerClientBuilder::new()
     }
 
-    /// Initialize a new instance of the SDK client with client-managed tokens
+    /// Initialize a new instance of the SDK client with client-managed tokens and a shared
+    /// managed-settings handle.
+    ///
+    /// `managed_settings` is owned by the host application, which acquires a management profile
+    /// from the operating system's device-management channel and pushes it in. Only its cell is
+    /// captured, so profiles the host pushes later are visible to this client.
     pub fn new_with_client_tokens(
         settings: Option<bitwarden_core::ClientSettings>,
         tokens: Arc<dyn ClientManagedTokens>,
+        managed_settings: &ManagedSettingsClient,
     ) -> Self {
-        Self(bitwarden_core::Client::new_with_token_handler(
-            settings,
-            ClientManagedTokenHandler::new(tokens),
-        ))
+        let mut builder = ClientBuilder::new()
+            .with_token_handler(ClientManagedTokenHandler::new(tokens))
+            .with_middleware(vec![Arc::new(ReqwestTracingMiddleware)])
+            .with_managed_profile(managed_settings.cell());
+        if let Some(s) = settings {
+            builder = builder.with_settings(s);
+        }
+        Self(builder.build())
     }
 
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
@@ -95,6 +119,7 @@ impl PasswordManagerClient {
         sync.register_sync_handler(Arc::new(CryptoSyncHandler::new(client.0.clone())));
         sync.register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)));
         sync.register_sync_handler(Arc::new(SendSyncHandler::from_client(&client.0)));
+        sync.register_sync_handler(Arc::new(PolicySyncHandler::from_client(&client.0)));
 
         // TODO: Add more sync handlers here!
 
@@ -104,6 +129,11 @@ impl PasswordManagerClient {
     /// Platform operations
     pub fn platform(&self) -> bitwarden_core::platform::PlatformClient {
         self.0.platform()
+    }
+
+    /// Administrator-enforced settings operations.
+    pub fn managed_settings(&self) -> ManagedSettingsClient {
+        self.0.managed_settings()
     }
 
     /// Auth operations
@@ -191,6 +221,25 @@ impl PasswordManagerClient {
     /// Organization invite link operations
     pub fn invite_link(&self) -> bitwarden_organization_invite_link::InviteLinkClient {
         self.0.invite_link()
+    }
+
+    /// Organization verified domain operations.
+    pub fn organization_domains(
+        &self,
+    ) -> bitwarden_organization_domains::OrganizationDomainsClient {
+        self.0.organization_domains()
+    }
+
+    /// Emergency access operations, performed as the grantee.
+    pub fn emergency_access(&self) -> bitwarden_emergency_access::EmergencyAccessClient {
+        self.0.emergency_access()
+    }
+
+    /// Organization member administration operations.
+    pub fn organization_users_management(
+        &self,
+    ) -> bitwarden_member_administration::OrganizationUsersManagementClient {
+        self.0.organization_users_management()
     }
 
     /// Sync operations

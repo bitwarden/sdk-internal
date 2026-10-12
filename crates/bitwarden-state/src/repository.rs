@@ -1,8 +1,6 @@
 use std::{any::TypeId, sync::Arc};
 
-use serde::{Serialize, de::DeserializeOwned};
-
-use crate::registry::StateRegistryError;
+use crate::{persist::Persist, registry::StateRegistryError};
 
 /// An error resulting from operations on a repository.
 #[derive(thiserror::Error, Debug)]
@@ -72,14 +70,18 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
 /// It should not be implemented manually; instead, users should
 /// use the [crate::register_repository_item] macro to register their item types.
 ///
-/// All repository items must implement `Serialize` and `DeserializeOwned` to support
-/// SDK-managed repositories that persist items to storage.
-pub trait RepositoryItem: Internal + Serialize + DeserializeOwned + Send + Sync + 'static {
+/// The [`Persist`] bound is what makes an item storable by SDK-managed repositories. It is
+/// satisfied automatically by any type that is serializable and thread-safe.
+pub trait RepositoryItem: Internal + Persist {
     /// The name of the type implementing this trait.
     const NAME: &'static str;
 
-    /// The type used as a key in the Repository
-    type Key: ToString + Send + Sync + 'static;
+    /// The type used as a key in the Repository.
+    ///
+    /// `FromStr` is required so the debug-capabilities surface can address items
+    /// by a string key; every current key type (String and the `uuid_newtype!`
+    /// ids) already implements it, so this bound is satisfied everywhere.
+    type Key: ToString + std::str::FromStr + Send + Sync + 'static;
 
     /// Returns the `TypeId` of the type implementing this trait.
     fn type_id() -> TypeId {
@@ -98,6 +100,10 @@ pub trait RepositoryItem: Internal + Serialize + DeserializeOwned + Send + Sync 
 pub struct RepositoryItemData {
     type_id: TypeId,
     name: &'static str,
+    /// Dev-only: monomorphized get/set/list shims for this type's repository,
+    /// captured here because `new::<T>` is the point where `T` is still known.
+    #[cfg(feature = "debug-capabilities")]
+    pub(crate) debug: crate::debug::DebugRepo,
 }
 
 impl RepositoryItemData {
@@ -106,6 +112,8 @@ impl RepositoryItemData {
         Self {
             type_id: TypeId::of::<T>(),
             name: T::NAME,
+            #[cfg(feature = "debug-capabilities")]
+            debug: crate::debug::DebugRepo::for_type::<T>(),
         }
     }
 

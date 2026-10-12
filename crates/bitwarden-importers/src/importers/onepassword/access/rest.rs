@@ -168,10 +168,10 @@ impl RestClient {
 
         if !status.is_success() {
             return Err(parse_server_error(text.as_bytes()).unwrap_or_else(|| {
-                OnePasswordError::Internal(format!(
-                    "unexpected response from '{endpoint}' (HTTP {})",
-                    status.as_u16()
-                ))
+                OnePasswordError::UnexpectedStatus {
+                    endpoint: endpoint.to_string(),
+                    status: status.as_u16(),
+                }
             }));
         }
 
@@ -336,6 +336,30 @@ mod tests {
             .expect_err("server rejects");
 
         assert!(matches!(error, OnePasswordError::BadCredentials));
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn keeps_the_status_of_an_error_without_a_known_body() {
+        let server = MockServer::start().await;
+        server
+            .register(
+                Mock::given(matchers::path("/api/v2/auth/confirm-key"))
+                    .respond_with(ResponseTemplate::new(401))
+                    .expect(1),
+            )
+            .await;
+
+        let error = client(&server)
+            .post_json::<Greeting>("v2/auth/confirm-key", json!({}))
+            .await
+            .expect_err("server rejects");
+
+        assert!(matches!(
+            error,
+            OnePasswordError::UnexpectedStatus { ref endpoint, status: 401 }
+                if endpoint == "v2/auth/confirm-key"
+        ));
         server.verify().await;
     }
 

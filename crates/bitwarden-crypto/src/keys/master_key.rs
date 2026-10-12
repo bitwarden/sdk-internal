@@ -184,6 +184,7 @@ pub(super) fn decrypt_user_key(
                 crate::error::UnsupportedOperationError::DecryptionNotImplementedForKey,
             ));
         }
+        EncString::Unparseable { .. } => return Err(CryptoError::UnparseableEncString),
     };
 
     SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(dec))

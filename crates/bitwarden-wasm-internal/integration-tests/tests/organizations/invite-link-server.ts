@@ -1,6 +1,6 @@
-// Happy-path stand-ins for the seven endpoints `InviteLinkClient` calls.
+// Happy-path stand-ins for the eight endpoints `InviteLinkClient` calls.
 
-import { Routes } from "../http-mock";
+import { MockReply, Routes } from "../../server-emulator/http-mock";
 import {
   TEST_INVITE,
   TEST_ORGANIZATION_ID,
@@ -16,6 +16,7 @@ export const ROUTES = {
   publicKey: `GET /organizations/${ORG}/public-key`,
   create: `POST /organizations/${ORG}/invite-link`,
   refresh: `POST /organizations/${ORG}/invite-link/refresh`,
+  supportConfirm: `PUT /organizations/${ORG}/invite-link/support-confirm`,
   getInvite: "POST /organizations/users/invite-link/invite",
   confirm: "POST /organizations/users/invite-link/confirm",
   accept: "POST /organizations/users/invite-link/accept",
@@ -25,6 +26,30 @@ export const LINK_ID = "1c4d9d5a-0000-4000-8000-000000000001";
 export const LINK_CODE = "1c4d9d5a-0000-4000-8000-000000000002";
 export const CREATION_DATE = "2024-01-01T00:00:00Z";
 
+/**
+ * A `400` validation problem carrying a single error `code` under `property`, the shape the server
+ * uses for invite link failures that have a stable error code.
+ */
+export function validationProblem(property: string, code: string): MockReply {
+  return {
+    status: 400,
+    json: {
+      type: "validation_error",
+      title: "One or more validation errors occurred.",
+      status: 400,
+      errors: { [property]: [{ type: code, detail: "Some detail." }] },
+    },
+  };
+}
+
+/** An error in the legacy `ErrorResponseModel` format, which carries no error code. */
+export function legacyError(status: number, message: string): MockReply {
+  return {
+    status,
+    json: { message, validationErrors: null, object: "error" },
+  };
+}
+
 export interface InviteLinkServerOptions {
   /**
    * The invite `get_invite` serves to a redeeming invitee. Defaults to {@link TEST_INVITE}.
@@ -33,7 +58,10 @@ export interface InviteLinkServerOptions {
   invite?: string | (() => string);
   /** The organization public key, i.e. the account-recovery key an invitee enrolls into. */
   publicKey?: string;
-  /** Called with the invite posted to create/refresh, standing in for the server persisting it. */
+  /**
+   * Called with the invite posted to create/refresh/support-confirm, standing in for the server
+   * persisting it.
+   */
   onCreate?: (invite: string) => void;
 }
 
@@ -78,6 +106,7 @@ export function inviteLinkRoutes(options: InviteLinkServerOptions = {}): Routes 
     [ROUTES.publicKey]: () => ({ json: { object: "organizationPublicKey", publicKey } }),
     [ROUTES.create]: (request) => link(request.json()),
     [ROUTES.refresh]: (request) => link(request.json()),
+    [ROUTES.supportConfirm]: (request) => link(request.json()),
     [ROUTES.getInvite]: () => ({ json: { invite: invite() } }),
     [ROUTES.confirm]: () => ({}),
     [ROUTES.accept]: () => ({}),

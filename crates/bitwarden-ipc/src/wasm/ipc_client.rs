@@ -37,8 +37,7 @@ pub struct JsIpcClientSubscription {
     subscription: IpcClientSubscription,
 }
 
-#[bitwarden_ffi::wasm_export]
-#[wasm_bindgen(js_class = IpcClientSubscription)]
+#[bitwarden_ffi::wasm_export(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
     #[wasm_only(
         note = "Use the `subscribe` method on `IpcClient` to create a subscription instance."
@@ -53,8 +52,7 @@ impl JsIpcClientSubscription {
     }
 }
 
-#[bitwarden_ffi::wasm_export]
-#[wasm_bindgen(js_class = IpcClient)]
+#[bitwarden_ffi::wasm_export(js_class = IpcClient)]
 impl JsIpcClient {
     /// Create a new `IpcClient` instance with an in-memory session repository for saving
     /// sessions within the SDK.

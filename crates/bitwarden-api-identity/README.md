@@ -22,7 +22,7 @@ client.
 - API version: v1
 - Package version: 3.0.0
 - Server Git commit:
-  [`1581b9b490976f9dcc351d14aae77f83235222c6`](https://github.com/bitwarden/server/commit/1581b9b490976f9dcc351d14aae77f83235222c6)
+  [`aa786fc9cd3803f48e79f15067e910e99d768b69`](https://github.com/bitwarden/server/commit/aa786fc9cd3803f48e79f15067e910e99d768b69)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -49,11 +49,16 @@ All URIs are relative to *https://identity.bitwarden.com*
 - [AccountKeysRequestModel](docs/AccountKeysRequestModel.md)
 - [AssertionOptions](docs/AssertionOptions.md)
 - [AuthenticationExtensionsClientInputs](docs/AuthenticationExtensionsClientInputs.md)
+- [AuthenticationExtensionsLargeBlobInputs](docs/AuthenticationExtensionsLargeBlobInputs.md)
+- [AuthenticationExtensionsPrfInputs](docs/AuthenticationExtensionsPrfInputs.md)
+- [AuthenticationExtensionsPrfValues](docs/AuthenticationExtensionsPrfValues.md)
 - [AuthenticatorTransport](docs/AuthenticatorTransport.md)
+- [CredentialProtectionPolicy](docs/CredentialProtectionPolicy.md)
 - [KdfRequestModel](docs/KdfRequestModel.md)
 - [KdfSettings](docs/KdfSettings.md)
 - [KdfType](docs/KdfType.md)
 - [KeysRequestModel](docs/KeysRequestModel.md)
+- [LargeBlobSupport](docs/LargeBlobSupport.md)
 - [MasterPasswordAuthenticationDataRequestModel](docs/MasterPasswordAuthenticationDataRequestModel.md)
 - [MasterPasswordUnlockDataRequestModel](docs/MasterPasswordUnlockDataRequestModel.md)
 - [OpenOrgInviteRequestModel](docs/OpenOrgInviteRequestModel.md)
@@ -62,6 +67,7 @@ All URIs are relative to *https://identity.bitwarden.com*
 - [ProductTierType](docs/ProductTierType.md)
 - [ProductType](docs/ProductType.md)
 - [PublicKeyCredentialDescriptor](docs/PublicKeyCredentialDescriptor.md)
+- [PublicKeyCredentialHint](docs/PublicKeyCredentialHint.md)
 - [PublicKeyCredentialType](docs/PublicKeyCredentialType.md)
 - [PublicKeyEncryptionKeyPairRequestModel](docs/PublicKeyEncryptionKeyPairRequestModel.md)
 - [RegisterFinishRequestModel](docs/RegisterFinishRequestModel.md)
@@ -71,6 +77,7 @@ All URIs are relative to *https://identity.bitwarden.com*
 - [RegisterVerificationEmailClickedRequestModel](docs/RegisterVerificationEmailClickedRequestModel.md)
 - [SecurityStateModel](docs/SecurityStateModel.md)
 - [SignatureKeyPairRequestModel](docs/SignatureKeyPairRequestModel.md)
+- [StringAuthenticationExtensionsPrfValuesKeyValuePair](docs/StringAuthenticationExtensionsPrfValuesKeyValuePair.md)
 - [TrialSendVerificationEmailRequestModel](docs/TrialSendVerificationEmailRequestModel.md)
 - [UserVerificationRequirement](docs/UserVerificationRequirement.md)
 - [WebAuthnLoginAssertionOptionsResponseModel](docs/WebAuthnLoginAssertionOptionsResponseModel.md)

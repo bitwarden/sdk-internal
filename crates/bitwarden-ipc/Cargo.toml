@@ -16,6 +16,7 @@ wasm = [
     "dep:wasm-bindgen-futures",
     "dep:js-sys",
     "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-threading/wasm",
 ] # WASM support
 test-support = [] # Expose test utilities (InMemoryCommunicationBackend) for downstream crates

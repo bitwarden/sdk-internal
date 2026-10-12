@@ -1,0 +1,5 @@
+error: #[wasm_record] does not support generics; wasm_bindgen cannot export generic types
+ --> tests/compilation_tests/wasm_record_generic_type.rs:4:19
+  |
+4 | pub struct Wrapper<T> {
+  |                   ^^^

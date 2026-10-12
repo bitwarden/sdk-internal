@@ -1,13 +1,13 @@
 export default {
   "*": "prettier --cache --ignore-unknown --write",
   "*.rs": (stagedFiles) => [
-    "cargo +nightly fmt",
-    "cargo clippy --all-features --all-targets",
-    "cargo dylint --all -- --all-features --all-targets",
+    "bash scripts/lint.sh --fix --only fmt",
+    "bash scripts/lint.sh --only clippy",
+    "bash scripts/lint.sh --only dylint",
   ],
   "Cargo.toml": (stagedFiles) => [
-    "cargo +nightly fmt",
-    "cargo +nightly udeps --workspace --all-features",
-    "cargo sort --workspace --grouped",
+    "bash scripts/lint.sh --fix --only fmt",
+    "bash scripts/lint.sh --only udeps",
+    "bash scripts/lint.sh --fix --only sort",
   ],
 };

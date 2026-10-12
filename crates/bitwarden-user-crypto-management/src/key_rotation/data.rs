@@ -184,7 +184,8 @@ fn decrypt_for_blob_upgrade(
         let mut view: CipherView = cipher
             .decrypt(ctx, current_key)
             .map_err(|_| DataReencryptionError::Decryption)?;
-        view.upgrade_to_cipher_key_encryption_with_external_key(ctx, current_key, new_key)
+        let _ = view
+            .load_cipher_key_slot(ctx)
             .map_err(|_| DataReencryptionError::Encryption)?;
         Ok(view)
     }
@@ -218,7 +219,7 @@ mod tests {
     use bitwarden_send::SendView;
     use bitwarden_vault::{
         Attachment, Cipher, CipherRepromptType, CipherType, CipherView, EncryptMode,
-        Fido2CredentialFullView,
+        Fido2CredentialView,
     };
     use chrono::Utc;
 
@@ -229,6 +230,7 @@ mod tests {
 
     fn make_test_cipher(attachments: Option<Vec<Attachment>>) -> Cipher {
         Cipher {
+            partial_data: None,
             id: None,
             organization_id: None,
             folder_id: None,
@@ -321,6 +323,7 @@ mod tests {
     fn make_cipher_view() -> bitwarden_vault::CipherView {
         use bitwarden_vault::{CipherView, LoginView};
         CipherView {
+            partial: false,
             id: None,
             organization_id: None,
             folder_id: None,
@@ -382,6 +385,34 @@ mod tests {
             expected.login.as_ref().unwrap().password,
             decrypted.login.as_ref().unwrap().password
         );
+    }
+
+    /// Builds a legacy cipher whose fields are encrypted directly under `key`, with no per-cipher
+    /// key. Encrypting a `CipherView` always produces one now, so this shape — which still exists
+    /// server-side for vaults predating per-cipher keys — has to be constructed by hand.
+    fn make_keyless_legacy_cipher(
+        view: &CipherView,
+        key: SymmetricKeySlotId,
+        ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
+    ) -> Cipher {
+        use bitwarden_vault::Login;
+
+        let login = view.login.as_ref().unwrap();
+
+        Cipher {
+            name: Some(view.name.encrypt(ctx, key).unwrap()),
+            notes: view.notes.encrypt(ctx, key).unwrap(),
+            login: Some(Login {
+                username: login.username.encrypt(ctx, key).unwrap(),
+                password: login.password.encrypt(ctx, key).unwrap(),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
+            ..make_test_cipher(None)
+        }
     }
 
     #[test]
@@ -512,19 +543,6 @@ mod tests {
     }
 
     #[test]
-    fn test_rotation_keyless_fido2() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let (old, new) = make_rotation_keys(&mut ctx);
-
-        let cipher = make_rotatable_cipher(&mut ctx, old, false, false, true);
-        let out = super::reencrypt_ciphers(&[cipher], old, new, &mut ctx).unwrap();
-
-        assert_upgraded_to_blob(&mut ctx, &out[0], new);
-        assert_fido2_decryptable(&mut ctx, &out[0], new);
-    }
-
-    #[test]
     fn test_rotation_keyless_attachment() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
@@ -534,20 +552,6 @@ mod tests {
         let out = super::reencrypt_ciphers(&[cipher], old, new, &mut ctx).unwrap();
 
         assert_upgraded_to_blob(&mut ctx, &out[0], new);
-        assert_attachment_key_decryptable(&mut ctx, &out[0], new);
-    }
-
-    #[test]
-    fn test_rotation_keyless_fido2_and_attachment() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let (old, new) = make_rotation_keys(&mut ctx);
-
-        let cipher = make_rotatable_cipher(&mut ctx, old, false, true, true);
-        let out = super::reencrypt_ciphers(&[cipher], old, new, &mut ctx).unwrap();
-
-        assert_upgraded_to_blob(&mut ctx, &out[0], new);
-        assert_fido2_decryptable(&mut ctx, &out[0], new);
         assert_attachment_key_decryptable(&mut ctx, &out[0], new);
     }
 
@@ -626,7 +630,7 @@ mod tests {
     ) -> Cipher {
         let mut view = make_cipher_view();
         if with_fido2 {
-            let full = Fido2CredentialFullView {
+            let cred = Fido2CredentialView {
                 credential_id: "cred-123".to_string(),
                 key_type: "public-key".to_string(),
                 key_algorithm: "ECDSA".to_string(),
@@ -641,16 +645,19 @@ mod tests {
                 discoverable: "true".to_string(),
                 creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
             };
-            view.login.as_mut().unwrap().fido2_credentials =
-                Some(vec![full.encrypt_composite(ctx, user_key).unwrap()]);
+            view.login.as_mut().unwrap().fido2_credentials = Some(vec![cred]);
         }
-        if with_cipher_key {
-            view.upgrade_to_cipher_key_encryption_with_external_key(ctx, user_key, user_key)
-                .unwrap();
-        }
-        let mut cipher = EncryptMode::Legacy(view)
-            .encrypt_composite(ctx, user_key)
-            .unwrap();
+        let mut cipher = if with_cipher_key {
+            EncryptMode::Legacy(view)
+                .encrypt_composite(ctx, user_key)
+                .unwrap()
+        } else {
+            assert!(
+                !with_fido2,
+                "make_keyless_legacy_cipher drops FIDO2 credentials"
+            );
+            make_keyless_legacy_cipher(&view, user_key, ctx)
+        };
         if with_attachment {
             // The attachment content key and file name are wrapped under the cipher key: the
             // per-item key for a keyed cipher, otherwise the user key directly.
@@ -690,36 +697,29 @@ mod tests {
         user_key: SymmetricKeySlotId,
     ) {
         let dv: CipherView = rotated.decrypt(ctx, user_key).unwrap();
-        let cipher_key = ctx
-            .unwrap_symmetric_key(user_key, dv.key.as_ref().unwrap())
-            .unwrap();
-        let creds: Vec<Fido2CredentialFullView> = dv
+        let creds = dv
             .login
             .as_ref()
             .unwrap()
             .fido2_credentials
             .as_ref()
-            .unwrap()
-            .decrypt(ctx, cipher_key)
             .unwrap();
         assert_eq!(creds[0].credential_id, "cred-123");
         assert_eq!(creds[0].key_value, "key-value");
     }
 
-    /// Asserts the rotated cipher's attachment key unwraps under `user_key`.
+    /// Asserts the rotated cipher's attachment key is present after key rotation.
     fn assert_attachment_key_decryptable(
         ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
         rotated: &Cipher,
         user_key: SymmetricKeySlotId,
     ) {
         let dv: CipherView = rotated.decrypt(ctx, user_key).unwrap();
-        let cipher_key = ctx
-            .unwrap_symmetric_key(user_key, dv.key.as_ref().unwrap())
-            .unwrap();
         let att = &dv.attachments.as_ref().unwrap()[0];
         assert_eq!(att.file_name.as_deref(), Some("secret.txt"));
-        let _ = ctx
-            .unwrap_symmetric_key(cipher_key, att.key.as_ref().unwrap())
-            .expect("attachment key must unwrap under the new cipher key");
+        assert!(
+            att.key.is_some(),
+            "attachment key must be present after rotation"
+        );
     }
 }

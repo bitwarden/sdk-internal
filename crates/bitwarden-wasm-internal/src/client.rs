@@ -4,6 +4,7 @@ use std::{fmt::Display, sync::Arc};
 use bitwarden_core::{ClientSettings, key_management::state_bridge::StateBridgeClient};
 use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
 use bitwarden_error::bitwarden_error;
+use bitwarden_managed_settings::ManagedSettingsClient;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
 use bitwarden_policies::PolicyClient;
 use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoManagementClientExt};
@@ -29,12 +30,27 @@ pub struct PasswordManagerClient(pub(crate) InnerPasswordManagerClient);
 #[wasm_bindgen]
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
+    ///
+    /// `managed_settings` is the host-owned handle onto the operating system's Unified Endpoint
+    /// Management profile. The client shares its profile, so profiles pushed after construction
+    /// are visible here. Pass a fresh `ManagedSettingsClient` where the host has no UEM source.
     #[wasm_bindgen(constructor)]
-    pub fn new(token_provider: JsTokenProvider, settings: Option<ClientSettings>) -> Self {
+    pub fn new(
+        token_provider: JsTokenProvider,
+        settings: Option<ClientSettings>,
+        managed_settings: &ManagedSettingsClient,
+    ) -> Self {
         let tokens = Arc::new(WasmClientManagedTokens::new(token_provider));
         Self(InnerPasswordManagerClient::new_with_client_tokens(
-            settings, tokens,
+            settings,
+            tokens,
+            managed_settings,
         ))
+    }
+
+    /// Administrator-enforced settings operations.
+    pub fn managed_settings(&self) -> ManagedSettingsClient {
+        self.0.managed_settings()
     }
 
     /// Test method, echoes back the input
@@ -148,6 +164,21 @@ impl PasswordManagerClient {
         self.0.invite_link()
     }
 
+    /// Organization verified domain operations.
+    pub fn organization_domains(&self) -> OrganizationDomainsClient {
+        self.0.organization_domains()
+    }
+
+    /// Emergency access operations, performed as the grantee.
+    pub fn emergency_access(&self) -> EmergencyAccessClient {
+        self.0.emergency_access()
+    }
+
+    /// Organization member administration operations.
+    pub fn organization_users_management(&self) -> OrganizationUsersManagementClient {
+        self.0.organization_users_management()
+    }
+
     /// Crypto cipher suite operations.
     pub fn crypto_cipher_suite(&self) -> CryptoCipherSuiteClient {
         self.0.crypto_cipher_suite()
@@ -156,6 +187,15 @@ impl PasswordManagerClient {
     /// Whether the client is in Gov Mode.
     pub fn gov_mode(&self) -> bool {
         self.0.0.gov_mode()
+    }
+
+    /// Dev-only debug capabilities that reach past the public API into internal
+    /// state, for automated tooling. Rooted debug tree mirroring the client
+    /// tree. Available only when built with the `debug-capabilities` feature,
+    /// which must never be enabled in production.
+    #[cfg(feature = "debug-capabilities")]
+    pub fn debug(&self) -> bitwarden_pm::debug::DebugClient {
+        self.0.debug()
     }
 }
 

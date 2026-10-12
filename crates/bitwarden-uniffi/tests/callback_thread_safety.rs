@@ -26,11 +26,11 @@ impl bitwarden_core::auth::ClientManagedTokens for MockTokenProvider {
 
 /// Thread-safe test callback
 struct TestCallback {
-    logs: Arc<Mutex<Vec<(String, String, String)>>>,
+    logs: Arc<Mutex<Vec<(LogLevel, String, String)>>>,
 }
 
 impl LogCallback for TestCallback {
-    fn on_log(&self, level: String, target: String, message: String) -> Result<()> {
+    fn on_log(&self, level: LogLevel, target: String, message: String) -> Result<()> {
         self.logs
             .lock()
             .expect("Failed to lock logs mutex")
@@ -46,9 +46,13 @@ fn test_callback_thread_safety() {
     let callback = Arc::new(TestCallback { logs: logs.clone() });
 
     // Initialize logger with callback
-    init_logger(Some(callback), None);
+    init_logger(Some(callback), None, true);
 
-    let _client = Client::new(Arc::new(MockTokenProvider), None);
+    let _client = Client::new(
+        Arc::new(MockTokenProvider),
+        None,
+        Arc::new(ManagedSettingsBindingClient::new()),
+    );
 
     // Spawn multiple threads logging simultaneously
     let handles: Vec<_> = (0..10)
@@ -71,7 +75,9 @@ fn test_callback_thread_safety() {
     // Find our specific thread messages
     let our_logs: Vec<_> = captured
         .iter()
-        .filter(|(lvl, _, msg)| lvl == "INFO" && msg.contains("thread") && msg.contains("message"))
+        .filter(|(lvl, _, msg)| {
+            *lvl == LogLevel::Info && msg.contains("thread") && msg.contains("message")
+        })
         .collect();
 
     assert_eq!(
@@ -82,7 +88,7 @@ fn test_callback_thread_safety() {
 
     // Verify no corrupted entries (all should be INFO level with thread messages)
     for (level, _target, message) in our_logs.iter() {
-        assert_eq!(level, "INFO");
+        assert_eq!(*level, LogLevel::Info);
         assert!(message.contains("thread"));
         assert!(message.contains("message"));
     }

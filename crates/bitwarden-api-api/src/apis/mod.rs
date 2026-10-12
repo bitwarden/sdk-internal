@@ -77,6 +77,7 @@ pub mod sync_api;
 pub mod teams_integration_api;
 pub mod trash_api;
 pub mod two_factor_api;
+pub mod user_subscriptions_api;
 pub mod users_api;
 pub mod web_authn_api;
 
@@ -171,6 +172,7 @@ struct ApiClientReal {
     teams_integration_api: teams_integration_api::TeamsIntegrationApiClient,
     trash_api: trash_api::TrashApiClient,
     two_factor_api: two_factor_api::TwoFactorApiClient,
+    user_subscriptions_api: user_subscriptions_api::UserSubscriptionsApiClient,
     users_api: users_api::UsersApiClient,
     web_authn_api: web_authn_api::WebAuthnApiClient,
 }
@@ -253,6 +255,7 @@ pub struct ApiClientMock {
     pub teams_integration_api: teams_integration_api::MockTeamsIntegrationApi,
     pub trash_api: trash_api::MockTrashApi,
     pub two_factor_api: two_factor_api::MockTwoFactorApi,
+    pub user_subscriptions_api: user_subscriptions_api::MockUserSubscriptionsApi,
     pub users_api: users_api::MockUsersApi,
     pub web_authn_api: web_authn_api::MockWebAuthnApi,
 }
@@ -336,6 +339,7 @@ impl ApiClient {
             teams_integration_api: teams_integration_api::TeamsIntegrationApiClient::new(configuration.clone()),
             trash_api: trash_api::TrashApiClient::new(configuration.clone()),
             two_factor_api: two_factor_api::TwoFactorApiClient::new(configuration.clone()),
+            user_subscriptions_api: user_subscriptions_api::UserSubscriptionsApiClient::new(configuration.clone()),
             users_api: users_api::UsersApiClient::new(configuration.clone()),
             web_authn_api: web_authn_api::WebAuthnApiClient::new(configuration.clone()),
         })
@@ -420,6 +424,7 @@ impl ApiClient {
             teams_integration_api: teams_integration_api::MockTeamsIntegrationApi::new(),
             trash_api: trash_api::MockTrashApi::new(),
             two_factor_api: two_factor_api::MockTwoFactorApi::new(),
+            user_subscriptions_api: user_subscriptions_api::MockUserSubscriptionsApi::new(),
             users_api: users_api::MockUsersApi::new(),
             web_authn_api: web_authn_api::MockWebAuthnApi::new(),
         };
@@ -1010,6 +1015,13 @@ impl ApiClient {
             ApiClient::Real(real) => &real.two_factor_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.two_factor_api,
+        }
+    }
+    pub fn user_subscriptions_api(&self) -> &dyn user_subscriptions_api::UserSubscriptionsApi {
+        match self {
+            ApiClient::Real(real) => &real.user_subscriptions_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.user_subscriptions_api,
         }
     }
     pub fn users_api(&self) -> &dyn users_api::UsersApi {
