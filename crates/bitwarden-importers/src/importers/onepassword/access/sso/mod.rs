@@ -27,6 +27,10 @@ use super::{
 mod cpace;
 mod enrollment;
 #[cfg(test)]
+mod fake_server;
+#[cfg(test)]
+mod flow_tests;
+#[cfg(test)]
 mod test_support;
 pub mod ui;
 
@@ -405,11 +409,12 @@ mod tests {
     use std::sync::Mutex;
 
     use async_trait::async_trait;
-    use serde_json::{Value, json};
+    use serde_json::json;
     use wiremock::{Mock, MockServer, ResponseTemplate, matchers};
 
     use super::{
-        test_support::{SIGN_IN_TOKEN, rest_client, vectors},
+        fake_server::{client_info, verify_response},
+        test_support::{rest_client, vectors},
         ui::SsoEnrollmentContext,
         *,
     };
@@ -482,30 +487,6 @@ mod tests {
             "user@example.com",
         )
         .expect("an SSO account")
-    }
-
-    fn client_info() -> ClientInfo {
-        ClientInfo::for_desktop("device-uuid")
-    }
-
-    /// What `v3/auth/sso/oidc/verify` answers, `state` being what the server says about the device.
-    fn verify_response(state: &str) -> Value {
-        json!({
-            "type": state,
-            "user": {
-                "sessionUuid": "SESSIONUUID",
-                "accountUuid": "ACCOUNTUUID",
-                "userUuid": "USERUUID",
-                "email": "user@example.com",
-            },
-            "ssoAuth": {
-                "signInTokenDetails": {
-                    "token": SIGN_IN_TOKEN,
-                    "publicKey": "PUBLICKEY",
-                    "exp": "2030-01-01T00:00:00Z",
-                },
-            },
-        })
     }
 
     fn session(state: &str) -> SsoSession {

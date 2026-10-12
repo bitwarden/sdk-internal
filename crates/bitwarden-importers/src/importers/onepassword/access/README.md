@@ -31,7 +31,8 @@ each one into a Bitwarden folder. 1P doesn't have folders, only tags.
 
 ## SSO
 
-- The crypto is pinned by the generated test vectors in `fixtures/sso-vectors.json`
+- The crypto is pinned by the generated test vectors in `fixtures/sso-vectors.json` and
+  `sso/flow_tests.rs` runs the whole login against a fake server
 - Every import is a new device with a fresh uuid and nothing is kept between imports, so the user
   approves it on an enrolled device and types the verification code shown there. Then a CPace
   exchange (Ristretto255) hands over the credential bundle, the SRP x and the account unlock key
