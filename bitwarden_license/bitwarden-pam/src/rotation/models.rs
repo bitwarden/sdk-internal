@@ -1,20 +1,19 @@
 use bitwarden_api_api::models::{
-    PamAccessConnectorStatus as ApiAccessConnectorStatus, PamPasswordPolicyRequestModel,
-    PamPasswordPolicyResponseModel, PamRotationAttemptResponseModel,
+    PamAccessConnectorStatus as ApiAccessConnectorStatus, PamRotationAttemptResponseModel,
     PamRotationAttemptStatus as ApiRotationAttemptStatus, PamRotationJobResponseModel,
     PamRotationJobStatus as ApiRotationJobStatus, PamRotationSource as ApiRotationSource,
     PamRotationSyncState as ApiRotationSyncState,
     PamSessionTerminationOutcome as ApiSessionTerminationOutcome,
-    PamTargetSystemKind as ApiTargetSystemKind, PamTargetSystemMethod as ApiTargetSystemMethod,
-    PamTargetSystemStatus as ApiTargetSystemStatus,
+    PamTargetSystemMethod as ApiTargetSystemMethod, PamTargetSystemStatus as ApiTargetSystemStatus,
 };
 use bitwarden_core::require;
+use bitwarden_pam_sealed::{SealedPasswordPolicy, SealedTargetSystemKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::error::RotationError;
+use super::{error::RotationError, validate::RotationValidationError};
 use crate::{AccessConnectorId, RotationAttemptId, RotationConfigId, RotationJobId};
 
 /// Lifecycle state of an access connector. Removing a connector for good is a delete, not a
@@ -81,6 +80,7 @@ impl TryFrom<TargetSystemMethod> for ApiTargetSystemMethod {
 
 /// The technology a target system represents. Only meaningful for
 /// [`Automatic`](TargetSystemMethod::Automatic) systems; a manual rotation has no integration.
+/// Lives only in the sealed blob.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
@@ -95,18 +95,17 @@ pub enum TargetSystemKind {
     Unknown,
 }
 
-impl From<ApiTargetSystemKind> for TargetSystemKind {
-    fn from(kind: ApiTargetSystemKind) -> Self {
+impl From<SealedTargetSystemKind> for TargetSystemKind {
+    fn from(kind: SealedTargetSystemKind) -> Self {
         match kind {
-            ApiTargetSystemKind::Entra => Self::Entra,
-            ApiTargetSystemKind::Mssql => Self::Mssql,
-            ApiTargetSystemKind::CustomScript => Self::CustomScript,
-            ApiTargetSystemKind::__Unknown(_) => Self::Unknown,
+            SealedTargetSystemKind::Entra => Self::Entra,
+            SealedTargetSystemKind::Mssql => Self::Mssql,
+            SealedTargetSystemKind::CustomScript => Self::CustomScript,
         }
     }
 }
 
-impl TryFrom<TargetSystemKind> for ApiTargetSystemKind {
+impl TryFrom<TargetSystemKind> for SealedTargetSystemKind {
     type Error = RotationError;
 
     fn try_from(kind: TargetSystemKind) -> Result<Self, Self::Error> {
@@ -128,6 +127,14 @@ pub enum TargetSystemStatus {
     Active,
     /// No new rotation jobs are dispatched; jobs already in flight run to completion.
     Disabled,
+    /// Registered but not yet sealed, left by a failed [`TargetSystemsClient::create`].
+    /// [`TargetSystemsClient::update`] finishes sealing; [`TargetSystemsClient::delete`]
+    /// discards it.
+    ///
+    /// [`TargetSystemsClient::create`]: super::TargetSystemsClient::create
+    /// [`TargetSystemsClient::update`]: super::TargetSystemsClient::update
+    /// [`TargetSystemsClient::delete`]: super::TargetSystemsClient::delete
+    PendingSeal,
     /// A status this SDK version does not recognize.
     Unknown,
 }
@@ -137,6 +144,7 @@ impl From<ApiTargetSystemStatus> for TargetSystemStatus {
         match status {
             ApiTargetSystemStatus::Active => Self::Active,
             ApiTargetSystemStatus::Disabled => Self::Disabled,
+            ApiTargetSystemStatus::PendingSeal => Self::PendingSeal,
             ApiTargetSystemStatus::__Unknown(_) => Self::Unknown,
         }
     }
@@ -285,6 +293,7 @@ impl From<ApiSessionTerminationOutcome> for SessionTerminationOutcome {
 
 /// Password generation policy for a target system. For [`Manual`](TargetSystemMethod::Manual)
 /// systems it is guidance for the operator that nothing enforces.
+/// Lives only in the sealed blob.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -303,29 +312,34 @@ pub struct PasswordPolicy {
     pub include_symbols: bool,
 }
 
-impl From<PamPasswordPolicyResponseModel> for PasswordPolicy {
-    fn from(policy: PamPasswordPolicyResponseModel) -> Self {
+impl From<SealedPasswordPolicy> for PasswordPolicy {
+    fn from(policy: SealedPasswordPolicy) -> Self {
         Self {
-            min_length: policy.min_length.unwrap_or_default(),
-            max_length: policy.max_length.unwrap_or_default(),
-            include_uppercase: policy.include_uppercase.unwrap_or(false),
-            include_lowercase: policy.include_lowercase.unwrap_or(false),
-            include_digits: policy.include_digits.unwrap_or(false),
-            include_symbols: policy.include_symbols.unwrap_or(false),
+            // `validate` caps both at 128 before sealing, so this never saturates in practice.
+            min_length: i32::try_from(policy.min_length).unwrap_or(i32::MAX),
+            max_length: i32::try_from(policy.max_length).unwrap_or(i32::MAX),
+            include_uppercase: policy.include_uppercase,
+            include_lowercase: policy.include_lowercase,
+            include_digits: policy.include_digits,
+            include_symbols: policy.include_symbols,
         }
     }
 }
 
-impl From<PasswordPolicy> for PamPasswordPolicyRequestModel {
-    fn from(policy: PasswordPolicy) -> Self {
-        Self {
-            min_length: policy.min_length,
-            max_length: policy.max_length,
-            include_uppercase: Some(policy.include_uppercase),
-            include_lowercase: Some(policy.include_lowercase),
-            include_digits: Some(policy.include_digits),
-            include_symbols: Some(policy.include_symbols),
-        }
+impl TryFrom<PasswordPolicy> for SealedPasswordPolicy {
+    type Error = RotationValidationError;
+
+    fn try_from(policy: PasswordPolicy) -> Result<Self, Self::Error> {
+        Ok(Self {
+            min_length: u32::try_from(policy.min_length)
+                .map_err(|_| RotationValidationError::InvalidPasswordLengthBounds)?,
+            max_length: u32::try_from(policy.max_length)
+                .map_err(|_| RotationValidationError::InvalidPasswordLengthBounds)?,
+            include_uppercase: policy.include_uppercase,
+            include_lowercase: policy.include_lowercase,
+            include_digits: policy.include_digits,
+            include_symbols: policy.include_symbols,
+        })
     }
 }
 

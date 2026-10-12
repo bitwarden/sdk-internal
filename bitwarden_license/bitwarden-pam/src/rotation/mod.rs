@@ -17,13 +17,14 @@ mod error;
 mod models;
 mod registration;
 mod schedule;
+mod seal;
 mod target_systems;
 mod validate;
 
 pub use actions::{RotationConfigActions, rotation_config_actions};
 pub use configs::{
-    RotationConfig, RotationConfigCreateRequest, RotationConfigDetail, RotationConfigUpdateRequest,
-    RotationConfigsClient,
+    RotationConfigCreateRequest, RotationConfigDetailView, RotationConfigSealedFields,
+    RotationConfigView, RotationConfigsClient,
 };
 pub use connectors::{
     AccessConnector, AccessConnectorDetail, AccessConnectorRegistrationResponse,
@@ -40,7 +41,8 @@ pub use schedule::{
     QuartzSchedulePreset, RotationScheduleClient, is_likely_quartz_cron, preset_for_cron,
 };
 pub use target_systems::{
-    TargetSystem, TargetSystemCreateRequest, TargetSystemUpdateRequest, TargetSystemsClient,
+    TargetSystemCreateError, TargetSystemCreateRequest, TargetSystemSealedFields, TargetSystemView,
+    TargetSystemsClient,
 };
 pub use validate::RotationValidationError;
 
@@ -65,6 +67,7 @@ impl RotationClient {
     /// Target system operations.
     pub fn target_systems(&self) -> TargetSystemsClient {
         TargetSystemsClient {
+            key_store: self.key_store.clone(),
             api_configurations: self.api_configurations.clone(),
         }
     }
@@ -72,6 +75,7 @@ impl RotationClient {
     /// Managed credential (rotation config) operations.
     pub fn configs(&self) -> RotationConfigsClient {
         RotationConfigsClient {
+            key_store: self.key_store.clone(),
             api_configurations: self.api_configurations.clone(),
         }
     }

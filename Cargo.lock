@@ -504,6 +504,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-generators",
+ "bitwarden-pam-sealed",
  "bitwarden-sensitive-value",
  "bitwarden-threading",
  "chrono",
@@ -1222,6 +1223,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-ffi",
+ "bitwarden-pam-sealed",
  "bitwarden-uuid",
  "bitwarden-vault",
  "chrono",
@@ -1230,11 +1232,26 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
+ "tracing",
  "tsify",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "zeroize",
+]
+
+[[package]]
+name = "bitwarden-pam-sealed"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-commercial-marker",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-generators",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
 ]
 
 [[package]]

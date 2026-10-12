@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use super::{
-    configs::RotationConfig,
+    configs::RotationConfigView,
     models::{TargetSystemMethod, TargetSystemStatus},
 };
 
@@ -29,7 +29,7 @@ pub struct RotationConfigActions {
 /// Derives the actions a config offers, given the status of its target system. Pass `None` while
 /// the target system has not loaded; every dependent predicate then fails closed.
 pub fn rotation_config_actions(
-    config: &RotationConfig,
+    config: &RotationConfigView,
     target_status: Option<TargetSystemStatus>,
 ) -> RotationConfigActions {
     RotationConfigActions {
@@ -54,7 +54,7 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{RotationConfigId, TargetSystemId};
+    use crate::{RotationConfigId, RotationConfigSealedFields, TargetSystemId};
 
     fn timestamp() -> DateTime<Utc> {
         "2026-01-01T00:00:00Z".parse().expect("a valid timestamp")
@@ -62,8 +62,8 @@ mod tests {
 
     /// An automatic, enabled, idle config, the one shape that offers a rotation. Each test varies
     /// one field so the failing condition is unambiguous.
-    fn rotatable_config() -> RotationConfig {
-        RotationConfig {
+    fn rotatable_config() -> RotationConfigView {
+        RotationConfigView {
             id: RotationConfigId::new(uuid!("11111111-1111-1111-1111-111111111111")),
             organization_id: bitwarden_core::OrganizationId::new(uuid!(
                 "22222222-2222-2222-2222-222222222222"
@@ -74,8 +74,10 @@ mod tests {
             target_system_id: TargetSystemId::new(uuid!("44444444-4444-4444-4444-444444444444")),
             target_system_name: "Prod SQL".to_string(),
             target_system_method: TargetSystemMethod::Automatic,
-            account_identity: "svc_rotation".to_string(),
-            terminate_sessions: false,
+            sealed: Some(RotationConfigSealedFields {
+                account_identity: "svc_rotation".to_string(),
+                terminate_sessions: false,
+            }),
             schedule_cron: None,
             rotate_on_access_end: false,
             enabled: true,
@@ -102,7 +104,7 @@ mod tests {
 
     #[test]
     fn a_paused_config_cannot_rotate_and_offers_resume_instead() {
-        let config = RotationConfig {
+        let config = RotationConfigView {
             enabled: false,
             ..rotatable_config()
         };
@@ -116,7 +118,7 @@ mod tests {
 
     #[test]
     fn a_config_with_a_job_in_flight_cannot_rotate_and_locks_mutations() {
-        let config = RotationConfig {
+        let config = RotationConfigView {
             has_active_job: true,
             ..rotatable_config()
         };
@@ -146,7 +148,7 @@ mod tests {
 
     #[test]
     fn a_manual_config_offers_record_manual_rather_than_rotate() {
-        let config = RotationConfig {
+        let config = RotationConfigView {
             target_system_method: TargetSystemMethod::Manual,
             ..rotatable_config()
         };
@@ -161,7 +163,7 @@ mod tests {
     /// the operator would be offered an action the server may reject.
     #[test]
     fn an_unrecognized_method_offers_neither_rotation_action() {
-        let config = RotationConfig {
+        let config = RotationConfigView {
             target_system_method: TargetSystemMethod::Unknown,
             ..rotatable_config()
         };
@@ -184,7 +186,7 @@ mod tests {
     #[test]
     fn pause_and_resume_are_mutually_exclusive() {
         for enabled in [true, false] {
-            let config = RotationConfig {
+            let config = RotationConfigView {
                 enabled,
                 ..rotatable_config()
             };
