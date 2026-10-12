@@ -8,6 +8,7 @@ pub mod account_billing_v_next_api;
 pub mod accounts_api;
 pub mod accounts_billing_api;
 pub mod accounts_key_management_api;
+pub mod audit_api;
 pub mod auth_requests_api;
 pub mod cipher_lease_api;
 pub mod ciphers_api;
@@ -103,6 +104,7 @@ struct ApiClientReal {
     accounts_api: accounts_api::AccountsApiClient,
     accounts_billing_api: accounts_billing_api::AccountsBillingApiClient,
     accounts_key_management_api: accounts_key_management_api::AccountsKeyManagementApiClient,
+    audit_api: audit_api::AuditApiClient,
     auth_requests_api: auth_requests_api::AuthRequestsApiClient,
     cipher_lease_api: cipher_lease_api::CipherLeaseApiClient,
     ciphers_api: ciphers_api::CiphersApiClient,
@@ -186,6 +188,7 @@ pub struct ApiClientMock {
     pub accounts_api: accounts_api::MockAccountsApi,
     pub accounts_billing_api: accounts_billing_api::MockAccountsBillingApi,
     pub accounts_key_management_api: accounts_key_management_api::MockAccountsKeyManagementApi,
+    pub audit_api: audit_api::MockAuditApi,
     pub auth_requests_api: auth_requests_api::MockAuthRequestsApi,
     pub cipher_lease_api: cipher_lease_api::MockCipherLeaseApi,
     pub ciphers_api: ciphers_api::MockCiphersApi,
@@ -270,6 +273,7 @@ impl ApiClient {
             accounts_api: accounts_api::AccountsApiClient::new(configuration.clone()),
             accounts_billing_api: accounts_billing_api::AccountsBillingApiClient::new(configuration.clone()),
             accounts_key_management_api: accounts_key_management_api::AccountsKeyManagementApiClient::new(configuration.clone()),
+            audit_api: audit_api::AuditApiClient::new(configuration.clone()),
             auth_requests_api: auth_requests_api::AuthRequestsApiClient::new(configuration.clone()),
             cipher_lease_api: cipher_lease_api::CipherLeaseApiClient::new(configuration.clone()),
             ciphers_api: ciphers_api::CiphersApiClient::new(configuration.clone()),
@@ -355,6 +359,7 @@ impl ApiClient {
             accounts_api: accounts_api::MockAccountsApi::new(),
             accounts_billing_api: accounts_billing_api::MockAccountsBillingApi::new(),
             accounts_key_management_api: accounts_key_management_api::MockAccountsKeyManagementApi::new(),
+            audit_api: audit_api::MockAuditApi::new(),
             auth_requests_api: auth_requests_api::MockAuthRequestsApi::new(),
             cipher_lease_api: cipher_lease_api::MockCipherLeaseApi::new(),
             ciphers_api: ciphers_api::MockCiphersApi::new(),
@@ -485,6 +490,13 @@ impl ApiClient {
             ApiClient::Real(real) => &real.accounts_key_management_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.accounts_key_management_api,
+        }
+    }
+    pub fn audit_api(&self) -> &dyn audit_api::AuditApi {
+        match self {
+            ApiClient::Real(real) => &real.audit_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.audit_api,
         }
     }
     pub fn auth_requests_api(&self) -> &dyn auth_requests_api::AuthRequestsApi {
