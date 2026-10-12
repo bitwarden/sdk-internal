@@ -14,9 +14,6 @@ pub(crate) fn required_suffixes(kind: TargetKind) -> &'static [&'static str] {
         TargetKind::Entra => &["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"],
         TargetKind::CustomScript => &["SCRIPT"],
         TargetKind::Mssql => &["HOST", "USER", "SECRET"],
-        // Unknown kinds require nothing, so resolution succeeds and the executor then reports
-        // `unsupported_kind`.
-        TargetKind::Unknown(_) => &[],
     }
 }
 
