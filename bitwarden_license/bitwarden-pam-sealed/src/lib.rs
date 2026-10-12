@@ -11,8 +11,7 @@ mod test_support;
 
 pub use container::SealedDataError;
 pub use policy::{
-    GENERATOR_MAX_LENGTH, GENERATOR_MIN_LENGTH, MIN_PASSWORD_ENTROPY_BITS, PolicyStrengthError,
-    SealedPasswordPolicy,
+    GENERATOR_MAX_LENGTH, GENERATOR_MIN_LENGTH, PasswordPolicyError, SealedPasswordPolicy,
 };
 pub use rotation_config::{RotationConfigSealedV1, seal_rotation_config, unseal_rotation_config};
 pub use target_system::{

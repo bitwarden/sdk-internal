@@ -1,12 +1,12 @@
 //! Converts a verified job's [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`].
 //!
-//! The strength floor is already enforced once by [`SealedPasswordPolicy::validate`] in
+//! Generator-validity is already enforced once by [`SealedPasswordPolicy::validate`] in
 //! `executor::verify`; this module re-validates defensively, so a future call site that skips
-//! `verify` still fails closed instead of generating a below-floor password.
+//! `verify` still fails closed instead of generating from an invalid policy.
 
 use bitwarden_generators::PasswordGeneratorRequest;
 use bitwarden_pam_sealed::{
-    GENERATOR_MAX_LENGTH, GENERATOR_MIN_LENGTH, PolicyStrengthError, SealedPasswordPolicy,
+    GENERATOR_MAX_LENGTH, GENERATOR_MIN_LENGTH, PasswordPolicyError, SealedPasswordPolicy,
 };
 
 /// Convert a [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`]. The generated length is
@@ -15,7 +15,7 @@ use bitwarden_pam_sealed::{
 /// the clamp here is a defensive no-op.
 pub(crate) fn to_generator_request(
     policy: &SealedPasswordPolicy,
-) -> Result<PasswordGeneratorRequest, PolicyStrengthError> {
+) -> Result<PasswordGeneratorRequest, PasswordPolicyError> {
     policy.validate()?;
 
     let length = policy
@@ -69,7 +69,6 @@ mod tests {
 
     #[test]
     fn valid_policy_converts_length_from_max_length() {
-        // 20 * log2(70) ≈ 122.6 bits: comfortably above the floor.
         let req = to_generator_request(&all_classes(5, 20)).unwrap();
         assert_eq!(req.length, 20);
     }
@@ -88,28 +87,27 @@ mod tests {
 
     #[test]
     fn min_length_at_generator_floor_is_valid() {
-        // 5 classes-all length: 5 * log2(70) ≈ 30.6 bits, below the 80-bit floor, so use a longer
-        // min/max pair that still starts at the generator floor.
-        let req = to_generator_request(&all_classes(GENERATOR_MIN_LENGTH, 20)).unwrap();
-        assert_eq!(req.length, 20);
+        let req =
+            to_generator_request(&all_classes(GENERATOR_MIN_LENGTH, GENERATOR_MIN_LENGTH)).unwrap();
+        assert_eq!(u32::from(req.length), GENERATOR_MIN_LENGTH);
     }
 
     #[test]
     fn min_greater_than_max_is_rejected() {
         let err = to_generator_request(&all_classes(30, 20)).unwrap_err();
-        assert_eq!(err, PolicyStrengthError::InvalidLengthBounds);
+        assert_eq!(err, PasswordPolicyError::InvalidLengthBounds);
     }
 
     #[test]
     fn max_length_above_generator_ceiling_is_rejected() {
         let err = to_generator_request(&all_classes(5, GENERATOR_MAX_LENGTH + 1)).unwrap_err();
-        assert_eq!(err, PolicyStrengthError::InvalidLengthBounds);
+        assert_eq!(err, PasswordPolicyError::InvalidLengthBounds);
     }
 
     #[test]
     fn min_length_below_generator_floor_is_rejected() {
         let err = to_generator_request(&all_classes(GENERATOR_MIN_LENGTH - 1, 20)).unwrap_err();
-        assert_eq!(err, PolicyStrengthError::InvalidLengthBounds);
+        assert_eq!(err, PasswordPolicyError::InvalidLengthBounds);
     }
 
     #[test]
@@ -123,33 +121,17 @@ mod tests {
             include_symbols: false,
         };
         let err = to_generator_request(&policy).unwrap_err();
-        assert_eq!(err, PolicyStrengthError::NoCharacterClasses);
+        assert_eq!(err, PasswordPolicyError::NoCharacterClasses);
     }
 
     #[test]
-    fn below_strength_floor_is_rejected() {
-        // 20 * log2(10) ≈ 66.4 bits < 80.
-        let policy = SealedPasswordPolicy {
-            min_length: GENERATOR_MIN_LENGTH,
-            max_length: 20,
-            include_uppercase: false,
-            include_lowercase: false,
-            include_digits: true,
-            include_symbols: false,
-        };
-        let err = to_generator_request(&policy).unwrap_err();
-        assert_eq!(err, PolicyStrengthError::BelowStrengthFloor);
-    }
-
-    #[test]
-    fn single_class_enabled_is_sufficient_when_above_floor() {
+    fn single_class_enabled_is_sufficient() {
         for (upper, lower, digits, symbols) in [
             (true, false, false, false),
             (false, true, false, false),
             (false, false, true, false),
             (false, false, false, true),
         ] {
-            // Length 30 with a single class (smallest pool is 8 symbols): 30 * log2(8) = 90 bits.
             let policy = SealedPasswordPolicy {
                 min_length: 30,
                 max_length: 30,
@@ -206,7 +188,6 @@ mod tests {
 
     #[test]
     fn generated_password_uses_only_enabled_charset() {
-        // Digits only at length 30: 30 * log2(10) ≈ 99.7 bits, above the floor.
         let policy = SealedPasswordPolicy {
             min_length: 30,
             max_length: 30,

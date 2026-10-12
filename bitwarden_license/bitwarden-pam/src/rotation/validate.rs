@@ -1,4 +1,4 @@
-use bitwarden_pam_sealed::{PolicyStrengthError, SealedPasswordPolicy};
+use bitwarden_pam_sealed::{PasswordPolicyError, SealedPasswordPolicy};
 use thiserror::Error;
 
 use super::{
@@ -27,12 +27,6 @@ pub enum RotationValidationError {
     /// A password policy enabled no character classes, so no credential could satisfy it.
     #[error("A password policy must allow at least one character class")]
     NoCharacterClasses,
-    /// A password policy's generated password would fall below the shared strength floor
-    /// (`MIN_PASSWORD_ENTROPY_BITS`). Sealing stops a hostile server changing a policy in
-    /// transit, but not replaying an old weak one, so both this client and the access connector
-    /// enforce the floor independently.
-    #[error("Password policy falls below the minimum password strength floor")]
-    BelowPasswordStrengthFloor,
     /// `schedule_cron` was present but is not shaped like a Quartz cron expression.
     #[error("Schedule must be a 6- or 7-field Quartz cron expression")]
     InvalidCron,
@@ -61,12 +55,11 @@ pub enum RotationValidationError {
     RotationConfigImmutableFieldMismatch,
 }
 
-impl From<PolicyStrengthError> for RotationValidationError {
-    fn from(error: PolicyStrengthError) -> Self {
+impl From<PasswordPolicyError> for RotationValidationError {
+    fn from(error: PasswordPolicyError) -> Self {
         match error {
-            PolicyStrengthError::NoCharacterClasses => Self::NoCharacterClasses,
-            PolicyStrengthError::InvalidLengthBounds => Self::InvalidPasswordLengthBounds,
-            PolicyStrengthError::BelowStrengthFloor => Self::BelowPasswordStrengthFloor,
+            PasswordPolicyError::NoCharacterClasses => Self::NoCharacterClasses,
+            PasswordPolicyError::InvalidLengthBounds => Self::InvalidPasswordLengthBounds,
         }
     }
 }
@@ -91,9 +84,10 @@ fn validate_account_identity(identity: &str) -> Result<(), RotationValidationErr
     Ok(())
 }
 
-/// Validates a password policy against the shared `bitwarden-pam-sealed` strength floor (length
-/// range plus minimum entropy). Both this client and the access connector enforce the same rule,
-/// so an operator learns about a weak policy while editing rather than from a refused rotation.
+/// Validates a password policy against the shared `bitwarden-pam-sealed` generator-validity check
+/// (length range plus at least one character class). Both this client and the access connector
+/// enforce the same rule, so an operator learns about an unsatisfiable policy while editing
+/// rather than from a refused rotation.
 pub(super) fn validate_password_policy(
     policy: &PasswordPolicy,
 ) -> Result<(), RotationValidationError> {
@@ -143,7 +137,6 @@ mod tests {
     use crate::{TargetSystemId, rotation::models::TargetSystemKind};
 
     fn policy() -> PasswordPolicy {
-        // 64 * log2(26+26+10+10) ~= 64 * 6.17 ~= 395 bits, comfortably above the 80-bit floor.
         PasswordPolicy {
             min_length: 14,
             max_length: 64,
@@ -313,29 +306,6 @@ mod tests {
         };
 
         assert!(validate_target_system_request(&request).is_ok());
-    }
-
-    #[test]
-    fn a_policy_below_the_strength_floor_is_rejected() {
-        // 20 * log2(10) ~= 66.4 bits < 80.
-        let weak = PasswordPolicy {
-            min_length: i32::try_from(GENERATOR_MIN_LENGTH).expect("fits in i32"),
-            max_length: 20,
-            include_uppercase: false,
-            include_lowercase: false,
-            include_digits: true,
-            include_symbols: false,
-        };
-
-        let request = TargetSystemCreateRequest::Manual {
-            name: "Manual".to_string(),
-            password_policy: weak,
-        };
-
-        assert_eq!(
-            validate_target_system_request(&request),
-            Err(RotationValidationError::BelowPasswordStrengthFloor)
-        );
     }
 
     #[test]

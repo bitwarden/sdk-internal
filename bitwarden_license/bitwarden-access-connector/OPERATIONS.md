@@ -122,14 +122,14 @@ This closes off a hostile or MitM'd server **choosing** the account, the passwor
 destination cipher. It does **not** close off everything a compromised server can do:
 
 - **Replay.** The server can hand back an older, still-validly-sealed blob — an earlier
-  `account_identity`, a weaker (but still above-floor) policy, `terminate_sessions` turned back on.
+  `account_identity`, a different policy, `terminate_sessions` turned back on.
 - **Timing.** Schedule and `enabled` stay plaintext, so the server decides _when_ and _how often_ a
   job runs, including skipping a rotation entirely or firing one repeatedly.
 - **Destination access.** The cipher-ID check only proves the server reported the ID it was given;
   who can subsequently _read_ that cipher is ordinary org collection access, which the server still
   controls.
-- **A colluding org member.** Anyone holding the organization key can seal a valid blob. The
-  password-strength floor still applies, but nothing else does.
+- **A colluding org member.** Anyone holding the organization key can seal a valid blob, including
+  any generator-valid password policy.
 
 Full threat model, the complete gaps table, and the rationale:
 `docs/pam-rotation-sealed-config-plan.md` in `sdk-internal`.

@@ -2,7 +2,7 @@
 
 Commercial crate holding the PAM types that are sealed into opaque
 [`DataEnvelope`](bitwarden_crypto::safe::DataEnvelope) blobs and stored by the server, plus the
-shared password-strength floor applied to them.
+shared generator-validity check applied to them.
 
 A hostile PAM server (or a MitM on the access connector's TLS) controls every plaintext field it
 hands the connector: which account is reset, how strong the new password is, which cipher stores it,
@@ -24,6 +24,6 @@ pulling in the admin client.
 - [`seal_target_system`] / [`unseal_target_system`] and [`seal_rotation_config`] /
   [`unseal_rotation_config`]: seal and unseal each type to/from an opaque string, generic over any
   `Ids: KeySlotIds`.
-- [`SealedPasswordPolicy::validate`]: the shared password-strength floor (generator length range
-  plus a minimum entropy bound), so both the admin client and the connector reject the same weak
-  policies.
+- [`SealedPasswordPolicy::validate`]: the shared generator-validity check (length range plus at
+  least one character class), so both the admin client and the connector agree on which policies
+  the generator can satisfy.

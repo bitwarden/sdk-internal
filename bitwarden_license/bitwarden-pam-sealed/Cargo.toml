@@ -23,9 +23,8 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
-# Only used to exercise the real password generator in a test that pins the character-set-size
-# consts below against drift; bitwarden-pam-sealed does not depend on either at runtime.
-bitwarden-core = { workspace = true }
+# bitwarden-encoding: B64 test-vector fixtures. bitwarden-generators: pins
+# GENERATOR_MIN_LENGTH/GENERATOR_MAX_LENGTH against drift. Neither is a runtime dependency.
 bitwarden-encoding = { workspace = true }
 bitwarden-generators = { workspace = true }
 

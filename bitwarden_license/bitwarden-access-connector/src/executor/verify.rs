@@ -41,8 +41,8 @@ pub(crate) enum SealRejection {
     /// The sealed target's `method` is `Automatic` but `kind` is absent — a malformed blob, since
     /// a legitimate automatic target always seals a kind (check 5).
     TargetKindMissing,
-    /// The sealed password policy fails the shared strength floor or generator-range bounds
-    /// (check 6).
+    /// The sealed password policy fails the shared generator-validity check (check 6): no
+    /// character class enabled, or length bounds outside the generator's supported range.
     PolicyRejected,
 }
 
@@ -130,7 +130,7 @@ impl VerifiedJob {
 }
 
 /// Implements checks 1–7: unseals both blobs, cross-checks every ID, requires an automatic
-/// target, and enforces the password-strength floor.
+/// target, and checks the policy is one the generator can satisfy.
 pub(crate) fn verify(
     snapshot: WorkSnapshot,
     key_store: &AccessConnectorKeyStore,
@@ -183,7 +183,8 @@ pub(crate) fn verify(
     // claim.
     let kind = target.kind.ok_or(SealRejection::TargetKindMissing)?;
 
-    // Check 6: the policy must meet the shared strength floor and generator bounds.
+    // Check 6: the policy must be one the generator can satisfy (at least one class, length
+    // within the generator's supported range).
     target
         .password_policy
         .validate()
@@ -229,8 +230,7 @@ pub(crate) mod test_support {
         (store, org_key)
     }
 
-    /// A policy comfortably above the strength floor (all classes, length 20:
-    /// `20 * log2(70) ≈ 122.6` bits).
+    /// A generator-valid policy: all classes enabled, length 20.
     pub(crate) fn strong_policy() -> SealedPasswordPolicy {
         SealedPasswordPolicy {
             min_length: 20,
@@ -239,19 +239,6 @@ pub(crate) mod test_support {
             include_lowercase: true,
             include_digits: true,
             include_symbols: true,
-        }
-    }
-
-    /// A policy that passes the bounds check but falls below the entropy floor (digits only,
-    /// length 20: `20 * log2(10) ≈ 66.4` bits).
-    pub(crate) fn weak_policy() -> SealedPasswordPolicy {
-        SealedPasswordPolicy {
-            min_length: 20,
-            max_length: 20,
-            include_uppercase: false,
-            include_lowercase: false,
-            include_digits: true,
-            include_symbols: false,
         }
     }
 
@@ -661,18 +648,25 @@ mod tests {
     }
 
     #[test]
-    fn policy_below_strength_floor_is_rejected() {
+    fn policy_with_no_character_classes_is_rejected() {
         let (store, _org_key) = store_with_org_key();
         let target_system_id = Uuid::new_v4();
         let cipher_id = Uuid::new_v4();
 
-        let weak_target = TargetSystemSealedV1 {
-            password_policy: weak_policy(),
+        let invalid_target = TargetSystemSealedV1 {
+            password_policy: SealedPasswordPolicy {
+                min_length: 20,
+                max_length: 20,
+                include_uppercase: false,
+                include_lowercase: false,
+                include_digits: false,
+                include_symbols: false,
+            },
             ..sample_target(target_system_id)
         };
         let (target_blob, config_blob) = sealed_pair(
             &store,
-            weak_target,
+            invalid_target,
             sample_config(target_system_id, cipher_id),
         );
 

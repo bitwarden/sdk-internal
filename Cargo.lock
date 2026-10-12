@@ -1245,7 +1245,6 @@ name = "bitwarden-pam-sealed"
 version = "4.0.0"
 dependencies = [
  "bitwarden-commercial-marker",
- "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-generators",

@@ -563,7 +563,6 @@ mod tests {
     }
 
     fn policy() -> PasswordPolicy {
-        // 20 * log2(26+26+10+8) ~= 20 * 6.13 ~= 122.6 bits, comfortably above the 80-bit floor.
         PasswordPolicy {
             min_length: 14,
             max_length: 20,
@@ -1197,34 +1196,6 @@ mod tests {
             let error = result.expect_err("the request is invalid");
             assert_eq!(error.id, None);
         }
-    }
-
-    /// A password policy below the shared strength floor is refused, even though its length
-    /// bounds are within the generator's range.
-    #[tokio::test]
-    async fn create_rejects_a_policy_below_the_strength_floor() {
-        // 20 * log2(10) ~= 66.4 bits < 80.
-        let weak = PasswordPolicy {
-            min_length: 14,
-            max_length: 20,
-            include_uppercase: false,
-            include_lowercase: false,
-            include_digits: true,
-            include_symbols: false,
-        };
-
-        let result = client(ApiClient::new_mocked(|_| {}))
-            .create(
-                organization_id(),
-                TargetSystemCreateRequest::Manual {
-                    name: "Legacy mainframe".to_string(),
-                    password_policy: weak,
-                },
-            )
-            .await;
-
-        let error = result.expect_err("a weak policy is rejected");
-        assert_eq!(error.id, None);
     }
 
     /// A kind the SDK cannot name is refused before any network call, so no `PendingSeal` row is

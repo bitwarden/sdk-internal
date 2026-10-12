@@ -1,16 +1,10 @@
-//! Shared password-strength floor for PAM-generated credentials.
+//! Shared generator-validity check for sealed password policies.
 //!
-//! The sealed blobs stop a hostile server from *changing* a target's password policy in transit,
-//! but not from replaying an old, weak policy, or one sealed by a colluding org member. Both the
-//! admin client and the access connector must therefore refuse any policy whose generated password
-//! falls below a fixed entropy floor.
+//! [`SealedPasswordPolicy::validate`] only checks that the generator can produce a password for
+//! the policy; password strength is the customer's call.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-/// Minimum number of bits of entropy a [`SealedPasswordPolicy`] must produce to pass
-/// [`SealedPasswordPolicy::validate`].
-pub const MIN_PASSWORD_ENTROPY_BITS: f64 = 80.0;
 
 /// Shortest password length the generator (`bitwarden_generators::MINIMUM_PASSWORD_LENGTH`) will
 /// produce. Duplicated here, rather than depending on `bitwarden-generators` directly, to keep
@@ -20,18 +14,9 @@ pub const GENERATOR_MIN_LENGTH: u32 = 5;
 /// produce. See [`GENERATOR_MIN_LENGTH`] for why this is duplicated rather than imported.
 pub const GENERATOR_MAX_LENGTH: u32 = 128;
 
-/// Size of the generator's lowercase character set (`a`-`z`) with `avoid_ambiguous: false`.
-const LOWERCASE_SET_SIZE: u32 = 26;
-/// Size of the generator's uppercase character set (`A`-`Z`) with `avoid_ambiguous: false`.
-const UPPERCASE_SET_SIZE: u32 = 26;
-/// Size of the generator's digit character set (`0`-`9`) with `avoid_ambiguous: false`.
-const DIGIT_SET_SIZE: u32 = 10;
-/// Size of the generator's symbol character set (`! @ # $ % ^ & *`).
-const SYMBOL_SET_SIZE: u32 = 8;
-
 /// Errors returned by [`SealedPasswordPolicy::validate`].
 #[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
-pub enum PolicyStrengthError {
+pub enum PasswordPolicyError {
     /// No character class is enabled, so no password could be generated.
     #[error("No character classes are enabled")]
     NoCharacterClasses,
@@ -39,9 +24,6 @@ pub enum PolicyStrengthError {
     /// range (`[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]`).
     #[error("Invalid length bounds")]
     InvalidLengthBounds,
-    /// Fewer than [`MIN_PASSWORD_ENTROPY_BITS`] bits of entropy.
-    #[error("Policy falls below the minimum password strength floor")]
-    BelowStrengthFloor,
 }
 
 /// A password policy for a PAM target system's automatically-generated credential.
@@ -67,51 +49,25 @@ pub struct SealedPasswordPolicy {
 }
 
 impl SealedPasswordPolicy {
-    /// The size of the character pool the generator draws from, given which classes are enabled.
-    fn character_pool_size(&self) -> u32 {
-        let mut pool = 0;
-        if self.include_uppercase {
-            pool += UPPERCASE_SET_SIZE;
-        }
-        if self.include_lowercase {
-            pool += LOWERCASE_SET_SIZE;
-        }
-        if self.include_digits {
-            pool += DIGIT_SET_SIZE;
-        }
-        if self.include_symbols {
-            pool += SYMBOL_SET_SIZE;
-        }
-        pool
+    /// Whether at least one character class is enabled.
+    fn has_character_class(&self) -> bool {
+        self.include_uppercase
+            || self.include_lowercase
+            || self.include_digits
+            || self.include_symbols
     }
 
-    /// The entropy, in bits, of a password generated under this policy: `length × log2(pool)`,
-    /// where `length` is `max_length` clamped to the generator's supported range (0 if no class is
-    /// enabled).
-    pub fn entropy_bits(&self) -> f64 {
-        let pool = self.character_pool_size();
-        if pool == 0 {
-            return 0.0;
-        }
-        let length = self
-            .max_length
-            .clamp(GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH);
-        f64::from(length) * f64::from(pool).log2()
-    }
-
-    /// Validates this policy against the shared strength floor.
-    pub fn validate(&self) -> Result<(), PolicyStrengthError> {
-        if self.character_pool_size() == 0 {
-            return Err(PolicyStrengthError::NoCharacterClasses);
+    /// Validates that the generator can produce a password for this policy: at least one
+    /// character class enabled, and length bounds within the generator's supported range.
+    pub fn validate(&self) -> Result<(), PasswordPolicyError> {
+        if !self.has_character_class() {
+            return Err(PasswordPolicyError::NoCharacterClasses);
         }
         if !(GENERATOR_MIN_LENGTH <= self.min_length
             && self.min_length <= self.max_length
             && self.max_length <= GENERATOR_MAX_LENGTH)
         {
-            return Err(PolicyStrengthError::InvalidLengthBounds);
-        }
-        if self.entropy_bits() < MIN_PASSWORD_ENTROPY_BITS {
-            return Err(PolicyStrengthError::BelowStrengthFloor);
+            return Err(PasswordPolicyError::InvalidLengthBounds);
         }
         Ok(())
     }
@@ -144,107 +100,6 @@ mod tests {
         );
     }
 
-    /// Runs the real generator with one character class at a time and checks the set of observed
-    /// characters matches the size hard-coded above; 40 passwords at length 128 gives enough draws
-    /// that every reachable character shows up, so this catches drift in the generator's char sets.
-    #[test]
-    fn generator_char_set_sizes_match_hardcoded_consts() {
-        use std::collections::BTreeSet;
-
-        use bitwarden_core::Client;
-        use bitwarden_generators::{GeneratorClientsExt, PasswordGeneratorRequest};
-
-        fn observed_chars(request: impl Fn() -> PasswordGeneratorRequest) -> BTreeSet<char> {
-            let client = Client::new(None);
-            let generator = client.generator();
-            let mut seen = BTreeSet::new();
-            for _ in 0..40 {
-                let password = generator.password(request()).expect("valid request");
-                seen.extend(password.chars());
-            }
-            seen
-        }
-
-        let base = || PasswordGeneratorRequest {
-            lowercase: false,
-            uppercase: false,
-            numbers: false,
-            special: false,
-            length: u8::try_from(GENERATOR_MAX_LENGTH).expect("fits in u8"),
-            avoid_ambiguous: false,
-            min_lowercase: None,
-            min_uppercase: None,
-            min_number: None,
-            min_special: None,
-            custom_required_chars: None,
-            custom_allowed_chars: None,
-            max_consecutive: None,
-        };
-
-        let lowercase = observed_chars(|| PasswordGeneratorRequest {
-            lowercase: true,
-            ..base()
-        });
-        assert_eq!(lowercase.len() as u32, LOWERCASE_SET_SIZE);
-
-        let uppercase = observed_chars(|| PasswordGeneratorRequest {
-            uppercase: true,
-            ..base()
-        });
-        assert_eq!(uppercase.len() as u32, UPPERCASE_SET_SIZE);
-
-        let digits = observed_chars(|| PasswordGeneratorRequest {
-            numbers: true,
-            ..base()
-        });
-        assert_eq!(digits.len() as u32, DIGIT_SET_SIZE);
-
-        let symbols = observed_chars(|| PasswordGeneratorRequest {
-            special: true,
-            ..base()
-        });
-        assert_eq!(symbols.len() as u32, SYMBOL_SET_SIZE);
-    }
-
-    #[test]
-    fn entropy_all_classes_length_14_meets_floor() {
-        // 14 * log2(26+26+10+8) = 14 * log2(70) ~= 14 * 6.129 ~= 85.8 bits.
-        let policy = all_classes(14);
-        let entropy = policy.entropy_bits();
-        assert!(
-            entropy >= MIN_PASSWORD_ENTROPY_BITS,
-            "entropy was {entropy}"
-        );
-        assert!(policy.validate().is_ok());
-    }
-
-    #[test]
-    fn entropy_digits_only_length_20_is_below_floor() {
-        // 20 * log2(10) ~= 20 * 3.32 ~= 66.4 bits < 80.
-        let policy = SealedPasswordPolicy {
-            min_length: GENERATOR_MIN_LENGTH,
-            max_length: 20,
-            include_uppercase: false,
-            include_lowercase: false,
-            include_digits: true,
-            include_symbols: false,
-        };
-        let entropy = policy.entropy_bits();
-        assert!(entropy < MIN_PASSWORD_ENTROPY_BITS, "entropy was {entropy}");
-        assert_eq!(
-            policy.validate(),
-            Err(PolicyStrengthError::BelowStrengthFloor)
-        );
-    }
-
-    #[test]
-    fn entropy_clamps_max_length_to_generator_range() {
-        // A max_length above the generator's ceiling is clamped down before computing entropy.
-        let huge = all_classes(GENERATOR_MAX_LENGTH + 1000);
-        let clamped = all_classes(GENERATOR_MAX_LENGTH);
-        assert_eq!(huge.entropy_bits(), clamped.entropy_bits());
-    }
-
     #[test]
     fn validate_rejects_no_character_classes() {
         let policy = SealedPasswordPolicy {
@@ -257,7 +112,7 @@ mod tests {
         };
         assert_eq!(
             policy.validate(),
-            Err(PolicyStrengthError::NoCharacterClasses)
+            Err(PasswordPolicyError::NoCharacterClasses)
         );
     }
 
@@ -267,7 +122,7 @@ mod tests {
         policy.min_length = 15;
         assert_eq!(
             policy.validate(),
-            Err(PolicyStrengthError::InvalidLengthBounds)
+            Err(PasswordPolicyError::InvalidLengthBounds)
         );
     }
 
@@ -277,7 +132,7 @@ mod tests {
         policy.max_length = GENERATOR_MAX_LENGTH + 1;
         assert_eq!(
             policy.validate(),
-            Err(PolicyStrengthError::InvalidLengthBounds)
+            Err(PasswordPolicyError::InvalidLengthBounds)
         );
     }
 
@@ -287,7 +142,22 @@ mod tests {
         policy.min_length = GENERATOR_MIN_LENGTH - 1;
         assert_eq!(
             policy.validate(),
-            Err(PolicyStrengthError::InvalidLengthBounds)
+            Err(PasswordPolicyError::InvalidLengthBounds)
         );
+    }
+
+    /// A weak but generator-valid policy (digits only, shortest allowed length) passes: password
+    /// strength is the customer's call, not this crate's.
+    #[test]
+    fn weak_but_generator_valid_policy_passes() {
+        let policy = SealedPasswordPolicy {
+            min_length: GENERATOR_MIN_LENGTH,
+            max_length: GENERATOR_MIN_LENGTH,
+            include_uppercase: false,
+            include_lowercase: false,
+            include_digits: true,
+            include_symbols: false,
+        };
+        assert!(policy.validate().is_ok());
     }
 }
