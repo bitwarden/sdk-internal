@@ -4,6 +4,7 @@
 //! - `#[wasm_export]` attribute macro for an impl block or free function exported to JavaScript.
 //! - `#[wasm_record]` attribute macro for a type that crosses the ABI through serde.
 //! - `#[wasm_object]` attribute macro for a type that crosses the ABI as a handle.
+//! - `#[wasm_import]` attribute macro for an `extern "C"` block of JavaScript imports.
 //!
 //! Each macro **replaces** the attribute it stands in for rather than decorating it, so an item
 //! carries one of these and no `#[wasm_bindgen]` or `#[tsify]` of its own. That is what lets the
@@ -16,6 +17,7 @@ use proc_macro::TokenStream;
 
 mod attrs;
 mod wasm_export;
+mod wasm_import;
 mod wasm_object;
 mod wasm_record;
 
@@ -86,4 +88,26 @@ pub fn wasm_record(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn wasm_object(attr: TokenStream, item: TokenStream) -> TokenStream {
     wasm_object::wasm_object(attr.into(), item.into()).into()
+}
+
+/// Declares a block of JavaScript imports, in place of `#[wasm_bindgen]` on an `extern "C"` block.
+///
+/// Arguments are forwarded to `#[wasm_bindgen]`, and the attributes inside the block are left for
+/// it to read. Each `type` the block declares also gets the wire traits, so it can appear in a
+/// `#[wasm_export]` signature. Unlike the other macros, `#[wasm_bindgen]` is applied
+/// unconditionally: an extern block cannot compile without it, so the block's own `cfg` decides.
+///
+/// ```ignore
+/// #[wasm_import]
+/// extern "C" {
+///     #[wasm_bindgen(js_name = SharedUnlockDriver)]
+///     pub type RawJsSharedUnlockDriver;
+///
+///     #[wasm_bindgen(method, catch)]
+///     async fn lock_user(this: &RawJsSharedUnlockDriver, user_id: String) -> Result<(), JsValue>;
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn wasm_import(attr: TokenStream, item: TokenStream) -> TokenStream {
+    wasm_import::wasm_import(attr.into(), item.into()).into()
 }
