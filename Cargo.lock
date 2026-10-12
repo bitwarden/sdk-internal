@@ -1575,6 +1575,7 @@ version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
+ "bitwarden-ffi",
  "console_error_panic_hook",
  "gloo-timers",
  "js-sys",

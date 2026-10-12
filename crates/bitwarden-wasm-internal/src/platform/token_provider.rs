@@ -9,7 +9,7 @@ export interface TokenProvider {
 }
 "#;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     #[wasm_bindgen(js_name = TokenProvider)]
     pub type JsTokenProvider;

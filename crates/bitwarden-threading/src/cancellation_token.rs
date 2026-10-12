@@ -6,7 +6,7 @@ pub mod wasm {
 
     use super::*;
 
-    #[wasm_bindgen]
+    #[bitwarden_ffi::wasm_import]
     extern "C" {
         #[wasm_bindgen(typescript_type = AbortController)]
         #[derive(Clone)]
