@@ -80,10 +80,7 @@ impl TryFrom<TargetSystemMethod> for ApiTargetSystemMethod {
 
 /// The technology a target system represents. Only meaningful for
 /// [`Automatic`](TargetSystemMethod::Automatic) systems; a manual rotation has no integration.
-///
-/// The server never sees this value: it lives only in the sealed blob
-/// (`bitwarden_pam_sealed::SealedTargetSystemKind`), populated from the unsealed blob rather
-/// than a server response field.
+/// Lives only in the sealed blob.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
@@ -130,10 +127,9 @@ pub enum TargetSystemStatus {
     Active,
     /// No new rotation jobs are dispatched; jobs already in flight run to completion.
     Disabled,
-    /// Registered but not yet sealed: [`TargetSystemsClient::create`] hides both phases behind
-    /// one call, but a row can be left here if sealing fails. Call
-    /// [`TargetSystemsClient::update`] to finish sealing, or [`TargetSystemsClient::delete`] to
-    /// discard it.
+    /// Registered but not yet sealed, left by a failed [`TargetSystemsClient::create`].
+    /// [`TargetSystemsClient::update`] finishes sealing; [`TargetSystemsClient::delete`]
+    /// discards it.
     ///
     /// [`TargetSystemsClient::create`]: super::TargetSystemsClient::create
     /// [`TargetSystemsClient::update`]: super::TargetSystemsClient::update
@@ -297,10 +293,7 @@ impl From<ApiSessionTerminationOutcome> for SessionTerminationOutcome {
 
 /// Password generation policy for a target system. For [`Manual`](TargetSystemMethod::Manual)
 /// systems it is guidance for the operator that nothing enforces.
-///
-/// The server never sees this value: it lives only in the sealed blob
-/// (`bitwarden_pam_sealed::SealedPasswordPolicy`). Validation delegates to the shared strength
-/// floor in `bitwarden-pam-sealed`, not just length bounds.
+/// Lives only in the sealed blob.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -322,8 +315,7 @@ pub struct PasswordPolicy {
 impl From<SealedPasswordPolicy> for PasswordPolicy {
     fn from(policy: SealedPasswordPolicy) -> Self {
         Self {
-            // `validate` bounds both fields to <=128 before sealing, so these fit in `i32` today;
-            // a future SDK with looser bounds would saturate here rather than panic.
+            // `validate` caps both at 128 before sealing, so this never saturates in practice.
             min_length: i32::try_from(policy.min_length).unwrap_or(i32::MAX),
             max_length: i32::try_from(policy.max_length).unwrap_or(i32::MAX),
             include_uppercase: policy.include_uppercase,

@@ -24,19 +24,16 @@ pub enum RotationError {
     #[error("Cannot send a variant this SDK version does not recognize to the server")]
     UnrecognizedVariant,
     /// The caller is not a member of the organization they addressed, or its key is not in the
-    /// key store. Registering a connector, or sealing a target system or rotation config, needs
-    /// the organization key.
+    /// key store.
     #[error("The organization key is unavailable")]
     MissingOrganizationKey,
     /// A cryptographic operation failed while registering a connector.
     #[error(transparent)]
     Crypto(#[from] CryptoError),
-    /// Sealing a target system or rotation config blob failed before it was sent to the server.
-    /// Unsealing failures don't raise this: they degrade the item's sealed fields to `None`
-    /// instead, so one bad item cannot fail a `list`.
+    /// Sealing a blob failed. Unsealing failures degrade to `None` instead.
     #[error(transparent)]
     Sealed(#[from] SealedDataError),
-    /// A rotation config named a `target_system_id` that does not exist in this organization.
+    /// The named target system does not exist in this organization.
     #[error("Target system not found")]
     TargetSystemNotFound,
     /// A network or (de)serialization error occurred while calling the server.

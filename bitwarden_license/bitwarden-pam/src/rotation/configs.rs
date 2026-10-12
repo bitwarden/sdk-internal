@@ -49,9 +49,7 @@ pub struct RotationConfig {
     pub target_system_name: String,
     /// The target system's rotation method, which decides the actions the config offers.
     pub target_system_method: TargetSystemMethod,
-    /// The config's security-relevant fields, read from the unsealed blob. `None` means the blob
-    /// is missing, fails to unseal, or its sealed IDs disagree with this row's plaintext copies —
-    /// the item is still returned, so one bad blob never fails [`RotationConfigsClient::list`].
+    /// `None` if the blob is missing, fails to unseal, or disagrees with this row's IDs.
     pub sealed: Option<RotationConfigSealedFields>,
     /// The Quartz cron expression driving scheduled rotation, or `None` for no schedule.
     pub schedule_cron: Option<String>,
@@ -75,15 +73,14 @@ pub struct RotationConfig {
     pub revision_date: DateTime<Utc>,
 }
 
-/// The security-relevant fields of a rotation config, read from its unsealed blob. The server
-/// never sees these: it stores only the opaque blob they came from.
+/// Security-relevant fields of a rotation config; the server only stores them sealed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct RotationConfigSealedFields {
-    /// The account within the target system: a username, UPN, or service-account name.
+    /// The account within the target system, e.g. a username or UPN.
     pub account_identity: String,
-    /// Whether the connector terminates the account's sessions after a successful rotation.
+    /// Whether to terminate the account's sessions after a successful rotation.
     pub terminate_sessions: bool,
 }
 
@@ -91,20 +88,12 @@ impl RotationConfig {
     /// Which actions this config offers, given the status of its target system.
     ///
     /// See [`rotation_config_actions`] for how an unloaded target system's `target_status` is
-    /// treated. A `PendingSeal` target reads the same as any other non-`Active` status here,
-    /// since the response carries only `target_system_method`; check
-    /// [`crate::TargetSystemsClient::list`] directly if that distinction matters.
+    /// treated; `PendingSeal` counts as any other non-`Active` status.
     pub fn actions(&self, target_status: Option<TargetSystemStatus>) -> RotationConfigActions {
         rotation_config_actions(self, target_status)
     }
 
-    /// Builds a [`RotationConfig`] from the server's response, unsealing its blob against `ctx`.
-    /// A blob that fails to unseal or validate degrades [`Self::sealed`] to `None` rather than
-    /// failing, so one bad item cannot fail [`RotationConfigsClient::list`].
-    ///
-    /// `organization_id` must be the id the caller queried under, not `response.organization_id`:
-    /// trusting the server's copy would let it substitute another organization's validly-sealed
-    /// blob into this one's list.
+    /// `organization_id` must be the queried id, not `response.organization_id`; see `seal`.
     fn from_response(
         organization_id: OrganizationId,
         response: PamRotationConfigResponseModel,
@@ -221,8 +210,8 @@ pub struct RotationConfigCreateRequest {
     pub target_system_id: TargetSystemId,
     /// The account within the target system.
     pub account_identity: String,
-    /// Whether to terminate the account's sessions after a successful rotation. Only allowed
-    /// when the target's unsealed `supports_session_termination` is confirmed `true`.
+    /// Whether to terminate the account's sessions after a successful rotation. Requires the
+    /// target's sealed `supports_session_termination` to be `true`.
     pub terminate_sessions: bool,
     /// A Quartz cron expression, or `None` for no scheduled rotation.
     pub schedule_cron: Option<String>,
@@ -278,8 +267,7 @@ impl RotationConfigsClient {
         RotationConfigDetail::from_response(organization_id, response, &mut ctx)
     }
 
-    /// Validates, seals, and creates a rotation config. See `Self::validate_target` for the
-    /// checks applied to `target_system_id` and `terminate_sessions` before sealing.
+    /// Validates, seals, and creates a rotation config.
     pub async fn create(
         &self,
         organization_id: OrganizationId,
@@ -314,12 +302,8 @@ impl RotationConfigsClient {
         RotationConfigDetail::from_response(organization_id, response, &mut ctx)
     }
 
-    /// Re-seals and replaces a rotation config's blob wholesale, so every field the blob carries
-    /// must be resupplied even though `cipher_id` and `target_system_id` cannot actually change.
-    /// Rejects if `request`'s `cipher_id`/`target_system_id` disagree with the existing config's
-    /// own plaintext copies ([`RotationValidationError::RotationConfigImmutableFieldMismatch`]),
-    /// before sealing or sending anything. Applies the same target-system validation as
-    /// [`Self::create`].
+    /// Re-seals the whole blob, so every field must be resupplied; `cipher_id` and
+    /// `target_system_id` must match the existing config.
     pub async fn update(
         &self,
         organization_id: OrganizationId,
@@ -387,10 +371,8 @@ impl RotationConfigsClient {
         )?)
     }
 
-    /// Validates `target_system_id` against the organization's target systems: it must exist and
-    /// have verified sealed fields (see [`TargetSystem::sealed`]), unless still `PendingSeal` —
-    /// a config may be created before its target finishes setup. If `terminate_sessions` is
-    /// requested, the target must confirm `supports_session_termination`.
+    /// The target must exist with verified sealed fields, unless still `PendingSeal`, and must
+    /// confirm `supports_session_termination` if `terminate_sessions` is requested.
     async fn validate_target(
         &self,
         organization_id: OrganizationId,
@@ -707,8 +689,7 @@ mod tests {
         }
     }
 
-    /// A sealed, active, automatic target system supporting session termination, matching
-    /// `target_system_id()`.
+    /// A sealed, active, automatic target supporting session termination.
     fn terminable_target_response(
         organization_key: &SymmetricCryptoKey,
     ) -> PamTargetSystemResponseModel {
@@ -799,8 +780,7 @@ mod tests {
         );
     }
 
-    /// A blob sealed for a different config (wrong cipher) must degrade the item to
-    /// `sealed: None`, never fail the conversion outright.
+    /// A blob sealed for a different cipher.
     #[test]
     fn an_invalid_blob_degrades_to_no_sealed_fields() {
         let organization_key = organization_key();
@@ -836,9 +816,7 @@ mod tests {
         }
     }
 
-    /// A hostile server could echo org B's id on an item served as part of org A's `list`, hoping
-    /// a multi-org caller unseals org B's validly-sealed blob as if it belonged to org A. The key
-    /// used must always be the queried `organization_id`, never `response.organization_id`.
+    /// A hostile server serves org B's item, with org B's validly-sealed blob, in org A's list.
     #[test]
     fn a_blob_from_a_different_organization_is_not_trusted() {
         let org_a = organization_id();
@@ -846,7 +824,7 @@ mod tests {
         let org_a_key = organization_key();
         let org_b_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
-        // Validly seals under org B's key; the caller holds both orgs' keys (a multi-org admin).
+        // The caller holds both orgs' keys.
         let org_b_blob = seal_config_with(&org_b_key, sample_sealed_data());
 
         let store = KeyStore::<KeySlotIds>::default();
@@ -861,7 +839,6 @@ mod tests {
         }
 
         let response = PamRotationConfigResponseModel {
-            // Claims org B even though served as part of org A's list.
             organization_id: Some(org_b.into()),
             sealed_data: Some(org_b_blob),
             ..sample_response(&organization_key())
@@ -950,8 +927,7 @@ mod tests {
                 id: None,
                 ..sample_response(&organization_key)
             },
-            // `organization_id: None` is deliberately not a case here: it degrades `sealed` to
-            // `None` rather than failing the item — see
+            // `organization_id: None` degrades instead; see
             // `a_blob_from_a_different_organization_is_not_trusted`.
             PamRotationConfigResponseModel {
                 cipher_id: None,
@@ -1189,7 +1165,6 @@ mod tests {
         assert!(configs.is_empty());
     }
 
-    /// One invalid item (a garbage blob) must not fail the whole list.
     #[tokio::test]
     async fn list_returns_the_rest_when_one_item_has_an_invalid_blob() {
         let organization_key = organization_key();
@@ -1415,8 +1390,7 @@ mod tests {
         }
     }
 
-    /// The target not supporting session termination must reject `terminate_sessions: true`,
-    /// after fetching the target but before writing anything.
+    /// Rejected after fetching the target but before writing anything.
     #[tokio::test]
     async fn create_rejects_terminate_sessions_on_an_unsupported_target() {
         let organization_key = organization_key();
@@ -1464,8 +1438,7 @@ mod tests {
         ));
     }
 
-    /// A `PendingSeal` target's capability is unknown, so `terminate_sessions: true` is rejected
-    /// the same way as an unsupported target, though creating the config is otherwise allowed.
+    /// An unknown capability counts as unsupported.
     #[tokio::test]
     async fn create_rejects_terminate_sessions_on_a_pending_seal_target() {
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -1501,8 +1474,6 @@ mod tests {
         ));
     }
 
-    /// Creating against an unknown target system must fail with a clear error rather than seal
-    /// and send a request the server will also reject.
     #[tokio::test]
     async fn create_fails_when_the_target_system_does_not_exist() {
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -1519,8 +1490,6 @@ mod tests {
         assert!(matches!(result, Err(RotationError::TargetSystemNotFound)));
     }
 
-    /// A target whose blob fails to unseal cannot be trusted at all, so creating a config against
-    /// it is refused outright, regardless of `terminate_sessions`.
     #[tokio::test]
     async fn create_fails_when_the_target_systems_seal_is_invalid() {
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -1640,9 +1609,7 @@ mod tests {
         ));
     }
 
-    /// A request naming a different `target_system_id` than the existing config must be refused
-    /// before sealing or sending anything. The mock has no target-system or `put` expectation,
-    /// so reaching either would fail the test.
+    /// The mock has no target-system or `put` expectation, so reaching either fails the test.
     #[tokio::test]
     async fn update_rejects_a_target_system_id_different_from_the_existing_config() {
         let organization_key = organization_key();

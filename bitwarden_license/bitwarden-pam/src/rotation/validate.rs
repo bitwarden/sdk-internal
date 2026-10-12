@@ -20,8 +20,7 @@ pub enum RotationValidationError {
     /// `account_identity` was empty (after trimming) or exceeded the server's length limit.
     #[error("Account identity must be between 1 and {MAX_ACCOUNT_IDENTITY_LENGTH} characters")]
     InvalidAccountIdentity,
-    /// A password policy's length bounds fall outside the generator's supported range
-    /// (`GENERATOR_MIN_LENGTH..=GENERATOR_MAX_LENGTH`), or `min_length` exceeds `max_length`.
+    /// Password lengths out of order or outside the generator's range.
     #[error("Password length bounds are outside the generator's supported range")]
     InvalidPasswordLengthBounds,
     /// A password policy enabled no character classes, so no credential could satisfy it.
@@ -30,27 +29,20 @@ pub enum RotationValidationError {
     /// `schedule_cron` was present but is not shaped like a Quartz cron expression.
     #[error("Schedule must be a 6- or 7-field Quartz cron expression")]
     InvalidCron,
-    /// `terminate_sessions` was requested, but the target's unsealed
-    /// `supports_session_termination` is not `Some(true)`. A `PendingSeal` or unverifiable
-    /// target's capability is unknown, and treated as unsupported.
+    /// `terminate_sessions` was requested but the target doesn't confirm
+    /// `supports_session_termination`.
     #[error("The target system does not confirm it supports session termination")]
     SessionTerminationUnsupported,
-    /// The rotation config's target system exists but its sealed blob is `Invalid` (missing,
-    /// undecryptable, or mismatched), so nothing about it can be trusted.
+    /// The rotation config's target system has a sealed blob that can't be verified.
     #[error("The target system's sealed data is invalid")]
     TargetSystemSealInvalid,
-    /// [`TargetSystemsClient::update`](super::TargetSystemsClient::update)'s request named a
-    /// different `method` than the target system's own plaintext `method`.
+    /// An update tried to change a target system's `method`.
     #[error("Target system method cannot be changed")]
     TargetSystemMethodMismatch,
-    /// [`TargetSystemsClient::update`](super::TargetSystemsClient::update)'s request named a
-    /// different `kind` than the target system's own sealed `kind`, checked only once the
-    /// existing blob's [`TargetSystemSealedFields`](crate::TargetSystemSealedFields) are
-    /// confirmed present.
+    /// An update tried to change a target system's sealed `kind`.
     #[error("Target system kind cannot be changed")]
     TargetSystemKindMismatch,
-    /// [`RotationConfigsClient::update`](super::RotationConfigsClient::update)'s request named a
-    /// different `cipher_id` or `target_system_id` than the config's own plaintext copies.
+    /// An update tried to change a rotation config's `cipher_id` or `target_system_id`.
     #[error("Rotation config cipher or target system cannot be changed")]
     RotationConfigImmutableFieldMismatch,
 }
@@ -84,10 +76,8 @@ fn validate_account_identity(identity: &str) -> Result<(), RotationValidationErr
     Ok(())
 }
 
-/// Validates a password policy against the shared `bitwarden-pam-sealed` generator-validity check
-/// (length range plus at least one character class). Both this client and the access connector
-/// enforce the same rule, so an operator learns about an unsatisfiable policy while editing
-/// rather than from a refused rotation.
+/// The access connector applies the same check, so an unsatisfiable policy is caught while editing
+/// rather than at rotation.
 pub(super) fn validate_password_policy(
     policy: &PasswordPolicy,
 ) -> Result<(), RotationValidationError> {
@@ -105,9 +95,7 @@ fn validate_schedule_cron(cron: Option<&String>) -> Result<(), RotationValidatio
     }
 }
 
-/// Validates a target system request. Shared by
-/// [`TargetSystemsClient::create`](super::TargetSystemsClient::create) and
-/// [`TargetSystemsClient::update`](super::TargetSystemsClient::update).
+/// Validates a target system request.
 pub(super) fn validate_target_system_request(
     request: &TargetSystemCreateRequest,
 ) -> Result<(), RotationValidationError> {
@@ -115,11 +103,8 @@ pub(super) fn validate_target_system_request(
     validate_password_policy(request.password_policy())
 }
 
-/// Validates a rotation config request. Shared by
-/// [`RotationConfigsClient::create`](super::RotationConfigsClient::create) and
-/// [`RotationConfigsClient::update`](super::RotationConfigsClient::update). Does not validate
-/// `terminate_sessions` against the target system's capability; that needs a network round trip
-/// done separately by the caller.
+/// Validates a rotation config request. `terminate_sessions` is checked against the target
+/// separately, since that needs a network call.
 pub(super) fn validate_config_request(
     request: &RotationConfigCreateRequest,
 ) -> Result<(), RotationValidationError> {
