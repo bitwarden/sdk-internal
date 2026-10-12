@@ -16,10 +16,43 @@ use crate::models;
 pub struct SendItemMetadataModel {
     #[serde(rename = "itemId", alias = "ItemId")]
     pub item_id: uuid::Uuid,
+    #[serde(
+        rename = "folderName",
+        alias = "FolderName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub folder_name: Option<String>,
+    #[serde(
+        rename = "collectionNames",
+        alias = "CollectionNames",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub collection_names: Option<Vec<String>>,
+    #[serde(
+        rename = "organizationName",
+        alias = "OrganizationName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub organization_name: Option<String>,
+    #[serde(rename = "creationDate", alias = "CreationDate")]
+    pub creation_date: String,
+    #[serde(rename = "revisionDate", alias = "RevisionDate")]
+    pub revision_date: String,
 }
 
 impl SendItemMetadataModel {
-    pub fn new(item_id: uuid::Uuid) -> SendItemMetadataModel {
-        SendItemMetadataModel { item_id }
+    pub fn new(
+        item_id: uuid::Uuid,
+        creation_date: String,
+        revision_date: String,
+    ) -> SendItemMetadataModel {
+        SendItemMetadataModel {
+            item_id,
+            folder_name: None,
+            collection_names: None,
+            organization_name: None,
+            creation_date,
+            revision_date,
+        }
     }
 }

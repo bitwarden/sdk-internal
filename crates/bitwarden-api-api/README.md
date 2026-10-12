@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`da45237f89d644204b72f8e1b40cc16d74df9804`](https://github.com/bitwarden/server/commit/da45237f89d644204b72f8e1b40cc16d74df9804)
+  [`12ead1337e67f30458fd1cca6e151c36cb660626`](https://github.com/bitwarden/server/commit/12ead1337e67f30458fd1cca6e151c36cb660626)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -115,6 +115,8 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountsKeyManagementApi_                   | [**post_user_key_id**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_user_key_id)                                                                | **POST** /accounts/key-management/user-key-id                                                            | Reports the key id of the caller's current user key to the server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | _AccountsKeyManagementApi_                   | [**regenerate_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_regenerate_keys)                                                                  | **POST** /accounts/key-management/regenerate-keys                                                        |
 | _AccountsKeyManagementApi_                   | [**rotate_user_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_rotate_user_keys)                                                                | **POST** /accounts/key-management/rotate-user-keys                                                       |
+| _AuditApi_                                   | [**get_items**](docs/AuditApi.md#pam_audit_get_items)                                                                                                            | **GET** /organizations/{orgId}/audit/items                                                               |
+| _AuditApi_                                   | [**get_trail**](docs/AuditApi.md#pam_audit_get_trail)                                                                                                            | **GET** /organizations/{orgId}/audit                                                                     |
 | _AuthRequestsApi_                            | [**get**](docs/AuthRequestsApi.md#auth_requests_get)                                                                                                             | **GET** /auth-requests/{id}                                                                              |
 | _AuthRequestsApi_                            | [**get_all**](docs/AuthRequestsApi.md#auth_requests_get_all)                                                                                                     | **GET** /auth-requests                                                                                   |
 | _AuthRequestsApi_                            | [**get_pending_auth_requests**](docs/AuthRequestsApi.md#auth_requests_get_pending_auth_requests)                                                                 | **GET** /auth-requests/pending                                                                           |
@@ -341,6 +343,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationSponsorshipsApi_                | [**revoke_sponsorship**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_revoke_sponsorship)                                                       | **DELETE** /organization/sponsorship/{sponsoringOrganizationId}                                          |
 | _OrganizationSponsorshipsApi_                | [**sync**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_sync)                                                                                   | **POST** /organization/sponsorship/sync                                                                  |
 | _OrganizationSubscriptionsApi_               | [**get_organization_subscription_preview**](docs/OrganizationSubscriptionsApi.md#get_organization_subscription_preview)                                          | **GET** /organizations/{organizationId}/billing/subscription/preview                                     |
+| _OrganizationSubscriptionsApi_               | [**preview_organization_plan_change**](docs/OrganizationSubscriptionsApi.md#preview_organization_plan_change)                                                    | **POST** /organizations/{organizationId}/billing/subscription/plan-change/preview                        |
 | _OrganizationSubscriptionsApi_               | [**preview_organization_subscription_purchase**](docs/OrganizationSubscriptionsApi.md#preview_organization_subscription_purchase)                                | **POST** /organizations/billing/subscription/purchase/preview                                            |
 | _OrganizationUsersApi_                       | [**accept**](docs/OrganizationUsersApi.md#organization_users_accept)                                                                                             | **POST** /organizations/{orgId}/users/{organizationUserId}/accept                                        |
 | _OrganizationUsersApi_                       | [**accept_init**](docs/OrganizationUsersApi.md#organization_users_accept_init)                                                                                   | **POST** /organizations/{orgId}/users/{organizationUserId}/accept-init                                   |
@@ -604,6 +607,10 @@ All URIs are relative to *https://api.bitwarden.com*
 
 - [AcceptOrganizationInviteLinkRequestModel](docs/AcceptOrganizationInviteLinkRequestModel.md)
 - [AccessApprovalMode](docs/AccessApprovalMode.md)
+- [AccessAuditEventResponseModel](docs/AccessAuditEventResponseModel.md)
+- [AccessAuditEventResponseModelListResponseModel](docs/AccessAuditEventResponseModelListResponseModel.md)
+- [AccessAuditItemResponseModel](docs/AccessAuditItemResponseModel.md)
+- [AccessAuditItemResponseModelListResponseModel](docs/AccessAuditItemResponseModelListResponseModel.md)
 - [AccessDeciderKind](docs/AccessDeciderKind.md)
 - [AccessDecisionRequestModel](docs/AccessDecisionRequestModel.md)
 - [AccessDecisionVerdict](docs/AccessDecisionVerdict.md)
@@ -1001,6 +1008,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PotentialGranteeResponseModelListResponseModel](docs/PotentialGranteeResponseModelListResponseModel.md)
 - [PreValidateSponsorshipResponseModel](docs/PreValidateSponsorshipResponseModel.md)
 - [PremiumCloudHostedSubscriptionRequest](docs/PremiumCloudHostedSubscriptionRequest.md)
+- [PreviewOrganizationPlanChangeRequest](docs/PreviewOrganizationPlanChangeRequest.md)
 - [PreviewOrganizationSubscriptionPlanChangeTaxRequest](docs/PreviewOrganizationSubscriptionPlanChangeTaxRequest.md)
 - [PreviewOrganizationSubscriptionPurchaseRequest](docs/PreviewOrganizationSubscriptionPurchaseRequest.md)
 - [PreviewOrganizationSubscriptionPurchaseTaxRequest](docs/PreviewOrganizationSubscriptionPurchaseTaxRequest.md)

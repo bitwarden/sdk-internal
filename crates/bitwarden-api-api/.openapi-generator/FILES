@@ -6,6 +6,7 @@ src/apis/account_billing_v_next_api.rs
 src/apis/accounts_api.rs
 src/apis/accounts_billing_api.rs
 src/apis/accounts_key_management_api.rs
+src/apis/audit_api.rs
 src/apis/auth_requests_api.rs
 src/apis/cipher_lease_api.rs
 src/apis/ciphers_api.rs
@@ -82,6 +83,10 @@ src/apis/web_authn_api.rs
 src/lib.rs
 src/models/accept_organization_invite_link_request_model.rs
 src/models/access_approval_mode.rs
+src/models/access_audit_event_response_model.rs
+src/models/access_audit_event_response_model_list_response_model.rs
+src/models/access_audit_item_response_model.rs
+src/models/access_audit_item_response_model_list_response_model.rs
 src/models/access_decider_kind.rs
 src/models/access_decision_request_model.rs
 src/models/access_decision_verdict.rs
@@ -480,6 +485,7 @@ src/models/potential_grantee_response_model.rs
 src/models/potential_grantee_response_model_list_response_model.rs
 src/models/pre_validate_sponsorship_response_model.rs
 src/models/premium_cloud_hosted_subscription_request.rs
+src/models/preview_organization_plan_change_request.rs
 src/models/preview_organization_subscription_plan_change_tax_request.rs
 src/models/preview_organization_subscription_purchase_request.rs
 src/models/preview_organization_subscription_purchase_tax_request.rs
