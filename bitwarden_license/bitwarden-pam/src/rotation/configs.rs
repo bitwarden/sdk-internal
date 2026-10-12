@@ -10,7 +10,7 @@ use bitwarden_core::{
     key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
-use bitwarden_crypto::{KeyStore, KeyStoreContext};
+use bitwarden_crypto::{CryptoError, Decryptable, IdentifyKey, KeyStore, KeyStoreContext};
 use bitwarden_pam_sealed::seal_rotation_config;
 use bitwarden_vault::CipherId;
 use chrono::{DateTime, Utc};
@@ -30,12 +30,114 @@ use super::{
 };
 use crate::{RotationConfigId, TargetSystemId};
 
+/// A rotation config as the server returns it, with its security-relevant fields still sealed.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct RotationConfig {
+    id: RotationConfigId,
+    organization_id: OrganizationId,
+    cipher_id: CipherId,
+    target_system_id: TargetSystemId,
+    target_system_name: String,
+    target_system_method: TargetSystemMethod,
+    sealed_data: Option<String>,
+    schedule_cron: Option<String>,
+    rotate_on_access_end: bool,
+    enabled: bool,
+    last_rotation_at: Option<DateTime<Utc>>,
+    next_rotation_at: Option<DateTime<Utc>>,
+    has_active_job: bool,
+    awaiting_manual_rotation: bool,
+    creation_date: DateTime<Utc>,
+    revision_date: DateTime<Utc>,
+}
+
+impl RotationConfig {
+    /// `organization_id` must be the queried id, not `response.organization_id`; see `seal`.
+    fn from_response(
+        organization_id: OrganizationId,
+        response: PamRotationConfigResponseModel,
+    ) -> Result<Self, RotationError> {
+        let sealed_data = if response.organization_id == Some(organization_id.into()) {
+            response.sealed_data
+        } else {
+            tracing::debug!("PAM rotation config organization_id mismatch");
+            None
+        };
+
+        Ok(Self {
+            id: RotationConfigId::new(require!(response.id)),
+            organization_id,
+            cipher_id: CipherId::new(require!(response.cipher_id)),
+            target_system_id: TargetSystemId::new(require!(response.target_system_id)),
+            target_system_name: response.target_system_name.unwrap_or_default(),
+            target_system_method: require!(response.target_system_method).into(),
+            sealed_data,
+            schedule_cron: response.schedule_cron,
+            rotate_on_access_end: response.rotate_on_access_end.unwrap_or(false),
+            enabled: response.enabled.unwrap_or(true),
+            last_rotation_at: response
+                .last_rotation_at
+                .map(|date| date.parse())
+                .transpose()?,
+            next_rotation_at: response
+                .next_rotation_at
+                .map(|date| date.parse())
+                .transpose()?,
+            has_active_job: response.has_active_job.unwrap_or(false),
+            awaiting_manual_rotation: response.awaiting_manual_rotation.unwrap_or(false),
+            creation_date: require!(response.creation_date).parse()?,
+            revision_date: require!(response.revision_date).parse()?,
+        })
+    }
+}
+
+impl IdentifyKey<SymmetricKeySlotId> for RotationConfig {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        SymmetricKeySlotId::Organization(self.organization_id)
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, RotationConfigView> for RotationConfig {
+    /// Never fails: a blob that can't be verified leaves [`RotationConfigView::sealed`] `None`.
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<RotationConfigView, CryptoError> {
+        Ok(RotationConfigView {
+            id: self.id,
+            organization_id: self.organization_id,
+            cipher_id: self.cipher_id,
+            target_system_id: self.target_system_id,
+            target_system_name: self.target_system_name.clone(),
+            target_system_method: self.target_system_method,
+            sealed: unseal_config(
+                self.sealed_data.as_deref(),
+                self.id,
+                self.target_system_id,
+                self.cipher_id.into(),
+                key,
+                ctx,
+            ),
+            schedule_cron: self.schedule_cron.clone(),
+            rotate_on_access_end: self.rotate_on_access_end,
+            enabled: self.enabled,
+            last_rotation_at: self.last_rotation_at,
+            next_rotation_at: self.next_rotation_at,
+            has_active_job: self.has_active_job,
+            awaiting_manual_rotation: self.awaiting_manual_rotation,
+            creation_date: self.creation_date,
+            revision_date: self.revision_date,
+        })
+    }
+}
+
 /// A managed credential: the link between a vault cipher and the target system its credential is
-/// rotated against.
+/// rotated against, with its sealed fields unsealed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct RotationConfig {
+pub struct RotationConfigView {
     /// The config's unique identifier.
     pub id: RotationConfigId,
     /// The organization this config belongs to.
@@ -84,7 +186,7 @@ pub struct RotationConfigSealedFields {
     pub terminate_sessions: bool,
 }
 
-impl RotationConfig {
+impl RotationConfigView {
     /// Which actions this config offers, given the status of its target system.
     ///
     /// See [`rotation_config_actions`] for how an unloaded target system's `target_status` is
@@ -92,74 +194,19 @@ impl RotationConfig {
     pub fn actions(&self, target_status: Option<TargetSystemStatus>) -> RotationConfigActions {
         rotation_config_actions(self, target_status)
     }
-
-    /// `organization_id` must be the queried id, not `response.organization_id`; see `seal`.
-    fn from_response(
-        organization_id: OrganizationId,
-        response: PamRotationConfigResponseModel,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<Self, RotationError> {
-        let id = RotationConfigId::new(require!(response.id));
-        let cipher_id = CipherId::new(require!(response.cipher_id));
-        let target_system_id = TargetSystemId::new(require!(response.target_system_id));
-
-        let sealed = if response.organization_id == Some(organization_id.into()) {
-            unseal_config(
-                response.sealed_data.as_deref(),
-                id,
-                target_system_id,
-                cipher_id.into(),
-                organization_id,
-                ctx,
-            )
-        } else {
-            tracing::debug!("PAM rotation config organization_id mismatch");
-            None
-        };
-
-        Ok(Self {
-            id,
-            organization_id,
-            cipher_id,
-            target_system_id,
-            target_system_name: response.target_system_name.unwrap_or_default(),
-            target_system_method: require!(response.target_system_method).into(),
-            sealed,
-            schedule_cron: response.schedule_cron,
-            rotate_on_access_end: response.rotate_on_access_end.unwrap_or(false),
-            enabled: response.enabled.unwrap_or(true),
-            last_rotation_at: response
-                .last_rotation_at
-                .map(|date| date.parse())
-                .transpose()?,
-            next_rotation_at: response
-                .next_rotation_at
-                .map(|date| date.parse())
-                .transpose()?,
-            has_active_job: response.has_active_job.unwrap_or(false),
-            awaiting_manual_rotation: response.awaiting_manual_rotation.unwrap_or(false),
-            creation_date: require!(response.creation_date).parse()?,
-            revision_date: require!(response.revision_date).parse()?,
-        })
-    }
 }
 
-/// A config together with its rotation history.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[serde(rename_all = "camelCase")]
-pub struct RotationConfigDetail {
-    /// The config itself.
-    pub config: RotationConfig,
-    /// The config's rotation jobs, newest first, each carrying its attempts oldest first.
-    pub jobs: Vec<RotationJob>,
+/// A config together with its rotation history, still sealed.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct RotationConfigDetail {
+    config: RotationConfig,
+    jobs: Vec<RotationJob>,
 }
 
 impl RotationConfigDetail {
     fn from_response(
         organization_id: OrganizationId,
         response: PamRotationConfigDetailResponseModel,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, RotationError> {
         let jobs = response
             .jobs
@@ -192,11 +239,42 @@ impl RotationConfigDetail {
                 creation_date: response.creation_date,
                 revision_date: response.revision_date,
             },
-            ctx,
         )?;
 
         Ok(Self { config, jobs })
     }
+}
+
+impl IdentifyKey<SymmetricKeySlotId> for RotationConfigDetail {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        self.config.key_identifier()
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, RotationConfigDetailView>
+    for RotationConfigDetail
+{
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<RotationConfigDetailView, CryptoError> {
+        Ok(RotationConfigDetailView {
+            config: self.config.decrypt(ctx, key)?,
+            jobs: self.jobs.clone(),
+        })
+    }
+}
+
+/// A config together with its rotation history.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub struct RotationConfigDetailView {
+    /// The config itself.
+    pub config: RotationConfigView,
+    /// The config's rotation jobs, newest first, each carrying its attempts oldest first.
+    pub jobs: Vec<RotationJob>,
 }
 
 /// Request to create or update a rotation config.
@@ -233,7 +311,7 @@ impl RotationConfigsClient {
     pub async fn list(
         &self,
         organization_id: OrganizationId,
-    ) -> Result<Vec<RotationConfig>, RotationError> {
+    ) -> Result<Vec<RotationConfigView>, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -241,13 +319,13 @@ impl RotationConfigsClient {
             .get_all(organization_id.into())
             .await?;
 
-        let mut ctx = self.key_store.context_mut();
-        response
+        let configs = response
             .data
             .unwrap_or_default()
             .into_iter()
-            .map(|item| RotationConfig::from_response(organization_id, item, &mut ctx))
-            .collect()
+            .map(|item| RotationConfig::from_response(organization_id, item))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(self.key_store.decrypt_list(&configs)?)
     }
 
     /// Reads one config with its rotation history.
@@ -255,7 +333,7 @@ impl RotationConfigsClient {
         &self,
         organization_id: OrganizationId,
         id: RotationConfigId,
-    ) -> Result<RotationConfigDetail, RotationError> {
+    ) -> Result<RotationConfigDetailView, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -263,8 +341,8 @@ impl RotationConfigsClient {
             .get(organization_id.into(), id.into())
             .await?;
 
-        let mut ctx = self.key_store.context_mut();
-        RotationConfigDetail::from_response(organization_id, response, &mut ctx)
+        let detail = RotationConfigDetail::from_response(organization_id, response)?;
+        Ok(self.key_store.decrypt(&detail)?)
     }
 
     /// Validates, seals, and creates a rotation config.
@@ -272,7 +350,7 @@ impl RotationConfigsClient {
         &self,
         organization_id: OrganizationId,
         request: RotationConfigCreateRequest,
-    ) -> Result<RotationConfigDetail, RotationError> {
+    ) -> Result<RotationConfigDetailView, RotationError> {
         validate_config_request(&request)?;
         self.validate_target(
             organization_id,
@@ -298,8 +376,8 @@ impl RotationConfigsClient {
             )
             .await?;
 
-        let mut ctx = self.key_store.context_mut();
-        RotationConfigDetail::from_response(organization_id, response, &mut ctx)
+        let detail = RotationConfigDetail::from_response(organization_id, response)?;
+        Ok(self.key_store.decrypt(&detail)?)
     }
 
     /// Re-seals the whole blob, so every field must be resupplied; `cipher_id` and
@@ -309,7 +387,7 @@ impl RotationConfigsClient {
         organization_id: OrganizationId,
         id: RotationConfigId,
         request: RotationConfigCreateRequest,
-    ) -> Result<RotationConfigDetail, RotationError> {
+    ) -> Result<RotationConfigDetailView, RotationError> {
         validate_config_request(&request)?;
 
         let existing = self.get(organization_id, id).await?;
@@ -342,8 +420,8 @@ impl RotationConfigsClient {
             )
             .await?;
 
-        let mut ctx = self.key_store.context_mut();
-        RotationConfigDetail::from_response(organization_id, response, &mut ctx)
+        let detail = RotationConfigDetail::from_response(organization_id, response)?;
+        Ok(self.key_store.decrypt(&detail)?)
     }
 
     /// Seals `request`'s security-relevant fields under the organization key.
@@ -393,10 +471,9 @@ impl RotationConfigsClient {
             .find(|item| item.id == Some(target_system_id.into()))
             .ok_or(RotationError::TargetSystemNotFound)?;
 
-        let target = {
-            let mut ctx = self.key_store.context_mut();
-            TargetSystem::from_response(organization_id, item, &mut ctx)?
-        };
+        let target = self
+            .key_store
+            .decrypt(&TargetSystem::from_response(organization_id, item)?)?;
 
         if target.status != TargetSystemStatus::PendingSeal && target.sealed.is_none() {
             return Err(RotationValidationError::TargetSystemSealInvalid.into());
@@ -491,10 +568,11 @@ impl RotationConfigsClient {
     }
 
     /// Which actions a config offers, given the status of its target system. Exposed here because
-    /// a tsify struct crosses the WASM boundary as plain data, without [`RotationConfig::actions`].
+    /// a tsify struct crosses the WASM boundary as plain data, without
+    /// [`RotationConfigView::actions`].
     pub fn actions(
         &self,
-        config: RotationConfig,
+        config: RotationConfigView,
         target_status: Option<TargetSystemStatus>,
     ) -> RotationConfigActions {
         config.actions(target_status)
@@ -612,6 +690,26 @@ mod tests {
             account_identity: "svc_rotation".to_string(),
             terminate_sessions: true,
         }
+    }
+
+    fn config_view(
+        organization_id: OrganizationId,
+        response: PamRotationConfigResponseModel,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<RotationConfigView, RotationError> {
+        let config = RotationConfig::from_response(organization_id, response)?;
+        let key = config.key_identifier();
+        Ok(config.decrypt(ctx, key)?)
+    }
+
+    fn detail_view(
+        organization_id: OrganizationId,
+        response: PamRotationConfigDetailResponseModel,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<RotationConfigDetailView, RotationError> {
+        let detail = RotationConfigDetail::from_response(organization_id, response)?;
+        let key = detail.key_identifier();
+        Ok(detail.decrypt(ctx, key)?)
     }
 
     /// A payload with every optional field populated, so a test that clears one is unambiguous
@@ -741,7 +839,7 @@ mod tests {
         );
         let mut ctx = store.context_mut();
 
-        let config = RotationConfig::from_response(
+        let config = config_view(
             organization_id(),
             sample_response(&organization_key),
             &mut ctx,
@@ -809,8 +907,8 @@ mod tests {
                 ..sample_response(&organization_key)
             };
 
-            let config = RotationConfig::from_response(organization_id(), response, &mut ctx)
-                .expect("the payload is valid");
+            let config =
+                config_view(organization_id(), response, &mut ctx).expect("the payload is valid");
 
             assert_eq!(config.sealed, None);
         }
@@ -845,7 +943,7 @@ mod tests {
         };
 
         let mut ctx = store.context_mut();
-        let config = RotationConfig::from_response(org_a, response, &mut ctx)
+        let config = config_view(org_a, response, &mut ctx)
             .expect("the payload is still structurally valid");
 
         assert_eq!(config.organization_id, org_a);
@@ -862,7 +960,7 @@ mod tests {
         );
         let mut ctx = store.context_mut();
 
-        let config = RotationConfig::from_response(
+        let config = config_view(
             organization_id(),
             PamRotationConfigResponseModel {
                 enabled: None,
@@ -887,7 +985,7 @@ mod tests {
         );
         let mut ctx = store.context_mut();
 
-        let config = RotationConfig::from_response(
+        let config = config_view(
             organization_id(),
             PamRotationConfigResponseModel {
                 target_system_name: None,
@@ -951,7 +1049,7 @@ mod tests {
             },
         ] {
             assert!(matches!(
-                RotationConfig::from_response(organization_id(), response, &mut ctx),
+                config_view(organization_id(), response, &mut ctx),
                 Err(RotationError::MissingField(_))
             ));
         }
@@ -986,7 +1084,7 @@ mod tests {
             },
         ] {
             assert!(matches!(
-                RotationConfig::from_response(organization_id(), response, &mut ctx),
+                config_view(organization_id(), response, &mut ctx),
                 Err(RotationError::Chrono(_))
             ));
         }
@@ -1002,7 +1100,7 @@ mod tests {
         );
         let mut ctx = store.context_mut();
 
-        let config = RotationConfig::from_response(
+        let config = config_view(
             organization_id(),
             PamRotationConfigResponseModel {
                 target_system_method: Some(ApiTargetSystemMethod::__Unknown(9)),
@@ -1027,7 +1125,7 @@ mod tests {
         );
         let mut ctx = store.context_mut();
 
-        let detail = RotationConfigDetail::from_response(
+        let detail = detail_view(
             organization_id(),
             sample_detail_response(&organization_key, Some(vec![sample_job(job_id())])),
             &mut ctx,
@@ -1036,7 +1134,7 @@ mod tests {
 
         assert_eq!(
             detail.config,
-            RotationConfig::from_response(
+            config_view(
                 organization_id(),
                 sample_response(&organization_key),
                 &mut ctx
@@ -1056,7 +1154,7 @@ mod tests {
         let mut ctx = store.context_mut();
 
         let second = uuid!("66666666-6666-6666-6666-666666666666");
-        let detail = RotationConfigDetail::from_response(
+        let detail = detail_view(
             organization_id(),
             sample_detail_response(
                 &organization_key,
@@ -1083,7 +1181,7 @@ mod tests {
         );
         let mut ctx = store.context_mut();
 
-        let detail = RotationConfigDetail::from_response(
+        let detail = detail_view(
             organization_id(),
             sample_detail_response(&organization_key, None),
             &mut ctx,
@@ -1108,7 +1206,7 @@ mod tests {
             ..sample_job(job_id())
         };
 
-        let result = RotationConfigDetail::from_response(
+        let result = detail_view(
             organization_id(),
             sample_detail_response(&organization_key, Some(vec![malformed])),
             &mut ctx,
@@ -1802,7 +1900,7 @@ mod tests {
     }
 
     /// The client method exists so non-Rust callers reach the same predicates the Rust API has on
-    /// [`RotationConfig::actions`]; it must not drift from them.
+    /// [`RotationConfigView::actions`]; it must not drift from them.
     #[test]
     fn the_client_derives_the_same_actions_as_the_config() {
         let organization_key = organization_key();
@@ -1812,7 +1910,7 @@ mod tests {
             organization_key.clone(),
         );
         let mut ctx = store.context_mut();
-        let config = RotationConfig::from_response(
+        let config = config_view(
             organization_id(),
             sample_response(&organization_key),
             &mut ctx,

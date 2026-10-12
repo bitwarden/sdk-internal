@@ -10,7 +10,7 @@ use bitwarden_core::{
     key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
-use bitwarden_crypto::{KeyStore, KeyStoreContext};
+use bitwarden_crypto::{CryptoError, Decryptable, IdentifyKey, KeyStore, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
 use bitwarden_pam_sealed::{SealedTargetSystemKind, SealedTargetSystemMethod, seal_target_system};
 use chrono::{DateTime, Utc};
@@ -29,11 +29,83 @@ use super::{
 };
 use crate::TargetSystemId;
 
-/// A target system a credential can be rotated against.
+/// A target system as the server returns it, with its security-relevant fields still sealed.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct TargetSystem {
+    id: TargetSystemId,
+    organization_id: OrganizationId,
+    name: String,
+    method: TargetSystemMethod,
+    status: TargetSystemStatus,
+    sealed_data: Option<String>,
+    creation_date: DateTime<Utc>,
+    revision_date: DateTime<Utc>,
+}
+
+impl TargetSystem {
+    /// `organization_id` must be the queried id, not `response.organization_id`; see `seal`.
+    pub(super) fn from_response(
+        organization_id: OrganizationId,
+        response: PamTargetSystemResponseModel,
+    ) -> Result<Self, RotationError> {
+        let sealed_data = if response.organization_id == Some(organization_id.into()) {
+            response.sealed_data
+        } else {
+            tracing::debug!("PAM target system organization_id mismatch");
+            None
+        };
+
+        Ok(Self {
+            id: TargetSystemId::new(require!(response.id)),
+            organization_id,
+            name: require!(response.name),
+            method: require!(response.method).into(),
+            status: require!(response.status).into(),
+            sealed_data,
+            creation_date: require!(response.creation_date).parse()?,
+            revision_date: require!(response.revision_date).parse()?,
+        })
+    }
+}
+
+impl IdentifyKey<SymmetricKeySlotId> for TargetSystem {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        SymmetricKeySlotId::Organization(self.organization_id)
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, TargetSystemView> for TargetSystem {
+    /// Never fails: a blob that can't be verified leaves [`TargetSystemView::sealed`] `None`.
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<TargetSystemView, CryptoError> {
+        Ok(TargetSystemView {
+            id: self.id,
+            organization_id: self.organization_id,
+            name: self.name.clone(),
+            method: self.method,
+            status: self.status,
+            sealed: unseal_target(
+                self.sealed_data.as_deref(),
+                self.status,
+                self.id,
+                self.method,
+                key,
+                ctx,
+            ),
+            creation_date: self.creation_date,
+            revision_date: self.revision_date,
+        })
+    }
+}
+
+/// A target system a credential can be rotated against, with its sealed fields unsealed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct TargetSystem {
+pub struct TargetSystemView {
     /// The target system's unique identifier.
     pub id: TargetSystemId,
     /// The organization this target system belongs to.
@@ -66,44 +138,6 @@ pub struct TargetSystemSealedFields {
     /// Whether the integration can terminate sessions after rotating. `None` for
     /// [`Manual`](TargetSystemMethod::Manual) targets.
     pub supports_session_termination: Option<bool>,
-}
-
-impl TargetSystem {
-    /// `organization_id` must be the queried id, not `response.organization_id`; see `seal`.
-    pub(super) fn from_response(
-        organization_id: OrganizationId,
-        response: PamTargetSystemResponseModel,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<Self, RotationError> {
-        let id = TargetSystemId::new(require!(response.id));
-        let method: TargetSystemMethod = require!(response.method).into();
-        let status: TargetSystemStatus = require!(response.status).into();
-
-        let sealed = if response.organization_id == Some(organization_id.into()) {
-            unseal_target(
-                response.sealed_data.as_deref(),
-                status,
-                id,
-                method,
-                organization_id,
-                ctx,
-            )
-        } else {
-            tracing::debug!("PAM target system organization_id mismatch");
-            None
-        };
-
-        Ok(Self {
-            id,
-            organization_id,
-            name: require!(response.name),
-            method,
-            status,
-            sealed,
-            creation_date: require!(response.creation_date).parse()?,
-            revision_date: require!(response.revision_date).parse()?,
-        })
-    }
 }
 
 /// Request to create or update a target system. Method and kind can't change after creation, but
@@ -198,7 +232,7 @@ impl TargetSystemsClient {
     pub async fn list(
         &self,
         organization_id: OrganizationId,
-    ) -> Result<Vec<TargetSystem>, RotationError> {
+    ) -> Result<Vec<TargetSystemView>, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -206,13 +240,13 @@ impl TargetSystemsClient {
             .get_all(organization_id.into())
             .await?;
 
-        let mut ctx = self.key_store.context_mut();
-        response
+        let targets = response
             .data
             .unwrap_or_default()
             .into_iter()
-            .map(|item| TargetSystem::from_response(organization_id, item, &mut ctx))
-            .collect()
+            .map(|item| TargetSystem::from_response(organization_id, item))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(self.key_store.decrypt_list(&targets)?)
     }
 
     /// Registers a target system with a `POST`, leaving it
@@ -223,7 +257,7 @@ impl TargetSystemsClient {
         &self,
         organization_id: OrganizationId,
         request: TargetSystemCreateRequest,
-    ) -> Result<TargetSystem, TargetSystemCreateError> {
+    ) -> Result<TargetSystemView, TargetSystemCreateError> {
         let (id, phase_one) = self
             .register(organization_id, &request)
             .await
@@ -271,12 +305,12 @@ impl TargetSystemsClient {
         id: TargetSystemId,
         phase_one: &PamTargetSystemResponseModel,
         request: &TargetSystemCreateRequest,
-    ) -> Result<TargetSystem, RotationError> {
+    ) -> Result<TargetSystemView, RotationError> {
         self.put_sealed(organization_id, id, request).await?;
 
         let creation_date: DateTime<Utc> = require!(phase_one.creation_date.clone()).parse()?;
 
-        Ok(TargetSystem {
+        Ok(TargetSystemView {
             id,
             organization_id,
             name: request.name().to_string(),
@@ -348,7 +382,7 @@ impl TargetSystemsClient {
         &self,
         organization_id: OrganizationId,
         id: TargetSystemId,
-    ) -> Result<TargetSystem, RotationError> {
+    ) -> Result<TargetSystemView, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -363,8 +397,8 @@ impl TargetSystemsClient {
             .find(|item| item.id == Some(id.into()))
             .ok_or(RotationError::TargetSystemNotFound)?;
 
-        let mut ctx = self.key_store.context_mut();
-        TargetSystem::from_response(organization_id, item, &mut ctx)
+        let target = TargetSystem::from_response(organization_id, item)?;
+        Ok(self.key_store.decrypt(&target)?)
     }
 
     /// Seals `request` under `id` and `PUT`s it.
@@ -586,6 +620,16 @@ mod tests {
         }
     }
 
+    fn target_view(
+        organization_id: OrganizationId,
+        response: PamTargetSystemResponseModel,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<TargetSystemView, RotationError> {
+        let target = TargetSystem::from_response(organization_id, response)?;
+        let key = target.key_identifier();
+        Ok(target.decrypt(ctx, key)?)
+    }
+
     /// An automatic, sealed, active target with every field populated, so a test that clears one
     /// is unambiguous about which field it is exercising.
     fn sample_response(organization_key: &SymmetricCryptoKey) -> PamTargetSystemResponseModel {
@@ -612,7 +656,7 @@ mod tests {
         );
         let mut ctx = store.context_mut();
 
-        let target = TargetSystem::from_response(
+        let target = target_view(
             organization_id(),
             sample_response(&organization_key),
             &mut ctx,
@@ -654,8 +698,8 @@ mod tests {
             ..sample_response(&organization_key)
         };
 
-        let target = TargetSystem::from_response(organization_id(), response, &mut ctx)
-            .expect("the payload is valid");
+        let target =
+            target_view(organization_id(), response, &mut ctx).expect("the payload is valid");
 
         assert_eq!(target.status, TargetSystemStatus::PendingSeal);
         assert_eq!(target.sealed, None);
@@ -698,8 +742,8 @@ mod tests {
                 ..sample_response(&organization_key)
             };
 
-            let target = TargetSystem::from_response(organization_id(), response, &mut ctx)
-                .expect("the payload is valid");
+            let target =
+                target_view(organization_id(), response, &mut ctx).expect("the payload is valid");
 
             assert_eq!(target.sealed, None, "for status {:?}", target.status);
         }
@@ -734,7 +778,7 @@ mod tests {
         };
 
         let mut ctx = store.context_mut();
-        let target = TargetSystem::from_response(org_a, response, &mut ctx)
+        let target = target_view(org_a, response, &mut ctx)
             .expect("the payload is still structurally valid");
 
         assert_eq!(target.organization_id, org_a);
@@ -780,7 +824,7 @@ mod tests {
             },
         ] {
             assert!(matches!(
-                TargetSystem::from_response(organization_id(), response, &mut ctx),
+                target_view(organization_id(), response, &mut ctx),
                 Err(RotationError::MissingField(_))
             ));
         }
@@ -807,7 +851,7 @@ mod tests {
             },
         ] {
             assert!(matches!(
-                TargetSystem::from_response(organization_id(), response, &mut ctx),
+                target_view(organization_id(), response, &mut ctx),
                 Err(RotationError::Chrono(_))
             ));
         }
@@ -829,8 +873,8 @@ mod tests {
             ..sample_response(&organization_key)
         };
 
-        let target = TargetSystem::from_response(organization_id(), response, &mut ctx)
-            .expect("unknown values still map");
+        let target =
+            target_view(organization_id(), response, &mut ctx).expect("unknown values still map");
 
         assert_eq!(target.method, TargetSystemMethod::Unknown);
         assert_eq!(target.status, TargetSystemStatus::Unknown);

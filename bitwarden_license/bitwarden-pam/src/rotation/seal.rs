@@ -1,13 +1,11 @@
 //! Sealing helpers shared by target systems and rotation configs.
 //!
 //! Unsealing never fails outright: any problem degrades to `None`, so one bad blob can't fail a
-//! `list`. `organization_id` must be the id the caller queried under, never one echoed by the
-//! server, or a hostile server could pass off another organization's validly-sealed blob.
+//! `list`. The key comes from the sealed model's `organization_id`, which must be the id the caller
+//! queried under, never one echoed by the server, or a hostile server could pass off another
+//! organization's validly-sealed blob.
 
-use bitwarden_core::{
-    OrganizationId,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
-};
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::KeyStoreContext;
 use bitwarden_pam_sealed::{
     RotationConfigSealedV1, SealedTargetSystemMethod, TargetSystemSealedV1, unseal_rotation_config,
@@ -28,7 +26,7 @@ pub(super) fn unseal_target(
     status: TargetSystemStatus,
     target_system_id: TargetSystemId,
     method: TargetSystemMethod,
-    organization_id: OrganizationId,
+    key: SymmetricKeySlotId,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Option<TargetSystemSealedFields> {
     let invalid = |reason: &str| {
@@ -45,8 +43,7 @@ pub(super) fn unseal_target(
         return invalid("missing blob");
     };
 
-    let organization_key = SymmetricKeySlotId::Organization(organization_id);
-    let unsealed = match unseal_target_system::<KeySlotIds>(blob, &organization_key, ctx) {
+    let unsealed = match unseal_target_system::<KeySlotIds>(blob, &key, ctx) {
         Ok(unsealed) => unsealed,
         Err(_) => return invalid("unseal failed"),
     };
@@ -80,7 +77,7 @@ pub(super) fn unseal_config(
     config_id: RotationConfigId,
     target_system_id: TargetSystemId,
     cipher_id: Uuid,
-    organization_id: OrganizationId,
+    key: SymmetricKeySlotId,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Option<RotationConfigSealedFields> {
     let invalid = |reason: &str| {
@@ -96,8 +93,7 @@ pub(super) fn unseal_config(
         return invalid("missing blob");
     };
 
-    let organization_key = SymmetricKeySlotId::Organization(organization_id);
-    let unsealed = match unseal_rotation_config::<KeySlotIds>(blob, &organization_key, ctx) {
+    let unsealed = match unseal_rotation_config::<KeySlotIds>(blob, &key, ctx) {
         Ok(unsealed) => unsealed,
         Err(_) => return invalid("unseal failed"),
     };
