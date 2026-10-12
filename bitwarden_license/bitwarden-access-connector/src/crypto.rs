@@ -1,8 +1,8 @@
 //! Cryptographic helpers used by the access connector.
 
 use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, EncString, KeyDecryptable, KeyStore, PrimitiveEncryptable,
-    SymmetricCryptoKey, key_slot_ids,
+    BitwardenLegacyKeyBytes, EncString, KeyDecryptable, KeyStore, KeyStoreContext,
+    PrimitiveEncryptable, SymmetricCryptoKey, key_slot_ids,
 };
 use bitwarden_encoding::B64;
 use serde::Deserialize;
@@ -101,6 +101,38 @@ pub fn unwrap_org_key(
 /// while it is null.
 const CIPHER_PASSWORD_KEY: &str = "Password";
 
+/// Resolves the key slot a cipher's password should be encrypted under: the per-item key
+/// (unwrapped by the org key) when `cipher_key` is present, else the org key directly. Shared by
+/// [`encrypt_cipher_password`] and [`cipher_key_unwraps`], the latter using it purely to check
+/// decryptability without encrypting anything.
+fn resolve_encrypt_slot(
+    ctx: &mut KeyStoreContext<'_, AccessConnectorKeySlotIds>,
+    cipher_key: Option<&str>,
+) -> Result<AccessConnectorSymmSlotId, CryptoModuleError> {
+    if let Some(wrapped_key_str) = cipher_key {
+        let wrapped_enc: EncString = wrapped_key_str
+            .parse()
+            .map_err(|_| CryptoModuleError::InvalidPayload)?;
+
+        ctx.unwrap_symmetric_key(AccessConnectorSymmSlotId::Organization, &wrapped_enc)
+            .map_err(CryptoModuleError::Crypto)
+    } else {
+        Ok(AccessConnectorSymmSlotId::Organization)
+    }
+}
+
+/// Verifies that a cipher's per-item key (if any) unwraps under the organization key, without
+/// encrypting anything. Used by the rotation pipeline's pre-flight cipher read (check 8 in
+/// `docs/pam-rotation-sealed-config-plan.md`): a cipher whose key the connector cannot unwrap
+/// would otherwise only be discovered after the target had already been rotated.
+pub fn cipher_key_unwraps(
+    store: &AccessConnectorKeyStore,
+    cipher_key: Option<&str>,
+) -> Result<(), CryptoModuleError> {
+    let mut ctx = store.context_mut();
+    resolve_encrypt_slot(&mut ctx, cipher_key).map(|_| ())
+}
+
 /// Encrypt `new_password` with the per-item `cipher_key` when present (unwrapped by the org key),
 /// else the org key, and insert or replace the password field in `data`. Other fields are
 /// untouched.
@@ -112,16 +144,7 @@ pub fn encrypt_cipher_password(
 ) -> Result<(), CryptoModuleError> {
     let mut ctx = store.context_mut();
 
-    let encrypt_slot = if let Some(wrapped_key_str) = cipher_key {
-        let wrapped_enc: EncString = wrapped_key_str
-            .parse()
-            .map_err(|_| CryptoModuleError::InvalidPayload)?;
-
-        ctx.unwrap_symmetric_key(AccessConnectorSymmSlotId::Organization, &wrapped_enc)
-            .map_err(CryptoModuleError::Crypto)?
-    } else {
-        AccessConnectorSymmSlotId::Organization
-    };
+    let encrypt_slot = resolve_encrypt_slot(&mut ctx, cipher_key)?;
 
     let encrypted: EncString = new_password
         .encrypt(&mut ctx, encrypt_slot)
@@ -348,6 +371,58 @@ mod tests {
         assert_eq!(data["Name"], original_name, "Name must be untouched");
         assert_eq!(data["Uris"], original_uris, "Uris must be untouched");
         assert_eq!(data["Fields"], original_fields, "Fields must be untouched");
+    }
+
+    #[test]
+    fn cipher_key_unwraps_org_key_path_always_succeeds() {
+        let (store, _org_key) = make_store_with_org_key();
+        assert!(cipher_key_unwraps(&store, None).is_ok());
+    }
+
+    #[test]
+    fn cipher_key_unwraps_per_item_key_path_succeeds() {
+        let (store, _org_key) = make_store_with_org_key();
+
+        let item_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let wrapped_cipher_key_str = {
+            let mut ctx = store.context_mut();
+            let item_key_slot = ctx.add_local_symmetric_key(item_key);
+            let wrapped = ctx
+                .wrap_symmetric_key(AccessConnectorSymmSlotId::Organization, item_key_slot)
+                .expect("wrap item key");
+            wrapped.to_string()
+        };
+
+        assert!(cipher_key_unwraps(&store, Some(&wrapped_cipher_key_str)).is_ok());
+    }
+
+    #[test]
+    fn cipher_key_unwraps_garbage_key_fails() {
+        let (store, _org_key) = make_store_with_org_key();
+        let result = cipher_key_unwraps(&store, Some("not-an-enc-string"));
+        assert!(
+            result.is_err(),
+            "garbage per-item key must fail, got {result:?}",
+        );
+    }
+
+    #[test]
+    fn cipher_key_unwraps_key_wrapped_by_a_different_org_key_fails() {
+        let (store, _org_key) = make_store_with_org_key();
+        let (other_store, _other_org_key) = make_store_with_org_key();
+
+        // Wrap an item key under a DIFFERENT organization key than the one installed in `store`.
+        let item_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let wrapped_cipher_key_str = {
+            let mut ctx = other_store.context_mut();
+            let item_key_slot = ctx.add_local_symmetric_key(item_key);
+            ctx.wrap_symmetric_key(AccessConnectorSymmSlotId::Organization, item_key_slot)
+                .expect("wrap under other store's org key")
+                .to_string()
+        };
+
+        let result = cipher_key_unwraps(&store, Some(&wrapped_cipher_key_str));
+        assert!(result.is_err(), "unwrap under the wrong org key must fail");
     }
 
     #[test]

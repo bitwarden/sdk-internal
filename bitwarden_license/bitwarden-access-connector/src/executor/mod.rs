@@ -5,6 +5,7 @@
 
 pub(crate) mod retry;
 pub(crate) mod rotation;
+pub(crate) mod verify;
 
 use std::{
     sync::Arc,
@@ -25,6 +26,7 @@ use crate::{
     api::{RotationApi, build_api_client, models::ApiError},
     auth::session::{SessionLost, SessionManager},
     crypto::AccessConnectorKeyStore,
+    error::{FailureCode, SafeDetail, SyncState},
     integrations::IntegrationRegistry,
     resolver::CredentialResolver,
     sys::SystemEnv,
@@ -337,6 +339,33 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             continue;
         };
 
+        // Verify the claim's two sealed blobs before anything else: unseal them, cross-check
+        // every ID against the plaintext claim and against each other, require an automatic
+        // target, and enforce the password-strength floor (checks 1–7 of the plan's "Connector
+        // checks on claim"). A rejection is reported and the job abandoned without ever
+        // constructing an `ExecutionContext` or touching the resolver/integration layer, so no
+        // credential resolution, integration, or cipher call can happen for a rejected claim.
+        let attempt_id = snap.attempt_id;
+        let verified = match verify::verify(snap, &key_store) {
+            Ok(v) => v,
+            Err(rejection) => {
+                tracing::warn!(
+                    attempt_id = %attempt_id,
+                    rejection = rejection.as_str(),
+                    "rotation job rejected: sealed data check failed"
+                );
+                rotation::report_failure_absorb(
+                    &api,
+                    attempt_id,
+                    FailureCode::SealedDataRejected,
+                    Some(SafeDetail::from_seal_rejection(rejection.as_str())),
+                    SyncState::TargetUnchanged,
+                )
+                .await;
+                continue;
+            }
+        };
+
         // Heartbeat: poll the jobs endpoint for the connectivity bump, ignoring the list, until the
         // rotation completes.
         let heartbeat_cancel = cancel.child_token();
@@ -372,8 +401,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             cancel: cancel.clone(),
         };
 
-        let attempt_id = snap.attempt_id;
-        let result = execute(snap, &exec_ctx).await;
+        let result = execute(verified, &exec_ctx).await;
 
         heartbeat_cancel.cancel();
         let _ = heartbeat_handle.await;
@@ -612,15 +640,7 @@ mod tests {
                         "jobId": job2,
                         "targetSystemId": target_system_id,
                         "targetSystemName": "test",
-                        "kind": 2, // CustomScript
-                        "passwordPolicy": {
-                            "minLength": 8, "maxLength": 64,
-                            "includeUppercase": true, "includeLowercase": true,
-                            "includeDigits": true, "includeSymbols": false
-                        },
                         "cipherId": cipher_id,
-                        "accountIdentity": "user",
-                        "terminateSessions": false,
                         "executeBy": execute_by
                     }))
                     .insert_header("content-type", "application/json"),
@@ -743,5 +763,136 @@ mod tests {
 
         let err = api.poll_jobs().await.unwrap_err();
         assert!(matches!(err, ApiError::NotEligible));
+    }
+
+    /// A claim with no `targetSystemSealedData` blob must be rejected by `verify` before
+    /// `execute` ever runs: exactly one `sealed_data_rejected` / `target_unchanged` failure
+    /// report, and no call to the cipher route (the only place `execute` touches the API besides
+    /// the outcome report).
+    #[tokio::test]
+    async fn claim_with_missing_target_blob_reports_sealed_data_rejected_and_never_executes() {
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+
+        let token_key = token_encryption_key();
+        let org_key = bitwarden_crypto::SymmetricCryptoKey::make(
+            bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
+        );
+        let payload = make_encrypted_payload(&token_key, &org_key);
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(identity_ok("tok", &payload))
+            .mount(&identity_server)
+            .await;
+
+        let job_id = uuid::Uuid::new_v4();
+        let attempt_id = uuid::Uuid::new_v4();
+        let target_system_id = uuid::Uuid::new_v4();
+        let cipher_id = uuid::Uuid::new_v4();
+        let execute_by = chrono::Utc::now()
+            .checked_add_signed(chrono::Duration::minutes(5))
+            .unwrap()
+            .to_rfc3339();
+
+        // Offer the job exactly once, then an empty list, so the claim/reject cycle happens
+        // exactly once within the test window instead of on every poll tick.
+        Mock::given(method("GET"))
+            .and(path("/access-connectors/rotation/jobs"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({
+                        "data": [{"jobId": job_id, "targetSystemId": target_system_id}]
+                    }))
+                    .insert_header("content-type", "application/json"),
+            )
+            .up_to_n_times(1)
+            .mount(&api_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/access-connectors/rotation/jobs"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({"data": []}))
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&api_server)
+            .await;
+
+        // No `targetSystemSealedData` at all: `verify` must reject with `MissingTargetBlob`
+        // before `execute` ever runs.
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/access-connectors/rotation/jobs/{job_id}/claim"
+            )))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({
+                        "attemptId": attempt_id,
+                        "jobId": job_id,
+                        "targetSystemId": target_system_id,
+                        "targetSystemName": "test",
+                        "cipherId": cipher_id,
+                        "rotationConfigSealedData": "opaque-config-blob",
+                        "executeBy": execute_by
+                    }))
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&api_server)
+            .await;
+
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/failure"
+            )))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&api_server)
+            .await;
+
+        let cfg = AccessConnectorConfig::new_for_test(
+            api_server.uri(),
+            identity_server.uri(),
+            test_token(),
+            Duration::from_millis(30),
+            None,
+        );
+        let cancel = CancellationToken::new();
+        let cancel_clone = cancel.clone();
+        let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
+
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        cancel.cancel();
+        let exit = handle.await.expect("task panicked");
+        assert_eq!(exit, RunExit::Shutdown);
+
+        let all_reqs = api_server.received_requests().await.unwrap();
+
+        // The only place `execute` would touch the API before a report is the cipher route; a
+        // rejected claim must never reach it.
+        let cipher_reqs: Vec<_> = all_reqs
+            .iter()
+            .filter(|r| r.url.path().contains("/cipher"))
+            .collect();
+        assert!(
+            cipher_reqs.is_empty(),
+            "no cipher call should happen for a rejected claim: {cipher_reqs:?}"
+        );
+
+        let failure_reqs: Vec<_> = all_reqs
+            .iter()
+            .filter(|r| r.url.path().ends_with("/failure"))
+            .collect();
+        assert_eq!(failure_reqs.len(), 1, "expected exactly one failure report");
+        let body: serde_json::Value =
+            serde_json::from_slice(&failure_reqs[0].body).expect("parse failure body");
+        assert_eq!(
+            body["errorCode"],
+            serde_json::json!("sealed_data_rejected"),
+            "errorCode must be sealed_data_rejected: {body}"
+        );
+        assert_eq!(
+            body["syncState"],
+            serde_json::json!(0),
+            "syncState must be 0 (TargetUnchanged): {body}"
+        );
     }
 }

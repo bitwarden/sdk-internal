@@ -1,91 +1,41 @@
-//! Converts a claim's [`PasswordPolicy`] into a [`PasswordGeneratorRequest`] for the generators
-//! crate.
+//! Converts a verified job's [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`] for the
+//! generators crate.
+//!
+//! The password-strength floor itself (minimum entropy, generator-range length bounds) is
+//! enforced once, by [`SealedPasswordPolicy::validate`], before a claim's policy is trusted at
+//! all (see `executor::verify`). This module re-validates defensively — cheap and pure — so a
+//! future call site that forgets to run `verify` first still fails closed instead of silently
+//! generating a below-floor password, then maps the (already valid) policy onto the generator's
+//! request shape.
 
-use bitwarden_generators::{
-    MAXIMUM_PASSWORD_LENGTH, MINIMUM_PASSWORD_LENGTH, PasswordGeneratorRequest,
+use bitwarden_generators::PasswordGeneratorRequest;
+use bitwarden_pam_sealed::{
+    GENERATOR_MAX_LENGTH, GENERATOR_MIN_LENGTH, PolicyStrengthError, SealedPasswordPolicy,
 };
-use serde::Deserialize;
-use thiserror::Error;
 
-/// Errors from converting a [`PasswordPolicy`] into a generator request.
-#[derive(Debug, Error, PartialEq, Eq)]
-pub(crate) enum PolicyError {
-    /// Every `include_*` flag is `false`.
-    #[error("password policy requires at least one character class to be enabled")]
-    NoCharacterClasses,
-    /// `min_length` exceeds `max_length` or the generator's `MAXIMUM_PASSWORD_LENGTH`.
-    #[error("password policy has invalid length bounds")]
-    InvalidBounds,
-}
-
-/// Password-policy snapshot delivered inside a rotation claim.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PasswordPolicy {
-    /// `None` means unconstrained, though the generator minimum still applies.
-    #[serde(alias = "min_length")]
-    pub(crate) min_length: Option<u32>,
-
-    /// The generated length, clamped to the generator's range; `None` means 64.
-    #[serde(alias = "max_length")]
-    pub(crate) max_length: Option<u32>,
-
-    #[serde(alias = "include_uppercase")]
-    pub(crate) include_uppercase: bool,
-
-    #[serde(alias = "include_lowercase")]
-    pub(crate) include_lowercase: bool,
-
-    #[serde(alias = "include_digits")]
-    pub(crate) include_digits: bool,
-
-    #[serde(alias = "include_symbols")]
-    pub(crate) include_symbols: bool,
-}
-
-/// Default password length, used absent an explicit `max_length`.
-const DEFAULT_POLICY_PASSWORD_LENGTH: u32 = 64;
-
-/// Convert a [`PasswordPolicy`] into a [`PasswordGeneratorRequest`].
+/// Convert a [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`]. The generated length is
+/// `max_length` clamped to the generator's supported range
+/// (`[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]`); after `validate` it is already in range, so
+/// the clamp here is a defensive no-op.
 pub(crate) fn to_generator_request(
-    policy: &PasswordPolicy,
-) -> Result<PasswordGeneratorRequest, PolicyError> {
-    if !policy.include_uppercase
-        && !policy.include_lowercase
-        && !policy.include_digits
-        && !policy.include_symbols
-    {
-        return Err(PolicyError::NoCharacterClasses);
-    }
+    policy: &SealedPasswordPolicy,
+) -> Result<PasswordGeneratorRequest, PolicyStrengthError> {
+    policy.validate()?;
 
-    if let (Some(min), Some(max)) = (policy.min_length, policy.max_length)
-        && min > max
-    {
-        return Err(PolicyError::InvalidBounds);
-    }
+    let length = policy
+        .max_length
+        .clamp(GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH);
 
-    let gen_min = u32::from(MINIMUM_PASSWORD_LENGTH);
-    let gen_max = u32::from(MAXIMUM_PASSWORD_LENGTH);
-
-    let floor = policy.min_length.unwrap_or(0).max(gen_min);
-
-    if floor > gen_max {
-        return Err(PolicyError::InvalidBounds);
-    }
-
-    let raw_max = policy.max_length.unwrap_or(DEFAULT_POLICY_PASSWORD_LENGTH);
-    let length_u32 = raw_max.clamp(floor, gen_max);
-
-    // length_u32 is at most MAXIMUM_PASSWORD_LENGTH, a u8, so the cast cannot truncate.
+    // length is in [GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH] = [5, 128], so it fits in a u8.
     #[allow(clippy::cast_possible_truncation)]
-    let length = length_u32 as u8;
+    let length_u8 = length as u8;
 
     Ok(PasswordGeneratorRequest {
         lowercase: policy.include_lowercase,
         uppercase: policy.include_uppercase,
         numbers: policy.include_digits,
         special: policy.include_symbols,
-        length,
+        length: length_u8,
         avoid_ambiguous: false,
         min_lowercase: None,
         min_uppercase: None,
@@ -104,16 +54,10 @@ mod tests {
 
     use super::*;
 
-    fn password(
-        req: PasswordGeneratorRequest,
-    ) -> Result<String, bitwarden_generators::PasswordError> {
-        Client::new(None).generator().password(req)
-    }
-
-    fn all_classes(min: Option<u32>, max: Option<u32>) -> PasswordPolicy {
-        PasswordPolicy {
-            min_length: min,
-            max_length: max,
+    fn all_classes(min_length: u32, max_length: u32) -> SealedPasswordPolicy {
+        SealedPasswordPolicy {
+            min_length,
+            max_length,
             include_uppercase: true,
             include_lowercase: true,
             include_digits: true,
@@ -121,105 +65,98 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_defaults_produce_length_64() {
-        let req = to_generator_request(&all_classes(None, None)).unwrap();
-        assert_eq!(req.length, 64);
+    fn password(
+        req: PasswordGeneratorRequest,
+    ) -> Result<String, bitwarden_generators::PasswordError> {
+        Client::new(None).generator().password(req)
     }
 
     #[test]
-    fn test_explicit_max_within_range_is_honored() {
-        let req = to_generator_request(&all_classes(None, Some(20))).unwrap();
+    fn valid_policy_converts_length_from_max_length() {
+        // 20 * log2(70) ≈ 122.6 bits: comfortably above the floor.
+        let req = to_generator_request(&all_classes(5, 20)).unwrap();
         assert_eq!(req.length, 20);
     }
 
     #[test]
-    fn test_min_and_max_both_set_honors_max() {
-        let req = to_generator_request(&all_classes(Some(10), Some(50))).unwrap();
-        assert_eq!(req.length, 50);
-    }
-
-    #[test]
-    fn test_min_length_zero_floors_to_generator_min() {
-        let req = to_generator_request(&all_classes(Some(0), None)).unwrap();
-        assert_eq!(req.length, 64);
-    }
-
-    #[test]
-    fn test_min_length_below_generator_min_floors_to_5() {
-        // min_length=3 → floor = max(3, 5) = 5; max = 10 → length = 10.
-        let req = to_generator_request(&all_classes(Some(3), Some(10))).unwrap();
-        assert_eq!(req.length, 10);
-    }
-
-    #[test]
-    fn test_min_length_exactly_5_is_valid() {
-        let req = to_generator_request(&all_classes(Some(5), Some(5))).unwrap();
-        assert_eq!(req.length, 5);
-    }
-
-    #[test]
-    fn test_max_length_above_128_clamps_to_128() {
-        let req = to_generator_request(&all_classes(None, Some(200))).unwrap();
-        assert_eq!(req.length, 128);
-    }
-
-    #[test]
-    fn test_max_length_exactly_128_is_accepted() {
-        let req = to_generator_request(&all_classes(None, Some(128))).unwrap();
-        assert_eq!(req.length, 128);
-    }
-
-    #[test]
-    fn test_min_greater_than_max_returns_invalid_bounds() {
-        let err = to_generator_request(&all_classes(Some(50), Some(30))).unwrap_err();
-        assert_eq!(err, PolicyError::InvalidBounds);
-    }
-
-    #[test]
-    fn test_min_equal_max_is_valid() {
-        let req = to_generator_request(&all_classes(Some(16), Some(16))).unwrap();
+    fn min_length_equal_max_length_is_valid() {
+        let req = to_generator_request(&all_classes(16, 16)).unwrap();
         assert_eq!(req.length, 16);
     }
 
     #[test]
-    fn test_min_length_above_128_returns_invalid_bounds() {
-        // floor = max(200, 5) = 200 > 128 → InvalidBounds.
-        let err = to_generator_request(&all_classes(Some(200), None)).unwrap_err();
-        assert_eq!(err, PolicyError::InvalidBounds);
+    fn max_length_at_generator_ceiling_is_valid() {
+        let req = to_generator_request(&all_classes(5, GENERATOR_MAX_LENGTH)).unwrap();
+        assert_eq!(u32::from(req.length), GENERATOR_MAX_LENGTH);
     }
 
     #[test]
-    fn test_min_length_exactly_128_is_valid() {
-        let req = to_generator_request(&all_classes(Some(128), Some(128))).unwrap();
-        assert_eq!(req.length, 128);
+    fn min_length_at_generator_floor_is_valid() {
+        // 5 classes-all length: 5 * log2(70) ≈ 30.6 bits, below the 80-bit floor, so use a longer
+        // min/max pair that still starts at the generator floor.
+        let req = to_generator_request(&all_classes(GENERATOR_MIN_LENGTH, 20)).unwrap();
+        assert_eq!(req.length, 20);
     }
 
     #[test]
-    fn test_all_classes_false_returns_no_character_classes() {
-        let policy = PasswordPolicy {
-            min_length: None,
-            max_length: None,
+    fn min_greater_than_max_is_rejected() {
+        let err = to_generator_request(&all_classes(30, 20)).unwrap_err();
+        assert_eq!(err, PolicyStrengthError::InvalidLengthBounds);
+    }
+
+    #[test]
+    fn max_length_above_generator_ceiling_is_rejected() {
+        let err = to_generator_request(&all_classes(5, GENERATOR_MAX_LENGTH + 1)).unwrap_err();
+        assert_eq!(err, PolicyStrengthError::InvalidLengthBounds);
+    }
+
+    #[test]
+    fn min_length_below_generator_floor_is_rejected() {
+        let err = to_generator_request(&all_classes(GENERATOR_MIN_LENGTH - 1, 20)).unwrap_err();
+        assert_eq!(err, PolicyStrengthError::InvalidLengthBounds);
+    }
+
+    #[test]
+    fn no_character_classes_is_rejected() {
+        let policy = SealedPasswordPolicy {
+            min_length: GENERATOR_MIN_LENGTH,
+            max_length: 20,
             include_uppercase: false,
             include_lowercase: false,
             include_digits: false,
             include_symbols: false,
         };
         let err = to_generator_request(&policy).unwrap_err();
-        assert_eq!(err, PolicyError::NoCharacterClasses);
+        assert_eq!(err, PolicyStrengthError::NoCharacterClasses);
     }
 
     #[test]
-    fn test_single_class_enabled_is_sufficient() {
+    fn below_strength_floor_is_rejected() {
+        // 20 * log2(10) ≈ 66.4 bits < 80.
+        let policy = SealedPasswordPolicy {
+            min_length: GENERATOR_MIN_LENGTH,
+            max_length: 20,
+            include_uppercase: false,
+            include_lowercase: false,
+            include_digits: true,
+            include_symbols: false,
+        };
+        let err = to_generator_request(&policy).unwrap_err();
+        assert_eq!(err, PolicyStrengthError::BelowStrengthFloor);
+    }
+
+    #[test]
+    fn single_class_enabled_is_sufficient_when_above_floor() {
         for (upper, lower, digits, symbols) in [
             (true, false, false, false),
             (false, true, false, false),
             (false, false, true, false),
             (false, false, false, true),
         ] {
-            let policy = PasswordPolicy {
-                min_length: None,
-                max_length: None,
+            // Length 30 with a single class (smallest pool is 8 symbols): 30 * log2(8) = 90 bits.
+            let policy = SealedPasswordPolicy {
+                min_length: 30,
+                max_length: 30,
                 include_uppercase: upper,
                 include_lowercase: lower,
                 include_digits: digits,
@@ -227,17 +164,17 @@ mod tests {
             };
             assert!(
                 to_generator_request(&policy).is_ok(),
-                "expected Ok when only one class is enabled: \
+                "expected Ok for a single enabled class at length 30: \
                  upper={upper} lower={lower} digits={digits} symbols={symbols}"
             );
         }
     }
 
     #[test]
-    fn test_include_flags_map_correctly() {
-        let policy = PasswordPolicy {
-            min_length: None,
-            max_length: None,
+    fn include_flags_map_correctly() {
+        let policy = SealedPasswordPolicy {
+            min_length: 30,
+            max_length: 30,
             include_uppercase: true,
             include_lowercase: false,
             include_digits: true,
@@ -259,8 +196,8 @@ mod tests {
     }
 
     #[test]
-    fn test_generated_request_produces_valid_password() {
-        let req = to_generator_request(&all_classes(Some(12), Some(32))).unwrap();
+    fn generated_request_produces_valid_password() {
+        let req = to_generator_request(&all_classes(14, 32)).unwrap();
         let result = password(req);
         assert!(result.is_ok(), "expected password() to succeed: {result:?}");
         let pwd = result.unwrap();
@@ -272,17 +209,18 @@ mod tests {
     }
 
     #[test]
-    fn test_generated_password_uses_only_enabled_charset() {
-        let policy = PasswordPolicy {
-            min_length: Some(10),
-            max_length: Some(10),
+    fn generated_password_uses_only_enabled_charset() {
+        // Digits only at length 30: 30 * log2(10) ≈ 99.7 bits, above the floor.
+        let policy = SealedPasswordPolicy {
+            min_length: 30,
+            max_length: 30,
             include_uppercase: false,
             include_lowercase: false,
             include_digits: true,
             include_symbols: false,
         };
         let req = to_generator_request(&policy).unwrap();
-        assert_eq!(req.length, 10);
+        assert_eq!(req.length, 30);
         let pwd = password(req).unwrap();
         assert!(
             pwd.chars().all(|c| c.is_ascii_digit()),
@@ -291,10 +229,10 @@ mod tests {
     }
 
     #[test]
-    fn test_generated_password_at_maximum_length() {
-        let req = to_generator_request(&all_classes(None, Some(128))).unwrap();
-        assert_eq!(req.length, 128);
+    fn generated_password_at_maximum_length() {
+        let req = to_generator_request(&all_classes(5, GENERATOR_MAX_LENGTH)).unwrap();
+        assert_eq!(u32::from(req.length), GENERATOR_MAX_LENGTH);
         let pwd = password(req).unwrap();
-        assert_eq!(pwd.len(), 128);
+        assert_eq!(pwd.len() as u32, GENERATOR_MAX_LENGTH);
     }
 }

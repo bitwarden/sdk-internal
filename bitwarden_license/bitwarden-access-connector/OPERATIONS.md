@@ -108,6 +108,43 @@ New passwords are generated on the connector host and encrypted there before bei
 Bitwarden server stores ciphertext it cannot read. Failure reports draw on a fixed vocabulary (error
 codes, HTTP status codes, script exit codes, variable _names_) and never contain credential values.
 
+### Sealed rotation data
+
+Everything that decides _what_ gets rotated and _how_ — the target kind, the password policy, the
+account identity, and whether sessions are terminated — is sealed by the admin client into two
+opaque blobs whose content keys are wrapped by the organization key. The server stores and relays
+these blobs without being able to read them; the connector unseals and cross-checks them against the
+claim (IDs, cipher, target method) before touching anything, and refuses the job if any check fails.
+Only plaintext IDs, the target name, the method flag, and scheduling fields pass through the server
+unsealed — none of them lets the server choose what is rotated or into which credential.
+
+This closes off a hostile or MitM'd server **choosing** the account, the password strength, or the
+destination cipher. It does **not** close off everything a compromised server can do:
+
+- **Replay.** The server can hand back an older, still-validly-sealed blob — an earlier
+  `account_identity`, a weaker (but still above-floor) policy, `terminate_sessions` turned back on.
+- **Timing.** Schedule and `enabled` stay plaintext, so the server decides _when_ and _how often_ a
+  job runs, including skipping a rotation entirely or firing one repeatedly.
+- **Destination access.** The cipher-ID check only proves the server reported the ID it was given;
+  who can subsequently _read_ that cipher is ordinary org collection access, which the server still
+  controls.
+- **A colluding org member.** Anyone holding the organization key can seal a valid blob. The
+  password-strength floor still applies, but nothing else does.
+
+Full threat model, the complete gaps table, and the rationale:
+`docs/pam-rotation-sealed-config-plan.md` in `sdk-internal`.
+
+Because the blobs cap _what_ the server can ask for but not _what the connector's own target
+credentials can do_, scope those credentials tightly — they are the real limit:
+
+- **Entra:** grant the rotation service principal rights over an **Administrative Unit** containing
+  only the accounts it should rotate, rather than a tenant-wide **Privileged Authentication
+  Administrator** role, unless admin accounts are themselves in scope for rotation.
+- **Custom scripts:** `account_identity` reaches your script verbatim from the sealed blob. It is
+  confidential from the server, but still **untrusted input** as far as your script is concerned —
+  anyone who can save a rotation config chose that string. Never interpolate it unsanitized into a
+  shell command, SQL query, or API path.
+
 ### Administrative reset
 
 The connector never sends a target account's _current_ password to an integration or script.

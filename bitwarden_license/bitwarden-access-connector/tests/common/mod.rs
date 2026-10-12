@@ -11,9 +11,17 @@ pub use std::time::Duration;
 use std::{path::PathBuf, str::FromStr, sync::Mutex};
 
 pub use bitwarden_access_connector::executor::RunExit;
-use bitwarden_access_connector::{executor::AccessConnectorConfig, token::AccessConnectorToken};
+use bitwarden_access_connector::{
+    crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId},
+    executor::AccessConnectorConfig,
+    token::AccessConnectorToken,
+};
 use bitwarden_crypto::{KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 use bitwarden_encoding::B64;
+use bitwarden_pam_sealed::{
+    RotationConfigSealedV1, SealedPasswordPolicy, SealedTargetSystemKind, SealedTargetSystemMethod,
+    TargetSystemSealedV1, seal_rotation_config, seal_target_system,
+};
 pub use bitwarden_threading::cancellation_token::CancellationToken;
 pub use uuid::Uuid;
 pub use wiremock::{
@@ -117,30 +125,71 @@ pub fn execute_by_future() -> String {
         .to_rfc3339()
 }
 
+/// Seal a well-formed target-system and rotation-config blob pair under `org_key`. Sealing needs
+/// a `KeyStoreContext`, not the org key value directly, so this installs `org_key` into a scratch
+/// key store first.
+pub fn seal_claim_blobs(
+    org_key: &SymmetricCryptoKey,
+    target_id: Uuid,
+    cipher_id: Uuid,
+    terminate_sessions: bool,
+) -> (String, String) {
+    let store = AccessConnectorKeyStore::default();
+    let mut ctx = store.context_mut();
+    #[allow(deprecated)]
+    ctx.set_symmetric_key(AccessConnectorSymmSlotId::Organization, org_key.clone())
+        .expect("set_symmetric_key");
+
+    let target = TargetSystemSealedV1 {
+        target_system_id: target_id,
+        method: SealedTargetSystemMethod::Automatic,
+        kind: Some(SealedTargetSystemKind::CustomScript),
+        password_policy: SealedPasswordPolicy {
+            min_length: 8,
+            max_length: 20,
+            include_uppercase: true,
+            include_lowercase: true,
+            include_digits: true,
+            include_symbols: true,
+        },
+        supports_session_termination: Some(true),
+    };
+    let config = RotationConfigSealedV1 {
+        target_system_id: target_id,
+        cipher_id,
+        account_identity: "testuser@example.com".to_owned(),
+        terminate_sessions,
+    };
+
+    let target_blob =
+        seal_target_system(target, &AccessConnectorSymmSlotId::Organization, &mut ctx)
+            .expect("seal target");
+    let config_blob =
+        seal_rotation_config(config, &AccessConnectorSymmSlotId::Organization, &mut ctx)
+            .expect("seal config");
+
+    (target_blob, config_blob)
+}
+
 pub fn claim_body(
+    org_key: &SymmetricCryptoKey,
     attempt_id: Uuid,
     job_id: Uuid,
     target_id: Uuid,
     cipher_id: Uuid,
     terminate_sessions: bool,
 ) -> serde_json::Value {
+    let (target_blob, config_blob) =
+        seal_claim_blobs(org_key, target_id, cipher_id, terminate_sessions);
+
     serde_json::json!({
         "attemptId": attempt_id,
         "jobId": job_id,
         "targetSystemId": target_id,
         "targetSystemName": "test-system",
-        "kind": 2,  // CustomScript
-        "passwordPolicy": {
-            "minLength": 8,
-            "maxLength": 128,
-            "includeUppercase": true,
-            "includeLowercase": true,
-            "includeDigits": true,
-            "includeSymbols": false
-        },
+        "targetSystemSealedData": target_blob,
         "cipherId": cipher_id,
-        "accountIdentity": "testuser@example.com",
-        "terminateSessions": terminate_sessions,
+        "rotationConfigSealedData": config_blob,
         "executeBy": execute_by_future()
     })
 }

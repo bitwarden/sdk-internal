@@ -1,18 +1,21 @@
 //! Domain types produced by the [`super`] API wrapper; the wire DTOs come from
 //! `bitwarden_api_api::models`.
 
-use bitwarden_api_api::models::{PamPasswordPolicyResponseModel, PamTargetSystemKind};
+use bitwarden_pam_sealed::SealedTargetSystemKind;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{
     auth::session::SessionLost,
     error::{SessionTermination, SyncState},
-    policy::PasswordPolicy,
 };
 
-/// The target-system kind understood by this connector build. Unrecognised wire values surface as
-/// [`TargetKind::Unknown`] instead of failing the parse.
+/// The target-system kind understood by this connector build.
+///
+/// Built only from [`SealedTargetSystemKind`] (the unsealed blob), never from the claim's
+/// plaintext `kind` field directly — see `executor::verify`. [`SealedTargetSystemKind`] has no
+/// catch-all variant: an unrecognised kind fails to unseal at all, rejected before it ever
+/// reaches this type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum TargetKind {
     /// Microsoft Entra ID (Azure AD).
@@ -21,35 +24,14 @@ pub(crate) enum TargetKind {
     Mssql,
     /// Operator-supplied custom rotation script.
     CustomScript,
-    /// Any other integer the server returned; treated as unsupported.
-    Unknown(i64),
 }
 
-impl From<PamTargetSystemKind> for TargetKind {
-    fn from(kind: PamTargetSystemKind) -> Self {
+impl From<SealedTargetSystemKind> for TargetKind {
+    fn from(kind: SealedTargetSystemKind) -> Self {
         match kind {
-            PamTargetSystemKind::Entra => TargetKind::Entra,
-            PamTargetSystemKind::Mssql => TargetKind::Mssql,
-            PamTargetSystemKind::CustomScript => TargetKind::CustomScript,
-            PamTargetSystemKind::__Unknown(v) => TargetKind::Unknown(v),
-        }
-    }
-}
-
-/// Negative lengths, which the wire's `i32` allows, become `None` (unconstrained). Missing flags
-/// become `false`.
-impl From<PamPasswordPolicyResponseModel> for PasswordPolicy {
-    fn from(m: PamPasswordPolicyResponseModel) -> Self {
-        let min_length = m.min_length.and_then(|v| u32::try_from(v).ok());
-        let max_length = m.max_length.and_then(|v| u32::try_from(v).ok());
-
-        PasswordPolicy {
-            min_length,
-            max_length,
-            include_uppercase: m.include_uppercase.unwrap_or(false),
-            include_lowercase: m.include_lowercase.unwrap_or(false),
-            include_digits: m.include_digits.unwrap_or(false),
-            include_symbols: m.include_symbols.unwrap_or(false),
+            SealedTargetSystemKind::Entra => TargetKind::Entra,
+            SealedTargetSystemKind::Mssql => TargetKind::Mssql,
+            SealedTargetSystemKind::CustomScript => TargetKind::CustomScript,
         }
     }
 }
@@ -60,23 +42,29 @@ pub(crate) struct JobRef {
     pub(crate) id: Uuid,
 }
 
-/// The work snapshot returned by a successful claim. It carries everything the rotation needs
-/// besides the cipher read/write and the outcome report.
+/// The work snapshot returned by a successful claim. Every security-relevant field (kind,
+/// password policy, account identity, terminate-sessions) lives only inside the two opaque sealed
+/// blobs; `executor::verify` unseals and cross-checks them, producing an
+/// `executor::verify::VerifiedJob`, before anything about this claim is trusted.
 #[derive(Debug, Clone)]
 pub(crate) struct WorkSnapshot {
     /// Keys every attempt-scoped request (cipher read/write, outcome reports).
     pub(crate) attempt_id: Uuid,
     pub(crate) job_id: Uuid,
+    /// Plaintext claim copy, cross-checked against both sealed blobs by `executor::verify`.
     pub(crate) target_system_id: Uuid,
-    /// Display name of the target system, for logging.
+    /// Display name of the target system, for logging. Not security-relevant.
     pub(crate) target_system_name: String,
-    pub(crate) kind: TargetKind,
-    pub(crate) password_policy: PasswordPolicy,
-    /// For logging; the cipher itself is fetched through the attempt route.
+    /// Plaintext claim copy, cross-checked against the rotation-config blob by
+    /// `executor::verify`.
     pub(crate) cipher_id: Uuid,
-    /// Opaque account identity passed verbatim to the integration layer.
-    pub(crate) account_identity: String,
-    pub(crate) terminate_sessions: bool,
+    /// Opaque blob sealed under `DataEnvelopeNamespace::PamTargetSystem`; see
+    /// `bitwarden_pam_sealed::TargetSystemSealedV1`. `None` means the server sent no blob at all
+    /// (rejected by `executor::verify`).
+    pub(crate) target_system_sealed_data: Option<String>,
+    /// Opaque blob sealed under `DataEnvelopeNamespace::PamRotationConfig`; see
+    /// `bitwarden_pam_sealed::RotationConfigSealedV1`.
+    pub(crate) rotation_config_sealed_data: Option<String>,
     /// Lease deadline: no target-side step starts after it.
     pub(crate) execute_by: DateTime<Utc>,
 }
@@ -179,7 +167,7 @@ mod tests {
     #[test]
     fn target_kind_from_entra() {
         assert_eq!(
-            TargetKind::from(PamTargetSystemKind::Entra),
+            TargetKind::from(SealedTargetSystemKind::Entra),
             TargetKind::Entra
         );
     }
@@ -187,7 +175,7 @@ mod tests {
     #[test]
     fn target_kind_from_mssql() {
         assert_eq!(
-            TargetKind::from(PamTargetSystemKind::Mssql),
+            TargetKind::from(SealedTargetSystemKind::Mssql),
             TargetKind::Mssql
         );
     }
@@ -195,70 +183,9 @@ mod tests {
     #[test]
     fn target_kind_from_custom_script() {
         assert_eq!(
-            TargetKind::from(PamTargetSystemKind::CustomScript),
+            TargetKind::from(SealedTargetSystemKind::CustomScript),
             TargetKind::CustomScript
         );
-    }
-
-    #[test]
-    fn target_kind_from_unknown_variant() {
-        assert_eq!(
-            TargetKind::from(PamTargetSystemKind::__Unknown(99)),
-            TargetKind::Unknown(99)
-        );
-    }
-
-    #[test]
-    fn password_policy_from_full_model() {
-        let m = PamPasswordPolicyResponseModel {
-            min_length: Some(8),
-            max_length: Some(64),
-            include_uppercase: Some(true),
-            include_lowercase: Some(true),
-            include_digits: Some(false),
-            include_symbols: Some(true),
-        };
-        let p = PasswordPolicy::from(m);
-        assert_eq!(p.min_length, Some(8));
-        assert_eq!(p.max_length, Some(64));
-        assert!(p.include_uppercase);
-        assert!(p.include_lowercase);
-        assert!(!p.include_digits);
-        assert!(p.include_symbols);
-    }
-
-    #[test]
-    fn password_policy_negative_lengths_become_none() {
-        let m = PamPasswordPolicyResponseModel {
-            min_length: Some(-1),
-            max_length: Some(-5),
-            include_uppercase: Some(true),
-            include_lowercase: Some(false),
-            include_digits: Some(false),
-            include_symbols: Some(false),
-        };
-        let p = PasswordPolicy::from(m);
-        assert_eq!(p.min_length, None, "negative min should become None");
-        assert_eq!(p.max_length, None, "negative max should become None");
-    }
-
-    #[test]
-    fn password_policy_none_booleans_default_to_false() {
-        let m = PamPasswordPolicyResponseModel {
-            min_length: None,
-            max_length: None,
-            include_uppercase: None,
-            include_lowercase: None,
-            include_digits: None,
-            include_symbols: None,
-        };
-        let p = PasswordPolicy::from(m);
-        assert_eq!(p.min_length, None);
-        assert_eq!(p.max_length, None);
-        assert!(!p.include_uppercase);
-        assert!(!p.include_lowercase);
-        assert!(!p.include_digits);
-        assert!(!p.include_symbols);
     }
 
     #[test]
