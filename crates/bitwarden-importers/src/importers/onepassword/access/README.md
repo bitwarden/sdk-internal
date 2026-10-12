@@ -31,7 +31,8 @@ each one into a Bitwarden folder. 1P doesn't have folders, only tags.
 
 ## SSO
 
-- The crypto is pinned by the generated test vectors in `fixtures/sso-vectors.json`
+- The crypto is pinned by the generated test vectors in `fixtures/sso-vectors.json`, and
+  `sso/flow_tests.rs` runs the whole login against a fake server
 - `fixtures/sso-1password-exchanges.json` holds two exchanges recorded from 1Password's own CPace
   WASM playing both devices, one with the right code and one with a wrong one
 - A wrong verification code shows in `taga`. Like 1Password's web client, the new device still sends

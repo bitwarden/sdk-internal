@@ -331,8 +331,8 @@ mod tests {
     use super::{
         super::{
             test_support::{
-                CpaceVectors, SIGN_IN_TOKEN, mock_msga, path, quick_timing, rest_client, session,
-                sign_in, vectors,
+                CpaceVectors, SIGN_IN_TOKEN, mock_enrolled_device_for_any_client, mock_msga, path,
+                quick_timing, rest_client, session, sign_in, vectors,
             },
             ui::SsoLoginResult,
         },
@@ -771,6 +771,42 @@ mod tests {
         assert_eq!(
             script.take_events().last(),
             Some(&Event::Ended(SsoEnrollmentResult::Denied))
+        );
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn enrolls_a_device_approved_on_another() {
+        let vectors = vectors().cpace;
+        let server = MockServer::start().await;
+        mock_start(&server, &vectors).await;
+        mock_statuses(
+            &server,
+            &vectors,
+            vec![reports("SELECTING_VERIFIER"), reports("WAITING_FOR_CODE")],
+        )
+        .await;
+        mock_enrolled_device_for_any_client(&server, &vectors, &vectors.sign_in_address).await;
+        mock_cancel(&server, &vectors, 0).await;
+        let (ui, script) = scripted(code(&vectors.verification_code));
+
+        let bundle = run_enrollment(&server, &vectors, &ui, &quick_timing())
+            .await
+            .expect("the enrollment succeeds");
+
+        assert_eq!(*bundle.srpx, "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8");
+        assert_eq!(
+            script.take_events(),
+            [
+                status(
+                    EnrollmentStatus::WaitingForApproval,
+                    "Waiting for approval from enrolled device..."
+                ),
+                Event::CodeAsked(0),
+                exchanging(),
+                status(EnrollmentStatus::Completing, "Completing enrollment"),
+                Event::Ended(SsoEnrollmentResult::Success),
+            ]
         );
         server.verify().await;
     }
