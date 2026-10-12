@@ -1,18 +1,14 @@
 //! Converts a verified job's [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`].
 //!
-//! Generator-validity is already enforced once by [`SealedPasswordPolicy::validate`] in
-//! `executor::verify`; this module re-validates defensively, so a future call site that skips
-//! `verify` still fails closed instead of generating from an invalid policy.
+//! `executor::verify` already validates the policy; re-validating here fails closed for any call
+//! site that skips `verify`.
 
 use bitwarden_generators::PasswordGeneratorRequest;
 use bitwarden_pam_sealed::{
     GENERATOR_MAX_LENGTH, GENERATOR_MIN_LENGTH, PasswordPolicyError, SealedPasswordPolicy,
 };
 
-/// Convert a [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`]. The generated length is
-/// `max_length` clamped to the generator's supported range
-/// (`[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]`); after `validate` it is already in range, so
-/// the clamp here is a defensive no-op.
+/// Convert a [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`] of length `max_length`.
 pub(crate) fn to_generator_request(
     policy: &SealedPasswordPolicy,
 ) -> Result<PasswordGeneratorRequest, PasswordPolicyError> {
@@ -22,7 +18,7 @@ pub(crate) fn to_generator_request(
         .max_length
         .clamp(GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH);
 
-    // length is in [GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH] = [5, 128], so it fits in a u8.
+    // The generator's maximum length fits in a u8.
     #[allow(clippy::cast_possible_truncation)]
     let length_u8 = length as u8;
 

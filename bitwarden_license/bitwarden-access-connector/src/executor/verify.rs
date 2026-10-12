@@ -1,11 +1,8 @@
-//! Verifies a claim's two sealed blobs against each other and against the plaintext claim before
-//! any plaintext claim field is trusted (checks 1–7). Check 8, the pre-flight cipher read, happens
-//! later in `executor::rotation`, since it needs a network round trip this sync function can't
-//! make.
+//! Cross-checks a claim's two sealed blobs against each other and the plaintext claim (checks 1–7).
+//! Check 8, the pre-flight cipher read, needs the network and lives in `executor::rotation`.
 //!
-//! [`verify`] is the only place that can construct [`VerifiedJob`]: its fields are private, so
-//! `rotation::execute` can never read a plaintext claim field that wasn't cross-checked against
-//! the sealed blobs.
+//! Only [`verify`] can construct a [`VerifiedJob`], so `rotation::execute` never reads an
+//! uncross-checked claim field.
 
 use bitwarden_pam_sealed::{
     RotationConfigSealedV1, SealedPasswordPolicy, SealedTargetSystemMethod, TargetSystemSealedV1,
@@ -19,35 +16,23 @@ use crate::{
     crypto::{AccessConnectorKeySlotIds, AccessConnectorKeyStore, AccessConnectorSymmSlotId},
 };
 
-/// Why [`verify`] refused a claim. Never carries field values from the claim or the sealed blobs —
-/// only which check failed, reported as `FailureCode::SealedDataRejected`.
+/// Why [`verify`] refused a claim. Carries no claim or blob values, only which check failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SealRejection {
-    /// The claim carried no `target_system_sealed_data` blob (check 1).
     MissingTargetBlob,
-    /// The claim carried no `rotation_config_sealed_data` blob (check 1).
     MissingConfigBlob,
-    /// The target blob did not unseal: wrong key, envelope, namespace, or version (check 1).
     TargetBlobInvalid,
-    /// The rotation-config blob did not unseal (check 1).
     ConfigBlobInvalid,
-    /// The claim's `target_system_id`, the target blob's own `target_system_id`, and the config
-    /// blob's `target_system_id` do not all agree (check 2).
     TargetSystemIdMismatch,
-    /// The claim's `cipher_id` does not match the rotation-config blob's `cipher_id` (check 3).
     CipherIdMismatch,
-    /// The sealed target's `method` is not `Automatic` (check 4).
     TargetMethodNotAutomatic,
-    /// The sealed target's `method` is `Automatic` but `kind` is absent — a malformed blob, since
-    /// a legitimate automatic target always seals a kind (check 5).
+    /// A legitimate `Automatic` target always seals a kind.
     TargetKindMissing,
-    /// The sealed password policy fails the shared generator-validity check (check 6): no
-    /// character class enabled, or length bounds outside the generator's supported range.
     PolicyRejected,
 }
 
 impl SealRejection {
-    /// A `'static` name for this rejection, safe to report in a [`crate::error::SafeDetail`].
+    /// A `'static` name, safe to report in a [`crate::error::SafeDetail`].
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::MissingTargetBlob => "missing_target_blob",
@@ -63,9 +48,7 @@ impl SealRejection {
     }
 }
 
-/// A claim whose sealed blobs have been unsealed and cross-checked against each other and the
-/// plaintext claim by [`verify`]. Fields are private so only [`verify`] can construct one, keeping
-/// `rotation::execute` from ever reading an uncross-checked claim field.
+/// A claim cross-checked by [`verify`]; private fields keep it constructible only there.
 #[derive(Debug)]
 pub(crate) struct VerifiedJob {
     attempt_id: Uuid,
@@ -76,14 +59,11 @@ pub(crate) struct VerifiedJob {
     kind: TargetKind,
     password_policy: SealedPasswordPolicy,
     account_identity: String,
-    /// `config.terminate_sessions && target.supports_session_termination == Some(true)`
-    /// (check 7) — never the raw config flag alone.
     terminate_sessions: bool,
     execute_by: DateTime<Utc>,
 }
 
 impl VerifiedJob {
-    /// Keys every attempt-scoped request (cipher read/write, outcome reports).
     pub(crate) fn attempt_id(&self) -> Uuid {
         self.attempt_id
     }
@@ -96,7 +76,7 @@ impl VerifiedJob {
         self.target_system_id
     }
 
-    /// Display name of the target system, for logging. Not security-relevant.
+    /// For logging only.
     pub(crate) fn target_system_name(&self) -> &str {
         &self.target_system_name
     }
@@ -113,8 +93,7 @@ impl VerifiedJob {
         &self.password_policy
     }
 
-    /// Opaque account identity passed verbatim to the integration layer. Treated as untrusted
-    /// input by integrations: never interpolated unsanitized into a shell command or query.
+    /// Passed verbatim to integrations, which must treat it as untrusted input.
     pub(crate) fn account_identity(&self) -> &str {
         &self.account_identity
     }
@@ -123,19 +102,18 @@ impl VerifiedJob {
         self.terminate_sessions
     }
 
-    /// Lease deadline: no target-side step starts after it.
+    /// No target-side step starts after this.
     pub(crate) fn execute_by(&self) -> DateTime<Utc> {
         self.execute_by
     }
 }
 
-/// Implements checks 1–7: unseals both blobs, cross-checks every ID, requires an automatic
-/// target, and checks the policy is one the generator can satisfy.
+/// Runs checks 1–7 on a claim, rejecting it with a [`SealRejection`] on the first failure.
 pub(crate) fn verify(
     snapshot: WorkSnapshot,
     key_store: &AccessConnectorKeyStore,
 ) -> Result<VerifiedJob, SealRejection> {
-    // Check 1: both blobs must be present and must unseal.
+    // Check 1.
     let target_blob = snapshot
         .target_system_sealed_data
         .as_deref()
@@ -161,37 +139,33 @@ pub(crate) fn verify(
     )
     .map_err(|_| SealRejection::ConfigBlobInvalid)?;
 
-    // Check 2: the claim, the target blob, and the config blob must all name the same target.
+    // Check 2.
     if snapshot.target_system_id != target.target_system_id
         || snapshot.target_system_id != config.target_system_id
     {
         return Err(SealRejection::TargetSystemIdMismatch);
     }
 
-    // Check 3: the claim and the config blob must name the same cipher.
+    // Check 3.
     if snapshot.cipher_id != config.cipher_id {
         return Err(SealRejection::CipherIdMismatch);
     }
 
-    // Check 4: only an automatic target may run; a manual target's plaintext `method` on the
-    // server is purely advisory, so this reads the sealed copy only.
+    // Check 4: reads the sealed method only; the server's plaintext copy is advisory.
     if target.method != SealedTargetSystemMethod::Automatic {
         return Err(SealRejection::TargetMethodNotAutomatic);
     }
 
-    // Check 5: kind, policy, and account identity come from the blobs only, never the plaintext
-    // claim.
+    // Check 5: kind, policy, and account identity come from the blobs only.
     let kind = target.kind.ok_or(SealRejection::TargetKindMissing)?;
 
-    // Check 6: the policy must be one the generator can satisfy (at least one class, length
-    // within the generator's supported range).
+    // Check 6.
     target
         .password_policy
         .validate()
         .map_err(|_| SealRejection::PolicyRejected)?;
 
-    // Check 7: terminate only if the config asks for it and the target can honor it; unsupported
-    // is ANDed to false, not a rejection.
+    // Check 7: unsupported termination is ANDed to false, not a rejection.
     let terminate_sessions =
         config.terminate_sessions && target.supports_session_termination == Some(true);
 
@@ -209,16 +183,14 @@ pub(crate) fn verify(
     })
 }
 
-/// Test-only fixture builders shared with `executor::rotation` and `executor::mod`'s tests, which
-/// need a real [`VerifiedJob`] without repeating the sealing boilerplate at every call site.
+/// Fixture builders shared with the `executor` tests.
 #[cfg(test)]
 pub(crate) mod test_support {
     use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
 
-    /// A key store with a freshly generated organization key installed at the `Organization`
-    /// slot, plus the key itself (for sealing fixtures under a *different* key in tamper tests).
+    /// A key store holding a fresh organization key, which is also returned.
     pub(crate) fn store_with_org_key() -> (AccessConnectorKeyStore, SymmetricCryptoKey) {
         let store = AccessConnectorKeyStore::default();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -230,7 +202,6 @@ pub(crate) mod test_support {
         (store, org_key)
     }
 
-    /// A generator-valid policy: all classes enabled, length 20.
     pub(crate) fn strong_policy() -> SealedPasswordPolicy {
         SealedPasswordPolicy {
             min_length: 20,
@@ -281,7 +252,6 @@ pub(crate) mod test_support {
         }
     }
 
-    /// Seals `target` and `config` under `store`'s organization key, returning both opaque blobs.
     pub(crate) fn sealed_pair(
         store: &AccessConnectorKeyStore,
         target: TargetSystemSealedV1,
@@ -421,8 +391,6 @@ mod tests {
 
     #[test]
     fn target_blob_sealed_under_a_different_org_key_is_rejected() {
-        // A connector holding a different key (or an attacker without the org key) cannot
-        // unseal a blob sealed for this organization.
         let (store, _org_key) = store_with_org_key();
         let (other_store, _other_key) = store_with_org_key();
         let target_system_id = Uuid::new_v4();
@@ -459,8 +427,7 @@ mod tests {
 
     #[test]
     fn config_blob_from_a_different_config_is_rejected() {
-        // The config blob was sealed for the same target but a different cipher than the claim
-        // and target blob agree on — a config "swapped in" from another rotation config.
+        // A config swapped in from another rotation config: same target, different cipher.
         let (store, _org_key) = store_with_org_key();
         let target_system_id = Uuid::new_v4();
         let cipher_id = Uuid::new_v4();

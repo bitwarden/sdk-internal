@@ -397,8 +397,7 @@ fn parse_work_snapshot(
         .parse::<chrono::DateTime<chrono::Utc>>()
         .map_err(|_| ApiError::Protocol("invalid executeBy timestamp".to_owned()))?;
 
-    // The two sealed blobs are not `required!`: a missing blob is a sealed-data integrity
-    // failure (see `executor::verify`), not a protocol error.
+    // The sealed blobs are not `required!`: a missing one is rejected by `executor::verify`.
     Ok(WorkSnapshot {
         attempt_id,
         job_id,
@@ -632,8 +631,6 @@ mod tests {
 
     #[test]
     fn parse_work_snapshot_missing_sealed_blobs_still_parses() {
-        // Missing blobs are a sealed-data integrity failure caught later by
-        // `executor::verify`, not a protocol-level parse error.
         use bitwarden_api_api::models::RotationClaimResponseModel;
         use chrono::Utc;
 

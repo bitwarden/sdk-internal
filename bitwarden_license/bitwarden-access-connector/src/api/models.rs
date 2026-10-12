@@ -10,9 +10,8 @@ use crate::{
     error::{SessionTermination, SyncState},
 };
 
-/// The target-system kind understood by this connector build. Built only from the unsealed
-/// [`SealedTargetSystemKind`] blob, never the claim's plaintext `kind` field — an unrecognised
-/// kind fails to unseal, so there is no catch-all variant here.
+/// The target-system kind, taken only from the unsealed blob, never the claim's plaintext `kind`.
+/// An unrecognised kind fails to unseal, so there is no catch-all variant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum TargetKind {
     /// Microsoft Entra ID (Azure AD).
@@ -39,27 +38,18 @@ pub(crate) struct JobRef {
     pub(crate) id: Uuid,
 }
 
-/// The work snapshot returned by a successful claim. Every security-relevant field (kind,
-/// password policy, account identity, terminate-sessions) lives only inside the two opaque sealed
-/// blobs — `executor::verify` unseals and cross-checks them before anything here is trusted.
+/// The work snapshot returned by a successful claim; `executor::verify` checks it before any field
+/// is trusted.
 #[derive(Debug, Clone)]
 pub(crate) struct WorkSnapshot {
     /// Keys every attempt-scoped request (cipher read/write, outcome reports).
     pub(crate) attempt_id: Uuid,
     pub(crate) job_id: Uuid,
-    /// Plaintext claim copy, cross-checked against both sealed blobs by `executor::verify`.
     pub(crate) target_system_id: Uuid,
-    /// Display name of the target system, for logging. Not security-relevant.
+    /// For logging only.
     pub(crate) target_system_name: String,
-    /// Plaintext claim copy, cross-checked against the rotation-config blob by
-    /// `executor::verify`.
     pub(crate) cipher_id: Uuid,
-    /// Opaque blob sealed under `DataEnvelopeNamespace::PamTargetSystem`; see
-    /// `bitwarden_pam_sealed::TargetSystemSealedV1`. `None` means the server sent no blob at all
-    /// (rejected by `executor::verify`).
     pub(crate) target_system_sealed_data: Option<String>,
-    /// Opaque blob sealed under `DataEnvelopeNamespace::PamRotationConfig`; see
-    /// `bitwarden_pam_sealed::RotationConfigSealedV1`.
     pub(crate) rotation_config_sealed_data: Option<String>,
     /// Lease deadline: no target-side step starts after it.
     pub(crate) execute_by: DateTime<Utc>,

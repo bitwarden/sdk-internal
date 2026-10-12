@@ -339,9 +339,8 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             continue;
         };
 
-        // Unseal and cross-check the claim's two sealed blobs (checks 1–7) before anything else.
-        // A rejection is reported and the job abandoned without ever touching the
-        // resolver/integration layer or making a cipher call.
+        // Verify the sealed blobs (checks 1–7) before anything else: a rejection is reported
+        // without touching the resolver, integration layer, or cipher route.
         let attempt_id = snap.attempt_id;
         let verified = match verify::verify(snap, &key_store) {
             Ok(v) => v,
@@ -762,8 +761,6 @@ mod tests {
         assert!(matches!(err, ApiError::NotEligible));
     }
 
-    /// A claim with no `targetSystemSealedData` blob must be rejected by `verify` before
-    /// `execute` ever runs, with no call to the cipher route.
     #[tokio::test]
     async fn claim_with_missing_target_blob_reports_sealed_data_rejected_and_never_executes() {
         let identity_server = MockServer::start().await;
@@ -789,8 +786,7 @@ mod tests {
             .unwrap()
             .to_rfc3339();
 
-        // Offer the job exactly once, then an empty list, so the claim/reject cycle happens
-        // exactly once within the test window instead of on every poll tick.
+        // Offer the job once, so the claim/reject cycle doesn't repeat every poll tick.
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
             .respond_with(
@@ -813,8 +809,6 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        // No `targetSystemSealedData` at all: `verify` must reject with `MissingTargetBlob`
-        // before `execute` ever runs.
         Mock::given(method("POST"))
             .and(path(format!(
                 "/access-connectors/rotation/jobs/{job_id}/claim"
@@ -861,8 +855,6 @@ mod tests {
 
         let all_reqs = api_server.received_requests().await.unwrap();
 
-        // The only place `execute` would touch the API before a report is the cipher route; a
-        // rejected claim must never reach it.
         let cipher_reqs: Vec<_> = all_reqs
             .iter()
             .filter(|r| r.url.path().contains("/cipher"))

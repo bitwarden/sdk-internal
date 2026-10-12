@@ -101,9 +101,6 @@ pub fn unwrap_org_key(
 /// while it is null.
 const CIPHER_PASSWORD_KEY: &str = "Password";
 
-/// Resolves the key slot a cipher's password should be encrypted under: the per-item key
-/// (unwrapped by the org key) when `cipher_key` is present, else the org key directly. Shared by
-/// [`encrypt_cipher_password`] and [`cipher_key_unwraps`], which only checks decryptability.
 fn resolve_encrypt_slot(
     ctx: &mut KeyStoreContext<'_, AccessConnectorKeySlotIds>,
     cipher_key: Option<&str>,
@@ -120,9 +117,7 @@ fn resolve_encrypt_slot(
     }
 }
 
-/// Verifies that a cipher's per-item key (if any) unwraps under the organization key, without
-/// encrypting anything. Used by the pre-flight cipher read (check 8), so an unwrappable key is
-/// caught before the target is rotated, not after.
+/// Checks that the per-item key (if any) unwraps under the org key, without encrypting anything.
 pub fn cipher_key_unwraps(
     store: &AccessConnectorKeyStore,
     cipher_key: Option<&str>,
@@ -409,7 +404,6 @@ mod tests {
         let (store, _org_key) = make_store_with_org_key();
         let (other_store, _other_org_key) = make_store_with_org_key();
 
-        // Wrap an item key under a DIFFERENT organization key than the one installed in `store`.
         let item_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let wrapped_cipher_key_str = {
             let mut ctx = other_store.context_mut();
