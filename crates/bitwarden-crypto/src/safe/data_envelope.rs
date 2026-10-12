@@ -508,6 +508,15 @@ pub enum DataEnvelopeNamespace {
     /// registration-finish so an anonymous, email-verified new user can complete an open
     /// organization invite in a single flow.
     RegistrationOpenOrgInviteData = 3,
+    /// Namespace for PAM target systems (`bitwarden-pam-sealed::TargetSystemSealed`): the
+    /// method, kind, password policy and session-termination support of a target system, sealed
+    /// by the admin client so a hostile server cannot change what the access connector rotates
+    /// or how, between the admin saving the target and the connector claiming a rotation job.
+    PamTargetSystem = 4,
+    /// Namespace for PAM rotation configs (`bitwarden-pam-sealed::RotationConfigSealed`): which
+    /// account and cipher a rotation targets, and whether sessions are terminated, sealed for the
+    /// same reason as [`DataEnvelopeNamespace::PamTargetSystem`].
+    PamRotationConfig = 5,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -531,6 +540,8 @@ impl TryFrom<i128> for DataEnvelopeNamespace {
             1 => Ok(DataEnvelopeNamespace::VaultItem),
             2 => Ok(DataEnvelopeNamespace::OrganizationInvite),
             3 => Ok(DataEnvelopeNamespace::RegistrationOpenOrgInviteData),
+            4 => Ok(DataEnvelopeNamespace::PamTargetSystem),
+            5 => Ok(DataEnvelopeNamespace::PamRotationConfig),
             #[cfg(test)]
             -1 => Ok(DataEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
@@ -838,6 +849,44 @@ mod tests {
             &cek,
         )
         .unwrap();
+        assert_eq!(round_tripped, data);
+    }
+
+    #[test]
+    fn test_pam_namespaces_map_to_expected_discriminants() {
+        // The wire discriminants are load-bearing once shipped; a regression here would silently
+        // invalidate every envelope sealed by production callers (bitwarden-pam-sealed).
+        assert_eq!(
+            DataEnvelopeNamespace::try_from(4i128).unwrap(),
+            DataEnvelopeNamespace::PamTargetSystem
+        );
+        assert_eq!(i128::from(DataEnvelopeNamespace::PamTargetSystem), 4);
+
+        assert_eq!(
+            DataEnvelopeNamespace::try_from(5i128).unwrap(),
+            DataEnvelopeNamespace::PamRotationConfig
+        );
+        assert_eq!(i128::from(DataEnvelopeNamespace::PamRotationConfig), 5);
+    }
+
+    #[test]
+    fn test_pam_target_system_rejects_cross_namespace_unseal() {
+        // A target-system blob must not unseal under the sibling PamRotationConfig namespace (or
+        // vice versa), mirroring
+        // `test_registration_open_org_invite_data_rejects_cross_namespace_unseal`.
+        let data: TestData = TestDataV1 { field: 42 }.into();
+
+        let cek = Aes256GcmKey::make();
+        let envelope =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::PamTargetSystem, &cek).unwrap();
+
+        assert!(matches!(
+            unseal_with_cek::<TestData>(&envelope, DataEnvelopeNamespace::PamRotationConfig, &cek),
+            Err(DataEnvelopeError::InvalidNamespace)
+        ));
+
+        let round_tripped: TestData =
+            unseal_with_cek(&envelope, DataEnvelopeNamespace::PamTargetSystem, &cek).unwrap();
         assert_eq!(round_tripped, data);
     }
 
