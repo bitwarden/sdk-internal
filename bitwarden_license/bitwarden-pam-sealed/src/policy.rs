@@ -1,17 +1,12 @@
-//! Shared generator-validity check for sealed password policies.
-//!
-//! [`SealedPasswordPolicy::validate`] only checks that the generator can produce a password for
-//! the policy; password strength is the customer's call.
+//! Generator-validity check for sealed password policies; doesn't assess password strength.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Shortest password length the generator (`bitwarden_generators::MINIMUM_PASSWORD_LENGTH`) will
-/// produce. Duplicated here, rather than depending on `bitwarden-generators` directly, to keep
-/// this crate dependency-light for the access connector; a unit test asserts the two stay equal.
+/// Shortest password length the generator will produce. Mirrors
+/// `bitwarden_generators::MINIMUM_PASSWORD_LENGTH`; a test pins the two together.
 pub const GENERATOR_MIN_LENGTH: u32 = 5;
-/// Longest password length the generator (`bitwarden_generators::MAXIMUM_PASSWORD_LENGTH`) will
-/// produce. See [`GENERATOR_MIN_LENGTH`] for why this is duplicated rather than imported.
+/// Longest password length the generator will produce.
 pub const GENERATOR_MAX_LENGTH: u32 = 128;
 
 /// Errors returned by [`SealedPasswordPolicy::validate`].
@@ -20,23 +15,17 @@ pub enum PasswordPolicyError {
     /// No character class is enabled, so no password could be generated.
     #[error("No character classes are enabled")]
     NoCharacterClasses,
-    /// `min_length` and `max_length` are out of order, or fall outside the generator's supported
-    /// range (`[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]`).
+    /// `min_length`/`max_length` out of order, or outside the generator's supported range.
     #[error("Invalid length bounds")]
     InvalidLengthBounds,
 }
 
 /// A password policy for a PAM target system's automatically-generated credential.
-///
-/// `max_length` is the length the connector actually generates: it is clamped to the generator's
-/// supported range (`[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]`) before use. `min_length` only
-/// bounds the policy itself (see [`Self::validate`]); it does not change what gets generated.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SealedPasswordPolicy {
-    /// Lower bound on `max_length`, checked by [`Self::validate`]. Does not affect generation.
+    /// Lower bound on `max_length`, checked by [`Self::validate`]; doesn't affect generation.
     pub min_length: u32,
-    /// The length of password the connector generates, clamped to
-    /// `[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]`.
+    /// Length actually generated, clamped to `[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]`.
     pub max_length: u32,
     /// Whether the generated password includes uppercase letters (`A`-`Z`).
     pub include_uppercase: bool,
@@ -49,7 +38,6 @@ pub struct SealedPasswordPolicy {
 }
 
 impl SealedPasswordPolicy {
-    /// Whether at least one character class is enabled.
     fn has_character_class(&self) -> bool {
         self.include_uppercase
             || self.include_lowercase
@@ -57,8 +45,7 @@ impl SealedPasswordPolicy {
             || self.include_symbols
     }
 
-    /// Validates that the generator can produce a password for this policy: at least one
-    /// character class enabled, and length bounds within the generator's supported range.
+    /// Validates that the generator can produce a password for this policy.
     pub fn validate(&self) -> Result<(), PasswordPolicyError> {
         if !self.has_character_class() {
             return Err(PasswordPolicyError::NoCharacterClasses);
@@ -146,8 +133,7 @@ mod tests {
         );
     }
 
-    /// A weak but generator-valid policy (digits only, shortest allowed length) passes: password
-    /// strength is the customer's call, not this crate's.
+    /// Weak passwords pass validation too: strength isn't this crate's call.
     #[test]
     fn weak_but_generator_valid_policy_passes() {
         let policy = SealedPasswordPolicy {

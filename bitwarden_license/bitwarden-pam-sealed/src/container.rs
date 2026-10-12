@@ -1,10 +1,5 @@
-//! The opaque wire container shared by both sealed PAM types.
-//!
-//! Follows the `SealedCipherBlob` precedent in `bitwarden-vault/src/cipher/blob/sealed.rs`: a JSON
-//! object carrying a `format_version`, the content-encryption key wrapped by the organization key,
-//! and the sealed [`DataEnvelope`]. Namespace separation between [`crate::TargetSystemSealedV1`]
-//! and [`crate::RotationConfigSealedV1`] comes from the envelope's own namespace check, not this
-//! container.
+//! The wire format is `{format_version, wrapped_cek, envelope}`, mirroring `SealedCipherBlob` in
+//! `bitwarden-vault/src/cipher/blob/sealed.rs`.
 
 use bitwarden_crypto::{
     EncString, KeySlotIds, KeyStoreContext,
@@ -15,19 +10,16 @@ use thiserror::Error;
 
 const FORMAT_VERSION: u8 = 1;
 
-/// Error sealing or unsealing a PAM data blob.
-///
-/// Variants never carry field values from the sealed data (e.g. `account_identity`): only the
-/// (non-sensitive) format version appears in error output.
+/// Error sealing or unsealing a PAM data blob; never carries sealed field values in output.
 #[derive(Debug, Error)]
 pub enum SealedDataError {
-    /// The format version is newer or older than this client supports.
+    /// Format version newer or older than this client supports.
     #[error("Unsupported format version: {0}")]
     UnsupportedFormatVersion(u8),
     /// Failed to serialize the container to JSON.
     #[error("JSON encoding error")]
     JsonEncoding,
-    /// The string did not parse as a JSON object carrying a `format_version` key.
+    /// Not a JSON object with a `format_version` key.
     #[error("JSON decoding error")]
     JsonDecoding,
     /// The inner [`DataEnvelope`] failed to seal or unseal.
@@ -44,8 +36,7 @@ pub(crate) struct SealedContainer {
 }
 
 impl SealedContainer {
-    /// Seals `data` into a new container, wrapping its content-encryption key with
-    /// `wrapping_key` (the organization key).
+    /// Seals `data` into a new container, wrapping its CEK with `wrapping_key` (the org key).
     pub(crate) fn seal<Ids: KeySlotIds, T>(
         data: T,
         wrapping_key: &Ids::Symmetric,
@@ -86,9 +77,7 @@ impl SealedContainer {
         serde_json::to_string(self).map_err(|_| SealedDataError::JsonEncoding)
     }
 
-    /// Deserializes a container from an opaque JSON string, rejecting payloads that aren't a JSON
-    /// object with a `format_version` key up front rather than failing later with a confusing
-    /// field-level error.
+    /// Rejects non-object JSON or a missing `format_version` key up front.
     pub(crate) fn from_opaque_string(s: &str) -> Result<Self, SealedDataError> {
         let value: serde_json::Value =
             serde_json::from_str(s).map_err(|_| SealedDataError::JsonDecoding)?;
@@ -113,7 +102,6 @@ mod tests {
     use super::*;
     use crate::test_support::TestIds;
 
-    /// A minimal sealable payload used only to exercise the shared container.
     #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
     struct TestPayloadV1 {
         value: u32,

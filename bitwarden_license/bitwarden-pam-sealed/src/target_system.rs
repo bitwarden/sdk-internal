@@ -1,6 +1,5 @@
-//! The sealed target-system type: the security-relevant fields of a PAM target system, sealed by
-//! the admin client under [`bitwarden_crypto::safe::DataEnvelopeNamespace::PamTargetSystem`] so a
-//! hostile server cannot change what the access connector rotates or how.
+//! The sealed target-system type: security-relevant fields of a PAM target system, sealed under
+//! [`bitwarden_crypto::safe::DataEnvelopeNamespace::PamTargetSystem`].
 
 use bitwarden_crypto::{
     KeySlotIds, KeyStoreContext, generate_versioned_sealable,
@@ -14,14 +13,13 @@ use crate::{
     policy::SealedPasswordPolicy,
 };
 
-/// Whether a target system's credentials are rotated automatically by the access connector, or
-/// managed by hand outside of PAM.
+/// Whether a target's credentials are rotated automatically, or managed by hand.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SealedTargetSystemMethod {
-    /// The access connector dispatches and rotates this target's credentials on a schedule.
+    /// The connector dispatches and rotates this target's credentials on a schedule.
     Automatic,
-    /// Credentials are managed by hand; the connector never dispatches jobs for this target.
+    /// Managed by hand; the connector never dispatches jobs for this target.
     Manual,
 }
 
@@ -37,27 +35,19 @@ pub enum SealedTargetSystemKind {
     CustomScript,
 }
 
-/// The security-relevant fields of a PAM target system.
-///
-/// Sealed by the admin client and unsealed by the access connector on claim, so neither a hostile
-/// server nor a MitM on the connector's TLS can change a target's kind, password policy, or
-/// session-termination support.
+/// Security-relevant fields of a PAM target system. Sealed so neither a hostile server nor a MitM
+/// can change its kind, password policy, or session-termination support.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct TargetSystemSealedV1 {
-    /// Checked against the plaintext claim's `target_system_id` (and the rotation config's own
-    /// sealed copy) to prevent blobs from being swapped between targets.
+    /// Cross-checked against the claim and the rotation config's copy to stop blob swaps.
     pub target_system_id: Uuid,
-    /// Whether this target is dispatched automatically. The connector requires this to be
-    /// [`SealedTargetSystemMethod::Automatic`] before running a job; a manual target's plaintext
-    /// `method` on the server is purely advisory.
+    /// The connector requires this to be `Automatic` before running a job.
     pub method: SealedTargetSystemMethod,
     /// The connector plugin used to rotate this target. `None` for manual targets.
     pub kind: Option<SealedTargetSystemKind>,
     /// The password policy enforced for this target's generated credential.
     pub password_policy: SealedPasswordPolicy,
-    /// Whether this target's connector plugin supports terminating active sessions after
-    /// rotation. `None` for manual targets. A rotation config's `terminate_sessions` is ANDed
-    /// with this before the connector acts.
+    /// Whether the connector can terminate sessions after rotation. `None` for manual targets.
     pub supports_session_termination: Option<bool>,
 }
 impl SealableData for TargetSystemSealedV1 {}
@@ -80,11 +70,7 @@ pub fn seal_target_system<Ids: KeySlotIds>(
     SealedContainer::seal(versioned, org_key, ctx)?.to_opaque_string()
 }
 
-/// Unseals a [`TargetSystemSealedV1`] from an opaque string produced by
-/// [`seal_target_system`], using `org_key` to unwrap the content-encryption key.
-///
-/// Fails if `blob` was sealed under a different namespace (e.g. as a
-/// [`crate::RotationConfigSealedV1`]) or with a different key.
+/// Unseals a [`TargetSystemSealedV1`] from a string produced by [`seal_target_system`].
 pub fn unseal_target_system<Ids: KeySlotIds>(
     blob: &str,
     org_key: &Ids::Symmetric,
@@ -138,8 +124,7 @@ mod tests {
 
     #[test]
     fn opaque_string_round_trip() {
-        // Simulates a round trip through storage: reparsing the string must not change what
-        // unseals.
+        // Simulates round-tripping through storage: reparsing must not change what unseals.
         let store = KeyStore::<TestIds>::default();
         let mut ctx = store.context_mut();
         let org_key = ctx.generate_symmetric_key();
@@ -187,7 +172,6 @@ mod tests {
 
     #[test]
     fn target_system_blob_cannot_be_unsealed_as_rotation_config() {
-        // Namespace separation: `unseal_rotation_config` only accepts PamRotationConfig.
         let store = KeyStore::<TestIds>::default();
         let mut ctx = store.context_mut();
         let org_key = ctx.generate_symmetric_key();

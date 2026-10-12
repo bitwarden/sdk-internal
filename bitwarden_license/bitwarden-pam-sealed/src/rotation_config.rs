@@ -1,7 +1,5 @@
-//! The sealed rotation-config type: the security-relevant fields of a PAM rotation config, sealed
-//! by the admin client under
-//! [`bitwarden_crypto::safe::DataEnvelopeNamespace::PamRotationConfig`] so a hostile server cannot
-//! change which account is rotated, into which cipher, or whether sessions are terminated.
+//! The sealed rotation-config type: security-relevant fields of a PAM rotation config, sealed
+//! under [`bitwarden_crypto::safe::DataEnvelopeNamespace::PamRotationConfig`].
 
 use bitwarden_crypto::{
     KeySlotIds, KeyStoreContext, generate_versioned_sealable,
@@ -12,27 +10,18 @@ use uuid::Uuid;
 
 use crate::container::{SealedContainer, SealedDataError};
 
-/// The security-relevant fields of a PAM rotation config.
-///
-/// Sealed by the admin client and unsealed by the access connector on claim, so a hostile server
-/// cannot choose which account is reset, which cipher the new credential is written to, or
-/// whether sessions are terminated.
+/// Security-relevant fields of a PAM rotation config. Sealed by the admin client so a hostile
+/// server can't choose the account, cipher, or session-termination behavior.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct RotationConfigSealedV1 {
-    /// Checked against both the plaintext claim and
-    /// [`crate::TargetSystemSealedV1::target_system_id`] to prevent blobs from being swapped
-    /// between targets or configs.
+    /// Cross-checked against the claim and the other blob to stop swaps.
     pub target_system_id: Uuid,
-    /// The cipher the rotated credential is written to. Checked against the plaintext claim's
-    /// `cipher_id`.
+    /// Checked against the claim's `cipher_id`.
     pub cipher_id: Uuid,
-    /// The account identity on the target system to rotate (e.g. a username or object ID).
-    /// Treated as untrusted once unsealed: a custom-script connector passes it to the script, so
-    /// it must never be interpolated unsanitized into a shell command or query.
+    /// The account to rotate (e.g. a username or object ID). Untrusted once unsealed; never
+    /// interpolate unsanitized into a shell command or query.
     pub account_identity: String,
-    /// Whether the connector should terminate the account's active sessions after rotation. ANDed
-    /// with the target's [`crate::TargetSystemSealedV1::supports_session_termination`], so this
-    /// alone cannot force termination on a target that cannot honor it.
+    /// Whether to terminate sessions after rotation; ANDed with `supports_session_termination`.
     pub terminate_sessions: bool,
 }
 impl SealableData for RotationConfigSealedV1 {}
@@ -55,11 +44,7 @@ pub fn seal_rotation_config<Ids: KeySlotIds>(
     SealedContainer::seal(versioned, org_key, ctx)?.to_opaque_string()
 }
 
-/// Unseals a [`RotationConfigSealedV1`] from an opaque string produced by
-/// [`seal_rotation_config`], using `org_key` to unwrap the content-encryption key.
-///
-/// Fails if `blob` was sealed under a different namespace (e.g. as a
-/// [`crate::TargetSystemSealedV1`]) or with a different key.
+/// Unseals a [`RotationConfigSealedV1`] from a string produced by [`seal_rotation_config`].
 pub fn unseal_rotation_config<Ids: KeySlotIds>(
     blob: &str,
     org_key: &Ids::Symmetric,
