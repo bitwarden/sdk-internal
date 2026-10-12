@@ -38,7 +38,9 @@ async fn happy_path_rotate_and_report_success() {
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(claim_body(attempt_id, job_id, target_id, cipher_id, false))
+                .set_body_json(claim_body(
+                    &org_key, attempt_id, job_id, target_id, cipher_id, false,
+                ))
                 .insert_header("content-type", "application/json"),
         )
         .mount(&api)
@@ -169,7 +171,9 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(claim_body(attempt_id, job_id, target_id, cipher_id, false))
+                .set_body_json(claim_body(
+                    &org_key, attempt_id, job_id, target_id, cipher_id, false,
+                ))
                 .insert_header("content-type", "application/json"),
         )
         .mount(&api)
@@ -408,7 +412,7 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(claim_body(
-                    attempt_id, job_id, target_id, cipher_id,
+                    &org_key, attempt_id, job_id, target_id, cipher_id,
                     true, // terminate_sessions = true
                 ))
                 .insert_header("content-type", "application/json"),
