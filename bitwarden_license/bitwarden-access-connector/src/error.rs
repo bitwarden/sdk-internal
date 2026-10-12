@@ -30,6 +30,8 @@ pub(crate) enum FailureCode {
     CipherWriteRejected,
     /// Encrypting the updated cipher data failed.
     CipherEncryptFailed,
+    /// A sealed-data check (1–8) failed; see `executor::verify`.
+    SealedDataRejected,
     /// An unexpected internal error occurred.
     Internal,
 }
@@ -116,6 +118,12 @@ impl SafeDetail {
         Self(Self::truncate(format!("timed out after {secs}s")))
     }
 
+    /// `reason` is a `'static` constant naming the failed check, never a value from the claim or
+    /// blobs.
+    pub(crate) fn from_seal_rejection(reason: &'static str) -> Self {
+        Self(Self::truncate(format!("sealed data rejected: {reason}")))
+    }
+
     /// Never includes Graph's `error.message`, which can echo user-supplied content.
     pub(crate) fn from_http_status_and_graph_code(status: u16, graph_code: Option<&str>) -> Self {
         let s = match graph_code {
@@ -192,6 +200,15 @@ mod tests {
     }
 
     #[test]
+    fn safe_detail_from_seal_rejection() {
+        let d = SafeDetail::from_seal_rejection("target_method_not_automatic");
+        assert_eq!(
+            d.as_str(),
+            "sealed data rejected: target_method_not_automatic"
+        );
+    }
+
+    #[test]
     fn safe_detail_timed_out() {
         let d = SafeDetail::timed_out(60);
         assert_eq!(d.as_str(), "timed out after 60s");
@@ -253,6 +270,7 @@ mod tests {
                 FailureCode::CipherEncryptFailed,
                 "\"cipher_encrypt_failed\"",
             ),
+            (FailureCode::SealedDataRejected, "\"sealed_data_rejected\""),
             (FailureCode::Internal, "\"internal\""),
         ];
         for (variant, expected) in pairs {
