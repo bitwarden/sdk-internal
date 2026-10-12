@@ -7,7 +7,7 @@ use bitwarden_crypto::{
 use bitwarden_encoding::B64;
 
 use crate::{
-    AccessTokenError, AccessTokenKey, AccessTokenSeed, KeyPurpose, make_access_token_key_material,
+    AccessTokenError, AccessTokenKey, AccessTokenKeyMaterial, AccessTokenSeed, KeyPurpose,
 };
 
 key_slot_ids! {
@@ -61,32 +61,32 @@ const EXPECTED_ACCESS_CONNECTOR_KEY_B64: &str =
 
 #[test]
 fn sm_purpose_matches_the_known_answer() {
-    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::new("sm-access-token"));
+    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::SecretsManager);
     assert_eq!(key.to_base64_for_tests(), EXPECTED_SM_KEY_B64);
 }
 
 #[test]
 fn access_connector_purpose_matches_the_known_answer() {
-    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::new("access-connector"));
+    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::AccessConnector);
     assert_eq!(key.to_base64_for_tests(), EXPECTED_ACCESS_CONNECTOR_KEY_B64);
 }
 
 #[test]
 fn same_seed_different_purpose_yields_different_keys() {
     let seed = kat_seed();
-    let sm_key = AccessTokenKey::derive(&seed, KeyPurpose::new("sm-access-token"));
-    let ac_key = AccessTokenKey::derive(&seed, KeyPurpose::new("access-connector"));
+    let sm_key = AccessTokenKey::derive(&seed, KeyPurpose::SecretsManager);
+    let ac_key = AccessTokenKey::derive(&seed, KeyPurpose::AccessConnector);
     assert_ne!(sm_key.to_base64_for_tests(), ac_key.to_base64_for_tests());
 }
 
 #[test]
 fn mint_then_open_round_trip() {
     let (issuer_store, org_key) = store_with_org_key();
-    let purpose = KeyPurpose::new("test-purpose");
+    let purpose = KeyPurpose::AccessConnector;
 
     let material = {
         let mut ctx = issuer_store.context_mut();
-        make_access_token_key_material(&mut ctx, TestSymmSlotId::Organization, purpose)
+        AccessTokenKeyMaterial::make(&mut ctx, TestSymmSlotId::Organization, purpose)
             .expect("mint key material")
     };
     let encrypted_payload = material.encrypted_payload.to_string();
@@ -116,11 +116,11 @@ fn mint_then_open_round_trip() {
 #[test]
 fn the_key_field_wraps_the_same_key_the_holder_derives() {
     let (issuer_store, _org_key) = store_with_org_key();
-    let purpose = KeyPurpose::new("test-purpose");
+    let purpose = KeyPurpose::AccessConnector;
 
     let material = {
         let mut ctx = issuer_store.context_mut();
-        make_access_token_key_material(&mut ctx, TestSymmSlotId::Organization, purpose)
+        AccessTokenKeyMaterial::make(&mut ctx, TestSymmSlotId::Organization, purpose)
             .expect("mint key material")
     };
     let key_field = material.key.clone();
@@ -142,13 +142,13 @@ fn the_key_field_wraps_the_same_key_the_holder_derives() {
 /// Each registration must mint fresh material, or two holders would share a key and revoking one
 /// would not lock out the other.
 #[test]
-fn each_mint_generates_a_distinct_seed() {
+fn each_mint_makes_a_distinct_seed() {
     let (issuer_store, _org_key) = store_with_org_key();
-    let purpose = KeyPurpose::new("test-purpose");
+    let purpose = KeyPurpose::AccessConnector;
 
     let mint_seed = || {
         let mut ctx = issuer_store.context_mut();
-        make_access_token_key_material(&mut ctx, TestSymmSlotId::Organization, purpose)
+        AccessTokenKeyMaterial::make(&mut ctx, TestSymmSlotId::Organization, purpose)
             .expect("mint key material")
             .into_seed()
     };
@@ -158,7 +158,7 @@ fn each_mint_generates_a_distinct_seed() {
 
 #[test]
 fn opening_a_malformed_payload_is_invalid_payload() {
-    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::new("test-purpose"));
+    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::AccessConnector);
     let store: KeyStore<TestKeySlotIds> = KeyStore::default();
     let mut ctx = store.context_mut();
 
@@ -171,7 +171,7 @@ fn opening_a_payload_with_an_invalid_org_key_is_invalid_org_key() {
     use bitwarden_crypto::PrimitiveEncryptable;
 
     let seed = kat_seed();
-    let purpose = KeyPurpose::new("test-purpose");
+    let purpose = KeyPurpose::AccessConnector;
 
     let store: KeyStore<TestKeySlotIds> = KeyStore::default();
     let mut ctx = store.context_mut();
@@ -211,7 +211,7 @@ const EXPECTED_SM_ORG_KEY_B64: &str =
 /// Decrypting the fixture's `key` field independently confirms the pinned org key is the real one.
 #[test]
 fn sm_fixture_payload_opens_to_the_known_org_key() {
-    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::new("sm-access-token"));
+    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::SecretsManager);
     let store: KeyStore<TestKeySlotIds> = KeyStore::default();
     let mut ctx = store.context_mut();
     key.open_payload(&mut ctx, SM_ENCRYPTED_PAYLOAD, TestSymmSlotId::Organization)
@@ -233,7 +233,7 @@ fn sm_fixture_payload_opens_to_the_known_org_key() {
 /// [`AccessTokenError::InvalidOrgKey`].
 #[test]
 fn opening_the_sm_payload_with_the_wrong_purpose_is_invalid_payload() {
-    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::new("access-connector"));
+    let key = AccessTokenKey::derive(&kat_seed(), KeyPurpose::AccessConnector);
     let store: KeyStore<TestKeySlotIds> = KeyStore::default();
     let mut ctx = store.context_mut();
 
@@ -247,7 +247,7 @@ fn opening_a_payload_missing_the_encryption_key_field_is_invalid_payload() {
     use bitwarden_crypto::PrimitiveEncryptable;
 
     let seed = kat_seed();
-    let purpose = KeyPurpose::new("test-purpose");
+    let purpose = KeyPurpose::AccessConnector;
 
     let store: KeyStore<TestKeySlotIds> = KeyStore::default();
     let mut ctx = store.context_mut();
@@ -271,7 +271,7 @@ fn opening_a_payload_missing_the_encryption_key_field_is_invalid_payload() {
     assert!(matches!(result, Err(AccessTokenError::InvalidPayload)));
 }
 
-/// Access-connector test vector, minted with `make_access_token_key_material`, pinning the format
+/// Access-connector test vector, minted with `AccessTokenKeyMaterial::make`, pinning the format
 /// against silent drift.
 const AC_VECTOR_ORG_KEY_B64: &str =
     "TrSlqL7yg60LxC/kSlJNm1kZft+Fn97ArZsQovYW5QfbT6kbDVdfuFQ7U3LjMkNoAB9uFveLknMyG0ydLwonvA==";
@@ -288,7 +288,7 @@ const AC_VECTOR_KEY_FIELD: &str = "2.uFkzZ1ag3XyyRIvBhKcBmw==|igA/FMic6Og6EGShX7
 fn access_connector_vector_payload_opens_to_the_pinned_org_key() {
     let seed_b64: B64 = AC_VECTOR_SEED_B64.parse().expect("valid base64");
     let seed = AccessTokenSeed::try_from(seed_b64.as_bytes()).expect("16 bytes");
-    let key = AccessTokenKey::derive(&seed, KeyPurpose::new("access-connector"));
+    let key = AccessTokenKey::derive(&seed, KeyPurpose::AccessConnector);
 
     let store: KeyStore<TestKeySlotIds> = KeyStore::default();
     let mut ctx = store.context_mut();
@@ -327,6 +327,6 @@ fn access_connector_vector_key_field_matches_the_rederived_key() {
         .decrypt(&mut ctx, TestSymmSlotId::Organization)
         .expect("the org key unwraps the key field");
 
-    let holder_key = AccessTokenKey::derive(&seed, KeyPurpose::new("access-connector"));
+    let holder_key = AccessTokenKey::derive(&seed, KeyPurpose::AccessConnector);
     assert_eq!(wrapped, holder_key.to_base64_for_tests());
 }

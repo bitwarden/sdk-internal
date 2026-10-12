@@ -24,8 +24,8 @@ impl AccessTokenKind {
     /// Manager tokens independently.
     pub fn key_purpose(&self) -> KeyPurpose {
         match self {
-            Self::AccessConnector => KeyPurpose::new("access-connector"),
-            Self::SecretsManager => KeyPurpose::new("sm-access-token"),
+            Self::AccessConnector => KeyPurpose::AccessConnector,
+            Self::SecretsManager => KeyPurpose::SecretsManager,
         }
     }
 }
@@ -49,16 +49,16 @@ mod tests {
         assert_eq!(AccessTokenKind::SecretsManager.segment(), None);
     }
 
-    /// Changing either string would change the key already-issued tokens derive.
+    /// The strings themselves are pinned in `bitwarden-access-token-crypto`.
     #[test]
     fn key_purposes_are_pinned() {
         assert_eq!(
             AccessTokenKind::SecretsManager.key_purpose(),
-            KeyPurpose::new("sm-access-token")
+            KeyPurpose::SecretsManager
         );
         assert_eq!(
             AccessTokenKind::AccessConnector.key_purpose(),
-            KeyPurpose::new("access-connector")
+            KeyPurpose::AccessConnector
         );
     }
 }

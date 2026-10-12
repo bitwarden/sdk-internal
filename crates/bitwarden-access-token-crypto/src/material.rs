@@ -21,40 +21,40 @@ impl AccessTokenKeyMaterial {
     pub fn into_seed(self) -> AccessTokenSeed {
         self.seed
     }
-}
 
-/// Generates a random seed, derives the key for `purpose`, and wraps the organization key for the
-/// token holder and the derived key for the organization.
-///
-/// A missing `organization_key` surfaces as [`AccessTokenError::Crypto`].
-pub fn make_access_token_key_material<Ids: KeySlotIds>(
-    ctx: &mut KeyStoreContext<Ids>,
-    organization_key: Ids::Symmetric,
-    purpose: KeyPurpose,
-) -> Result<AccessTokenKeyMaterial, AccessTokenError> {
-    let seed = AccessTokenSeed::generate();
+    /// Makes a random seed, derives the key for `purpose`, and wraps the organization key for the
+    /// token holder and the derived key for the organization.
+    ///
+    /// A missing `organization_key` surfaces as [`AccessTokenError::Crypto`].
+    pub fn make<Ids: KeySlotIds>(
+        ctx: &mut KeyStoreContext<Ids>,
+        organization_key: Ids::Symmetric,
+        purpose: KeyPurpose,
+    ) -> Result<Self, AccessTokenError> {
+        let seed = AccessTokenSeed::make();
 
-    let derived_key = ctx.derive_shareable_key(
-        Zeroizing::new(*seed.as_bytes()),
-        DERIVE_NAME,
-        Some(purpose.as_str()),
-    )?;
+        let derived_key = ctx.derive_shareable_key(
+            Zeroizing::new(*seed.as_bytes()),
+            DERIVE_NAME,
+            Some(purpose.as_str()),
+        )?;
 
-    // Encrypted under the derived key, which only the token holder can reproduce.
-    #[allow(deprecated)]
-    let organization_key_b64 = ctx
-        .dangerous_get_symmetric_key(organization_key)?
-        .to_base64();
-    let payload = serde_json::json!({ "encryptionKey": organization_key_b64.to_string() });
-    let encrypted_payload = payload.to_string().encrypt(ctx, derived_key)?;
+        // Encrypted under the derived key, which only the token holder can reproduce.
+        #[allow(deprecated)]
+        let organization_key_b64 = ctx
+            .dangerous_get_symmetric_key(organization_key)?
+            .to_base64();
+        let payload = serde_json::json!({ "encryptionKey": organization_key_b64.to_string() });
+        let encrypted_payload = payload.to_string().encrypt(ctx, derived_key)?;
 
-    #[allow(deprecated)]
-    let derived_key_b64 = ctx.dangerous_get_symmetric_key(derived_key)?.to_base64();
-    let key = derived_key_b64.to_string().encrypt(ctx, organization_key)?;
+        #[allow(deprecated)]
+        let derived_key_b64 = ctx.dangerous_get_symmetric_key(derived_key)?.to_base64();
+        let key = derived_key_b64.to_string().encrypt(ctx, organization_key)?;
 
-    Ok(AccessTokenKeyMaterial {
-        encrypted_payload,
-        key,
-        seed,
-    })
+        Ok(Self {
+            encrypted_payload,
+            key,
+            seed,
+        })
+    }
 }

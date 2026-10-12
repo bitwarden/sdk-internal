@@ -1,21 +1,25 @@
 //! The HKDF `info` that separates key-derivation purposes.
 
-/// The HKDF `info` that separates keys derived from the same [`crate::AccessTokenSeed`].
+/// The purpose a key is derived for from an [`crate::AccessTokenSeed`].
 ///
-/// Callers define their own purposes. Each string must be unique (colliding purposes derive the
-/// same key) and must never change once credentials are issued under it (they would derive a
-/// different key).
+/// Each purpose maps to an HKDF `info` string. The strings must be unique (colliding purposes
+/// derive the same key) and must never change once credentials are issued under them (they would
+/// derive a different key). Adding a purpose is a deliberate change that requires review by this
+/// crate's owners.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct KeyPurpose(&'static str);
+pub enum KeyPurpose {
+    /// The PAM access connector.
+    AccessConnector,
+    /// Secrets Manager access tokens.
+    SecretsManager,
+}
 
 impl KeyPurpose {
-    /// Defines a purpose. See the type docs for the caller's obligations.
-    pub const fn new(info: &'static str) -> Self {
-        Self(info)
-    }
-
     pub(crate) fn as_str(&self) -> &'static str {
-        self.0
+        match self {
+            Self::AccessConnector => "access-connector",
+            Self::SecretsManager => "sm-access-token",
+        }
     }
 }
 
@@ -23,13 +27,10 @@ impl KeyPurpose {
 mod tests {
     use super::*;
 
+    /// Changing either string would change the key already-issued tokens derive.
     #[test]
-    fn same_string_is_equal() {
-        assert_eq!(KeyPurpose::new("a"), KeyPurpose::new("a"));
-    }
-
-    #[test]
-    fn different_strings_are_not_equal() {
-        assert_ne!(KeyPurpose::new("a"), KeyPurpose::new("b"));
+    fn key_purposes_are_pinned() {
+        assert_eq!(KeyPurpose::AccessConnector.as_str(), "access-connector");
+        assert_eq!(KeyPurpose::SecretsManager.as_str(), "sm-access-token");
     }
 }

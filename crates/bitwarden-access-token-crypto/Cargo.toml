@@ -17,10 +17,16 @@ keywords.workspace = true
 [dependencies]
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
+bitwarden-random = { workspace = true }
+rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 zeroize = { workspace = true }
+
+[dev-dependencies]
+bitwarden-crypto = { workspace = true, features = ["test-utils"] }
+uuid = { workspace = true }
 
 [lints]
 workspace = true

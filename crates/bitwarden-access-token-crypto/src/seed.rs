@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use bitwarden_crypto::generate_random_bytes;
+use rand::RngExt;
 use thiserror::Error;
 use zeroize::Zeroizing;
 
@@ -43,8 +43,10 @@ impl TryFrom<&[u8]> for AccessTokenSeed {
 }
 
 impl AccessTokenSeed {
-    pub(crate) fn generate() -> Self {
-        Self(generate_random_bytes())
+    pub(crate) fn make() -> Self {
+        Self(Zeroizing::new(
+            bitwarden_random::rng().random::<[u8; SEED_LEN]>(),
+        ))
     }
 
     /// The raw seed bytes.

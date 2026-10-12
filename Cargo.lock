@@ -545,9 +545,12 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "bitwarden-random",
+ "rand 0.10.2",
  "serde",
  "serde_json",
  "thiserror",
+ "uuid",
  "zeroize",
 ]
 

@@ -1,6 +1,6 @@
 //! Minting an access token (the issuer side).
 
-use bitwarden_access_token_crypto::{AccessTokenSeed, make_access_token_key_material};
+use bitwarden_access_token_crypto::{AccessTokenKeyMaterial, AccessTokenSeed};
 use bitwarden_crypto::{EncString, KeySlotIds, KeyStoreContext};
 use bitwarden_encoding::B64;
 use uuid::Uuid;
@@ -40,7 +40,7 @@ pub fn make_access_token_secrets<Ids: KeySlotIds>(
     organization_key: Ids::Symmetric,
     kind: AccessTokenKind,
 ) -> Result<AccessTokenSecrets, AccessTokenError> {
-    let material = make_access_token_key_material(ctx, organization_key, kind.key_purpose())?;
+    let material = AccessTokenKeyMaterial::make(ctx, organization_key, kind.key_purpose())?;
 
     // `into_seed` consumes the material, so copy the public fields out first.
     let encrypted_payload = material.encrypted_payload.clone();
