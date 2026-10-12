@@ -1,6 +1,3 @@
-//! The sealed rotation-config type: security-relevant fields of a PAM rotation config, sealed
-//! under [`bitwarden_crypto::safe::DataEnvelopeNamespace::PamRotationConfig`].
-
 use bitwarden_crypto::{
     KeySlotIds, KeyStoreContext, generate_versioned_sealable,
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
@@ -18,10 +15,9 @@ pub struct RotationConfigSealedV1 {
     pub target_system_id: Uuid,
     /// Checked against the claim's `cipher_id`.
     pub cipher_id: Uuid,
-    /// The account to rotate (e.g. a username or object ID). Untrusted once unsealed; never
-    /// interpolate unsanitized into a shell command or query.
+    /// The account to rotate. Never interpolate unsanitized into a shell command or query.
     pub account_identity: String,
-    /// Whether to terminate sessions after rotation; ANDed with `supports_session_termination`.
+    /// ANDed with the target's `supports_session_termination`.
     pub terminate_sessions: bool,
 }
 impl SealableData for RotationConfigSealedV1 {}
@@ -34,7 +30,7 @@ generate_versioned_sealable!(
     ]
 );
 
-/// Seals `data` into an opaque string, wrapping its content-encryption key with `org_key`.
+/// Seals `data` into an opaque string under `org_key`.
 pub fn seal_rotation_config<Ids: KeySlotIds>(
     data: RotationConfigSealedV1,
     org_key: &Ids::Symmetric,

@@ -13,21 +13,20 @@ const FORMAT_VERSION: u8 = 1;
 /// Error sealing or unsealing a PAM data blob; never carries sealed field values in output.
 #[derive(Debug, Error)]
 pub enum SealedDataError {
-    /// Format version newer or older than this client supports.
+    /// Format version this client doesn't support.
     #[error("Unsupported format version: {0}")]
     UnsupportedFormatVersion(u8),
-    /// Failed to serialize the container to JSON.
+    /// Failed to serialize the container.
     #[error("JSON encoding error")]
     JsonEncoding,
     /// Not a JSON object with a `format_version` key.
     #[error("JSON decoding error")]
     JsonDecoding,
-    /// The inner [`DataEnvelope`] failed to seal or unseal.
+    /// Sealing or unsealing the envelope failed.
     #[error(transparent)]
     DataEnvelope(#[from] DataEnvelopeError),
 }
 
-/// Opaque container pairing a wrapped content-encryption key with a sealed [`DataEnvelope`].
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct SealedContainer {
     format_version: u8,
@@ -36,7 +35,7 @@ pub(crate) struct SealedContainer {
 }
 
 impl SealedContainer {
-    /// Seals `data` into a new container, wrapping its CEK with `wrapping_key` (the org key).
+    /// `wrapping_key` is the organization key.
     pub(crate) fn seal<Ids: KeySlotIds, T>(
         data: T,
         wrapping_key: &Ids::Symmetric,
@@ -54,7 +53,6 @@ impl SealedContainer {
         })
     }
 
-    /// Unseals this container's data using `wrapping_key` (the organization key).
     pub(crate) fn unseal<Ids: KeySlotIds, T>(
         &self,
         wrapping_key: &Ids::Symmetric,

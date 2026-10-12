@@ -3,37 +3,36 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Shortest password length the generator will produce. Mirrors
-/// `bitwarden_generators::MINIMUM_PASSWORD_LENGTH`; a test pins the two together.
+/// Mirrors `bitwarden_generators::MINIMUM_PASSWORD_LENGTH`.
 pub const GENERATOR_MIN_LENGTH: u32 = 5;
-/// Longest password length the generator will produce.
+/// Mirrors `bitwarden_generators::MAXIMUM_PASSWORD_LENGTH`.
 pub const GENERATOR_MAX_LENGTH: u32 = 128;
 
 /// Errors returned by [`SealedPasswordPolicy::validate`].
 #[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
 pub enum PasswordPolicyError {
-    /// No character class is enabled, so no password could be generated.
+    /// No character class is enabled.
     #[error("No character classes are enabled")]
     NoCharacterClasses,
-    /// `min_length`/`max_length` out of order, or outside the generator's supported range.
+    /// Lengths out of order or outside the generator's range.
     #[error("Invalid length bounds")]
     InvalidLengthBounds,
 }
 
-/// A password policy for a PAM target system's automatically-generated credential.
+/// Password policy for a PAM target system's generated credential.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SealedPasswordPolicy {
-    /// Lower bound on `max_length`, checked by [`Self::validate`]; doesn't affect generation.
+    /// Only checked by [`Self::validate`]; doesn't affect generation.
     pub min_length: u32,
-    /// Length actually generated, clamped to `[GENERATOR_MIN_LENGTH, GENERATOR_MAX_LENGTH]`.
+    /// The length actually generated.
     pub max_length: u32,
-    /// Whether the generated password includes uppercase letters (`A`-`Z`).
+    /// Include `A`-`Z`.
     pub include_uppercase: bool,
-    /// Whether the generated password includes lowercase letters (`a`-`z`).
+    /// Include `a`-`z`.
     pub include_lowercase: bool,
-    /// Whether the generated password includes digits (`0`-`9`).
+    /// Include `0`-`9`.
     pub include_digits: bool,
-    /// Whether the generated password includes symbols (`! @ # $ % ^ & *`).
+    /// Include `! @ # $ % ^ & *`.
     pub include_symbols: bool,
 }
 
@@ -133,7 +132,6 @@ mod tests {
         );
     }
 
-    /// Weak passwords pass validation too: strength isn't this crate's call.
     #[test]
     fn weak_but_generator_valid_policy_passes() {
         let policy = SealedPasswordPolicy {

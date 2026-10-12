@@ -1,6 +1,3 @@
-//! The sealed target-system type: security-relevant fields of a PAM target system, sealed under
-//! [`bitwarden_crypto::safe::DataEnvelopeNamespace::PamTargetSystem`].
-
 use bitwarden_crypto::{
     KeySlotIds, KeyStoreContext, generate_versioned_sealable,
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
@@ -13,17 +10,17 @@ use crate::{
     policy::SealedPasswordPolicy,
 };
 
-/// Whether a target's credentials are rotated automatically, or managed by hand.
+/// Whether a target's credentials are rotated automatically or by hand.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SealedTargetSystemMethod {
-    /// The connector dispatches and rotates this target's credentials on a schedule.
+    /// Rotated by the connector on a schedule.
     Automatic,
-    /// Managed by hand; the connector never dispatches jobs for this target.
+    /// The connector never dispatches jobs for this target.
     Manual,
 }
 
-/// Which connector plugin rotates an automatic target system's credentials.
+/// Connector plugin that rotates an automatic target.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SealedTargetSystemKind {
@@ -43,11 +40,11 @@ pub struct TargetSystemSealedV1 {
     pub target_system_id: Uuid,
     /// The connector requires this to be `Automatic` before running a job.
     pub method: SealedTargetSystemMethod,
-    /// The connector plugin used to rotate this target. `None` for manual targets.
+    /// `None` for manual targets.
     pub kind: Option<SealedTargetSystemKind>,
-    /// The password policy enforced for this target's generated credential.
+    /// Policy for the generated credential.
     pub password_policy: SealedPasswordPolicy,
-    /// Whether the connector can terminate sessions after rotation. `None` for manual targets.
+    /// `None` for manual targets.
     pub supports_session_termination: Option<bool>,
 }
 impl SealableData for TargetSystemSealedV1 {}
@@ -60,7 +57,7 @@ generate_versioned_sealable!(
     ]
 );
 
-/// Seals `data` into an opaque string, wrapping its content-encryption key with `org_key`.
+/// Seals `data` into an opaque string under `org_key`.
 pub fn seal_target_system<Ids: KeySlotIds>(
     data: TargetSystemSealedV1,
     org_key: &Ids::Symmetric,
