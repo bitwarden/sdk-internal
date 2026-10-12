@@ -4,7 +4,8 @@ use bitwarden_core::Client;
 
 use crate::{
     Credentials, ImportError, ImportOptions, ImportSummary, OnePasswordImportSummary,
-    OnePasswordSignInMethods, OnePasswordTwoFactorUi, SignInAddress,
+    OnePasswordSignInMethods, OnePasswordSsoCredentials, OnePasswordSsoUi, OnePasswordTwoFactorUi,
+    SignInAddress,
     importers::{
         self,
         onepassword::{access, convert},
@@ -31,22 +32,21 @@ pub(crate) async fn import_onepassword(
     two_factor: &dyn OnePasswordTwoFactorUi,
     options: ImportOptions,
 ) -> Result<OnePasswordImportSummary, ImportError> {
-    let mut account = access_client(client)
-        .open_account(credentials, two_factor)
-        .await?;
-    let skipped_items = account
-        .vaults
-        .iter_mut()
-        .flat_map(|vault| std::mem::take(&mut vault.skipped_items))
-        .collect();
-    let imported =
-        pipeline::submit_import(client, convert::convert(account.vaults), options).await?;
+    let onepassword = access_client(client);
+    let account = onepassword.open_account(credentials, two_factor).await?;
+    submit_onepassword(client, account, options).await
+}
 
-    Ok(OnePasswordImportSummary {
-        imported,
-        skipped_vaults: account.skipped_vaults,
-        skipped_items,
-    })
+/// See [crate::ImporterClient::import_onepassword_sso] for more documentation.
+pub(crate) async fn import_onepassword_sso(
+    client: &Client,
+    credentials: OnePasswordSsoCredentials,
+    ui: &dyn OnePasswordSsoUi,
+    options: ImportOptions,
+) -> Result<OnePasswordImportSummary, ImportError> {
+    let onepassword = access_client(client);
+    let account = onepassword.open_account_sso(credentials, ui).await?;
+    submit_onepassword(client, account, options).await
 }
 
 /// See [crate::ImporterClient::onepassword_sign_in_methods] for more documentation.
@@ -64,4 +64,25 @@ pub(crate) async fn onepassword_sign_in_methods(
 /// than the one configured for the Bitwarden API.
 fn access_client(client: &Client) -> access::Client {
     access::Client::new(client.internal.get_http_client().clone())
+}
+
+/// Converts a downloaded account and submits it, collecting what could not be imported.
+async fn submit_onepassword(
+    client: &Client,
+    mut account: access::model::DownloadedAccount,
+    options: ImportOptions,
+) -> Result<OnePasswordImportSummary, ImportError> {
+    let skipped_items = account
+        .vaults
+        .iter_mut()
+        .flat_map(|vault| std::mem::take(&mut vault.skipped_items))
+        .collect();
+    let imported =
+        pipeline::submit_import(client, convert::convert(account.vaults), options).await?;
+
+    Ok(OnePasswordImportSummary {
+        imported,
+        skipped_vaults: account.skipped_vaults,
+        skipped_items,
+    })
 }
