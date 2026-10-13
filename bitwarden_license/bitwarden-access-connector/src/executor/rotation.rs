@@ -751,6 +751,7 @@ mod tests {
         error::{FailureCode, SafeDetail},
         integrations::{Integration, IntegrationError, RotateContext, TargetEffect},
         resolver::ResolvedCredentials,
+        test_support::{encrypted_payload_for, test_token},
     };
 
     #[test]
@@ -772,41 +773,17 @@ mod tests {
 
     #[tokio::test]
     async fn gate_lease_expired_aborts() {
-        use std::str::FromStr;
-
-        use bitwarden_crypto::{
-            KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
-        };
-        use bitwarden_encoding::B64;
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
         use wiremock::{
             Mock, MockServer, ResponseTemplate,
             matchers::{method, path},
         };
-        use zeroize::Zeroizing;
 
-        use crate::{
-            auth::{identity::IdentityClient, session::SessionManager},
-            token::AccessConnectorToken,
-        };
+        use crate::auth::{identity::IdentityClient, session::SessionManager};
 
         let server = MockServer::start().await;
-
-        // The token's encryption key, from the part after the colon.
-        let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
-        let key_bytes: Zeroizing<[u8; 16]> = Zeroizing::new(b64.as_bytes().try_into().unwrap());
-        let token_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
-            key_bytes,
-            "accesstoken",
-            Some("sm-access-token"),
-        ));
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let org_key_bytes = org_key.to_encoded();
-        let b64_str: String = B64::from(org_key_bytes.as_ref()).into();
-        let payload = format!(r#"{{"encryptionKey":"{b64_str}"}}"#)
-            .as_str()
-            .encrypt_with_key(&token_key)
-            .unwrap()
-            .to_string();
+        let payload = encrypted_payload_for(&org_key);
 
         Mock::given(method("POST")).and(path("/connect/token"))
             .respond_with(
@@ -816,9 +793,7 @@ mod tests {
             )
             .mount(&server).await;
 
-        let token = AccessConnectorToken::from_str(
-            "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
-        ).unwrap();
+        let token = test_token();
         let identity = IdentityClient::new(server.uri()).unwrap();
         let session = SessionManager::new(identity, token).await.unwrap();
 
@@ -846,41 +821,17 @@ mod tests {
 
     #[tokio::test]
     async fn gate_cancelled_aborts() {
-        use std::str::FromStr;
-
-        use bitwarden_crypto::{
-            KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
-        };
-        use bitwarden_encoding::B64;
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
         use wiremock::{
             Mock, MockServer, ResponseTemplate,
             matchers::{method, path},
         };
-        use zeroize::Zeroizing;
 
-        use crate::{
-            auth::{identity::IdentityClient, session::SessionManager},
-            token::AccessConnectorToken,
-        };
+        use crate::auth::{identity::IdentityClient, session::SessionManager};
 
         let server = MockServer::start().await;
-
-        // The token's encryption key, from the part after the colon.
-        let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
-        let key_bytes: Zeroizing<[u8; 16]> = Zeroizing::new(b64.as_bytes().try_into().unwrap());
-        let token_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
-            key_bytes,
-            "accesstoken",
-            Some("sm-access-token"),
-        ));
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let org_key_bytes = org_key.to_encoded();
-        let b64_str: String = B64::from(org_key_bytes.as_ref()).into();
-        let payload = format!(r#"{{"encryptionKey":"{b64_str}"}}"#)
-            .as_str()
-            .encrypt_with_key(&token_key)
-            .unwrap()
-            .to_string();
+        let payload = encrypted_payload_for(&org_key);
 
         Mock::given(method("POST")).and(path("/connect/token"))
             .respond_with(
@@ -890,9 +841,7 @@ mod tests {
             )
             .mount(&server).await;
 
-        let token = AccessConnectorToken::from_str(
-            "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
-        ).unwrap();
+        let token = test_token();
         let identity = IdentityClient::new(server.uri()).unwrap();
         let session = SessionManager::new(identity, token).await.unwrap();
 
@@ -1027,12 +976,7 @@ mod tests {
     /// A get_cipher Protocol error after a successful rotate must still report `target_updated`.
     #[tokio::test]
     async fn get_cipher_protocol_error_after_rotate_reports_target_updated() {
-        use std::str::FromStr;
-
-        use bitwarden_crypto::{
-            KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
-        };
-        use bitwarden_encoding::B64;
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
         use bitwarden_generators::GeneratorClientsExt as _;
         use chrono::Utc;
         use tokio::sync::watch;
@@ -1040,7 +984,6 @@ mod tests {
             Mock, MockServer, ResponseTemplate,
             matchers::{method, path},
         };
-        use zeroize::Zeroizing;
 
         use crate::{
             api::{
@@ -1054,25 +997,9 @@ mod tests {
             },
             integrations::IntegrationRegistry,
             resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
-            token::AccessConnectorToken,
         };
-
-        let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
-        let key_bytes: Zeroizing<[u8; 16]> = Zeroizing::new(b64.as_bytes().try_into().unwrap());
-        let token_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
-            key_bytes,
-            "accesstoken",
-            Some("sm-access-token"),
-        ));
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let org_key_bytes = org_key.to_encoded();
-        let b64_str: String = B64::from(org_key_bytes.as_ref()).into();
-        let payload_json = format!(r#"{{"encryptionKey":"{b64_str}"}}"#);
-        let payload = payload_json
-            .as_str()
-            .encrypt_with_key(&token_key)
-            .unwrap()
-            .to_string();
+        let payload = encrypted_payload_for(&org_key);
 
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
@@ -1133,9 +1060,7 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        let token = AccessConnectorToken::from_str(
-            "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
-        ).unwrap();
+        let token = test_token();
         let identity = IdentityClient::new(identity_server.uri()).unwrap();
         let session = SessionManager::new(identity, token).await.unwrap();
         let session = Arc::new(session);
@@ -1227,19 +1152,13 @@ mod tests {
 
     #[tokio::test]
     async fn preflight_cipher_id_mismatch_rejects_before_any_integration_call() {
-        use std::str::FromStr;
-
-        use bitwarden_crypto::{
-            KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
-        };
-        use bitwarden_encoding::B64;
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
         use bitwarden_generators::GeneratorClientsExt as _;
         use tokio::sync::watch;
         use wiremock::{
             Mock, MockServer, ResponseTemplate,
             matchers::{method, path},
         };
-        use zeroize::Zeroizing;
 
         use crate::{
             api::{
@@ -1253,24 +1172,10 @@ mod tests {
             },
             integrations::IntegrationRegistry,
             resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
-            token::AccessConnectorToken,
         };
 
-        let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
-        let key_bytes: Zeroizing<[u8; 16]> = Zeroizing::new(b64.as_bytes().try_into().unwrap());
-        let token_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
-            key_bytes,
-            "accesstoken",
-            Some("sm-access-token"),
-        ));
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let org_key_bytes = org_key.to_encoded();
-        let b64_str: String = B64::from(org_key_bytes.as_ref()).into();
-        let payload = format!(r#"{{"encryptionKey":"{b64_str}"}}"#)
-            .as_str()
-            .encrypt_with_key(&token_key)
-            .unwrap()
-            .to_string();
+        let payload = encrypted_payload_for(&org_key);
 
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
@@ -1318,9 +1223,7 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        let token = AccessConnectorToken::from_str(
-            "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
-        ).unwrap();
+        let token = test_token();
         let identity = IdentityClient::new(identity_server.uri()).unwrap();
         let session = SessionManager::new(identity, token).await.unwrap();
         let session = Arc::new(session);
