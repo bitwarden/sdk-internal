@@ -88,10 +88,10 @@ impl SecretsClient {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::{ClientSettings, DeviceType, auth::login::AccessTokenLoginRequest};
+    use bitwarden_core::{ClientSettings, DeviceType};
 
     use crate::{
-        SecretsManagerClient,
+        AccessTokenLoginRequest, SecretsManagerClient,
         secrets::{SecretGetRequest, SecretIdentifiersRequest},
     };
 

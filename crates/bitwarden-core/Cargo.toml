@@ -29,7 +29,6 @@ debug-capabilities = ["bitwarden-state/debug-capabilities"]
 no-memory-hardening = [
     "bitwarden-crypto/no-memory-hardening",
 ] # Disable memory hardening features
-secrets = [] # Secrets manager API
 uniffi = [
     "internal",
     "bitwarden-api-base/uniffi",

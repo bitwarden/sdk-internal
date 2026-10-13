@@ -1,11 +1,5 @@
-#[cfg(feature = "secrets")]
-use std::path::PathBuf;
-
 use bitwarden_crypto::Kdf;
 use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "secrets")]
-use crate::{OrganizationId, auth::AccessToken};
 
 #[derive(Debug)]
 pub enum LoginMethod {
@@ -13,8 +7,6 @@ pub enum LoginMethod {
     User(UserLoginMethod),
     // TODO: Organizations supports api key
     // Organization(OrganizationLoginMethod),
-    #[cfg(feature = "secrets")]
-    ServiceAccount(ServiceAccountLoginMethod),
 }
 
 #[allow(dead_code)]
@@ -31,15 +23,5 @@ pub enum UserLoginMethod {
 
         email: String,
         kdf: Kdf,
-    },
-}
-
-#[cfg(feature = "secrets")]
-#[derive(Debug)]
-pub enum ServiceAccountLoginMethod {
-    AccessToken {
-        access_token: AccessToken,
-        organization_id: OrganizationId,
-        state_file: Option<PathBuf>,
     },
 }

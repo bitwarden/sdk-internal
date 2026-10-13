@@ -17,8 +17,6 @@ pub use error::{
 pub mod mobile;
 #[cfg(feature = "internal")]
 pub mod platform;
-#[cfg(feature = "secrets")]
-pub mod secrets_manager;
 
 /// Derive macro for implementing the [`FromClient`] trait.
 ///

@@ -2,11 +2,9 @@
 
 mod middleware;
 mod password_manager_token_handler;
-#[cfg(feature = "secrets")]
-mod secrets_manager_token_handler;
-#[cfg(test)]
-pub(super) mod test_utils;
+#[cfg(any(test, feature = "test-utils"))]
+#[allow(missing_docs)]
+pub mod test_utils;
 
+pub use middleware::{MiddlewareExt, MiddlewareWrapper};
 pub use password_manager_token_handler::PasswordManagerTokenHandler;
-#[cfg(feature = "secrets")]
-pub use secrets_manager_token_handler::SecretsManagerTokenHandler;
