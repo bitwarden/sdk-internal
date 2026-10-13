@@ -90,6 +90,9 @@ pub struct FieldListView {
     pub name: Option<String>,
     /// Only populated for [FieldType::Text] fields.
     pub value: Option<String>,
+    /// Whether the field has a non-empty value. Allows UI to determine copyability without
+    /// decrypting hidden fields.
+    pub has_value: bool,
     /// The field type.
     pub r#type: FieldType,
 }
@@ -97,6 +100,7 @@ pub struct FieldListView {
 #[cfg(feature = "wasm")]
 impl From<FieldView> for FieldListView {
     fn from(field: FieldView) -> Self {
+        let has_value = field.value.as_deref().is_some_and(|v| !v.is_empty());
         Self {
             name: field.name,
             value: if field.r#type == FieldType::Text {
@@ -104,6 +108,7 @@ impl From<FieldView> for FieldListView {
             } else {
                 None
             },
+            has_value,
             r#type: field.r#type,
         }
     }
