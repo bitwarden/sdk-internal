@@ -1,13 +1,20 @@
 //! How a type crosses the wasm ABI.
 //!
 //! A proc macro cannot resolve types: seeing the token `CipherView`, `#[wasm_export]` has no way to
-//! know whether it is a serde DTO, a `#[wasm_bindgen]` handle, or a type that crosses as a string.
-//! So each type declares its own wire form instead. [`FromWasm::Wire`] and [`ToWasm::Wire`] are
-//! what a generated shim puts in its signature, with the conversion in the shim body, where a
-//! failure is an ordinary `Err` and destructors run.
+//! know whether it is a serde DTO, which crosses as [`Ts<T>`](tsify::Ts), a `#[wasm_bindgen]`
+//! handle, which crosses as itself, or a type that crosses as a string. So each type declares its
+//! own wire form instead. [`FromWasm::Wire`] and [`ToWasm::Wire`] are what the generated shim puts
+//! in its signature, and `#[wasm_record]` / `#[wasm_object]` generate the impls.
+//!
+//! Conversion happens inside the shim body, where a failure is an ordinary `Err` and destructors
+//! run. `#[tsify(from_wasm_abi)]` instead converts inside `FromWasmAbi::from_abi`, which cannot
+//! report failure and so calls `wasm_bindgen::throw_str`
+//! ([tsify#65](https://github.com/madonoharu/tsify/issues/65)).
 
 use std::fmt::Display;
 
+use bitwarden_error::wasm::{CONVERSION_ERROR_NAME, SdkJsError};
+use tsify::{Ts, Tsify};
 use wasm_bindgen::JsValue;
 
 /// A value could not be converted across the wasm ABI.
@@ -21,6 +28,9 @@ pub enum WireError {
         /// The parser's error message.
         message: String,
     },
+    /// A serde DTO did not convert to or from its `Ts<T>` form.
+    #[error(transparent)]
+    Serde(#[from] tsify::Error),
 }
 
 /// A type that can be received from JavaScript, crossing the ABI as [`Self::Wire`].
@@ -86,7 +96,9 @@ crate::impl_wire_object!(
 );
 
 /// `Vec<T>` crosses as a vector of `T`'s wire type, so `Vec<u8>` stays `Vec<u8>` and reaches
-/// JavaScript as a `Uint8Array`.
+/// JavaScript as a `Uint8Array`, while `Vec<CipherView>` becomes `Vec<Ts<CipherView>>`.
+///
+/// `Ts` sits on the element, never the vector: `Ts<Vec<T>>` is not something tsify supports.
 impl<T: FromWasm> FromWasm for Vec<T> {
     type Wire = Vec<T::Wire>;
 
@@ -117,6 +129,67 @@ impl<T: ToWasm> ToWasm for Option<T> {
     fn to_wire(self) -> Result<Self::Wire, WireError> {
         self.map(T::to_wire).transpose()
     }
+}
+
+/// Lets a shim name `Ts<T>` in a signature it was handed already-wrapped, for the hand-written
+/// `extern "C"` blocks that construct the wrapper themselves.
+impl<T: Tsify> FromWasm for Ts<T> {
+    type Wire = Ts<T>;
+
+    fn from_wire(wire: Self::Wire) -> Result<Self, WireError> {
+        Ok(wire)
+    }
+}
+
+impl<T: Tsify> ToWasm for Ts<T> {
+    type Wire = Ts<T>;
+
+    fn to_wire(self) -> Result<Self::Wire, WireError> {
+        Ok(self)
+    }
+}
+
+/// Stands in for the error of a shim whose underlying method cannot fail.
+#[derive(Debug)]
+pub enum Never {}
+
+impl From<Never> for JsValue {
+    fn from(value: Never) -> Self {
+        match value {}
+    }
+}
+
+/// Error of a generated shim.
+///
+/// `Inner` reaches JavaScript through `E`'s own `From<E> for JsValue`, so a `bitwarden_error` type
+/// keeps the `name` and `variant` it already had. Shims for infallible methods use the default `E`,
+/// leaving `Conversion` as the only reachable variant.
+#[derive(Debug)]
+pub enum TsError<E = Never> {
+    /// The underlying method failed.
+    Inner(E),
+    /// A value could not be converted across the boundary.
+    Conversion(WireError),
+}
+
+impl<E: Into<JsValue>> From<TsError<E>> for JsValue {
+    fn from(value: TsError<E>) -> Self {
+        match value {
+            TsError::Inner(inner) => inner.into(),
+            TsError::Conversion(err) => {
+                let js_error = SdkJsError::new(err.to_string());
+                js_error.set_name(CONVERSION_ERROR_NAME.to_owned());
+                js_error.into()
+            }
+        }
+    }
+}
+
+/// The error a `#[wasm_import]` wrapper returns when an argument does not convert, matching what a
+/// `#[wasm_export]` shim throws for the same failure.
+#[doc(hidden)]
+pub fn import_conversion_error(err: WireError) -> JsValue {
+    TsError::<Never>::Conversion(err).into()
 }
 
 #[cfg(test)]
