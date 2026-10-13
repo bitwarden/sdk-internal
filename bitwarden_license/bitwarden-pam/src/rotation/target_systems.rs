@@ -12,7 +12,9 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{CryptoError, Decryptable, IdentifyKey, KeyStore, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
-use bitwarden_pam_sealed::{SealedTargetSystemKind, SealedTargetSystemMethod, seal_target_system};
+use bitwarden_pam_sealed::{
+    SealedPasswordPolicy, SealedTargetSystemKind, SealedTargetSystemMethod, seal_target_system,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -25,7 +27,7 @@ use super::{
     error::RotationError,
     models::{PasswordPolicy, TargetSystemKind, TargetSystemMethod, TargetSystemStatus},
     seal::{target_system_sealed_data, unseal_target},
-    validate::{RotationValidationError, validate_target_system_request},
+    validate::{RotationValidationError, validate_name},
 };
 use crate::TargetSystemId;
 
@@ -190,15 +192,82 @@ impl TargetSystemCreateRequest {
             } => password_policy,
         }
     }
+
+    /// The rotation method this request carries: never [`TargetSystemMethod::Unknown`].
+    pub fn method(&self) -> TargetSystemMethod {
+        match self {
+            Self::Automatic { .. } => TargetSystemMethod::Automatic,
+            Self::Manual { .. } => TargetSystemMethod::Manual,
+        }
+    }
+
+    /// The integration kind. `None` for a [`Manual`](TargetSystemMethod::Manual) request.
+    pub fn kind(&self) -> Option<TargetSystemKind> {
+        match self {
+            Self::Automatic { kind, .. } => Some(*kind),
+            Self::Manual { .. } => None,
+        }
+    }
+
+    /// Whether the integration can terminate sessions after rotating. `None` for a
+    /// [`Manual`](TargetSystemMethod::Manual) request.
+    pub fn supports_session_termination(&self) -> Option<bool> {
+        match self {
+            Self::Automatic {
+                supports_session_termination,
+                ..
+            } => Some(*supports_session_termination),
+            Self::Manual { .. } => None,
+        }
+    }
 }
 
-impl From<&TargetSystemCreateRequest> for RegisterTargetSystemRequestModel {
-    fn from(request: &TargetSystemCreateRequest) -> Self {
-        Self {
+/// A [`TargetSystemCreateRequest`] validated and converted to its sealed form, minus the ID that
+/// phase 2 binds in. Exists so the phase-1 `POST` only runs for a request phase 2 can seal,
+/// leaving no orphaned [`PendingSeal`](TargetSystemStatus::PendingSeal) row.
+struct PreparedTargetSystem {
+    name: String,
+    method: SealedTargetSystemMethod,
+    kind: Option<SealedTargetSystemKind>,
+    password_policy: SealedPasswordPolicy,
+    supports_session_termination: Option<bool>,
+}
+
+impl TryFrom<&TargetSystemCreateRequest> for PreparedTargetSystem {
+    type Error = RotationError;
+
+    fn try_from(request: &TargetSystemCreateRequest) -> Result<Self, Self::Error> {
+        validate_name(request.name())?;
+        request
+            .password_policy()
+            .validate()
+            .map_err(RotationValidationError::from)?;
+        let kind = request
+            .kind()
+            .map(SealedTargetSystemKind::try_from)
+            .transpose()?;
+        let method = match request {
+            TargetSystemCreateRequest::Automatic { .. } => SealedTargetSystemMethod::Automatic,
+            TargetSystemCreateRequest::Manual { .. } => SealedTargetSystemMethod::Manual,
+        };
+
+        Ok(Self {
             name: request.name().to_string(),
-            method: match request {
-                TargetSystemCreateRequest::Automatic { .. } => ApiTargetSystemMethod::Automatic,
-                TargetSystemCreateRequest::Manual { .. } => ApiTargetSystemMethod::Manual,
+            method,
+            kind,
+            password_policy: request.password_policy().clone().into(),
+            supports_session_termination: request.supports_session_termination(),
+        })
+    }
+}
+
+impl From<&PreparedTargetSystem> for RegisterTargetSystemRequestModel {
+    fn from(prepared: &PreparedTargetSystem) -> Self {
+        Self {
+            name: prepared.name.clone(),
+            method: match prepared.method {
+                SealedTargetSystemMethod::Automatic => ApiTargetSystemMethod::Automatic,
+                SealedTargetSystemMethod::Manual => ApiTargetSystemMethod::Manual,
             },
         }
     }
@@ -258,15 +327,18 @@ impl TargetSystemsClient {
         organization_id: OrganizationId,
         request: TargetSystemCreateRequest,
     ) -> Result<TargetSystemView, TargetSystemCreateError> {
-        let (id, phase_one) = self
-            .register(organization_id, &request)
-            .await
-            .map_err(|error| TargetSystemCreateError {
-                id: None,
-                message: error.to_string(),
-            })?;
+        let nothing_created = |error: RotationError| TargetSystemCreateError {
+            id: None,
+            message: error.to_string(),
+        };
 
-        self.seal_and_finish(organization_id, id, &phase_one, &request)
+        let prepared = PreparedTargetSystem::try_from(&request).map_err(nothing_created)?;
+        let (id, phase_one) = self
+            .register(organization_id, &prepared)
+            .await
+            .map_err(nothing_created)?;
+
+        self.seal_and_finish(organization_id, id, &phase_one, &prepared, &request)
             .await
             .map_err(|error| TargetSystemCreateError {
                 id: Some(id),
@@ -274,27 +346,38 @@ impl TargetSystemsClient {
             })
     }
 
-    /// Phase 1 of [`Self::create`].
+    /// Phase 1 of [`Self::create`]. Takes only a prepared target, so the `POST` can't run for a
+    /// request phase 2 can't seal.
     async fn register(
         &self,
         organization_id: OrganizationId,
-        request: &TargetSystemCreateRequest,
+        prepared: &PreparedTargetSystem,
     ) -> Result<(TargetSystemId, PamTargetSystemResponseModel), RotationError> {
-        validate_target_system_request(request)?;
-        // Reject an unsealable kind now, rather than leave a `PendingSeal` row behind.
-        if let TargetSystemCreateRequest::Automatic { kind, .. } = request {
-            SealedTargetSystemKind::try_from(*kind)?;
-        }
+        self.require_organization_key(organization_id)?;
 
         let response = self
             .api_configurations
             .api_client
             .pam_access_connector_rotation_target_systems_api()
-            .post(organization_id.into(), request.into())
+            .post(organization_id.into(), prepared.into())
             .await?;
 
         let id = TargetSystemId::new(require!(response.id));
         Ok((id, response))
+    }
+
+    /// Runs before the phase-1 `POST`; `put_sealed` keeps its own check because it needs the key
+    /// in its own context.
+    fn require_organization_key(
+        &self,
+        organization_id: OrganizationId,
+    ) -> Result<(), RotationError> {
+        let organization_key = SymmetricKeySlotId::Organization(organization_id);
+        if !self.key_store.context().has_symmetric_key(organization_key) {
+            return Err(RotationError::MissingOrganizationKey);
+        }
+
+        Ok(())
     }
 
     /// Phase 2 of [`Self::create`]. The `PUT` returns no content, so `revision_date` is the
@@ -304,9 +387,10 @@ impl TargetSystemsClient {
         organization_id: OrganizationId,
         id: TargetSystemId,
         phase_one: &PamTargetSystemResponseModel,
+        prepared: &PreparedTargetSystem,
         request: &TargetSystemCreateRequest,
     ) -> Result<TargetSystemView, RotationError> {
-        self.put_sealed(organization_id, id, request).await?;
+        self.put_sealed(organization_id, id, prepared).await?;
 
         let creation_date: DateTime<Utc> = require!(phase_one.creation_date.clone()).parse()?;
 
@@ -314,24 +398,12 @@ impl TargetSystemsClient {
             id,
             organization_id,
             name: request.name().to_string(),
-            method: match request {
-                TargetSystemCreateRequest::Automatic { .. } => TargetSystemMethod::Automatic,
-                TargetSystemCreateRequest::Manual { .. } => TargetSystemMethod::Manual,
-            },
+            method: request.method(),
             status: TargetSystemStatus::Active,
             sealed: Some(TargetSystemSealedFields {
-                kind: match request {
-                    TargetSystemCreateRequest::Automatic { kind, .. } => Some(*kind),
-                    TargetSystemCreateRequest::Manual { .. } => None,
-                },
+                kind: request.kind(),
                 password_policy: request.password_policy().clone(),
-                supports_session_termination: match request {
-                    TargetSystemCreateRequest::Automatic {
-                        supports_session_termination,
-                        ..
-                    } => Some(*supports_session_termination),
-                    TargetSystemCreateRequest::Manual { .. } => None,
-                },
+                supports_session_termination: request.supports_session_termination(),
             }),
             creation_date,
             revision_date: creation_date,
@@ -349,32 +421,21 @@ impl TargetSystemsClient {
         id: TargetSystemId,
         request: TargetSystemCreateRequest,
     ) -> Result<(), RotationError> {
-        validate_target_system_request(&request)?;
-        if let TargetSystemCreateRequest::Automatic { kind, .. } = &request {
-            SealedTargetSystemKind::try_from(*kind)?;
-        }
+        let prepared = PreparedTargetSystem::try_from(&request)?;
 
         let existing = self.existing(organization_id, id).await?;
 
-        let request_method = match &request {
-            TargetSystemCreateRequest::Automatic { .. } => TargetSystemMethod::Automatic,
-            TargetSystemCreateRequest::Manual { .. } => TargetSystemMethod::Manual,
-        };
-        if request_method != existing.method {
+        if request.method() != existing.method {
             return Err(RotationValidationError::TargetSystemMethodMismatch.into());
         }
 
-        if let Some(existing_sealed) = &existing.sealed {
-            let request_kind = match &request {
-                TargetSystemCreateRequest::Automatic { kind, .. } => Some(*kind),
-                TargetSystemCreateRequest::Manual { .. } => None,
-            };
-            if request_kind != existing_sealed.kind {
-                return Err(RotationValidationError::TargetSystemKindMismatch.into());
-            }
+        if let Some(existing_sealed) = &existing.sealed
+            && request.kind() != existing_sealed.kind
+        {
+            return Err(RotationValidationError::TargetSystemKindMismatch.into());
         }
 
-        self.put_sealed(organization_id, id, &request).await
+        self.put_sealed(organization_id, id, &prepared).await
     }
 
     /// There is no single-target `GET`, so this lists and converts only `id`'s row.
@@ -401,12 +462,12 @@ impl TargetSystemsClient {
         Ok(self.key_store.decrypt(&target)?)
     }
 
-    /// Seals `request` under `id` and `PUT`s it.
+    /// Seals `prepared` under `id` and `PUT`s it.
     async fn put_sealed(
         &self,
         organization_id: OrganizationId,
         id: TargetSystemId,
-        request: &TargetSystemCreateRequest,
+        prepared: &PreparedTargetSystem,
     ) -> Result<(), RotationError> {
         let sealed_data = {
             let organization_key = SymmetricKeySlotId::Organization(organization_id);
@@ -415,31 +476,12 @@ impl TargetSystemsClient {
                 return Err(RotationError::MissingOrganizationKey);
             }
 
-            let method = match request {
-                TargetSystemCreateRequest::Automatic { .. } => SealedTargetSystemMethod::Automatic,
-                TargetSystemCreateRequest::Manual { .. } => SealedTargetSystemMethod::Manual,
-            };
-            let kind = match request {
-                TargetSystemCreateRequest::Automatic { kind, .. } => {
-                    Some(SealedTargetSystemKind::try_from(*kind)?)
-                }
-                TargetSystemCreateRequest::Manual { .. } => None,
-            };
-            let supports_session_termination = match request {
-                TargetSystemCreateRequest::Automatic {
-                    supports_session_termination,
-                    ..
-                } => Some(*supports_session_termination),
-                TargetSystemCreateRequest::Manual { .. } => None,
-            };
-            let password_policy = request.password_policy().clone().into();
-
             let data = target_system_sealed_data(
                 id,
-                method,
-                kind,
-                password_policy,
-                supports_session_termination,
+                prepared.method,
+                prepared.kind,
+                prepared.password_policy.clone(),
+                prepared.supports_session_termination,
             );
             seal_target_system::<KeySlotIds>(data, &organization_key, &mut ctx)?
         };
@@ -451,7 +493,7 @@ impl TargetSystemsClient {
                 organization_id.into(),
                 id.into(),
                 UpdateTargetSystemRequestModel {
-                    name: request.name().to_string(),
+                    name: prepared.name.clone(),
                     sealed_data,
                 },
             )
@@ -1147,7 +1189,30 @@ mod tests {
         assert_eq!(error.id, Some(target_system_id()));
     }
 
-    /// Nothing is created when local validation fails, so the error carries no ID.
+    #[tokio::test]
+    async fn create_refuses_without_the_organization_key_before_calling_the_server() {
+        let key_store = KeyStore::<KeySlotIds>::default();
+        let client = TargetSystemsClient {
+            key_store,
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(
+                ApiClient::new_mocked(|_| {}),
+            )),
+        };
+
+        let error = client
+            .create(organization_id(), automatic_create_request())
+            .await
+            .expect_err("the organization key is missing");
+
+        assert_eq!(error.id, None);
+        assert_eq!(
+            error.message,
+            RotationError::MissingOrganizationKey.to_string()
+        );
+    }
+
+    /// Nothing is created when local validation fails, so the error carries no ID. The client
+    /// holds the organization key, so the failure is the validation, not the key check.
     #[tokio::test]
     async fn create_rejects_an_invalid_request_before_calling_the_server() {
         let unsatisfiable = PasswordPolicy {
@@ -1158,23 +1223,32 @@ mod tests {
             ..policy()
         };
 
-        for request in [
-            TargetSystemCreateRequest::Automatic {
-                name: "  ".to_string(),
-                kind: TargetSystemKind::Mssql,
-                password_policy: policy(),
-                supports_session_termination: true,
-            },
-            TargetSystemCreateRequest::Manual {
-                name: String::new(),
-                password_policy: policy(),
-            },
-            TargetSystemCreateRequest::Automatic {
-                name: "Prod SQL".to_string(),
-                kind: TargetSystemKind::Mssql,
-                password_policy: unsatisfiable.clone(),
-                supports_session_termination: true,
-            },
+        for (request, expected) in [
+            (
+                TargetSystemCreateRequest::Automatic {
+                    name: "  ".to_string(),
+                    kind: TargetSystemKind::Mssql,
+                    password_policy: policy(),
+                    supports_session_termination: true,
+                },
+                RotationValidationError::InvalidName,
+            ),
+            (
+                TargetSystemCreateRequest::Manual {
+                    name: String::new(),
+                    password_policy: policy(),
+                },
+                RotationValidationError::InvalidName,
+            ),
+            (
+                TargetSystemCreateRequest::Automatic {
+                    name: "Prod SQL".to_string(),
+                    kind: TargetSystemKind::Mssql,
+                    password_policy: unsatisfiable.clone(),
+                    supports_session_termination: true,
+                },
+                RotationValidationError::NoCharacterClasses,
+            ),
         ] {
             let result = client(ApiClient::new_mocked(|_| {}))
                 .create(organization_id(), request)
@@ -1182,6 +1256,7 @@ mod tests {
 
             let error = result.expect_err("the request is invalid");
             assert_eq!(error.id, None);
+            assert_eq!(error.message, expected.to_string());
         }
     }
 
@@ -1201,6 +1276,10 @@ mod tests {
 
         let error = result.expect_err("an unrecognized kind is refused");
         assert_eq!(error.id, None);
+        assert_eq!(
+            error.message,
+            RotationError::UnrecognizedVariant.to_string()
+        );
     }
 
     #[tokio::test]

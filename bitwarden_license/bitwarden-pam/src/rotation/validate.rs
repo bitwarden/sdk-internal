@@ -1,10 +1,7 @@
 use bitwarden_pam_sealed::PasswordPolicyError;
 use thiserror::Error;
 
-use super::{
-    configs::RotationConfigCreateRequest, schedule::is_likely_quartz_cron,
-    target_systems::TargetSystemCreateRequest,
-};
+use super::{configs::RotationConfigCreateRequest, schedule::is_likely_quartz_cron};
 
 /// Maximum length of a connector or target-system `name`, matching the server's column.
 const MAX_NAME_LENGTH: usize = 200;
@@ -85,15 +82,6 @@ fn validate_schedule_cron(cron: Option<&String>) -> Result<(), RotationValidatio
     }
 }
 
-/// Validates a target system request.
-pub(super) fn validate_target_system_request(
-    request: &TargetSystemCreateRequest,
-) -> Result<(), RotationValidationError> {
-    validate_name(request.name())?;
-    request.password_policy().validate()?;
-    Ok(())
-}
-
 /// Validates a rotation config request. `terminate_sessions` is checked against the target
 /// separately, since that needs a network call.
 pub(super) fn validate_config_request(
@@ -110,10 +98,7 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{
-        TargetSystemId,
-        rotation::models::{PasswordPolicy, TargetSystemKind},
-    };
+    use crate::{TargetSystemId, rotation::models::PasswordPolicy};
 
     fn policy() -> PasswordPolicy {
         PasswordPolicy {
@@ -123,15 +108,6 @@ mod tests {
             include_lowercase: true,
             include_digits: true,
             include_symbols: true,
-        }
-    }
-
-    fn create_request(name: &str) -> TargetSystemCreateRequest {
-        TargetSystemCreateRequest::Automatic {
-            name: name.to_string(),
-            kind: TargetSystemKind::Entra,
-            password_policy: policy(),
-            supports_session_termination: true,
         }
     }
 
@@ -147,15 +123,16 @@ mod tests {
     }
 
     #[test]
-    fn a_well_formed_create_request_passes() {
-        assert!(validate_target_system_request(&create_request("Prod SQL")).is_ok());
+    fn a_well_formed_name_and_policy_pass() {
+        assert!(validate_name("Prod SQL").is_ok());
+        assert!(policy().validate().is_ok());
     }
 
     #[test]
     fn a_blank_name_is_rejected() {
         for name in ["", "   ", "\t\n"] {
             assert_eq!(
-                validate_target_system_request(&create_request(name)),
+                validate_name(name),
                 Err(RotationValidationError::InvalidName),
                 "for {name:?}"
             );
@@ -165,11 +142,11 @@ mod tests {
     #[test]
     fn a_name_at_the_limit_passes_and_one_over_is_rejected() {
         let at_limit = "a".repeat(MAX_NAME_LENGTH);
-        assert!(validate_target_system_request(&create_request(&at_limit)).is_ok());
+        assert!(validate_name(&at_limit).is_ok());
 
         let over_limit = "a".repeat(MAX_NAME_LENGTH + 1);
         assert_eq!(
-            validate_target_system_request(&create_request(&over_limit)),
+            validate_name(&over_limit),
             Err(RotationValidationError::InvalidName)
         );
     }
@@ -179,11 +156,11 @@ mod tests {
     #[test]
     fn name_length_is_counted_in_utf16_code_units() {
         let at_limit = "😀".repeat(MAX_NAME_LENGTH / 2);
-        assert!(validate_target_system_request(&create_request(&at_limit)).is_ok());
+        assert!(validate_name(&at_limit).is_ok());
 
         let over_limit = "😀".repeat(MAX_NAME_LENGTH / 2 + 1);
         assert_eq!(
-            validate_target_system_request(&create_request(&over_limit)),
+            validate_name(&over_limit),
             Err(RotationValidationError::InvalidName)
         );
     }
@@ -193,22 +170,19 @@ mod tests {
     #[test]
     fn surrounding_whitespace_does_not_count_towards_the_limit() {
         let padded = format!("  {}  ", "a".repeat(MAX_NAME_LENGTH));
-        assert!(validate_target_system_request(&create_request(&padded)).is_ok());
+        assert!(validate_name(&padded).is_ok());
     }
 
     #[test]
     fn inverted_length_bounds_are_rejected() {
-        let request = TargetSystemCreateRequest::Manual {
-            name: "Manual".to_string(),
-            password_policy: PasswordPolicy {
-                min_length: 64,
-                max_length: 14,
-                ..policy()
-            },
+        let policy = PasswordPolicy {
+            min_length: 64,
+            max_length: 14,
+            ..policy()
         };
 
         assert_eq!(
-            validate_target_system_request(&request),
+            policy.validate().map_err(RotationValidationError::from),
             Err(RotationValidationError::InvalidPasswordLengthBounds)
         );
     }
@@ -220,17 +194,14 @@ mod tests {
             (14, GENERATOR_MAX_LENGTH + 1),
             (GENERATOR_MIN_LENGTH - 1, GENERATOR_MAX_LENGTH),
         ] {
-            let request = TargetSystemCreateRequest::Manual {
-                name: "Manual".to_string(),
-                password_policy: PasswordPolicy {
-                    min_length,
-                    max_length,
-                    ..policy()
-                },
+            let policy = PasswordPolicy {
+                min_length,
+                max_length,
+                ..policy()
             };
 
             assert_eq!(
-                validate_target_system_request(&request),
+                policy.validate().map_err(RotationValidationError::from),
                 Err(RotationValidationError::InvalidPasswordLengthBounds),
                 "for {min_length}..{max_length}"
             );
@@ -239,53 +210,54 @@ mod tests {
 
     #[test]
     fn equal_length_bounds_are_accepted() {
-        let request = TargetSystemCreateRequest::Manual {
-            name: "Manual".to_string(),
-            password_policy: PasswordPolicy {
-                min_length: 32,
-                max_length: 32,
-                ..policy()
-            },
+        let policy = PasswordPolicy {
+            min_length: 32,
+            max_length: 32,
+            ..policy()
         };
 
-        assert!(validate_target_system_request(&request).is_ok());
+        assert!(
+            policy
+                .validate()
+                .map_err(RotationValidationError::from)
+                .is_ok()
+        );
     }
 
     /// A policy with every class off is unsatisfiable, and the connector's generator raises the
     /// same failure at rotation time.
     #[test]
     fn a_policy_with_no_character_classes_is_rejected() {
-        let request = TargetSystemCreateRequest::Manual {
-            name: "Manual".to_string(),
-            password_policy: PasswordPolicy {
-                include_uppercase: false,
-                include_lowercase: false,
-                include_digits: false,
-                include_symbols: false,
-                ..policy()
-            },
+        let policy = PasswordPolicy {
+            include_uppercase: false,
+            include_lowercase: false,
+            include_digits: false,
+            include_symbols: false,
+            ..policy()
         };
 
         assert_eq!(
-            validate_target_system_request(&request),
+            policy.validate().map_err(RotationValidationError::from),
             Err(RotationValidationError::NoCharacterClasses)
         );
     }
 
     #[test]
     fn a_single_character_class_is_enough() {
-        let request = TargetSystemCreateRequest::Manual {
-            name: "Manual".to_string(),
-            password_policy: PasswordPolicy {
-                include_uppercase: false,
-                include_lowercase: true,
-                include_digits: false,
-                include_symbols: false,
-                ..policy()
-            },
+        let policy = PasswordPolicy {
+            include_uppercase: false,
+            include_lowercase: true,
+            include_digits: false,
+            include_symbols: false,
+            ..policy()
         };
 
-        assert!(validate_target_system_request(&request).is_ok());
+        assert!(
+            policy
+                .validate()
+                .map_err(RotationValidationError::from)
+                .is_ok()
+        );
     }
 
     #[test]
