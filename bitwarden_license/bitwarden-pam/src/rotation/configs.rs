@@ -25,7 +25,7 @@ use super::{
     error::RotationError,
     models::{RotationJob, TargetSystemMethod, TargetSystemStatus},
     seal::{rotation_config_sealed_data, unseal_config},
-    target_systems::TargetSystem,
+    target_systems::{TargetSystem, TargetSystemView},
     validate::{RotationValidationError, validate_config_request},
 };
 use crate::{RotationConfigId, TargetSystemId};
@@ -297,6 +297,25 @@ pub struct RotationConfigCreateRequest {
     pub rotate_on_access_end: bool,
 }
 
+/// A [`RotationConfigCreateRequest`] that passed the local checks. Exists so sealing takes only a
+/// validated request, and those checks can't be skipped.
+struct ValidatedRotationConfig(RotationConfigCreateRequest);
+
+impl ValidatedRotationConfig {
+    fn request(&self) -> &RotationConfigCreateRequest {
+        &self.0
+    }
+}
+
+impl TryFrom<RotationConfigCreateRequest> for ValidatedRotationConfig {
+    type Error = RotationError;
+
+    fn try_from(request: RotationConfigCreateRequest) -> Result<Self, Self::Error> {
+        validate_config_request(&request)?;
+        Ok(Self(request))
+    }
+}
+
 /// Client for PAM managed-credential (rotation config) operations.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
@@ -351,15 +370,13 @@ impl RotationConfigsClient {
         organization_id: OrganizationId,
         request: RotationConfigCreateRequest,
     ) -> Result<RotationConfigDetailView, RotationError> {
-        validate_config_request(&request)?;
-        self.validate_target(
-            organization_id,
-            request.target_system_id,
-            request.terminate_sessions,
-        )
-        .await?;
+        let config = ValidatedRotationConfig::try_from(request)?;
+        let target = self
+            .verified_target(organization_id, config.request().target_system_id)
+            .await?;
 
-        let sealed_data = self.seal(organization_id, &request)?;
+        let sealed_data = self.seal(organization_id, &config, &target)?;
+        let request = config.request();
         let response = self
             .api_configurations
             .api_client
@@ -388,23 +405,21 @@ impl RotationConfigsClient {
         id: RotationConfigId,
         request: RotationConfigCreateRequest,
     ) -> Result<RotationConfigDetailView, RotationError> {
-        validate_config_request(&request)?;
+        let config = ValidatedRotationConfig::try_from(request)?;
 
         let existing = self.get(organization_id, id).await?;
-        if existing.config.cipher_id != request.cipher_id
-            || existing.config.target_system_id != request.target_system_id
+        if existing.config.cipher_id != config.request().cipher_id
+            || existing.config.target_system_id != config.request().target_system_id
         {
             return Err(RotationValidationError::RotationConfigImmutableFieldMismatch.into());
         }
 
-        self.validate_target(
-            organization_id,
-            request.target_system_id,
-            request.terminate_sessions,
-        )
-        .await?;
+        let target = self
+            .verified_target(organization_id, config.request().target_system_id)
+            .await?;
 
-        let sealed_data = self.seal(organization_id, &request)?;
+        let sealed_data = self.seal(organization_id, &config, &target)?;
+        let request = config.request();
         let response = self
             .api_configurations
             .api_client
@@ -414,7 +429,7 @@ impl RotationConfigsClient {
                 id.into(),
                 UpdateRotationConfigRequestModel {
                     sealed_data,
-                    schedule_cron: request.schedule_cron,
+                    schedule_cron: request.schedule_cron.clone(),
                     rotate_on_access_end: Some(request.rotate_on_access_end),
                 },
             )
@@ -424,12 +439,28 @@ impl RotationConfigsClient {
         Ok(self.key_store.decrypt(&detail)?)
     }
 
-    /// Seals `request`'s security-relevant fields under the organization key.
+    /// Seals the config's security-relevant fields under the organization key.
+    ///
+    /// Takes a validated request and a verified target, so neither check can be skipped before
+    /// sealing. `terminate_sessions` is checked here since it needs the target's sealed fields.
     fn seal(
         &self,
         organization_id: OrganizationId,
-        request: &RotationConfigCreateRequest,
+        config: &ValidatedRotationConfig,
+        target: &TargetSystemView,
     ) -> Result<String, RotationError> {
+        let request = config.request();
+        // The target is fetched by the config's `target_system_id`, so a mismatch is a bug.
+        debug_assert_eq!(target.id, request.target_system_id);
+
+        let supports_termination = target
+            .sealed
+            .as_ref()
+            .and_then(|sealed| sealed.supports_session_termination);
+        if request.terminate_sessions && supports_termination != Some(true) {
+            return Err(RotationValidationError::SessionTerminationUnsupported.into());
+        }
+
         let organization_key = SymmetricKeySlotId::Organization(organization_id);
         let mut ctx = self.key_store.context_mut();
         if !ctx.has_symmetric_key(organization_key) {
@@ -449,14 +480,12 @@ impl RotationConfigsClient {
         )?)
     }
 
-    /// The target must exist with verified sealed fields, unless still `PendingSeal`, and must
-    /// confirm `supports_session_termination` if `terminate_sessions` is requested.
-    async fn validate_target(
+    /// The target must exist with verified sealed fields, unless still `PendingSeal`.
+    async fn verified_target(
         &self,
         organization_id: OrganizationId,
         target_system_id: TargetSystemId,
-        terminate_sessions: bool,
-    ) -> Result<(), RotationError> {
+    ) -> Result<TargetSystemView, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -479,15 +508,7 @@ impl RotationConfigsClient {
             return Err(RotationValidationError::TargetSystemSealInvalid.into());
         }
 
-        let supports_termination = target
-            .sealed
-            .as_ref()
-            .and_then(|sealed| sealed.supports_session_termination);
-        if terminate_sessions && supports_termination != Some(true) {
-            return Err(RotationValidationError::SessionTerminationUnsupported.into());
-        }
-
-        Ok(())
+        Ok(target)
     }
 
     /// Pauses a config, so no new rotation jobs are dispatched.
@@ -1563,6 +1584,32 @@ mod tests {
         let result = client(api_client)
             .create(organization_id(), create_request())
             .await;
+
+        assert!(matches!(
+            result,
+            Err(RotationError::Validation(
+                RotationValidationError::SessionTerminationUnsupported
+            ))
+        ));
+    }
+
+    /// `seal` itself refuses `terminate_sessions` against a target that doesn't confirm support.
+    #[test]
+    fn seal_rejects_terminate_sessions_without_confirmed_support() {
+        let target = TargetSystemView {
+            id: target_system_id(),
+            organization_id: organization_id(),
+            name: "Prod SQL".to_string(),
+            method: TargetSystemMethod::Automatic,
+            status: TargetSystemStatus::PendingSeal,
+            sealed: None,
+            creation_date: "2026-01-01T00:00:00Z".parse().unwrap(),
+            revision_date: "2026-01-01T00:00:00Z".parse().unwrap(),
+        };
+        let config = ValidatedRotationConfig::try_from(create_request()).expect("a valid request");
+
+        let result =
+            client(ApiClient::new_mocked(|_| {})).seal(organization_id(), &config, &target);
 
         assert!(matches!(
             result,
