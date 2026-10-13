@@ -18,6 +18,7 @@ keywords.workspace = true
 wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-core/wasm",
+    "bitwarden-crypto/wasm",
     "bitwarden-error/wasm",
     "bitwarden-ffi/wasm",
     "bitwarden-vault/wasm",
@@ -32,8 +33,10 @@ bitwarden-collections = { workspace = true }
 bitwarden-commercial-marker = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-ffi = { workspace = true }
+bitwarden-pam-sealed = { workspace = true }
 bitwarden-uuid = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
@@ -41,10 +44,12 @@ reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
+zeroize = { workspace = true }
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
