@@ -1242,6 +1242,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-pam-sealed"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-commercial-marker",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-generators",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "4.0.0"
 dependencies = [
