@@ -4,7 +4,7 @@ use bitwarden_core::Client;
 
 use crate::{
     Credentials, ImportError, ImportOptions, ImportSummary, OnePasswordImportSummary,
-    OnePasswordTwoFactorUi,
+    OnePasswordSignInMethods, OnePasswordTwoFactorUi, SignInAddress,
     importers::{
         self,
         onepassword::{access, convert},
@@ -31,10 +31,9 @@ pub(crate) async fn import_onepassword(
     two_factor: &dyn OnePasswordTwoFactorUi,
     options: ImportOptions,
 ) -> Result<OnePasswordImportSummary, ImportError> {
-    // 1Password is a third-party host, so this goes through the client's external transport rather
-    // than the one configured for the Bitwarden API.
-    let onepassword = access::Client::new(client.internal.get_http_client().clone());
-    let mut account = onepassword.open_account(credentials, two_factor).await?;
+    let mut account = access_client(client)
+        .open_account(credentials, two_factor)
+        .await?;
     let skipped_items = account
         .vaults
         .iter_mut()
@@ -48,4 +47,21 @@ pub(crate) async fn import_onepassword(
         skipped_vaults: account.skipped_vaults,
         skipped_items,
     })
+}
+
+/// See [crate::ImporterClient::onepassword_sign_in_methods] for more documentation.
+pub(crate) async fn onepassword_sign_in_methods(
+    client: &Client,
+    username: String,
+    sign_in_address: SignInAddress,
+) -> Result<OnePasswordSignInMethods, ImportError> {
+    Ok(access_client(client)
+        .sign_in_methods(&username, sign_in_address)
+        .await?)
+}
+
+/// 1Password is a third-party host, so this goes through the client's external transport rather
+/// than the one configured for the Bitwarden API.
+fn access_client(client: &Client) -> access::Client {
+    access::Client::new(client.internal.get_http_client().clone())
 }
