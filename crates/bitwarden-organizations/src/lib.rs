@@ -16,6 +16,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 
 uuid_newtype!(pub OrganizationUserId);
+uuid_newtype!(pub ProviderId);
 
 /// The membership status of a user within an organization.
 #[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]
@@ -383,7 +384,7 @@ pub struct CollectionManagementSettings {
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationProvider {
     /// The ID of the provider.
-    pub id: Uuid,
+    pub id: ProviderId,
     /// The type of provider.
     pub r#type: ProviderType,
     /// The name of the provider.
