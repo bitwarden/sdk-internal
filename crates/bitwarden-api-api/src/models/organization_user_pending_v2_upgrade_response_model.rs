@@ -30,8 +30,12 @@ pub struct OrganizationUserPendingV2UpgradeResponseModel {
     /// The member's V1 user key wrapped with the organization's public key.
     #[serde(rename = "accountRecoveryKey", alias = "AccountRecoveryKey")]
     pub account_recovery_key: String,
-    #[serde(rename = "v2UpgradeToken", alias = "V2UpgradeToken")]
-    pub v2_upgrade_token: Box<models::V2UpgradeTokenResponseModel>,
+    #[serde(
+        rename = "v2UpgradeToken",
+        alias = "V2UpgradeToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub v2_upgrade_token: Option<Box<models::V2UpgradeTokenResponseModel>>,
 }
 
 impl OrganizationUserPendingV2UpgradeResponseModel {
@@ -40,14 +44,13 @@ impl OrganizationUserPendingV2UpgradeResponseModel {
         organization_user_id: uuid::Uuid,
         user_key_id: String,
         account_recovery_key: String,
-        v2_upgrade_token: models::V2UpgradeTokenResponseModel,
     ) -> OrganizationUserPendingV2UpgradeResponseModel {
         OrganizationUserPendingV2UpgradeResponseModel {
             object: None,
             organization_user_id,
             user_key_id,
             account_recovery_key,
-            v2_upgrade_token: Box::new(v2_upgrade_token),
+            v2_upgrade_token: None,
         }
     }
 }

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 /// OrganizationUserV2UpgradesRequestModel : Account recovery keys an organization admin re-wrapped
-/// with members' V2 user keys, read from the members' V2 upgrade tokens. An entry with no key
+/// with members' V2 user keys, read from the members' V2 upgrade tokens. An entry with a null key
 /// unenrolls the member from account recovery instead.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationUserV2UpgradesRequestModel {
@@ -23,7 +23,7 @@ pub struct OrganizationUserV2UpgradesRequestModel {
 
 impl OrganizationUserV2UpgradesRequestModel {
     /// Account recovery keys an organization admin re-wrapped with members' V2 user keys, read from
-    /// the members' V2 upgrade tokens. An entry with no key unenrolls the member from account
+    /// the members' V2 upgrade tokens. An entry with a null key unenrolls the member from account
     /// recovery instead.
     pub fn new(
         upgrades: Vec<models::OrganizationUserV2UpgradeRequestModel>,

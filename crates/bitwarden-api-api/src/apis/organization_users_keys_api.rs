@@ -31,17 +31,20 @@ pub trait OrganizationUsersKeysApi: Send + Sync {
     /// the member to trust the organization's public key and the upgrade does not prompt the
     /// member. The rotation leaves a V2 upgrade token on the membership instead. Account recovery
     /// gives the admin the member's V1 user key, so the admin unwraps the V2 user key from the
-    /// token and re-wraps the account recovery key with it.
+    /// token and re-wraps the account recovery key with it.              Only Owners and Admins of
+    /// the organization can call this endpoint. It returns only the members the caller can recover.
+    /// The client posts each page to `POST v2-upgrades`, then reads the next page with the
+    /// continuation token of the response, until the token is null. A page can be empty and still
+    /// have a token.
     async fn get_pending_v2_upgrades<'a>(
         &self,
         org_id: uuid::Uuid,
+        continuation_token: Option<uuid::Uuid>,
     ) -> Result<models::OrganizationUserPendingV2UpgradeResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/keys/v2-upgrades
-    /// A V2 upgrade token does not always contain a usable user key. The admin then sends no key,
-    /// which unenrolls the member from account recovery and clears the token. The member keeps
-    /// their vault, and the organization's enrollment policy prompts them to enroll again.
-    /// Every membership is written, or none of them are.
+    /// Only Owners and Admins of the organization can call this endpoint, and only for members they
+    /// can recover. A membership that has changed since the read is skipped rather than rejected.
     async fn post_v2_upgrades<'a>(
         &self,
         org_id: uuid::Uuid,
@@ -68,10 +71,15 @@ impl OrganizationUsersKeysApi for OrganizationUsersKeysApiClient {
     /// the member to trust the organization's public key and the upgrade does not prompt the
     /// member. The rotation leaves a V2 upgrade token on the membership instead. Account recovery
     /// gives the admin the member's V1 user key, so the admin unwraps the V2 user key from the
-    /// token and re-wraps the account recovery key with it.
+    /// token and re-wraps the account recovery key with it.              Only Owners and Admins of
+    /// the organization can call this endpoint. It returns only the members the caller can recover.
+    /// The client posts each page to `POST v2-upgrades`, then reads the next page with the
+    /// continuation token of the response, until the token is null. A page can be empty and still
+    /// have a token.
     async fn get_pending_v2_upgrades<'a>(
         &self,
         org_id: uuid::Uuid,
+        continuation_token: Option<uuid::Uuid>,
     ) -> Result<models::OrganizationUserPendingV2UpgradeResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
@@ -85,15 +93,17 @@ impl OrganizationUsersKeysApi for OrganizationUsersKeysApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = continuation_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("continuationToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    /// A V2 upgrade token does not always contain a usable user key. The admin then sends no key,
-    /// which unenrolls the member from account recovery and clears the token. The member keeps
-    /// their vault, and the organization's enrollment policy prompts them to enroll again.
-    /// Every membership is written, or none of them are.
+    /// Only Owners and Admins of the organization can call this endpoint, and only for members they
+    /// can recover. A membership that has changed since the read is skipped rather than rejected.
     async fn post_v2_upgrades<'a>(
         &self,
         org_id: uuid::Uuid,

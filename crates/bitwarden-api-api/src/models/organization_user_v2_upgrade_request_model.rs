@@ -18,15 +18,17 @@ pub struct OrganizationUserV2UpgradeRequestModel {
     pub organization_user_id: uuid::Uuid,
     /// The key id of the user key the new
     /// Bit.Api.KeyManagement.Models.Requests.OrganizationUserV2UpgradeRequestModel.
-    /// AccountRecoveryKey wraps. The server checks it against the member's user row and rejects
-    /// the whole request when it no longer matches. It is required to unenroll a member as well,
-    /// so that a stale request cannot undo a rotation the admin has not read.
+    /// AccountRecoveryKey wraps. The server checks it against the member's user row. When it no
+    /// longer matches, the server skips the update and the membership stays pending. It is
+    /// required to unenroll a member as well, so that a stale request cannot undo a rotation the
+    /// admin has not read.
     #[serde(rename = "userKeyId", alias = "UserKeyId")]
     pub user_key_id: String,
-    /// The member's V2 user key wrapped with the organization's public key, or no key to unenroll
-    /// the member from account recovery. Send no key when the upgrade cannot be completed, for
+    /// The member's V2 user key wrapped with the organization's public key, or null to unenroll
+    /// the member from account recovery. Send null when the upgrade cannot be completed, for
     /// example when the V2 upgrade token does not contain a usable user key. The member keeps
-    /// their vault, and the organization's enrollment policy prompts them to enroll again.
+    /// their vault, and the organization's enrollment policy prompts them to enroll again. A blank
+    /// key is rejected, because only a key or its absence is meaningful.
     #[serde(
         rename = "accountRecoveryKey",
         alias = "AccountRecoveryKey",

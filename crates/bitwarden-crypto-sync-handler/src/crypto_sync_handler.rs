@@ -14,7 +14,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyId;
 use bitwarden_member_administration::OrganizationUsersManagementClientExt as _;
-use bitwarden_organizations::{OrganizationUserType, Permissions};
+use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -52,9 +52,6 @@ pub struct CryptoSyncOrganization {
     pub id: OrganizationId,
     /// The account's role in the organization.
     pub r#type: OrganizationUserType,
-    /// The account's custom permissions, which apply only to the Custom role.
-    #[serde(default)]
-    pub permissions: Permissions,
 }
 
 /// The user decryption options a sync response carries, narrowed to the parts key management owns.
@@ -191,11 +188,6 @@ fn organization_from_response(
     Some(CryptoSyncOrganization {
         id: OrganizationId::new(response.id?),
         r#type: user_type_from_response(response.r#type.as_ref()?)?,
-        permissions: response
-            .permissions
-            .as_deref()
-            .map(permissions_from_response)
-            .unwrap_or_default(),
     })
 }
 
@@ -212,25 +204,6 @@ fn user_type_from_response(
         Response::Custom => Some(OrganizationUserType::Custom),
         // An unknown role may or may not administer account recovery.
         Response::__Unknown(_) => None,
-    }
-}
-
-/// An absent permission is one the account does not hold.
-#[cfg(not(target_arch = "wasm32"))]
-fn permissions_from_response(response: &bitwarden_api_api::models::Permissions) -> Permissions {
-    Permissions {
-        access_event_logs: response.access_event_logs.unwrap_or_default(),
-        access_import_export: response.access_import_export.unwrap_or_default(),
-        access_reports: response.access_reports.unwrap_or_default(),
-        create_new_collections: response.create_new_collections.unwrap_or_default(),
-        edit_any_collection: response.edit_any_collection.unwrap_or_default(),
-        delete_any_collection: response.delete_any_collection.unwrap_or_default(),
-        manage_groups: response.manage_groups.unwrap_or_default(),
-        manage_sso: response.manage_sso.unwrap_or_default(),
-        manage_policies: response.manage_policies.unwrap_or_default(),
-        manage_users: response.manage_users.unwrap_or_default(),
-        manage_reset_password: response.manage_reset_password.unwrap_or_default(),
-        manage_scim: response.manage_scim.unwrap_or_default(),
     }
 }
 
@@ -367,11 +340,7 @@ fn organizations_to_upgrade(client: &Client, data: &CryptoSyncData) -> Vec<Organ
         .unwrap_or_default()
         .iter()
         .filter(|o| {
-            organization_users_management.can_administer_account_recovery_keys(
-                o.id,
-                &o.r#type,
-                &o.permissions,
-            )
+            organization_users_management.can_administer_account_recovery_keys(o.id, &o.r#type)
         })
         .map(|o| o.id)
         .collect()
@@ -722,12 +691,10 @@ mod tests {
 
     fn profile_organization(
         user_type: bitwarden_api_api::models::OrganizationUserType,
-        permissions: Option<bitwarden_api_api::models::Permissions>,
     ) -> ProfileOrganizationResponseModel {
         ProfileOrganizationResponseModel {
             id: Some(uuid::Uuid::new_v4()),
             r#type: Some(user_type),
-            permissions: permissions.map(Box::new),
             ..Default::default()
         }
     }
@@ -746,14 +713,8 @@ mod tests {
 
     #[test]
     fn test_try_from_maps_an_organization_membership() {
-        let organization = profile_organization(
-            bitwarden_api_api::models::OrganizationUserType::Custom,
-            Some(bitwarden_api_api::models::Permissions {
-                manage_reset_password: Some(true),
-                manage_users: Some(true),
-                ..Default::default()
-            }),
-        );
+        let organization =
+            profile_organization(bitwarden_api_api::models::OrganizationUserType::Custom);
         let expected_id = organization.id.unwrap();
 
         let data = CryptoSyncData::try_from(&sync_response_with_organizations(vec![organization]))
@@ -765,38 +726,19 @@ mod tests {
         };
         assert_eq!(organization.id, OrganizationId::new(expected_id));
         assert_eq!(organization.r#type, OrganizationUserType::Custom);
-        assert!(organization.permissions.manage_reset_password);
-        assert!(organization.permissions.manage_users);
-        // A permission the response left out is one the account does not hold.
-        assert!(!organization.permissions.manage_groups);
-    }
-
-    /// Owners and Admins carry no custom permissions, so an absent block must still parse.
-    #[test]
-    fn test_try_from_maps_an_organization_membership_without_permissions() {
-        let data = CryptoSyncData::try_from(&sync_response_with_organizations(vec![
-            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None),
-        ]))
-        .unwrap();
-
-        let organizations = data.organizations.unwrap();
-        assert_eq!(organizations[0].r#type, OrganizationUserType::Owner);
-        assert!(!organizations[0].permissions.manage_reset_password);
     }
 
     /// An uninterpretable membership is dropped without affecting the rest of the sync.
     #[test]
     fn test_try_from_drops_uninterpretable_memberships_and_keeps_the_rest() {
-        let usable =
-            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None);
+        let usable = profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner);
         let expected_id = OrganizationId::new(usable.id.unwrap());
 
         let mut response = sync_response_with_organizations(vec![
             // A role added by a newer server.
-            profile_organization(
-                bitwarden_api_api::models::OrganizationUserType::__Unknown(99),
-                None,
-            ),
+            profile_organization(bitwarden_api_api::models::OrganizationUserType::__Unknown(
+                99,
+            )),
             // A membership sent without a role.
             ProfileOrganizationResponseModel {
                 id: Some(uuid::Uuid::new_v4()),
@@ -823,30 +765,25 @@ mod tests {
     /// Only organizations the account administers are upgraded.
     #[test]
     fn test_only_administered_memberships_are_upgraded() {
-        let owner =
-            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None);
-        let admin =
-            profile_organization(bitwarden_api_api::models::OrganizationUserType::Admin, None);
-        let custom_without_user_management = profile_organization(
-            bitwarden_api_api::models::OrganizationUserType::Custom,
-            Some(bitwarden_api_api::models::Permissions {
+        let owner = profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner);
+        let admin = profile_organization(bitwarden_api_api::models::OrganizationUserType::Admin);
+        // The server rejects custom members, even with every account recovery permission.
+        let custom = ProfileOrganizationResponseModel {
+            permissions: Some(Box::new(bitwarden_api_api::models::Permissions {
                 manage_reset_password: Some(true),
-                manage_users: Some(false),
+                manage_users: Some(true),
                 ..Default::default()
-            }),
-        );
-        let member =
-            profile_organization(bitwarden_api_api::models::OrganizationUserType::User, None);
+            })),
+            ..profile_organization(bitwarden_api_api::models::OrganizationUserType::Custom)
+        };
+        let member = profile_organization(bitwarden_api_api::models::OrganizationUserType::User);
         let expected = vec![
             OrganizationId::new(owner.id.unwrap()),
             OrganizationId::new(admin.id.unwrap()),
         ];
 
         let data = CryptoSyncData::try_from(&sync_response_with_organizations(vec![
-            owner,
-            member,
-            custom_without_user_management,
-            admin,
+            owner, member, custom, admin,
         ]))
         .unwrap();
 
@@ -855,13 +792,11 @@ mod tests {
         assert_eq!(organizations_to_upgrade(&client, &data), expected);
     }
 
-    /// Permissions alone are not enough; the organization key has to be unlocked too.
+    /// An administering role alone is not enough; the organization key has to be unlocked too.
     #[test]
     fn test_administered_memberships_without_an_organization_key_are_skipped() {
-        let owner =
-            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None);
-        let unlocked =
-            profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner, None);
+        let owner = profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner);
+        let unlocked = profile_organization(bitwarden_api_api::models::OrganizationUserType::Owner);
         let unlocked_id = OrganizationId::new(unlocked.id.unwrap());
 
         let data =
