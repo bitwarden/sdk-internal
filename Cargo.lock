@@ -497,6 +497,7 @@ version = "4.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bitwarden-access-token",
  "bitwarden-api-api",
  "bitwarden-api-base",
  "bitwarden-commercial-marker",
