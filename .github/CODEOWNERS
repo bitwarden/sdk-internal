@@ -64,6 +64,11 @@ crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
+# Integration tests and test vectors are shared between teams; only team folders have an owner.
+crates/bitwarden-wasm-internal/integration-tests/**
+test-vectors/**
+crates/bitwarden-wasm-internal/integration-tests/server-emulator/emergency-access-server.ts @bitwarden/team-auth-dev
+crates/bitwarden-wasm-internal/integration-tests/tests/emergency-access/** @bitwarden/team-auth-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/organizations/** @bitwarden/team-admin-console-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/policies/** @bitwarden/team-admin-console-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/registration/** @bitwarden/team-auth-dev
