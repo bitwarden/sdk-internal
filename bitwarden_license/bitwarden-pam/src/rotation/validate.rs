@@ -1,8 +1,8 @@
-use bitwarden_pam_sealed::{PasswordPolicyError, SealedPasswordPolicy};
+use bitwarden_pam_sealed::PasswordPolicyError;
 use thiserror::Error;
 
 use super::{
-    configs::RotationConfigCreateRequest, models::PasswordPolicy, schedule::is_likely_quartz_cron,
+    configs::RotationConfigCreateRequest, schedule::is_likely_quartz_cron,
     target_systems::TargetSystemCreateRequest,
 };
 
@@ -76,16 +76,6 @@ fn validate_account_identity(identity: &str) -> Result<(), RotationValidationErr
     Ok(())
 }
 
-/// The access connector applies the same check, so an unsatisfiable policy is caught while editing
-/// rather than at rotation.
-pub(super) fn validate_password_policy(
-    policy: &PasswordPolicy,
-) -> Result<(), RotationValidationError> {
-    let sealed: SealedPasswordPolicy = policy.clone().try_into()?;
-    sealed.validate()?;
-    Ok(())
-}
-
 /// Validates a set cron expression; `None` means no schedule. Only the shape is checked, since the
 /// server owns the minimum-interval floor.
 fn validate_schedule_cron(cron: Option<&String>) -> Result<(), RotationValidationError> {
@@ -100,7 +90,8 @@ pub(super) fn validate_target_system_request(
     request: &TargetSystemCreateRequest,
 ) -> Result<(), RotationValidationError> {
     validate_name(request.name())?;
-    validate_password_policy(request.password_policy())
+    request.password_policy().validate()?;
+    Ok(())
 }
 
 /// Validates a rotation config request. `terminate_sessions` is checked against the target
@@ -119,7 +110,10 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{TargetSystemId, rotation::models::TargetSystemKind};
+    use crate::{
+        TargetSystemId,
+        rotation::models::{PasswordPolicy, TargetSystemKind},
+    };
 
     fn policy() -> PasswordPolicy {
         PasswordPolicy {
@@ -221,10 +215,11 @@ mod tests {
 
     #[test]
     fn length_bounds_outside_the_generator_range_are_rejected() {
-        let min = i32::try_from(GENERATOR_MIN_LENGTH).expect("fits in i32");
-        let max = i32::try_from(GENERATOR_MAX_LENGTH).expect("fits in i32");
-
-        for (min_length, max_length) in [(0, 64), (-1, 64), (14, max + 1), (min - 1, max)] {
+        for (min_length, max_length) in [
+            (0, 64),
+            (14, GENERATOR_MAX_LENGTH + 1),
+            (GENERATOR_MIN_LENGTH - 1, GENERATOR_MAX_LENGTH),
+        ] {
             let request = TargetSystemCreateRequest::Manual {
                 name: "Manual".to_string(),
                 password_policy: PasswordPolicy {

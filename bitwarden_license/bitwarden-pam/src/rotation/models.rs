@@ -7,13 +7,13 @@ use bitwarden_api_api::models::{
     PamTargetSystemMethod as ApiTargetSystemMethod, PamTargetSystemStatus as ApiTargetSystemStatus,
 };
 use bitwarden_core::require;
-use bitwarden_pam_sealed::{SealedPasswordPolicy, SealedTargetSystemKind};
+use bitwarden_pam_sealed::{PasswordPolicyError, SealedPasswordPolicy, SealedTargetSystemKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::{error::RotationError, validate::RotationValidationError};
+use super::error::RotationError;
 use crate::{AccessConnectorId, RotationAttemptId, RotationConfigId, RotationJobId};
 
 /// Lifecycle state of an access connector. Removing a connector for good is a delete, not a
@@ -299,9 +299,9 @@ impl From<ApiSessionTerminationOutcome> for SessionTerminationOutcome {
 #[serde(rename_all = "camelCase")]
 pub struct PasswordPolicy {
     /// Minimum length of a generated credential.
-    pub min_length: i32,
+    pub min_length: u32,
     /// Maximum length of a generated credential.
-    pub max_length: i32,
+    pub max_length: u32,
     /// Whether generated credentials may include `A-Z`.
     pub include_uppercase: bool,
     /// Whether generated credentials may include `a-z`.
@@ -312,12 +312,20 @@ pub struct PasswordPolicy {
     pub include_symbols: bool,
 }
 
+impl PasswordPolicy {
+    /// Validates that the generator can produce a password for this policy. The access connector
+    /// applies the same check, so an unsatisfiable policy is caught while editing rather than at
+    /// rotation.
+    pub(crate) fn validate(&self) -> Result<(), PasswordPolicyError> {
+        SealedPasswordPolicy::from(self.clone()).validate()
+    }
+}
+
 impl From<SealedPasswordPolicy> for PasswordPolicy {
     fn from(policy: SealedPasswordPolicy) -> Self {
         Self {
-            // `validate` caps both at 128 before sealing, so this never saturates in practice.
-            min_length: i32::try_from(policy.min_length).unwrap_or(i32::MAX),
-            max_length: i32::try_from(policy.max_length).unwrap_or(i32::MAX),
+            min_length: policy.min_length,
+            max_length: policy.max_length,
             include_uppercase: policy.include_uppercase,
             include_lowercase: policy.include_lowercase,
             include_digits: policy.include_digits,
@@ -326,20 +334,16 @@ impl From<SealedPasswordPolicy> for PasswordPolicy {
     }
 }
 
-impl TryFrom<PasswordPolicy> for SealedPasswordPolicy {
-    type Error = RotationValidationError;
-
-    fn try_from(policy: PasswordPolicy) -> Result<Self, Self::Error> {
-        Ok(Self {
-            min_length: u32::try_from(policy.min_length)
-                .map_err(|_| RotationValidationError::InvalidPasswordLengthBounds)?,
-            max_length: u32::try_from(policy.max_length)
-                .map_err(|_| RotationValidationError::InvalidPasswordLengthBounds)?,
+impl From<PasswordPolicy> for SealedPasswordPolicy {
+    fn from(policy: PasswordPolicy) -> Self {
+        Self {
+            min_length: policy.min_length,
+            max_length: policy.max_length,
             include_uppercase: policy.include_uppercase,
             include_lowercase: policy.include_lowercase,
             include_digits: policy.include_digits,
             include_symbols: policy.include_symbols,
-        })
+        }
     }
 }
 

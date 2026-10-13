@@ -432,7 +432,7 @@ impl TargetSystemsClient {
                 } => Some(*supports_session_termination),
                 TargetSystemCreateRequest::Manual { .. } => None,
             };
-            let password_policy = request.password_policy().clone().try_into()?;
+            let password_policy = request.password_policy().clone().into();
 
             let data = target_system_sealed_data(
                 id,
