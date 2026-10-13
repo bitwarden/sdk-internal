@@ -1220,15 +1220,16 @@ dependencies = [
 name = "bitwarden-pam"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-access-token",
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-commercial-marker",
  "bitwarden-core",
  "bitwarden-crypto",
- "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-ffi",
  "bitwarden-pam-sealed",
+ "bitwarden-sensitive-value",
  "bitwarden-uuid",
  "bitwarden-vault",
  "chrono",
@@ -1242,7 +1243,6 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "zeroize",
 ]
 
 [[package]]
