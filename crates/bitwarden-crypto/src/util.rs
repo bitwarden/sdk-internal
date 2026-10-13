@@ -12,6 +12,19 @@ use zeroize::{Zeroize, Zeroizing};
 use crate::Result;
 
 pub(crate) type PbkdfSha256Hmac = hmac::Hmac<sha2::Sha256>;
+
+/// Size of the stack region [`clear_stack`] overwrites.
+const CLEARED_STACK_SIZE: usize = 16 * 1024;
+
+/// Overwrites the stack region below the caller with zeros.
+///
+/// KDF and hash implementations (Argon2, PBKDF2, HMAC, SHA-256) leave copies of their state and
+/// output in stack frames that are popped but not wiped. Call this right after such an operation
+/// returns, so the next stack user does not have to happen to overwrite them.
+#[inline(never)]
+pub(crate) fn clear_stack() {
+    std::hint::black_box([0u8; CLEARED_STACK_SIZE]);
+}
 pub(crate) const PBKDF_SHA256_HMAC_OUT_SIZE: usize =
     <<PbkdfSha256Hmac as OutputSizeUser>::OutputSize as Unsigned>::USIZE;
 
