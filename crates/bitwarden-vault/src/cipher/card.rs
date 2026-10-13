@@ -11,6 +11,7 @@ use tsify::Tsify;
 use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -24,6 +25,7 @@ pub struct Card {
     pub number: Option<EncString>,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -39,6 +41,7 @@ pub struct CardView {
 }
 
 /// Minimal CardView only including the needed details for list views
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

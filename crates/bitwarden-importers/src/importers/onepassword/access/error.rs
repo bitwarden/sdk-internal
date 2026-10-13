@@ -15,6 +15,14 @@ pub enum OnePasswordError {
     #[error("invalid credentials")]
     BadCredentials,
 
+    /// The sign-in subdomain is not a valid DNS label.
+    #[error("invalid sign-in address: {0}")]
+    InvalidSignInAddress(String),
+
+    /// The Secret Key cannot be one: too short, too long, or an unknown format.
+    #[error("invalid account key: {0}")]
+    InvalidAccountKey(String),
+
     /// The requested resource was not found (1Password code 117).
     #[error("not found")]
     NotFound,
@@ -34,6 +42,15 @@ pub enum OnePasswordError {
     /// A server response could not be parsed.
     #[error("failed to parse server response")]
     Parse,
+
+    /// The server refused a request without a 1Password error body saying why.
+    #[error("unexpected response from '{endpoint}' (HTTP {status})")]
+    UnexpectedStatus {
+        /// The endpoint, relative to the API root.
+        endpoint: String,
+        /// The HTTP status code.
+        status: u16,
+    },
 
     /// An item, category, or auth method that is not supported yet.
     #[error("unsupported: {0}")]

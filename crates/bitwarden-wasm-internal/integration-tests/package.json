@@ -6,7 +6,9 @@
   "scripts": {
     "build:test": "bash ../build.sh && npm run test",
     "test": "npm run typecheck && NODE_OPTIONS=--experimental-vm-modules jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "perf": "vitest bench --run",
+    "perf:profile": "vitest bench --run --execArgv=--cpu-prof --execArgv=--cpu-prof-dir=perf/profiles"
   },
   "dependencies": {
     "@bitwarden/sdk-internal": "file:../npm/"
@@ -16,6 +18,7 @@
     "@types/node": "^24.0.0",
     "jest": "^30.0.0",
     "ts-jest": "^29.1.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^5.0.2"
   }
 }

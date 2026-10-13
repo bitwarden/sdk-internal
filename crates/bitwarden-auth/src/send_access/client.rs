@@ -1,6 +1,4 @@
 use bitwarden_core::Client;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::send_access::{
     SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
@@ -13,7 +11,7 @@ use crate::send_access::{
 
 /// The `SendAccessClient` is used to interact with the Bitwarden API to get send access tokens.
 #[derive(Clone)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct SendAccessClient {
     pub(crate) client: Client,
 }
@@ -24,7 +22,7 @@ impl SendAccessClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendAccessClient {
     /// Requests a new send access token.
     pub async fn request_send_access_token(

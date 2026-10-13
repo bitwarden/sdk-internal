@@ -12,21 +12,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// RotationClaimResponseModel : The work snapshot handed back on a successful claim (spec
-/// `ClaimRotation`) -- everything the access connector needs to execute the rotation without
-/// another round trip. Returned only when the claim was actually won; a lost or ineligible claim is
-/// an error response instead, so every field here is populated.
+/// RotationClaimResponseModel : The work snapshot a won claim returns (spec `ClaimRotation`), with
+/// everything needed to execute the rotation. A lost or ineligible claim gets an error response
+/// instead, so every field is populated.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RotationClaimResponseModel {
-    /// The attempt opened by this claim -- the id the access connector reports its outcome
-    /// against.
+    /// The attempt this claim opened, which the outcome is reported against.
     #[serde(
         rename = "attemptId",
         alias = "AttemptId",
         skip_serializing_if = "Option::is_none"
     )]
     pub attempt_id: Option<uuid::Uuid>,
-    /// The rotation job the claim was taken on.
     #[serde(
         rename = "jobId",
         alias = "JobId",
@@ -39,57 +36,40 @@ pub struct RotationClaimResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub source: Option<models::PamRotationSource>,
-    /// The target system the rotation runs against.
     #[serde(
         rename = "targetSystemId",
         alias = "TargetSystemId",
         skip_serializing_if = "Option::is_none"
     )]
     pub target_system_id: Option<uuid::Uuid>,
-    /// The target system's display name.
     #[serde(
         rename = "targetSystemName",
         alias = "TargetSystemName",
         skip_serializing_if = "Option::is_none"
     )]
     pub target_system_name: Option<String>,
+    /// The target system's sealed blob.
     #[serde(
-        rename = "kind",
-        alias = "Kind",
+        rename = "targetSystemSealedData",
+        alias = "TargetSystemSealedData",
         skip_serializing_if = "Option::is_none"
     )]
-    pub kind: Option<models::PamTargetSystemKind>,
-    #[serde(
-        rename = "passwordPolicy",
-        alias = "PasswordPolicy",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub password_policy: Option<Box<models::PamPasswordPolicyResponseModel>>,
-    /// The organization cipher holding the credential to rotate.
+    pub target_system_sealed_data: Option<String>,
     #[serde(
         rename = "cipherId",
         alias = "CipherId",
         skip_serializing_if = "Option::is_none"
     )]
     pub cipher_id: Option<uuid::Uuid>,
-    /// The account to rotate on the target system. Opaque to the server -- never parsed; only the
-    /// access connector interprets it.
+    /// The rotation config's sealed blob.
     #[serde(
-        rename = "accountIdentity",
-        alias = "AccountIdentity",
+        rename = "rotationConfigSealedData",
+        alias = "RotationConfigSealedData",
         skip_serializing_if = "Option::is_none"
     )]
-    pub account_identity: Option<String>,
-    /// When true, the access connector terminates the account's live sessions after rotating.
-    #[serde(
-        rename = "terminateSessions",
-        alias = "TerminateSessions",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub terminate_sessions: Option<bool>,
-    /// The claim's lease deadline. The access connector must finish -- or at least keep
-    /// heartbeating -- before this, or the release sweep may reclaim the job out from under it
-    /// once its heartbeat also goes stale.
+    pub rotation_config_sealed_data: Option<String>,
+    /// The claim's lease deadline. Past it, the release sweep may reclaim the job if the access
+    /// connector's heartbeat has also gone stale.
     #[serde(
         rename = "executeBy",
         alias = "ExecuteBy",
@@ -99,10 +79,9 @@ pub struct RotationClaimResponseModel {
 }
 
 impl RotationClaimResponseModel {
-    /// The work snapshot handed back on a successful claim (spec `ClaimRotation`) -- everything the
-    /// access connector needs to execute the rotation without another round trip. Returned only
-    /// when the claim was actually won; a lost or ineligible claim is an error response instead, so
-    /// every field here is populated.
+    /// The work snapshot a won claim returns (spec `ClaimRotation`), with everything needed to
+    /// execute the rotation. A lost or ineligible claim gets an error response instead, so every
+    /// field is populated.
     pub fn new() -> RotationClaimResponseModel {
         RotationClaimResponseModel {
             attempt_id: None,
@@ -110,11 +89,9 @@ impl RotationClaimResponseModel {
             source: None,
             target_system_id: None,
             target_system_name: None,
-            kind: None,
-            password_policy: None,
+            target_system_sealed_data: None,
             cipher_id: None,
-            account_identity: None,
-            terminate_sessions: None,
+            rotation_config_sealed_data: None,
             execute_by: None,
         }
     }

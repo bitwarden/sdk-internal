@@ -1,7 +1,7 @@
-//! Type-safe settings repository for storing application configuration and state.
+//! Type-safe settings API for storing application configuration and state.
 //!
-//! This module provides a type-safe key-value API for storing settings, backed by
-//! the SDK's repository pattern.
+//! This module provides a type-safe key-value API for storing settings. Each setting resolves to
+//! its own backend, defaulting to the SDK-managed database.
 //!
 //! # Usage
 //!
@@ -44,4 +44,4 @@ mod key;
 mod setting;
 
 pub use key::Key;
-pub use setting::{Setting, SettingItem, SettingsError};
+pub use setting::{Setting, SettingItem, SettingTrait, SettingsError};

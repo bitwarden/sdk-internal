@@ -12,8 +12,6 @@ use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountC
 use bitwarden_error::bitwarden_error;
 use bitwarden_vault::Cipher;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use self::{
     regenerate::internal_regenerate_public_key_encryption_key_pair,
@@ -35,7 +33,7 @@ pub enum KeyPairRegenerationError {
     Crypto,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl UserCryptoManagementClient {
     /// Checks whether the user's public key encryption key pair needs regeneration, and if so,
     /// generates a new key pair and submits it to the server.

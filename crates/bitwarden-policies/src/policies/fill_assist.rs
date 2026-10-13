@@ -1,12 +1,12 @@
 use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Fill Assist policy.
 pub struct FillAssistPolicy;
 
-impl Policy for FillAssistPolicy {
+impl PolicyDefinition for FillAssistPolicy {
     type Data = FillAssistPolicyData;
 
     fn policy_type(&self) -> PolicyType {
@@ -26,11 +26,7 @@ impl Policy for FillAssistPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct FillAssistPolicyData {
     /// Overrides the default Fill Assist rules feed URL. Absent when the organization has
     /// not configured a custom URL, in which case clients fall back to their server

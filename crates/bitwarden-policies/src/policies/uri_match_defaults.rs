@@ -1,9 +1,9 @@
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// URI Match Defaults policy.
 pub struct UriMatchDefaultsPolicy;
 
-impl Policy for UriMatchDefaultsPolicy {
+impl PolicyDefinition for UriMatchDefaultsPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {

@@ -12,33 +12,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// UpdateRotationConfigRequestModel : The body of `PUT rotation/configs/{id}` (spec
-/// `UpdateRotationConfig`), which replaces the separate settings and account operations. Carries
-/// the config's whole updatable shape: every field is written as sent, so a caller editing one of
-/// them must send the others as they stand rather than omitting them.
+/// UpdateRotationConfigRequestModel : The full updatable shape of a rotation config (spec
+/// `UpdateRotationConfig`). Every field is written as sent, so send unchanged fields as they stand.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateRotationConfigRequestModel {
-    /// The account this config rotates on the target system. Opaque to the server -- never parsed.
-    #[serde(rename = "accountIdentity", alias = "AccountIdentity")]
-    pub account_identity: String,
-    /// When true, the access connector terminates the account's live sessions after each rotation.
-    /// Only an automatic target that supports session termination can honour it.
-    #[serde(
-        rename = "terminateSessions",
-        alias = "TerminateSessions",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub terminate_sessions: Option<bool>,
-    /// The scheduled-rotation cadence, as a Quartz 6-field cron expression evaluated in UTC. Null
-    /// clears the schedule, leaving the config to rotate on demand and/or on access end only.
+    /// The config's sealed blob.
+    #[serde(rename = "sealedData", alias = "SealedData")]
+    pub sealed_data: String,
+    /// A Quartz 6-field cron expression evaluated in UTC. Null clears the schedule.
     #[serde(
         rename = "scheduleCron",
         alias = "ScheduleCron",
         skip_serializing_if = "Option::is_none"
     )]
     pub schedule_cron: Option<String>,
-    /// When true, the credential is rotated whenever an access lease on the cipher ends, whether
-    /// it expired or was revoked.
+    /// When true, the credential rotates whenever a lease on the cipher ends, however it ended.
     #[serde(
         rename = "rotateOnAccessEnd",
         alias = "RotateOnAccessEnd",
@@ -48,14 +36,11 @@ pub struct UpdateRotationConfigRequestModel {
 }
 
 impl UpdateRotationConfigRequestModel {
-    /// The body of `PUT rotation/configs/{id}` (spec `UpdateRotationConfig`), which replaces the
-    /// separate settings and account operations. Carries the config's whole updatable shape: every
-    /// field is written as sent, so a caller editing one of them must send the others as they stand
-    /// rather than omitting them.
-    pub fn new(account_identity: String) -> UpdateRotationConfigRequestModel {
+    /// The full updatable shape of a rotation config (spec `UpdateRotationConfig`). Every field is
+    /// written as sent, so send unchanged fields as they stand.
+    pub fn new(sealed_data: String) -> UpdateRotationConfigRequestModel {
         UpdateRotationConfigRequestModel {
-            account_identity,
-            terminate_sessions: None,
+            sealed_data,
             schedule_cron: None,
             rotate_on_access_end: None,
         }

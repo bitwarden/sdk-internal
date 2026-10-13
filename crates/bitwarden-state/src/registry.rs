@@ -5,9 +5,10 @@ use thiserror::Error;
 
 use crate::{
     any_map::AnyMap,
+    persist::Persist,
     repository::{Repository, RepositoryItem, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
-    settings::{Key, Setting, SettingItem},
+    settings::{Key, Setting},
 };
 
 /// A registry that contains repositories for different types of items.
@@ -15,6 +16,11 @@ use crate::{
 pub struct StateRegistry {
     database: SystemDatabase,
     client_managed: AnyMap,
+    /// Dev-only index of per-type get/set/list shims backing the generic debug
+    /// browse. Populated at registration (both client- and SDK-managed), where
+    /// the concrete type is known. See [`crate::debug`].
+    #[cfg(feature = "debug-capabilities")]
+    pub(crate) debug: crate::debug::DebugRegistry,
 }
 
 impl std::fmt::Debug for StateRegistry {
@@ -40,6 +46,8 @@ impl StateRegistry {
         StateRegistry {
             database: SystemDatabase::Memory(MemoryDatabase::new()),
             client_managed: AnyMap::new(),
+            #[cfg(feature = "debug-capabilities")]
+            debug: crate::debug::DebugRegistry::new(),
         }
     }
 
@@ -49,21 +57,28 @@ impl StateRegistry {
         migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
         let database = SystemDatabase::initialize(configuration, migrations.clone()).await?;
-        Ok(StateRegistry {
+        let registry = StateRegistry {
             database,
             client_managed: AnyMap::new(),
-        })
+            #[cfg(feature = "debug-capabilities")]
+            debug: crate::debug::DebugRegistry::new(),
+        };
+        // Capture debug shims for every SDK-managed type declared in the migrations.
+        #[cfg(feature = "debug-capabilities")]
+        registry.debug.register_migrations(&migrations);
+        Ok(registry)
     }
 
     /// Get a handle to a setting by its type-safe key.
-    pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
-        let repo = self.get::<SettingItem>()?;
-        Ok(Setting::new(repo, key))
+    pub fn setting<T: Persist>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
+        Ok(Setting::new(self.database.get_setting::<T>(key.name)))
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
     pub fn register_client_managed<T: RepositoryItem>(&self, value: Arc<dyn Repository<T>>) {
         self.client_managed.insert(value);
+        #[cfg(feature = "debug-capabilities")]
+        self.debug.register::<T>();
     }
 
     /// Retrieves a client-managed repository from the map given its type.
@@ -299,6 +314,79 @@ mod tests {
         // Delete and confirm gone
         setting.delete().await.unwrap();
         assert_eq!(setting.get().await.unwrap(), None::<String>);
+    }
+
+    #[tokio::test]
+    async fn test_settings_are_isolated_by_key() {
+        use crate::register_setting_key;
+        register_setting_key!(const THEME: String = "test_theme");
+        register_setting_key!(const LOCALE: String = "test_locale");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let theme = registry.setting(THEME).unwrap();
+        let locale = registry.setting(LOCALE).unwrap();
+
+        theme.update("dark".to_string()).await.unwrap();
+        locale.update("en-US".to_string()).await.unwrap();
+
+        theme.delete().await.unwrap();
+        assert_eq!(theme.get().await.unwrap(), None::<String>);
+        assert_eq!(locale.get().await.unwrap(), Some("en-US".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_setting_is_stored_in_the_setting_table_as_bare_json() {
+        use crate::{register_setting_key, settings::SettingItem};
+
+        #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+        struct Config {
+            theme: String,
+        }
+        register_setting_key!(const CONFIG: Config = "test_config");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let value = Config {
+            theme: "dark".to_string(),
+        };
+        let expected = serde_json::to_value(&value).unwrap();
+        registry
+            .setting(CONFIG)
+            .unwrap()
+            .update(value)
+            .await
+            .unwrap();
+
+        // Storage contract for existing databases: settings live in the `Setting` table,
+        // addressed by key name, holding the bare serialized value.
+        assert_eq!(SettingItem::NAME, "Setting");
+        let raw: SettingItem = registry
+            .database
+            .get::<SettingItem>("test_config")
+            .await
+            .unwrap()
+            .expect("setting is present");
+        assert_eq!(raw.0, expected);
+    }
+
+    #[tokio::test]
+    async fn test_setting_reports_closed_after_wipe() {
+        use crate::{register_setting_key, settings::SettingsError};
+        register_setting_key!(const TEST_SETTING: String = "test_wiped_setting");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let setting = registry.setting(TEST_SETTING).unwrap();
+        setting.update("hello".to_string()).await.unwrap();
+
+        registry.wipe().await.unwrap();
+
+        assert!(matches!(
+            setting.get().await,
+            Err(SettingsError::Database(DatabaseError::Closed))
+        ));
+        assert!(matches!(
+            setting.update("bye".to_string()).await,
+            Err(SettingsError::Database(DatabaseError::Closed))
+        ));
     }
 
     /// The concrete implementation is erased by the coercion to `Arc<dyn Repository<T>>`, so two

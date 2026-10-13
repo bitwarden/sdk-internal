@@ -20,11 +20,7 @@ use crate::login::{api::response::LoginSuccessApiResponse, models::UserDecryptio
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct LoginSuccessResponse {
     /// The access token string.
     pub access_token: String,

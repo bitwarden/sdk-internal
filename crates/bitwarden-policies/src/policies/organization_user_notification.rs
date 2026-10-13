@@ -1,12 +1,12 @@
 use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Organization User Notification policy.
 pub struct OrganizationUserNotificationPolicy;
 
-impl Policy for OrganizationUserNotificationPolicy {
+impl PolicyDefinition for OrganizationUserNotificationPolicy {
     type Data = OrganizationUserNotificationPolicyData;
 
     fn policy_type(&self) -> PolicyType {
@@ -27,11 +27,7 @@ impl Policy for OrganizationUserNotificationPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct OrganizationUserNotificationPolicyData {
     /// The banner header text.
     #[serde(skip_serializing_if = "Option::is_none")]

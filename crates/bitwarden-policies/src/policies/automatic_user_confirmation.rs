@@ -1,11 +1,11 @@
 use bitwarden_organizations::OrganizationUserType;
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Automatic User Confirmation policy.
 pub struct AutomaticUserConfirmationPolicy;
 
-impl Policy for AutomaticUserConfirmationPolicy {
+impl PolicyDefinition for AutomaticUserConfirmationPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {

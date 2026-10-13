@@ -32,7 +32,10 @@ pub use message::{
 };
 #[doc(hidden)]
 pub use rpc::exec::handler::ErasedRpcHandler;
-pub use rpc::{exec::handler::RpcHandler, request::RpcRequest};
+pub use rpc::{
+    exec::handler::{RpcHandler, RpcRequestInfo},
+    request::RpcRequest,
+};
 #[cfg(any(test, feature = "test-support"))]
 pub use traits::TestCommunicationBackend;
 #[cfg(any(test, feature = "test-support"))]

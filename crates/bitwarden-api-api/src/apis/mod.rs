@@ -8,6 +8,7 @@ pub mod account_billing_v_next_api;
 pub mod accounts_api;
 pub mod accounts_billing_api;
 pub mod accounts_key_management_api;
+pub mod audit_api;
 pub mod auth_requests_api;
 pub mod cipher_lease_api;
 pub mod ciphers_api;
@@ -77,6 +78,7 @@ pub mod sync_api;
 pub mod teams_integration_api;
 pub mod trash_api;
 pub mod two_factor_api;
+pub mod user_subscriptions_api;
 pub mod users_api;
 pub mod web_authn_api;
 
@@ -102,6 +104,7 @@ struct ApiClientReal {
     accounts_api: accounts_api::AccountsApiClient,
     accounts_billing_api: accounts_billing_api::AccountsBillingApiClient,
     accounts_key_management_api: accounts_key_management_api::AccountsKeyManagementApiClient,
+    audit_api: audit_api::AuditApiClient,
     auth_requests_api: auth_requests_api::AuthRequestsApiClient,
     cipher_lease_api: cipher_lease_api::CipherLeaseApiClient,
     ciphers_api: ciphers_api::CiphersApiClient,
@@ -171,6 +174,7 @@ struct ApiClientReal {
     teams_integration_api: teams_integration_api::TeamsIntegrationApiClient,
     trash_api: trash_api::TrashApiClient,
     two_factor_api: two_factor_api::TwoFactorApiClient,
+    user_subscriptions_api: user_subscriptions_api::UserSubscriptionsApiClient,
     users_api: users_api::UsersApiClient,
     web_authn_api: web_authn_api::WebAuthnApiClient,
 }
@@ -184,6 +188,7 @@ pub struct ApiClientMock {
     pub accounts_api: accounts_api::MockAccountsApi,
     pub accounts_billing_api: accounts_billing_api::MockAccountsBillingApi,
     pub accounts_key_management_api: accounts_key_management_api::MockAccountsKeyManagementApi,
+    pub audit_api: audit_api::MockAuditApi,
     pub auth_requests_api: auth_requests_api::MockAuthRequestsApi,
     pub cipher_lease_api: cipher_lease_api::MockCipherLeaseApi,
     pub ciphers_api: ciphers_api::MockCiphersApi,
@@ -253,6 +258,7 @@ pub struct ApiClientMock {
     pub teams_integration_api: teams_integration_api::MockTeamsIntegrationApi,
     pub trash_api: trash_api::MockTrashApi,
     pub two_factor_api: two_factor_api::MockTwoFactorApi,
+    pub user_subscriptions_api: user_subscriptions_api::MockUserSubscriptionsApi,
     pub users_api: users_api::MockUsersApi,
     pub web_authn_api: web_authn_api::MockWebAuthnApi,
 }
@@ -267,6 +273,7 @@ impl ApiClient {
             accounts_api: accounts_api::AccountsApiClient::new(configuration.clone()),
             accounts_billing_api: accounts_billing_api::AccountsBillingApiClient::new(configuration.clone()),
             accounts_key_management_api: accounts_key_management_api::AccountsKeyManagementApiClient::new(configuration.clone()),
+            audit_api: audit_api::AuditApiClient::new(configuration.clone()),
             auth_requests_api: auth_requests_api::AuthRequestsApiClient::new(configuration.clone()),
             cipher_lease_api: cipher_lease_api::CipherLeaseApiClient::new(configuration.clone()),
             ciphers_api: ciphers_api::CiphersApiClient::new(configuration.clone()),
@@ -336,6 +343,7 @@ impl ApiClient {
             teams_integration_api: teams_integration_api::TeamsIntegrationApiClient::new(configuration.clone()),
             trash_api: trash_api::TrashApiClient::new(configuration.clone()),
             two_factor_api: two_factor_api::TwoFactorApiClient::new(configuration.clone()),
+            user_subscriptions_api: user_subscriptions_api::UserSubscriptionsApiClient::new(configuration.clone()),
             users_api: users_api::UsersApiClient::new(configuration.clone()),
             web_authn_api: web_authn_api::WebAuthnApiClient::new(configuration.clone()),
         })
@@ -351,6 +359,7 @@ impl ApiClient {
             accounts_api: accounts_api::MockAccountsApi::new(),
             accounts_billing_api: accounts_billing_api::MockAccountsBillingApi::new(),
             accounts_key_management_api: accounts_key_management_api::MockAccountsKeyManagementApi::new(),
+            audit_api: audit_api::MockAuditApi::new(),
             auth_requests_api: auth_requests_api::MockAuthRequestsApi::new(),
             cipher_lease_api: cipher_lease_api::MockCipherLeaseApi::new(),
             ciphers_api: ciphers_api::MockCiphersApi::new(),
@@ -420,6 +429,7 @@ impl ApiClient {
             teams_integration_api: teams_integration_api::MockTeamsIntegrationApi::new(),
             trash_api: trash_api::MockTrashApi::new(),
             two_factor_api: two_factor_api::MockTwoFactorApi::new(),
+            user_subscriptions_api: user_subscriptions_api::MockUserSubscriptionsApi::new(),
             users_api: users_api::MockUsersApi::new(),
             web_authn_api: web_authn_api::MockWebAuthnApi::new(),
         };
@@ -480,6 +490,13 @@ impl ApiClient {
             ApiClient::Real(real) => &real.accounts_key_management_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.accounts_key_management_api,
+        }
+    }
+    pub fn audit_api(&self) -> &dyn audit_api::AuditApi {
+        match self {
+            ApiClient::Real(real) => &real.audit_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.audit_api,
         }
     }
     pub fn auth_requests_api(&self) -> &dyn auth_requests_api::AuthRequestsApi {
@@ -1010,6 +1027,13 @@ impl ApiClient {
             ApiClient::Real(real) => &real.two_factor_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.two_factor_api,
+        }
+    }
+    pub fn user_subscriptions_api(&self) -> &dyn user_subscriptions_api::UserSubscriptionsApi {
+        match self {
+            ApiClient::Real(real) => &real.user_subscriptions_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.user_subscriptions_api,
         }
     }
     pub fn users_api(&self) -> &dyn users_api::UsersApi {

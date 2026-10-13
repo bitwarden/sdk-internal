@@ -1,9 +1,9 @@
-//! Concrete [`Policy`](crate::Policy) implementations, one per
+//! Concrete [`PolicyDefinition`](crate::PolicyDefinition) implementations, one per
 //! [`PolicyType`](crate::PolicyType).
 //!
 //! Each policy lives in its own module alongside its `...PolicyData` struct (for
 //! the policies that carry data) and any supporting enums. Future note: once the
-//! policies crate is stable, each Policy implementation will be distributed to
+//! policies crate is stable, each policy implementation will be distributed to
 //! the team that owns its domain.
 
 mod activate_autofill;

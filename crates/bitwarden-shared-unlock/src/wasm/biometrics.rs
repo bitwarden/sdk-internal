@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
-use bitwarden_ipc::{Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest};
+use bitwarden_ipc::{Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest, RpcRequestInfo};
 use bitwarden_threading::{
     ThreadBoundRunner,
     cancellation_token::wasm::{AbortSignal, AbortSignalExt},
@@ -122,7 +122,7 @@ impl JsBiometricsUnlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 /// The current biometric capability state for a specific user on this client.
 pub enum BiometricsStatus {
     /// Biometrics is available and can be used immediately.
@@ -173,11 +173,7 @@ pub struct UnlockBiometricsRequest {
 /// RPC response for [`UnlockBiometricsRequest`]. `user_key` is `None` if the
 /// biometric prompt was canceled or otherwise failed on the responding device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct UnlockBiometricsResponse {
     /// The unlocked user's symmetric key, if the unlock succeeded.
     #[tsify(optional, type = "SymmetricKey")]
@@ -215,7 +211,7 @@ impl GetBiometricsStatusHandler {
 impl RpcHandler for GetBiometricsStatusHandler {
     type Request = GetBiometricsStatusRequest;
 
-    async fn handle(&self, request: Self::Request) -> BiometricsStatus {
+    async fn handle(&self, request: Self::Request, _info: RpcRequestInfo) -> BiometricsStatus {
         self.biometrics_unlock
             .get_biometrics_status(request.user_id)
             .await
@@ -237,7 +233,11 @@ impl UnlockBiometricsHandler {
 impl RpcHandler for UnlockBiometricsHandler {
     type Request = UnlockBiometricsRequest;
 
-    async fn handle(&self, request: Self::Request) -> UnlockBiometricsResponse {
+    async fn handle(
+        &self,
+        request: Self::Request,
+        _info: RpcRequestInfo,
+    ) -> UnlockBiometricsResponse {
         let user_key = self
             .biometrics_unlock
             .unlock_biometrics(request.user_id)
@@ -261,13 +261,13 @@ impl AuthenticateBiometricsHandler {
 impl RpcHandler for AuthenticateBiometricsHandler {
     type Request = AuthenticateBiometricsRequest;
 
-    async fn handle(&self, _: Self::Request) -> bool {
+    async fn handle(&self, _: Self::Request, _info: RpcRequestInfo) -> bool {
         self.biometrics_unlock.authenticate_biometrics().await
     }
 }
 
 /// Registers shared-unlock biometrics RPC handlers on the IPC client.
-#[wasm_bindgen(js_name = ipcRegisterBiometricsHandlers)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRegisterBiometricsHandlers)]
 pub async fn ipc_register_biometrics_handlers(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     biometrics_unlock: RawJsBiometricsDriver,
@@ -294,7 +294,7 @@ pub async fn ipc_register_biometrics_handlers(
 }
 
 /// Sends a `GetBiometricsStatus` RPC request to the desktop renderer
-#[wasm_bindgen(js_name = ipcRequestGetBiometricsStatus)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRequestGetBiometricsStatus)]
 pub async fn ipc_request_get_biometrics_status(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     user_id: UserId,
@@ -311,7 +311,7 @@ pub async fn ipc_request_get_biometrics_status(
 }
 
 /// Sends an `UnlockBiometrics` RPC request to the desktop renderer.
-#[wasm_bindgen(js_name = ipcRequestUnlockBiometrics)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRequestUnlockBiometrics)]
 pub async fn ipc_request_unlock_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     user_id: UserId,
@@ -328,7 +328,7 @@ pub async fn ipc_request_unlock_biometrics(
 }
 
 /// Sends an `AuthenticateBiometrics` RPC request to the desktop renderer.
-#[wasm_bindgen(js_name = ipcRequestAuthenticateBiometrics)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRequestAuthenticateBiometrics)]
 pub async fn ipc_request_authenticate_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     abort_signal: Option<AbortSignal>,

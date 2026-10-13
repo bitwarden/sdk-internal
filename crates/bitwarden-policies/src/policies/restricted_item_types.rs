@@ -1,11 +1,11 @@
 use bitwarden_organizations::OrganizationUserType;
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Restricted Item Types policy.
 pub struct RestrictedItemTypesPolicy;
 
-impl Policy for RestrictedItemTypesPolicy {
+impl PolicyDefinition for RestrictedItemTypesPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {

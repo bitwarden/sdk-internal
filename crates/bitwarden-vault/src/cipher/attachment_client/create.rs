@@ -273,6 +273,7 @@ mod tests {
 
     fn test_cipher() -> Cipher {
         Cipher {
+            partial_data: None,
             id: TEST_CIPHER_ID.parse().ok(),
             name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             r#type: CipherType::Login,

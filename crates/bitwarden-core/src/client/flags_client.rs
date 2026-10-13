@@ -4,8 +4,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use bitwarden_state::Setting;
 use chrono::{DateTime, Duration, Utc};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     Client,
@@ -30,7 +28,7 @@ pub enum FetchFlagsError {
 }
 
 /// A client for inspecting and refreshing feature flags.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct FlagsClient {
     flags: Setting<Flags>,
     flags_fetched_at: Setting<DateTime<Utc>>,
@@ -158,18 +156,15 @@ mod tests {
 
         // With no flags loaded yet, get should return defaults.
         let initial = client.flags().get().await;
-        assert!(!initial.enable_cipher_key_encryption);
         assert!(!initial.strict_cipher_decryption);
 
         // Loading flags should persist them via the FLAGS setting.
         let mut map = HashMap::new();
-        map.insert("enableCipherKeyEncryption".to_string(), true);
         map.insert("pm-34500-strict-cipher-decryption".to_string(), true);
         client.flags().load(map).await;
 
         // get should now return the loaded values.
         let loaded = client.flags().get().await;
-        assert!(loaded.enable_cipher_key_encryption);
         assert!(loaded.strict_cipher_decryption);
 
         // The values should be readable directly from the setting too.
@@ -182,7 +177,6 @@ mod tests {
             .await
             .unwrap()
             .expect("flags should be persisted after load");
-        assert!(persisted.enable_cipher_key_encryption);
         assert!(persisted.strict_cipher_decryption);
     }
 
@@ -192,7 +186,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/config"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "featureStates": { "enableCipherKeyEncryption": true }
+                "featureStates": { "pm-34500-strict-cipher-decryption": true }
             })))
             .expect(1)
             .mount(&server)
@@ -202,7 +196,7 @@ mod tests {
         let before = Utc::now();
         client.flags().fetch(true).await.unwrap();
 
-        assert!(client.flags().get().await.enable_cipher_key_encryption);
+        assert!(client.flags().get().await.strict_cipher_decryption);
         let fetched_at = read_fetched_at(&client)
             .await
             .expect("fetched_at must be set after a successful fetch");
@@ -247,7 +241,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/config"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "featureStates": { "enableCipherKeyEncryption": true }
+                "featureStates": { "pm-34500-strict-cipher-decryption": true }
             })))
             .expect(1)
             .mount(&server)
@@ -259,7 +253,7 @@ mod tests {
 
         client.flags().fetch(false).await.unwrap();
 
-        assert!(client.flags().get().await.enable_cipher_key_encryption);
+        assert!(client.flags().get().await.strict_cipher_decryption);
         let fetched_at = read_fetched_at(&client).await.unwrap();
         assert!(fetched_at > stale);
     }
@@ -277,14 +271,14 @@ mod tests {
         client
             .flags()
             .load(HashMap::from([(
-                "enableCipherKeyEncryption".to_string(),
+                "pm-34500-strict-cipher-decryption".to_string(),
                 true,
             )]))
             .await;
 
         assert!(client.flags().fetch(true).await.is_err());
         assert!(
-            client.flags().get().await.enable_cipher_key_encryption,
+            client.flags().get().await.strict_cipher_decryption,
             "previously persisted flags must survive a failed fetch"
         );
     }

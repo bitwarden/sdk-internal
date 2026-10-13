@@ -2,7 +2,7 @@
 //! `@bitwarden/sdk-internal`.
 
 use bitwarden_ipc::{
-    Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest, wasm::JsIpcClient,
+    Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest, RpcRequestInfo, wasm::JsIpcClient,
 };
 use bitwarden_threading::{
     ThreadBoundRunner,
@@ -222,7 +222,11 @@ impl AutotypeSetEnabledHandler {
 impl RpcHandler for AutotypeSetEnabledHandler {
     type Request = AutotypeSetEnabledRequest;
 
-    async fn handle(&self, request: Self::Request) -> AutotypeSetEnabledResponse {
+    async fn handle(
+        &self,
+        request: Self::Request,
+        _info: RpcRequestInfo,
+    ) -> AutotypeSetEnabledResponse {
         AutotypeSetEnabledResponse {
             success: self.driver.set_autotype_enabled(request.enabled).await,
         }
@@ -265,7 +269,11 @@ impl AutotypeSetKeyboardShortcutHandler {
 impl RpcHandler for AutotypeSetKeyboardShortcutHandler {
     type Request = AutotypeSetKeyboardShortcutRequest;
 
-    async fn handle(&self, request: Self::Request) -> AutotypeSetKeyboardShortcutResponse {
+    async fn handle(
+        &self,
+        request: Self::Request,
+        _info: RpcRequestInfo,
+    ) -> AutotypeSetKeyboardShortcutResponse {
         AutotypeSetKeyboardShortcutResponse {
             success: self
                 .driver
@@ -308,7 +316,11 @@ impl AutotypeListRunningAppsHandler {
 impl RpcHandler for AutotypeListRunningAppsHandler {
     type Request = AutotypeListRunningAppsRequest;
 
-    async fn handle(&self, _: Self::Request) -> AutotypeListRunningAppsResponse {
+    async fn handle(
+        &self,
+        _: Self::Request,
+        _info: RpcRequestInfo,
+    ) -> AutotypeListRunningAppsResponse {
         AutotypeListRunningAppsResponse {
             apps: self.driver.list_running_apps().await,
         }

@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Account Recovery Administration policy.
 pub struct ResetPasswordPolicy;
 
-impl Policy for ResetPasswordPolicy {
+impl PolicyDefinition for ResetPasswordPolicy {
     type Data = ResetPasswordPolicyData;
 
     fn policy_type(&self) -> PolicyType {
@@ -21,11 +21,7 @@ impl Policy for ResetPasswordPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct ResetPasswordPolicyData {
     /// Whether members are automatically enrolled in account recovery when
     /// they join the organization.
