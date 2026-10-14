@@ -13,7 +13,7 @@ use crate::{
 ///
 /// This provides TypeScript access to the server communication configuration client,
 /// allowing clients to check bootstrap requirements and retrieve cookies for HTTP requests.
-#[wasm_bindgen(js_name = ServerCommunicationConfigClient)]
+#[bitwarden_ffi::wasm_object(js_name = ServerCommunicationConfigClient)]
 pub struct JsServerCommunicationConfigClient {
     client: ServerCommunicationConfigClient<
         JsServerCommunicationConfigRepository,
@@ -21,7 +21,7 @@ pub struct JsServerCommunicationConfigClient {
     >,
 }
 
-#[wasm_bindgen(js_class = ServerCommunicationConfigClient)]
+#[bitwarden_ffi::wasm_export(js_class = ServerCommunicationConfigClient)]
 impl JsServerCommunicationConfigClient {
     /// Creates a new ServerCommunicationConfigClient with a JavaScript repository and platform API
     ///
