@@ -24,6 +24,8 @@ keywords = ["bitwarden"]
 aes = { version = "0.9.0", features = ["zeroize"] }
 aes-gcm = { version = "0.11.0", features = ["zeroize"] }
 async-trait = ">=0.1.80, <0.2"
+bitwarden-access-token = { path = "crates/bitwarden-access-token", version = "=4.0.0" }
+bitwarden-access-token-crypto = { path = "crates/bitwarden-access-token-crypto", version = "=4.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=4.0.0" }
 bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=4.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=4.0.0" }
@@ -230,6 +232,49 @@ opt-level = "z"
 # but it will more aggressively inline functions. This will help us avoid extra stack copies of keys and
 # other sensitive values being left behind without cleanup.
 [profile.release.package.bitwarden-crypto]
+opt-level = 3
+
+# Heavy crypto operations are optimized for speed instead of size. Each crate costs a few KB but
+# shortens unlock, vault decryption and ML-DSA operations. RSA crates are left out: building them
+# for speed added ~70 KB with no measurable gain (their generic code is instantiated in callers).
+
+# Bulk vault decryption: AES-CBC, EncString base64, reading ciphers from JS
+[profile.release.package.aes]
+opt-level = 3
+
+[profile.release.package.cbc]
+opt-level = 3
+
+[profile.release.package.data-encoding]
+opt-level = 3
+
+[profile.release.package.serde-wasm-bindgen]
+opt-level = 3
+
+# KDFs: PBKDF2 (sha2, hmac) and Argon2id (argon2, blake2)
+[profile.release.package.argon2]
+opt-level = 3
+
+[profile.release.package.blake2]
+opt-level = 3
+
+[profile.release.package.hmac]
+opt-level = 3
+
+[profile.release.package.sha2]
+opt-level = 3
+
+# ML-DSA: signing, verification and key generation
+[profile.release.package.keccak]
+opt-level = 3
+
+[profile.release.package.ml-dsa]
+opt-level = 3
+
+[profile.release.package.module-lattice]
+opt-level = 3
+
+[profile.release.package.shake]
 opt-level = 3
 
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.

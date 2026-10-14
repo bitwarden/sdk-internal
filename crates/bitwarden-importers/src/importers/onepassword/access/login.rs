@@ -24,8 +24,40 @@ use super::{
 /// up. One round is the normal case.
 const MAX_DEVICE_ATTEMPTS: u32 = 2;
 const AUTH_METHODS_ENDPOINT: &str = "v2/auth/methods";
+const PASSWORD_METHOD: &str = "PASSWORD+SK";
+const SSO_METHOD: &str = "OIDC";
 const AUTH_START_ENDPOINT: &str = "v3/auth/start";
 const AUTH_COMPLETE_ENDPOINT: &str = "v2/auth/complete";
+
+/// How an account can sign in. An account may offer both.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
+    tsify(into_wasm_abi)
+)]
+pub struct SignInMethods {
+    /// With the master password and Secret Key.
+    pub password: bool,
+    /// With single sign-on through the account's identity provider.
+    pub sso: bool,
+}
+
+impl SignInMethods {
+    pub(super) fn of(login_info: &LoginInfo) -> SignInMethods {
+        let offers = |kind| {
+            login_info
+                .auth_methods
+                .iter()
+                .any(|method| method.kind == kind)
+        };
+        SignInMethods {
+            password: offers(PASSWORD_METHOD),
+            sso: offers(SSO_METHOD),
+        }
+    }
+}
 
 /// The result of a single login attempt: a finished session, or a rejected OTP that asks for a full
 /// restart.
@@ -273,6 +305,23 @@ mod tests {
 
         assert_eq!(info.auth_methods[0].kind, "PASSWORD+SK");
         server.verify().await;
+    }
+
+    #[test]
+    fn sign_in_methods_read_the_offered_auth_methods() {
+        let methods = |kinds: &[&str]| {
+            let login_info: LoginInfo = serde_json::from_value(json!({
+                "authMethods": kinds.iter().map(|kind| json!({"type": kind})).collect::<Vec<_>>(),
+            }))
+            .expect("valid login info");
+            SignInMethods::of(&login_info)
+        };
+        let only = |password, sso| SignInMethods { password, sso };
+
+        assert_eq!(methods(&["PASSWORD+SK"]), only(true, false));
+        assert_eq!(methods(&["OIDC"]), only(false, true));
+        assert_eq!(methods(&["PASSWORD+SK", "OIDC"]), only(true, true));
+        assert_eq!(methods(&["PASSKEY"]), only(false, false));
     }
 
     #[tokio::test]

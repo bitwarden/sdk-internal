@@ -16,6 +16,7 @@ mod identity;
 mod kdf;
 mod keychain;
 mod login;
+pub use login::SignInMethods;
 mod mac;
 pub mod model;
 mod opdata;
