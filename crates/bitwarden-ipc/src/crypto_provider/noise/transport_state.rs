@@ -7,6 +7,10 @@ use crate::crypto_provider::noise::NOISE_MAX_MESSAGE_LEN;
 
 // Ref: http://noiseprotocol.org/noise.html#message-format
 const KEY_SIZE: usize = 32;
+/// Authentication tag length appended by both supported AEAD ciphers. snow does not export it.
+const TAG_LEN: usize = 16;
+/// Largest plaintext that fits in a single Noise transport message together with its tag.
+pub(super) const MAX_PAYLOAD_LEN: usize = NOISE_MAX_MESSAGE_LEN - TAG_LEN;
 
 /// Supported ciphers for the transport mode of noise.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -100,7 +104,17 @@ impl AsRef<[u8]> for Payload {
 impl PersistentTransportState {
     /// Encrypts the message, mutates the state and returns the transport frame to be sent over
     /// IPC.
-    pub(crate) fn send(&mut self, payload: Payload) -> Result<TransportFrame, ()> {
+    pub(crate) fn send(&mut self, payload: Payload) -> Result<TransportFrame, SendError> {
+        // Rejected before the nonce is touched, so a failed send leaves the session unchanged.
+        if payload.as_ref().len() > MAX_PAYLOAD_LEN {
+            warn!(
+                "Outgoing IPC payload of {} bytes exceeds the {} byte limit",
+                payload.as_ref().len(),
+                MAX_PAYLOAD_LEN
+            );
+            return Err(SendError::PayloadTooLarge);
+        }
+
         // Increase nonce. WARNING: Re-used nonces lead to catastrophic
         // crypto failure. Ensure this increases always. It is impossible to send 2^64 messages
         // within the lifetime of a session. Nonetheless, the cryptographic guarantees are
@@ -151,6 +165,10 @@ impl PersistentTransportState {
         key: &SymmetricKey,
         transport_message: &TransportFrame,
     ) -> Result<Vec<u8>, ()> {
+        // snow panics on a ciphertext shorter than the tag or longer than the buffer.
+        if !(TAG_LEN..=NOISE_MAX_MESSAGE_LEN).contains(&transport_message.payload.len()) {
+            return Err(());
+        }
         let mut buffer = vec![0u8; NOISE_MAX_MESSAGE_LEN];
         let cipher = get_cipher_with_key(key, &self.transport_cipher);
         let len = cipher
@@ -163,6 +181,11 @@ impl PersistentTransportState {
             .map_err(|_| ())?;
         Ok(buffer[..len].to_vec())
     }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum SendError {
+    PayloadTooLarge,
 }
 
 #[derive(Debug, Clone)]
