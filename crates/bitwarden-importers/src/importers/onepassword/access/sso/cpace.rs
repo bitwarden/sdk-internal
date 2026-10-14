@@ -41,28 +41,28 @@ const CREDENTIAL_BUNDLE_AAD: &[u8] = b"1P_SSO_CREDENTIAL_BUNDLE:ENROLL";
 
 /// The first CPace message, from the enrolled device.
 #[derive(Debug)]
-pub(super) struct MsgA {
+struct MsgA {
     /// The enrolled device's public point.
-    pub ya: RistrettoPoint,
-    pub ad: Ad,
+    ya: RistrettoPoint,
+    ad: Ad,
     /// The message as received, which goes into the transcript hash byte for byte.
-    pub original_message: Vec<u8>,
+    original_message: Vec<u8>,
 }
 
 /// The associated data of a CPace message.
 #[derive(Debug)]
-pub(super) struct Ad {
+struct Ad {
     #[cfg_attr(not(test), allow(dead_code))]
-    pub version: i32,
-    pub salt: Vec<u8>,
-    pub session_id: Vec<u8>,
+    version: i32,
+    salt: Vec<u8>,
+    session_id: Vec<u8>,
 }
 
 /// Parses the JSON of `msga`, after its base64 layer is removed.
 ///
 /// Rejects a `ya` that is not the canonical encoding of a point, or is the identity, before
 /// anything is sent back.
-pub(super) fn parse_msg_a(json: &[u8]) -> Result<MsgA, OnePasswordError> {
+fn parse_msg_a(json: &[u8]) -> Result<MsgA, OnePasswordError> {
     let msg_a: wire::MsgA = serde_json::from_slice(json).map_err(|_| OnePasswordError::Parse)?;
     let ya = decompress_point(&decode64_loose(&msg_a.ya)?)?;
     if ya == RistrettoPoint::identity() {
@@ -91,7 +91,7 @@ fn decompress_point(bytes: &[u8]) -> Result<RistrettoPoint, OnePasswordError> {
 }
 
 /// Calculates `msgb`, the new device's answer to `msga`.
-pub(super) fn calculate_msg_b(
+fn calculate_msg_b(
     username: &str,
     sign_in_address: &str,
     enrollment_uuid: &str,
@@ -177,10 +177,10 @@ fn write_leb128_prefixed(buffer: &mut Vec<u8>, data: &[u8]) {
 /// Would check `taga`, which proves the enrolled device knows the verification code too.
 ///
 /// Not implemented: the server is trusted to relay an honest device.
-pub(super) fn verify_tag_a(_tag_a: &[u8]) {}
+fn verify_tag_a(_tag_a: &[u8]) {}
 
 /// Calculates the shared secret `authB` and the `tagb` that proves knowing it.
-pub(super) fn calculate_auth_b_tag_b(
+fn calculate_auth_b_tag_b(
     client_secret: &[u8; 64],
     msg_a: &MsgA,
     msg_b: &[u8],
@@ -216,7 +216,7 @@ fn calculate_tag_b(auth_b: &[u8], msg_b: &[u8]) -> [u8; 64] {
 }
 
 /// Derives the key that encrypts the credential bundle in transit from `authB`.
-pub(super) fn derive_exchange_key(auth_b: &[u8]) -> Zeroizing<[u8; 32]> {
+fn derive_exchange_key(auth_b: &[u8]) -> Zeroizing<[u8; 32]> {
     let transport_key = hmac_sha384(TRANSPORT_KEY_ID.as_bytes(), auth_b);
     let exchange_key = hmac_sha384(transport_key.as_slice(), EXCHANGE_KEY_INFO);
 
@@ -226,7 +226,7 @@ pub(super) fn derive_exchange_key(auth_b: &[u8]) -> Zeroizing<[u8; 32]> {
 }
 
 /// Decrypts the credential bundle the enrolled device shared.
-pub(super) fn decrypt_credentials(
+fn decrypt_credentials(
     encrypted_credentials: &EncryptedEnvelope,
     exchange_key: &[u8],
 ) -> Result<CredentialBundle, OnePasswordError> {

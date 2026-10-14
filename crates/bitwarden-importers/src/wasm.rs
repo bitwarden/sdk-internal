@@ -142,7 +142,7 @@ extern "C" {
 
     /// The JavaScript object implementing a device enrollment in progress.
     #[wasm_bindgen(js_name = OnePasswordSsoEnrollment, typescript_type = "OnePasswordSsoEnrollment")]
-    pub type RawJsOnePasswordSsoEnrollment;
+    type RawJsOnePasswordSsoEnrollment;
 
     #[wasm_bindgen(catch, method, structural, js_name = cancelled)]
     async fn cancelled(this: &RawJsOnePasswordSsoEnrollment) -> Result<JsValue, JsValue>;

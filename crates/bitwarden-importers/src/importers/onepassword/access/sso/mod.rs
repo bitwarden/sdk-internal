@@ -38,14 +38,14 @@ const DEVICE_NOT_ENROLLED: &str = "device_not_enrolled";
 pub(super) struct Timing {
     /// Delay before retrying a request of `post_json_until_result`, which the server answered
     /// with 200 and an empty body.
-    pub(super) until_result_delay: Duration,
+    until_result_delay: Duration,
     /// Maximum number of attempts of such a request before it fails.
-    pub(super) until_result_attempts: u32,
+    until_result_attempts: u32,
     /// Delay between two polls of the enrollment status. The 1Password web client polls every
     /// 2 seconds.
-    pub(super) enrollment_poll_interval: Duration,
+    enrollment_poll_interval: Duration,
     /// How long the enrollment status is polled before the enrollment times out.
-    pub(super) enrollment_poll_timeout: Duration,
+    enrollment_poll_timeout: Duration,
 }
 
 impl Default for Timing {
@@ -125,26 +125,23 @@ pub(super) async fn sso_login(
 }
 
 /// What an SSO login needs from the login info of the account.
-pub(super) struct SsoAccount {
-    pub(super) user_uuid: String,
+struct SsoAccount {
+    user_uuid: String,
     /// The address the SSO endpoints are at, as the server sent it. The enrollment key exchange
     /// hashes it verbatim.
-    pub(super) sign_in_address: String,
+    sign_in_address: String,
 }
 
 impl SsoAccount {
     /// The root of the SSO API.
-    pub(super) fn api_url(&self) -> String {
+    fn api_url(&self) -> String {
         format!("{}/api", self.sign_in_address.trim_end_matches('/'))
     }
 }
 
 /// Checks that the account signs in with SSO and that its login info says who the user is and
 /// where the SSO endpoints are.
-pub(super) fn require_sso(
-    login_info: &LoginInfo,
-    username: &str,
-) -> Result<SsoAccount, OnePasswordError> {
+fn require_sso(login_info: &LoginInfo, username: &str) -> Result<SsoAccount, OnePasswordError> {
     if !SignInMethods::of(login_info).sso {
         return Err(OnePasswordError::Unsupported(format!(
             "no SSO login method found for account {username}"
@@ -207,7 +204,7 @@ fn is_redirect_uri(url: &str) -> bool {
 }
 
 /// Asks for the URL of the identity provider login.
-pub(super) async fn start_sso_login(
+async fn start_sso_login(
     account: &SsoAccount,
     rest: &RestClient,
 ) -> Result<String, OnePasswordError> {
@@ -219,7 +216,7 @@ pub(super) async fn start_sso_login(
 
 /// Has the user log in with the identity provider, and returns the authorization code and the
 /// state it redirects back with.
-pub(super) async fn perform_sso_login(
+async fn perform_sso_login(
     sso_login_url: &str,
     ui: &dyn SsoUi,
 ) -> Result<(String, String), OnePasswordError> {
@@ -255,7 +252,7 @@ pub(super) async fn perform_sso_login(
 }
 
 /// Exchanges the authorization code for an SSO session.
-pub(super) async fn verify_sso_login(
+async fn verify_sso_login(
     code: &str,
     state: &str,
     client_info: &ClientInfo,
@@ -274,7 +271,7 @@ pub(super) async fn verify_sso_login(
 
 /// A device with a fresh id cannot be known to the server, so anything but `device_not_enrolled`
 /// is unexpected.
-pub(super) fn require_new_device(session: &SsoSession) -> Result<(), OnePasswordError> {
+fn require_new_device(session: &SsoSession) -> Result<(), OnePasswordError> {
     if session.state != DEVICE_NOT_ENROLLED {
         return Err(OnePasswordError::Internal(format!(
             "unexpected SSO session state: {}",
