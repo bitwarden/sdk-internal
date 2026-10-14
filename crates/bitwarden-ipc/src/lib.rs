@@ -5,6 +5,7 @@ mod crypto_provider;
 pub mod discover;
 mod endpoint;
 mod error;
+mod fragmentation;
 mod ipc_client;
 mod ipc_client_ext;
 mod ipc_client_trait;
