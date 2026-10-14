@@ -59,6 +59,16 @@ impl Default for Timing {
     }
 }
 
+impl Timing {
+    /// The number of enrollment polls that fit the timeout. Zero for an interval of zero.
+    fn enrollment_poll_attempts(&self) -> u128 {
+        self.enrollment_poll_timeout
+            .as_nanos()
+            .checked_div(self.enrollment_poll_interval.as_nanos())
+            .unwrap_or(0)
+    }
+}
+
 /// Signs in with single sign-on. Returns the signed session and the account unlock key that opens
 /// the account's keysets.
 ///
@@ -93,7 +103,7 @@ pub(super) async fn sso_login(
     let sso_rest = sso_rest.with_session_id(&sso_session.user.session_uuid)?;
 
     // 8. The server has not seen this device.
-    require_new_device(&sso_session)?;
+    sso_session.require_new_device()?;
 
     // 9. The user approves the device on an enrolled one, which hands over the credential bundle.
     let sign_in_token = sso_session.sso_auth.sign_in_token_details.token.as_str();
@@ -269,16 +279,18 @@ async fn verify_sso_login(
     .await
 }
 
-/// A device with a fresh id cannot be known to the server, so anything but `device_not_enrolled`
-/// is unexpected.
-fn require_new_device(session: &SsoSession) -> Result<(), OnePasswordError> {
-    if session.state != DEVICE_NOT_ENROLLED {
-        return Err(OnePasswordError::Internal(format!(
-            "unexpected SSO session state: {}",
-            session.state
-        )));
+impl SsoSession {
+    /// A device with a fresh id cannot be known to the server, so anything but
+    /// `device_not_enrolled` is unexpected.
+    fn require_new_device(&self) -> Result<(), OnePasswordError> {
+        if self.state != DEVICE_NOT_ENROLLED {
+            return Err(OnePasswordError::Internal(format!(
+                "unexpected SSO session state: {}",
+                self.state
+            )));
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Signs in with the sign-in token the SSO login earned, proving knowledge of the SRP x from the
@@ -923,13 +935,13 @@ mod tests {
 
     #[test]
     fn a_new_device_is_not_enrolled() {
-        assert!(require_new_device(&session("device_not_enrolled")).is_ok());
+        assert!(session("device_not_enrolled").require_new_device().is_ok());
     }
 
     #[test]
     fn any_other_session_state_is_an_error() {
         for state in ["", "found", "Found", "device_deleted", "unknown"] {
-            let error = require_new_device(&session(state)).err();
+            let error = session(state).require_new_device().err();
 
             assert!(
                 matches!(&error, Some(OnePasswordError::Internal(what)) if what.contains(state)),

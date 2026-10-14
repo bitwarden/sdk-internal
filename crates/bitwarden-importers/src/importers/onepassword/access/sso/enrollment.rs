@@ -252,7 +252,7 @@ async fn poll_status_until_done(
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<ServerStatus, OnePasswordError> {
-    for _ in 0..poll_attempts(timing) {
+    for _ in 0..timing.enrollment_poll_attempts() {
         let status = get_enrollment_status(sign_in_token, enrollment_uuid, rest).await?;
         if !ignore.contains(&status) {
             return Ok(status);
@@ -264,15 +264,6 @@ async fn poll_status_until_done(
     Err(OnePasswordError::Internal(
         "device enrollment timed out".into(),
     ))
-}
-
-/// The number of polls that fit the timeout. Zero for an interval of zero.
-fn poll_attempts(timing: &Timing) -> u128 {
-    timing
-        .enrollment_poll_timeout
-        .as_nanos()
-        .checked_div(timing.enrollment_poll_interval.as_nanos())
-        .unwrap_or(0)
 }
 
 /// Reads the status of the enrollment.
@@ -932,8 +923,8 @@ mod tests {
             ..quick_timing()
         };
 
-        assert_eq!(poll_attempts(&timing), 0);
-        assert_eq!(poll_attempts(&Timing::default()), 150);
+        assert_eq!(timing.enrollment_poll_attempts(), 0);
+        assert_eq!(Timing::default().enrollment_poll_attempts(), 150);
     }
 
     #[test]
