@@ -572,6 +572,25 @@ async fn receive_reports_an_unknown_send_as_not_found() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn receive_reports_a_missing_device_identifier() {
+    let server = MockServer::start().await;
+    mock_token(
+        &server,
+        token_error("invalid_request", "device_identifier_required"),
+    )
+    .await;
+
+    let output = run_bw(vec!["receive".to_string(), receive_url(&server)], vec![]).await;
+
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("The CLI did not send a device identifier"),
+        "got:\n{}",
+        stderr(&output)
+    );
+}
+
 // ===== End-to-end: file sends =====
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
