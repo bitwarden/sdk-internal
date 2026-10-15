@@ -496,6 +496,7 @@ src/models/preview_premium_subscription_purchase_tax_request.rs
 src/models/preview_premium_upgrade_proration_request.rs
 src/models/priority.rs
 src/models/private_keys_response_model.rs
+src/models/privileged_controls_invoice_items.rs
 src/models/product_tier_type.rs
 src/models/profile_organization_response_model.rs
 src/models/profile_organization_response_model_list_response_model.rs

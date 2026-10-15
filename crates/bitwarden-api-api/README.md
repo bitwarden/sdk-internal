@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`747d2e80546507cb25c39379e10a82bba04776d1`](https://github.com/bitwarden/server/commit/747d2e80546507cb25c39379e10a82bba04776d1)
+  [`37f932cf6552f95777de599921ed959615e1fec7`](https://github.com/bitwarden/server/commit/37f932cf6552f95777de599921ed959615e1fec7)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -1020,6 +1020,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PreviewPremiumUpgradeProrationRequest](docs/PreviewPremiumUpgradeProrationRequest.md)
 - [Priority](docs/Priority.md)
 - [PrivateKeysResponseModel](docs/PrivateKeysResponseModel.md)
+- [PrivilegedControlsInvoiceItems](docs/PrivilegedControlsInvoiceItems.md)
 - [ProductTierType](docs/ProductTierType.md)
 - [ProfileOrganizationResponseModel](docs/ProfileOrganizationResponseModel.md)
 - [ProfileOrganizationResponseModelListResponseModel](docs/ProfileOrganizationResponseModelListResponseModel.md)
