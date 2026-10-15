@@ -2,7 +2,10 @@ use bitwarden_api_api::models::CipherMiniDetailsResponseModelListResponseModel;
 use bitwarden_core::{ApiError, OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
 use bitwarden_error::bitwarden_error;
+#[cfg(feature = "wasm")]
+use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
 use thiserror::Error;
+use tokio_util::sync::CancellationToken;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -22,6 +25,8 @@ pub enum GetAssignedOrgCiphersAdminError {
     Api(#[from] ApiError),
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
+    #[error("The request was cancelled")]
+    Cancelled,
 }
 
 #[allow(missing_docs)]
@@ -32,6 +37,39 @@ pub enum GetOrganizationCiphersAdminError {
     VaultParse(#[from] VaultParseError),
     #[error(transparent)]
     Api(#[from] ApiError),
+    #[error("The request was cancelled")]
+    Cancelled,
+}
+
+/// Awaits `future` unless `cancellation_token` is cancelled first, in which case the future is
+/// dropped and `None` is returned. Dropping an in-flight API request aborts the underlying HTTP
+/// request, so large responses stop downloading as soon as the caller gives up on them.
+async fn run_until_cancelled<F: Future>(
+    future: F,
+    cancellation_token: Option<&CancellationToken>,
+) -> Option<F::Output> {
+    match cancellation_token {
+        Some(token) => token.run_until_cancelled(future).await,
+        None => Some(future.await),
+    }
+}
+
+fn is_cancelled(cancellation_token: Option<&CancellationToken>) -> bool {
+    cancellation_token.is_some_and(CancellationToken::is_cancelled)
+}
+
+#[cfg(feature = "wasm")]
+fn abort_signal_to_cancellation_token(
+    abort_signal: Option<AbortSignal>,
+) -> Option<CancellationToken> {
+    abort_signal.map(|signal| {
+        let token = signal.to_cancellation_token();
+        // The "abort" event has already fired for a signal that is aborted when it's handed to us
+        if signal.aborted() {
+            token.cancel();
+        }
+        token
+    })
 }
 
 /// Get all ciphers for an organization.
@@ -41,17 +79,26 @@ pub async fn list_org_ciphers(
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
+    cancellation_token: Option<&CancellationToken>,
 ) -> Result<ListOrganizationCiphersResult, GetOrganizationCiphersAdminError> {
     let api = api_client.ciphers_api();
-    let response: CipherMiniDetailsResponseModelListResponseModel = api
-        .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
-        .await?;
+    let response: CipherMiniDetailsResponseModelListResponseModel = run_until_cancelled(
+        api.get_organization_ciphers(Some(org_id.into()), Some(include_member_items)),
+        cancellation_token,
+    )
+    .await
+    .ok_or(GetOrganizationCiphersAdminError::Cancelled)??;
     let ciphers = response
         .data
         .into_iter()
         .flatten()
         .map(|model| model.merge_with_cipher(None))
         .collect::<Result<Vec<_>, _>>()?;
+
+    // Decrypting tens of thousands of ciphers is expensive; skip it if the caller has moved on
+    if is_cancelled(cancellation_token) {
+        return Err(GetOrganizationCiphersAdminError::Cancelled);
+    }
 
     let list_views = if use_strict_decryption {
         let wrapped: Vec<StrictDecrypt<Cipher>> =
@@ -102,6 +149,52 @@ pub async fn list_org_login_ciphers(
     })
 }
 
+/// Fetches and decrypts all ciphers assigned to the current user for an organization.
+async fn list_assigned_org_ciphers(
+    org_id: OrganizationId,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
+    cancellation_token: Option<&CancellationToken>,
+) -> Result<ListOrganizationCiphersResult, GetAssignedOrgCiphersAdminError> {
+    use bitwarden_api_api::models::CipherDetailsResponseModelListResponseModel;
+
+    let response: CipherDetailsResponseModelListResponseModel = run_until_cancelled(
+        api_client
+            .ciphers_api()
+            .get_assigned_organization_ciphers(Some(org_id.into())),
+        cancellation_token,
+    )
+    .await
+    .ok_or(GetAssignedOrgCiphersAdminError::Cancelled)??;
+
+    let ciphers = response
+        .data
+        .into_iter()
+        .flatten()
+        .map(|model| model.merge_with_cipher(None))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Decrypting tens of thousands of ciphers is expensive; skip it if the caller has moved on
+    if is_cancelled(cancellation_token) {
+        return Err(GetAssignedOrgCiphersAdminError::Cancelled);
+    }
+
+    let list_views = if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> =
+            ciphers.iter().cloned().map(StrictDecrypt).collect();
+        let (list_views, _failures) = key_store.decrypt_list_with_failures(&wrapped);
+        list_views
+    } else {
+        let (list_views, _failures) = key_store.decrypt_list_with_failures(&ciphers);
+        list_views
+    };
+    Ok(ListOrganizationCiphersResult {
+        ciphers,
+        list_views,
+    })
+}
+
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CipherAdminClient {
     /// Fetches and decrypts all ciphers assigned to the current user for an organization.
@@ -109,35 +202,14 @@ impl CipherAdminClient {
         &self,
         org_id: OrganizationId,
     ) -> Result<ListOrganizationCiphersResult, GetAssignedOrgCiphersAdminError> {
-        use bitwarden_api_api::models::CipherDetailsResponseModelListResponseModel;
-
-        let response: CipherDetailsResponseModelListResponseModel = self
-            .api_configurations
-            .api_client
-            .ciphers_api()
-            .get_assigned_organization_ciphers(Some(org_id.into()))
-            .await?;
-
-        let ciphers = response
-            .data
-            .into_iter()
-            .flatten()
-            .map(|model| model.merge_with_cipher(None))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let list_views = if self.is_strict_decrypt().await {
-            let wrapped: Vec<StrictDecrypt<Cipher>> =
-                ciphers.iter().cloned().map(StrictDecrypt).collect();
-            let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&wrapped);
-            list_views
-        } else {
-            let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&ciphers);
-            list_views
-        };
-        Ok(ListOrganizationCiphersResult {
-            ciphers,
-            list_views,
-        })
+        list_assigned_org_ciphers(
+            org_id,
+            &self.api_configurations.api_client,
+            &self.key_store,
+            self.is_strict_decrypt().await,
+            None,
+        )
+        .await
     }
 
     /// Get all ciphers for an organization.
@@ -152,6 +224,7 @@ impl CipherAdminClient {
             &self.api_configurations.api_client,
             &self.key_store,
             self.is_strict_decrypt().await,
+            None,
         )
         .await
     }
@@ -166,6 +239,48 @@ impl CipherAdminClient {
             &self.api_configurations.api_client,
             &self.key_store,
             self.is_strict_decrypt().await,
+        )
+        .await
+    }
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+impl CipherAdminClient {
+    /// Same as [CipherAdminClient::list_assigned_org_ciphers], but aborts the HTTP request and
+    /// skips decryption once `abort_signal` is aborted, rejecting with a `Cancelled` error.
+    pub async fn list_assigned_org_ciphers_abortable(
+        &self,
+        org_id: OrganizationId,
+        abort_signal: Option<AbortSignal>,
+    ) -> Result<ListOrganizationCiphersResult, GetAssignedOrgCiphersAdminError> {
+        let cancellation_token = abort_signal_to_cancellation_token(abort_signal);
+        list_assigned_org_ciphers(
+            org_id,
+            &self.api_configurations.api_client,
+            &self.key_store,
+            self.is_strict_decrypt().await,
+            cancellation_token.as_ref(),
+        )
+        .await
+    }
+
+    /// Same as [CipherAdminClient::list_org_ciphers], but aborts the HTTP request and skips
+    /// decryption once `abort_signal` is aborted, rejecting with a `Cancelled` error.
+    pub async fn list_org_ciphers_abortable(
+        &self,
+        org_id: OrganizationId,
+        include_member_items: bool,
+        abort_signal: Option<AbortSignal>,
+    ) -> Result<ListOrganizationCiphersResult, GetOrganizationCiphersAdminError> {
+        let cancellation_token = abort_signal_to_cancellation_token(abort_signal);
+        list_org_ciphers(
+            org_id,
+            include_member_items,
+            &self.api_configurations.api_client,
+            &self.key_store,
+            self.is_strict_decrypt().await,
+            cancellation_token.as_ref(),
         )
         .await
     }
@@ -514,5 +629,150 @@ mod tests {
 
         assert!(result.ciphers.is_empty());
         assert!(result.list_views.is_empty());
+    }
+
+    fn single_details_response() -> CipherDetailsResponseModelListResponseModel {
+        CipherDetailsResponseModelListResponseModel {
+            object: None,
+            data: Some(vec![mock_details_cipher(TEST_CIPHER_ID_1)]),
+            continuation_token: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_list_assigned_org_ciphers_already_cancelled_skips_request() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api
+                .expect_get_assigned_organization_ciphers()
+                .never();
+        });
+        let client = create_test_client(api_client);
+        let token = CancellationToken::new();
+        token.cancel();
+
+        let result = list_assigned_org_ciphers(
+            TEST_ORG_ID.parse().unwrap(),
+            &client.api_configurations.api_client,
+            &client.key_store,
+            false,
+            Some(&token),
+        )
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(GetAssignedOrgCiphersAdminError::Cancelled)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_list_assigned_org_ciphers_cancelled_during_request_skips_decryption() {
+        let token = CancellationToken::new();
+        let token_for_mock = token.clone();
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_get_assigned_organization_ciphers()
+                .returning(move |_| {
+                    token_for_mock.cancel();
+                    Ok(single_details_response())
+                });
+        });
+        let client = create_test_client(api_client);
+
+        let result = list_assigned_org_ciphers(
+            TEST_ORG_ID.parse().unwrap(),
+            &client.api_configurations.api_client,
+            &client.key_store,
+            false,
+            Some(&token),
+        )
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(GetAssignedOrgCiphersAdminError::Cancelled)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_list_assigned_org_ciphers_uncancelled_token_returns_ciphers() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api
+                .expect_get_assigned_organization_ciphers()
+                .returning(|_| Ok(single_details_response()));
+        });
+        let client = create_test_client(api_client);
+        let token = CancellationToken::new();
+
+        let result = list_assigned_org_ciphers(
+            TEST_ORG_ID.parse().unwrap(),
+            &client.api_configurations.api_client,
+            &client.key_store,
+            false,
+            Some(&token),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.ciphers.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_list_org_ciphers_already_cancelled_skips_request() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api.expect_get_organization_ciphers().never();
+        });
+        let client = create_test_client(api_client);
+        let token = CancellationToken::new();
+        token.cancel();
+
+        let result = list_org_ciphers(
+            TEST_ORG_ID.parse().unwrap(),
+            true,
+            &client.api_configurations.api_client,
+            &client.key_store,
+            false,
+            Some(&token),
+        )
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(GetOrganizationCiphersAdminError::Cancelled)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_list_org_ciphers_cancelled_during_request_skips_decryption() {
+        let token = CancellationToken::new();
+        let token_for_mock = token.clone();
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_get_organization_ciphers()
+                .returning(move |_, _| {
+                    token_for_mock.cancel();
+                    Ok(CipherMiniDetailsResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![mock_mini_cipher(TEST_CIPHER_ID_1)]),
+                        continuation_token: None,
+                    })
+                });
+        });
+        let client = create_test_client(api_client);
+
+        let result = list_org_ciphers(
+            TEST_ORG_ID.parse().unwrap(),
+            true,
+            &client.api_configurations.api_client,
+            &client.key_store,
+            false,
+            Some(&token),
+        )
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(GetOrganizationCiphersAdminError::Cancelled)
+        ));
     }
 }

@@ -1701,6 +1701,7 @@ dependencies = [
  "bitwarden-state",
  "bitwarden-sync",
  "bitwarden-test",
+ "bitwarden-threading",
  "bitwarden-uuid",
  "chrono",
  "data-encoding",
