@@ -10,8 +10,7 @@ and whether sessions are killed. To close that gap, the admin client seals the s
 fields of a target system ([`TargetSystemSealedV1`]) and a rotation config
 ([`RotationConfigSealedV1`]) into blobs whose content keys are wrapped by the organization key. The
 server stores them opaquely; only holders of the organization key (the admin client and the access
-connector) can read or verify them. See `docs/pam-rotation-sealed-config-plan.md` in `sdk-internal`
-for the full threat model.
+connector) can read or verify them.
 
 This crate depends only on `bitwarden-crypto`, so both the admin-side `bitwarden-pam` crate (which
 uses `bitwarden_core::key_management::KeySlotIds`) and the access connector (which has its own,

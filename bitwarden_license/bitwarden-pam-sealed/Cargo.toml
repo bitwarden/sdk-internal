@@ -22,9 +22,10 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
-# bitwarden-generators: pins GENERATOR_MIN_LENGTH/GENERATOR_MAX_LENGTH against drift.
 bitwarden-encoding = { workspace = true }
-bitwarden-generators = { workspace = true }
+# Pins the GENERATOR_*_LENGTH constants. `wasm` keeps it building when another crate enables
+# `bitwarden-error/wasm`.
+bitwarden-generators = { workspace = true, features = ["wasm"] }
 
 [lints]
 workspace = true
