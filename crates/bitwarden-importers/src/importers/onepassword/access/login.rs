@@ -68,13 +68,20 @@ pub(super) enum LoginOutcome {
     BadOtp,
 }
 
-/// Confirms the account offers a given auth method.
+/// Confirms the account offers a given auth method. The request carries only the email, so a bare
+/// 400 means 1Password refused it as malformed.
 pub(super) async fn fetch_auth_methods(
     username: &str,
     rest: &RestClient,
 ) -> Result<LoginInfo, OnePasswordError> {
     rest.post_json(AUTH_METHODS_ENDPOINT, json!({ "email": username }))
         .await
+        .map_err(|error| match error {
+            OnePasswordError::UnexpectedStatus { status: 400, .. } => {
+                OnePasswordError::InvalidEmail
+            }
+            error => error,
+        })
 }
 
 /// Runs one full login sequence: start a session, exchange SRP, verify the key, and drive 2FA if
@@ -304,6 +311,47 @@ mod tests {
             .expect("methods are listed");
 
         assert_eq!(info.auth_methods[0].kind, "PASSWORD+SK");
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn a_refused_email_is_invalid() {
+        let server = MockServer::start().await;
+        server
+            .register(
+                Mock::given(matchers::path("/api/v2/auth/methods"))
+                    .respond_with(ResponseTemplate::new(400).set_body_json(json!({})))
+                    .expect(1),
+            )
+            .await;
+
+        let error = fetch_auth_methods("user@example", &client(&server))
+            .await
+            .expect_err("the email is refused");
+
+        assert!(matches!(error, OnePasswordError::InvalidEmail));
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn other_auth_methods_failures_keep_their_status() {
+        let server = MockServer::start().await;
+        server
+            .register(
+                Mock::given(matchers::path("/api/v2/auth/methods"))
+                    .respond_with(ResponseTemplate::new(503))
+                    .expect(1),
+            )
+            .await;
+
+        let error = fetch_auth_methods("user@example.com", &client(&server))
+            .await
+            .expect_err("the server is down");
+
+        assert!(matches!(
+            error,
+            OnePasswordError::UnexpectedStatus { status: 503, .. }
+        ));
         server.verify().await;
     }
 
