@@ -79,6 +79,7 @@ pub async fn list_org_ciphers(
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
+    decrypt_list_views: bool,
     cancellation_token: Option<&CancellationToken>,
 ) -> Result<ListOrganizationCiphersResult, GetOrganizationCiphersAdminError> {
     let api = api_client.ciphers_api();
@@ -100,7 +101,9 @@ pub async fn list_org_ciphers(
         return Err(GetOrganizationCiphersAdminError::Cancelled);
     }
 
-    let list_views = if use_strict_decryption {
+    let list_views = if !decrypt_list_views {
+        Vec::new()
+    } else if use_strict_decryption {
         let wrapped: Vec<StrictDecrypt<Cipher>> =
             ciphers.iter().cloned().map(StrictDecrypt).collect();
         let (list_views, _failures) = key_store.decrypt_list_with_failures(&wrapped);
@@ -155,6 +158,7 @@ async fn list_assigned_org_ciphers(
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
+    decrypt_list_views: bool,
     cancellation_token: Option<&CancellationToken>,
 ) -> Result<ListOrganizationCiphersResult, GetAssignedOrgCiphersAdminError> {
     use bitwarden_api_api::models::CipherDetailsResponseModelListResponseModel;
@@ -180,7 +184,9 @@ async fn list_assigned_org_ciphers(
         return Err(GetAssignedOrgCiphersAdminError::Cancelled);
     }
 
-    let list_views = if use_strict_decryption {
+    let list_views = if !decrypt_list_views {
+        Vec::new()
+    } else if use_strict_decryption {
         let wrapped: Vec<StrictDecrypt<Cipher>> =
             ciphers.iter().cloned().map(StrictDecrypt).collect();
         let (list_views, _failures) = key_store.decrypt_list_with_failures(&wrapped);
@@ -207,6 +213,7 @@ impl CipherAdminClient {
             &self.api_configurations.api_client,
             &self.key_store,
             self.is_strict_decrypt().await,
+            true,
             None,
         )
         .await
@@ -224,6 +231,7 @@ impl CipherAdminClient {
             &self.api_configurations.api_client,
             &self.key_store,
             self.is_strict_decrypt().await,
+            true,
             None,
         )
         .await
@@ -249,9 +257,13 @@ impl CipherAdminClient {
 impl CipherAdminClient {
     /// Same as [CipherAdminClient::list_assigned_org_ciphers], but aborts the HTTP request and
     /// skips decryption once `abort_signal` is aborted, rejecting with a `Cancelled` error.
+    ///
+    /// Callers that decrypt the returned ciphers themselves should pass `decrypt_list_views: false`
+    /// to skip decrypting every cipher into an unused list view.
     pub async fn list_assigned_org_ciphers_abortable(
         &self,
         org_id: OrganizationId,
+        decrypt_list_views: bool,
         abort_signal: Option<AbortSignal>,
     ) -> Result<ListOrganizationCiphersResult, GetAssignedOrgCiphersAdminError> {
         let cancellation_token = abort_signal_to_cancellation_token(abort_signal);
@@ -260,6 +272,7 @@ impl CipherAdminClient {
             &self.api_configurations.api_client,
             &self.key_store,
             self.is_strict_decrypt().await,
+            decrypt_list_views,
             cancellation_token.as_ref(),
         )
         .await
@@ -267,10 +280,14 @@ impl CipherAdminClient {
 
     /// Same as [CipherAdminClient::list_org_ciphers], but aborts the HTTP request and skips
     /// decryption once `abort_signal` is aborted, rejecting with a `Cancelled` error.
+    ///
+    /// Callers that decrypt the returned ciphers themselves should pass `decrypt_list_views: false`
+    /// to skip decrypting every cipher into an unused list view.
     pub async fn list_org_ciphers_abortable(
         &self,
         org_id: OrganizationId,
         include_member_items: bool,
+        decrypt_list_views: bool,
         abort_signal: Option<AbortSignal>,
     ) -> Result<ListOrganizationCiphersResult, GetOrganizationCiphersAdminError> {
         let cancellation_token = abort_signal_to_cancellation_token(abort_signal);
@@ -280,6 +297,7 @@ impl CipherAdminClient {
             &self.api_configurations.api_client,
             &self.key_store,
             self.is_strict_decrypt().await,
+            decrypt_list_views,
             cancellation_token.as_ref(),
         )
         .await
@@ -655,6 +673,7 @@ mod tests {
             &client.api_configurations.api_client,
             &client.key_store,
             false,
+            true,
             Some(&token),
         )
         .await;
@@ -684,6 +703,7 @@ mod tests {
             &client.api_configurations.api_client,
             &client.key_store,
             false,
+            true,
             Some(&token),
         )
         .await;
@@ -709,6 +729,7 @@ mod tests {
             &client.api_configurations.api_client,
             &client.key_store,
             false,
+            true,
             Some(&token),
         )
         .await
@@ -732,6 +753,7 @@ mod tests {
             &client.api_configurations.api_client,
             &client.key_store,
             false,
+            true,
             Some(&token),
         )
         .await;
@@ -766,6 +788,7 @@ mod tests {
             &client.api_configurations.api_client,
             &client.key_store,
             false,
+            true,
             Some(&token),
         )
         .await;
@@ -774,5 +797,29 @@ mod tests {
             result,
             Err(GetOrganizationCiphersAdminError::Cancelled)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_list_assigned_org_ciphers_skips_list_views_when_not_requested() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api
+                .expect_get_assigned_organization_ciphers()
+                .returning(|_| Ok(single_details_response()));
+        });
+        let client = create_test_client(api_client);
+
+        let result = list_assigned_org_ciphers(
+            TEST_ORG_ID.parse().unwrap(),
+            &client.api_configurations.api_client,
+            &client.key_store,
+            false,
+            false,
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.ciphers.len(), 1);
+        assert!(result.list_views.is_empty());
     }
 }
