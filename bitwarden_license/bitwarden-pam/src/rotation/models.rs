@@ -7,7 +7,9 @@ use bitwarden_api_api::models::{
     PamTargetSystemMethod as ApiTargetSystemMethod, PamTargetSystemStatus as ApiTargetSystemStatus,
 };
 use bitwarden_core::require;
-use bitwarden_pam_sealed::{PasswordPolicyError, SealedPasswordPolicy, SealedTargetSystemKind};
+use bitwarden_pam_sealed::{
+    PasswordPolicyError, SealedPasswordPolicy, SealedTargetSystemKind, SealedTargetSystemMethod,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -93,6 +95,15 @@ pub enum TargetSystemKind {
     CustomScript,
     /// A kind this SDK version does not recognize.
     Unknown,
+}
+
+impl From<SealedTargetSystemMethod> for TargetSystemMethod {
+    fn from(method: SealedTargetSystemMethod) -> Self {
+        match method {
+            SealedTargetSystemMethod::Automatic => Self::Automatic,
+            SealedTargetSystemMethod::Manual => Self::Manual,
+        }
+    }
 }
 
 impl From<SealedTargetSystemKind> for TargetSystemKind {

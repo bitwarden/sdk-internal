@@ -10,23 +10,26 @@ use bitwarden_core::{
     key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, IdentifyKey, KeyStore, KeyStoreContext};
+use bitwarden_crypto::{
+    CryptoError, Decryptable, EncString, IdentifyKey, KeyStore, KeyStoreContext, safe::DataEnvelope,
+};
 use bitwarden_error::bitwarden_error;
 use bitwarden_pam_sealed::{
-    SealedPasswordPolicy, SealedTargetSystemKind, SealedTargetSystemMethod, seal_target_system,
+    Sealed, SealedPasswordPolicy, SealedTargetSystemKind, SealedTargetSystemMethod,
+    TargetSystemSealedV1, seal_target_system, unseal_target_system,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
+use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     error::RotationError,
     models::{PasswordPolicy, TargetSystemKind, TargetSystemMethod, TargetSystemStatus},
-    seal::{target_system_sealed_data, unseal_target},
     validate::{RotationValidationError, validate_name},
 };
 use crate::TargetSystemId;
@@ -46,7 +49,8 @@ pub(crate) struct TargetSystem {
 }
 
 impl TargetSystem {
-    /// `organization_id` must be the queried id, not `response.organization_id`; see `seal`.
+    /// `organization_id` must be the queried id, not `response.organization_id`, or a hostile
+    /// server could pass off another organization's validly-sealed blob.
     pub(super) fn from_response(
         organization_id: OrganizationId,
         response: PamTargetSystemResponseModel,
@@ -71,6 +75,50 @@ impl TargetSystem {
             revision_date: require!(response.revision_date).parse()?,
         })
     }
+
+    /// Unseals the blob and checks it against this row's `id` and `method`. Any problem degrades
+    /// to `None` rather than failing, so one bad blob can't fail a `list`.
+    fn unseal(
+        &self,
+        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Option<TargetSystemSealedFields> {
+        if self.status == TargetSystemStatus::PendingSeal {
+            // Not sealed yet; expected, so not logged as a rejection.
+            return None;
+        }
+        self.try_unseal(key, ctx)
+            .inspect_err(|reason| tracing::debug!(reason, "PAM target system sealed blob rejected"))
+            .ok()
+    }
+
+    fn try_unseal(
+        &self,
+        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<TargetSystemSealedFields, &'static str> {
+        let sealed_data = self.sealed_data.as_deref().ok_or("missing blob")?;
+        let wrapped_key = self.wrapped_key.as_deref().ok_or("missing wrapped key")?;
+        let envelope: DataEnvelope = sealed_data.parse().map_err(|_| "malformed sealed data")?;
+        // Unknown formats parse as `Unparseable` and fail to unseal.
+        let wrapped_key = EncString::from(wrapped_key);
+
+        let unsealed = unseal_target_system::<KeySlotIds>(&envelope, &wrapped_key, &key, ctx)
+            .map_err(|_| "unseal failed")?;
+
+        if unsealed.target_system_id != Uuid::from(self.id) {
+            return Err("target_system_id mismatch");
+        }
+        if TargetSystemMethod::from(unsealed.method) != self.method {
+            return Err("method mismatch");
+        }
+
+        Ok(TargetSystemSealedFields {
+            kind: unsealed.kind.map(Into::into),
+            password_policy: unsealed.password_policy.into(),
+            supports_session_termination: unsealed.supports_session_termination,
+        })
+    }
 }
 
 impl IdentifyKey<SymmetricKeySlotId> for TargetSystem {
@@ -92,15 +140,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, TargetSystemView> for TargetSys
             name: self.name.clone(),
             method: self.method,
             status: self.status,
-            sealed: unseal_target(
-                self.sealed_data.as_deref(),
-                self.wrapped_key.as_deref(),
-                self.status,
-                self.id,
-                self.method,
-                key,
-                ctx,
-            ),
+            sealed: self.unseal(key, ctx),
             creation_date: self.creation_date,
             revision_date: self.revision_date,
         })
@@ -262,6 +302,30 @@ impl TryFrom<&TargetSystemCreateRequest> for PreparedTargetSystem {
             password_policy: request.password_policy().clone().into(),
             supports_session_termination: request.supports_session_termination(),
         })
+    }
+}
+
+impl PreparedTargetSystem {
+    /// Seals under `key`, binding the payload to `id` so a blob swapped from another target is
+    /// detected.
+    fn seal(
+        &self,
+        id: TargetSystemId,
+        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<Sealed, RotationError> {
+        if !ctx.has_symmetric_key(key) {
+            return Err(RotationError::MissingOrganizationKey);
+        }
+
+        let data = TargetSystemSealedV1 {
+            target_system_id: id.into(),
+            method: self.method,
+            kind: self.kind,
+            password_policy: self.password_policy.clone(),
+            supports_session_termination: self.supports_session_termination,
+        };
+        Ok(seal_target_system::<KeySlotIds>(data, &key, ctx)?)
     }
 }
 
@@ -474,20 +538,12 @@ impl TargetSystemsClient {
         prepared: &PreparedTargetSystem,
     ) -> Result<(), RotationError> {
         let sealed = {
-            let organization_key = SymmetricKeySlotId::Organization(organization_id);
             let mut ctx = self.key_store.context_mut();
-            if !ctx.has_symmetric_key(organization_key) {
-                return Err(RotationError::MissingOrganizationKey);
-            }
-
-            let data = target_system_sealed_data(
+            prepared.seal(
                 id,
-                prepared.method,
-                prepared.kind,
-                prepared.password_policy.clone(),
-                prepared.supports_session_termination,
-            );
-            seal_target_system::<KeySlotIds>(data, &organization_key, &mut ctx)?
+                SymmetricKeySlotId::Organization(organization_id),
+                &mut ctx,
+            )?
         };
 
         self.api_configurations

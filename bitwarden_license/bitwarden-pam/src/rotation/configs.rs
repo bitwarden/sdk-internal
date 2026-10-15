@@ -10,13 +10,18 @@ use bitwarden_core::{
     key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, IdentifyKey, KeyStore, KeyStoreContext};
-use bitwarden_pam_sealed::{Sealed, seal_rotation_config};
+use bitwarden_crypto::{
+    CryptoError, Decryptable, EncString, IdentifyKey, KeyStore, KeyStoreContext, safe::DataEnvelope,
+};
+use bitwarden_pam_sealed::{
+    RotationConfigSealedV1, Sealed, seal_rotation_config, unseal_rotation_config,
+};
 use bitwarden_vault::CipherId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
+use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -24,7 +29,6 @@ use super::{
     actions::{RotationConfigActions, rotation_config_actions},
     error::RotationError,
     models::{RotationJob, TargetSystemMethod, TargetSystemStatus},
-    seal::{rotation_config_sealed_data, unseal_config},
     target_systems::{TargetSystem, TargetSystemView},
     validate::{RotationValidationError, validate_config_request},
 };
@@ -53,7 +57,8 @@ pub(crate) struct RotationConfig {
 }
 
 impl RotationConfig {
-    /// `organization_id` must be the queried id, not `response.organization_id`; see `seal`.
+    /// `organization_id` must be the queried id, not `response.organization_id`, or a hostile
+    /// server could pass off another organization's validly-sealed blob.
     fn from_response(
         organization_id: OrganizationId,
         response: PamRotationConfigResponseModel,
@@ -92,6 +97,51 @@ impl RotationConfig {
             revision_date: require!(response.revision_date).parse()?,
         })
     }
+
+    /// Unseals the blob and checks it against this row's `target_system_id` and `cipher_id`. Any
+    /// problem degrades to `None` rather than failing, so one bad blob can't fail a `list`.
+    fn unseal(
+        &self,
+        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Option<RotationConfigSealedFields> {
+        self.try_unseal(key, ctx)
+            .inspect_err(|reason| {
+                tracing::debug!(
+                    config_id = %self.id,
+                    reason,
+                    "PAM rotation config sealed blob rejected"
+                )
+            })
+            .ok()
+    }
+
+    fn try_unseal(
+        &self,
+        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<RotationConfigSealedFields, &'static str> {
+        let sealed_data = self.sealed_data.as_deref().ok_or("missing blob")?;
+        let wrapped_key = self.wrapped_key.as_deref().ok_or("missing wrapped key")?;
+        let envelope: DataEnvelope = sealed_data.parse().map_err(|_| "malformed sealed data")?;
+        // Unknown formats parse as `Unparseable` and fail to unseal.
+        let wrapped_key = EncString::from(wrapped_key);
+
+        let unsealed = unseal_rotation_config::<KeySlotIds>(&envelope, &wrapped_key, &key, ctx)
+            .map_err(|_| "unseal failed")?;
+
+        if unsealed.target_system_id != Uuid::from(self.target_system_id) {
+            return Err("target_system_id mismatch");
+        }
+        if unsealed.cipher_id != Uuid::from(self.cipher_id) {
+            return Err("cipher_id mismatch");
+        }
+
+        Ok(RotationConfigSealedFields {
+            account_identity: unsealed.account_identity,
+            terminate_sessions: unsealed.terminate_sessions,
+        })
+    }
 }
 
 impl IdentifyKey<SymmetricKeySlotId> for RotationConfig {
@@ -114,15 +164,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, RotationConfigView> for Rotatio
             target_system_id: self.target_system_id,
             target_system_name: self.target_system_name.clone(),
             target_system_method: self.target_system_method,
-            sealed: unseal_config(
-                self.sealed_data.as_deref(),
-                self.wrapped_key.as_deref(),
-                self.id,
-                self.target_system_id,
-                self.cipher_id.into(),
-                key,
-                ctx,
-            ),
+            sealed: self.unseal(key, ctx),
             schedule_cron: self.schedule_cron.clone(),
             rotate_on_access_end: self.rotate_on_access_end,
             enabled: self.enabled,
@@ -310,6 +352,39 @@ impl ValidatedRotationConfig {
     fn request(&self) -> &RotationConfigCreateRequest {
         &self.0
     }
+
+    /// Seals under `key`. Refuses `terminate_sessions` unless `target` supports it, and binds the
+    /// payload to the target and cipher ids.
+    fn seal(
+        &self,
+        target: &TargetSystemView,
+        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<Sealed, RotationError> {
+        let request = self.request();
+        // The target is fetched by the config's `target_system_id`, so a mismatch is a bug.
+        debug_assert_eq!(target.id, request.target_system_id);
+
+        let supports_termination = target
+            .sealed
+            .as_ref()
+            .and_then(|sealed| sealed.supports_session_termination);
+        if request.terminate_sessions && supports_termination != Some(true) {
+            return Err(RotationValidationError::SessionTerminationUnsupported.into());
+        }
+
+        if !ctx.has_symmetric_key(key) {
+            return Err(RotationError::MissingOrganizationKey);
+        }
+
+        let data = RotationConfigSealedV1 {
+            target_system_id: request.target_system_id.into(),
+            cipher_id: request.cipher_id.into(),
+            account_identity: request.account_identity.clone(),
+            terminate_sessions: request.terminate_sessions,
+        };
+        Ok(seal_rotation_config::<KeySlotIds>(data, &key, ctx)?)
+    }
 }
 
 impl TryFrom<RotationConfigCreateRequest> for ValidatedRotationConfig {
@@ -380,7 +455,14 @@ impl RotationConfigsClient {
             .verified_target(organization_id, config.request().target_system_id)
             .await?;
 
-        let sealed = self.seal(organization_id, &config, &target)?;
+        let sealed = {
+            let mut ctx = self.key_store.context_mut();
+            config.seal(
+                &target,
+                SymmetricKeySlotId::Organization(organization_id),
+                &mut ctx,
+            )?
+        };
         let request = config.request();
         let response = self
             .api_configurations
@@ -424,7 +506,14 @@ impl RotationConfigsClient {
             .verified_target(organization_id, config.request().target_system_id)
             .await?;
 
-        let sealed = self.seal(organization_id, &config, &target)?;
+        let sealed = {
+            let mut ctx = self.key_store.context_mut();
+            config.seal(
+                &target,
+                SymmetricKeySlotId::Organization(organization_id),
+                &mut ctx,
+            )?
+        };
         let request = config.request();
         let response = self
             .api_configurations
@@ -444,47 +533,6 @@ impl RotationConfigsClient {
 
         let detail = RotationConfigDetail::from_response(organization_id, response)?;
         Ok(self.key_store.decrypt(&detail)?)
-    }
-
-    /// Seals the config's security-relevant fields under the organization key.
-    ///
-    /// Takes a validated request and a verified target, so neither check can be skipped before
-    /// sealing. `terminate_sessions` is checked here since it needs the target's sealed fields.
-    fn seal(
-        &self,
-        organization_id: OrganizationId,
-        config: &ValidatedRotationConfig,
-        target: &TargetSystemView,
-    ) -> Result<Sealed, RotationError> {
-        let request = config.request();
-        // The target is fetched by the config's `target_system_id`, so a mismatch is a bug.
-        debug_assert_eq!(target.id, request.target_system_id);
-
-        let supports_termination = target
-            .sealed
-            .as_ref()
-            .and_then(|sealed| sealed.supports_session_termination);
-        if request.terminate_sessions && supports_termination != Some(true) {
-            return Err(RotationValidationError::SessionTerminationUnsupported.into());
-        }
-
-        let organization_key = SymmetricKeySlotId::Organization(organization_id);
-        let mut ctx = self.key_store.context_mut();
-        if !ctx.has_symmetric_key(organization_key) {
-            return Err(RotationError::MissingOrganizationKey);
-        }
-
-        let data = rotation_config_sealed_data(
-            request.target_system_id,
-            request.cipher_id.into(),
-            request.account_identity.clone(),
-            request.terminate_sessions,
-        );
-        Ok(seal_rotation_config::<KeySlotIds>(
-            data,
-            &organization_key,
-            &mut ctx,
-        )?)
     }
 
     /// The target must exist with verified sealed fields, unless still `PendingSeal`.
@@ -1664,8 +1712,12 @@ mod tests {
         };
         let config = ValidatedRotationConfig::try_from(create_request()).expect("a valid request");
 
-        let result =
-            client(ApiClient::new_mocked(|_| {})).seal(organization_id(), &config, &target);
+        let client = client(ApiClient::new_mocked(|_| {}));
+        let result = config.seal(
+            &target,
+            SymmetricKeySlotId::Organization(organization_id()),
+            &mut client.key_store.context_mut(),
+        );
 
         assert!(matches!(
             result,

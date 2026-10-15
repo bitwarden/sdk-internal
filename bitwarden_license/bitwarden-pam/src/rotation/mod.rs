@@ -17,7 +17,6 @@ mod error;
 mod models;
 mod registration;
 mod schedule;
-mod seal;
 mod target_systems;
 mod validate;
 
