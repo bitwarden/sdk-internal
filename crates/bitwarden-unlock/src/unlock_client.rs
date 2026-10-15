@@ -31,10 +31,12 @@ pub enum UnlockError {
     Unknown,
 }
 
-/// Client for minting session keys and unlocking the vault with one.
+/// Client for locking the vault in memory, and for minting session keys and unlocking the vault
+/// with one.
 #[derive(Clone)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
+#[bitwarden_ffi::wasm_object]
 pub struct UnlockClient {
-    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
     pub(crate) client: Client,
 }
 
@@ -178,7 +180,7 @@ impl UnlockClient {
     /// Invalidate the persisted session key, locking the vault for future invocations.
     ///
     /// Removes [`SESSION_PROTECTED_USER_KEY`] from the database. Distinct from
-    /// `lock()` on long-lived clients (mobile, desktop), which clears keys from memory: the
+    /// [`UnlockClient::lock`] on long-lived clients, which clears keys from memory: the
     /// CLI process exits between invocations, so locking must delete the persisted session
     /// key rather than mutate in-memory state.
     #[cfg(feature = "cli")]
@@ -192,6 +194,16 @@ impl UnlockClient {
     }
 }
 
+#[bitwarden_ffi::wasm_export]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
+impl UnlockClient {
+    /// Clear the in-memory user and organization keys, retaining the client instance so that a
+    /// later `initialize_user_crypto` re-unlocks it.
+    pub fn lock(&self) {
+        self.client.internal.get_key_store().clear();
+    }
+}
+
 /// Extension trait to add the unlock client to the main Bitwarden SDK client.
 pub trait UnlockClientExt {
     /// Get the unlock client.
@@ -201,6 +213,120 @@ pub trait UnlockClientExt {
 impl UnlockClientExt for Client {
     fn unlock(&self) -> UnlockClient {
         UnlockClient::new(self.clone())
+    }
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use bitwarden_core::{
+        Client, UserId,
+        key_management::{
+            KeySlotIds, SymmetricKeySlotId,
+            account_cryptographic_state::WrappedAccountCryptographicState,
+            crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
+        },
+    };
+    use bitwarden_crypto::{
+        CryptoError, Decryptable, EncString, Kdf, KeyStore, PrimitiveEncryptable,
+        SymmetricCryptoKey,
+    };
+
+    use super::*;
+
+    const PLAINTEXT: &str = "secret";
+
+    /// Mint a fresh `(user_key, account_crypto_state)` pair where the wrapped
+    /// state was sealed with `user_key`.
+    fn make_test_user_crypto() -> (SymmetricCryptoKey, WrappedAccountCryptographicState) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (user_key_id, crypto_state) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
+        #[allow(deprecated)]
+        let user_key = ctx
+            .dangerous_get_symmetric_key(user_key_id)
+            .unwrap()
+            .clone();
+        (user_key, crypto_state)
+    }
+
+    fn init_request(
+        user_key: &SymmetricCryptoKey,
+        crypto_state: &WrappedAccountCryptographicState,
+    ) -> InitUserCryptoRequest {
+        InitUserCryptoRequest {
+            user_id: Some(
+                "d5b1fde2-a1e3-4c5b-9e0f-1a2b3c4d5e6f"
+                    .parse::<UserId>()
+                    .unwrap(),
+            ),
+            kdf_params: Kdf::default_pbkdf2(),
+            email: "test@bitwarden.com".to_string(),
+            account_cryptographic_state: crypto_state.clone(),
+            method: InitUserCryptoMethod::DecryptedKey {
+                decrypted_user_key: user_key.to_base64().to_string(),
+            },
+            upgrade_token: None,
+        }
+    }
+
+    /// Build a client unlocked with a fresh user key, and a value encrypted with that key.
+    async fn unlocked_client() -> (Client, InitUserCryptoRequest, EncString) {
+        let (user_key, crypto_state) = make_test_user_crypto();
+        let client = Client::new_test(None);
+        client
+            .crypto()
+            .initialize_user_crypto(init_request(&user_key, &crypto_state))
+            .await
+            .unwrap();
+
+        let encrypted = {
+            let key_store = client.internal.get_key_store();
+            let mut ctx = key_store.context();
+            PLAINTEXT
+                .encrypt(&mut ctx, SymmetricKeySlotId::User)
+                .unwrap()
+        };
+
+        (client, init_request(&user_key, &crypto_state), encrypted)
+    }
+
+    fn decrypt_with_user_key(
+        client: &Client,
+        encrypted: &EncString,
+    ) -> Result<String, CryptoError> {
+        let key_store = client.internal.get_key_store();
+        let mut ctx = key_store.context();
+        encrypted.decrypt(&mut ctx, SymmetricKeySlotId::User)
+    }
+
+    #[tokio::test]
+    async fn lock_makes_crypto_operations_fail_as_uninitialized() {
+        let (client, _, encrypted) = unlocked_client().await;
+
+        client.unlock().lock();
+
+        let result = decrypt_with_user_key(&client, &encrypted);
+        assert!(
+            matches!(result, Err(CryptoError::MissingKeyId(_))),
+            "Decrypting after lock should fail with a missing key, got {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn initialize_user_crypto_after_lock_reunlocks_same_instance() {
+        let (client, request, encrypted) = unlocked_client().await;
+
+        client.unlock().lock();
+        client
+            .crypto()
+            .initialize_user_crypto(request)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            decrypt_with_user_key(&client, &encrypted).unwrap(),
+            PLAINTEXT
+        );
     }
 }
 
