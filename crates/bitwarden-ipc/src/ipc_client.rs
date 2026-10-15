@@ -61,7 +61,7 @@ where
 
     handlers: RpcHandlerRegistry,
     reassembler: Reassembler,
-    incoming: Mutex<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
+    incoming: Mutex<Option<tokio::sync::broadcast::WeakSender<IncomingMessage>>>,
     cancellation_token: Mutex<Option<CancellationToken>>,
 }
 
@@ -139,13 +139,13 @@ where
             .replace(cancellation_token.clone());
 
         let com_receiver = self.inner.communication.subscribe().await;
-        let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
+        let (client_tx, _) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
 
         self.inner
             .incoming
             .lock()
             .expect("Failed to lock incoming mutex")
-            .replace(client_rx);
+            .replace(client_tx.downgrade());
 
         let inner = self.inner.clone();
         let future = async move {
@@ -164,9 +164,8 @@ where
                                 if message.topic.as_deref() == Some(RPC_REQUEST_PAYLOAD_TYPE_NAME) {
                                     handle_rpc_request(&inner, message);
                                 } else if client_tx.send(message).is_err() {
-                                    tracing::error!("Failed to save incoming message");
-                                    break;
-                                };
+                                    tracing::debug!("No subscriptions for incoming message, dropping it");
+                                }
                             }
                             Err(error) if matches!(error.kind(), ErrorKind::Fatal) => {
                                 tracing::error!(?error, "Fatal error receiving message, stopping IPC client");
@@ -195,8 +194,7 @@ where
             .lock()
             .expect("Failed to lock incoming mutex")
             .as_ref()
-            .map(|receiver| !receiver.is_closed())
-            .unwrap_or(false);
+            .is_some_and(|sender| sender.strong_count() > 0);
         let has_cancellation_token = self
             .inner
             .cancellation_token
@@ -253,8 +251,9 @@ where
                 .lock()
                 .expect("Failed to lock incoming mutex")
                 .as_ref()
+                .and_then(|sender| sender.upgrade())
                 .ok_or(SubscribeError::NotStarted)?
-                .resubscribe(),
+                .subscribe(),
             topic,
         })
     }
@@ -306,12 +305,15 @@ fn handle_rpc_request<Crypto, Com, Ses>(
             incoming_message: IncomingMessage,
             handlers: &RpcHandlerRegistry,
         ) -> Result<OutgoingMessage, HandleError> {
-            let request = RpcRequestPayload::from_slice(incoming_message.payload.clone()).map_err(
+            let IncomingMessage {
+                payload, source, ..
+            } = incoming_message;
+            let request = RpcRequestPayload::from_slice(payload).map_err(
                 |e: serde_utils::DeserializeError| HandleError::Deserialize(e.to_string()),
             )?;
 
             let info = RpcRequestInfo {
-                source: incoming_message.source.clone(),
+                source: source.clone(),
             };
             let response = handlers.handle(&request, info).await;
 
@@ -338,7 +340,7 @@ fn handle_rpc_request<Crypto, Com, Ses>(
 
             Ok(OutgoingMessage {
                 payload,
-                destination: incoming_message.source.into(),
+                destination: source.into(),
                 topic: Some(request.response_topic().to_owned()),
             })
         }
@@ -346,9 +348,10 @@ fn handle_rpc_request<Crypto, Com, Ses>(
         match handle(incoming_message, &inner.handlers).await {
             Ok(outgoing_message) => {
                 // Send through the client, so the response is fragmented like any other message.
-                let result = IpcClientImpl { inner }.send(outgoing_message).await;
-                if result.is_err() {
-                    tracing::error!("Failed to send response message");
+                match (IpcClientImpl { inner }).send(outgoing_message).await {
+                    // A requester that went away is an expected condition and not logged.
+                    Ok(()) | Err(SendError::Unreachable) => {}
+                    Err(error) => tracing::error!(%error, "Failed to send response message"),
                 }
             }
             Err(error) => {
@@ -585,6 +588,45 @@ mod tests {
         let received_message = subscription.receive(None).await.unwrap();
 
         assert_eq!(received_message, message);
+    }
+
+    #[tokio::test]
+    async fn channel_keeps_no_message_every_subscription_has_received() {
+        let message = IncomingMessage {
+            payload: vec![1, 2, 3],
+            source: Source::DesktopMain,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            topic: Some("topic".to_owned()),
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let client = IpcClientImpl::new(
+            NoEncryptionCryptoProvider,
+            communication_provider.clone(),
+            InMemorySessionRepository::new(HashMap::new()),
+        );
+        let _ = client.start(None).await;
+        let queued = || {
+            client
+                .inner
+                .incoming
+                .lock()
+                .unwrap()
+                .as_ref()
+                .and_then(|sender| sender.upgrade())
+                .expect("Client should be running")
+                .len()
+        };
+
+        // Without subscriptions, the message is dropped and the client keeps running.
+        communication_provider.push_incoming(message.clone());
+        sleep(Duration::from_millis(50)).await;
+        assert_eq!(queued(), 0);
+        assert!(client.is_running());
+
+        let mut subscription = client.subscribe(None).await.unwrap();
+        communication_provider.push_incoming(message.clone());
+        assert_eq!(subscription.receive(None).await.unwrap(), message);
+        assert_eq!(queued(), 0);
     }
 
     #[tokio::test]
@@ -1437,6 +1479,44 @@ mod tests {
             assert_eq!(outgoing_messages[0].topic, Some(response_topic));
             assert_eq!(outgoing_response.request_type, "TestRequest");
             assert_eq!(outgoing_response.result, Ok(response));
+        }
+
+        #[tokio::test]
+        async fn ipc_client_stops_if_rpc_response_send_returns_fatal_error() {
+            let request = RpcRequestMessage {
+                request: TestRequest { a: 1, b: 2 },
+                request_id: "request".to_string(),
+                request_type: "TestRequest".to_string(),
+                response_topic: "RpcResponseMessage:request".to_string(),
+            };
+            let crypto_provider = TestCryptoProvider {
+                send_result: Some(Err(TestCryptoError {
+                    message: "Crypto error".to_string(),
+                    fatal: true,
+                })),
+                receive_result: Some(Ok(IncomingMessage {
+                    payload: serde_utils::to_vec(&request).expect("Serialization should not fail"),
+                    source: Source::Web {
+                        tab_id: 9001,
+                        document_id: "doc-1".to_string(),
+                        origin: "https://example.com".to_string(),
+                    },
+                    destination: Endpoint::BrowserBackground { id: HostId::Own },
+                    topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
+                })),
+            };
+            let client = IpcClientImpl::new(
+                crypto_provider,
+                TestCommunicationBackend::new(),
+                TestSessionRepository::new(HashMap::new()),
+            );
+            client.register_rpc_handler(TestHandler).await;
+            let _ = client.start(None).await;
+
+            // Give the client some time to receive the request and fail to send the response
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            assert!(!client.is_running());
         }
 
         #[tokio::test]
