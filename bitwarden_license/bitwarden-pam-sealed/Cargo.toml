@@ -18,7 +18,6 @@ keywords.workspace = true
 bitwarden-commercial-marker = { workspace = true }
 bitwarden-crypto = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 

@@ -11,7 +11,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{CryptoError, Decryptable, IdentifyKey, KeyStore, KeyStoreContext};
-use bitwarden_pam_sealed::seal_rotation_config;
+use bitwarden_pam_sealed::{Sealed, seal_rotation_config};
 use bitwarden_vault::CipherId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,7 @@ pub(crate) struct RotationConfig {
     target_system_name: String,
     target_system_method: TargetSystemMethod,
     sealed_data: Option<String>,
+    wrapped_key: Option<String>,
     schedule_cron: Option<String>,
     rotate_on_access_end: bool,
     enabled: bool,
@@ -57,11 +58,12 @@ impl RotationConfig {
         organization_id: OrganizationId,
         response: PamRotationConfigResponseModel,
     ) -> Result<Self, RotationError> {
-        let sealed_data = if response.organization_id == Some(organization_id.into()) {
-            response.sealed_data
+        let (sealed_data, wrapped_key) = if response.organization_id == Some(organization_id.into())
+        {
+            (response.sealed_data, response.wrapped_key)
         } else {
             tracing::debug!("PAM rotation config organization_id mismatch");
-            None
+            (None, None)
         };
 
         Ok(Self {
@@ -72,6 +74,7 @@ impl RotationConfig {
             target_system_name: response.target_system_name.unwrap_or_default(),
             target_system_method: require!(response.target_system_method).into(),
             sealed_data,
+            wrapped_key,
             schedule_cron: response.schedule_cron,
             rotate_on_access_end: response.rotate_on_access_end.unwrap_or(false),
             enabled: response.enabled.unwrap_or(true),
@@ -113,6 +116,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, RotationConfigView> for Rotatio
             target_system_method: self.target_system_method,
             sealed: unseal_config(
                 self.sealed_data.as_deref(),
+                self.wrapped_key.as_deref(),
                 self.id,
                 self.target_system_id,
                 self.cipher_id.into(),
@@ -229,6 +233,7 @@ impl RotationConfigDetail {
                 target_system_name: response.target_system_name,
                 target_system_method: response.target_system_method,
                 sealed_data: response.sealed_data,
+                wrapped_key: response.wrapped_key,
                 schedule_cron: response.schedule_cron,
                 rotate_on_access_end: response.rotate_on_access_end,
                 next_rotation_at: response.next_rotation_at,
@@ -375,7 +380,7 @@ impl RotationConfigsClient {
             .verified_target(organization_id, config.request().target_system_id)
             .await?;
 
-        let sealed_data = self.seal(organization_id, &config, &target)?;
+        let sealed = self.seal(organization_id, &config, &target)?;
         let request = config.request();
         let response = self
             .api_configurations
@@ -386,7 +391,8 @@ impl RotationConfigsClient {
                 CreateRotationConfigRequestModel {
                     cipher_id: request.cipher_id.into(),
                     target_system_id: request.target_system_id.into(),
-                    sealed_data,
+                    sealed_data: sealed.envelope.to_string(),
+                    wrapped_key: sealed.wrapped_key.to_string(),
                     schedule_cron: request.schedule_cron.clone(),
                     rotate_on_access_end: Some(request.rotate_on_access_end),
                 },
@@ -418,7 +424,7 @@ impl RotationConfigsClient {
             .verified_target(organization_id, config.request().target_system_id)
             .await?;
 
-        let sealed_data = self.seal(organization_id, &config, &target)?;
+        let sealed = self.seal(organization_id, &config, &target)?;
         let request = config.request();
         let response = self
             .api_configurations
@@ -428,7 +434,8 @@ impl RotationConfigsClient {
                 organization_id.into(),
                 id.into(),
                 UpdateRotationConfigRequestModel {
-                    sealed_data,
+                    sealed_data: sealed.envelope.to_string(),
+                    wrapped_key: sealed.wrapped_key.to_string(),
                     schedule_cron: request.schedule_cron.clone(),
                     rotate_on_access_end: Some(request.rotate_on_access_end),
                 },
@@ -448,7 +455,7 @@ impl RotationConfigsClient {
         organization_id: OrganizationId,
         config: &ValidatedRotationConfig,
         target: &TargetSystemView,
-    ) -> Result<String, RotationError> {
+    ) -> Result<Sealed, RotationError> {
         let request = config.request();
         // The target is fetched by the config's `target_system_id`, so a mismatch is a bug.
         debug_assert_eq!(target.id, request.target_system_id);
@@ -613,7 +620,9 @@ mod tests {
         },
     };
     use bitwarden_core::key_management::create_test_crypto_with_user_and_org_key;
-    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{
+        EncString, SymmetricCryptoKey, SymmetricKeyAlgorithm, safe::DataEnvelope,
+    };
     use bitwarden_pam_sealed::{
         RotationConfigSealedV1, SealedPasswordPolicy, SealedTargetSystemKind,
         SealedTargetSystemMethod, TargetSystemSealedV1, seal_target_system, unseal_rotation_config,
@@ -671,7 +680,7 @@ mod tests {
     fn seal_config_with(
         organization_key: &SymmetricCryptoKey,
         data: RotationConfigSealedV1,
-    ) -> String {
+    ) -> Sealed {
         let store = create_test_crypto_with_user_and_org_key(
             SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
             organization_id(),
@@ -689,7 +698,7 @@ mod tests {
     fn seal_target_with(
         organization_key: &SymmetricCryptoKey,
         data: TargetSystemSealedV1,
-    ) -> String {
+    ) -> Sealed {
         let store = create_test_crypto_with_user_and_org_key(
             SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
             organization_id(),
@@ -736,6 +745,7 @@ mod tests {
     /// A payload with every optional field populated, so a test that clears one is unambiguous
     /// about which field it is exercising.
     fn sample_response(organization_key: &SymmetricCryptoKey) -> PamRotationConfigResponseModel {
+        let payload = seal_config_with(organization_key, sample_sealed_data());
         PamRotationConfigResponseModel {
             id: Some(config_id().into()),
             organization_id: Some(organization_id().into()),
@@ -743,7 +753,8 @@ mod tests {
             target_system_id: Some(target_system_id().into()),
             target_system_name: Some("Prod SQL".to_string()),
             target_system_method: Some(ApiTargetSystemMethod::Automatic),
-            sealed_data: Some(seal_config_with(organization_key, sample_sealed_data())),
+            sealed_data: Some(payload.envelope.to_string()),
+            wrapped_key: Some(payload.wrapped_key.to_string()),
             schedule_cron: Some("0 0 0 * * ?".to_string()),
             rotate_on_access_end: Some(true),
             next_rotation_at: Some("2026-02-02T00:00:00Z".to_string()),
@@ -773,6 +784,7 @@ mod tests {
             target_system_name: config.target_system_name,
             target_system_method: config.target_system_method,
             sealed_data: config.sealed_data,
+            wrapped_key: config.wrapped_key,
             schedule_cron: config.schedule_cron,
             rotate_on_access_end: config.rotate_on_access_end,
             next_rotation_at: config.next_rotation_at,
@@ -812,29 +824,31 @@ mod tests {
     fn terminable_target_response(
         organization_key: &SymmetricCryptoKey,
     ) -> PamTargetSystemResponseModel {
+        let payload = seal_target_with(
+            organization_key,
+            TargetSystemSealedV1 {
+                target_system_id: target_system_id().into(),
+                method: SealedTargetSystemMethod::Automatic,
+                kind: Some(SealedTargetSystemKind::Mssql),
+                password_policy: SealedPasswordPolicy {
+                    min_length: 14,
+                    max_length: 20,
+                    include_uppercase: true,
+                    include_lowercase: true,
+                    include_digits: true,
+                    include_symbols: false,
+                },
+                supports_session_termination: Some(true),
+            },
+        );
         PamTargetSystemResponseModel {
             id: Some(target_system_id().into()),
             organization_id: Some(organization_id().into()),
             name: Some("Prod SQL".to_string()),
             method: Some(ApiTargetSystemMethod::Automatic),
             status: Some(ApiTargetSystemStatus::Active),
-            sealed_data: Some(seal_target_with(
-                organization_key,
-                TargetSystemSealedV1 {
-                    target_system_id: target_system_id().into(),
-                    method: SealedTargetSystemMethod::Automatic,
-                    kind: Some(SealedTargetSystemKind::Mssql),
-                    password_policy: SealedPasswordPolicy {
-                        min_length: 14,
-                        max_length: 20,
-                        include_uppercase: true,
-                        include_lowercase: true,
-                        include_digits: true,
-                        include_symbols: false,
-                    },
-                    supports_session_termination: Some(true),
-                },
-            )),
+            sealed_data: Some(payload.envelope.to_string()),
+            wrapped_key: Some(payload.wrapped_key.to_string()),
             creation_date: Some("2026-01-01T00:00:00Z".to_string()),
             revision_date: Some("2026-01-01T00:00:00Z".to_string()),
             ..Default::default()
@@ -911,10 +925,18 @@ mod tests {
             },
         );
 
-        for sealed_data in [
-            Some("not a sealed blob".to_string()),
-            Some(wrong_cipher_blob),
-            None,
+        let sample = sample_response(&organization_key);
+        for (sealed_data, wrapped_key) in [
+            (
+                Some("not a sealed blob".to_string()),
+                sample.wrapped_key.clone(),
+            ),
+            (
+                Some(wrong_cipher_blob.envelope.to_string()),
+                Some(wrong_cipher_blob.wrapped_key.to_string()),
+            ),
+            (None, sample.wrapped_key.clone()),
+            (sample.sealed_data.clone(), None),
         ] {
             let store = create_test_crypto_with_user_and_org_key(
                 SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
@@ -925,6 +947,7 @@ mod tests {
 
             let response = PamRotationConfigResponseModel {
                 sealed_data,
+                wrapped_key,
                 ..sample_response(&organization_key)
             };
 
@@ -933,6 +956,29 @@ mod tests {
 
             assert_eq!(config.sealed, None);
         }
+    }
+
+    /// A wrapped key from a different seal of the same data can't open this envelope.
+    #[test]
+    fn a_wrapped_key_from_a_different_seal_degrades_to_no_sealed_fields() {
+        let organization_key = organization_key();
+        let store = create_test_crypto_with_user_and_org_key(
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            organization_id(),
+            organization_key.clone(),
+        );
+        let mut ctx = store.context_mut();
+
+        let other = seal_config_with(&organization_key, sample_sealed_data());
+        let response = PamRotationConfigResponseModel {
+            wrapped_key: Some(other.wrapped_key.to_string()),
+            ..sample_response(&organization_key)
+        };
+
+        let config =
+            config_view(organization_id(), response, &mut ctx).expect("the payload is valid");
+
+        assert_eq!(config.sealed, None);
     }
 
     /// A hostile server serves org B's item, with org B's validly-sealed blob, in org A's list.
@@ -959,7 +1005,8 @@ mod tests {
 
         let response = PamRotationConfigResponseModel {
             organization_id: Some(org_b.into()),
-            sealed_data: Some(org_b_blob),
+            sealed_data: Some(org_b_blob.envelope.to_string()),
+            wrapped_key: Some(org_b_blob.wrapped_key.to_string()),
             ..sample_response(&organization_key())
         };
 
@@ -1452,7 +1499,14 @@ mod tests {
                         );
                         let mut ctx = store.context_mut();
                         let unsealed = unseal_rotation_config::<KeySlotIds>(
-                            &request.sealed_data,
+                            &request
+                                .sealed_data
+                                .parse::<DataEnvelope>()
+                                .expect("sealedData is well-formed"),
+                            &request
+                                .wrapped_key
+                                .parse::<EncString>()
+                                .expect("wrappedKey is well-formed"),
                             &SymmetricKeySlotId::Organization(organization_id()),
                             &mut ctx,
                         )
@@ -1519,24 +1573,26 @@ mod tests {
                 mock.pam_access_connector_rotation_target_systems_api
                     .expect_get_all()
                     .returning(move |_org_id| {
-                        let response = PamTargetSystemResponseModel {
-                            sealed_data: Some(seal_target_with(
-                                &target_key,
-                                TargetSystemSealedV1 {
-                                    target_system_id: target_system_id().into(),
-                                    method: SealedTargetSystemMethod::Automatic,
-                                    kind: Some(SealedTargetSystemKind::Mssql),
-                                    password_policy: SealedPasswordPolicy {
-                                        min_length: 14,
-                                        max_length: 20,
-                                        include_uppercase: true,
-                                        include_lowercase: true,
-                                        include_digits: true,
-                                        include_symbols: false,
-                                    },
-                                    supports_session_termination: Some(false),
+                        let sealed = seal_target_with(
+                            &target_key,
+                            TargetSystemSealedV1 {
+                                target_system_id: target_system_id().into(),
+                                method: SealedTargetSystemMethod::Automatic,
+                                kind: Some(SealedTargetSystemKind::Mssql),
+                                password_policy: SealedPasswordPolicy {
+                                    min_length: 14,
+                                    max_length: 20,
+                                    include_uppercase: true,
+                                    include_lowercase: true,
+                                    include_digits: true,
+                                    include_symbols: false,
                                 },
-                            )),
+                                supports_session_termination: Some(false),
+                            },
+                        );
+                        let response = PamTargetSystemResponseModel {
+                            sealed_data: Some(sealed.envelope.to_string()),
+                            wrapped_key: Some(sealed.wrapped_key.to_string()),
                             ..terminable_target_response(&target_key)
                         };
                         Ok(target_systems_response(vec![response]))
@@ -1710,7 +1766,14 @@ mod tests {
                         );
                         let mut ctx = store.context_mut();
                         let unsealed = unseal_rotation_config::<KeySlotIds>(
-                            &request.sealed_data,
+                            &request
+                                .sealed_data
+                                .parse::<DataEnvelope>()
+                                .expect("sealedData is well-formed"),
+                            &request
+                                .wrapped_key
+                                .parse::<EncString>()
+                                .expect("wrappedKey is well-formed"),
                             &SymmetricKeySlotId::Organization(organization_id()),
                             &mut ctx,
                         )

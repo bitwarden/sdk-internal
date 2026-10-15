@@ -40,6 +40,7 @@ pub(crate) struct TargetSystem {
     method: TargetSystemMethod,
     status: TargetSystemStatus,
     sealed_data: Option<String>,
+    wrapped_key: Option<String>,
     creation_date: DateTime<Utc>,
     revision_date: DateTime<Utc>,
 }
@@ -50,11 +51,12 @@ impl TargetSystem {
         organization_id: OrganizationId,
         response: PamTargetSystemResponseModel,
     ) -> Result<Self, RotationError> {
-        let sealed_data = if response.organization_id == Some(organization_id.into()) {
-            response.sealed_data
+        let (sealed_data, wrapped_key) = if response.organization_id == Some(organization_id.into())
+        {
+            (response.sealed_data, response.wrapped_key)
         } else {
             tracing::debug!("PAM target system organization_id mismatch");
-            None
+            (None, None)
         };
 
         Ok(Self {
@@ -64,6 +66,7 @@ impl TargetSystem {
             method: require!(response.method).into(),
             status: require!(response.status).into(),
             sealed_data,
+            wrapped_key,
             creation_date: require!(response.creation_date).parse()?,
             revision_date: require!(response.revision_date).parse()?,
         })
@@ -91,6 +94,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, TargetSystemView> for TargetSys
             status: self.status,
             sealed: unseal_target(
                 self.sealed_data.as_deref(),
+                self.wrapped_key.as_deref(),
                 self.status,
                 self.id,
                 self.method,
@@ -469,7 +473,7 @@ impl TargetSystemsClient {
         id: TargetSystemId,
         prepared: &PreparedTargetSystem,
     ) -> Result<(), RotationError> {
-        let sealed_data = {
+        let sealed = {
             let organization_key = SymmetricKeySlotId::Organization(organization_id);
             let mut ctx = self.key_store.context_mut();
             if !ctx.has_symmetric_key(organization_key) {
@@ -494,7 +498,8 @@ impl TargetSystemsClient {
                 id.into(),
                 UpdateTargetSystemRequestModel {
                     name: prepared.name.clone(),
-                    sealed_data,
+                    sealed_data: sealed.envelope.to_string(),
+                    wrapped_key: sealed.wrapped_key.to_string(),
                 },
             )
             .await?;
@@ -561,8 +566,12 @@ mod tests {
         },
     };
     use bitwarden_core::key_management::create_test_crypto_with_user_and_org_key;
-    use bitwarden_crypto::{KeyStoreContext, SymmetricCryptoKey, SymmetricKeyAlgorithm};
-    use bitwarden_pam_sealed::{SealedPasswordPolicy, TargetSystemSealedV1, unseal_target_system};
+    use bitwarden_crypto::{
+        EncString, KeyStoreContext, SymmetricCryptoKey, SymmetricKeyAlgorithm, safe::DataEnvelope,
+    };
+    use bitwarden_pam_sealed::{
+        Sealed, SealedPasswordPolicy, TargetSystemSealedV1, unseal_target_system,
+    };
     use uuid::{Uuid, uuid};
 
     use super::*;
@@ -626,7 +635,7 @@ mod tests {
     }
 
     /// `organization_key` is the key `client()` installs for `organization_id()`.
-    fn seal_with(organization_key: &SymmetricCryptoKey, data: TargetSystemSealedV1) -> String {
+    fn seal_with(organization_key: &SymmetricCryptoKey, data: TargetSystemSealedV1) -> Sealed {
         let store = create_test_crypto_with_user_and_org_key(
             SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
             organization_id(),
@@ -675,13 +684,15 @@ mod tests {
     /// An automatic, sealed, active target with every field populated, so a test that clears one
     /// is unambiguous about which field it is exercising.
     fn sample_response(organization_key: &SymmetricCryptoKey) -> PamTargetSystemResponseModel {
+        let payload = seal_with(organization_key, sample_sealed_data());
         PamTargetSystemResponseModel {
             id: Some(target_system_id().into()),
             organization_id: Some(organization_id().into()),
             name: Some("Prod SQL".to_string()),
             method: Some(ApiTargetSystemMethod::Automatic),
             status: Some(ApiTargetSystemStatus::Active),
-            sealed_data: Some(seal_with(organization_key, sample_sealed_data())),
+            sealed_data: Some(payload.envelope.to_string()),
+            wrapped_key: Some(payload.wrapped_key.to_string()),
             creation_date: Some("2026-01-01T00:00:00Z".to_string()),
             revision_date: Some("2026-01-15T00:00:00Z".to_string()),
             ..Default::default()
@@ -766,11 +777,22 @@ mod tests {
             },
         );
 
-        for sealed_data in [
-            Some("not a sealed blob".to_string()),
-            Some(other_target_blob),
-            Some(wrong_method_blob),
-            None,
+        let sample = sample_response(&organization_key);
+        for (sealed_data, wrapped_key) in [
+            (
+                Some("not a sealed blob".to_string()),
+                sample.wrapped_key.clone(),
+            ),
+            (
+                Some(other_target_blob.envelope.to_string()),
+                Some(other_target_blob.wrapped_key.to_string()),
+            ),
+            (
+                Some(wrong_method_blob.envelope.to_string()),
+                Some(wrong_method_blob.wrapped_key.to_string()),
+            ),
+            (None, sample.wrapped_key.clone()),
+            (sample.sealed_data.clone(), None),
         ] {
             let store = create_test_crypto_with_user_and_org_key(
                 SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
@@ -781,6 +803,7 @@ mod tests {
 
             let response = PamTargetSystemResponseModel {
                 sealed_data,
+                wrapped_key,
                 ..sample_response(&organization_key)
             };
 
@@ -789,6 +812,29 @@ mod tests {
 
             assert_eq!(target.sealed, None, "for status {:?}", target.status);
         }
+    }
+
+    /// A wrapped key from a different seal of the same data can't open this envelope.
+    #[test]
+    fn a_wrapped_key_from_a_different_seal_degrades_to_no_sealed_fields() {
+        let organization_key = organization_key();
+        let store = create_test_crypto_with_user_and_org_key(
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            organization_id(),
+            organization_key.clone(),
+        );
+        let mut ctx = store.context_mut();
+
+        let other = seal_with(&organization_key, sample_sealed_data());
+        let response = PamTargetSystemResponseModel {
+            wrapped_key: Some(other.wrapped_key.to_string()),
+            ..sample_response(&organization_key)
+        };
+
+        let target =
+            target_view(organization_id(), response, &mut ctx).expect("the payload is valid");
+
+        assert_eq!(target.sealed, None);
     }
 
     /// A hostile server serves org B's item, with org B's validly-sealed blob, in org A's list.
@@ -815,7 +861,8 @@ mod tests {
 
         let response = PamTargetSystemResponseModel {
             organization_id: Some(org_b.into()),
-            sealed_data: Some(org_b_blob),
+            sealed_data: Some(org_b_blob.envelope.to_string()),
+            wrapped_key: Some(org_b_blob.wrapped_key.to_string()),
             ..sample_response(&organization_key())
         };
 
@@ -1117,7 +1164,14 @@ mod tests {
                         );
                         let mut ctx = store.context_mut();
                         let unsealed = unseal_target_system::<KeySlotIds>(
-                            &request.sealed_data,
+                            &request
+                                .sealed_data
+                                .parse::<DataEnvelope>()
+                                .expect("sealedData is well-formed"),
+                            &request
+                                .wrapped_key
+                                .parse::<EncString>()
+                                .expect("wrappedKey is well-formed"),
                             &SymmetricKeySlotId::Organization(organization_id()),
                             &mut ctx,
                         )
@@ -1316,7 +1370,14 @@ mod tests {
                         );
                         let mut ctx = store.context_mut();
                         let unsealed = unseal_target_system::<KeySlotIds>(
-                            &request.sealed_data,
+                            &request
+                                .sealed_data
+                                .parse::<DataEnvelope>()
+                                .expect("sealedData is well-formed"),
+                            &request
+                                .wrapped_key
+                                .parse::<EncString>()
+                                .expect("wrappedKey is well-formed"),
                             &SymmetricKeySlotId::Organization(organization_id()),
                             &mut ctx,
                         )

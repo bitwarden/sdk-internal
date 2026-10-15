@@ -1254,7 +1254,6 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-generators",
  "serde",
- "serde_json",
  "thiserror",
  "uuid",
 ]

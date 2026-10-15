@@ -1,8 +1,7 @@
 use bitwarden_access_token::AccessTokenError;
 use bitwarden_core::{ApiError, MissingFieldError};
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{CryptoError, safe::DataEnvelopeError};
 use bitwarden_error::bitwarden_error;
-use bitwarden_pam_sealed::SealedDataError;
 use thiserror::Error;
 
 use super::validate::RotationValidationError;
@@ -36,7 +35,7 @@ pub enum RotationError {
     AccessToken(#[from] AccessTokenError),
     /// Sealing a blob failed. Unsealing failures degrade to `None` instead.
     #[error(transparent)]
-    Sealed(#[from] SealedDataError),
+    Sealed(#[from] DataEnvelopeError),
     /// The named target system does not exist in this organization.
     #[error("Target system not found")]
     TargetSystemNotFound,

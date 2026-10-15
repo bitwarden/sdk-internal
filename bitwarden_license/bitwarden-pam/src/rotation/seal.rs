@@ -5,8 +5,10 @@
 //! queried under, never one echoed by the server, or a hostile server could pass off another
 //! organization's validly-sealed blob.
 
+use std::str::FromStr;
+
 use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-use bitwarden_crypto::KeyStoreContext;
+use bitwarden_crypto::{EncString, KeyStoreContext, safe::DataEnvelope};
 use bitwarden_pam_sealed::{
     RotationConfigSealedV1, SealedTargetSystemMethod, TargetSystemSealedV1, unseal_rotation_config,
     unseal_target_system,
@@ -23,6 +25,7 @@ use crate::{RotationConfigId, TargetSystemId};
 /// Unseals a target system's blob and checks it against the row's plaintext `id` and `method`.
 pub(super) fn unseal_target(
     sealed_data: Option<&str>,
+    wrapped_key: Option<&str>,
     status: TargetSystemStatus,
     target_system_id: TargetSystemId,
     method: TargetSystemMethod,
@@ -39,11 +42,19 @@ pub(super) fn unseal_target(
         return None;
     }
 
-    let Some(blob) = sealed_data else {
+    let Some(sealed_data) = sealed_data else {
         return invalid("missing blob");
     };
+    let Some(wrapped_key) = wrapped_key else {
+        return invalid("missing wrapped key");
+    };
+    let Ok(envelope) = DataEnvelope::from_str(sealed_data) else {
+        return invalid("malformed sealed data");
+    };
+    // Unknown formats parse as `Unparseable` and fail to unseal.
+    let wrapped_key = EncString::from(wrapped_key);
 
-    let unsealed = match unseal_target_system::<KeySlotIds>(blob, &key, ctx) {
+    let unsealed = match unseal_target_system::<KeySlotIds>(&envelope, &wrapped_key, &key, ctx) {
         Ok(unsealed) => unsealed,
         Err(_) => return invalid("unseal failed"),
     };
@@ -74,6 +85,7 @@ pub(super) fn unseal_target(
 /// `target_system_id` and `cipher_id`.
 pub(super) fn unseal_config(
     sealed_data: Option<&str>,
+    wrapped_key: Option<&str>,
     config_id: RotationConfigId,
     target_system_id: TargetSystemId,
     cipher_id: Uuid,
@@ -89,11 +101,19 @@ pub(super) fn unseal_config(
         None
     };
 
-    let Some(blob) = sealed_data else {
+    let Some(sealed_data) = sealed_data else {
         return invalid("missing blob");
     };
+    let Some(wrapped_key) = wrapped_key else {
+        return invalid("missing wrapped key");
+    };
+    let Ok(envelope) = DataEnvelope::from_str(sealed_data) else {
+        return invalid("malformed sealed data");
+    };
+    // Unknown formats parse as `Unparseable` and fail to unseal.
+    let wrapped_key = EncString::from(wrapped_key);
 
-    let unsealed = match unseal_rotation_config::<KeySlotIds>(blob, &key, ctx) {
+    let unsealed = match unseal_rotation_config::<KeySlotIds>(&envelope, &wrapped_key, &key, ctx) {
         Ok(unsealed) => unsealed,
         Err(_) => return invalid("unseal failed"),
     };

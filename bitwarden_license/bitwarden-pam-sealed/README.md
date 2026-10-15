@@ -22,8 +22,14 @@ pulling in the admin client.
 
 - [`TargetSystemSealedV1`] / [`RotationConfigSealedV1`]: the plaintext structs that get sealed.
 - [`seal_target_system`] / [`unseal_target_system`] and [`seal_rotation_config`] /
-  [`unseal_rotation_config`]: seal and unseal each type to/from an opaque string, generic over any
-  `Ids: KeySlotIds`.
+  [`unseal_rotation_config`]: seal and unseal each type, generic over any `Ids: KeySlotIds`.
+- [`Sealed`]: the result of sealing, a `DataEnvelope` plus its wrapped content key.
 - [`SealedPasswordPolicy::validate`]: the shared generator-validity check (length range plus at
   least one character class), so both the admin client and the connector agree on which policies the
   generator can satisfy.
+
+## Storage
+
+The server stores `sealedData` and `wrappedKey` separately so org-key rotation re-wraps only the key
+(don't bundle them like vault's `SealedCipherBlob`). Both strings are self-describing, so there is
+no format version.
