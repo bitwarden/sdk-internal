@@ -824,6 +824,8 @@ pub mod priority;
 pub use self::priority::Priority;
 pub mod private_keys_response_model;
 pub use self::private_keys_response_model::PrivateKeysResponseModel;
+pub mod privileged_controls_invoice_items;
+pub use self::privileged_controls_invoice_items::PrivilegedControlsInvoiceItems;
 pub mod product_tier_type;
 pub use self::product_tier_type::ProductTierType;
 pub mod profile_organization_response_model;
