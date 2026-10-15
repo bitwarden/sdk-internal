@@ -38,7 +38,8 @@ impl ImporterClient {
 
     /// Asks 1Password how the account signs in: with the password and Secret Key, with SSO, or
     /// either. It needs only the email and the sign-in address, so the UI can call it before asking
-    /// for the password and Secret Key.
+    /// for the password and Secret Key. Fails with [`ImportError::OnePasswordInvalidEmail`] when
+    /// 1Password refuses the email as malformed.
     pub async fn onepassword_sign_in_methods(
         &self,
         username: String,

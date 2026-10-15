@@ -14,6 +14,7 @@ impl From<OnePasswordError> for ImportError {
     fn from(error: OnePasswordError) -> Self {
         match error {
             OnePasswordError::BadCredentials => ImportError::OnePasswordBadCredentials,
+            OnePasswordError::InvalidEmail => ImportError::OnePasswordInvalidEmail,
             OnePasswordError::InvalidSignInAddress(_) => {
                 ImportError::OnePasswordInvalidSignInAddress
             }
