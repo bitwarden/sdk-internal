@@ -2,6 +2,7 @@ import type {
   B64,
   CipherId,
   CollectionId,
+  EmergencyAccessId,
   EncString,
   FolderId,
   KeyId,
@@ -16,14 +17,18 @@ import type {
   Uuid,
 } from "@bitwarden/sdk-internal";
 
+import type { AccountId } from "../server-emulator/entities";
+
 const typeAssert = <T>(value: string): T => value as unknown as T;
 
 export const asCipherId = (value: string): CipherId => typeAssert(value);
 export const asFolderId = (value: string): FolderId => typeAssert(value);
 export const asSendId = (value: string): SendId => typeAssert(value);
 export const asUserId = (value: string): UserId => typeAssert(value);
+export const asAccountId = (value: string): AccountId => typeAssert(value);
 export const asCollectionId = (value: string): CollectionId => typeAssert(value);
 export const asOrganizationId = (value: string): OrganizationId => typeAssert(value);
+export const asEmergencyAccessId = (value: string): EmergencyAccessId => typeAssert(value);
 export const asPolicyId = (value: string): PolicyId => typeAssert(value);
 export const asKeyId = (value: string): KeyId => typeAssert(value);
 export const asEncString = (value: string): EncString => typeAssert(value);

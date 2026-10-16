@@ -20,7 +20,7 @@ use crate::{
 
 /// JavaScript wrapper around the IPC client. For more information, see the
 /// [`IpcClient`] trait documentation.
-#[wasm_bindgen(js_name = IpcClient)]
+#[bitwarden_ffi::wasm_object(js_name = IpcClient)]
 pub struct JsIpcClient {
     #[wasm_bindgen(skip)]
     /// The underlying IPC client instance. Use this to create WASM-compatible functions
@@ -32,7 +32,7 @@ pub struct JsIpcClient {
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
 /// [IpcClientSubscription](crate::IpcClientSubscription) documentation.
-#[wasm_bindgen(js_name = IpcClientSubscription)]
+#[bitwarden_ffi::wasm_object(js_name = IpcClientSubscription)]
 pub struct JsIpcClientSubscription {
     subscription: IpcClientSubscription,
 }

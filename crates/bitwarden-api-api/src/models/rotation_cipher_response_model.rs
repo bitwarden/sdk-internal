@@ -12,24 +12,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// RotationCipherResponseModel : The response to `GET
-/// access-connectors/rotation/attempts/{id}/cipher` -- purpose-built for the access connector's
-/// narrow read (only this access connector's claimed, executing attempt; see
-/// `GetRotationCipherQuery`), deliberately not the general `CipherResponseModel` (which is
-/// user-principal-bound).
+/// RotationCipherResponseModel : The cipher for an access connector's claimed, executing attempt.
+/// Not the general `CipherResponseModel`, which is bound to a user principal;
 /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.RotationCipherResponseModel.Data
-/// is the cipher's encrypted JSON blob exactly as stored -- opaque ciphertext the server never
-/// decrypts.
+/// is returned as stored and never decrypted.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RotationCipherResponseModel {
-    /// The cipher's unique identifier.
     #[serde(
         rename = "cipherId",
         alias = "CipherId",
         skip_serializing_if = "Option::is_none"
     )]
     pub cipher_id: Option<uuid::Uuid>,
-    /// The organization owning the cipher.
     #[serde(
         rename = "organizationId",
         alias = "OrganizationId",
@@ -42,19 +36,18 @@ pub struct RotationCipherResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub r#type: Option<models::CipherType>,
-    /// The cipher's encrypted JSON blob, verbatim -- opaque ciphertext.
+    /// The cipher's encrypted JSON, as stored.
     #[serde(
         rename = "data",
         alias = "Data",
         skip_serializing_if = "Option::is_none"
     )]
     pub data: Option<String>,
-    /// The cipher's own wrapped encryption key, when it has one -- opaque ciphertext. Null when
-    /// the cipher is encrypted under the organization key directly.
+    /// The cipher's own wrapped key. Null when the cipher is encrypted under the organization key
+    /// directly.
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    /// The cipher's current revision date (UTC) -- what the access connector sends back as its
-    /// last-known revision when writing the rotated secret.
+    /// Sent back as the last-known revision when writing the rotated secret.
     #[serde(
         rename = "revisionDate",
         alias = "RevisionDate",
@@ -64,13 +57,10 @@ pub struct RotationCipherResponseModel {
 }
 
 impl RotationCipherResponseModel {
-    /// The response to `GET access-connectors/rotation/attempts/{id}/cipher` -- purpose-built for
-    /// the access connector's narrow read (only this access connector's claimed, executing attempt;
-    /// see `GetRotationCipherQuery`), deliberately not the general `CipherResponseModel` (which is
-    /// user-principal-bound).
+    /// The cipher for an access connector's claimed, executing attempt. Not the general
+    /// `CipherResponseModel`, which is bound to a user principal;
     /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.RotationCipherResponseModel.
-    /// Data is the cipher's encrypted JSON blob exactly as stored -- opaque ciphertext the server
-    /// never decrypts.
+    /// Data is returned as stored and never decrypted.
     pub fn new() -> RotationCipherResponseModel {
         RotationCipherResponseModel {
             cipher_id: None,
