@@ -5,7 +5,10 @@ use thiserror::Error;
 
 use crate::{
     any_map::AnyMap,
-    persisted_value::{PersistedValue, PersistedValueKey},
+    persist::Persist,
+    persisted_value::{
+        PersistedValue, PersistedValueError, PersistedValueKey, PersistedValueTrait,
+    },
     repository::{Repository, RepositoryItem, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
 };
@@ -15,6 +18,7 @@ use crate::{
 pub struct StateRegistry {
     database: SystemDatabase,
     client_managed: AnyMap,
+    client_managed_values: AnyMap<&'static str>,
     /// Dev-only index of per-type get/set/list shims backing the generic debug
     /// browse. Populated at registration (both client- and SDK-managed), where
     /// the concrete type is known. See [`crate::debug`].
@@ -45,6 +49,7 @@ impl StateRegistry {
         StateRegistry {
             database: SystemDatabase::Memory(MemoryDatabase::new()),
             client_managed: AnyMap::new(),
+            client_managed_values: AnyMap::new(),
             #[cfg(feature = "debug-capabilities")]
             debug: crate::debug::DebugRegistry::new(),
         }
@@ -59,6 +64,7 @@ impl StateRegistry {
         let registry = StateRegistry {
             database,
             client_managed: AnyMap::new(),
+            client_managed_values: AnyMap::new(),
             #[cfg(feature = "debug-capabilities")]
             debug: crate::debug::DebugRegistry::new(),
         };
@@ -68,9 +74,34 @@ impl StateRegistry {
         Ok(registry)
     }
 
-    /// Get a handle to a persisted value by its type-safe key.
+    /// Get a handle to a persisted value by its type-safe key, preferring a client-managed backend
+    /// and falling back to SDK-managed storage.
+    ///
+    /// The handle resolves its backend now, so a client-managed backend registered afterwards is
+    /// not seen by it.
     pub fn value<K: PersistedValueKey>(&self) -> PersistedValue<K> {
-        PersistedValue::new(self.database.get_persisted_value::<K::Value>(K::NAME))
+        PersistedValue::new(self.value_backend::<K::Value>(K::NAME))
+    }
+
+    /// Registers a client-managed backend for the persisted value identified by `K`, replacing any
+    /// earlier registration.
+    pub fn register_client_managed_value<K: PersistedValueKey>(
+        &self,
+        value: impl Into<PersistedValue<K>>,
+    ) {
+        self.client_managed_values
+            .insert_at(K::NAME, value.into().backend);
+    }
+
+    fn value_backend<T: Persist>(&self, name: &'static str) -> Arc<dyn PersistedValueTrait<T>> {
+        match self
+            .client_managed_values
+            .get_at::<Arc<dyn PersistedValueTrait<T>>>(&name)
+        {
+            Some(Some(backend)) => backend,
+            Some(None) => Arc::new(MismatchedValueType(name)),
+            None => self.database.get_persisted_value::<T>(name),
+        }
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
@@ -117,13 +148,40 @@ impl StateRegistry {
     ///
     /// This closes the SDK-managed database and deletes persistent storage (SQLite file + WAL/SHM,
     /// IndexedDB database). Outstanding [`Repository`] handles will return
-    /// [`DatabaseError::Closed`] on subsequent operations. Client-managed repositories are also
-    /// cleared.
+    /// [`DatabaseError::Closed`] on subsequent operations. Client-managed repositories and
+    /// persisted values are also cleared.
     pub async fn wipe(&self) -> Result<(), DatabaseError> {
         // Clear client-managed first so a failure in the persistent-store wipe
         // still releases the in-memory Arc references.
         self.client_managed.clear();
+        self.client_managed_values.clear();
         self.database.wipe().await
+    }
+}
+
+/// Backend for a name that is client-managed under a different value type. Two keys sharing a name
+/// is a bug; failing keeps it from silently reading SDK-managed storage instead.
+struct MismatchedValueType(&'static str);
+
+impl MismatchedValueType {
+    fn error(&self) -> PersistedValueError {
+        PersistedValueError::Internal(format!(
+            "'{}' is client-managed with a different value type",
+            self.0
+        ))
+    }
+}
+
+#[async_trait::async_trait]
+impl<T: Persist> PersistedValueTrait<T> for MismatchedValueType {
+    async fn get(&self) -> Result<Option<T>, PersistedValueError> {
+        Err(self.error())
+    }
+    async fn set(&self, _value: T) -> Result<(), PersistedValueError> {
+        Err(self.error())
+    }
+    async fn remove(&self) -> Result<(), PersistedValueError> {
+        Err(self.error())
     }
 }
 
@@ -394,5 +452,119 @@ mod tests {
 
         let repo = registry.get_client_managed::<TestItem<usize>>().unwrap();
         assert_eq!(repo.get(String::new()).await.unwrap(), Some(TestItem(2)));
+    }
+
+    mod client_managed_values {
+        use std::sync::Mutex;
+
+        use super::*;
+        use crate::{persisted_value::PersistedValueError, register_persisted_value};
+
+        register_persisted_value!(THEME: String = "client_managed_test_theme");
+
+        struct MemoryValue(Mutex<Option<String>>);
+
+        impl MemoryValue {
+            fn with(value: &str) -> Arc<Self> {
+                Arc::new(Self(Mutex::new(Some(value.to_string()))))
+            }
+        }
+
+        #[async_trait::async_trait]
+        impl PersistedValueTrait<String> for MemoryValue {
+            async fn get(&self) -> Result<Option<String>, PersistedValueError> {
+                Ok(self.0.lock().unwrap().clone())
+            }
+            async fn set(&self, value: String) -> Result<(), PersistedValueError> {
+                *self.0.lock().unwrap() = Some(value);
+                Ok(())
+            }
+            async fn remove(&self) -> Result<(), PersistedValueError> {
+                *self.0.lock().unwrap() = None;
+                Ok(())
+            }
+        }
+
+        #[tokio::test]
+        async fn test_overrides_sdk_managed() {
+            let registry = StateRegistry::new_with_memory_db();
+            let backend = MemoryValue::with("client");
+            registry.register_client_managed_value::<THEME>(backend.clone());
+
+            assert_eq!(registry.value::<THEME>().get().await.unwrap(), "client");
+            registry
+                .value::<THEME>()
+                .set("updated".to_string())
+                .await
+                .unwrap();
+            assert_eq!(backend.0.lock().unwrap().as_deref(), Some("updated"));
+
+            // Nothing reached SDK-managed storage
+            assert_eq!(
+                registry
+                    .database
+                    .get_persisted_value::<String>(THEME::NAME)
+                    .get()
+                    .await
+                    .unwrap(),
+                None
+            );
+        }
+
+        #[tokio::test]
+        async fn test_unregistered_falls_back_to_sdk_managed() {
+            register_persisted_value!(OTHER: String = "client_managed_test_other");
+
+            let registry = StateRegistry::new_with_memory_db();
+            registry.register_client_managed_value::<THEME>(MemoryValue::with("client"));
+
+            let other = registry.value::<OTHER>();
+            other.set("sdk".to_string()).await.unwrap();
+            assert_eq!(
+                registry
+                    .database
+                    .get_persisted_value::<String>(OTHER::NAME)
+                    .get()
+                    .await
+                    .unwrap(),
+                Some("sdk".to_string())
+            );
+        }
+
+        #[tokio::test]
+        async fn test_same_name_with_other_type_fails() {
+            register_persisted_value!(AS_NUMBER: u32 = "client_managed_test_theme");
+
+            let registry = StateRegistry::new_with_memory_db();
+            registry.register_client_managed_value::<THEME>(MemoryValue::with("client"));
+
+            let error = registry.value::<AS_NUMBER>().try_get().await.unwrap_err();
+            assert!(matches!(error, PersistedValueError::Internal(_)));
+        }
+
+        #[tokio::test]
+        async fn test_handle_keeps_the_backend_it_was_built_with() {
+            let registry = StateRegistry::new_with_memory_db();
+            let before = registry.value::<THEME>();
+
+            registry.register_client_managed_value::<THEME>(MemoryValue::with("client"));
+
+            assert_eq!(before.try_get().await.unwrap(), None);
+            assert_eq!(registry.value::<THEME>().get().await.unwrap(), "client");
+        }
+
+        #[tokio::test]
+        async fn test_wipe_clears_client_managed_values() {
+            let registry = StateRegistry::new_with_memory_db();
+            registry.register_client_managed_value::<THEME>(MemoryValue::with("client"));
+
+            registry.wipe().await.unwrap();
+
+            // Falls through to SDK-managed storage, which is now closed
+            assert!(matches!(
+                registry.value::<THEME>().try_get().await,
+                Err(PersistedValueError::Closed)
+            ));
+        }
     }
 }
