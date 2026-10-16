@@ -328,12 +328,18 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             );
 
             match &remote.lock_state {
-                LockState::Locked => self
-                    .0
-                    .driver
-                    .lock_user(user_id)
-                    .await
-                    .inspect_err(|_| warn!(%user_id, "Failed to lock user"))?,
+                LockState::Locked => {
+                    // Relayed before the driver is called, because a client may reload inside
+                    // `lock_user` and never reach its next sync. E.g. the browser applies the
+                    // desktop's lock and reloads: its web vault must still be told. Fails closed if
+                    // the driver then errors: the followers lock, this device retries next sync.
+                    self.relay_user_state(user_id, &remote).await;
+                    self.0
+                        .driver
+                        .lock_user(user_id)
+                        .await
+                        .inspect_err(|_| warn!(%user_id, "Failed to lock user"))?
+                }
                 LockState::Unlocked { user_key } => self
                     .0
                     .driver
@@ -357,6 +363,22 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
     async fn sync_user(&self, user_id: UserId) {
         for target in self.sync_targets().await {
             self.sync_user_to(user_id, &target).await;
+        }
+    }
+
+    /// Sends a state to every peer this peer syncs with, without recording it. Used to pass a
+    /// peer's lock on before this device has applied it.
+    async fn relay_user_state(&self, user_id: UserId, state: &TimestampedLockState) {
+        for target in self.sync_targets().await {
+            if !self.may_sync_user_to(user_id, &target).await {
+                continue;
+            }
+
+            let message = SharedUnlockSync {
+                user_id,
+                state: state.clone(),
+            };
+            self.send_message(message, target.endpoint.clone()).await;
         }
     }
 
