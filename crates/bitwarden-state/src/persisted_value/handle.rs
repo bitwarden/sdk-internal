@@ -80,6 +80,14 @@ impl<K: PersistedValueKey> Clone for PersistedValue<K> {
     }
 }
 
+impl<K: PersistedValueKey, B: PersistedValueTrait<K::Value> + 'static> From<Arc<B>>
+    for PersistedValue<K>
+{
+    fn from(backend: Arc<B>) -> Self {
+        Self::new(backend)
+    }
+}
+
 impl<K: PersistedValueKey> PersistedValue<K> {
     /// Create a new persisted value handle from a backend.
     ///
