@@ -959,7 +959,7 @@ dependencies = [
  "bitwarden-vault",
  "chrono",
  "coset",
- "itertools 0.15.0",
+ "itertools 0.13.0",
  "p256 0.13.2",
  "passkey",
  "passkey-client",
