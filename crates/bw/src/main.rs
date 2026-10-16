@@ -120,7 +120,7 @@ async fn process_commands(command: Commands, session: Option<SessionKey>) -> Com
 
         // Vault commands
         Commands::List { .. } => todo!(),
-        Commands::Get { command } => command.run(),
+        Commands::Get { command } => command.run(ctx).await,
         Commands::Create { command } => command.run(),
         Commands::Edit { .. } => todo!(),
         Commands::Delete { .. } => todo!(),

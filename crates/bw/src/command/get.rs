@@ -2,9 +2,10 @@ use clap::Subcommand;
 
 use crate::{
     admin_console::{GetCollectionArgs, GetOrgCollectionArgs, GetOrganizationArgs},
+    client_state::{BwCommandExt, ClientContext},
     dirt::GetExposedArgs,
     platform::GetFingerprintArgs,
-    render::CommandOutput,
+    render::CommandResult,
     tools::GetSendArgs,
     vault::{
         GetAttachmentArgs, GetFolderArgs, GetItemArgs, GetNotesArgs, GetPasswordArgs, GetTotpArgs,
@@ -67,8 +68,10 @@ pub enum GetCommands {
 ///
 /// Sub-commands should delegate to team owned implementations.
 impl GetCommands {
-    pub fn run(&self) -> color_eyre::eyre::Result<CommandOutput> {
+    pub async fn run(self, ctx: ClientContext) -> CommandResult {
         match self {
+            GetCommands::Item(args) => args.dispatch(ctx).await,
+            GetCommands::Folder(args) => args.dispatch(ctx).await,
             GetCommands::Template { command } => command.run(),
             _ => todo!(),
         }

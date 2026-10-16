@@ -38,8 +38,8 @@ pub use cipher::{
     EncryptionContext, ListOrganizationCiphersResult,
 };
 pub use cipher_client::{
-    CiphersClient, GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError,
-    should_use_blob_encryption,
+    CiphersClient, GetAssignedOrgCiphersAdminError, GetCipherError,
+    GetOrganizationCiphersAdminError, should_use_blob_encryption,
 };
 pub use cipher_view_type::CipherViewType;
 pub use drivers_license::DriversLicenseView;
