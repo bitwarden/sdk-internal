@@ -166,16 +166,12 @@ sub-step, and session-renewal details.
 
 ### Exit codes
 
-| Code | Meaning                                                            |
-| ---- | ------------------------------------------------------------------ |
-| `0`  | Clean shutdown (SIGTERM or Ctrl-C received).                       |
-| `1`  | Startup error: invalid configuration, I/O error, or parse failure. |
-| `2`  | Access connector credential refused. An admin must reissue the     |
-|      | credential server-side (via `ReissueConnectorCredential`) and      |
-|      | restart the connector with the new token.                          |
-| `3`  | Access connector not eligible for rotation endpoints. Check:       |
-|      | connector record not revoked or disabled, organisation license     |
-|      | active, `UsePam` enabled.                                          |
+| Code | Meaning                                                                                                                                                                |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Clean shutdown (SIGTERM or Ctrl-C received).                                                                                                                           |
+| `1`  | Startup error: invalid configuration, I/O error, or parse failure.                                                                                                     |
+| `2`  | Access connector credential refused. An admin must reissue the credential server-side (via `ReissueConnectorCredential`) and restart the connector with the new token. |
+| `3`  | Access connector not eligible for rotation endpoints. Check: connector record not revoked or disabled, organisation license active, `UsePam` enabled.                  |
 
 ---
 
@@ -562,11 +558,3 @@ ABC_1234_…_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ABC_1234_…_CLIENT_ID=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
 ABC_1234_…_CLIENT_SECRET=<secret>
 ```
-
----
-
-## References
-
-- Plan: `~/.claude/plans/let-s-explore-implementing-the-spicy-sun.md`
-- Spec: `access-connector.allium`
-- Architecture: https://contributing.bitwarden.com/architecture/sdk/
