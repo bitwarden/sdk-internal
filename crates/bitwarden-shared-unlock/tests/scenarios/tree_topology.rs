@@ -318,3 +318,65 @@ async fn browser_relays_lock_before_dying_inside_it() {
     // 3. The web client must still receive the lock and settle locked, like the desktop.
     wait_for_devices_reaching_state(TargetLockState::Locked, &topology, &user).await;
 }
+
+/// A middle-tier browser relays the desktop's unlock to its web client before unlocking itself, so
+/// the web client unlocks even when the browser's process dies inside the unlock.
+///
+/// ```text
+/// web LOCKED --> UNLOCKED
+///    |
+/// browser LOCKED --> unlock starts --> process gone
+///    |
+/// desktop LOCKED --> UNLOCKED (manual)
+/// ```
+#[tokio::test]
+async fn browser_relays_unlock_before_dying_inside_it() {
+    let user = test_user(TestUserId::A);
+    let topology = SharedUnlockTopology::new(fast_timing());
+
+    let desktop = topology.add_device(
+        "desktop",
+        DeviceOptions::new(ClientType::Desktop, &[user.id]),
+    );
+    let browser = topology.add_device(
+        "browser",
+        DeviceOptions::new(ClientType::Browser, &[user.id])
+            .following(&desktop)
+            .with_vault_url(VAULT_URL)
+            .with_delays(LockDelays {
+                lock: Duration::ZERO,
+                unlock: GRACE,
+            }),
+    );
+    let _web = topology.add_device(
+        "web",
+        DeviceOptions::new(ClientType::Web, &[user.id])
+            .following(&browser)
+            .with_vault_url(VAULT_URL),
+    );
+    topology.start().await;
+
+    // 1. Unlock the desktop, and kill the browser as soon as it starts applying the unlock.
+    let unlocked_at = harness::now_ms();
+    desktop.manual_unlock(user.id, &user.key).await;
+    let browser_unlock_started = || {
+        !events_matching(&topology, |event| {
+            event.device() == "browser"
+                && event.kind() == Some("unlock_start")
+                && event.at >= unlocked_at
+        })
+        .is_empty()
+    };
+    let deadline = harness::now_ms() + 2_000;
+    while !browser_unlock_started() && harness::now_ms() < deadline {
+        bitwarden_threading::time::sleep(Duration::from_millis(1)).await;
+    }
+    assert!(
+        browser_unlock_started(),
+        "trigger not reached: the browser should have started applying the desktop's unlock"
+    );
+    browser.go_offline();
+
+    // 2. The web client must still receive the unlock and settle unlocked, like the desktop.
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology, &user).await;
+}
