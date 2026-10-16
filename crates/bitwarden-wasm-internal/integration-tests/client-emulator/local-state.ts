@@ -150,6 +150,7 @@ export class LocalState {
       organization_shared_key: null,
       send: null,
       policy: this.policies,
+      organization: null,
     });
 
     return client;

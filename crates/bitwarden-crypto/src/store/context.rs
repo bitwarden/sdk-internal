@@ -758,7 +758,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         key_id
     }
 
-    #[bitwarden_logging::instrument(err, fields(key = ?key))]
+    #[bitwarden_logging::instrument(err, level = "debug", fields(key = ?key))]
     pub(crate) fn decrypt_data_with_symmetric_key(
         &self,
         key: Ids::Symmetric,

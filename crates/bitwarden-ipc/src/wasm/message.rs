@@ -7,7 +7,7 @@ use crate::{
     message::{IncomingMessage, OutgoingMessage},
 };
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl OutgoingMessage {
     #[wasm_bindgen(constructor)]
     /// Create an outgoing IPC message from raw payload bytes.
@@ -38,7 +38,7 @@ impl OutgoingMessage {
     }
 }
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl IncomingMessage {
     #[wasm_bindgen(constructor)]
     /// Create an incoming IPC message from raw payload bytes.

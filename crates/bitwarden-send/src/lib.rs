@@ -11,6 +11,8 @@ pub use access::{
     SendAccessFileView, SendAccessKey, SendAccessKeyError, SendAccessResponse,
     SendAccessTextResponse, SendAccessTextView, SendAccessView, SendFileDownloadData,
 };
+mod receive_client;
+pub use receive_client::SendReceiveClient;
 mod send_client;
 pub use send_client::{
     SendClient, SendClientExt, SendDecryptError, SendDecryptFileError, SendEncryptError,

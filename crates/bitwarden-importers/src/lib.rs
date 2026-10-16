@@ -17,8 +17,8 @@ pub use importer_client::{ImporterClient, ImporterClientExt};
 mod importers;
 pub(crate) use importers::keeper;
 pub use importers::onepassword::access::{
-    Credentials, SignInAddress, SignInDomain, TotpResult as OnePasswordTotpResult,
-    TwoFactorUi as OnePasswordTwoFactorUi,
+    Credentials, SignInAddress, SignInDomain, SignInMethods as OnePasswordSignInMethods,
+    TotpResult as OnePasswordTotpResult, TwoFactorUi as OnePasswordTwoFactorUi,
     model::{ItemCategory, SkippedItem, SkippedReason, SkippedVault},
 };
 mod pipeline;
