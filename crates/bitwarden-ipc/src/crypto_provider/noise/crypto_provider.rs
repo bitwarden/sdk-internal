@@ -30,6 +30,11 @@ pub struct NoiseCryptoProvider {
     /// process-wide lock would let one client's handshake — which can wait
     /// [`HANDSHAKE_TIMEOUT_SECS`] for a reply — stall every other client's traffic.
     crypto_state_guard: tokio::sync::Mutex<()>,
+    /// Serializes read-modify-write of a session between `send` and the receive loop's handshake
+    /// responses, which `crypto_state_guard` does not cover. Never held across a network await:
+    /// a responder waiting on `crypto_state_guard` would block the `HandshakeFinish` its peer's
+    /// `send` is waiting for, while that peer's responder waits the same way.
+    session_write_guard: tokio::sync::Mutex<()>,
 }
 
 impl NoiseCryptoProvider {
@@ -88,6 +93,7 @@ fn transport_send_error<E: IpcErrorKind>(e: E) -> NoiseCryptoProviderError {
 
 impl NoiseCryptoProvider {
     async fn perform_handshake<Com, Ses>(
+        &self,
         communication: &Com,
         sessions: &Ses,
         destination: crate::endpoint::Endpoint,
@@ -154,13 +160,8 @@ impl NoiseCryptoProvider {
             // here, hence the double question mark.
         })??;
 
-        let crypto_state = NoiseCryptoProviderState {
-            state: (&mut initiator).into(),
-        };
-        sessions
-            .save(destination.clone(), crypto_state)
-            .await
-            .expect("Save session should not fail");
+        self.save_handshake_session(sessions, destination.clone(), (&mut initiator).into())
+            .await;
 
         info!(
             "Noise handshake with {:?} completed, session established",
@@ -168,6 +169,29 @@ impl NoiseCryptoProvider {
         );
 
         Ok(())
+    }
+}
+
+impl NoiseCryptoProvider {
+    /// Saves the session a handshake produced, keeping the one it replaces to receive on.
+    async fn save_handshake_session<Ses>(
+        &self,
+        sessions: &Ses,
+        endpoint: crate::endpoint::Endpoint,
+        state: PersistentTransportState,
+    ) where
+        Ses: SessionRepository<NoiseCryptoProviderState>,
+    {
+        let _session_write_guard = self.session_write_guard.lock().await;
+        let previous = sessions
+            .get(endpoint.clone())
+            .await
+            .expect("Get session should not fail")
+            .map(|replaced| replaced.state);
+        sessions
+            .save(endpoint, NoiseCryptoProviderState { state, previous })
+            .await
+            .expect("Save session should not fail");
     }
 }
 
@@ -182,6 +206,11 @@ const HANDSHAKE_TIMEOUT_SECS: u64 = 2;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NoiseCryptoProviderState {
     state: PersistentTransportState,
+    /// The session `state` replaced, kept only to receive on until `state` decrypts a frame. Two
+    /// peers that handshake toward each other at the same time each end up sending on their own
+    /// initiator session, so each must still receive on the responder session it replaced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    previous: Option<PersistentTransportState>,
 }
 
 impl<Com, Ses> CryptoProvider<Com, Ses> for NoiseCryptoProvider
@@ -243,20 +272,30 @@ where
             // unreachable case surfaces as `NoiseCryptoProviderError::TransportUnreachable`
             // (non-fatal), which the logging layers intentionally do not log — so it no longer
             // needs to be swallowed here to avoid spam.
-            Self::perform_handshake(communication, sessions, destination.clone()).await?;
+            self.perform_handshake(communication, sessions, destination.clone())
+                .await?;
         }
 
-        let mut crypto_state = sessions
-            .get(destination.clone())
-            .await
-            .expect("Get session should not fail")
-            .expect("Session should exist after handshake");
+        // Encrypt and persist the advanced nonce before sending, so a handshake response saved by
+        // the receive loop meanwhile is not overwritten with a stale copy.
+        let transport_frame = {
+            let _session_write_guard = self.session_write_guard.lock().await;
+            let mut crypto_state = sessions
+                .get(destination.clone())
+                .await
+                .expect("Get session should not fail")
+                .expect("Session should exist after handshake");
+            let transport_frame = crypto_state
+                .state
+                .send(message.payload.into())
+                .map_err(|_| NoiseCryptoProviderError::DecryptionFailure)?;
+            sessions
+                .save(destination.clone(), crypto_state)
+                .await
+                .expect("Save session should not fail");
+            transport_frame
+        };
 
-        // Encrypt and send the payload
-        let transport_frame = crypto_state
-            .state
-            .send(message.payload.into())
-            .map_err(|_| NoiseCryptoProviderError::DecryptionFailure)?;
         if let Err(e) = communication
             .send(OutgoingMessage {
                 payload: Frame::TransportFrame(transport_frame).to_cbor(),
@@ -305,11 +344,6 @@ where
             }
         }
 
-        sessions
-            .save(destination, crypto_state)
-            .await
-            .expect("Save session should not fail");
-
         Ok(())
     }
 
@@ -353,13 +387,8 @@ where
                         .await
                         .map_err(transport_send_error)?;
 
-                    let crypto_state = NoiseCryptoProviderState {
-                        state: (&mut responder).into(),
-                    };
-                    sessions
-                        .save(source_endpoint, crypto_state)
-                        .await
-                        .expect("Save session should not fail");
+                    self.save_handshake_session(sessions, source_endpoint, (&mut responder).into())
+                        .await;
                 }
                 Frame::TransportFrame(transport_frame) => {
                     let _crypto_state_guard = self.crypto_state_guard.lock().await;
@@ -381,7 +410,16 @@ where
                         continue;
                     };
 
-                    let payload = state.state.receive(&transport_frame);
+                    let payload = match state.state.receive(&transport_frame) {
+                        Ok(payload) => {
+                            state.previous = None;
+                            Ok(payload)
+                        }
+                        Err(error) => match state.previous.as_mut() {
+                            Some(previous) => previous.receive(&transport_frame),
+                            None => Err(error),
+                        },
+                    };
                     let Ok(payload) = payload else {
                         info!("Failed to decrypt message from {:?}", message.source);
                         continue;
@@ -501,5 +539,71 @@ mod tests {
         });
 
         let _ = tokio::join!(handle_1, handle_2);
+    }
+
+    /// Two peers with no session that send to each other at the same time each finish their own
+    /// handshake; every message sent afterwards must still be delivered.
+    #[tokio::test]
+    async fn concurrent_handshakes_deliver_messages() {
+        const ROUNDS: u8 = 5;
+        const RECEIVE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+        let (provider_1, provider_2) = TestTwoWayCommunicationBackend::new();
+
+        let client_1 = IpcClientImpl::new(
+            NoiseCryptoProvider::new(),
+            provider_1,
+            InMemorySessionRepository::new(HashMap::new()),
+        );
+        let _ = client_1.start(None).await;
+        let mut recv_1 = client_1.subscribe(None).await.unwrap();
+
+        let client_2 = IpcClientImpl::new(
+            NoiseCryptoProvider::new(),
+            provider_2,
+            InMemorySessionRepository::new(HashMap::new()),
+        );
+        let _ = client_2.start(None).await;
+        let mut recv_2 = client_2.subscribe(None).await.unwrap();
+
+        let message = |val: u8| OutgoingMessage {
+            payload: vec![val],
+            destination: Endpoint::DesktopMain,
+            topic: None,
+        };
+
+        // Both sides start a handshake toward each other before either has a session.
+        let (sent_1, sent_2) = tokio::join!(client_1.send(message(0)), client_2.send(message(100)));
+        assert!(
+            sent_1.is_ok() && sent_2.is_ok(),
+            "trigger not reached: both concurrent handshakes should complete ({sent_1:?}, {sent_2:?})"
+        );
+
+        // Every message sent after the concurrent handshake must arrive.
+        let mut delivered = 0;
+        for round in 1..=ROUNDS {
+            client_1.send(message(round)).await.unwrap();
+            client_2.send(message(100 + round)).await.unwrap();
+        }
+        for _ in 0..=ROUNDS {
+            if tokio::time::timeout(RECEIVE_TIMEOUT, recv_2.receive(None))
+                .await
+                .is_ok()
+            {
+                delivered += 1;
+            }
+            if tokio::time::timeout(RECEIVE_TIMEOUT, recv_1.receive(None))
+                .await
+                .is_ok()
+            {
+                delivered += 1;
+            }
+        }
+
+        assert_eq!(
+            delivered,
+            2 * (ROUNDS as usize + 1),
+            "every message sent over the concurrently established sessions should be delivered"
+        );
     }
 }
