@@ -119,8 +119,8 @@ pub struct InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
-    // TODO: Flags have been migrated to Setting but this will have to stay temporarily until the
-    // feature flags are removed.
+    // TODO: Flags have been migrated to PersistedValue but this will have to stay temporarily
+    // until the feature flags are removed.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
     pub(crate) state_registry: Arc<StateRegistry>,
 
@@ -140,12 +140,10 @@ impl InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) async fn get_login_method(&self) -> Option<UserLoginMethod> {
         self.state_registry
-            .setting(USER_LOGIN_METHOD)
-            .ok()?
+            .value::<USER_LOGIN_METHOD>()
             .get()
             .await
             .ok()
-            .flatten()
     }
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -153,9 +151,11 @@ impl InternalClient {
         match login_method {
             #[cfg(feature = "internal")]
             LoginMethod::User(lm) => {
-                if let Ok(setting) = self.state_registry.setting(USER_LOGIN_METHOD) {
-                    setting.update(lm).await.ok();
-                }
+                self.state_registry
+                    .value::<USER_LOGIN_METHOD>()
+                    .set(lm)
+                    .await
+                    .ok();
             }
             #[cfg(feature = "secrets")]
             LoginMethod::ServiceAccount(lm) => {
@@ -253,11 +253,7 @@ impl InternalClient {
         }
 
         #[cfg(feature = "internal")]
-        if let Ok(setting) = self.state_registry.setting(USER_ID)
-            && let Err(e) = setting.update(user_id).await
-        {
-            tracing::warn!("Failed to persist user_id: {e}");
-        }
+        let _ = self.state_registry.value::<USER_ID>().set(user_id).await;
 
         Ok(())
     }
@@ -489,16 +485,15 @@ mod tests {
         assert!(client.internal.init_user_id(user_id).await.is_ok());
         assert_eq!(client.internal.get_user_id(), Some(user_id));
 
-        // The user ID should be persisted to the settings repository.
+        // The user ID should be persisted to the state registry.
         let persisted = client
             .internal
             .state_registry
-            .setting(USER_ID)
-            .unwrap()
+            .value::<USER_ID>()
             .get()
             .await
             .unwrap();
-        assert_eq!(persisted, Some(user_id));
+        assert_eq!(persisted, user_id);
 
         // Trying to set the same user_id again should not return an error.
         assert!(client.internal.init_user_id(user_id).await.is_ok());

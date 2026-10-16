@@ -1085,8 +1085,8 @@ async fn require_premium(client: &PasswordManagerClient) -> color_eyre::eyre::Re
     let tokens = client
         .platform()
         .state()
-        .setting(AUTHENTICATION_TOKENS)?
-        .get()
+        .value::<AUTHENTICATION_TOKENS>()
+        .try_get()
         .await?
         .ok_or_else(|| eyre!("You must be logged in to create a file Send."))?;
 
