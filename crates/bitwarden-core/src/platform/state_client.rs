@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_state::{
-    Key, Persist, Setting, SettingsError,
+    PersistedValue, PersistedValueKey,
     registry::StateRegistryError,
     repository::{Repository, RepositoryItem},
 };
@@ -39,13 +39,13 @@ impl StateClient {
         self.client.internal.state_registry.get()
     }
 
-    /// Get a handle to a setting by its type-safe key.
+    /// Get a handle to a persisted value by its type-safe key.
     ///
-    /// Returns a [`Setting`] handle that can be used to get, update, or delete the value.
+    /// Returns a [`PersistedValue`] handle that can be used to get, update, or delete the value.
     ///
     /// # Example
     /// ```rust
-    /// use bitwarden_state::register_setting_key;
+    /// use bitwarden_state::register_persisted_value;
     /// use serde::{Deserialize, Serialize};
     ///
     /// #[derive(Serialize, Deserialize)]
@@ -53,15 +53,15 @@ impl StateClient {
     ///     theme: String,
     /// }
     ///
-    /// register_setting_key!(const CONFIG: AppConfig = "app_config");
+    /// register_persisted_value!(CONFIG: AppConfig = "app_config");
     ///
-    /// # async fn example(client: bitwarden_core::Client) -> Result<(), bitwarden_state::SettingsError> {
-    /// let setting = client.platform().state().setting(CONFIG)?;
-    /// let value: Option<AppConfig> = setting.get().await?;
+    /// # async fn example(client: bitwarden_core::Client) -> Result<(), bitwarden_state::PersistedValueError> {
+    /// let value = client.platform().state().value::<CONFIG>();
+    /// let config: Option<AppConfig> = value.try_get().await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn setting<T: Persist>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
-        Ok(self.client.internal.state_registry.setting(key)?)
+    pub fn value<K: PersistedValueKey>(&self) -> PersistedValue<K> {
+        self.client.internal.state_registry.value::<K>()
     }
 }

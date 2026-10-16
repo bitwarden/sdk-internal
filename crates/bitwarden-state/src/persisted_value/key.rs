@@ -1,18 +1,20 @@
-//! Type-safe keys for settings storage.
+//! Type-safe keys for persisted values storage.
 
-use std::marker::PhantomData;
+use super::Internal;
+use crate::Persist;
 
-/// Register a type-safe settings key.
+/// Register a type-safe persisted value key.
 ///
-/// This macro is the primary way to create settings keys. It associates
+/// This macro is the primary way to create persisted value keys. It associates
 /// a string key name with a value type at compile time.
 ///
 /// **Important:** The key name must be globally unique across the entire application.
-/// Using the same key name for different settings will cause conflicts.
+/// Using the same key name for different persisted values will cause conflicts. It may contain
+/// only ASCII letters and underscores, which is checked at compile time.
 ///
 /// # Example
 /// ```rust
-/// use bitwarden_state::register_setting_key;
+/// use bitwarden_state::register_persisted_value;
 /// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Serialize, Deserialize)]
@@ -21,26 +23,45 @@ use std::marker::PhantomData;
 ///     auto_save: bool,
 /// }
 ///
-/// register_setting_key!(pub const CONFIG: AppConfig = "app_config");
+/// register_persisted_value!(CONFIG: AppConfig = "app_config");
 /// ```
 #[macro_export]
-macro_rules! register_setting_key {
-    ($(#[$meta:meta])* $vis:vis const $name:ident: $ty:ty = $key:literal) => {
+macro_rules! register_persisted_value {
+    ($(#[$meta:meta])* $vis:vis $name:ident: $ty:ty = $key:literal) => {
+        // The key is a marker type named like a constant, and is never constructed.
         $(#[$meta])*
-        $vis const $name: $crate::persisted_value::Key<$ty> = $crate::persisted_value::Key::new($key);
+        #[allow(non_camel_case_types, dead_code, clippy::upper_case_acronyms)]
+        #[derive(Debug, Clone, Copy)]
+        $vis struct $name {}
+
+        const _: () = {
+            impl $crate::persisted_value::___internal::Internal for $name {}
+            impl $crate::persisted_value::PersistedValueKey for $name {
+                const NAME: &'static str = $key;
+                type Value = $ty;
+            }
+            assert!(
+                $crate::repository::validate_registry_name($key),
+                concat!(
+                    "Persisted value key '",
+                    $key,
+                    "' must contain only alphabetic characters and underscores"
+                )
+            )
+        };
     };
 }
 
-/// Type-safe key for settings storage.
+/// Type-safe key for persisted values storage.
 ///
 /// Associates a string key name with a value type at compile time,
 /// preventing type mismatches while maintaining ergonomic usage.
 ///
-/// Use the [`register_setting_key!`](crate::register_setting_key) macro to create keys.
+/// Use the [`register_persisted_value!`](crate::register_persisted_value) macro to create keys.
 ///
 /// # Example
 /// ```rust
-/// use bitwarden_state::register_setting_key;
+/// use bitwarden_state::register_persisted_value;
 /// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Serialize, Deserialize)]
@@ -49,21 +70,12 @@ macro_rules! register_setting_key {
 ///     auto_save: bool,
 /// }
 ///
-/// register_setting_key!(pub const CONFIG: AppConfig = "app_config");
+/// register_persisted_value!(CONFIG: AppConfig = "app_config");
 /// ```
-#[derive(Debug, Clone, Copy)]
-pub struct Key<T> {
-    pub(crate) name: &'static str,
-    _marker: PhantomData<T>,
-}
+pub trait PersistedValueKey: Internal + Send + Sync + 'static {
+    /// The key name the value is stored under.
+    const NAME: &'static str;
 
-impl<T> Key<T> {
-    /// Create a new type-safe key with the given storage name.
-    #[doc(hidden)]
-    pub const fn new(name: &'static str) -> Self {
-        Self {
-            name,
-            _marker: PhantomData,
-        }
-    }
+    /// The type stored under this key.
+    type Value: Persist;
 }

@@ -14,7 +14,7 @@ pub mod registry;
 #[cfg(feature = "debug-capabilities")]
 pub mod debug;
 
-/// Type-safe settings API for storing application configuration and state.
+/// Type-safe persisted values API for storing application configuration and state.
 pub mod persisted_value;
 
 pub(crate) mod any_map;
@@ -22,5 +22,7 @@ pub(crate) mod persist;
 pub(crate) mod sdk_managed;
 
 pub use persist::Persist;
-pub use persisted_value::{Key, Setting, SettingItem, SettingTrait, SettingsError};
+pub use persisted_value::{
+    PersistedValue, PersistedValueError, PersistedValueItem, PersistedValueKey, PersistedValueTrait,
+};
 pub use sdk_managed::{DatabaseConfiguration, DatabaseError};

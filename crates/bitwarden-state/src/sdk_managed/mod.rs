@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::{
     persist::Persist,
-    persisted_value::{SettingItem, SettingTrait, SettingsError},
+    persisted_value::{PersistedValueError, PersistedValueItem, PersistedValueTrait},
     repository::{Repository, RepositoryError, RepositoryItem, RepositoryMigrations},
 };
 
@@ -246,29 +246,41 @@ impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
     }
 }
 
-/// Stores a single setting in the `Setting` table, keyed by `name`, as the bare serialized value.
-struct DBSetting<T> {
+/// Stores a single persisted value in the `PersistedValue` table, keyed by `name`, as the bare
+/// serialized value.
+struct DBPersistedValue<T> {
     database: SystemDatabase,
     name: &'static str,
     _marker: std::marker::PhantomData<T>,
 }
 
 #[async_trait::async_trait]
-impl<T: Persist> SettingTrait<T> for DBSetting<T> {
-    async fn get(&self) -> Result<Option<T>, SettingsError> {
-        match self.database.get::<SettingItem>(self.name).await? {
-            Some(item) => Ok(Some(serde_json::from_value::<T>(item.0)?)),
+impl<T: Persist> PersistedValueTrait<T> for DBPersistedValue<T> {
+    // The serde messages can quote the stored value, so they are not propagated.
+    async fn get(&self) -> Result<Option<T>, PersistedValueError> {
+        match self.database.get::<PersistedValueItem>(self.name).await? {
+            Some(item) => Ok(Some(serde_json::from_value::<T>(item.0).map_err(|_| {
+                PersistedValueError::Internal(format!("Failed to deserialize '{}'", self.name))
+            })?)),
             None => Ok(None),
         }
     }
 
-    async fn set(&self, value: T) -> Result<(), SettingsError> {
-        let item = SettingItem(serde_json::to_value(&value)?);
-        Ok(self.database.set::<SettingItem>(self.name, item).await?)
+    async fn set(&self, value: T) -> Result<(), PersistedValueError> {
+        let item = PersistedValueItem(serde_json::to_value(&value).map_err(|_| {
+            PersistedValueError::Internal(format!("Failed to serialize '{}'", self.name))
+        })?);
+        Ok(self
+            .database
+            .set::<PersistedValueItem>(self.name, item)
+            .await?)
     }
 
-    async fn remove(&self) -> Result<(), SettingsError> {
-        Ok(self.database.remove::<SettingItem>(self.name).await?)
+    async fn remove(&self) -> Result<(), PersistedValueError> {
+        Ok(self
+            .database
+            .remove::<PersistedValueItem>(self.name)
+            .await?)
     }
 }
 
@@ -280,8 +292,11 @@ impl SystemDatabase {
         })
     }
 
-    pub(super) fn get_setting<T: Persist>(&self, name: &'static str) -> Arc<dyn SettingTrait<T>> {
-        Arc::new(DBSetting {
+    pub(super) fn get_persisted_value<T: Persist>(
+        &self,
+        name: &'static str,
+    ) -> Arc<dyn PersistedValueTrait<T>> {
+        Arc::new(DBPersistedValue {
             database: self.clone(),
             name,
             _marker: std::marker::PhantomData,
