@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{endpoint::Endpoint, error::SendError};
+use crate::{
+    endpoint::{Endpoint, HostId},
+    error::SendError,
+};
 
 /// A group of endpoints that a message sent with
 /// [`IpcClient::broadcast`](crate::IpcClient::broadcast) is delivered to.
@@ -15,6 +18,10 @@ pub enum BroadcastGroup {
     /// Every [`BrowserForeground`](Endpoint::BrowserForeground) endpoint (popup, sidebar, or
     /// extension page) that the platform currently knows about.
     AllBrowserForeground,
+    /// Every [`BrowserBackground`](Endpoint::BrowserBackground) endpoint addressed by a specific
+    /// [`HostId::Id`](crate::HostId::Id) that the platform currently knows about (e.g. every
+    /// browser extension connected to the desktop app over native messaging).
+    AllBrowserBackground,
 }
 
 impl BroadcastGroup {
@@ -24,6 +31,11 @@ impl BroadcastGroup {
         match self {
             BroadcastGroup::AllBrowserForeground => {
                 matches!(endpoint, Endpoint::BrowserForeground { .. })
+            }
+            // `HostId::Own` is relational and only meaningful to the sender's own background, so
+            // it never names a distinct member of a group.
+            BroadcastGroup::AllBrowserBackground => {
+                matches!(endpoint, Endpoint::BrowserBackground { id: HostId::Id(_) })
             }
         }
     }
@@ -42,7 +54,6 @@ pub struct EndpointSendResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endpoint::HostId;
 
     #[test]
     fn all_browser_foreground_contains_only_browser_foreground_endpoints() {
@@ -54,6 +65,16 @@ mod tests {
             tab_id: 1,
             document_id: "doc".to_string(),
         }));
+        assert!(!group.contains(&Endpoint::DesktopMain));
+    }
+
+    #[test]
+    fn all_browser_background_contains_only_specific_browser_background_endpoints() {
+        let group = BroadcastGroup::AllBrowserBackground;
+
+        assert!(group.contains(&Endpoint::BrowserBackground { id: HostId::Id(7) }));
+        assert!(!group.contains(&Endpoint::BrowserBackground { id: HostId::Own }));
+        assert!(!group.contains(&Endpoint::BrowserForeground { id: 1 }));
         assert!(!group.contains(&Endpoint::DesktopMain));
     }
 }
