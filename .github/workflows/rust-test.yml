@@ -53,6 +53,11 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-features
 
+      # The run above skips the access connector's #[ignore]d script-launcher tests, which need a
+      # real child process and real files. All three runner images ship pwsh, so they run on each.
+      - name: Test (integration, requires pwsh)
+        run: cargo test -p bitwarden-access-connector --all-features -- --ignored
+
   test-wasm:
     name: WASM
     runs-on: ubuntu-24.04
