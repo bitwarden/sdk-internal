@@ -32,6 +32,11 @@ pub struct Collection {
     pub manage: bool,
     pub default_user_collection_email: Option<String>,
     pub r#type: CollectionType,
+    /// True when an enabled PAM access rule gates the collection's items. Derived by the server.
+    #[serde(default)]
+    #[cfg_attr(feature = "uniffi", uniffi(default = false))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub has_enabled_access_rule: bool,
 }
 
 #[allow(missing_docs)]
@@ -48,6 +53,11 @@ pub struct CollectionView {
     pub read_only: bool,
     pub manage: bool,
     pub r#type: CollectionType,
+    /// True when an enabled PAM access rule gates the collection's items. Derived by the server.
+    #[serde(default)]
+    #[cfg_attr(feature = "uniffi", uniffi(default = false))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub has_enabled_access_rule: bool,
 }
 
 /// Type of collection
@@ -85,6 +95,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CollectionView> for Collection 
             read_only: self.read_only,
             manage: self.manage,
             r#type: self.r#type.clone(),
+            has_enabled_access_rule: self.has_enabled_access_rule,
         })
     }
 }
@@ -104,6 +115,7 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             manage: collection.manage.unwrap_or(false),
             default_user_collection_email: collection.default_user_collection_email,
             r#type: require!(collection.r#type).try_into()?,
+            has_enabled_access_rule: collection.has_enabled_access_rule.unwrap_or(false),
         })
     }
 }
@@ -139,6 +151,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Collection> for Collec
             // server-side and is not modified during a client-side encrypt round-trip.
             default_user_collection_email: None,
             r#type: self.r#type.clone(),
+            has_enabled_access_rule: self.has_enabled_access_rule,
         })
     }
 }
@@ -225,6 +238,7 @@ mod tests {
             manage: true,
             default_user_collection_email: None,
             r#type: CollectionType::SharedCollection,
+            has_enabled_access_rule: false,
         };
 
         let decrypted = collection.decrypt(&mut ctx, key).unwrap();
@@ -252,6 +266,7 @@ mod tests {
             manage: false,
             default_user_collection_email: Some(default_user_collection_email.clone()),
             r#type: CollectionType::SharedCollection,
+            has_enabled_access_rule: false,
         };
 
         let decrypted = collection.decrypt(&mut ctx, key).unwrap();
@@ -282,6 +297,7 @@ mod tests {
             manage: true,
             default_user_collection_email: None,
             r#type: collection_type.clone(),
+            has_enabled_access_rule: true,
         };
 
         let decrypted = collection.decrypt(&mut ctx, key).unwrap();
@@ -295,5 +311,25 @@ mod tests {
         assert_eq!(decrypted.read_only, collection.read_only);
         assert_eq!(decrypted.manage, collection.manage);
         assert_eq!(decrypted.r#type, collection_type);
+        assert!(decrypted.has_enabled_access_rule);
+    }
+
+    #[test]
+    fn test_try_from_response_carries_has_enabled_access_rule() {
+        const NAME: &str = "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=";
+        let response = |has_enabled_access_rule| CollectionDetailsResponseModel {
+            id: Some(COLLECTION_ID.parse().unwrap()),
+            organization_id: Some(ORGANIZATION_ID.parse().unwrap()),
+            name: Some(NAME.to_string()),
+            r#type: Some(bitwarden_api_api::models::CollectionType::SharedCollection),
+            has_enabled_access_rule,
+            ..CollectionDetailsResponseModel::new()
+        };
+
+        let governed = Collection::try_from(response(Some(true))).unwrap();
+        let ungoverned = Collection::try_from(response(None)).unwrap();
+
+        assert!(governed.has_enabled_access_rule);
+        assert!(!ungoverned.has_enabled_access_rule);
     }
 }
