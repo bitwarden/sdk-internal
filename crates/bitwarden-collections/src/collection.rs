@@ -32,11 +32,12 @@ pub struct Collection {
     pub manage: bool,
     pub default_user_collection_email: Option<String>,
     pub r#type: CollectionType,
-    /// True when an enabled PAM access rule gates the collection's items. Derived by the server.
+    /// True when an enabled PAM access rule governs the collection. Derived by the server; `None`
+    /// when the source does not say.
     #[serde(default)]
-    #[cfg_attr(feature = "uniffi", uniffi(default = false))]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     #[cfg_attr(feature = "wasm", tsify(optional))]
-    pub has_enabled_access_rule: bool,
+    pub has_enabled_access_rule: Option<bool>,
 }
 
 #[allow(missing_docs)]
@@ -53,11 +54,12 @@ pub struct CollectionView {
     pub read_only: bool,
     pub manage: bool,
     pub r#type: CollectionType,
-    /// True when an enabled PAM access rule gates the collection's items. Derived by the server.
+    /// True when an enabled PAM access rule governs the collection. Derived by the server; `None`
+    /// when the source does not say.
     #[serde(default)]
-    #[cfg_attr(feature = "uniffi", uniffi(default = false))]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     #[cfg_attr(feature = "wasm", tsify(optional))]
-    pub has_enabled_access_rule: bool,
+    pub has_enabled_access_rule: Option<bool>,
 }
 
 /// Type of collection
@@ -115,7 +117,7 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             manage: collection.manage.unwrap_or(false),
             default_user_collection_email: collection.default_user_collection_email,
             r#type: require!(collection.r#type).try_into()?,
-            has_enabled_access_rule: collection.has_enabled_access_rule.unwrap_or(false),
+            has_enabled_access_rule: collection.has_enabled_access_rule,
         })
     }
 }
@@ -238,7 +240,7 @@ mod tests {
             manage: true,
             default_user_collection_email: None,
             r#type: CollectionType::SharedCollection,
-            has_enabled_access_rule: false,
+            has_enabled_access_rule: None,
         };
 
         let decrypted = collection.decrypt(&mut ctx, key).unwrap();
@@ -266,7 +268,7 @@ mod tests {
             manage: false,
             default_user_collection_email: Some(default_user_collection_email.clone()),
             r#type: CollectionType::SharedCollection,
-            has_enabled_access_rule: false,
+            has_enabled_access_rule: None,
         };
 
         let decrypted = collection.decrypt(&mut ctx, key).unwrap();
@@ -297,7 +299,7 @@ mod tests {
             manage: true,
             default_user_collection_email: None,
             r#type: collection_type.clone(),
-            has_enabled_access_rule: true,
+            has_enabled_access_rule: Some(true),
         };
 
         let decrypted = collection.decrypt(&mut ctx, key).unwrap();
@@ -311,7 +313,7 @@ mod tests {
         assert_eq!(decrypted.read_only, collection.read_only);
         assert_eq!(decrypted.manage, collection.manage);
         assert_eq!(decrypted.r#type, collection_type);
-        assert!(decrypted.has_enabled_access_rule);
+        assert_eq!(decrypted.has_enabled_access_rule, Some(true));
     }
 
     #[test]
@@ -326,10 +328,36 @@ mod tests {
             ..CollectionDetailsResponseModel::new()
         };
 
-        let governed = Collection::try_from(response(Some(true))).unwrap();
-        let ungoverned = Collection::try_from(response(None)).unwrap();
+        for flag in [Some(true), Some(false), None] {
+            let collection = Collection::try_from(response(flag)).unwrap();
 
-        assert!(governed.has_enabled_access_rule);
-        assert!(!ungoverned.has_enabled_access_rule);
+            assert_eq!(collection.has_enabled_access_rule, flag);
+        }
+    }
+
+    #[test]
+    fn test_encrypt_keeps_has_enabled_access_rule() {
+        let store = create_test_key_store();
+        let mut ctx = store.context();
+        let org_id = ORGANIZATION_ID.parse().unwrap();
+        let key = SymmetricKeySlotId::Organization(org_id);
+
+        let view = CollectionView {
+            id: Some(COLLECTION_ID.parse().unwrap()),
+            organization_id: org_id,
+            name: "Collection Name".to_string(),
+            external_id: None,
+            hide_passwords: false,
+            read_only: false,
+            manage: true,
+            r#type: CollectionType::SharedCollection,
+            has_enabled_access_rule: Some(true),
+        };
+
+        let collection = view.encrypt_composite(&mut ctx, key).unwrap();
+        let decrypted = collection.decrypt(&mut ctx, key).unwrap();
+
+        assert_eq!(collection.has_enabled_access_rule, Some(true));
+        assert_eq!(decrypted.has_enabled_access_rule, Some(true));
     }
 }

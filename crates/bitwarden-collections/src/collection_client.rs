@@ -197,7 +197,7 @@ mod tests {
             manage: false,
             default_user_collection_email: None,
             r#type: CollectionType::SharedCollection,
-            has_enabled_access_rule: false,
+            has_enabled_access_rule: None,
         }
     }
 
