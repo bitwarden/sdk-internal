@@ -5,12 +5,14 @@ use std::sync::Arc;
 use bitwarden_core::{Client, platform::FingerprintRequest};
 use bitwarden_fido::ClientFido2Ext;
 use repository::create_uniffi_repositories;
+use value::create_uniffi_persisted_values;
 
 use crate::error::Result;
 
 mod fido2;
 mod repository;
 mod server_communication_config;
+mod value;
 
 // Re-export ServerCommunicationConfig types for UniFFI bindings
 pub use bitwarden_server_communication_config::{
@@ -66,10 +68,17 @@ impl PlatformClient {
 pub struct StateClient(Client);
 
 bitwarden_pm::create_client_managed_repositories!(Repositories, create_uniffi_repositories);
+bitwarden_pm::create_client_managed_values!(PersistedValues, create_uniffi_persisted_values);
 
 #[uniffi::export]
 impl StateClient {
     pub fn register_client_managed_repositories(&self, repositories: Repositories) {
         repositories.register_all(&self.0.platform().state());
+    }
+
+    /// Register client-managed persisted values. Call this before using any SDK client that reads
+    /// them: handles capture their backend when they are built.
+    pub fn register_client_managed_values(&self, values: PersistedValues) {
+        values.register_all(&self.0.platform().state());
     }
 }

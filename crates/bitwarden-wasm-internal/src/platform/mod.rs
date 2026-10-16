@@ -2,10 +2,11 @@ use bitwarden_core::Client;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
-use crate::platform::repository::create_wasm_repositories;
+use crate::platform::{repository::create_wasm_repositories, value::create_wasm_persisted_values};
 
 mod repository;
 pub mod token_provider;
+mod value;
 
 /// Active feature flags for the SDK.
 #[bitwarden_ffi::wasm_record]
@@ -48,10 +49,17 @@ impl StateClient {
 }
 
 bitwarden_pm::create_client_managed_repositories!(Repositories, create_wasm_repositories);
+bitwarden_pm::create_client_managed_values!(PersistedValues, create_wasm_persisted_values);
 
 #[bitwarden_ffi::wasm_export]
 impl StateClient {
     pub fn register_client_managed_repositories(&self, repositories: Repositories) {
         repositories.register_all(&self.0.platform().state());
+    }
+
+    /// Register client-managed persisted values. Call this before using any SDK client that reads
+    /// them: handles capture their backend when they are built.
+    pub fn register_client_managed_values(&self, values: PersistedValues) {
+        values.register_all(&self.0.platform().state());
     }
 }
