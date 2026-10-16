@@ -25,8 +25,8 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 use bitwarden_pam_sealed::{
-    RotationConfigSealedV1, SealedPasswordPolicy, SealedTargetSystemKind, SealedTargetSystemMethod,
-    TargetSystemSealedV1, seal_rotation_config, seal_target_system,
+    RotationConfigSealedV1, Sealed, SealedPasswordPolicy, SealedTargetSystemKind,
+    SealedTargetSystemMethod, TargetSystemSealedV1, seal_rotation_config, seal_target_system,
 };
 pub use bitwarden_threading::cancellation_token::CancellationToken;
 pub use uuid::Uuid;
@@ -157,13 +157,13 @@ pub fn execute_by_future() -> String {
         .to_rfc3339()
 }
 
-/// Seal a well-formed target-system and rotation-config blob pair under `org_key`.
+/// Seal a well-formed target-system and rotation-config pair under `org_key`.
 pub fn seal_claim_blobs(
     org_key: &SymmetricCryptoKey,
     target_id: Uuid,
     cipher_id: Uuid,
     terminate_sessions: bool,
-) -> (String, String) {
+) -> (Sealed, Sealed) {
     let store = AccessConnectorKeyStore::default();
     let mut ctx = store.context_mut();
     #[allow(deprecated)]
@@ -217,9 +217,11 @@ pub fn claim_body(
         "jobId": job_id,
         "targetSystemId": target_id,
         "targetSystemName": "test-system",
-        "targetSystemSealedData": target_blob,
+        "targetSystemSealedData": target_blob.envelope.to_string(),
+        "targetSystemWrappedKey": target_blob.wrapped_key.to_string(),
         "cipherId": cipher_id,
-        "rotationConfigSealedData": config_blob,
+        "rotationConfigSealedData": config_blob.envelope.to_string(),
+        "rotationConfigWrappedKey": config_blob.wrapped_key.to_string(),
         "executeBy": execute_by_future()
     })
 }

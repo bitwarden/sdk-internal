@@ -786,6 +786,7 @@ mod tests {
                         "targetSystemName": "test",
                         "cipherId": cipher_id,
                         "rotationConfigSealedData": "opaque-config-blob",
+                        "rotationConfigWrappedKey": "opaque-config-key",
                         "executeBy": execute_by
                     }))
                     .insert_header("content-type", "application/json"),
