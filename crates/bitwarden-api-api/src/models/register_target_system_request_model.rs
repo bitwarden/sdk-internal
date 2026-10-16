@@ -12,68 +12,23 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// RegisterTargetSystemRequestModel : Registers a target system, automatic or manual (spec
-/// `RegisterAutomaticTargetSystem` / `RegisterManualTargetSystem`) -- method-discriminated on
-/// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.RegisterTargetSystemRequestModel.
-/// Method: an Bit.Pam.Enums.PamTargetSystemMethod.Automatic target carries
-/// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.RegisterTargetSystemRequestModel.
-/// Kind, Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.
-/// RegisterTargetSystemRequestModel.PasswordPolicy, and
-/// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.RegisterTargetSystemRequestModel.
-/// SupportsSessionTermination; a Bit.Pam.Enums.PamTargetSystemMethod.Manual target carries none of
-/// the three.
+/// RegisterTargetSystemRequestModel : Registers a target system's first phase (spec
+/// `RegisterTargetSystem`); a follow-up `PUT` seals it.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RegisterTargetSystemRequestModel {
-    /// The target system's display name, shown wherever targets are listed and managed.
     #[serde(rename = "name", alias = "Name")]
     pub name: String,
     #[serde(rename = "method", alias = "Method")]
     pub method: models::PamTargetSystemMethod,
-    #[serde(
-        rename = "kind",
-        alias = "Kind",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub kind: Option<models::PamTargetSystemKind>,
-    #[serde(
-        rename = "passwordPolicy",
-        alias = "PasswordPolicy",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub password_policy: Option<Box<models::PamPasswordPolicyRequestModel>>,
-    /// Whether the integration can terminate the account's live sessions after a rotation; gates
-    /// whether rotation configs on this target may request session termination.
-    #[serde(
-        rename = "supportsSessionTermination",
-        alias = "SupportsSessionTermination",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub supports_session_termination: Option<bool>,
 }
 
 impl RegisterTargetSystemRequestModel {
-    /// Registers a target system, automatic or manual (spec `RegisterAutomaticTargetSystem` /
-    /// `RegisterManualTargetSystem`) -- method-discriminated on
-    /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.
-    /// RegisterTargetSystemRequestModel.Method: an Bit.Pam.Enums.PamTargetSystemMethod.Automatic
-    /// target carries
-    /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.
-    /// RegisterTargetSystemRequestModel.Kind,
-    /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.
-    /// RegisterTargetSystemRequestModel.PasswordPolicy, and
-    /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.
-    /// RegisterTargetSystemRequestModel.SupportsSessionTermination; a
-    /// Bit.Pam.Enums.PamTargetSystemMethod.Manual target carries none of the three.
+    /// Registers a target system's first phase (spec `RegisterTargetSystem`); a follow-up `PUT`
+    /// seals it.
     pub fn new(
         name: String,
         method: models::PamTargetSystemMethod,
     ) -> RegisterTargetSystemRequestModel {
-        RegisterTargetSystemRequestModel {
-            name,
-            method,
-            kind: None,
-            password_policy: None,
-            supports_session_termination: None,
-        }
+        RegisterTargetSystemRequestModel { name, method }
     }
 }

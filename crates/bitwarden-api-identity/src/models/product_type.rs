@@ -16,6 +16,7 @@ use crate::models;
 pub enum ProductType {
     PasswordManager,
     SecretsManager,
+    PrivilegedControls,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -26,6 +27,7 @@ impl ProductType {
         match self {
             Self::PasswordManager => 0,
             Self::SecretsManager => 1,
+            Self::PrivilegedControls => 2,
             Self::__Unknown(v) => *v,
         }
     }
@@ -34,6 +36,7 @@ impl ProductType {
         match value {
             0 => Self::PasswordManager,
             1 => Self::SecretsManager,
+            2 => Self::PrivilegedControls,
             v => Self::__Unknown(v),
         }
     }

@@ -33,6 +33,14 @@ pub trait OrganizationSubscriptionsApi: Send + Sync {
         organization_id: uuid::Uuid,
     ) -> Result<models::SubscriptionPreview, Error>;
 
+    /// POST /organizations/{organizationId}/billing/subscription/plan-change/preview
+    /// Previews the cost of changing the organization's plan.
+    async fn preview_organization_plan_change<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        preview_organization_plan_change_request: models::PreviewOrganizationPlanChangeRequest,
+    ) -> Result<models::InvoicePreview, Error>;
+
     /// POST /organizations/billing/subscription/purchase/preview
     /// Previews the invoice for purchasing an organization subscription.
     async fn preview_organization_subscription_purchase<'a>(
@@ -72,6 +80,31 @@ impl OrganizationSubscriptionsApi for OrganizationSubscriptionsApiClient {
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    /// Previews the cost of changing the organization's plan.
+    async fn preview_organization_plan_change<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        preview_organization_plan_change_request: models::PreviewOrganizationPlanChangeRequest,
+    ) -> Result<models::InvoicePreview, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/billing/subscription/plan-change/preview",
+            local_var_configuration.base_path,
+            organizationId = organization_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&preview_organization_plan_change_request);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }

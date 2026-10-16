@@ -12,24 +12,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// ReportRotationFailedRequestModel : The body of `POST
-/// access-connectors/rotation/attempts/{id}/failure` (spec `RecordRotationFailed`). The contract
-/// forbids forwarding raw target-system error output -- it can echo credentials -- so the access
-/// connector reports an
+/// ReportRotationFailedRequestModel : A failed rotation report (spec `RecordRotationFailed`). Raw
+/// target-system output can echo credentials, so the access connector sends an
 /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.ReportRotationFailedRequestModel.
-/// ErrorCode token it defines plus an optional
+/// ErrorCode and optional
 /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.ReportRotationFailedRequestModel.
-/// Detail. The combined reason the two produce is truncated rather than rejected, since it can
-/// exceed the length the server records.
+/// Detail instead, whose combination is truncated rather than rejected.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ReportRotationFailedRequestModel {
     #[serde(rename = "syncState", alias = "SyncState")]
     pub sync_state: models::PamRotationSyncState,
-    /// A connector-defined token classifying the failure -- never raw target-system output.
+    /// A connector-defined token classifying the failure, never raw target-system output.
     #[serde(rename = "errorCode", alias = "ErrorCode")]
     pub error_code: String,
-    /// Additional human-readable context for the failure, subject to the same no-raw-target-output
-    /// contract as
+    /// Human-readable context, under the same no-raw-output contract as
     /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.
     /// ReportRotationFailedRequestModel.ErrorCode.
     #[serde(
@@ -41,14 +37,13 @@ pub struct ReportRotationFailedRequestModel {
 }
 
 impl ReportRotationFailedRequestModel {
-    /// The body of `POST access-connectors/rotation/attempts/{id}/failure` (spec
-    /// `RecordRotationFailed`). The contract forbids forwarding raw target-system error output --
-    /// it can echo credentials -- so the access connector reports an
+    /// A failed rotation report (spec `RecordRotationFailed`). Raw target-system output can echo
+    /// credentials, so the access connector sends an
     /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.
-    /// ReportRotationFailedRequestModel.ErrorCode token it defines plus an optional
+    /// ReportRotationFailedRequestModel.ErrorCode and optional
     /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.
-    /// ReportRotationFailedRequestModel.Detail. The combined reason the two produce is truncated
-    /// rather than rejected, since it can exceed the length the server records.
+    /// ReportRotationFailedRequestModel.Detail instead, whose combination is truncated rather than
+    /// rejected.
     pub fn new(
         sync_state: models::PamRotationSyncState,
         error_code: String,
