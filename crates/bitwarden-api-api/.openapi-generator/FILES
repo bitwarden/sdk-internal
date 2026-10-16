@@ -39,6 +39,7 @@ src/apis/organization_reports_api.rs
 src/apis/organization_sponsorships_api.rs
 src/apis/organization_subscriptions_api.rs
 src/apis/organization_users_api.rs
+src/apis/organization_users_keys_api.rs
 src/apis/organizations_api.rs
 src/apis/pam_access_connector_rotation_attempts_api.rs
 src/apis/pam_access_connector_rotation_configs_api.rs
@@ -409,6 +410,8 @@ src/models/organization_user_details_response_model.rs
 src/models/organization_user_invite_request_model.rs
 src/models/organization_user_pending_auto_confirm_response_model.rs
 src/models/organization_user_pending_auto_confirm_response_model_list_response_model.rs
+src/models/organization_user_pending_v2_upgrade_response_model.rs
+src/models/organization_user_pending_v2_upgrade_response_model_list_response_model.rs
 src/models/organization_user_public_key_response_model.rs
 src/models/organization_user_public_key_response_model_list_response_model.rs
 src/models/organization_user_reset_password_details_response_model.rs
@@ -424,6 +427,8 @@ src/models/organization_user_user_details_response_model.rs
 src/models/organization_user_user_details_response_model_list_response_model.rs
 src/models/organization_user_user_mini_details_response_model.rs
 src/models/organization_user_user_mini_details_response_model_list_response_model.rs
+src/models/organization_user_v2_upgrade_request_model.rs
+src/models/organization_user_v2_upgrades_request_model.rs
 src/models/organization_verify_delete_recover_request_model.rs
 src/models/other_device_keys_update_request_model.rs
 src/models/pam_access_connector_detail_response_model.rs
@@ -491,6 +496,7 @@ src/models/preview_premium_subscription_purchase_tax_request.rs
 src/models/preview_premium_upgrade_proration_request.rs
 src/models/priority.rs
 src/models/private_keys_response_model.rs
+src/models/privileged_controls_invoice_items.rs
 src/models/product_tier_type.rs
 src/models/profile_organization_response_model.rs
 src/models/profile_organization_response_model_list_response_model.rs

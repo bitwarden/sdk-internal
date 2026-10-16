@@ -6,7 +6,8 @@
     clippy::needless_return,
     clippy::uninlined_format_args,
     clippy::new_without_default,
-    clippy::derivable_impls
+    clippy::derivable_impls,
+    clippy::into_iter_on_ref
 )]
 
 pub mod apis;

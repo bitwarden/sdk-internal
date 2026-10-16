@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`8730608ccf14daaabb1e4117f374adaeabefc712`](https://github.com/bitwarden/server/commit/8730608ccf14daaabb1e4117f374adaeabefc712)
+  [`37f932cf6552f95777de599921ed959615e1fec7`](https://github.com/bitwarden/server/commit/37f932cf6552f95777de599921ed959615e1fec7)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -379,6 +379,8 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationUsersApi_                       | [**revoke_self**](docs/OrganizationUsersApi.md#organization_users_revoke_self)                                                                                   | **PUT** /organizations/{orgId}/users/revoke-self                                                         |
 | _OrganizationUsersApi_                       | [**send_invite_to_staged_users**](docs/OrganizationUsersApi.md#organization_users_send_invite_to_staged_users)                                                   | **POST** /organizations/{orgId}/users/send-invite                                                        | Invites members who are currently in Staged status, without changing their access.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | _OrganizationUsersApi_                       | [**user_public_keys**](docs/OrganizationUsersApi.md#organization_users_user_public_keys)                                                                         | **POST** /organizations/{orgId}/users/public-keys                                                        |
+| _OrganizationUsersKeysApi_                   | [**get_pending_v2_upgrades**](docs/OrganizationUsersKeysApi.md#organization_users_keys_get_pending_v2_upgrades)                                                  | **GET** /organizations/{orgId}/users/keys/pending-v2-upgrades                                            | Reads up to Bit.Api.KeyManagement.Models.Requests.OrganizationUserV2UpgradesRequestModel.MaxUpgrades memberships whose account recovery key still wraps the member's V1 user key.                                                                                                                                                                                                                                                                                                                                                     |
+| _OrganizationUsersKeysApi_                   | [**post_v2_upgrades**](docs/OrganizationUsersKeysApi.md#organization_users_keys_post_v2_upgrades)                                                                | **POST** /organizations/{orgId}/users/keys/v2-upgrades                                                   | Replaces the account recovery keys of members who upgraded to V2 encryption, or unenrolls the members whose entry carries no key.                                                                                                                                                                                                                                                                                                                                                                                                     |
 | _OrganizationsApi_                           | [**api_key**](docs/OrganizationsApi.md#organizations_api_key)                                                                                                    | **POST** /organizations/{id}/api-key                                                                     |
 | _OrganizationsApi_                           | [**api_key_information**](docs/OrganizationsApi.md#organizations_api_key_information)                                                                            | **GET** /organizations/{id}/api-key-information/{type}                                                   |
 | _OrganizationsApi_                           | [**create_without_payment**](docs/OrganizationsApi.md#organizations_create_without_payment)                                                                      | **POST** /organizations/create-without-payment                                                           |
@@ -932,6 +934,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationUserInviteRequestModel](docs/OrganizationUserInviteRequestModel.md)
 - [OrganizationUserPendingAutoConfirmResponseModel](docs/OrganizationUserPendingAutoConfirmResponseModel.md)
 - [OrganizationUserPendingAutoConfirmResponseModelListResponseModel](docs/OrganizationUserPendingAutoConfirmResponseModelListResponseModel.md)
+- [OrganizationUserPendingV2UpgradeResponseModel](docs/OrganizationUserPendingV2UpgradeResponseModel.md)
+- [OrganizationUserPendingV2UpgradeResponseModelListResponseModel](docs/OrganizationUserPendingV2UpgradeResponseModelListResponseModel.md)
 - [OrganizationUserPublicKeyResponseModel](docs/OrganizationUserPublicKeyResponseModel.md)
 - [OrganizationUserPublicKeyResponseModelListResponseModel](docs/OrganizationUserPublicKeyResponseModelListResponseModel.md)
 - [OrganizationUserResetPasswordDetailsResponseModel](docs/OrganizationUserResetPasswordDetailsResponseModel.md)
@@ -947,6 +951,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationUserUserDetailsResponseModelListResponseModel](docs/OrganizationUserUserDetailsResponseModelListResponseModel.md)
 - [OrganizationUserUserMiniDetailsResponseModel](docs/OrganizationUserUserMiniDetailsResponseModel.md)
 - [OrganizationUserUserMiniDetailsResponseModelListResponseModel](docs/OrganizationUserUserMiniDetailsResponseModelListResponseModel.md)
+- [OrganizationUserV2UpgradeRequestModel](docs/OrganizationUserV2UpgradeRequestModel.md)
+- [OrganizationUserV2UpgradesRequestModel](docs/OrganizationUserV2UpgradesRequestModel.md)
 - [OrganizationVerifyDeleteRecoverRequestModel](docs/OrganizationVerifyDeleteRecoverRequestModel.md)
 - [OtherDeviceKeysUpdateRequestModel](docs/OtherDeviceKeysUpdateRequestModel.md)
 - [PamAccessConnectorDetailResponseModel](docs/PamAccessConnectorDetailResponseModel.md)
@@ -1014,6 +1020,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PreviewPremiumUpgradeProrationRequest](docs/PreviewPremiumUpgradeProrationRequest.md)
 - [Priority](docs/Priority.md)
 - [PrivateKeysResponseModel](docs/PrivateKeysResponseModel.md)
+- [PrivilegedControlsInvoiceItems](docs/PrivilegedControlsInvoiceItems.md)
 - [ProductTierType](docs/ProductTierType.md)
 - [ProfileOrganizationResponseModel](docs/ProfileOrganizationResponseModel.md)
 - [ProfileOrganizationResponseModelListResponseModel](docs/ProfileOrganizationResponseModelListResponseModel.md)

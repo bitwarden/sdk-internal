@@ -4,6 +4,7 @@ use bitwarden_encoding::B64;
 use hybrid_array::Array;
 use rand::RngExt;
 use typenum::U32;
+use zeroize::Zeroizing;
 
 use super::{
     kdf::{Kdf, KdfDerivedKeyMaterial},
@@ -79,9 +80,17 @@ impl MasterKey {
     )]
     #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument)]
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> B64 {
-        let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
+        let hash = Zeroizing::new(util::pbkdf2(
+            self.inner_bytes().as_slice(),
+            password,
+            purpose as u32,
+        ));
+        let encoded = hash.as_slice().into();
 
-        hash.as_slice().into()
+        // PBKDF2 leaves copies of the hash in the popped HMAC/SHA-256 stack frames.
+        util::clear_stack();
+
+        encoded
     }
 
     /// Generate a new random user key and encrypt it with the master key.

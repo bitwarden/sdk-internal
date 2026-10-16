@@ -946,6 +946,7 @@ dependencies = [
  "bitwarden-ffi-macro",
  "serde",
  "serde_json",
+ "thiserror",
  "trybuild",
  "tsify",
  "wasm-bindgen",
@@ -1233,6 +1234,7 @@ dependencies = [
 name = "bitwarden-pam"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-access-token",
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-commercial-marker",
@@ -1240,6 +1242,8 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-ffi",
+ "bitwarden-pam-sealed",
+ "bitwarden-sensitive-value",
  "bitwarden-uuid",
  "bitwarden-vault",
  "chrono",
@@ -1248,10 +1252,24 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
+ "tracing",
  "tsify",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "bitwarden-pam-sealed"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-commercial-marker",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-generators",
+ "serde",
+ "thiserror",
+ "uuid",
 ]
 
 [[package]]
@@ -1346,6 +1364,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-api-base",
+ "bitwarden-auth",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
@@ -1390,6 +1409,7 @@ version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-threading",
  "http",
  "js-sys",
