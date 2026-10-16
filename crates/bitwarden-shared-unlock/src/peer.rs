@@ -327,10 +327,6 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
                 "Applying a peer's lock state through the driver"
             );
 
-            // Relayed before the driver is called, because a client may reload inside the driver
-            // and never reach its next sync. E.g. the browser applies the desktop's lock and
-            // reloads: its web vault must still be told. If the driver then errors, the followers
-            // have the new state and this device retries on the next sync.
             self.relay_user_state(user_id, &remote).await;
 
             match &remote.lock_state {
