@@ -3,36 +3,58 @@
 use std::sync::LazyLock;
 
 use bitwarden_access_token::{AccessToken, AccessTokenKind, make_access_token_secrets};
+use bitwarden_core::{
+    OrganizationId,
+    key_management::{KeySlotIds, SymmetricKeySlotId},
+};
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, KeyDecryptable, KeyEncryptable, KeyStore, SymmetricCryptoKey,
     SymmetricKeyAlgorithm,
 };
-use bitwarden_encoding::B64;
+use bitwarden_encoding::{B64, B64Url};
 
-use crate::crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId};
+/// The organisation every unit test authenticates into.
+pub(crate) fn test_org_id() -> OrganizationId {
+    "3f1a5c4e-7b2d-4f8a-9c6e-1d2b3a4c5d6e"
+        .parse()
+        .expect("valid uuid")
+}
+
+/// The org slot for [`test_org_id`].
+pub(crate) fn test_org_slot() -> SymmetricKeySlotId {
+    SymmetricKeySlotId::Organization(test_org_id())
+}
+
+/// An access token carrying `organization_id`, shaped like the one the server issues. `tag` lands
+/// in the subject claim so two tokens can be told apart; tests asserting on an `Authorization`
+/// header build the expected value through this same function. Only the claims segment is real.
+pub(crate) fn access_token_tagged(organization_id: OrganizationId, tag: &str) -> String {
+    let claims = serde_json::json!({
+        "exp": 1_900_000_000u64,
+        "sub": tag,
+        "scope": ["api.pam.rotation"],
+        "organization": organization_id.to_string(),
+    });
+
+    let payload = B64Url::from(claims.to_string().as_bytes());
+    format!("header.{payload}.signature")
+}
 
 /// A real token and its derived key, minted once via `make_access_token_secrets` so the two always
 /// agree.
 static TEST_CREDENTIAL: LazyLock<(String, SymmetricCryptoKey)> = LazyLock::new(|| {
     let wrapping_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-    let store: AccessConnectorKeyStore = KeyStore::default();
+    let store: KeyStore<KeySlotIds> = KeyStore::default();
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(
-            AccessConnectorSymmSlotId::Organization,
-            wrapping_key.clone(),
-        )
+        .set_symmetric_key(test_org_slot(), wrapping_key.clone())
         .expect("set_symmetric_key");
 
     let secrets = {
         let mut ctx = store.context_mut();
-        make_access_token_secrets(
-            &mut ctx,
-            AccessConnectorSymmSlotId::Organization,
-            AccessTokenKind::AccessConnector,
-        )
-        .expect("mint secrets")
+        make_access_token_secrets(&mut ctx, test_org_slot(), AccessTokenKind::AccessConnector)
+            .expect("mint secrets")
     };
 
     // Recover the derived key from the `key` field, as an organization would.

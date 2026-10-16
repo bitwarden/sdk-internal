@@ -28,6 +28,7 @@ bitwarden-encoding = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-pam-sealed = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
+bitwarden-state = { workspace = true }
 bitwarden-threading = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["env"] }

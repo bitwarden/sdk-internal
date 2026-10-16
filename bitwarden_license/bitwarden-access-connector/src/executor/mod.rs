@@ -13,7 +13,6 @@ use std::{
 };
 
 use bitwarden_access_token::AccessToken;
-use bitwarden_core::Client;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_threading::cancellation_token::CancellationToken;
 use retry::RetryCfg;
@@ -24,9 +23,8 @@ use tokio::{
 };
 
 use crate::{
-    api::{RotationApi, build_api_client, models::ApiError},
+    api::{REQUEST_TIMEOUT, RotationApi, build_sdk_client, models::ApiError},
     auth::session::{SessionLost, SessionManager},
-    crypto::AccessConnectorKeyStore,
     error::{FailureCode, SafeDetail, SyncState},
     integrations::IntegrationRegistry,
     resolver::CredentialResolver,
@@ -150,10 +148,22 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         "access connector starting"
     );
 
+    // The client owns the key store the session installs the org key into, so it is built first;
+    // the handler lets the session be filled in afterwards.
+    let (sdk_client, handler) = build_sdk_client(
+        cfg.api_url.clone(),
+        cfg.identity_url.clone(),
+        REQUEST_TIMEOUT,
+    );
+
+    let key_store = handler
+        .key_store()
+        .expect("ClientBuilder::build calls initialize_middleware, which sets the key store");
+
     // SessionManager::new backs off internally; the select! lets a cancellation during startup
     // exit cleanly.
     let session = tokio::select! {
-        result = crate::auth::session::SessionManager::new(identity_client, cfg.token) => {
+        result = crate::auth::session::SessionManager::new(identity_client, cfg.token, key_store) => {
             match result {
                 Ok(s) => s,
                 Err(crate::auth::session::SessionError::Lost(
@@ -178,13 +188,13 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         }
     };
 
-    let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
-    let api_client = build_api_client(cfg.api_url.clone(), Arc::clone(&session));
-    let api = Arc::new(RotationApi::new(api_client, connectivity_tx));
+    handler.set_session(Arc::clone(&session));
 
-    // The connector drives its own API calls; this client exists only so rotations can reach
-    // the SDK's password generator.
-    let sdk_client = Client::new(None);
+    let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
+    let api = Arc::new(RotationApi::new(
+        sdk_client.internal.get_api_configurations(),
+        connectivity_tx,
+    ));
 
     let mut registry = IntegrationRegistry::new();
 
@@ -218,7 +228,13 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         crate::resolver::config::ConfigCredentialResolver::new(cfg.targets, Arc::new(SystemEnv)),
     );
 
-    let key_store: Arc<AccessConnectorKeyStore> = session.key_store().await;
+    let key_store = session.key_store().await;
+
+    // `SessionManager::new` authenticated eagerly, so the claim has already been read.
+    let Some(organization_id) = session.organization_id().await else {
+        tracing::error!("access token carries no usable organization claim");
+        return RunExit::CredentialRefused;
+    };
 
     let connectivity_rx_for_gate = connectivity_rx.clone();
     let last_ok: Arc<dyn Fn() -> Instant + Send + Sync> =
@@ -343,7 +359,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         // Verify the sealed blobs (checks 1–7) before anything else: a rejection is reported
         // without touching the resolver, integration layer, or cipher route.
         let attempt_id = snap.attempt_id;
-        let verified = match verify::verify(snap, &key_store) {
+        let verified = match verify::verify(snap, &key_store, organization_id) {
             Ok(v) => v,
             Err(rejection) => {
                 tracing::warn!(
@@ -391,7 +407,8 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             integrations: Arc::clone(&integrations),
             resolver: Arc::clone(&resolver),
             generator: sdk_client.generator(),
-            key_store: Arc::clone(&key_store),
+            key_store: key_store.clone(),
+            organization_id,
             retry_cfg: cfg.retry_cfg.clone(),
             offline_grace: cfg.offline_grace,
             last_ok: Arc::clone(&last_ok),
@@ -477,12 +494,14 @@ mod tests {
 
     use super::*;
     use crate::{
-        api::{RotationApi, build_api_client},
+        api::{REQUEST_TIMEOUT, RotationApi, build_sdk_client},
         auth::{identity::IdentityClient, session::SessionManager},
-        test_support::{encrypted_payload_for, test_token},
+        test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
     };
 
+    /// `bearer` is a short tag, expanded to a real JWT so the `organization` claim parses.
     fn identity_ok(bearer: &str, encrypted_payload: &str) -> ResponseTemplate {
+        let bearer = access_token_tagged(test_org_id(), bearer);
         ResponseTemplate::new(200)
             .set_body_string(format!(
                 r#"{{"access_token":"{bearer}","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
@@ -503,7 +522,13 @@ mod tests {
             .await;
 
         let identity = IdentityClient::new(identity_server.uri()).unwrap();
-        SessionManager::new(identity, test_token()).await.unwrap()
+        SessionManager::new(
+            identity,
+            test_token(),
+            bitwarden_crypto::KeyStore::default(),
+        )
+        .await
+        .unwrap()
     }
 
     fn make_api(
@@ -511,8 +536,16 @@ mod tests {
         session: Arc<SessionManager>,
     ) -> (Arc<RotationApi>, watch::Receiver<Instant>) {
         let (tx, rx) = watch::channel(Instant::now());
-        let client = build_api_client(api_server.uri(), session);
-        let api = Arc::new(RotationApi::new(client, tx));
+        let (client, handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_owned(),
+            REQUEST_TIMEOUT,
+        );
+        handler.set_session(session);
+        let api = Arc::new(RotationApi::new(
+            client.internal.get_api_configurations(),
+            tx,
+        ));
         (api, rx)
     }
 

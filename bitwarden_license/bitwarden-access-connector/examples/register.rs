@@ -13,8 +13,11 @@
 
 use std::io::{self, BufRead};
 
-use bitwarden_access_connector::crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId};
 use bitwarden_access_token::{AccessTokenKind, make_access_token_secrets};
+use bitwarden_core::{
+    OrganizationId,
+    key_management::{KeySlotIds, SymmetricKeySlotId},
+};
 use bitwarden_crypto::{BitwardenLegacyKeyBytes, KeyStore, SymmetricCryptoKey};
 use bitwarden_encoding::B64;
 use clap::Parser;
@@ -78,22 +81,20 @@ pub fn generate_registration_payload(
     let org_key = SymmetricCryptoKey::try_from(&org_key_bytes)
         .map_err(|_| "org key bytes have the wrong length for a symmetric key".to_string())?;
 
-    // Throwaway store so make_access_token_secrets can read the org key.
-    let store: AccessConnectorKeyStore = KeyStore::default();
+    // Throwaway store so make_access_token_secrets can read the org key; the id is arbitrary
+    // because the real one comes from the token's claim at run time.
+    let org_slot = SymmetricKeySlotId::Organization(OrganizationId::new_v4());
+    let store: KeyStore<KeySlotIds> = KeyStore::default();
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(AccessConnectorSymmSlotId::Organization, org_key)
+        .set_symmetric_key(org_slot, org_key)
         .map_err(|e| format!("failed to install org key: {e}"))?;
 
     let secrets = {
         let mut ctx = store.context_mut();
-        make_access_token_secrets(
-            &mut ctx,
-            AccessConnectorSymmSlotId::Organization,
-            AccessTokenKind::AccessConnector,
-        )
-        .map_err(|e| format!("failed to mint registration secrets: {e}"))?
+        make_access_token_secrets(&mut ctx, org_slot, AccessTokenKind::AccessConnector)
+            .map_err(|e| format!("failed to mint registration secrets: {e}"))?
     };
 
     let encrypted_payload = secrets.encrypted_payload.to_string();
@@ -172,8 +173,11 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_access_connector::crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId};
     use bitwarden_access_token::{AccessToken, AccessTokenKind};
+    use bitwarden_core::{
+        OrganizationId,
+        key_management::{KeySlotIds, SymmetricKeySlotId},
+    };
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use bitwarden_encoding::B64;
 
@@ -203,19 +207,20 @@ mod tests {
         let token = AccessToken::parse(&token_str, AccessTokenKind::AccessConnector)
             .expect("synthetic token must parse successfully");
 
-        let store: AccessConnectorKeyStore = KeyStore::default();
+        let org_slot = SymmetricKeySlotId::Organization(OrganizationId::new_v4());
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         token
             .open_payload(
                 &mut store.context_mut(),
                 &payload.encrypted_payload,
-                AccessConnectorSymmSlotId::Organization,
+                org_slot,
             )
             .expect("open_payload must succeed with the correct derived key");
 
         let ctx = store.context();
         #[allow(deprecated)]
         let recovered_b64 = ctx
-            .dangerous_get_symmetric_key(AccessConnectorSymmSlotId::Organization)
+            .dangerous_get_symmetric_key(org_slot)
             .expect("the slot was just populated")
             .to_base64();
 

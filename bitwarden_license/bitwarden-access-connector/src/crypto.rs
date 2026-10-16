@@ -1,36 +1,16 @@
 //! Cryptographic helpers used by the access connector.
 
+//!
+//! Exposed for integration tests and `examples/register.rs`. The org slot is keyed by the
+//! [`OrganizationId`] from the access token's `organization` claim.
+
 use bitwarden_access_token::{AccessToken, AccessTokenError};
-use bitwarden_crypto::{EncString, KeyStore, KeyStoreContext, PrimitiveEncryptable, key_slot_ids};
+use bitwarden_core::{
+    OrganizationId,
+    key_management::{KeySlotIds, SymmetricKeySlotId},
+};
+use bitwarden_crypto::{EncString, KeyStore, KeyStoreContext, PrimitiveEncryptable};
 use thiserror::Error;
-
-// Private and signing slots are stubs; the macro requires all three slot enum types.
-key_slot_ids! {
-    #[symmetric]
-    pub enum AccessConnectorSymmSlotId {
-        Organization,
-        #[local]
-        Local(LocalId),
-    }
-
-    #[private]
-    pub enum AccessConnectorPrivateSlotId {
-        #[local]
-        Local(LocalId),
-    }
-
-    #[signing]
-    pub enum AccessConnectorSigningSlotId {
-        #[local]
-        Local(LocalId),
-    }
-
-    pub AccessConnectorKeySlotIds =>
-        AccessConnectorSymmSlotId, AccessConnectorPrivateSlotId, AccessConnectorSigningSlotId;
-}
-
-/// The key store used throughout the connector.
-pub type AccessConnectorKeyStore = KeyStore<AccessConnectorKeySlotIds>;
 
 /// Errors produced by the cryptographic helpers in this module.
 #[derive(Debug, Error)]
@@ -59,7 +39,8 @@ pub enum CryptoModuleError {
 /// Decrypt the identity server's `encrypted_payload` with `token`'s derived key and install the org
 /// key into `store`. Errors carry no payload content.
 pub fn unwrap_org_key(
-    store: &AccessConnectorKeyStore,
+    store: &KeyStore<KeySlotIds>,
+    organization_id: OrganizationId,
     token: &AccessToken,
     encrypted_payload: &str,
 ) -> Result<(), CryptoModuleError> {
@@ -69,7 +50,7 @@ pub fn unwrap_org_key(
         .open_payload(
             &mut ctx,
             encrypted_payload,
-            AccessConnectorSymmSlotId::Organization,
+            SymmetricKeySlotId::Organization(organization_id),
         )
         .map_err(|e| match e {
             AccessTokenError::InvalidPayload => CryptoModuleError::InvalidPayload,
@@ -83,42 +64,48 @@ pub fn unwrap_org_key(
 const CIPHER_PASSWORD_KEY: &str = "Password";
 
 fn resolve_encrypt_slot(
-    ctx: &mut KeyStoreContext<'_, AccessConnectorKeySlotIds>,
+    ctx: &mut KeyStoreContext<'_, KeySlotIds>,
+    organization_id: OrganizationId,
     cipher_key: Option<&str>,
-) -> Result<AccessConnectorSymmSlotId, CryptoModuleError> {
+) -> Result<SymmetricKeySlotId, CryptoModuleError> {
     if let Some(wrapped_key_str) = cipher_key {
         let wrapped_enc: EncString = wrapped_key_str
             .parse()
             .map_err(|_| CryptoModuleError::InvalidPayload)?;
 
-        ctx.unwrap_symmetric_key(AccessConnectorSymmSlotId::Organization, &wrapped_enc)
-            .map_err(CryptoModuleError::Crypto)
+        ctx.unwrap_symmetric_key(
+            SymmetricKeySlotId::Organization(organization_id),
+            &wrapped_enc,
+        )
+        .map_err(CryptoModuleError::Crypto)
     } else {
-        Ok(AccessConnectorSymmSlotId::Organization)
+        Ok(SymmetricKeySlotId::Organization(organization_id))
     }
 }
 
 /// Checks that the per-item key (if any) unwraps under the org key, without encrypting anything.
 pub fn cipher_key_unwraps(
-    store: &AccessConnectorKeyStore,
+    store: &KeyStore<KeySlotIds>,
+    organization_id: OrganizationId,
     cipher_key: Option<&str>,
 ) -> Result<(), CryptoModuleError> {
     let mut ctx = store.context_mut();
-    resolve_encrypt_slot(&mut ctx, cipher_key).map(|_| ())
+    resolve_encrypt_slot(&mut ctx, organization_id, cipher_key).map(|_| ())
 }
 
 /// Encrypt `new_password` with the per-item `cipher_key` when present (unwrapped by the org key),
 /// else the org key, and insert or replace the password field in `data`. Other fields are
 /// untouched.
 pub fn encrypt_cipher_password(
-    store: &AccessConnectorKeyStore,
+    store: &KeyStore<KeySlotIds>,
+    organization_id: OrganizationId,
     cipher_key: Option<&str>,
     data: &mut serde_json::Value,
     new_password: &str,
 ) -> Result<(), CryptoModuleError> {
     let mut ctx = store.context_mut();
 
-    let encrypt_slot = resolve_encrypt_slot(&mut ctx, cipher_key)?;
+    let encrypt_slot = resolve_encrypt_slot(&mut ctx, organization_id, cipher_key)?;
 
     let encrypted: EncString = new_password
         .encrypt(&mut ctx, encrypt_slot)
@@ -146,15 +133,20 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
+    use crate::test_support::test_org_id as org_id;
 
-    fn make_store_with_org_key() -> (AccessConnectorKeyStore, SymmetricCryptoKey) {
-        let store: AccessConnectorKeyStore = KeyStore::default();
+    fn org_slot() -> SymmetricKeySlotId {
+        SymmetricKeySlotId::Organization(org_id())
+    }
+
+    fn make_store_with_org_key() -> (KeyStore<KeySlotIds>, SymmetricCryptoKey) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(AccessConnectorSymmSlotId::Organization, org_key.clone())
+            .set_symmetric_key(org_slot(), org_key.clone())
             .expect("set_symmetric_key");
 
         (store, org_key)
@@ -162,15 +154,11 @@ mod tests {
 
     /// Mints a token the way `bitwarden-pam` does, keyed to the organization key in
     /// `issuer_store`, plus the `encrypted_payload` that goes with it.
-    fn mint_token_and_payload(issuer_store: &AccessConnectorKeyStore) -> (AccessToken, String) {
+    fn mint_token_and_payload(issuer_store: &KeyStore<KeySlotIds>) -> (AccessToken, String) {
         let secrets = {
             let mut ctx = issuer_store.context_mut();
-            make_access_token_secrets(
-                &mut ctx,
-                AccessConnectorSymmSlotId::Organization,
-                AccessTokenKind::AccessConnector,
-            )
-            .expect("mint secrets")
+            make_access_token_secrets(&mut ctx, org_slot(), AccessTokenKind::AccessConnector)
+                .expect("mint secrets")
         };
         let encrypted_payload = secrets.encrypted_payload.to_string();
         let token_str = secrets.into_token(uuid!("22222222-2222-2222-2222-222222222222"), "secret");
@@ -184,22 +172,16 @@ mod tests {
         let (issuer_store, org_key) = make_store_with_org_key();
         let (token, encrypted_payload) = mint_token_and_payload(&issuer_store);
 
-        let store: AccessConnectorKeyStore = KeyStore::default();
-        assert!(
-            !store
-                .context()
-                .has_symmetric_key(AccessConnectorSymmSlotId::Organization)
-        );
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        assert!(!store.context().has_symmetric_key(org_slot()));
 
-        unwrap_org_key(&store, &token, &encrypted_payload).expect("unwrap_org_key");
+        unwrap_org_key(&store, org_id(), &token, &encrypted_payload).expect("unwrap_org_key");
 
         // Probe that the org key is installed.
         let probe = "probe value";
         let encrypted_probe = {
             let mut ctx = store.context();
-            probe
-                .encrypt(&mut ctx, AccessConnectorSymmSlotId::Organization)
-                .expect("encrypt probe")
+            probe.encrypt(&mut ctx, org_slot()).expect("encrypt probe")
         };
 
         let decrypted: String = encrypted_probe
@@ -212,9 +194,9 @@ mod tests {
     fn unwrap_org_key_bad_payload_returns_error() {
         let (issuer_store, _org_key) = make_store_with_org_key();
         let (token, _payload) = mint_token_and_payload(&issuer_store);
-        let store: AccessConnectorKeyStore = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
 
-        let result = unwrap_org_key(&store, &token, "not-an-enc-string");
+        let result = unwrap_org_key(&store, org_id(), &token, "not-an-enc-string");
         assert!(
             matches!(result, Err(CryptoModuleError::InvalidPayload)),
             "expected InvalidPayload, got {result:?}",
@@ -226,7 +208,7 @@ mod tests {
         let (store, org_key) = make_store_with_org_key();
 
         let mut data = json!({ "Password": "old", "Username": "alice" });
-        encrypt_cipher_password(&store, None, &mut data, "new-secret").expect("encrypt");
+        encrypt_cipher_password(&store, org_id(), None, &mut data, "new-secret").expect("encrypt");
 
         let password_field = data["Password"].as_str().expect("Password is a string");
         assert!(
@@ -250,7 +232,7 @@ mod tests {
             let mut ctx = store.context_mut();
             let item_key_slot = ctx.add_local_symmetric_key(item_key.clone());
             let wrapped = ctx
-                .wrap_symmetric_key(AccessConnectorSymmSlotId::Organization, item_key_slot)
+                .wrap_symmetric_key(org_slot(), item_key_slot)
                 .expect("wrap item key");
             wrapped.to_string()
         };
@@ -258,6 +240,7 @@ mod tests {
         let mut data = json!({ "Password": "old" });
         encrypt_cipher_password(
             &store,
+            org_id(),
             Some(&wrapped_cipher_key_str),
             &mut data,
             "per-item-secret",
@@ -285,7 +268,7 @@ mod tests {
         });
         let mut data = original.clone();
 
-        encrypt_cipher_password(&store, None, &mut data, "new").expect("encrypt");
+        encrypt_cipher_password(&store, org_id(), None, &mut data, "new").expect("encrypt");
 
         assert_eq!(data["Username"], original["Username"]);
         assert_eq!(data["Uri"], original["Uri"]);
@@ -310,7 +293,7 @@ mod tests {
         let original_uris = data["Uris"].clone();
         let original_fields = data["Fields"].clone();
 
-        encrypt_cipher_password(&store, None, &mut data, "first-rotation-secret")
+        encrypt_cipher_password(&store, org_id(), None, &mut data, "first-rotation-secret")
             .expect("insert must succeed even when Password key is absent");
 
         let password_field = data["Password"].as_str().expect("Password is a string");
@@ -335,7 +318,7 @@ mod tests {
     #[test]
     fn cipher_key_unwraps_org_key_path_always_succeeds() {
         let (store, _org_key) = make_store_with_org_key();
-        assert!(cipher_key_unwraps(&store, None).is_ok());
+        assert!(cipher_key_unwraps(&store, org_id(), None).is_ok());
     }
 
     #[test]
@@ -347,18 +330,18 @@ mod tests {
             let mut ctx = store.context_mut();
             let item_key_slot = ctx.add_local_symmetric_key(item_key);
             let wrapped = ctx
-                .wrap_symmetric_key(AccessConnectorSymmSlotId::Organization, item_key_slot)
+                .wrap_symmetric_key(org_slot(), item_key_slot)
                 .expect("wrap item key");
             wrapped.to_string()
         };
 
-        assert!(cipher_key_unwraps(&store, Some(&wrapped_cipher_key_str)).is_ok());
+        assert!(cipher_key_unwraps(&store, org_id(), Some(&wrapped_cipher_key_str)).is_ok());
     }
 
     #[test]
     fn cipher_key_unwraps_garbage_key_fails() {
         let (store, _org_key) = make_store_with_org_key();
-        let result = cipher_key_unwraps(&store, Some("not-an-enc-string"));
+        let result = cipher_key_unwraps(&store, org_id(), Some("not-an-enc-string"));
         assert!(
             result.is_err(),
             "garbage per-item key must fail, got {result:?}",
@@ -374,12 +357,12 @@ mod tests {
         let wrapped_cipher_key_str = {
             let mut ctx = other_store.context_mut();
             let item_key_slot = ctx.add_local_symmetric_key(item_key);
-            ctx.wrap_symmetric_key(AccessConnectorSymmSlotId::Organization, item_key_slot)
+            ctx.wrap_symmetric_key(org_slot(), item_key_slot)
                 .expect("wrap under other store's org key")
                 .to_string()
         };
 
-        let result = cipher_key_unwraps(&store, Some(&wrapped_cipher_key_str));
+        let result = cipher_key_unwraps(&store, org_id(), Some(&wrapped_cipher_key_str));
         assert!(result.is_err(), "unwrap under the wrong org key must fail");
     }
 
@@ -393,7 +376,7 @@ mod tests {
             serde_json::Value::Null,
             serde_json::json!(42),
         ] {
-            let result = encrypt_cipher_password(&store, None, &mut bad_root, "pw");
+            let result = encrypt_cipher_password(&store, org_id(), None, &mut bad_root, "pw");
             assert!(
                 matches!(result, Err(CryptoModuleError::CipherDataShape)),
                 "expected CipherDataShape for non-object root, got {result:?}",

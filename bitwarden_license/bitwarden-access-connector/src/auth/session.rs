@@ -6,7 +6,7 @@
 //!                         → closed   (terminal: explicit shutdown)
 //! ```
 //!
-//! Entering `Revoked` or `Closed` drops the bearer and replaces the key store with a fresh one.
+//! Entering `Revoked` or `Closed` drops the bearer and clears the key store.
 
 use std::{
     sync::Arc,
@@ -14,12 +14,13 @@ use std::{
 };
 
 use bitwarden_access_token::AccessToken;
+use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
 use tokio::sync::{Mutex, watch};
 
 use crate::{
     auth::identity::{AuthError, AuthSuccess, IdentityClient},
-    crypto::{AccessConnectorKeySlotIds, AccessConnectorKeyStore, unwrap_org_key},
+    crypto::unwrap_org_key,
 };
 
 /// Proactive renewal margin, matching bitwarden-auth's `TOKEN_RENEW_MARGIN_SECONDS`.
@@ -74,13 +75,19 @@ impl std::fmt::Display for SessionError {
     }
 }
 
+/// Lets the typed error cross `reqwest_middleware`'s [`anyhow::Error`] boundary intact.
+impl std::error::Error for SessionError {}
+
 struct SessionState {
     phase: SessionPhase,
     /// The last issued bearer, kept through renewals and cleared only on terminal entry.
     bearer: Option<String>,
     /// Monotonic expiry of `bearer`.
     expires_at: Option<Instant>,
-    key_store: Arc<AccessConnectorKeyStore>,
+    /// Shared with the client, so clearing it on terminal entry reaches core too.
+    key_store: KeyStore<KeySlotIds>,
+    /// The organisation from the access token's claim; `None` until the first authentication.
+    organization_id: Option<OrganizationId>,
     phase_tx: watch::Sender<SessionPhase>,
 }
 
@@ -112,12 +119,18 @@ impl SessionState {
 
         let expires_at = Instant::now() + Duration::from_secs(success.expires_in);
 
-        unwrap_org_key(&self.key_store, token, &success.encrypted_payload)
-            .map_err(|e| e.to_string())?;
+        unwrap_org_key(
+            &self.key_store,
+            success.organization_id,
+            token,
+            &success.encrypted_payload,
+        )
+        .map_err(|e| e.to_string())?;
 
         // Exposed only to store it; never logged.
         self.bearer = Some(success.access_token.expose().to_owned());
         self.expires_at = Some(expires_at);
+        self.organization_id = Some(success.organization_id);
         self.set_phase(SessionPhase::Active);
         Ok(())
     }
@@ -131,8 +144,10 @@ impl SessionState {
         self.set_phase(phase);
         self.bearer = None;
         self.expires_at = None;
-        // Replace key store with a fresh empty one; clears the Organization slot.
-        self.key_store = Arc::new(KeyStore::default());
+        // Empty the store in place rather than swapping in a fresh one: every holder of
+        // the Arc -- the executor hoists one before the poll loop -- must lose the org key,
+        // not just whoever asks the session for it next.
+        self.key_store.clear();
     }
 }
 
@@ -153,11 +168,12 @@ impl std::fmt::Debug for SessionManager {
 impl SessionManager {
     /// Build the manager and authenticate. A rejected credential returns
     /// `Err(SessionError::Lost(Revoked))`, which callers treat as a fatal startup failure.
+    /// `key_store` is the client's, which the org key is installed into.
     pub(crate) async fn new(
         identity: IdentityClient,
         token: AccessToken,
+        key_store: KeyStore<KeySlotIds>,
     ) -> Result<Arc<Self>, SessionError> {
-        let key_store = Arc::new(KeyStore::<AccessConnectorKeySlotIds>::default());
         let (phase_tx, _phase_rx) = watch::channel(SessionPhase::Authenticating);
 
         let state = SessionState {
@@ -165,6 +181,7 @@ impl SessionManager {
             bearer: None,
             expires_at: None,
             key_store,
+            organization_id: None,
             phase_tx,
         };
 
@@ -184,8 +201,13 @@ impl SessionManager {
         self.state.lock().await.phase
     }
 
-    pub(crate) async fn key_store(&self) -> Arc<AccessConnectorKeyStore> {
-        Arc::clone(&self.state.lock().await.key_store)
+    pub(crate) async fn key_store(&self) -> KeyStore<KeySlotIds> {
+        self.state.lock().await.key_store.clone()
+    }
+
+    /// `None` only before the first authentication, which [`Self::new`] has already performed.
+    pub(crate) async fn organization_id(&self) -> Option<OrganizationId> {
+        self.state.lock().await.organization_id
     }
 
     /// Obtain a valid bearer token, renewing as needed.
@@ -422,15 +444,19 @@ mod tests {
     use super::*;
     use crate::{
         auth::identity::IdentityClient,
-        crypto::AccessConnectorSymmSlotId,
-        test_support::{encrypted_payload_for, test_token},
+        test_support::{
+            access_token_tagged, encrypted_payload_for, test_org_id, test_org_slot as org_slot,
+            test_token,
+        },
     };
 
+    /// `bearer` is a short tag, expanded to a real JWT so the `organization` claim parses.
     fn success_response(
         bearer: &str,
         expires_in: u64,
         encrypted_payload: &str,
     ) -> ResponseTemplate {
+        let bearer = access_token_tagged(test_org_id(), bearer);
         let body = format!(
             r#"{{"access_token":"{bearer}","expires_in":{expires_in},"encrypted_payload":"{encrypted_payload}"}}"#
         );
@@ -458,14 +484,14 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("SessionManager::new");
 
         assert_eq!(mgr.phase().await, SessionPhase::Active);
 
         let bearer = mgr.bearer(None).await.expect("bearer");
-        assert_eq!(bearer, "my-bearer");
+        assert_eq!(bearer, access_token_tagged(test_org_id(), "my-bearer"));
         assert_eq!(server.received_requests().await.unwrap().len(), 1);
 
         // Probe that the org key is installed.
@@ -473,7 +499,7 @@ mod tests {
         let probe_enc = {
             let mut ctx = store.context();
             "probe-value"
-                .encrypt(&mut ctx, AccessConnectorSymmSlotId::Organization)
+                .encrypt(&mut ctx, org_slot())
                 .expect("encrypt probe")
         };
         let decrypted: String = probe_enc.decrypt_with_key(&org_key).expect("decrypt probe");
@@ -502,12 +528,12 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("SessionManager::new");
 
         let bearer = mgr.bearer(None).await.expect("bearer");
-        assert_eq!(bearer, "second-token");
+        assert_eq!(bearer, access_token_tagged(test_org_id(), "second-token"));
         assert_eq!(server.received_requests().await.unwrap().len(), 2);
     }
 
@@ -539,7 +565,7 @@ mod tests {
 
         let client = IdentityClient::new(server.uri()).expect("client");
         let mgr = Arc::new(
-            SessionManager::new(client, test_token())
+            SessionManager::new(client, test_token(), KeyStore::default())
                 .await
                 .expect("SessionManager::new"),
         );
@@ -552,7 +578,10 @@ mod tests {
             .collect();
 
         for h in handles {
-            assert_eq!(h.await.expect("spawn").expect("bearer"), "renewed-tok");
+            assert_eq!(
+                h.await.expect("spawn").expect("bearer"),
+                access_token_tagged(test_org_id(), "renewed-tok")
+            );
         }
 
         // Initial auth plus one renewal.
@@ -569,7 +598,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let result = SessionManager::new(client, test_token()).await;
+        let result = SessionManager::new(client, test_token(), KeyStore::default()).await;
 
         assert!(
             matches!(result, Err(SessionError::Lost(SessionLost::Revoked))),
@@ -596,12 +625,14 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("first auth succeeds");
 
         // Trigger revocation via force_refresh.
-        let _ = mgr.force_refresh("tok", None).await;
+        let _ = mgr
+            .force_refresh(&access_token_tagged(test_org_id(), "tok"), None)
+            .await;
         assert_eq!(mgr.phase().await, SessionPhase::Revoked);
 
         let count_before = server.received_requests().await.unwrap().len();
@@ -628,7 +659,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("auth");
 
@@ -663,11 +694,13 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("first auth");
 
-        let _ = mgr.force_refresh("tok", None).await;
+        let _ = mgr
+            .force_refresh(&access_token_tagged(test_org_id(), "tok"), None)
+            .await;
         assert_eq!(mgr.phase().await, SessionPhase::Revoked);
 
         let err = mgr.bearer(None).await.expect_err("must be lost");
@@ -675,10 +708,81 @@ mod tests {
 
         let store = mgr.key_store().await;
         assert!(
-            !store
-                .context()
-                .has_symmetric_key(AccessConnectorSymmSlotId::Organization),
+            !store.context().has_symmetric_key(org_slot()),
             "org key slot must be cleared after revocation"
+        );
+    }
+
+    /// The executor hoists the key-store handle once, before the poll loop, and hands that
+    /// same `Arc` to every rotation. Swapping the session's store left that handle pointing
+    /// at the original, org key intact; clearing in place reaches every holder.
+    #[tokio::test]
+    async fn key_store_handle_taken_before_revocation_loses_the_org_key() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(rejected_response())
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("first auth");
+
+        // Taken before revocation, as the executor does.
+        let hoisted = mgr.key_store().await;
+        assert!(
+            hoisted.context().has_symmetric_key(org_slot()),
+            "org key must be installed before revocation"
+        );
+
+        let _ = mgr
+            .force_refresh(&access_token_tagged(test_org_id(), "tok"), None)
+            .await;
+        assert_eq!(mgr.phase().await, SessionPhase::Revoked);
+
+        assert!(
+            !hoisted.context().has_symmetric_key(org_slot()),
+            "a handle taken before revocation must not still hold the org key"
+        );
+    }
+
+    /// The same, for the shutdown path.
+    #[tokio::test]
+    async fn key_store_handle_taken_before_close_loses_the_org_key() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("auth");
+
+        let hoisted = mgr.key_store().await;
+        assert!(hoisted.context().has_symmetric_key(org_slot()));
+
+        mgr.close().await;
+
+        assert!(
+            !hoisted.context().has_symmetric_key(org_slot()),
+            "a handle taken before close must not still hold the org key"
         );
     }
 
@@ -695,7 +799,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("auth");
 
@@ -703,9 +807,7 @@ mod tests {
 
         let store = mgr.key_store().await;
         assert!(
-            !store
-                .context()
-                .has_symmetric_key(AccessConnectorSymmSlotId::Organization),
+            !store.context().has_symmetric_key(org_slot()),
             "org key slot must be cleared after close"
         );
     }
@@ -723,7 +825,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("auth");
 
@@ -734,7 +836,7 @@ mod tests {
             .force_refresh("old-stale-value", None)
             .await
             .expect("force_refresh");
-        assert_eq!(result, "fresh-tok");
+        assert_eq!(result, access_token_tagged(test_org_id(), "fresh-tok"));
         assert_eq!(
             server.received_requests().await.unwrap().len(),
             count_after_init,
@@ -763,7 +865,7 @@ mod tests {
             .await;
 
         let client = IdentityClient::new(server.uri()).expect("client");
-        let mgr = SessionManager::new(client, test_token())
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
             .await
             .expect("first auth");
 
@@ -773,9 +875,7 @@ mod tests {
         let store = mgr.key_store().await;
         let probe_enc = {
             let mut ctx = store.context();
-            "check-key"
-                .encrypt(&mut ctx, AccessConnectorSymmSlotId::Organization)
-                .expect("encrypt")
+            "check-key".encrypt(&mut ctx, org_slot()).expect("encrypt")
         };
 
         let ok: Result<String, _> = probe_enc.decrypt_with_key(&org_key2);
