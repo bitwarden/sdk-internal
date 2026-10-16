@@ -147,6 +147,16 @@ pub(crate) async fn reinit_user_crypto(
         .set_v2_upgrade_token(&req.upgrade_token)
         .await;
 
+    // The WASM client keeps the user key in its own state and rebuilds the SDK from it. Without
+    // this it keeps the V1 key and goes on treating the account as V1.
+    #[cfg(feature = "wasm")]
+    crate::key_management::wasm_unlock_state::copy_user_key_to_state(client)
+        .await
+        .map_err(|_| {
+            error!("Failed to write the upgraded user key to state during reinit_user_crypto");
+            ReinitUserCryptoError::CryptoInitialization
+        })?;
+
     super::on_unlock_handler(client).await.map_err(|e| {
         error!(error = ?e, "Failure in on_unlock_handler during reinit_user_crypto.");
         ReinitUserCryptoError::LocalMigrationFailed
@@ -340,6 +350,52 @@ mod tests {
         assert_eq!(
             stored_token.wrapped_user_key_2,
             upgrade_token.wrapped_user_key_2
+        );
+    }
+
+    /// On WASM the client keeps the user key in its own state; after a V1 to V2 reinit that state
+    /// must hold the V2 key, or the client keeps treating the account as V1.
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn reinit_user_crypto_v1_to_v2_writes_v2_user_key_to_state() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        register_in_memory_bridge(&client);
+
+        #[expect(deprecated)]
+        let v1_key = client
+            .internal
+            .get_key_store()
+            .context()
+            .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+            .unwrap()
+            .clone();
+        client.km_state_bridge().set_user_key(&v1_key).await;
+
+        let expected_v2_key =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_USER_KEY_V2_B64.to_string()).unwrap();
+        let upgrade_token = {
+            let mut ctx = client.internal.get_key_store().context_mut();
+            let v2_key_id = ctx.add_local_symmetric_key(expected_v2_key.clone());
+            V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap()
+        };
+
+        reinit_user_crypto(
+            &client,
+            ReinitUserCryptoRequest {
+                account_cryptographic_state: test_vector_v2_account_state(),
+                upgrade_token,
+            },
+        )
+        .await
+        .expect("V1→V2 reinit with a valid upgrade token should succeed");
+
+        // Trigger reached: the in-memory user key was upgraded.
+        assert_active_user_key_is_v2(&client, &expected_v2_key);
+
+        assert_eq!(
+            client.km_state_bridge().get_user_key().await,
+            Some(expected_v2_key),
+            "the upgraded V2 user key must be written back to client-managed state"
         );
     }
 
