@@ -21,11 +21,7 @@ use bitwarden_pam_sealed::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 use uuid::Uuid;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     error::RotationError,
@@ -149,7 +145,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, TargetSystemView> for TargetSys
 
 /// A target system a credential can be rotated against, with its sealed fields unsealed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct TargetSystemView {
     /// The target system's unique identifier.
@@ -173,7 +169,7 @@ pub struct TargetSystemView {
 
 /// Security-relevant fields of a target system; the server only stores them sealed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct TargetSystemSealedFields {
     /// The integration behind the target. `None` only for a
@@ -191,7 +187,7 @@ pub struct TargetSystemSealedFields {
 ///
 /// Serializes with a `method` discriminant matching the server's own.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(tag = "method", rename_all = "snake_case")]
 pub enum TargetSystemCreateRequest {
     /// A connector rotates the credential by writing it into the target system.
@@ -356,14 +352,14 @@ pub struct TargetSystemCreateError {
 }
 
 /// Client for PAM rotation target-system operations.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct TargetSystemsClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl TargetSystemsClient {
     /// Lists the organization's target systems.
     pub async fn list(

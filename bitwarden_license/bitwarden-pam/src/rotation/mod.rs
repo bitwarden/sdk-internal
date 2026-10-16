@@ -7,8 +7,6 @@ use std::sync::Arc;
 
 use bitwarden_core::{FromClient, client::ApiConfigurations, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 mod actions;
 mod configs;
@@ -45,14 +43,14 @@ pub use target_systems::{
 pub use validate::RotationValidationError;
 
 /// Entry point for PAM credential rotation.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(Clone, FromClient)]
 pub struct RotationClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl RotationClient {
     /// Access connector operations.
     pub fn connectors(&self) -> AccessConnectorsClient {

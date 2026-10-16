@@ -10,10 +10,6 @@ use bitwarden_core::{
 use bitwarden_crypto::KeyStore;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     error::RotationError,
@@ -25,7 +21,7 @@ use crate::{AccessConnectorId, TargetSystemId};
 /// An access connector: the unattended agent that performs credential rotations for an
 /// organization.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessConnector {
     /// The connector's unique identifier.
@@ -78,7 +74,7 @@ impl TryFrom<PamAccessConnectorResponseModel> for AccessConnector {
 
 /// A connector together with its recent rotation activity.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessConnectorDetail {
     /// The connector itself.
@@ -120,7 +116,7 @@ impl TryFrom<PamAccessConnectorDetailResponseModel> for AccessConnectorDetail {
 
 /// The result of registering a connector, including its one-time token.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessConnectorRegistrationResponse {
     /// The newly registered connector's unique identifier.
@@ -142,14 +138,14 @@ pub struct AccessConnectorRegistrationResponse {
 }
 
 /// Client for PAM access connector operations.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct AccessConnectorsClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AccessConnectorsClient {
     /// Lists the organization's access connectors.
     pub async fn list(
