@@ -112,11 +112,13 @@ codes, HTTP status codes, script exit codes, variable _names_) and never contain
 
 Everything that decides _what_ gets rotated and _how_ — the target kind, the password policy, the
 account identity, and whether sessions are terminated — is sealed by the admin client into two
-opaque blobs whose content keys are wrapped by the organization key. The server stores and relays
-these blobs without being able to read them; the connector unseals and cross-checks them against the
-claim (IDs, cipher, target method) before touching anything, and refuses the job if any check fails.
-Only plaintext IDs, the target name, the method flag, and scheduling fields pass through the server
-unsealed — none of them lets the server choose what is rotated or into which credential.
+sealed values, each sent as an encrypted envelope plus a content key wrapped by the organization
+key. The server stores and relays both halves without being able to read them; a claim missing
+either half, or with one that does not parse or unseal, is refused; the connector unseals and
+cross-checks them against the claim (IDs, cipher, target method) before touching anything, and
+refuses the job if any check fails. Only plaintext IDs, the target name, the method flag, and
+scheduling fields pass through the server unsealed — none of them lets the server choose what is
+rotated or into which credential.
 
 This closes off a hostile or MitM'd server **choosing** the account, the password strength, or the
 destination cipher. It does **not** close off everything a compromised server can do:
