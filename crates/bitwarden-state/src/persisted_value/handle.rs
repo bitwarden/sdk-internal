@@ -66,7 +66,7 @@ macro_rules! trace_failure {
 /// value.remove().await?;
 /// ```
 pub struct PersistedValue<K: PersistedValueKey> {
-    backend: Arc<dyn PersistedValueTrait<K::Value>>,
+    pub(crate) backend: Arc<dyn PersistedValueTrait<K::Value>>,
     _marker: PhantomData<K>,
 }
 
@@ -77,6 +77,14 @@ impl<K: PersistedValueKey> Clone for PersistedValue<K> {
             backend: self.backend.clone(),
             _marker: PhantomData,
         }
+    }
+}
+
+impl<K: PersistedValueKey, B: PersistedValueTrait<K::Value> + 'static> From<Arc<B>>
+    for PersistedValue<K>
+{
+    fn from(backend: Arc<B>) -> Self {
+        Self::new(backend)
     }
 }
 

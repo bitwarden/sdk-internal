@@ -326,6 +326,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_last_sync_reads_a_client_managed_value() {
+        let stored = DateTime::<Utc>::from_timestamp_millis(1_000_000).expect("valid timestamp");
+        let backend = bitwarden_test::MemoryPersistedValue::create::<LAST_SYNC>();
+        backend.set(stored).await.unwrap();
+
+        let client = Client::new(None);
+        client
+            .platform()
+            .state()
+            .register_client_managed_value::<LAST_SYNC>(backend);
+
+        assert_eq!(SyncClient::new(client).last_sync().await, Some(stored));
+    }
+
+    #[tokio::test]
     async fn test_handlers_execute_in_registration_order() {
         let client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|_| {}));
         let log = Arc::new(Mutex::new(Vec::new()));
