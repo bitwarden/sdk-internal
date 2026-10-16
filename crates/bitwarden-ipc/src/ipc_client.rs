@@ -6,10 +6,11 @@ use thiserror::Error;
 use tokio::select;
 
 use crate::{
+    broadcast::{BroadcastGroup, EndpointSendResult},
     constants::CHANNEL_BUFFER_CAPACITY,
     error::{
-        AlreadyRunningError, ErrorKind, IpcErrorKind, ReceiveError, SendError, SubscribeError,
-        TypedReceiveError,
+        AlreadyRunningError, BroadcastError, ErrorKind, IpcErrorKind, ReceiveError, SendError,
+        SubscribeError, TypedReceiveError,
     },
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
     rpc::{
@@ -21,7 +22,7 @@ use crate::{
         response_message::OutgoingRpcResponseMessage,
     },
     serde_utils,
-    traits::{CommunicationBackend, CryptoProvider, SessionRepository},
+    traits::{BroadcastResolution, CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
 /// A subscription to receive messages over IPC.
@@ -198,34 +199,42 @@ where
     }
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError> {
-        let result = self
-            .inner
-            .crypto
-            .send(&self.inner.communication, &self.inner.sessions, message)
-            .await;
+        send_message(&self.inner, message).await
+    }
 
-        if let Err(ref error) = result {
-            match error.kind() {
-                ErrorKind::Fatal => {
-                    tracing::error!(?error, "Fatal error sending message, stopping IPC client");
-                    stop_inner(&self.inner);
-                }
-                // An unreachable destination is an expected condition and not logged
-                ErrorKind::Unreachable => {}
-                // Every other recoverable send failure is still surfaced.
-                ErrorKind::Other => {
-                    tracing::debug!(
-                        ?error,
-                        "Recoverable error sending message, IPC client will continue running"
-                    );
-                }
-            }
+    async fn broadcast(
+        &self,
+        group: BroadcastGroup,
+        payload: Vec<u8>,
+        topic: Option<String>,
+    ) -> Result<Vec<EndpointSendResult>, BroadcastError> {
+        let endpoints = match self.inner.communication.resolve(&group).await {
+            BroadcastResolution::Endpoints(endpoints) => endpoints,
+            BroadcastResolution::Delegate(_) => return Err(BroadcastError::DelegationUnsupported),
+            BroadcastResolution::Unsupported => return Err(BroadcastError::Unsupported),
+        };
+
+        // Validate the whole resolution before sending anything, so a backend that names an
+        // endpoint outside the group cannot cause a partial delivery to it.
+        if let Some(endpoint) = endpoints.iter().find(|endpoint| !group.contains(endpoint)) {
+            return Err(BroadcastError::OutOfScope(endpoint.clone()));
         }
 
-        result.map_err(|e| match e.kind() {
-            ErrorKind::Unreachable => SendError::Unreachable,
-            _ => SendError::Other(format!("{e:?}")),
-        })
+        // Endpoints are sent to one at a time. The crypto provider may serialize sends anyway (the
+        // Noise provider holds one lock per client for the whole send, handshake included), in
+        // which case concurrent sends would not deliver any sooner.
+        let mut results = Vec::with_capacity(endpoints.len());
+        for endpoint in endpoints {
+            let message = OutgoingMessage {
+                payload: payload.clone(),
+                destination: endpoint.clone(),
+                topic: topic.clone(),
+            };
+            let result = send_message(&self.inner, message).await;
+            results.push(EndpointSendResult { endpoint, result });
+        }
+
+        Ok(results)
     }
 
     async fn subscribe(
@@ -251,6 +260,45 @@ where
             .register_erased(name.to_owned(), handler)
             .await;
     }
+}
+
+/// Send a single message through the crypto provider, stopping the client on a fatal error.
+async fn send_message<Crypto, Com, Ses>(
+    inner: &IpcClientInner<Crypto, Com, Ses>,
+    message: OutgoingMessage,
+) -> Result<(), SendError>
+where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Crypto::Session>,
+{
+    let result = inner
+        .crypto
+        .send(&inner.communication, &inner.sessions, message)
+        .await;
+
+    if let Err(ref error) = result {
+        match error.kind() {
+            ErrorKind::Fatal => {
+                tracing::error!(?error, "Fatal error sending message, stopping IPC client");
+                stop_inner(inner);
+            }
+            // An unreachable destination is an expected condition and not logged
+            ErrorKind::Unreachable => {}
+            // Every other recoverable send failure is still surfaced.
+            ErrorKind::Other => {
+                tracing::debug!(
+                    ?error,
+                    "Recoverable error sending message, IPC client will continue running"
+                );
+            }
+        }
+    }
+
+    result.map_err(|e| match e.kind() {
+        ErrorKind::Unreachable => SendError::Unreachable,
+        _ => SendError::Other(format!("{e:?}")),
+    })
 }
 
 fn stop_inner<Crypto, Com, Ses>(inner: &IpcClientInner<Crypto, Com, Ses>)

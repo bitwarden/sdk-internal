@@ -1,7 +1,8 @@
 use bitwarden_threading::cancellation_token::CancellationToken;
 
 use crate::{
-    error::{AlreadyRunningError, SendError, SubscribeError},
+    broadcast::{BroadcastGroup, EndpointSendResult},
+    error::{AlreadyRunningError, BroadcastError, SendError, SubscribeError},
     ipc_client::IpcClientSubscription,
     message::OutgoingMessage,
     rpc::exec::handler::ErasedRpcHandler,
@@ -32,6 +33,22 @@ pub trait IpcClient: Send + Sync {
     /// [`IpcErrorKind`](crate::IpcErrorKind)); recoverable errors leave the client running, so the
     /// send can be retried and existing subscriptions remain valid.
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError>;
+
+    /// Send a message to every member of `group`, fire-and-forget.
+    ///
+    /// The communication backend resolves the group into its current members at send time, and
+    /// each member then receives the message exactly as if it had been passed to
+    /// [`send`](Self::send): encrypted over that endpoint's own session.
+    ///
+    /// Returns an error, without sending anything, if the group cannot be resolved. Otherwise
+    /// returns one [`EndpointSendResult`] per resolved endpoint, in resolution order. A failed send
+    /// to one endpoint, including [`SendError::Unreachable`], does not stop delivery to the others.
+    async fn broadcast(
+        &self,
+        group: BroadcastGroup,
+        payload: Vec<u8>,
+        topic: Option<String>,
+    ) -> Result<Vec<EndpointSendResult>, BroadcastError>;
 
     /// Subscribe to receive messages, optionally filtered by topic.
     /// Setting the topic to `None` will receive all messages.

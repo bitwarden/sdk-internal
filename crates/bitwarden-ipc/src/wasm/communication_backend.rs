@@ -7,9 +7,10 @@ use tokio::sync::RwLock;
 use wasm_bindgen::prelude::*;
 
 use crate::{
+    broadcast::BroadcastGroup,
     error::{ErrorKind, IpcErrorKind},
     message::{IncomingMessage, OutgoingMessage},
-    traits::{CommunicationBackend, CommunicationBackendReceiver},
+    traits::{BroadcastResolution, CommunicationBackend, CommunicationBackendReceiver},
 };
 
 #[allow(missing_docs)]
@@ -67,6 +68,12 @@ impl IpcErrorKind for WasmCommunicationError {
 const TS_CUSTOM_TYPES: &'static str = r#"
 export interface IpcCommunicationBackendSender {
     send(message: OutgoingMessage): Promise<void>;
+    /**
+     * Optional. Resolves a broadcast group into the endpoints that are currently its members.
+     * When omitted, or when it throws, every group resolves to `"Unsupported"` and broadcasts fail
+     * without delivering anything.
+     */
+    resolve?(group: BroadcastGroup): Promise<BroadcastResolution>;
 }
 "#;
 
@@ -86,6 +93,14 @@ extern "C" {
     /// Used by JavaScript to provide an incoming message to the IPC framework.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn receive(this: &JsCommunicationBackendSender) -> Result<JsValue, JsValue>;
+
+    /// Optional broadcast group resolution. A sender that does not implement this method causes
+    /// the call to reject, which is mapped to [`BroadcastResolution::Unsupported`].
+    #[wasm_bindgen(catch, method, structural)]
+    pub async fn resolve(
+        this: &JsCommunicationBackendSender,
+        group: BroadcastGroup,
+    ) -> Result<BroadcastResolution, JsValue>;
 }
 
 /// JavaScript implementation of the `CommunicationBackend` trait for IPC communication.
@@ -151,6 +166,21 @@ impl CommunicationBackend for JsCommunicationBackend {
                     WasmCommunicationError::Js(message)
                 }
             })
+    }
+
+    async fn resolve(&self, group: &BroadcastGroup) -> BroadcastResolution {
+        let group = group.clone();
+        // A sender that does not implement `resolve` (or one whose implementation throws) rejects
+        // the call; treat any failure as Unsupported so the broadcast fails closed.
+        self.sender
+            .run_in_thread(|sender| async move {
+                sender
+                    .resolve(group)
+                    .await
+                    .unwrap_or(BroadcastResolution::Unsupported)
+            })
+            .await
+            .unwrap_or(BroadcastResolution::Unsupported)
     }
 
     async fn subscribe(&self) -> Self::Receiver {

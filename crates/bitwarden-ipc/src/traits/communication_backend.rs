@@ -1,9 +1,31 @@
 use std::fmt::Debug;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
+    broadcast::BroadcastGroup,
+    endpoint::Endpoint,
     error::IpcErrorKind,
     message::{IncomingMessage, OutgoingMessage},
 };
+
+/// The platform's answer to "which endpoints are currently members of this [`BroadcastGroup`]?",
+/// returned by [`CommunicationBackend::resolve`].
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[bitwarden_ffi::wasm_record]
+pub enum BroadcastResolution {
+    /// Deliver the message to each of these endpoints. An empty list is a valid answer: the group
+    /// currently has no members, so nothing is sent.
+    Endpoints(Vec<Endpoint>),
+    /// Hand the message to this endpoint, which takes care of delivering it to the group.
+    ///
+    /// Reserved for hop-to-hop delivery. The IPC client does not support it yet and rejects the
+    /// send without delivering anything.
+    Delegate(Endpoint),
+    /// The platform cannot resolve this group. The IPC client rejects the broadcast without
+    /// delivering anything.
+    Unsupported,
+}
 
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
@@ -28,6 +50,20 @@ pub trait CommunicationBackend: Send + Sync + 'static {
         &self,
         message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send + Sync;
+
+    /// Resolve a [`BroadcastGroup`] into the endpoints that are currently its members. Called by
+    /// [`IpcClient::broadcast`](crate::IpcClient::broadcast), which rejects any resolved endpoint
+    /// that falls outside the group.
+    ///
+    /// The default implementation returns [`BroadcastResolution::Unsupported`], so a backend has
+    /// to opt in to broadcasting explicitly. Backends that track the connected members of a group
+    /// should override this.
+    fn resolve(
+        &self,
+        _group: &BroadcastGroup,
+    ) -> impl std::future::Future<Output = BroadcastResolution> + Send + Sync {
+        async { BroadcastResolution::Unsupported }
+    }
 
     /// Subscribe to receive messages. This function will return a receiver that can be used to
     /// receive messages asynchronously.
@@ -117,6 +153,7 @@ pub(crate) mod test_support {
         outgoing: Arc<RwLock<Vec<OutgoingMessage>>>,
         incoming_tx: Sender<IncomingMessage>,
         incoming_rx: Receiver<IncomingMessage>,
+        resolution: Arc<RwLock<Option<BroadcastResolution>>>,
     }
 
     impl Clone for TestCommunicationBackend {
@@ -127,6 +164,7 @@ pub(crate) mod test_support {
                 outgoing: self.outgoing.clone(),
                 incoming_tx: self.incoming_tx.clone(),
                 incoming_rx: self.incoming_rx.resubscribe(),
+                resolution: self.resolution.clone(),
             }
         }
     }
@@ -152,7 +190,15 @@ pub(crate) mod test_support {
                 outgoing: Arc::new(RwLock::new(Vec::new())),
                 incoming_tx,
                 incoming_rx,
+                resolution: Arc::new(RwLock::new(None)),
             }
+        }
+
+        /// Make [`resolve`](CommunicationBackend::resolve) return `resolution` for every group.
+        /// Until this is called, every group resolves to [`BroadcastResolution::Unsupported`],
+        /// like the trait's default.
+        pub async fn set_resolution(&self, resolution: BroadcastResolution) {
+            *self.resolution.write().await = Some(resolution);
         }
 
         /// Inject a message as if it were received from a remote endpoint.
@@ -180,6 +226,14 @@ pub(crate) mod test_support {
         async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
             self.outgoing.write().await.push(message);
             Ok(())
+        }
+
+        async fn resolve(&self, _group: &BroadcastGroup) -> BroadcastResolution {
+            self.resolution
+                .read()
+                .await
+                .clone()
+                .unwrap_or(BroadcastResolution::Unsupported)
         }
 
         async fn subscribe(&self) -> Self::Receiver {
