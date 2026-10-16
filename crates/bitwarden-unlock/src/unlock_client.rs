@@ -65,12 +65,8 @@ impl UnlockClient {
         self.client
             .platform()
             .state()
-            .setting(SESSION_PROTECTED_USER_KEY)
-            .map_err(|e| {
-                tracing::error!("Failed to read session_protected_user_key setting handle: {e}");
-                UnlockError::Unknown
-            })?
-            .update(envelope)
+            .value::<SESSION_PROTECTED_USER_KEY>()
+            .set(envelope)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to save session_protected_user_key: {e}");
@@ -92,38 +88,23 @@ impl UnlockClient {
         let state = self.client.platform().state();
 
         let session_protected_user_key = state
-            .setting(SESSION_PROTECTED_USER_KEY)
-            .map_err(|e| {
-                tracing::error!("Failed to read session_protected_user_key setting handle: {e}");
-                UnlockError::Unknown
-            })?
+            .value::<SESSION_PROTECTED_USER_KEY>()
             .get()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to read session_protected_user_key: {e}");
                 UnlockError::Unknown
-            })?
-            .ok_or_else(|| {
-                tracing::error!("Missing session_protected_user_key in database");
-                UnlockError::Unknown
             })?;
 
-        let account_crypto_state = state
-            .setting(ACCOUNT_CRYPTO_STATE)
-            .map_err(|e| {
-                tracing::error!("Failed to read account_crypto_state setting handle: {e}");
-                UnlockError::Unknown
-            })?
-            .get()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to read account_crypto_state: {e}");
-                UnlockError::Unknown
-            })?
-            .ok_or_else(|| {
-                tracing::error!("Missing account_crypto_state in database");
-                UnlockError::Unknown
-            })?;
+        let account_crypto_state =
+            state
+                .value::<ACCOUNT_CRYPTO_STATE>()
+                .get()
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to read account_crypto_state: {e}");
+                    UnlockError::Unknown
+                })?;
 
         let decrypted_key = {
             let key_store = self.client.internal.get_key_store();
@@ -182,12 +163,12 @@ impl UnlockClient {
     /// CLI process exits between invocations, so locking must delete the persisted session
     /// key rather than mutate in-memory state.
     #[cfg(feature = "cli")]
-    pub async fn invalidate_session_key(&self) -> Result<(), bitwarden_state::SettingsError> {
+    pub async fn invalidate_session_key(&self) -> Result<(), bitwarden_state::PersistedValueError> {
         self.client
             .platform()
             .state()
-            .setting(SESSION_PROTECTED_USER_KEY)?
-            .delete()
+            .value::<SESSION_PROTECTED_USER_KEY>()
+            .remove()
             .await
     }
 }
@@ -337,9 +318,8 @@ mod tests {
         crypto_state: WrappedAccountCryptographicState,
     ) -> StateRegistry {
         let reg = StateRegistry::new_with_memory_db();
-        reg.setting(SESSION_PROTECTED_USER_KEY)
-            .unwrap()
-            .update(envelope)
+        reg.value::<SESSION_PROTECTED_USER_KEY>()
+            .set(envelope)
             .await
             .unwrap();
         Client::save_to_state(
@@ -383,18 +363,13 @@ mod tests {
 
         let _session_key = client.unlock().generate_session_key().await.unwrap();
 
-        let envelope: Option<SymmetricKeyEnvelope> = client
+        client
             .platform()
             .state()
-            .setting(SESSION_PROTECTED_USER_KEY)
-            .unwrap()
+            .value::<SESSION_PROTECTED_USER_KEY>()
             .get()
             .await
-            .unwrap();
-        assert!(
-            envelope.is_some(),
-            "SESSION_PROTECTED_USER_KEY should be persisted after generate_session_key"
-        );
+            .expect("SESSION_PROTECTED_USER_KEY should be persisted after generate_session_key");
     }
 
     #[tokio::test]
@@ -461,19 +436,13 @@ mod tests {
         let (envelope, session_key) = seal_with_new_session_key(&user_key);
 
         let reg = StateRegistry::new_with_memory_db();
-        reg.setting(BASE_URLS)
-            .unwrap()
-            .update(test_base_urls())
+        reg.value::<BASE_URLS>()
+            .set(test_base_urls())
             .await
             .unwrap();
-        reg.setting(USER_ID)
-            .unwrap()
-            .update(test_user_id())
-            .await
-            .unwrap();
-        reg.setting(SESSION_PROTECTED_USER_KEY)
-            .unwrap()
-            .update(envelope)
+        reg.value::<USER_ID>().set(test_user_id()).await.unwrap();
+        reg.value::<SESSION_PROTECTED_USER_KEY>()
+            .set(envelope)
             .await
             .unwrap();
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
