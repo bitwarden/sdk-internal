@@ -16,12 +16,9 @@ use crate::{
 /// Errors that can occur during client rehydration.
 #[derive(Debug, thiserror::Error)]
 pub enum RehydrationError {
-    /// A required value was not found in the state registry.
-    #[error("Required state value not found in registry: {0}")]
-    MissingState(String),
-    /// An error occurred accessing or updating a setting in the state registry.
+    /// A persisted value was missing, or reading or writing it failed.
     #[error("State access error: {0}")]
-    State(#[from] bitwarden_state::SettingsError),
+    State(#[from] bitwarden_state::PersistedValueError),
 }
 
 /// Data required to populate a [`StateRegistry`] via [`Client::save_to_state`].
@@ -48,26 +45,12 @@ impl Client {
         data: SaveStateData,
         reg: &StateRegistry,
     ) -> Result<(), RehydrationError> {
-        reg.setting(BASE_URLS)
-            .map_err(|e| RehydrationError::State(e.into()))?
-            .update(data.urls)
-            .await
-            .map_err(RehydrationError::State)?;
-        reg.setting(USER_ID)
-            .map_err(|e| RehydrationError::State(e.into()))?
-            .update(data.user_id)
-            .await
-            .map_err(RehydrationError::State)?;
-        reg.setting(USER_EMAIL)
-            .map_err(|e| RehydrationError::State(e.into()))?
-            .update(data.email)
-            .await
-            .map_err(RehydrationError::State)?;
-        reg.setting(ACCOUNT_CRYPTO_STATE)
-            .map_err(|e| RehydrationError::State(e.into()))?
-            .update(data.crypto_state)
-            .await
-            .map_err(RehydrationError::State)?;
+        reg.value::<BASE_URLS>().set(data.urls).await?;
+        reg.value::<USER_ID>().set(data.user_id).await?;
+        reg.value::<USER_EMAIL>().set(data.email).await?;
+        reg.value::<ACCOUNT_CRYPTO_STATE>()
+            .set(data.crypto_state)
+            .await?;
         Ok(())
     }
 
@@ -78,21 +61,9 @@ impl Client {
         token_handler: Arc<dyn TokenHandler>,
         registry: StateRegistry,
     ) -> Result<Self, RehydrationError> {
-        let base_urls: BaseUrls = registry
-            .setting(BASE_URLS)
-            .map_err(|e| RehydrationError::State(e.into()))?
-            .get()
-            .await
-            .map_err(RehydrationError::State)?
-            .ok_or_else(|| RehydrationError::MissingState("BASE_URLS".to_string()))?;
+        let base_urls: BaseUrls = registry.value::<BASE_URLS>().get().await?;
 
-        let user_id: UserId = registry
-            .setting(USER_ID)
-            .map_err(|e| RehydrationError::State(e.into()))?
-            .get()
-            .await
-            .map_err(RehydrationError::State)?
-            .ok_or_else(|| RehydrationError::MissingState("USER_ID".to_string()))?;
+        let user_id: UserId = registry.value::<USER_ID>().get().await?;
 
         let settings =
             get_host_platform_info().to_client_settings(base_urls.api_url, base_urls.identity_url);
@@ -128,7 +99,7 @@ mod tests {
     use bitwarden_crypto::{
         KeyStore, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SymmetricKeyAlgorithm,
     };
-    use bitwarden_state::registry::StateRegistry;
+    use bitwarden_state::{PersistedValueError, registry::StateRegistry};
 
     use super::*;
     use crate::{
@@ -213,41 +184,18 @@ mod tests {
         Client::save_to_state(data, &reg).await.unwrap();
 
         // Read back each setting directly from the registry.
-        let base_urls: BaseUrls = reg
-            .setting(BASE_URLS)
-            .unwrap()
-            .get()
-            .await
-            .unwrap()
-            .expect("BASE_URLS should be present");
+        let base_urls: BaseUrls = reg.value::<BASE_URLS>().get().await.unwrap();
         assert_eq!(base_urls.identity_url, expected_urls_identity);
         assert_eq!(base_urls.api_url, expected_urls_api);
 
-        let user_id: UserId = reg
-            .setting(USER_ID)
-            .unwrap()
-            .get()
-            .await
-            .unwrap()
-            .expect("USER_ID should be present");
+        let user_id: UserId = reg.value::<USER_ID>().get().await.unwrap();
         assert_eq!(user_id, expected_user_id);
 
-        let email: String = reg
-            .setting(USER_EMAIL)
-            .unwrap()
-            .get()
-            .await
-            .unwrap()
-            .expect("USER_EMAIL should be present");
+        let email: String = reg.value::<USER_EMAIL>().get().await.unwrap();
         assert_eq!(email, expected_email);
 
-        let crypto_state: WrappedAccountCryptographicState = reg
-            .setting(ACCOUNT_CRYPTO_STATE)
-            .unwrap()
-            .get()
-            .await
-            .unwrap()
-            .expect("ACCOUNT_CRYPTO_STATE should be present");
+        let crypto_state: WrappedAccountCryptographicState =
+            reg.value::<ACCOUNT_CRYPTO_STATE>().get().await.unwrap();
         assert!(
             matches!(crypto_state, WrappedAccountCryptographicState::V2 { .. }),
             "Expected V2 crypto state"
@@ -284,16 +232,12 @@ mod tests {
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
         let result = Client::load_from_state(token_handler, reg).await;
 
-        match result {
-            Err(RehydrationError::MissingState(s)) => {
-                assert!(
-                    s.contains("BASE_URLS"),
-                    "Error message should mention BASE_URLS, got: {s}"
-                );
-            }
-            Err(e) => panic!("Expected MissingState error for BASE_URLS, got: {e:?}"),
-            Ok(_) => panic!("Expected MissingState error for BASE_URLS, got Ok"),
-        }
+        assert!(matches!(
+            result,
+            Err(RehydrationError::State(PersistedValueError::ValueNotFound(
+                "base_urls"
+            )))
+        ));
     }
 
     #[tokio::test]
@@ -302,24 +246,19 @@ mod tests {
 
         let reg = StateRegistry::new_with_memory_db();
         // Write only BASE_URLS, omit USER_ID.
-        reg.setting(BASE_URLS)
-            .unwrap()
-            .update(test_base_urls())
+        reg.value::<BASE_URLS>()
+            .set(test_base_urls())
             .await
             .unwrap();
 
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
         let result = Client::load_from_state(token_handler, reg).await;
 
-        match result {
-            Err(RehydrationError::MissingState(s)) => {
-                assert!(
-                    s.contains("USER_ID"),
-                    "Error message should mention USER_ID, got: {s}"
-                );
-            }
-            Err(e) => panic!("Expected MissingState error for USER_ID, got: {e:?}"),
-            Ok(_) => panic!("Expected MissingState error for USER_ID, got Ok"),
-        }
+        assert!(matches!(
+            result,
+            Err(RehydrationError::State(PersistedValueError::ValueNotFound(
+                "user_id"
+            )))
+        ));
     }
 }

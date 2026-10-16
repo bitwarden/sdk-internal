@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use bitwarden_state::Setting;
+use bitwarden_state::PersistedValue;
 use chrono::{DateTime, Duration, Utc};
 
 use crate::{
@@ -24,14 +24,14 @@ pub enum FetchFlagsError {
     Api(#[from] bitwarden_api_api::ApiError),
     /// Error persisting flags or fetched_at timestamp to state registry.
     #[error("state access error: {0}")]
-    State(#[from] bitwarden_state::SettingsError),
+    State(#[from] bitwarden_state::PersistedValueError),
 }
 
 /// A client for inspecting and refreshing feature flags.
 #[bitwarden_ffi::wasm_object]
 pub struct FlagsClient {
-    flags: Setting<Flags>,
-    flags_fetched_at: Setting<DateTime<Utc>>,
+    flags: PersistedValue<FLAGS>,
+    flags_fetched_at: PersistedValue<FLAGS_FETCHED_AT>,
     api_configurations: Arc<ApiConfigurations>,
 }
 
@@ -39,14 +39,14 @@ impl FlagsClient {
     /// Persist a flag map (e.g. from `/config`) into the state registry.
     pub async fn load(&self, flags: HashMap<String, bool>) {
         let flags = Flags::load_from_map(flags);
-        if let Err(e) = self.flags.update(flags).await {
+        if let Err(e) = self.flags.set(flags).await {
             tracing::warn!("Failed to persist flags: {e}");
         }
     }
 
     /// Retrieve the active feature flags from the state registry.
     pub async fn get(&self) -> Flags {
-        match self.flags.get().await {
+        match self.flags.try_get().await {
             Ok(flags) => flags.unwrap_or_default(),
             Err(e) => {
                 tracing::warn!("Failed to read flags, using defaults: {e}");
@@ -62,7 +62,7 @@ impl FlagsClient {
     /// [`Client::load_from_state`] calls this with `force = false` to honour the 1-hour TTL.
     pub async fn fetch(&self, force: bool) -> Result<(), FetchFlagsError> {
         if !force {
-            let last: Option<DateTime<Utc>> = self.flags_fetched_at.get().await?;
+            let last: Option<DateTime<Utc>> = self.flags_fetched_at.try_get().await?;
             if let Some(fetched_at) = last
                 && Utc::now().signed_duration_since(fetched_at) < FLAGS_TTL
             {
@@ -84,7 +84,7 @@ impl FlagsClient {
             .filter_map(|(k, v)| v.as_bool().map(|b| (k, b)))
             .collect();
         self.load(bool_map).await;
-        self.flags_fetched_at.update(Utc::now()).await?;
+        self.flags_fetched_at.set(Utc::now()).await?;
         Ok(())
     }
 }
@@ -94,12 +94,8 @@ impl Client {
     pub fn flags(&self) -> FlagsClient {
         let registry = &self.internal.state_registry;
         FlagsClient {
-            flags: registry
-                .setting(FLAGS)
-                .expect("Settings repository must be registered on the state registry"),
-            flags_fetched_at: registry
-                .setting(FLAGS_FETCHED_AT)
-                .expect("Settings repository must be registered on the state registry"),
+            flags: registry.value::<FLAGS>(),
+            flags_fetched_at: registry.value::<FLAGS_FETCHED_AT>(),
             api_configurations: self.internal.api_configurations.clone(),
         }
     }
@@ -132,9 +128,8 @@ mod tests {
         client
             .internal
             .state_registry
-            .setting(FLAGS_FETCHED_AT)
-            .unwrap()
-            .update(at)
+            .value::<FLAGS_FETCHED_AT>()
+            .set(at)
             .await
             .unwrap();
     }
@@ -143,9 +138,8 @@ mod tests {
         client
             .internal
             .state_registry
-            .setting(FLAGS_FETCHED_AT)
-            .unwrap()
-            .get()
+            .value::<FLAGS_FETCHED_AT>()
+            .try_get()
             .await
             .unwrap()
     }
@@ -171,11 +165,9 @@ mod tests {
         let persisted = client
             .internal
             .state_registry
-            .setting(FLAGS)
-            .unwrap()
+            .value::<FLAGS>()
             .get()
             .await
-            .unwrap()
             .expect("flags should be persisted after load");
         assert!(persisted.strict_cipher_decryption);
     }
