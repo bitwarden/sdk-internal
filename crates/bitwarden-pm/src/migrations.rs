@@ -47,3 +47,20 @@ macro_rules! create_client_managed_repositories {
         }
     };
 }
+
+/// Macro to create the client-managed persisted values for the SDK.
+/// To let clients manage a persisted value, add its key to the list in the macro invocation. The
+/// key must be declared with `register_persisted_value!`, and UniFFI must support its value type.
+/// This is meant to be used by the final application crates (e.g., bitwarden-uniffi,
+/// bitwarden-wasm-internal).
+#[macro_export]
+macro_rules! create_client_managed_values {
+    ($container_name:ident, $macro:ident) => {
+        $macro! {
+            $container_name;
+            // List any client-managed persisted values here. The format is:
+            // <fully qualified path to the key>, <TypeScript value type>, <field name>, <name of the value implementation>
+            ::bitwarden_sync::LAST_SYNC, "DateTime<Utc>", last_sync, LastSyncPersistedValue;
+        }
+    };
+}
