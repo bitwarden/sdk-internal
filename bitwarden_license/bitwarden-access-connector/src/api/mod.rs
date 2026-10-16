@@ -49,7 +49,7 @@ impl AccessConnectorAuthMiddleware {
     fn session(&self) -> Result<Arc<SessionManager>, reqwest_middleware::Error> {
         self.handler.session().ok_or_else(|| {
             tracing::error!("authenticated request issued before the session was installed");
-            reqwest_middleware::Error::Middleware(anyhow::Error::new(SessionNotInstalled))
+            reqwest_middleware::Error::Middleware(anyhow::Error::new(SessionNotInstalledError))
         })
     }
 
@@ -70,15 +70,15 @@ impl AccessConnectorAuthMiddleware {
 
 /// A request needed a bearer before [`AccessConnectorTokenHandler::set_session`] ran.
 #[derive(Debug)]
-pub(crate) struct SessionNotInstalled;
+pub(crate) struct SessionNotInstalledError;
 
-impl std::fmt::Display for SessionNotInstalled {
+impl std::fmt::Display for SessionNotInstalledError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "session not installed")
     }
 }
 
-impl std::error::Error for SessionNotInstalled {}
+impl std::error::Error for SessionNotInstalledError {}
 
 #[async_trait::async_trait]
 impl Middleware for AccessConnectorAuthMiddleware {
@@ -172,7 +172,7 @@ impl Middleware for TimeoutMiddleware {
             .await
             .unwrap_or_else(|_| {
                 Err(reqwest_middleware::Error::Middleware(anyhow::Error::new(
-                    RequestTimedOut,
+                    RequestTimedOutError,
                 )))
             })
     }
@@ -180,15 +180,15 @@ impl Middleware for TimeoutMiddleware {
 
 /// A request exceeded [`REQUEST_TIMEOUT`].
 #[derive(Debug)]
-pub(crate) struct RequestTimedOut;
+pub(crate) struct RequestTimedOutError;
 
-impl std::fmt::Display for RequestTimedOut {
+impl std::fmt::Display for RequestTimedOutError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "request timed out")
     }
 }
 
-impl std::error::Error for RequestTimedOut {}
+impl std::error::Error for RequestTimedOutError {}
 
 /// Builds the SDK client the connector runs against, plus the handler that carries its session
 /// once startup has one.
@@ -1293,8 +1293,9 @@ mod tests {
         );
         match err {
             reqwest_middleware::Error::Middleware(e) => assert!(
-                e.downcast_ref::<crate::api::RequestTimedOut>().is_some(),
-                "expected RequestTimedOut, got {e:?}"
+                e.downcast_ref::<crate::api::RequestTimedOutError>()
+                    .is_some(),
+                "expected RequestTimedOutError, got {e:?}"
             ),
             other => panic!("expected a middleware error, got {other:?}"),
         }
