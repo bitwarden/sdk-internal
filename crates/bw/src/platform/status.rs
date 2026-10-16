@@ -103,8 +103,8 @@ async fn build_status(
     Ok(StatusResponse {
         server_url,
         last_sync,
-        user_email: persisted.setting(USER_EMAIL)?.get().await?,
-        user_id: persisted.setting(USER_ID)?.get().await?,
+        user_email: persisted.value::<USER_EMAIL>().try_get().await?,
+        user_id: persisted.value::<USER_ID>().try_get().await?,
         status,
     })
 }

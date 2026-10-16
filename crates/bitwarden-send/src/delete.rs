@@ -2,7 +2,7 @@ use bitwarden_api_api::ResponseContent;
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::{
-    Setting, register_setting_key,
+    PersistedValue, register_persisted_value,
     repository::{Repository, RepositoryError},
 };
 use thiserror::Error;
@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::*;
 use crate::{Send, SendId, send_client::SendClient};
 
 // Durable queue of Sends whose server-side delete failed, retried later to avoid orphaned records.
-register_setting_key!(const PENDING_SEND_DELETIONS: Vec<SendId> = "pending_send_deletions");
+register_persisted_value!(PENDING_SEND_DELETIONS: Vec<SendId> = "pending_send_deletions");
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -23,13 +23,13 @@ pub enum DeleteSendError {
     #[error(transparent)]
     Repository(#[from] RepositoryError),
     #[error(transparent)]
-    State(#[from] bitwarden_state::SettingsError),
+    State(#[from] bitwarden_state::PersistedValueError),
 }
 
 async fn delete_send<R: Repository<Send> + ?Sized>(
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
-    pending_deletions: &Setting<Vec<SendId>>,
+    pending_deletions: &PersistedValue<PENDING_SEND_DELETIONS>,
     send_id: SendId,
 ) -> Result<(), DeleteSendError> {
     if let Err(e) = api_client.sends_api().delete(&send_id.to_string()).await {
@@ -43,10 +43,13 @@ async fn delete_send<R: Repository<Send> + ?Sized>(
     Ok(())
 }
 
-/// Add `send_id` to the pending-deletion queue if not already present. Setting errors are
+/// Add `send_id` to the pending-deletion queue if not already present. State errors are
 /// swallowed so the caller still receives the original delete error unchanged.
-async fn queue_pending_deletion(pending_deletions: &Setting<Vec<SendId>>, send_id: SendId) {
-    let mut queue = match pending_deletions.get().await {
+async fn queue_pending_deletion(
+    pending_deletions: &PersistedValue<PENDING_SEND_DELETIONS>,
+    send_id: SendId,
+) {
+    let mut queue = match pending_deletions.try_get().await {
         Ok(queue) => queue.unwrap_or_default(),
         Err(e) => {
             tracing::warn!("Failed to read pending send deletions: {e}");
@@ -59,7 +62,7 @@ async fn queue_pending_deletion(pending_deletions: &Setting<Vec<SendId>>, send_i
     }
 
     queue.push(send_id);
-    if let Err(e) = pending_deletions.update(queue).await {
+    if let Err(e) = pending_deletions.set(queue).await {
         tracing::warn!("Failed to queue send for pending deletion: {e}");
     }
 }
@@ -67,9 +70,9 @@ async fn queue_pending_deletion(pending_deletions: &Setting<Vec<SendId>>, send_i
 async fn retry_pending_deletions<R: Repository<Send> + ?Sized>(
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
-    pending_deletions: &Setting<Vec<SendId>>,
+    pending_deletions: &PersistedValue<PENDING_SEND_DELETIONS>,
 ) -> Result<(), DeleteSendError> {
-    let queue = pending_deletions.get().await?.unwrap_or_default();
+    let queue = pending_deletions.try_get().await?.unwrap_or_default();
     if queue.is_empty() {
         return Ok(());
     }
@@ -96,9 +99,9 @@ async fn retry_pending_deletions<R: Repository<Send> + ?Sized>(
     }
 
     // Re-read before writing so a concurrent queue_pending_deletion isn't clobbered.
-    let mut current = pending_deletions.get().await?.unwrap_or_default();
+    let mut current = pending_deletions.try_get().await?.unwrap_or_default();
     current.retain(|id| !resolved.contains(id));
-    pending_deletions.update(current).await?;
+    pending_deletions.set(current).await?;
 
     Ok(())
 }
@@ -113,7 +116,7 @@ impl SendClient {
             .client
             .platform()
             .state()
-            .setting(PENDING_SEND_DELETIONS)?;
+            .value::<PENDING_SEND_DELETIONS>();
 
         delete_send(
             &config.api_client,
@@ -133,7 +136,7 @@ impl SendClient {
             .client
             .platform()
             .state()
-            .setting(PENDING_SEND_DELETIONS)?;
+            .value::<PENDING_SEND_DELETIONS>();
 
         retry_pending_deletions(&config.api_client, repository.as_ref(), &pending_deletions).await
     }
@@ -146,14 +149,14 @@ mod tests {
     use bitwarden_api_api::apis::ApiClient;
     use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
-    use bitwarden_test::{MemoryRepository, MemorySetting};
+    use bitwarden_test::{MemoryPersistedValue, MemoryRepository};
     use uuid::uuid;
 
     use super::*;
     use crate::{AuthType, Send, SendId, SendTextView, SendType, SendView};
 
-    fn make_pending_setting() -> Setting<Vec<SendId>> {
-        MemorySetting::create()
+    fn make_pending_deletions() -> PersistedValue<PENDING_SEND_DELETIONS> {
+        MemoryPersistedValue::create()
     }
 
     async fn make_store_with_send(
@@ -204,7 +207,7 @@ mod tests {
     async fn test_delete_send() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let (_store, repository) = make_store_with_send(send_id).await;
-        let pending = make_pending_setting();
+        let pending = make_pending_deletions();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api
@@ -229,7 +232,7 @@ mod tests {
     async fn test_delete_send_http_error() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let (_store, repository) = make_store_with_send(send_id).await;
-        let pending = make_pending_setting();
+        let pending = make_pending_deletions();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api
@@ -260,7 +263,7 @@ mod tests {
     async fn test_delete_send_failure_queues_pending_deletion() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let (_store, repository) = make_store_with_send(send_id).await;
-        let pending = make_pending_setting();
+        let pending = make_pending_deletions();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api.expect_delete().returning(move |_id| {
@@ -273,7 +276,7 @@ mod tests {
         let result = delete_send(&api_client, &repository, &pending, SendId::new(send_id)).await;
         assert!(result.is_err());
 
-        let queue = pending.get().await.unwrap().unwrap_or_default();
+        let queue = pending.try_get().await.unwrap().unwrap_or_default();
         assert_eq!(queue, vec![SendId::new(send_id)]);
     }
 
@@ -281,7 +284,7 @@ mod tests {
     async fn test_delete_send_failure_does_not_duplicate_queue_entry() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let (_store, repository) = make_store_with_send(send_id).await;
-        let pending = make_pending_setting();
+        let pending = make_pending_deletions();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api.expect_delete().returning(move |_id| {
@@ -302,7 +305,7 @@ mod tests {
                 .is_err()
         );
 
-        let queue = pending.get().await.unwrap().unwrap_or_default();
+        let queue = pending.try_get().await.unwrap().unwrap_or_default();
         assert_eq!(queue, vec![SendId::new(send_id)]);
     }
 
@@ -310,8 +313,8 @@ mod tests {
     async fn test_retry_pending_deletions_success_removes_from_queue_and_repository() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let (_store, repository) = make_store_with_send(send_id).await;
-        let pending = make_pending_setting();
-        pending.update(vec![SendId::new(send_id)]).await.unwrap();
+        let pending = make_pending_deletions();
+        pending.set(vec![SendId::new(send_id)]).await.unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api
@@ -324,7 +327,7 @@ mod tests {
             .await
             .unwrap();
 
-        let queue = pending.get().await.unwrap().unwrap_or_default();
+        let queue = pending.try_get().await.unwrap().unwrap_or_default();
         assert!(queue.is_empty());
         assert!(
             repository
@@ -339,8 +342,8 @@ mod tests {
     async fn test_retry_pending_deletions_not_found_is_resolved() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let (_store, repository) = make_store_with_send(send_id).await;
-        let pending = make_pending_setting();
-        pending.update(vec![SendId::new(send_id)]).await.unwrap();
+        let pending = make_pending_deletions();
+        pending.set(vec![SendId::new(send_id)]).await.unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api
@@ -358,7 +361,7 @@ mod tests {
             .await
             .unwrap();
 
-        let queue = pending.get().await.unwrap().unwrap_or_default();
+        let queue = pending.try_get().await.unwrap().unwrap_or_default();
         assert!(queue.is_empty());
         assert!(
             repository
@@ -373,8 +376,8 @@ mod tests {
     async fn test_retry_pending_deletions_other_error_stays_queued() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let (_store, repository) = make_store_with_send(send_id).await;
-        let pending = make_pending_setting();
-        pending.update(vec![SendId::new(send_id)]).await.unwrap();
+        let pending = make_pending_deletions();
+        pending.set(vec![SendId::new(send_id)]).await.unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api
@@ -391,7 +394,7 @@ mod tests {
             .await
             .unwrap();
 
-        let queue = pending.get().await.unwrap().unwrap_or_default();
+        let queue = pending.try_get().await.unwrap().unwrap_or_default();
         assert_eq!(queue, vec![SendId::new(send_id)]);
         // Still present server-side (from the client's view), so it must remain locally too.
         assert!(
@@ -439,9 +442,9 @@ mod tests {
         send.id = Some(SendId::new(failing_id));
         repository.set(SendId::new(failing_id), send).await.unwrap();
 
-        let pending = make_pending_setting();
+        let pending = make_pending_deletions();
         pending
-            .update(vec![SendId::new(resolved_id), SendId::new(failing_id)])
+            .set(vec![SendId::new(resolved_id), SendId::new(failing_id)])
             .await
             .unwrap();
 
@@ -462,7 +465,7 @@ mod tests {
             .await
             .unwrap();
 
-        let queue = pending.get().await.unwrap().unwrap_or_default();
+        let queue = pending.try_get().await.unwrap().unwrap_or_default();
         assert_eq!(queue, vec![SendId::new(failing_id)]);
         assert!(
             repository
@@ -484,7 +487,7 @@ mod tests {
     async fn test_retry_pending_deletions_empty_queue_is_noop() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let (_store, repository) = make_store_with_send(send_id).await;
-        let pending = make_pending_setting();
+        let pending = make_pending_deletions();
 
         // No delete calls expected for an empty queue.
         let api_client = ApiClient::new_mocked(|_mock| {});
@@ -498,7 +501,7 @@ mod tests {
     async fn test_delete_send_failure_then_retry_success_resolves_orphan() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let (_store, repository) = make_store_with_send(send_id).await;
-        let pending = make_pending_setting();
+        let pending = make_pending_deletions();
 
         let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -538,6 +541,13 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
-        assert!(pending.get().await.unwrap().unwrap_or_default().is_empty());
+        assert!(
+            pending
+                .try_get()
+                .await
+                .unwrap()
+                .unwrap_or_default()
+                .is_empty()
+        );
     }
 }

@@ -5,7 +5,7 @@ use bitwarden_core::{
     Client,
     client::{ApiConfigurations, FromClientPart},
 };
-use bitwarden_state::Setting;
+use bitwarden_state::PersistedValue;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -28,7 +28,7 @@ pub enum SyncError {
     AccountDeleted,
 
     #[error(transparent)]
-    Setting(#[from] bitwarden_state::SettingsError),
+    State(#[from] bitwarden_state::PersistedValueError),
 
     #[error("Server returned an unrepresentable revision date.")]
     InvalidRevisionDate,
@@ -54,7 +54,7 @@ pub struct SyncClient {
     sync_handlers: HandlerRegistry<dyn SyncHandler>,
     error_handlers: HandlerRegistry<dyn SyncErrorHandler>,
     sync_lock: Mutex<()>,
-    last_sync: Option<Setting<DateTime<Utc>>>,
+    last_sync: PersistedValue<LAST_SYNC>,
 }
 
 impl SyncClient {
@@ -65,13 +65,13 @@ impl SyncClient {
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: Mutex::new(()),
-            last_sync: client.platform().state().setting(LAST_SYNC).ok(),
+            last_sync: client.get_part(),
         }
     }
 
     /// Get the timestamp of the last successful sync or confirmed-up-to-date skip, if any.
     pub async fn last_sync(&self) -> Option<DateTime<Utc>> {
-        match self.last_sync.as_ref()?.get().await {
+        match self.last_sync.try_get().await {
             Ok(value) => value,
             Err(e) => {
                 tracing::warn!("Failed to read last sync timestamp: {e}");
@@ -173,10 +173,7 @@ impl SyncClient {
     }
 
     async fn needs_sync(&self) -> Result<bool, SyncError> {
-        let Some(last_sync_setting) = self.last_sync.as_ref() else {
-            return Ok(true); // No state backend — always sync
-        };
-        let Some(last_sync) = last_sync_setting.get().await? else {
+        let Some(last_sync) = self.last_sync.try_get().await? else {
             return Ok(true); // First sync — skip revision check
         };
 
@@ -197,9 +194,7 @@ impl SyncClient {
     }
 
     async fn update_last_sync(&self, now: DateTime<Utc>) {
-        if let Some(setting) = self.last_sync.as_ref()
-            && let Err(e) = setting.update(now).await
-        {
+        if let Err(e) = self.last_sync.set(now).await {
             tracing::warn!("Failed to update last sync timestamp: {e}");
         }
     }
@@ -317,7 +312,7 @@ mod tests {
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: tokio::sync::Mutex::new(()),
-            last_sync: None,
+            last_sync: bitwarden_test::MemoryPersistedValue::create(),
         }
     }
 
@@ -329,12 +324,12 @@ mod tests {
         api_client: bitwarden_api_api::apis::ApiClient,
         stored_last_sync: Option<DateTime<Utc>>,
     ) -> SyncClient {
-        let setting = bitwarden_test::MemorySetting::create();
+        let setting = bitwarden_test::MemoryPersistedValue::create::<LAST_SYNC>();
         if let Some(dt) = stored_last_sync {
-            setting.update(dt).await.expect("pre-populate last_sync");
+            setting.set(dt).await.expect("pre-populate last_sync");
         }
         let mut client = test_client(api_client);
-        client.last_sync = Some(setting);
+        client.last_sync = setting;
         client
     }
 
@@ -476,7 +471,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_first_sync_skips_revision_check() {
-        // Setting exists but has no stored value — revision check must not be called.
+        // The value exists but has none stored — revision check must not be called.
         let client = test_client_with_last_sync(
             bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
                 mock.sync_api
@@ -609,10 +604,10 @@ mod tests {
         let error_log = Arc::new(Mutex::new(Vec::<String>::new()));
         let error_log_clone = error_log.clone();
 
-        // Build Setting manually so we can inspect it after sync.
-        let setting = bitwarden_test::MemorySetting::create();
+        // Build the value manually so we can inspect it after sync.
+        let setting = bitwarden_test::MemoryPersistedValue::create::<LAST_SYNC>();
         setting
-            .update(stored_last_sync)
+            .set(stored_last_sync)
             .await
             .expect("pre-populate last_sync");
 
@@ -621,7 +616,7 @@ mod tests {
                 .expect_get_account_revision_date()
                 .returning(|| Err(std::io::Error::other("network error").into()));
         }));
-        client.last_sync = Some(setting.clone());
+        client.last_sync = setting.clone();
 
         client.register_error_handler(Arc::new(TestErrorHandler {
             name: "error_handler".to_string(),
@@ -641,7 +636,7 @@ mod tests {
         );
         assert_eq!(
             setting.get().await.unwrap(),
-            Some(stored_last_sync),
+            stored_last_sync,
             "last_sync must not be bumped on error"
         );
         assert!(

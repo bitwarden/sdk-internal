@@ -403,8 +403,12 @@ pub(super) async fn initialize_user_crypto(
         }))
         .await;
 
-    if let Ok(setting) = client.internal.state_registry.setting(ACCOUNT_CRYPTO_STATE)
-        && let Err(e) = setting.update(req.account_cryptographic_state).await
+    if let Err(e) = client
+        .internal
+        .state_registry
+        .value::<ACCOUNT_CRYPTO_STATE>()
+        .set(req.account_cryptographic_state)
+        .await
     {
         tracing::warn!("Failed to persist account crypto state: {e}");
     }
@@ -2025,13 +2029,12 @@ mod tests {
         let persisted = client
             .internal
             .state_registry
-            .setting(ACCOUNT_CRYPTO_STATE)
-            .expect("ACCOUNT_CRYPTO_STATE setting should be available")
+            .value::<ACCOUNT_CRYPTO_STATE>()
             .get()
             .await
-            .expect("setting get should not fail");
+            .expect("account crypto state should be persisted");
 
-        assert_eq!(persisted, Some(account_crypto_state));
+        assert_eq!(persisted, account_crypto_state);
     }
 
     #[tokio::test]
