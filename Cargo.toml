@@ -24,6 +24,8 @@ keywords = ["bitwarden"]
 aes = { version = "0.9.0", features = ["zeroize"] }
 aes-gcm = { version = "0.11.0", features = ["zeroize"] }
 async-trait = ">=0.1.80, <0.2"
+bitwarden-access-token = { path = "crates/bitwarden-access-token", version = "=4.0.0" }
+bitwarden-access-token-crypto = { path = "crates/bitwarden-access-token-crypto", version = "=4.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=4.0.0" }
 bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=4.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=4.0.0" }
@@ -59,6 +61,7 @@ bitwarden-organization-domains = { path = "crates/bitwarden-organization-domains
 bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-invite-link", version = "=4.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=4.0.0" }
 bitwarden-pam = { path = "bitwarden_license/bitwarden-pam", version = "=4.0.0" }
+bitwarden-pam-sealed = { path = "bitwarden_license/bitwarden-pam-sealed", version = "=4.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=4.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=4.0.0" }
 bitwarden-random = { path = "crates/bitwarden-random", version = "=4.0.0" }
@@ -99,7 +102,7 @@ icu_normalizer = { version = "2.2.0", features = [
     "utf8_iter",
 ], default-features = false }
 js-sys = { version = ">=0.3.72, <0.4" }
-keepass = { version = ">=0.13.7, <0.14", default-features = false }
+keepass = { version = ">=0.13.7, <0.16", default-features = false }
 mockall = { version = ">=0.13.1, <0.16" }
 password-rules-parser = ">=1.1.0, <2"
 pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
@@ -230,6 +233,68 @@ opt-level = "z"
 # but it will more aggressively inline functions. This will help us avoid extra stack copies of keys and
 # other sensitive values being left behind without cleanup.
 [profile.release.package.bitwarden-crypto]
+opt-level = 3
+
+# Heavy crypto operations are optimized for speed instead of size. Each crate costs a few KB but
+# shortens unlock, vault decryption and ML-DSA operations. RSA crates are left out: building them
+# for speed added ~70 KB with no measurable gain (their generic code is instantiated in callers).
+
+# Bulk vault decryption: AES-CBC, EncString base64, reading ciphers from JS
+[profile.release.package.aes]
+opt-level = 3
+
+[profile.release.package.cbc]
+opt-level = 3
+
+[profile.release.package.data-encoding]
+opt-level = 3
+
+[profile.release.package.serde-wasm-bindgen]
+opt-level = 3
+
+# V2 (COSE) vault decryption: CBOR parsing and XAES-256-GCM
+[profile.release.package.ciborium]
+opt-level = 3
+
+[profile.release.package.ciborium-ll]
+opt-level = 3
+
+[profile.release.package.coset]
+opt-level = 3
+
+[profile.release.package.aes-gcm]
+opt-level = 3
+
+[profile.release.package.xaes-256-gcm]
+opt-level = 3
+
+[profile.release.package.polyval]
+opt-level = 3
+
+# KDFs: PBKDF2 (sha2, hmac) and Argon2id (argon2, blake2)
+[profile.release.package.argon2]
+opt-level = 3
+
+[profile.release.package.blake2]
+opt-level = 3
+
+[profile.release.package.hmac]
+opt-level = 3
+
+[profile.release.package.sha2]
+opt-level = 3
+
+# ML-DSA: signing, verification and key generation
+[profile.release.package.keccak]
+opt-level = 3
+
+[profile.release.package.ml-dsa]
+opt-level = 3
+
+[profile.release.package.module-lattice]
+opt-level = 3
+
+[profile.release.package.shake]
 opt-level = 3
 
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.

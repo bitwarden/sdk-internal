@@ -7,13 +7,11 @@
 
 use bitwarden_core::Client;
 use bitwarden_state::debug::StateRegistryDebugExt as _;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::PasswordManagerClient;
 
 /// Root of the debug-capability tree. Routes to per-crate capability handles.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct DebugClient {
     client: Client,
 }
@@ -35,7 +33,7 @@ impl PasswordManagerClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl DebugClient {
     /// Persisted-state debug capabilities (browse the SDK's state registry).
     /// Authored in `bitwarden-state`, where the registry lives.

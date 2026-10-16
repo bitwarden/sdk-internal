@@ -25,8 +25,6 @@ use std::{
 };
 
 use serde_json::Value;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     registry::StateRegistry,
@@ -39,7 +37,7 @@ use crate::{
 /// Holds a cheap, `Arc`-backed handle to the registry, so nothing borrows across
 /// the FFI boundary. Reached through the client's debug tree; bypasses the
 /// type-safe public API.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct StateDebug {
     registry: Arc<StateRegistry>,
 }
@@ -67,7 +65,7 @@ impl StateRegistryDebugExt for Arc<StateRegistry> {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl StateDebug {
     /// Names of every registered repository (client- and SDK-managed).
     pub fn types(&self) -> Vec<String> {
