@@ -21,7 +21,8 @@ mod renew;
 mod upgrade;
 
 pub use admin::{
-    AttachmentAdminClient, CipherAdminGetAttachmentDownloadUrlError, DeleteAttachmentAdminError,
+    AttachmentAdminClient, CipherAdminGetAttachmentDownloadUrlError, CreateAttachmentAdminError,
+    DeleteAttachmentAdminError,
 };
 pub use create::{
     AttachmentFileUploadType, CipherCreateAttachmentError, CreateAttachmentRequest,

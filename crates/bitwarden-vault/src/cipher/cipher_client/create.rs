@@ -46,15 +46,25 @@ pub enum CreateCipherError {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherCreateRequest {
+    /// Organization that will own the cipher, or `None` for the user's individual vault.
     pub organization_id: Option<OrganizationId>,
+    /// Collections to add the cipher to. Only applies to organization ciphers.
     pub collection_ids: Vec<CollectionId>,
+    /// Folder to place the cipher in, if any.
     pub folder_id: Option<FolderId>,
+    /// Display name of the cipher.
     pub name: String,
+    /// Free-form notes.
     pub notes: Option<String>,
+    /// Whether the cipher is marked as a favorite.
     pub favorite: bool,
+    /// Whether the user must re-enter their master password to view the cipher.
     pub reprompt: CipherRepromptType,
+    /// Type of the cipher and its type-specific data.
     pub r#type: CipherViewType,
+    /// Custom fields.
     pub fields: Vec<FieldView>,
+    /// When the cipher was archived, or `None` if it is not archived.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub archived_date: Option<DateTime<Utc>>,
 }
