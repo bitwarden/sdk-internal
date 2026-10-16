@@ -21,6 +21,7 @@ fn time_of(date: &JsDate) -> f64 {
 #[cfg(feature = "wasm")]
 #[test]
 fn an_imported_type_implements_the_wire_traits() {
-    fn crosses_as_itself<T: bitwarden_ffi::FromWasm<Wire = T> + bitwarden_ffi::ToWasm<Wire = T>>() {}
+    fn crosses_as_itself<T: bitwarden_ffi::FromWasm<Wire = T> + bitwarden_ffi::ToWasm<Wire = T>>() {
+    }
     crosses_as_itself::<JsDate>();
 }

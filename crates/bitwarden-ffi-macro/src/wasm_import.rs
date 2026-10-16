@@ -15,8 +15,11 @@ pub(crate) fn wasm_import(attr: TokenStream, item: TokenStream) -> TokenStream {
     let block = match parse2::<ItemForeignMod>(item.clone()) {
         Ok(block) => block,
         Err(_) => {
-            return syn::Error::new_spanned(item, "#[wasm_import] applies to an `extern \"C\"` block")
-                .to_compile_error();
+            return syn::Error::new_spanned(
+                item,
+                "#[wasm_import] applies to an `extern \"C\"` block",
+            )
+            .to_compile_error();
         }
     };
 
@@ -83,9 +86,18 @@ mod tests {
         );
 
         assert!(!out.contains("compile_error!"), "{out}");
-        assert!(out.contains("#[::wasm_bindgen::prelude::wasm_bindgen]"), "{out}");
-        assert!(out.contains("::bitwarden_ffi::impl_wire_object!(Driver);"), "{out}");
-        assert!(out.contains("::bitwarden_ffi::impl_wire_object!(Signal);"), "{out}");
+        assert!(
+            out.contains("#[::wasm_bindgen::prelude::wasm_bindgen]"),
+            "{out}"
+        );
+        assert!(
+            out.contains("::bitwarden_ffi::impl_wire_object!(Driver);"),
+            "{out}"
+        );
+        assert!(
+            out.contains("::bitwarden_ffi::impl_wire_object!(Signal);"),
+            "{out}"
+        );
         assert!(!out.contains("impl_wire_object!(lock)"), "{out}");
     }
 

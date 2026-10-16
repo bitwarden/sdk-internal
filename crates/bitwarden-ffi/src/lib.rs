@@ -20,7 +20,6 @@ pub use wire::{format_wire_string, parse_wire_string};
 #[cfg(feature = "wasm")]
 #[doc(hidden)]
 pub mod _macro {
+    pub use ::wasm_bindgen::{self, prelude::wasm_bindgen};
     pub use tsify::Tsify;
-    pub use ::wasm_bindgen;
-    pub use ::wasm_bindgen::prelude::wasm_bindgen;
 }
