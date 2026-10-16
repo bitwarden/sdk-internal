@@ -252,6 +252,25 @@ opt-level = 3
 [profile.release.package.serde-wasm-bindgen]
 opt-level = 3
 
+# V2 (COSE) vault decryption: CBOR parsing and XAES-256-GCM
+[profile.release.package.ciborium]
+opt-level = 3
+
+[profile.release.package.ciborium-ll]
+opt-level = 3
+
+[profile.release.package.coset]
+opt-level = 3
+
+[profile.release.package.aes-gcm]
+opt-level = 3
+
+[profile.release.package.xaes-256-gcm]
+opt-level = 3
+
+[profile.release.package.polyval]
+opt-level = 3
+
 # KDFs: PBKDF2 (sha2, hmac) and Argon2id (argon2, blake2)
 [profile.release.package.argon2]
 opt-level = 3
