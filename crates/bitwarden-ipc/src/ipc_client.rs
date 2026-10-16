@@ -199,7 +199,7 @@ where
     }
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError> {
-        send_message(&self.inner, message).await
+        send_message(&self.inner, message).await.result
     }
 
     async fn broadcast(
@@ -222,7 +222,8 @@ where
 
         // Endpoints are sent to one at a time. The crypto provider may serialize sends anyway (the
         // Noise provider holds one lock per client for the whole send, handshake included), in
-        // which case concurrent sends would not deliver any sooner.
+        // which case concurrent sends would not deliver any sooner. A fatal error stops the client,
+        // so the remaining endpoints are not attempted and are absent from the results.
         let mut results = Vec::with_capacity(endpoints.len());
         for endpoint in endpoints {
             let message = OutgoingMessage {
@@ -230,8 +231,14 @@ where
                 destination: endpoint.clone(),
                 topic: topic.clone(),
             };
-            let result = send_message(&self.inner, message).await;
-            results.push(EndpointSendResult { endpoint, result });
+            let outcome = send_message(&self.inner, message).await;
+            results.push(EndpointSendResult {
+                endpoint,
+                result: outcome.result,
+            });
+            if outcome.fatal {
+                break;
+            }
         }
 
         Ok(results)
@@ -262,11 +269,18 @@ where
     }
 }
 
+/// The outcome of [`send_message`].
+struct SendOutcome {
+    result: Result<(), SendError>,
+    /// Whether the send failed with a fatal error, which has stopped the client.
+    fatal: bool,
+}
+
 /// Send a single message through the crypto provider, stopping the client on a fatal error.
 async fn send_message<Crypto, Com, Ses>(
     inner: &IpcClientInner<Crypto, Com, Ses>,
     message: OutgoingMessage,
-) -> Result<(), SendError>
+) -> SendOutcome
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
@@ -295,10 +309,13 @@ where
         }
     }
 
-    result.map_err(|e| match e.kind() {
-        ErrorKind::Unreachable => SendError::Unreachable,
-        _ => SendError::Other(format!("{e:?}")),
-    })
+    SendOutcome {
+        fatal: matches!(&result, Err(e) if e.kind() == ErrorKind::Fatal),
+        result: result.map_err(|e| match e.kind() {
+            ErrorKind::Unreachable => SendError::Unreachable,
+            _ => SendError::Other(format!("{e:?}")),
+        }),
+    }
 }
 
 fn stop_inner<Crypto, Com, Ses>(inner: &IpcClientInner<Crypto, Com, Ses>)

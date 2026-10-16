@@ -43,6 +43,8 @@ pub trait IpcClient: Send + Sync {
     /// Returns an error, without sending anything, if the group cannot be resolved. Otherwise
     /// returns one [`EndpointSendResult`] per resolved endpoint, in resolution order. A failed send
     /// to one endpoint, including [`SendError::Unreachable`], does not stop delivery to the others.
+    /// A fatal error is the exception: it stops the client, as it does for [`send`](Self::send),
+    /// and the endpoints after it are not attempted, so the results end at the failed endpoint.
     async fn broadcast(
         &self,
         group: BroadcastGroup,

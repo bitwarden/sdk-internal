@@ -478,3 +478,79 @@ async fn unreachable_endpoint_does_not_stop_delivery_to_the_others() {
         "an unreachable peer must not stop the hub"
     );
 }
+
+/// A backend whose send to one endpoint fails fatally; every other send succeeds and is recorded.
+struct FatalOnEndpointBackend {
+    fatal_endpoint: Endpoint,
+    resolution: BroadcastResolution,
+    attempted: Arc<std::sync::Mutex<Vec<Endpoint>>>,
+}
+
+#[derive(Debug)]
+struct FatalSendError;
+
+impl IpcErrorKind for FatalSendError {
+    fn kind(&self) -> ErrorKind {
+        ErrorKind::Fatal
+    }
+}
+
+impl CommunicationBackend for FatalOnEndpointBackend {
+    type SendError = FatalSendError;
+    type Receiver = TestNetworkReceiver;
+
+    async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
+        self.attempted
+            .lock()
+            .expect("attempted lock")
+            .push(message.destination.clone());
+        if message.destination == self.fatal_endpoint {
+            return Err(FatalSendError);
+        }
+        Ok(())
+    }
+
+    async fn resolve(&self, _group: &BroadcastGroup) -> BroadcastResolution {
+        self.resolution.clone()
+    }
+
+    async fn subscribe(&self) -> Self::Receiver {
+        let (_, receiver) = broadcast::channel(1);
+        TestNetworkReceiver(Mutex::new(receiver))
+    }
+}
+
+/// A fatal error stops the client, so the broadcast stops at the failed endpoint: the endpoints
+/// after it are never attempted and are absent from the results.
+#[tokio::test]
+async fn fatal_error_stops_the_broadcast_at_the_failed_endpoint() {
+    let attempted = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let client = IpcClientImpl::new(
+        NoEncryptionCryptoProvider,
+        FatalOnEndpointBackend {
+            fatal_endpoint: foreground(2),
+            resolution: BroadcastResolution::Endpoints(vec![
+                foreground(1),
+                foreground(2),
+                foreground(3),
+            ]),
+            attempted: attempted.clone(),
+        },
+        InMemorySessionRepository::<()>::new(HashMap::new()),
+    );
+
+    let results = client
+        .broadcast(BroadcastGroup::AllBrowserForeground, vec![1], None)
+        .await
+        .expect("group should resolve");
+
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0].endpoint, foreground(1));
+    assert_eq!(results[0].result, Ok(()));
+    assert_eq!(results[1].endpoint, foreground(2));
+    assert!(matches!(results[1].result, Err(SendError::Other(_))));
+    assert_eq!(
+        *attempted.lock().expect("attempted lock"),
+        vec![foreground(1), foreground(2)]
+    );
+}
