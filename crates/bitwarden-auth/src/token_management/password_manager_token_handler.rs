@@ -12,7 +12,7 @@ use bitwarden_core::{
     key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
-use bitwarden_state::{registry::StateRegistry, settings::Setting};
+use bitwarden_state::{Setting, registry::StateRegistry};
 use chrono::Utc;
 
 use super::middleware::{MiddlewareExt, MiddlewareWrapper};

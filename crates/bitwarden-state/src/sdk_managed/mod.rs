@@ -5,8 +5,8 @@ use thiserror::Error;
 
 use crate::{
     persist::Persist,
+    persisted_value::{SettingItem, SettingTrait, SettingsError},
     repository::{Repository, RepositoryError, RepositoryItem, RepositoryMigrations},
-    settings::{SettingItem, SettingTrait, SettingsError},
 };
 
 mod configuration;
