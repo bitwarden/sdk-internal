@@ -933,6 +933,7 @@ dependencies = [
  "bitwarden-ffi-macro",
  "serde",
  "serde_json",
+ "thiserror",
  "trybuild",
  "tsify",
  "wasm-bindgen",
