@@ -40,8 +40,8 @@
 //! }
 //! ```
 
+mod handle;
 mod key;
-mod setting;
 
+pub use handle::{Setting, SettingItem, SettingTrait, SettingsError};
 pub use key::Key;
-pub use setting::{Setting, SettingItem, SettingTrait, SettingsError};

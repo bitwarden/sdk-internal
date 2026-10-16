@@ -6,9 +6,9 @@ use thiserror::Error;
 use crate::{
     any_map::AnyMap,
     persist::Persist,
+    persisted_value::{Key, Setting},
     repository::{Repository, RepositoryItem, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
-    settings::{Key, Setting},
 };
 
 /// A registry that contains repositories for different types of items.
@@ -336,7 +336,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_setting_is_stored_in_the_setting_table_as_bare_json() {
-        use crate::{register_setting_key, settings::SettingItem};
+        use crate::{persisted_value::SettingItem, register_setting_key};
 
         #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
         struct Config {
@@ -370,7 +370,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_setting_reports_closed_after_wipe() {
-        use crate::{register_setting_key, settings::SettingsError};
+        use crate::{persisted_value::SettingsError, register_setting_key};
         register_setting_key!(const TEST_SETTING: String = "test_wiped_setting");
 
         let registry = StateRegistry::new_with_memory_db();
