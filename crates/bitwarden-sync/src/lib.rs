@@ -6,4 +6,5 @@ mod state;
 mod sync_client;
 
 pub use handler::{SyncErrorHandler, SyncHandler, SyncHandlerError};
+pub use state::LAST_SYNC;
 pub use sync_client::{SyncClient, SyncClientExt, SyncError, SyncRequest};
