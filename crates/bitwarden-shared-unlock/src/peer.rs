@@ -301,6 +301,17 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             return Ok(());
         }
 
+        // Persisted before the driver is called, because a client may reload inside `lock_user`
+        // and lose anything recorded after it. E.g. the desktop locks at T2, the browser applies
+        // it and reloads: the browser must come back as "locked at T2", not adopt the web vault's
+        // older unlock at T1.
+        if let LockState::Locked = remote.lock_state {
+            self.0
+                .driver
+                .set_last_manual_lock(user_id, remote.changed_at)
+                .await;
+        }
+
         // Compared against what this peer *advertises*, not against what it has recorded, so the
         // two agree: an unobserved user is advertised as locked, and must therefore be
         // treated as locked here too. Comparing against the raw record instead would make
