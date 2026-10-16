@@ -27,7 +27,7 @@ use std::marker::PhantomData;
 macro_rules! register_setting_key {
     ($(#[$meta:meta])* $vis:vis const $name:ident: $ty:ty = $key:literal) => {
         $(#[$meta])*
-        $vis const $name: $crate::settings::Key<$ty> = $crate::settings::Key::new($key);
+        $vis const $name: $crate::persisted_value::Key<$ty> = $crate::persisted_value::Key::new($key);
     };
 }
 
