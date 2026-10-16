@@ -12,24 +12,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// SubmitCipherUpdateRequestModel : The body of `PUT
-/// access-connectors/rotation/attempts/{id}/cipher` (spec             `AcceptCipherUpdate`).
+/// SubmitCipherUpdateRequestModel : A rotated cipher write-back (spec `AcceptCipherUpdate`).
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SubmitCipherUpdateRequestModel {
-    /// The rotated cipher's encrypted JSON blob, written back verbatim -- opaque ciphertext to the
-    /// server.
+    /// The rotated cipher's encrypted JSON, stored verbatim; the server never decrypts it.
     #[serde(rename = "data", alias = "Data")]
     pub data: String,
-    /// The cipher revision date the access connector read before rotating. A mismatch at write
-    /// time means a user edited the cipher concurrently, and the write is rejected rather than
-    /// overwriting their change.
+    /// The cipher's revision date as read before rotating. A mismatch means a concurrent user
+    /// edit, so the write is rejected rather than overwriting it.
     #[serde(rename = "lastKnownRevisionDate", alias = "LastKnownRevisionDate")]
     pub last_known_revision_date: String,
 }
 
 impl SubmitCipherUpdateRequestModel {
-    /// The body of `PUT access-connectors/rotation/attempts/{id}/cipher` (spec
-    /// `AcceptCipherUpdate`).
+    /// A rotated cipher write-back (spec `AcceptCipherUpdate`).
     pub fn new(data: String, last_known_revision_date: String) -> SubmitCipherUpdateRequestModel {
         SubmitCipherUpdateRequestModel {
             data,
