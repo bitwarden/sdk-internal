@@ -1,0 +1,1325 @@
+//! Core rotation execution pipeline.
+//!
+//! A `Revoked` or `Closed` session fails the attempt up front; an `Expired` one is refreshed by
+//! the gate. `execute_by` bounds only target-side steps (3, 4, 6), not server-side 5 and 7.
+
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+use bitwarden_generators::GeneratorClient;
+use chrono::Utc;
+
+use super::{
+    retry::{GatedOutcome, RetryCfg, with_retries, with_retries_gated},
+    verify::VerifiedJob,
+};
+use crate::{
+    api::{
+        RotationApi,
+        models::{ApiError, RotationCipher},
+    },
+    auth::session::{SessionLost, SessionManager, SessionPhase},
+    crypto::{AccessConnectorKeyStore, cipher_key_unwraps, encrypt_cipher_password},
+    error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
+    integrations::{Integration, IntegrationRegistry, RotateContext, TargetEffect},
+    policy,
+    resolver::{CredentialResolver, ResolveError},
+};
+
+/// Why a step-boundary gate aborted the rotation. The attempt goes unreported, and the server's
+/// release sweep reclaims the job.
+#[derive(Debug, Clone)]
+pub(crate) enum AbortReason {
+    /// The claim's `execute_by` lease deadline has passed.
+    LeaseExpired,
+    /// The session was terminally lost (revoked or closed).
+    SessionLost(SessionLost),
+    /// The `CancellationToken` was cancelled (connector is shutting down).
+    Cancelled,
+}
+
+/// Proof that step 4 (verify) succeeded, required by `report_success_inner`.
+pub(crate) struct Verified(());
+
+/// Proof that step 5 (cipher write) succeeded, required by `report_success_inner`.
+pub(crate) struct CipherWritten(());
+
+/// The outcome of a single [`execute`] call.
+#[derive(Debug)]
+pub(crate) enum ExecutionResult {
+    /// An outcome (success or failure) was reported to the server.
+    Reported,
+    /// Aborted before an outcome could be reported; the server's release sweep reclaims the job.
+    Unreported(AbortReason),
+}
+
+/// Everything [`execute`] needs to run a rotation attempt.
+pub(crate) struct ExecutionContext {
+    pub(crate) api: Arc<RotationApi>,
+    pub(crate) session: Arc<SessionManager>,
+    pub(crate) integrations: Arc<IntegrationRegistry>,
+    pub(crate) resolver: Arc<dyn CredentialResolver>,
+    pub(crate) generator: GeneratorClient,
+    pub(crate) key_store: Arc<AccessConnectorKeyStore>,
+    pub(crate) retry_cfg: RetryCfg,
+    /// How long without a successful server contact before the gate pauses target-side steps.
+    pub(crate) offline_grace: Duration,
+    /// Returns the instant of the last successful server contact.
+    pub(crate) last_ok: Arc<dyn Fn() -> Instant + Send + Sync>,
+    pub(crate) cancel: bitwarden_threading::cancellation_token::CancellationToken,
+}
+
+/// Run one rotation attempt: the pre-flight cipher check (check 8), then the seven steps — resolve
+/// credentials, generate a password, rotate the target, verify, write the cipher, terminate
+/// sessions, and report.
+pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> ExecutionResult {
+    let attempt_id = job.attempt_id();
+
+    tracing::info!(
+        attempt_id = %attempt_id,
+        job_id = %job.job_id(),
+        cipher_id = %job.cipher_id(),
+        target_system_name = %job.target_system_name(),
+        "starting rotation execution"
+    );
+
+    {
+        let phase = ctx.session.phase().await;
+        if matches!(phase, SessionPhase::Revoked | SessionPhase::Closed) {
+            // Best-effort failure report: session is terminal, report may fail.
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::NoActiveSession,
+                None,
+                SyncState::TargetUnchanged,
+            )
+            .await;
+            return ExecutionResult::Reported;
+        }
+    }
+
+    // Check 8: runs before the target is touched, so a wrong cipher ID or an unwrappable per-item
+    // key fails as target_unchanged. Step 5 repeats the ID check.
+    {
+        let cipher = match fetch_cipher(&ctx.api, &ctx.retry_cfg, attempt_id).await {
+            Ok(c) => c,
+            Err(ApiError::UnknownAttempt) => {
+                return ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed));
+            }
+            Err(ApiError::SessionLost(l)) => {
+                return ExecutionResult::Unreported(AbortReason::SessionLost(l));
+            }
+            Err(_) => {
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    FailureCode::Internal,
+                    None,
+                    SyncState::TargetUnchanged,
+                )
+                .await;
+                return ExecutionResult::Reported;
+            }
+        };
+
+        if cipher.cipher_id != job.cipher_id() {
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::SealedDataRejected,
+                Some(SafeDetail::from_seal_rejection(
+                    "pre_flight_cipher_id_mismatch",
+                )),
+                SyncState::TargetUnchanged,
+            )
+            .await;
+            return ExecutionResult::Reported;
+        }
+
+        if cipher_key_unwraps(&ctx.key_store, cipher.key.as_deref()).is_err() {
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::SealedDataRejected,
+                Some(SafeDetail::from_seal_rejection(
+                    "pre_flight_cipher_key_unwrap_failed",
+                )),
+                SyncState::TargetUnchanged,
+            )
+            .await;
+            return ExecutionResult::Reported;
+        }
+    }
+
+    tracing::info!(attempt_id = %attempt_id, "check 8: pre-flight cipher read succeeded");
+
+    let execute_by_instant = datetime_to_instant(job.execute_by());
+
+    let creds = match ctx
+        .resolver
+        .resolve(job.target_system_id(), job.kind())
+        .await
+    {
+        Ok(c) => c,
+        Err(ResolveError::Missing(names)) => {
+            let detail = SafeDetail::from_missing_vars(&names);
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::CredentialsUnresolved,
+                Some(detail),
+                SyncState::TargetUnchanged,
+            )
+            .await;
+            return ExecutionResult::Reported;
+        }
+    };
+
+    tracing::info!(attempt_id = %attempt_id, "step 1: credentials resolved");
+
+    let gen_req = match policy::to_generator_request(job.password_policy()) {
+        Ok(r) => r,
+        Err(_) => {
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::InvalidPolicy,
+                None,
+                SyncState::TargetUnchanged,
+            )
+            .await;
+            return ExecutionResult::Reported;
+        }
+    };
+
+    let new_password = match ctx.generator.password(gen_req) {
+        Ok(p) => zeroize::Zeroizing::new(p),
+        Err(_) => {
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::InvalidPolicy,
+                None,
+                SyncState::TargetUnchanged,
+            )
+            .await;
+            return ExecutionResult::Reported;
+        }
+    };
+
+    tracing::info!(attempt_id = %attempt_id, "step 2: password generated");
+
+    let rotation_started_at = Utc::now();
+
+    let integration: Arc<dyn Integration> = match ctx.integrations.get(job.kind()) {
+        Some(i) => i,
+        None => {
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::UnsupportedKind,
+                None,
+                SyncState::TargetUnchanged,
+            )
+            .await;
+            return ExecutionResult::Reported;
+        }
+    };
+
+    let rotate_ctx = Arc::new(RotateContext {
+        target_system_id: job.target_system_id(),
+        account_identity: job.account_identity().to_owned(),
+        new_password: new_password.clone(),
+        creds,
+        rotation_started_at,
+    });
+
+    {
+        let gate = make_gate(
+            Arc::clone(&ctx.session),
+            execute_by_instant,
+            ctx.offline_grace,
+            Arc::clone(&ctx.last_ok),
+            ctx.cancel.clone(),
+        );
+
+        let integration = Arc::clone(&integration);
+        let rotate_ctx_ref = Arc::clone(&rotate_ctx);
+        let outcome = with_retries_gated(&ctx.retry_cfg, gate, || {
+            let integration = Arc::clone(&integration);
+            let rotate_ctx_ref = Arc::clone(&rotate_ctx_ref);
+            async move {
+                match integration.rotate(&rotate_ctx_ref).await {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err((e.class, e)),
+                }
+            }
+        })
+        .await;
+
+        match outcome {
+            GatedOutcome::Ok(()) => {
+                tracing::info!(
+                    attempt_id = %attempt_id,
+                    kind = ?job.kind(),
+                    "step 3: target rotate succeeded"
+                );
+            }
+            GatedOutcome::Aborted(reason) => {
+                return ExecutionResult::Unreported(reason);
+            }
+            GatedOutcome::Failed(err) => {
+                let sync_state = match err.effect {
+                    TargetEffect::NotApplied => SyncState::TargetUnchanged,
+                    TargetEffect::Unknown => SyncState::Indeterminate,
+                    TargetEffect::Applied => SyncState::TargetUpdated,
+                };
+                report_failure_absorb(&ctx.api, attempt_id, err.code, Some(err.detail), sync_state)
+                    .await;
+                return ExecutionResult::Reported;
+            }
+        }
+    }
+
+    let verified = {
+        let gate = make_gate(
+            Arc::clone(&ctx.session),
+            execute_by_instant,
+            ctx.offline_grace,
+            Arc::clone(&ctx.last_ok),
+            ctx.cancel.clone(),
+        );
+
+        let integration = Arc::clone(&integration);
+        let rotate_ctx_ref = Arc::clone(&rotate_ctx);
+        let outcome = with_retries_gated(&ctx.retry_cfg, gate, || {
+            let integration = Arc::clone(&integration);
+            let rotate_ctx_ref = Arc::clone(&rotate_ctx_ref);
+            async move {
+                match integration.verify(&rotate_ctx_ref).await {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err((e.class, e)),
+                }
+            }
+        })
+        .await;
+
+        match outcome {
+            GatedOutcome::Ok(()) => {
+                tracing::info!(attempt_id = %attempt_id, "step 4: verify succeeded");
+                Verified(())
+            }
+            GatedOutcome::Aborted(reason) => {
+                return ExecutionResult::Unreported(reason);
+            }
+            GatedOutcome::Failed(err) => {
+                // The rotation applied but the vault was not written.
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    err.code,
+                    Some(err.detail),
+                    SyncState::TargetUpdated,
+                )
+                .await;
+                return ExecutionResult::Reported;
+            }
+        }
+    };
+
+    // execute_by does not bound this step; the session's bearer refresh handles token expiry.
+    let cipher_written = {
+        let cipher = match fetch_cipher(&ctx.api, &ctx.retry_cfg, attempt_id).await {
+            Ok(c) => c,
+            Err(ApiError::UnknownAttempt) => {
+                return ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed));
+            }
+            Err(ApiError::SessionLost(l)) => {
+                return ExecutionResult::Unreported(AbortReason::SessionLost(l));
+            }
+            Err(_) => {
+                // Step 3 already changed the target credential, so report target_updated.
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    FailureCode::Internal,
+                    None,
+                    SyncState::TargetUpdated,
+                )
+                .await;
+                return ExecutionResult::Reported;
+            }
+        };
+
+        // Check 8, repeated: the target is already rotated, so this fails as target_updated.
+        if cipher.cipher_id != job.cipher_id() {
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::SealedDataRejected,
+                Some(SafeDetail::from_seal_rejection(
+                    "pre_write_cipher_id_mismatch",
+                )),
+                SyncState::TargetUpdated,
+            )
+            .await;
+            return ExecutionResult::Reported;
+        }
+
+        tracing::debug!(attempt_id = %attempt_id, cipher_id = %cipher.cipher_id, "cipher fetched");
+
+        let mut data = cipher.data.clone();
+        let store = Arc::clone(&ctx.key_store);
+        let encrypt_result =
+            encrypt_cipher_password(&store, cipher.key.as_deref(), &mut data, &new_password);
+
+        if let Err(_e) = encrypt_result {
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::CipherEncryptFailed,
+                None,
+                SyncState::TargetUpdated,
+            )
+            .await;
+            return ExecutionResult::Reported;
+        }
+
+        let data_str = match serde_json::to_string(&data) {
+            Ok(s) => s,
+            Err(_) => {
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    FailureCode::CipherEncryptFailed,
+                    None,
+                    SyncState::TargetUpdated,
+                )
+                .await;
+                return ExecutionResult::Reported;
+            }
+        };
+
+        let api = Arc::clone(&ctx.api);
+        let revision_date = cipher.revision_date.clone();
+        let result = with_retries(
+            &ctx.retry_cfg,
+            None, // no deadline
+            || {
+                let api = Arc::clone(&api);
+                let data_str = data_str.clone();
+                let revision_date = revision_date.clone();
+                async move {
+                    match api.put_cipher(attempt_id, data_str, revision_date).await {
+                        Ok(()) => Ok(()),
+                        Err(ApiError::Transient(s)) => {
+                            Err((ErrorClass::Transient, ApiError::Transient(s)))
+                        }
+                        Err(ApiError::SessionLost(l)) => {
+                            Err((ErrorClass::Fatal, ApiError::SessionLost(l)))
+                        }
+                        Err(e) => Err((ErrorClass::Fatal, e)),
+                    }
+                }
+            },
+        )
+        .await;
+
+        match result {
+            Ok(()) => {
+                tracing::info!(
+                    attempt_id = %attempt_id,
+                    cipher_id = %cipher.cipher_id,
+                    "step 5: cipher written"
+                );
+                CipherWritten(())
+            }
+            Err(ApiError::Rejected { .. }) => {
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    FailureCode::CipherWriteRejected,
+                    None,
+                    SyncState::TargetUpdated,
+                )
+                .await;
+                return ExecutionResult::Reported;
+            }
+            Err(ApiError::UnknownAttempt) => {
+                return ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed));
+            }
+            Err(ApiError::SessionLost(l)) => {
+                return ExecutionResult::Unreported(AbortReason::SessionLost(l));
+            }
+            Err(_) => {
+                // The target credential already changed, so report target_updated.
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    FailureCode::Internal,
+                    None,
+                    SyncState::TargetUpdated,
+                )
+                .await;
+                return ExecutionResult::Reported;
+            }
+        }
+    };
+
+    // Termination never fails the rotation, but a lost session means the success report cannot be
+    // sent.
+    let termination_result: SessionTermination = if !job.terminate_sessions() {
+        SessionTermination::NotRequested
+    } else {
+        let gate = make_gate(
+            Arc::clone(&ctx.session),
+            execute_by_instant,
+            ctx.offline_grace,
+            Arc::clone(&ctx.last_ok),
+            ctx.cancel.clone(),
+        );
+
+        let integration = Arc::clone(&integration);
+        let rotate_ctx_ref = Arc::clone(&rotate_ctx);
+        let outcome = with_retries_gated(&ctx.retry_cfg, gate, || {
+            let integration = Arc::clone(&integration);
+            let rotate_ctx_ref = Arc::clone(&rotate_ctx_ref);
+            async move {
+                match integration.terminate_sessions(&rotate_ctx_ref).await {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err((e.class, e)),
+                }
+            }
+        })
+        .await;
+
+        match outcome {
+            GatedOutcome::Ok(()) => {
+                tracing::info!(attempt_id = %attempt_id, "step 6: session termination succeeded");
+                SessionTermination::Terminated
+            }
+            GatedOutcome::Aborted(AbortReason::SessionLost(l)) => {
+                return ExecutionResult::Unreported(AbortReason::SessionLost(l));
+            }
+            GatedOutcome::Aborted(reason) => {
+                // Lease expired or cancelled during termination: report success with term_failed.
+                tracing::warn!(
+                    attempt_id = %attempt_id,
+                    abort_reason = ?reason,
+                    "step 6: session termination aborted (reporting term_failed)"
+                );
+                SessionTermination::TermFailed
+            }
+            GatedOutcome::Failed(err) => {
+                tracing::warn!(
+                    attempt_id = %attempt_id,
+                    "step 6: session termination failed: {err}; reporting term_failed"
+                );
+                SessionTermination::TermFailed
+            }
+        }
+    };
+
+    let termination = termination_result;
+    let report_result = report_success_inner(
+        &ctx.api,
+        &ctx.retry_cfg,
+        attempt_id,
+        termination,
+        verified,
+        cipher_written,
+    )
+    .await;
+
+    match report_result {
+        Ok(()) => {
+            tracing::info!(
+                attempt_id = %attempt_id,
+                termination = ?termination,
+                "step 7: rotation succeeded and reported"
+            );
+            ExecutionResult::Reported
+        }
+        Err(ApiError::SessionLost(l)) => ExecutionResult::Unreported(AbortReason::SessionLost(l)),
+        Err(_) => ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed)),
+    }
+}
+
+/// Report a successful rotation. `_verified` and `_cipher_written` are tokens only this module can
+/// construct, so skipping step 4 or 5 is a compile error.
+async fn report_success_inner(
+    api: &RotationApi,
+    retry_cfg: &super::retry::RetryCfg,
+    attempt_id: uuid::Uuid,
+    termination: crate::error::SessionTermination,
+    _verified: Verified,
+    _cipher_written: CipherWritten,
+) -> Result<(), ApiError> {
+    with_retries(retry_cfg, None, || {
+        let api_ref = api;
+        async move {
+            match api_ref.report_success(attempt_id, termination).await {
+                Ok(()) => Ok(()),
+                Err(ApiError::Transient(s)) => Err((ErrorClass::Transient, ApiError::Transient(s))),
+                Err(ApiError::SessionLost(l)) => Err((ErrorClass::Fatal, ApiError::SessionLost(l))),
+                // 409/404 on report is final; treat as reported.
+                Err(ApiError::Rejected { .. }) | Err(ApiError::UnknownAttempt) => {
+                    tracing::warn!(
+                        attempt_id = %attempt_id,
+                        "success report rejected/unknown by server; treating as reported"
+                    );
+                    Ok(())
+                }
+                Err(e) => Err((ErrorClass::Fatal, ApiError::Transient(e.to_string()))),
+            }
+        }
+    })
+    .await
+}
+
+/// Build the gate for the gated-retry steps (3, 4, 6). Its five arms check lease expiry,
+/// cancellation and session loss, and pause for re-authentication or stale connectivity.
+fn make_gate(
+    session: Arc<SessionManager>,
+    execute_by: Instant,
+    offline_grace: Duration,
+    last_ok: Arc<dyn Fn() -> Instant + Send + Sync>,
+    cancel: bitwarden_threading::cancellation_token::CancellationToken,
+) -> impl FnMut() -> std::pin::Pin<Box<dyn Future<Output = Result<(), AbortReason>> + Send>> {
+    move || {
+        let session = Arc::clone(&session);
+        let last_ok = Arc::clone(&last_ok);
+        let cancel = cancel.clone();
+
+        Box::pin(async move {
+            loop {
+                // Arm 1: lease expired.
+                if Instant::now() >= execute_by {
+                    return Err(AbortReason::LeaseExpired);
+                }
+
+                // Arm 2: cancelled.
+                if cancel.is_cancelled() {
+                    return Err(AbortReason::Cancelled);
+                }
+
+                let phase = session.phase().await;
+
+                // Arm 3: terminal session.
+                match phase {
+                    SessionPhase::Revoked => {
+                        return Err(AbortReason::SessionLost(SessionLost::Revoked));
+                    }
+                    SessionPhase::Closed => {
+                        return Err(AbortReason::SessionLost(SessionLost::Closed));
+                    }
+                    _ => {}
+                }
+
+                // Arm 4: expired/authenticating → pause waiting for refresh.
+                if matches!(phase, SessionPhase::Expired | SessionPhase::Authenticating) {
+                    // bearer() renews the token, bounded by execute_by.
+                    match session.bearer(Some(execute_by)).await {
+                        Ok(_) => {
+                            continue;
+                        }
+                        Err(crate::auth::session::SessionError::Lost(l)) => {
+                            return Err(AbortReason::SessionLost(l));
+                        }
+                        Err(crate::auth::session::SessionError::Transient(_)) => {
+                            // Transient renewal failure up to deadline → LeaseExpired.
+                            return Err(AbortReason::LeaseExpired);
+                        }
+                    }
+                }
+
+                // Arm 5: active but connectivity stale.
+                if phase == SessionPhase::Active {
+                    let stale = (last_ok)();
+                    if stale.elapsed() > offline_grace {
+                        // Poll every second until connectivity recovers, execute_by passes, or
+                        // shutdown is requested.
+                        loop {
+                            if Instant::now() >= execute_by {
+                                return Err(AbortReason::LeaseExpired);
+                            }
+                            if cancel.is_cancelled() {
+                                return Err(AbortReason::Cancelled);
+                            }
+                            let fresh = (last_ok)();
+                            if fresh.elapsed() <= offline_grace {
+                                break;
+                            }
+                            let remaining = execute_by.saturating_duration_since(Instant::now());
+                            let sleep = Duration::from_secs(1).min(remaining);
+                            if sleep == Duration::ZERO {
+                                return Err(AbortReason::LeaseExpired);
+                            }
+                            tokio::select! {
+                                _ = tokio::time::sleep(sleep) => {}
+                                _ = cancel.cancelled() => {
+                                    return Err(AbortReason::Cancelled);
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                }
+
+                return Ok(());
+            }
+        })
+    }
+}
+
+/// Convert a UTC `DateTime` to a monotonic [`std::time::Instant`]. A past time maps to now, and a
+/// far-future one is capped at `now + 24h` to avoid overflow.
+fn datetime_to_instant(dt: chrono::DateTime<chrono::Utc>) -> Instant {
+    use chrono::Utc;
+    let now_utc = Utc::now();
+    let delta = dt - now_utc;
+    let mono_now = Instant::now();
+
+    if delta.num_seconds() <= 0 {
+        mono_now
+    } else {
+        let secs = delta.num_seconds().min(86400) as u64;
+        mono_now + Duration::from_secs(secs)
+    }
+}
+
+/// Fetch the cipher with retries. Callers handle failure themselves: the pre-flight read (check 8)
+/// and the pre-write read (step 5) report different sync states.
+async fn fetch_cipher(
+    api: &RotationApi,
+    retry_cfg: &RetryCfg,
+    attempt_id: uuid::Uuid,
+) -> Result<RotationCipher, ApiError> {
+    with_retries(retry_cfg, None, move || async move {
+        match api.get_cipher(attempt_id).await {
+            Ok(c) => Ok(c),
+            Err(ApiError::Transient(s)) => Err((ErrorClass::Transient, ApiError::Transient(s))),
+            Err(ApiError::SessionLost(l)) => Err((ErrorClass::Fatal, ApiError::SessionLost(l))),
+            Err(e) => Err((ErrorClass::Fatal, e)),
+        }
+    })
+    .await
+}
+
+/// Report a rotation failure, logging it and absorbing any report error; the rotation still counts
+/// as `Reported`. `pub(crate)` so the claim loop can report a `verify` rejection before an
+/// `ExecutionContext` exists.
+pub(crate) async fn report_failure_absorb(
+    api: &RotationApi,
+    attempt_id: uuid::Uuid,
+    code: FailureCode,
+    detail: Option<SafeDetail>,
+    sync_state: SyncState,
+) {
+    tracing::warn!(
+        attempt_id = %attempt_id,
+        failure_code = ?code,
+        sync_state = ?sync_state,
+        detail = detail.as_ref().map(SafeDetail::as_str).unwrap_or(""),
+        "rotation failed"
+    );
+    if let Err(e) = api
+        .report_failure(attempt_id, code, detail, sync_state)
+        .await
+    {
+        tracing::warn!(attempt_id = %attempt_id, "failure report itself failed: {e}");
+    }
+}
+
+// Used in make_gate's return type.
+use std::future::Future;
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
+
+    use async_trait::async_trait;
+
+    use super::*;
+    use crate::{
+        error::{FailureCode, SafeDetail},
+        integrations::{Integration, IntegrationError, RotateContext, TargetEffect},
+        resolver::ResolvedCredentials,
+        test_support::{encrypted_payload_for, test_token},
+    };
+
+    #[test]
+    fn past_datetime_maps_to_now_or_earlier() {
+        let past = Utc::now() - chrono::Duration::minutes(5);
+        let instant = datetime_to_instant(past);
+        assert!(instant <= std::time::Instant::now() + Duration::from_millis(100));
+    }
+
+    #[test]
+    fn future_datetime_maps_to_future_instant() {
+        let future = Utc::now() + chrono::Duration::minutes(5);
+        let instant = datetime_to_instant(future);
+        assert!(instant > std::time::Instant::now());
+    }
+
+    // execute_by is in the past, so arm 1 fires before phase() is awaited; the session only fills
+    // the Arc.
+
+    #[tokio::test]
+    async fn gate_lease_expired_aborts() {
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
+
+        use crate::auth::{identity::IdentityClient, session::SessionManager};
+
+        let server = MockServer::start().await;
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        Mock::given(method("POST")).and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(format!(r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#))
+                    .insert_header("content-type", "application/json")
+            )
+            .mount(&server).await;
+
+        let token = test_token();
+        let identity = IdentityClient::new(server.uri()).unwrap();
+        let session = SessionManager::new(identity, token).await.unwrap();
+
+        let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
+        let last_ok: Arc<dyn Fn() -> std::time::Instant + Send + Sync> =
+            Arc::new(std::time::Instant::now);
+
+        let execute_by = std::time::Instant::now()
+            .checked_sub(Duration::from_millis(1))
+            .unwrap_or_else(std::time::Instant::now);
+
+        let mut gate = make_gate(
+            Arc::clone(&session),
+            execute_by,
+            Duration::from_secs(60),
+            last_ok,
+            cancel,
+        );
+
+        let result = gate().await;
+        assert!(matches!(result, Err(AbortReason::LeaseExpired)));
+    }
+
+    // cancel is pre-cancelled, so arm 2 fires before session.phase().
+
+    #[tokio::test]
+    async fn gate_cancelled_aborts() {
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
+
+        use crate::auth::{identity::IdentityClient, session::SessionManager};
+
+        let server = MockServer::start().await;
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        Mock::given(method("POST")).and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(format!(r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#))
+                    .insert_header("content-type", "application/json")
+            )
+            .mount(&server).await;
+
+        let token = test_token();
+        let identity = IdentityClient::new(server.uri()).unwrap();
+        let session = SessionManager::new(identity, token).await.unwrap();
+
+        let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
+        cancel.cancel();
+
+        let execute_by = std::time::Instant::now() + Duration::from_secs(300);
+        let last_ok: Arc<dyn Fn() -> std::time::Instant + Send + Sync> =
+            Arc::new(std::time::Instant::now);
+
+        let mut gate = make_gate(
+            Arc::clone(&session),
+            execute_by,
+            Duration::from_secs(60),
+            last_ok,
+            cancel,
+        );
+
+        let result = gate().await;
+        assert!(matches!(result, Err(AbortReason::Cancelled)));
+    }
+
+    struct MockIntegration {
+        rotate_result: Result<(), IntegrationError>,
+        verify_result: Result<(), IntegrationError>,
+        terminate_result: Result<(), IntegrationError>,
+        rotate_calls: Arc<Mutex<u32>>,
+    }
+
+    impl MockIntegration {
+        fn always_ok() -> Self {
+            Self {
+                rotate_result: Ok(()),
+                verify_result: Ok(()),
+                terminate_result: Ok(()),
+                rotate_calls: Arc::new(Mutex::new(0)),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Integration for MockIntegration {
+        async fn rotate(&self, _ctx: &RotateContext) -> Result<(), IntegrationError> {
+            *self.rotate_calls.lock().unwrap() += 1;
+            self.rotate_result
+                .as_ref()
+                .map(|_| ())
+                .map_err(|e| IntegrationError {
+                    class: e.class,
+                    effect: e.effect,
+                    code: e.code,
+                    detail: SafeDetail::from_kind("mock"),
+                })
+        }
+
+        async fn verify(&self, _ctx: &RotateContext) -> Result<(), IntegrationError> {
+            self.verify_result
+                .as_ref()
+                .map(|_| ())
+                .map_err(|e| IntegrationError {
+                    class: e.class,
+                    effect: e.effect,
+                    code: e.code,
+                    detail: SafeDetail::from_kind("mock"),
+                })
+        }
+
+        async fn terminate_sessions(&self, _ctx: &RotateContext) -> Result<(), IntegrationError> {
+            self.terminate_result
+                .as_ref()
+                .map(|_| ())
+                .map_err(|e| IntegrationError {
+                    class: e.class,
+                    effect: e.effect,
+                    code: e.code,
+                    detail: SafeDetail::from_kind("mock"),
+                })
+        }
+    }
+
+    #[test]
+    fn target_effect_to_sync_state_mapping() {
+        assert_eq!(
+            effect_to_sync_state(TargetEffect::NotApplied),
+            SyncState::TargetUnchanged
+        );
+        assert_eq!(
+            effect_to_sync_state(TargetEffect::Unknown),
+            SyncState::Indeterminate
+        );
+        assert_eq!(
+            effect_to_sync_state(TargetEffect::Applied),
+            SyncState::TargetUpdated
+        );
+    }
+
+    fn effect_to_sync_state(e: TargetEffect) -> SyncState {
+        match e {
+            TargetEffect::NotApplied => SyncState::TargetUnchanged,
+            TargetEffect::Unknown => SyncState::Indeterminate,
+            TargetEffect::Applied => SyncState::TargetUpdated,
+        }
+    }
+
+    #[test]
+    fn rotate_context_debug_redacts_password() {
+        let ctx = RotateContext {
+            target_system_id: uuid::Uuid::nil(),
+            account_identity: "user@example.com".to_string(),
+            new_password: zeroize::Zeroizing::new("super-secret".to_string()),
+            creds: ResolvedCredentials::new(),
+            rotation_started_at: Utc::now(),
+        };
+        let debug = format!("{ctx:?}");
+        assert!(!debug.contains("super-secret"), "password must be redacted");
+        assert!(debug.contains("REDACTED"));
+    }
+
+    #[test]
+    fn mock_integration_tracks_rotate_calls() {
+        let mock = MockIntegration::always_ok();
+        assert_eq!(*mock.rotate_calls.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn failure_code_for_unsupported_kind_is_correct() {
+        let code = FailureCode::UnsupportedKind;
+        let s = serde_json::to_string(&code).unwrap();
+        assert_eq!(s, r#""unsupported_kind""#);
+    }
+
+    /// A get_cipher Protocol error after a successful rotate must still report `target_updated`.
+    #[tokio::test]
+    async fn get_cipher_protocol_error_after_rotate_reports_target_updated() {
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+        use bitwarden_generators::GeneratorClientsExt as _;
+        use chrono::Utc;
+        use tokio::sync::watch;
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
+
+        use crate::{
+            api::{
+                RotationApi, build_api_client,
+                models::{TargetKind, WorkSnapshot},
+            },
+            auth::{identity::IdentityClient, session::SessionManager},
+            executor::verify::{
+                self,
+                test_support::{sample_config, sample_target, sealed_pair, store_with_org_key},
+            },
+            integrations::IntegrationRegistry,
+            resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
+        };
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(format!(
+                        r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#
+                    ))
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&identity_server)
+            .await;
+
+        let attempt_id = uuid::Uuid::new_v4();
+        let job_id = uuid::Uuid::new_v4();
+        let target_system_id = uuid::Uuid::new_v4();
+        let cipher_id = uuid::Uuid::new_v4();
+
+        // The first GET /cipher is the pre-flight read and must succeed; the second is the
+        // pre-write read, which this test breaks.
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+            )))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({
+                        "cipherId": cipher_id,
+                        "data": "{}",
+                        "key": null,
+                        "revisionDate": "2024-01-01T00:00:00Z"
+                    }))
+                    .insert_header("content-type", "application/json"),
+            )
+            .up_to_n_times(1)
+            .mount(&api_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+            )))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string("NOT JSON")
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&api_server)
+            .await;
+
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/failure"
+            )))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&api_server)
+            .await;
+
+        let token = test_token();
+        let identity = IdentityClient::new(identity_server.uri()).unwrap();
+        let session = SessionManager::new(identity, token).await.unwrap();
+        let session = Arc::new(session);
+
+        let (tx, _rx) = watch::channel(std::time::Instant::now());
+        let client = build_api_client(api_server.uri(), Arc::clone(&session));
+        let api = Arc::new(RotationApi::new(client, tx));
+
+        struct AlwaysOkResolver;
+        #[async_trait::async_trait]
+        impl CredentialResolver for AlwaysOkResolver {
+            async fn resolve(
+                &self,
+                _id: uuid::Uuid,
+                _kind: TargetKind,
+            ) -> Result<ResolvedCredentials, ResolveError> {
+                Ok(ResolvedCredentials::new())
+            }
+        }
+
+        let integ = MockIntegration::always_ok();
+        let mut registry = IntegrationRegistry::new();
+        registry.register(TargetKind::CustomScript, Arc::new(integ));
+
+        let (store, _org_key) = store_with_org_key();
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+        let key_store = Arc::new(store);
+
+        let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
+        let last_ok_clone = Arc::clone(&last_ok_time);
+        let exec_ctx = ExecutionContext {
+            api: Arc::clone(&api),
+            session: Arc::clone(&session),
+            integrations: Arc::new(registry),
+            resolver: Arc::new(AlwaysOkResolver),
+            generator: bitwarden_core::Client::new(None).generator(),
+            key_store,
+            retry_cfg: crate::executor::retry::RetryCfg {
+                max_retry_attempts: 1,
+                retry_base_delay: std::time::Duration::from_millis(0),
+            },
+            offline_grace: std::time::Duration::from_secs(60),
+            last_ok: Arc::new(move || *last_ok_clone.lock().unwrap()),
+            cancel: bitwarden_threading::cancellation_token::CancellationToken::new(),
+        };
+
+        let snapshot = WorkSnapshot {
+            attempt_id,
+            job_id,
+            target_system_id,
+            target_system_name: "test".to_owned(),
+            cipher_id,
+            target_system_sealed_data: Some(target_blob.0),
+            target_system_wrapped_key: Some(target_blob.1),
+            rotation_config_sealed_data: Some(config_blob.0),
+            rotation_config_wrapped_key: Some(config_blob.1),
+            execute_by: Utc::now() + chrono::Duration::minutes(5),
+        };
+        let job = verify::verify(snapshot, &exec_ctx.key_store).expect("well-formed claim");
+
+        let result = execute(job, &exec_ctx).await;
+
+        assert!(
+            matches!(result, ExecutionResult::Reported),
+            "expected Reported, got {result:?}"
+        );
+
+        let requests = api_server.received_requests().await.unwrap();
+        let failure_reqs: Vec<_> = requests
+            .iter()
+            .filter(|r| r.url.path().ends_with("/failure"))
+            .collect();
+        assert_eq!(
+            failure_reqs.len(),
+            1,
+            "expected exactly one failure report, got {}",
+            failure_reqs.len()
+        );
+        let body: serde_json::Value =
+            serde_json::from_slice(&failure_reqs[0].body).expect("parse failure body");
+        assert_eq!(
+            body["syncState"],
+            serde_json::json!(1),
+            "syncState must be 1 (TargetUpdated) for get_cipher protocol error: {body}"
+        );
+    }
+
+    #[tokio::test]
+    async fn preflight_cipher_id_mismatch_rejects_before_any_integration_call() {
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+        use bitwarden_generators::GeneratorClientsExt as _;
+        use tokio::sync::watch;
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
+
+        use crate::{
+            api::{
+                RotationApi, build_api_client,
+                models::{TargetKind, WorkSnapshot},
+            },
+            auth::{identity::IdentityClient, session::SessionManager},
+            executor::verify::{
+                self,
+                test_support::{sample_config, sample_target, sealed_pair, store_with_org_key},
+            },
+            integrations::IntegrationRegistry,
+            resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
+        };
+
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(format!(
+                        r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#
+                    ))
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&identity_server)
+            .await;
+
+        let attempt_id = uuid::Uuid::new_v4();
+        let job_id = uuid::Uuid::new_v4();
+        let target_system_id = uuid::Uuid::new_v4();
+        let cipher_id = uuid::Uuid::new_v4();
+        let different_cipher_id = uuid::Uuid::new_v4();
+
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+            )))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({
+                        "cipherId": different_cipher_id,
+                        "data": "{}",
+                        "key": null,
+                        "revisionDate": "2024-01-01T00:00:00Z"
+                    }))
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&api_server)
+            .await;
+
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/failure"
+            )))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&api_server)
+            .await;
+
+        let token = test_token();
+        let identity = IdentityClient::new(identity_server.uri()).unwrap();
+        let session = SessionManager::new(identity, token).await.unwrap();
+        let session = Arc::new(session);
+
+        let (tx, _rx) = watch::channel(std::time::Instant::now());
+        let client = build_api_client(api_server.uri(), Arc::clone(&session));
+        let api = Arc::new(RotationApi::new(client, tx));
+
+        struct AlwaysOkResolver;
+        #[async_trait::async_trait]
+        impl CredentialResolver for AlwaysOkResolver {
+            async fn resolve(
+                &self,
+                _id: uuid::Uuid,
+                _kind: TargetKind,
+            ) -> Result<ResolvedCredentials, ResolveError> {
+                Ok(ResolvedCredentials::new())
+            }
+        }
+
+        let integ = MockIntegration::always_ok();
+        let rotate_calls = Arc::clone(&integ.rotate_calls);
+        let mut registry = IntegrationRegistry::new();
+        registry.register(TargetKind::CustomScript, Arc::new(integ));
+
+        let (store, _org_key) = store_with_org_key();
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+        let key_store = Arc::new(store);
+
+        let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
+        let last_ok_clone = Arc::clone(&last_ok_time);
+        let exec_ctx = ExecutionContext {
+            api: Arc::clone(&api),
+            session: Arc::clone(&session),
+            integrations: Arc::new(registry),
+            resolver: Arc::new(AlwaysOkResolver),
+            generator: bitwarden_core::Client::new(None).generator(),
+            key_store,
+            retry_cfg: crate::executor::retry::RetryCfg {
+                max_retry_attempts: 1,
+                retry_base_delay: std::time::Duration::from_millis(0),
+            },
+            offline_grace: std::time::Duration::from_secs(60),
+            last_ok: Arc::new(move || *last_ok_clone.lock().unwrap()),
+            cancel: bitwarden_threading::cancellation_token::CancellationToken::new(),
+        };
+
+        let snapshot = WorkSnapshot {
+            attempt_id,
+            job_id,
+            target_system_id,
+            target_system_name: "test".to_owned(),
+            cipher_id,
+            target_system_sealed_data: Some(target_blob.0),
+            target_system_wrapped_key: Some(target_blob.1),
+            rotation_config_sealed_data: Some(config_blob.0),
+            rotation_config_wrapped_key: Some(config_blob.1),
+            execute_by: Utc::now() + chrono::Duration::minutes(5),
+        };
+        let job = verify::verify(snapshot, &exec_ctx.key_store).expect("well-formed claim");
+
+        let result = execute(job, &exec_ctx).await;
+
+        assert!(
+            matches!(result, ExecutionResult::Reported),
+            "expected Reported, got {result:?}"
+        );
+        assert_eq!(
+            *rotate_calls.lock().unwrap(),
+            0,
+            "rotate must never be called when the pre-flight cipher check fails"
+        );
+
+        let requests = api_server.received_requests().await.unwrap();
+        let failure_reqs: Vec<_> = requests
+            .iter()
+            .filter(|r| r.url.path().ends_with("/failure"))
+            .collect();
+        assert_eq!(failure_reqs.len(), 1, "expected exactly one failure report");
+        let body: serde_json::Value =
+            serde_json::from_slice(&failure_reqs[0].body).expect("parse failure body");
+        assert_eq!(
+            body["errorCode"],
+            serde_json::json!("sealed_data_rejected"),
+            "errorCode must be sealed_data_rejected: {body}"
+        );
+        assert_eq!(
+            body["syncState"],
+            serde_json::json!(0),
+            "syncState must be 0 (TargetUnchanged): {body}"
+        );
+    }
+}
