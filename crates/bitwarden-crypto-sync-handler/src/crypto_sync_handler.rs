@@ -157,8 +157,48 @@ async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
     // Handlers MUST NOT fail, to avoid partial state writes
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
+    #[cfg(any(feature = "uniffi", feature = "wasm"))]
+    reinit_unlocked_user_crypto(client, data).await;
 
     // Further key management sync handlers go here.
+}
+
+/// Switches an unlocked client to the V2 user key when the sync delivers another device's V1 to
+/// V2 upgrade. Runs after the state is stored, so a client rebuilt from that state sees the same
+/// upgrade. A locked client picks the upgrade up on its next unlock instead.
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+async fn reinit_unlocked_user_crypto(client: &Client, data: &CryptoSyncData) {
+    use bitwarden_core::key_management::crypto::{ReinitUserCryptoError, ReinitUserCryptoRequest};
+
+    let Some(state @ WrappedAccountCryptographicState::V2 { .. }) =
+        data.account_cryptographic_state.as_ref()
+    else {
+        return;
+    };
+    let Some(upgrade_token) = data
+        .user_decryption
+        .as_ref()
+        .and_then(|user_decryption| user_decryption.v2_upgrade_token.as_ref())
+    else {
+        return;
+    };
+
+    let request = ReinitUserCryptoRequest {
+        account_cryptographic_state: state.clone(),
+        upgrade_token: upgrade_token.clone(),
+    };
+    match client.crypto().reinit_user_crypto(request).await {
+        // Already V2, or locked: nothing to switch now.
+        Ok(()) | Err(ReinitUserCryptoError::NotUnlocked) => {}
+        // Clients without a state bridge do not support re-initialization yet.
+        Err(ReinitUserCryptoError::StateBridgeNotRegistered) => {}
+        Err(error) => {
+            warn!(
+                ?error,
+                "Failed to re-initialize user crypto after a V1 to V2 upgrade sync"
+            );
+        }
+    }
 }
 
 /// Persists the user decryption options the server reported.
@@ -504,6 +544,61 @@ mod tests {
         handle_crypto_sync(&client, &without_key_id).await;
 
         assert!(client.km_state_bridge().get_user_key_id().await.is_none());
+    }
+
+    /// Another device upgraded the account from V1 to V2. An unlocked V1 client that syncs the
+    /// V2 state and upgrade token must switch to the V2 user key, or it keeps encrypting with the
+    /// V1 key and later runs a second, logging-out V2 rotation.
+    #[cfg(any(feature = "uniffi", feature = "wasm"))]
+    #[tokio::test]
+    async fn test_handle_crypto_sync_upgrades_unlocked_v1_client_to_v2() {
+        use bitwarden_core::{
+            client::test_accounts::test_bitwarden_com_account, key_management::SymmetricKeySlotId,
+        };
+        use bitwarden_crypto::SymmetricCryptoKey;
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+
+        // The upgraded account: a fresh V2 user key with its V2 state, and a token wrapping that
+        // key under the client's current V1 user key.
+        let (v2_key, v2_state, upgrade_token) = {
+            let mut ctx = client.internal.get_key_store().context_mut();
+            let (v2_key_id, v2_state) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
+            let upgrade_token =
+                V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap();
+            #[expect(deprecated)]
+            let v2_key = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap().clone();
+            (v2_key, v2_state, upgrade_token)
+        };
+
+        let data = CryptoSyncData {
+            user_decryption: Some(CryptoSyncUserDecryption {
+                v2_upgrade_token: Some(upgrade_token),
+                ..Default::default()
+            }),
+            account_cryptographic_state: Some(v2_state),
+        };
+        handle_crypto_sync(&client, &data).await;
+
+        // Trigger reached: the upgrade was stored.
+        assert!(matches!(
+            client
+                .km_state_bridge()
+                .get_account_cryptographic_state()
+                .await,
+            Some(WrappedAccountCryptographicState::V2 { .. })
+        ));
+
+        let active_key =
+            SymmetricCryptoKey::try_from(client.crypto().get_user_encryption_key().await.unwrap())
+                .unwrap();
+        assert_eq!(
+            active_key, v2_key,
+            "an unlocked client must switch to the V2 user key after syncing the upgrade"
+        );
     }
 
     /// A client with an in-memory state bridge registered.
