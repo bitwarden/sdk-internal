@@ -1,10 +1,19 @@
-use crate::{KeySlotIds, KeyStoreContext, SymmetricKeyAlgorithm};
+use crate::{CoseKeyView, KeySlotIds, KeyStoreContext, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
 /// A key-encryption-key (KEK): a key that can be used to encrypt other keys, and shared between
 /// users. It MAY be re-used for multiple encrypt operations.
 ///
 /// See the `key_hierarchy` module documentation for its place in the key hierarchy.
 pub struct KeyEncryptionKey;
+
+/// The reasons a key cannot be used as a [`KeyEncryptionKey`].
+#[derive(Debug)]
+pub(crate) enum KeyEncryptionKeyError {
+    /// There is no key in the given key slot.
+    Missing,
+    /// The key uses an algorithm that is not permitted for a key-encryption-key.
+    WrongKeyType,
+}
 
 impl KeyEncryptionKey {
     /// Generates a fresh key-encryption-key, stores it in the key store context, and returns its
@@ -20,23 +29,36 @@ impl KeyEncryptionKey {
         ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm)
     }
 
-    /// Returns whether the symmetric key `key_id` refers to uses an algorithm permitted for a
-    /// key-encryption-key. Returns `false` if the key is missing or uses an unsupported algorithm.
-    pub(crate) fn is_key_algorithm_valid<Ids: KeySlotIds>(
-        ctx: &KeyStoreContext<Ids>,
+    /// Looks up the symmetric key `key_id` refers to and returns a [`CoseKeyView`] of it, if its
+    /// algorithm is permitted for a key-encryption-key.
+    ///
+    /// [`Self::make`] only generates XAES-256-GCM keys. AES-256-CBC-HMAC keys are also accepted,
+    /// so that existing (V1) keys that act as KEKs, such as user keys and cipher keys, can adopt
+    /// safe objects before they are rotated. AES-256-CBC-HMAC uses a random 128-bit IV, so it does
+    /// not have the nonce-reuse problem that rules out plain AES-256-GCM for a reused key.
+    pub(crate) fn get_cose_key_view<'k, Ids: KeySlotIds>(
+        ctx: &'k KeyStoreContext<'_, Ids>,
         key_id: Ids::Symmetric,
-    ) -> bool {
-        let Ok(algorithm) = ctx.get_symmetric_key_algorithm(key_id) else {
-            return false;
-        };
-        matches!(algorithm, SymmetricKeyAlgorithm::XAes256Gcm)
+    ) -> Result<CoseKeyView<'k>, KeyEncryptionKeyError> {
+        match ctx
+            .get_symmetric_key(key_id)
+            .map_err(|_| KeyEncryptionKeyError::Missing)?
+        {
+            SymmetricCryptoKey::XAes256GcmKey(key) => Ok(CoseKeyView::XAes256Gcm(key)),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => Ok(CoseKeyView::Aes256CbcHmac(key)),
+            _ => Err(KeyEncryptionKeyError::WrongKeyType),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{KeyStore, SymmetricCryptoKey, traits::tests::TestIds};
+    use crate::{
+        KeyStore,
+        cose::symmetric::CoseContentEncryptionAlgorithm,
+        traits::tests::{TestIds, TestSymmKey},
+    };
 
     #[test]
     fn make_generates_xaes256_gcm_key_in_context() {
@@ -61,30 +83,52 @@ mod tests {
     }
 
     #[test]
-    fn is_key_algorithm_valid_accepts_kek_algorithms() {
+    fn get_cose_key_view_accepts_kek_algorithms() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        // We will add support for AES-256-CBC-HMAC in the future, to migrate to safe quicker.
-        #[allow(clippy::single_element_loop)]
-        for algorithm in [SymmetricKeyAlgorithm::XAes256Gcm] {
+        for (algorithm, expected_cose_algorithm) in [
+            (
+                SymmetricKeyAlgorithm::XAes256Gcm,
+                CoseContentEncryptionAlgorithm::XAes256Gcm,
+            ),
+            (
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            ),
+        ] {
             let key_id = ctx.make_symmetric_key(algorithm);
-            assert!(KeyEncryptionKey::is_key_algorithm_valid(&ctx, key_id));
+            let view = KeyEncryptionKey::get_cose_key_view(&ctx, key_id)
+                .expect("KEK algorithm should be accepted");
+            assert_eq!(view.algorithm(), expected_cose_algorithm);
         }
     }
 
     #[test]
-    fn is_key_algorithm_valid_rejects_non_kek_algorithms() {
+    fn get_cose_key_view_rejects_non_kek_algorithms() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
         for algorithm in [
             SymmetricKeyAlgorithm::Aes256Gcm,
             SymmetricKeyAlgorithm::XChaCha20Poly1305,
-            SymmetricKeyAlgorithm::Aes256CbcHmac,
         ] {
             let key_id = ctx.make_symmetric_key(algorithm);
-            assert!(!KeyEncryptionKey::is_key_algorithm_valid(&ctx, key_id));
+            assert!(matches!(
+                KeyEncryptionKey::get_cose_key_view(&ctx, key_id),
+                Err(KeyEncryptionKeyError::WrongKeyType)
+            ));
         }
+    }
+
+    #[test]
+    fn get_cose_key_view_rejects_missing_key() {
+        let key_store = KeyStore::<TestIds>::default();
+        let ctx = key_store.context();
+
+        assert!(matches!(
+            KeyEncryptionKey::get_cose_key_view(&ctx, TestSymmKey::A(0)),
+            Err(KeyEncryptionKeyError::Missing)
+        ));
     }
 }
