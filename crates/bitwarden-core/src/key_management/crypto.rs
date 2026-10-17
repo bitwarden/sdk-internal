@@ -222,7 +222,12 @@ pub(super) async fn initialize_user_crypto(
             | InitUserCryptoMethod::PinState { .. }
             | InitUserCryptoMethod::KeyConnectorUrl { .. }
             | InitUserCryptoMethod::AuthRequest { .. }
-    );
+    )
+        // The key read from state is V1 but the token upgrades it to V2 in memory; written back
+        // so the client stops treating the account as V1. E.g. a sync delivered another device's
+        // V1 -> V2 upgrade and the client rebuilt the SDK from its state.
+        || (matches!(req.method, InitUserCryptoMethod::ClientManagedState {})
+            && req.upgrade_token.is_some());
 
     match req.method {
         InitUserCryptoMethod::MasterPasswordUnlock {
@@ -1849,6 +1854,67 @@ mod tests {
             "User key should be upgraded to V2 after initialization with upgrade token"
         );
         assert_eq!(result_key, expected_v2_key);
+    }
+
+    /// A WASM client rebuilt from client-managed state after a V1 to V2 upgrade arrived (V1 user
+    /// key in state plus an upgrade token) holds the V2 key in memory, and must write it back so
+    /// the client's state no longer reports the account as V1.
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn test_initialize_user_crypto_client_managed_state_writes_upgraded_key_to_state() {
+        let client_v1 = Client::init_test_account(test_bitwarden_com_account()).await;
+        #[expect(deprecated)]
+        let v1_key = client_v1
+            .internal
+            .get_key_store()
+            .context()
+            .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+            .unwrap()
+            .clone();
+        let v2_key = SymmetricCryptoKey::try_from(TEST_VECTOR_USER_KEY_V2_B64.to_string()).unwrap();
+        let upgrade_token = {
+            let mut ctx = client_v1.internal.get_key_store().context_mut();
+            let v2_key_id = ctx.add_local_symmetric_key(v2_key.clone());
+            V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap()
+        };
+
+        let client = Client::new_test(None);
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+        client.km_state_bridge().set_user_key(&v1_key).await;
+
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 600_000.try_into().unwrap(),
+                },
+                email: TEST_USER_EMAIL.into(),
+                account_cryptographic_state: WrappedAccountCryptographicState::V2 {
+                    private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
+                    signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
+                    security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
+                    signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
+                },
+                method: InitUserCryptoMethod::ClientManagedState {},
+                upgrade_token: Some(upgrade_token),
+            },
+        )
+        .await
+        .unwrap();
+
+        // Trigger reached: the token was unwrapped, so the in-memory user key is V2.
+        let in_memory_key =
+            SymmetricCryptoKey::try_from(get_user_encryption_key(&client).await.unwrap()).unwrap();
+        assert_eq!(in_memory_key, v2_key);
+
+        assert_eq!(
+            client.km_state_bridge().get_user_key().await,
+            Some(v2_key),
+            "the upgraded V2 user key must be written back to client-managed state"
+        );
     }
 
     #[tokio::test]
