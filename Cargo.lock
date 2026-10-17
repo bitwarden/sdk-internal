@@ -627,6 +627,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-autotype"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-ipc",
+ "bitwarden-threading",
+ "serde",
+ "tracing",
+ "tsify",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-cli"
 version = "4.0.0"
 dependencies = [
@@ -1753,6 +1766,7 @@ name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bitwarden-autotype",
  "bitwarden-commercial-vault",
  "bitwarden-core",
  "bitwarden-crypto",
