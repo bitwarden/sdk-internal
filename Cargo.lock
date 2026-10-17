@@ -1078,11 +1078,14 @@ name = "bitwarden-logging"
 version = "4.0.0"
 dependencies = [
  "bitwarden-ffi",
+ "bitwarden-ipc",
  "bitwarden-logging-macro",
+ "bitwarden-threading",
  "chrono",
  "criterion",
  "serde",
  "serde_json",
+ "tokio",
  "tracing",
  "tracing-subscriber",
  "trybuild",
