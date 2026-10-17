@@ -2,8 +2,6 @@ use std::sync::Arc;
 
 use bitwarden_api_api::models::AccessDecisionRequestModel;
 use bitwarden_core::{FromClient, client::ApiConfigurations};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{error::ApprovalError, models::AccessDecisionRequest};
 use crate::{AccessRequestId, access_requests::AccessRequestView};
@@ -13,13 +11,13 @@ use crate::{AccessRequestId, access_requests::AccessRequestView};
 /// Lists pending ([`list_inbox`](ApprovalsClient::list_inbox)) and decided
 /// ([`list_history`](ApprovalsClient::list_history)) requests, and decides one. The requester
 /// side is [`AccessRequestsClient`](crate::AccessRequestsClient).
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct ApprovalsClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl ApprovalsClient {
     /// Lists the pending access requests awaiting the caller's decision.
     ///
