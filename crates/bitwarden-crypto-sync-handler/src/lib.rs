@@ -7,7 +7,8 @@ uniffi::setup_scaffolding!();
 mod crypto_sync_handler;
 
 pub use crypto_sync_handler::{
-    CryptoSyncData, CryptoSyncHandlerClient, CryptoSyncHandlerClientExt, CryptoSyncUserDecryption,
+    CryptoSyncData, CryptoSyncHandlerClient, CryptoSyncHandlerClientExt, CryptoSyncOrganization,
+    CryptoSyncUserDecryption,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use crypto_sync_handler::{CryptoSyncDataParseError, CryptoSyncHandler};
