@@ -29,7 +29,11 @@ impl KeyEncryptionKey {
         let Ok(algorithm) = ctx.get_symmetric_key_algorithm(key_id) else {
             return false;
         };
-        matches!(algorithm, SymmetricKeyAlgorithm::XAes256Gcm)
+        // AES-256-CBC-HMAC-AEAD is accepted so that existing V1 keys can migrate to safe objects.
+        matches!(
+            algorithm,
+            SymmetricKeyAlgorithm::XAes256Gcm | SymmetricKeyAlgorithm::Aes256CbcHmac
+        )
     }
 }
 
@@ -65,9 +69,10 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        // We will add support for AES-256-CBC-HMAC in the future, to migrate to safe quicker.
-        #[allow(clippy::single_element_loop)]
-        for algorithm in [SymmetricKeyAlgorithm::XAes256Gcm] {
+        for algorithm in [
+            SymmetricKeyAlgorithm::XAes256Gcm,
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ] {
             let key_id = ctx.make_symmetric_key(algorithm);
             assert!(KeyEncryptionKey::is_key_algorithm_valid(&ctx, key_id));
         }
@@ -81,7 +86,6 @@ mod tests {
         for algorithm in [
             SymmetricKeyAlgorithm::Aes256Gcm,
             SymmetricKeyAlgorithm::XChaCha20Poly1305,
-            SymmetricKeyAlgorithm::Aes256CbcHmac,
         ] {
             let key_id = ctx.make_symmetric_key(algorithm);
             assert!(!KeyEncryptionKey::is_key_algorithm_valid(&ctx, key_id));
