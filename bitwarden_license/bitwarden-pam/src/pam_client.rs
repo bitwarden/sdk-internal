@@ -25,7 +25,7 @@ impl PamClient {
         }
     }
 
-    /// Access request operations (activate, cancel, and read the caller's requests).
+    /// Access request operations (submit, activate, cancel, and read the caller's requests).
     pub fn access_requests(&self) -> AccessRequestsClient {
         AccessRequestsClient {
             api_configurations: self.api_configurations.clone(),
