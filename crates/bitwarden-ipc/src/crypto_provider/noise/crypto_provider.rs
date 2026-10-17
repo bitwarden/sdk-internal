@@ -10,7 +10,7 @@ use crate::{
             CipherSuite, HandshakeFinishMessage, HandshakeInitiator, HandshakeResponder,
             HandshakeStartMessage,
         },
-        transport_state::{PersistentTransportState, TransportFrame},
+        transport_state::{self, PersistentTransportState, TransportFrame},
     },
     error::{ErrorKind, IpcErrorKind},
     message::{IncomingMessage, OutgoingMessage},
@@ -55,6 +55,8 @@ pub enum NoiseCryptoProviderError {
     TransportReceive { kind: ErrorKind },
     /// A cryptographic error. In most cases, such messages are just dropped.
     DecryptionFailure,
+    /// The payload does not fit in a single Noise transport message.
+    PayloadTooLarge,
 }
 
 impl IpcErrorKind for NoiseCryptoProviderError {
@@ -67,6 +69,8 @@ impl IpcErrorKind for NoiseCryptoProviderError {
             NoiseCryptoProviderError::Timeout => ErrorKind::Other,
             // A decryption failure only affects the offending message, which is dropped.
             NoiseCryptoProviderError::DecryptionFailure => ErrorKind::Other,
+            // Only the oversized message is rejected, the session stays usable.
+            NoiseCryptoProviderError::PayloadTooLarge => ErrorKind::Other,
             // An unreachable destination; the message simply could not be delivered.
             NoiseCryptoProviderError::TransportUnreachable => ErrorKind::Unreachable,
             // Defer to the underlying backend's classification, captured at construction.
@@ -253,10 +257,15 @@ where
             .expect("Session should exist after handshake");
 
         // Encrypt and send the payload
-        let transport_frame = crypto_state
-            .state
-            .send(message.payload.into())
-            .map_err(|_| NoiseCryptoProviderError::DecryptionFailure)?;
+        let transport_frame =
+            crypto_state
+                .state
+                .send(message.payload.into())
+                .map_err(|e| match e {
+                    transport_state::SendError::PayloadTooLarge => {
+                        NoiseCryptoProviderError::PayloadTooLarge
+                    }
+                })?;
         if let Err(e) = communication
             .send(OutgoingMessage {
                 payload: Frame::TransportFrame(transport_frame).to_cbor(),
@@ -442,16 +451,32 @@ impl Frame {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, time::Duration};
 
+    use serde_bytes::ByteBuf;
+
+    use super::Frame;
     use crate::{
         IpcClientImpl,
-        crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
+        crypto_provider::noise::{
+            NOISE_MAX_MESSAGE_LEN,
+            crypto_provider::NoiseCryptoProvider,
+            transport_state::{MAX_PAYLOAD_LEN, TransportFrame},
+        },
         endpoint::Endpoint,
+        error::SendError,
         ipc_client_trait::IpcClient,
         message::OutgoingMessage,
-        traits::{InMemorySessionRepository, TestTwoWayCommunicationBackend},
+        traits::{CommunicationBackend, InMemorySessionRepository, TestTwoWayCommunicationBackend},
     };
+
+    fn message(payload: Vec<u8>) -> OutgoingMessage {
+        OutgoingMessage {
+            payload,
+            destination: Endpoint::DesktopMain,
+            topic: None,
+        }
+    }
 
     #[tokio::test]
     async fn ping_pong() {
@@ -501,5 +526,80 @@ mod tests {
         });
 
         let _ = tokio::join!(handle_1, handle_2);
+    }
+
+    #[tokio::test]
+    async fn oversized_send_returns_error_and_session_stays_usable() {
+        let (provider_1, provider_2) = TestTwoWayCommunicationBackend::new();
+
+        let session_map_1 = InMemorySessionRepository::new(HashMap::new());
+        let client_1 = IpcClientImpl::new(NoiseCryptoProvider::new(), provider_1, session_map_1);
+        let _ = client_1.start(None).await;
+
+        let session_map_2 = InMemorySessionRepository::new(HashMap::new());
+        let client_2 = IpcClientImpl::new(NoiseCryptoProvider::new(), provider_2, session_map_2);
+        let _ = client_2.start(None).await;
+        let mut recv_2 = client_2.subscribe(None).await.unwrap();
+
+        // Establish the session first so the failure hits an existing session.
+        client_1.send(message(b"before".to_vec())).await.unwrap();
+        let received = recv_2.receive(None).await.unwrap();
+        assert_eq!(received.payload, b"before");
+
+        let error = client_1
+            .send(message(vec![0u8; MAX_PAYLOAD_LEN + 1]))
+            .await
+            .unwrap_err();
+        assert!(matches!(error, SendError::Other(ref e) if e.contains("PayloadTooLarge")));
+
+        // The largest payload that fits still goes through on the same session.
+        let max_payload = vec![7u8; MAX_PAYLOAD_LEN];
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            client_1.send(message(max_payload.clone())),
+        )
+        .await
+        .expect("crypto state guard should have been released")
+        .unwrap();
+        let received = tokio::time::timeout(Duration::from_secs(5), recv_2.receive(None))
+            .await
+            .expect("peer should receive the message")
+            .unwrap();
+        assert_eq!(received.payload, max_payload);
+    }
+
+    #[tokio::test]
+    async fn malformed_ciphertext_length_is_dropped_without_stopping_receiver() {
+        let (provider_1, provider_2) = TestTwoWayCommunicationBackend::new();
+        let raw_1 = provider_1.clone();
+
+        let session_map_1 = InMemorySessionRepository::new(HashMap::new());
+        let client_1 = IpcClientImpl::new(NoiseCryptoProvider::new(), provider_1, session_map_1);
+        let _ = client_1.start(None).await;
+
+        let session_map_2 = InMemorySessionRepository::new(HashMap::new());
+        let client_2 = IpcClientImpl::new(NoiseCryptoProvider::new(), provider_2, session_map_2);
+        let _ = client_2.start(None).await;
+        let mut recv_2 = client_2.subscribe(None).await.unwrap();
+
+        client_1.send(message(b"before".to_vec())).await.unwrap();
+        let received = recv_2.receive(None).await.unwrap();
+        assert_eq!(received.payload, b"before");
+
+        // Shorter than the tag, and longer than the decryption buffer.
+        for len in [3, 2 * NOISE_MAX_MESSAGE_LEN] {
+            let frame = Frame::TransportFrame(TransportFrame {
+                payload: ByteBuf::from(vec![0u8; len]),
+                nonce: 1_000,
+            });
+            raw_1.send(message(frame.to_cbor())).await.unwrap();
+        }
+
+        client_1.send(message(b"after".to_vec())).await.unwrap();
+        let received = tokio::time::timeout(Duration::from_secs(5), recv_2.receive(None))
+            .await
+            .expect("receive loop should survive malformed frames")
+            .unwrap();
+        assert_eq!(received.payload, b"after");
     }
 }
