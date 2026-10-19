@@ -3,6 +3,11 @@ use crate::{CoseKeyView, KeySlotIds, KeyStoreContext, SymmetricCryptoKey, Symmet
 /// A key-encryption-key (KEK): a key that can be used to encrypt other keys, and shared between
 /// users. It MAY be re-used for multiple encrypt operations.
 ///
+/// New KEKs are XAES-256-GCM keys (see [`KeyEncryptionKey::make`]). AES-256-CBC-HMAC keys are also
+/// accepted as KEKs, so that existing (V1) keys that act as KEKs, such as user keys and cipher
+/// keys, can adopt safe objects before they are rotated. AES-256-CBC-HMAC uses a random 128-bit IV,
+/// so it does not have the nonce-reuse problem that rules out plain AES-256-GCM for a reused key.
+///
 /// See the `key_hierarchy` module documentation for its place in the key hierarchy.
 pub struct KeyEncryptionKey;
 
@@ -29,13 +34,8 @@ impl KeyEncryptionKey {
         ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm)
     }
 
-    /// Looks up the symmetric key `key_id` refers to and returns a [`CoseKeyView`] of it, if its
-    /// algorithm is permitted for a key-encryption-key.
-    ///
-    /// [`Self::make`] only generates XAES-256-GCM keys. AES-256-CBC-HMAC keys are also accepted,
-    /// so that existing (V1) keys that act as KEKs, such as user keys and cipher keys, can adopt
-    /// safe objects before they are rotated. AES-256-CBC-HMAC uses a random 128-bit IV, so it does
-    /// not have the nonce-reuse problem that rules out plain AES-256-GCM for a reused key.
+    /// Looks up the symmetric key `key_id` refers to and returns a [`CoseKeyView`] of it, if it is
+    /// an XAES-256-GCM or AES-256-CBC-HMAC key, the algorithms accepted for a [`KeyEncryptionKey`].
     pub(crate) fn get_cose_key_view<'k, Ids: KeySlotIds>(
         ctx: &'k KeyStoreContext<'_, Ids>,
         key_id: Ids::Symmetric,

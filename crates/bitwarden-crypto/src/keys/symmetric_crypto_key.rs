@@ -87,7 +87,7 @@ impl TryFrom<wasm_bindgen::JsValue> for SymmetricCryptoKey {
 }
 
 /// The symmetric key algorithm to use when generating a new symmetric key.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SymmetricKeyAlgorithm {
     /// Used for V1 user keys and data encryption
     Aes256CbcHmac,

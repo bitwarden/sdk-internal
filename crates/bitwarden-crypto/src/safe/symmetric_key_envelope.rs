@@ -317,18 +317,69 @@ mod tests {
     use super::*;
     use crate::{
         KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm,
+        cose::{AES_256_CBC_HMAC_SHA256_AEAD, XAES_256_GCM},
         traits::tests::{TestIds, TestSymmKey},
     };
 
-    const TEST_VECTOR_SEALING_KEY: &str = "pQEEAlAJiRm3TVKQVUpm9gqA4tm6AzoAARF5BIQDBAUGIFggQyO5bN7Uto3hpXUyqluuArn+zppBmhdnahDRJ6p4s84B";
-    const TEST_VECTOR_KEY_TO_SEAL: &str = "pQEEAlDpQoswNPD5xaz7sYLHZXXXAzoAARFvBIQDBAUGIFgg2YO7eUZhb9WSxxsGvdURTunDOBV0W4FRk9E4TV7c00QB";
-    const TEST_VECTOR_ENVELOPE: &str = "g1g+pgE6AAEReQMYZQRQCYkZt01SkFVKZvYKgOLZujoAARVcUOlCizA08PnFrPuxgsdlddc6AAE4gQM6AAE4gCKhBVgYLLX2iYq+Ko+2Hp2fByDfGd5AC0Lw4+zxWFS9n8fBbBKHfiarETj6Q3uRwZYpDS5p29MBEJW7WxOaf5Az51+Qtr8ugnoocUJhb8l6vmkDxFy1blU6iHuoBvpd+3MSFOeCdiuMLbKrf469fmUlDn0=";
+    const TEST_VECTOR_XAES256_GCM_SEALING_KEY: &str = "pQEEAlAJiRm3TVKQVUpm9gqA4tm6AzoAARF5BIQDBAUGIFggQyO5bN7Uto3hpXUyqluuArn+zppBmhdnahDRJ6p4s84B";
+    const TEST_VECTOR_XAES256_GCM_KEY_TO_SEAL: &str = "pQEEAlDpQoswNPD5xaz7sYLHZXXXAzoAARFvBIQDBAUGIFgg2YO7eUZhb9WSxxsGvdURTunDOBV0W4FRk9E4TV7c00QB";
+    const TEST_VECTOR_XAES256_GCM_ENVELOPE: &str = "g1g+pgE6AAEReQMYZQRQCYkZt01SkFVKZvYKgOLZujoAARVcUOlCizA08PnFrPuxgsdlddc6AAE4gQM6AAE4gCKhBVgYLLX2iYq+Ko+2Hp2fByDfGd5AC0Lw4+zxWFS9n8fBbBKHfiarETj6Q3uRwZYpDS5p29MBEJW7WxOaf5Az51+Qtr8ugnoocUJhb8l6vmkDxFy1blU6iHuoBvpd+3MSFOeCdiuMLbKrf469fmUlDn0=";
 
     const TEST_VECTOR_AES256_CBC_HMAC_SEALING_KEY: &str =
         "Im4/NyElI5SFvB8AVPN3Gpc18YMzAM1K0sIFigkoSQdpLnOUbm4DRhOK0n8WRdcZAsEpzVHKp5o3no9PQBYRnQ==";
     const TEST_VECTOR_AES256_CBC_HMAC_KEY_TO_SEAL: &str =
         "ikiXBX+XX73bEzUvrCMazkXDGokzRKGMVxCQmcss4CvEbt0BH7l17EtGVk076s7KUFpG3ddh4s7ft4Zjdp1IZQ==";
     const TEST_VECTOR_AES256_CBC_HMAC_ENVELOPE: &str = "g1hgpgE6AAERegN4ImFwcGxpY2F0aW9uL3guYml0d2FyZGVuLmxlZ2FjeS1rZXkEUCXt6Q6vGxzVz4yiWQaeIVU6AAEVXFAHW3SH5xZ6K2Rbzk++yRd8OgABOIEDOgABOIAioQVQFoZH08X+KUh2fG9r/3KTAVhwEpdWDKgAXIDyqxsGOJwBGmM2wFc1qCeZMkSjHhNRyQ4b/JClrplC66Vb9TjNLmXVDyDSlvpGYmRIS2e3Hqfg4/fRjNp/8QEmNEddLIZNatT/tpM8AyYfaGSpaz/y3SmiUryPBy2L3cpeNC05vE14tA==";
+
+    /// An envelope pinned as a test vector, the keys it was sealed from, and how to generate it.
+    struct TestVector {
+        /// Used in the generated constant names and in assertion messages.
+        name: &'static str,
+        sealing_key_algorithm: SymmetricKeyAlgorithm,
+        key_to_seal_algorithm: SymmetricKeyAlgorithm,
+        cose_algorithm: coset::Algorithm,
+        sealing_key: &'static str,
+        key_to_seal: &'static str,
+        envelope: &'static str,
+    }
+
+    /// Together, the vectors cover both wrapping key algorithms and both encodings of the sealed
+    /// key: a COSE key (XChaCha20-Poly1305) and a legacy 64-byte key (AES-256-CBC-HMAC).
+    const TEST_VECTORS: [TestVector; 2] = [
+        TestVector {
+            name: "XAES256_GCM",
+            sealing_key_algorithm: SymmetricKeyAlgorithm::XAes256Gcm,
+            key_to_seal_algorithm: SymmetricKeyAlgorithm::XChaCha20Poly1305,
+            cose_algorithm: coset::Algorithm::PrivateUse(XAES_256_GCM),
+            sealing_key: TEST_VECTOR_XAES256_GCM_SEALING_KEY,
+            key_to_seal: TEST_VECTOR_XAES256_GCM_KEY_TO_SEAL,
+            envelope: TEST_VECTOR_XAES256_GCM_ENVELOPE,
+        },
+        TestVector {
+            name: "AES256_CBC_HMAC",
+            sealing_key_algorithm: SymmetricKeyAlgorithm::Aes256CbcHmac,
+            key_to_seal_algorithm: SymmetricKeyAlgorithm::Aes256CbcHmac,
+            cose_algorithm: coset::Algorithm::PrivateUse(AES_256_CBC_HMAC_SHA256_AEAD),
+            sealing_key: TEST_VECTOR_AES256_CBC_HMAC_SEALING_KEY,
+            key_to_seal: TEST_VECTOR_AES256_CBC_HMAC_KEY_TO_SEAL,
+            envelope: TEST_VECTOR_AES256_CBC_HMAC_ENVELOPE,
+        },
+    ];
+
+    /// The supported wrapping key algorithms, each paired with the COSE algorithm that an envelope
+    /// sealed with such a key declares in its protected header.
+    fn wrapping_key_algorithms() -> [(SymmetricKeyAlgorithm, coset::Algorithm); 2] {
+        [
+            (
+                SymmetricKeyAlgorithm::XAes256Gcm,
+                coset::Algorithm::PrivateUse(XAES_256_GCM),
+            ),
+            (
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+                coset::Algorithm::PrivateUse(AES_256_CBC_HMAC_SHA256_AEAD),
+            ),
+        ]
+    }
 
     #[test]
     #[ignore = "Manual test to verify debug format"]
@@ -352,64 +403,81 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        for (wrapping_key_algorithm, cose_algorithm) in wrapping_key_algorithms() {
+            // A COSE key and a legacy 64-byte key are sealed with different content formats.
+            for key_to_seal_algorithm in [
+                SymmetricKeyAlgorithm::XChaCha20Poly1305,
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ] {
+                let key_to_seal = ctx.make_symmetric_key(key_to_seal_algorithm);
+                let wrapping_key = ctx.make_symmetric_key(wrapping_key_algorithm);
 
-        let envelope = SymmetricKeyEnvelope::seal(
-            key_to_seal,
-            wrapping_key,
-            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
+                let envelope = SymmetricKeyEnvelope::seal(
+                    key_to_seal,
+                    wrapping_key,
+                    SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                    &ctx,
+                )
+                .unwrap();
 
-        assert_eq!(
-            envelope.cose_encrypt0.protected.header.alg,
-            Some(coset::Algorithm::PrivateUse(crate::cose::XAES_256_GCM))
-        );
+                assert_eq!(
+                    envelope.cose_encrypt0.protected.header.alg.as_ref(),
+                    Some(&cose_algorithm),
+                    "{wrapping_key_algorithm:?} sealing {key_to_seal_algorithm:?}"
+                );
 
-        let unsealed_key = envelope
-            .unseal(
-                wrapping_key,
-                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-                &mut ctx,
-            )
-            .unwrap();
+                let unsealed_key = envelope
+                    .unseal(
+                        wrapping_key,
+                        SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                        &mut ctx,
+                    )
+                    .unwrap();
 
-        let unsealed_key_ref = ctx
-            .get_symmetric_key(unsealed_key)
-            .expect("Key should exist in the key store");
-
-        let original_key_ref = ctx
-            .get_symmetric_key(key_to_seal)
-            .expect("Key should exist in the key store");
-
-        assert_eq!(unsealed_key_ref, original_key_ref);
+                ctx.assert_symmetric_keys_equal(unsealed_key, key_to_seal);
+            }
+        }
     }
 
     #[test]
-    fn test_contained_key_id_symmetric() {
+    fn test_key_ids_symmetric() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        for (wrapping_key_algorithm, _) in wrapping_key_algorithms() {
+            let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let wrapping_key = ctx.make_symmetric_key(wrapping_key_algorithm);
 
-        let envelope = SymmetricKeyEnvelope::seal(
-            key_to_seal,
-            wrapping_key,
-            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
+            let envelope = SymmetricKeyEnvelope::seal(
+                key_to_seal,
+                wrapping_key,
+                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                &ctx,
+            )
+            .unwrap();
 
-        let key_to_seal_ref = ctx
-            .get_symmetric_key(key_to_seal)
-            .expect("Key should exist in the key store");
+            let key_to_seal_ref = ctx
+                .get_symmetric_key(key_to_seal)
+                .expect("Key should exist in the key store");
+            assert_eq!(
+                key_to_seal_ref.key_id(),
+                envelope.contained_key_id().unwrap(),
+                "{wrapping_key_algorithm:?}"
+            );
 
-        let contained_key_id = envelope.contained_key_id().unwrap();
-
-        assert_eq!(key_to_seal_ref.key_id(), contained_key_id);
+            // An AES-256-CBC-HMAC key doesn't store a key ID, so `seal` has to write the ID derived
+            // from the key material.
+            let wrapping_key_id = ctx
+                .get_symmetric_key(wrapping_key)
+                .expect("Key should exist in the key store")
+                .key_id()
+                .expect("Wrapping keys have a key ID");
+            assert_eq!(
+                envelope.cose_encrypt0.protected.header.key_id,
+                wrapping_key_id.as_slice(),
+                "{wrapping_key_algorithm:?}"
+            );
+        }
     }
 
     #[test]
@@ -455,26 +523,31 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
-        let wrong_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        for (wrapping_key_algorithm, _) in wrapping_key_algorithms() {
+            let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let wrapping_key = ctx.make_symmetric_key(wrapping_key_algorithm);
+            let wrong_key = ctx.make_symmetric_key(wrapping_key_algorithm);
 
-        let envelope = SymmetricKeyEnvelope::seal(
-            key_to_seal,
-            wrapping_key,
-            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
-
-        assert!(matches!(
-            envelope.unseal(
-                wrong_key,
+            let envelope = SymmetricKeyEnvelope::seal(
+                key_to_seal,
+                wrapping_key,
                 SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-                &mut ctx
-            ),
-            Err(SymmetricKeyEnvelopeError::WrongKey)
-        ));
+                &ctx,
+            )
+            .unwrap();
+
+            assert!(
+                matches!(
+                    envelope.unseal(
+                        wrong_key,
+                        SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                        &mut ctx
+                    ),
+                    Err(SymmetricKeyEnvelopeError::WrongKey)
+                ),
+                "{wrapping_key_algorithm:?}"
+            );
+        }
     }
 
     #[test]
@@ -507,6 +580,8 @@ mod tests {
                 ),
                 Err(SymmetricKeyEnvelopeError::WrongKeyType)
             ));
+            // Without the key type check, `unseal` would attempt decryption and fail with
+            // `WrongKey` instead.
             assert!(matches!(
                 envelope.unseal(
                     unsupported_wrapping_key,
@@ -545,7 +620,26 @@ mod tests {
     }
 
     #[test]
-    fn test_missing_wrapping_key() {
+    fn test_seal_missing_wrapping_key() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let missing_key = TestSymmKey::A(0);
+
+        assert!(matches!(
+            SymmetricKeyEnvelope::seal(
+                key_to_seal,
+                missing_key,
+                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                &ctx,
+            ),
+            Err(SymmetricKeyEnvelopeError::KeyMissing)
+        ));
+    }
+
+    #[test]
+    fn test_unseal_missing_wrapping_key() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
@@ -562,15 +656,6 @@ mod tests {
         let missing_key = TestSymmKey::A(0);
 
         assert!(matches!(
-            SymmetricKeyEnvelope::seal(
-                key_to_seal,
-                missing_key,
-                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-                &ctx,
-            ),
-            Err(SymmetricKeyEnvelopeError::KeyMissing)
-        ));
-        assert!(matches!(
             envelope.unseal(
                 missing_key,
                 SymmetricKeyEnvelopeNamespace::ExampleNamespace,
@@ -581,195 +666,42 @@ mod tests {
     }
 
     #[test]
-    fn test_seal_unseal_aes256_cbc_hmac() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        // A legacy AES-256-CBC-HMAC key wrapping another, e.g. a V1 user key wrapping a cipher key.
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-
-        let envelope = SymmetricKeyEnvelope::seal(
-            key_to_seal,
-            wrapping_key,
-            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
-
-        assert_eq!(
-            envelope.cose_encrypt0.protected.header.alg,
-            Some(coset::Algorithm::PrivateUse(
-                crate::cose::AES_256_CBC_HMAC_SHA256_AEAD
-            ))
-        );
-
-        let unsealed_key = envelope
-            .unseal(
-                wrapping_key,
-                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-                &mut ctx,
-            )
-            .unwrap();
-
-        ctx.assert_symmetric_keys_equal(unsealed_key, key_to_seal);
-    }
-
-    #[test]
-    fn test_key_ids_aes256_cbc_hmac() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-
-        let envelope = SymmetricKeyEnvelope::seal(
-            key_to_seal,
-            wrapping_key,
-            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
-
-        // AES-256-CBC-HMAC keys have no stored key ID, so both IDs are derived from the key
-        // material.
-        let wrapping_key_id = ctx
-            .get_symmetric_key(wrapping_key)
-            .unwrap()
-            .key_id()
-            .expect("AES-256-CBC-HMAC keys have a derived key ID");
-        assert_eq!(
-            envelope.cose_encrypt0.protected.header.key_id,
-            wrapping_key_id.as_slice()
-        );
-
-        let key_to_seal_id = ctx.get_symmetric_key(key_to_seal).unwrap().key_id();
-        assert_eq!(envelope.contained_key_id().unwrap(), key_to_seal_id);
-    }
-
-    #[test]
-    fn test_wrong_key_aes256_cbc_hmac() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let wrong_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-
-        let envelope = SymmetricKeyEnvelope::seal(
-            key_to_seal,
-            wrapping_key,
-            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
-
-        assert!(matches!(
-            envelope.unseal(
-                wrong_key,
-                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-                &mut ctx
-            ),
-            Err(SymmetricKeyEnvelopeError::WrongKey)
-        ));
-    }
-
-    #[test]
-    fn test_wrong_namespace_aes256_cbc_hmac() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-
-        let envelope = SymmetricKeyEnvelope::seal(
-            key_to_seal,
-            wrapping_key,
-            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
-
-        assert!(matches!(
-            envelope.unseal(
-                wrapping_key,
-                SymmetricKeyEnvelopeNamespace::ExampleNamespace2,
-                &mut ctx
-            ),
-            Err(SymmetricKeyEnvelopeError::InvalidNamespace)
-        ));
-    }
-
-    #[test]
-    fn test_unseal_with_other_wrapping_key_algorithm_fails() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let xaes_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
-        let cbc_hmac_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-
-        // Sealed with one wrapping key algorithm, unsealed with a key of the other, in both
-        // directions.
-        for (sealing_key, unsealing_key) in [(xaes_key, cbc_hmac_key), (cbc_hmac_key, xaes_key)] {
-            let envelope = SymmetricKeyEnvelope::seal(
-                key_to_seal,
-                sealing_key,
-                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-                &ctx,
-            )
-            .unwrap();
-
-            assert!(matches!(
-                envelope.unseal(
-                    unsealing_key,
-                    SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-                    &mut ctx
-                ),
-                Err(SymmetricKeyEnvelopeError::WrongKey)
-            ));
-        }
-    }
-
-    #[test]
-    #[ignore]
+    #[ignore = "Generates test vectors; run manually"]
     fn generate_test_vectors() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        for vector in TEST_VECTORS {
+            let key_to_seal = ctx.make_symmetric_key(vector.key_to_seal_algorithm);
+            let wrapping_key = ctx.make_symmetric_key(vector.sealing_key_algorithm);
 
-        let envelope = SymmetricKeyEnvelope::seal(
-            key_to_seal,
-            wrapping_key,
-            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
+            let envelope = SymmetricKeyEnvelope::seal(
+                key_to_seal,
+                wrapping_key,
+                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                &ctx,
+            )
+            .unwrap();
 
-        println!(
-            "const TEST_VECTOR_SEALING_KEY: &str = \"{}\";",
-            bitwarden_encoding::B64::from(
-                ctx.get_symmetric_key(wrapping_key)
-                    .unwrap()
-                    .to_encoded()
-                    .to_vec()
-                    .as_slice()
-            )
-        );
-        println!(
-            "const TEST_VECTOR_KEY_TO_SEAL: &str = \"{}\";",
-            bitwarden_encoding::B64::from(
-                ctx.get_symmetric_key(key_to_seal)
-                    .unwrap()
-                    .to_encoded()
-                    .to_vec()
-                    .as_slice()
-            )
-        );
-        let serialized: String = envelope.into();
-        println!("const TEST_VECTOR_ENVELOPE: &str = \"{}\";", serialized);
+            for (key_name, key) in [("SEALING_KEY", wrapping_key), ("KEY_TO_SEAL", key_to_seal)] {
+                println!(
+                    "const TEST_VECTOR_{}_{key_name}: &str = \"{}\";",
+                    vector.name,
+                    B64::from(
+                        ctx.get_symmetric_key(key)
+                            .unwrap()
+                            .to_encoded()
+                            .to_vec()
+                            .as_slice()
+                    )
+                );
+            }
+            let serialized: String = envelope.into();
+            println!(
+                "const TEST_VECTOR_{}_ENVELOPE: &str = \"{serialized}\";",
+                vector.name
+            );
+        }
     }
 
     #[test]
@@ -777,106 +709,67 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let sealing_key = SymmetricCryptoKey::try_from(TEST_VECTOR_SEALING_KEY.to_string())
-            .expect("Failed to parse sealing key from test vector");
-        let sealed_key_test_vector =
-            SymmetricCryptoKey::try_from(TEST_VECTOR_KEY_TO_SEAL.to_string())
-                .expect("Failed to parse key to seal from test vector");
+        for vector in TEST_VECTORS {
+            let sealing_key = ctx.add_local_symmetric_key(
+                SymmetricCryptoKey::try_from(vector.sealing_key.to_string())
+                    .expect("Failed to parse sealing key from test vector"),
+            );
+            let key_to_seal_test_vector = ctx.add_local_symmetric_key(
+                SymmetricCryptoKey::try_from(vector.key_to_seal.to_string())
+                    .expect("Failed to parse key to seal from test vector"),
+            );
+            assert_eq!(
+                ctx.get_symmetric_key_algorithm(sealing_key).unwrap(),
+                vector.sealing_key_algorithm,
+                "{}",
+                vector.name
+            );
+            assert_eq!(
+                ctx.get_symmetric_key_algorithm(key_to_seal_test_vector)
+                    .unwrap(),
+                vector.key_to_seal_algorithm,
+                "{}",
+                vector.name
+            );
 
-        let sealing_key_id = ctx.add_local_symmetric_key(sealing_key);
+            let envelope = SymmetricKeyEnvelope::from_str(vector.envelope).unwrap();
 
-        let envelope = SymmetricKeyEnvelope::from_str(TEST_VECTOR_ENVELOPE).unwrap();
-
-        let unsealed_key_id = envelope
-            .unseal(
-                sealing_key_id,
-                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-                &mut ctx,
-            )
-            .unwrap();
-        let unsealed_key = ctx.get_symmetric_key(unsealed_key_id).unwrap();
-        assert_eq!(unsealed_key.to_owned(), sealed_key_test_vector.to_owned());
-    }
-
-    #[test]
-    #[ignore]
-    fn generate_test_vectors_aes256_cbc_hmac() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-
-        let envelope = SymmetricKeyEnvelope::seal(
-            key_to_seal,
-            wrapping_key,
-            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
-
-        println!(
-            "const TEST_VECTOR_AES256_CBC_HMAC_SEALING_KEY: &str = \"{}\";",
-            bitwarden_encoding::B64::from(
-                ctx.get_symmetric_key(wrapping_key)
+            // Pin the header fields that consumers rely on: the algorithm, the ID used to look up
+            // the sealing key, and the ID of the contained key.
+            let header = &envelope.cose_encrypt0.protected.header;
+            assert_eq!(
+                header.alg.as_ref(),
+                Some(&vector.cose_algorithm),
+                "{}",
+                vector.name
+            );
+            assert_eq!(
+                header.key_id,
+                ctx.get_symmetric_key(sealing_key)
                     .unwrap()
-                    .to_encoded()
-                    .to_vec()
-                    .as_slice()
-            )
-        );
-        println!(
-            "const TEST_VECTOR_AES256_CBC_HMAC_KEY_TO_SEAL: &str = \"{}\";",
-            bitwarden_encoding::B64::from(
-                ctx.get_symmetric_key(key_to_seal)
+                    .key_id()
+                    .expect("Sealing keys have a key ID")
+                    .as_slice(),
+                "{}",
+                vector.name
+            );
+            assert_eq!(
+                envelope.contained_key_id().unwrap(),
+                ctx.get_symmetric_key(key_to_seal_test_vector)
                     .unwrap()
-                    .to_encoded()
-                    .to_vec()
-                    .as_slice()
-            )
-        );
-        let serialized: String = envelope.into();
-        println!(
-            "const TEST_VECTOR_AES256_CBC_HMAC_ENVELOPE: &str = \"{}\";",
-            serialized
-        );
-    }
+                    .key_id(),
+                "{}",
+                vector.name
+            );
 
-    #[test]
-    fn decrypt_test_vectors_aes256_cbc_hmac() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        let sealing_key =
-            SymmetricCryptoKey::try_from(TEST_VECTOR_AES256_CBC_HMAC_SEALING_KEY.to_string())
-                .expect("Failed to parse sealing key from test vector");
-        let sealed_key_test_vector =
-            SymmetricCryptoKey::try_from(TEST_VECTOR_AES256_CBC_HMAC_KEY_TO_SEAL.to_string())
-                .expect("Failed to parse key to seal from test vector");
-        assert!(matches!(
-            sealing_key,
-            SymmetricCryptoKey::Aes256CbcHmacKey(_)
-        ));
-
-        let sealing_key_id = ctx.add_local_symmetric_key(sealing_key);
-
-        let envelope =
-            SymmetricKeyEnvelope::from_str(TEST_VECTOR_AES256_CBC_HMAC_ENVELOPE).unwrap();
-        assert_eq!(
-            envelope.cose_encrypt0.protected.header.alg,
-            Some(coset::Algorithm::PrivateUse(
-                crate::cose::AES_256_CBC_HMAC_SHA256_AEAD
-            ))
-        );
-
-        let unsealed_key_id = envelope
-            .unseal(
-                sealing_key_id,
-                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
-                &mut ctx,
-            )
-            .unwrap();
-        let unsealed_key = ctx.get_symmetric_key(unsealed_key_id).unwrap();
-        assert_eq!(unsealed_key.to_owned(), sealed_key_test_vector.to_owned());
+            let unsealed_key = envelope
+                .unseal(
+                    sealing_key,
+                    SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                    &mut ctx,
+                )
+                .unwrap();
+            ctx.assert_symmetric_keys_equal(unsealed_key, key_to_seal_test_vector);
+        }
     }
 }
