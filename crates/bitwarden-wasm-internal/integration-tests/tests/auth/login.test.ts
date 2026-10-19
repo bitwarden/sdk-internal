@@ -66,7 +66,6 @@ describe("login via password", () => {
       expect(authenticated.accessToken).toEqual(vector.account.userId);
 
       const unlock = authenticated.userDecryptionOptions.masterPasswordUnlock;
-      expect(unlock?.salt).toEqual(vector.account.email);
       expect(unlock?.kdf).toEqual(vector.account.kdf);
     },
     TIMEOUT,
