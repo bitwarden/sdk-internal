@@ -25,7 +25,8 @@ pub(crate) mod sys;
 mod test_support;
 
 /// Start the connector poll loop. It runs until shutdown ([`executor::RunExit::Shutdown`]), a
-/// rejected credential ([`executor::RunExit::CredentialRefused`]) or an ineligible connector
+/// rejected credential ([`executor::RunExit::CredentialRefused`]), a startup failure other than a
+/// rejection ([`executor::RunExit::StartupFailed`]) or an ineligible connector
 /// ([`executor::RunExit::NotEligible`]).
 pub async fn run(
     cfg: executor::AccessConnectorConfig,
