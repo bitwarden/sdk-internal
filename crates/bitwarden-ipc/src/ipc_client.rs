@@ -69,7 +69,7 @@ where
 /// It uses a crypto provider to encrypt and decrypt messages, a communication backend to send and
 /// receive messages, and a session repository to persist sessions.
 ///
-/// This is the concrete implementation of the [`IpcClient`](crate::IpcClient) trait.
+/// This is the concrete implementation of the [`IpcClient`] trait.
 pub struct IpcClientImpl<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -325,7 +325,7 @@ fn handle_rpc_request<Crypto, Com, Ses>(
             let mut payload = serde_utils::to_vec(&response_message)
                 .map_err(|e: serde_utils::SerializeError| HandleError::Serialize(e.to_string()))?;
             if payload.len() > MAX_PAYLOAD_SIZE {
-                // Report the error so the requester doesn't wait until its timeout.
+                // Report the error, or the requester waits for a response that never arrives.
                 let error = FragmentationError::PayloadTooLarge(payload.len()).to_string();
                 let error_message = OutgoingRpcResponseMessage {
                     result: Err(RpcError::ResponseSerialization(error)),
