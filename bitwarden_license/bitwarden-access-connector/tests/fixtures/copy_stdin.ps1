@@ -1,5 +1,6 @@
 # Fixture: reads stdin's JSON, extracts "OUT_PATH" from the credentials map, and writes the
-# full stdin payload there. Invoked as: copy_stdin.ps1 <operation>
+# full stdin payload to "<OUT_PATH>.<operation>", one file per step. Invoked as:
+# copy_stdin.ps1 <operation>
 #
 # The PowerShell mirror of copy_stdin.sh.
 
@@ -16,5 +17,5 @@ if ([string]::IsNullOrEmpty($outPath)) {
     exit 1
 }
 
-[System.IO.File]::WriteAllText($outPath, $payload)
+[System.IO.File]::WriteAllText("$outPath.$Operation", $payload)
 exit 0
