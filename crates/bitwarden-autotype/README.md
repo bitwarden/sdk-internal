@@ -17,9 +17,12 @@ platform implementation. The **renderer** drives it but cannot reach it directly
   handlers, so every channel reaches the same driver instance.
 - The renderer calls the `autotypeRequest*` functions, each of which sends to
   `Endpoint::DesktopMain` and resolves with the matching response. They reject only when the request
-  could not be delivered or answered — main unreachable, the request timed out, or no handler
-  registered. A driver that fails on main still resolves; see
+  could not be delivered or answered — main unreachable, no handler registered, or the caller's
+  `AbortSignal` aborted. A driver that fails on main still resolves; see
   [Failure semantics](#failure-semantics).
+- There is no built-in timeout. Without an `AbortSignal`, a request main never answers — a driver
+  promise that never settles, say — stays pending indefinitely. Pass one, for example
+  `AbortSignal.timeout(ms)`, whenever the wait needs a bound.
 - Main's IPC client also carries the browser extension and CLI over native messaging, so every
   Autotype request is handled only when its source is `Source::DesktopRenderer`. Any other sender
   gets `success: false` or an empty `apps` list, and the driver is never called. A response always

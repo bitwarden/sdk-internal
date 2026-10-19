@@ -630,6 +630,7 @@ dependencies = [
 name = "bitwarden-autotype"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-ffi",
  "bitwarden-ipc",
  "bitwarden-threading",
  "serde",

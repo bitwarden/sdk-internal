@@ -10,7 +10,7 @@ use bitwarden_threading::{
     cancellation_token::wasm::{AbortSignal, AbortSignalExt},
 };
 use serde::{Deserialize, Serialize};
-use tsify::{Tsify, serde_wasm_bindgen};
+use tsify::serde_wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
@@ -68,8 +68,8 @@ extern "C" {
 }
 
 /// A single application reported by the platform Autotype implementation.
-#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
 pub struct AutotypeRunningApp {
     /// Human-readable name for the app, e.g. `Google Chrome`.
     pub name: String,
@@ -213,8 +213,8 @@ pub struct AutotypeSetEnabledRequest {
 }
 
 /// A response to an [`AutotypeSetEnabledRequest`].
-#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
 pub struct AutotypeSetEnabledResponse {
     /// Whether the requested change for enabling/disabling Autotype was applied.
     pub success: bool,
@@ -267,8 +267,8 @@ pub struct AutotypeSetKeyboardShortcutRequest {
 }
 
 /// A response to an [`AutotypeSetKeyboardShortcutRequest`].
-#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
 pub struct AutotypeSetKeyboardShortcutResponse {
     /// Whether the requested keyboard shortcut was applied.
     pub success: bool,
@@ -320,8 +320,8 @@ impl RpcHandler for AutotypeSetKeyboardShortcutHandler {
 pub struct AutotypeListRunningAppsRequest;
 
 /// A response to an [`AutotypeListRunningAppsRequest`].
-#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
 pub struct AutotypeListRunningAppsResponse {
     /// The applications currently running. Empty when none were found, and also when the
     /// receiving client could not determine them.
@@ -371,7 +371,7 @@ impl RpcHandler for AutotypeListRunningAppsHandler {
 ///
 /// This belongs within the desktop main process, which owns the global shortcut. Every handler
 /// shares one runner, so all of them reach the same driver instance.
-#[wasm_bindgen(js_name = autotypeRegisterHandlers)]
+#[bitwarden_ffi::wasm_export(js_name = autotypeRegisterHandlers)]
 pub async fn autotype_register_handlers(ipc_client: &JsIpcClient, driver: RawJsAutotypeDriver) {
     let runner = ThreadBoundRunner::new(driver);
 
@@ -397,7 +397,10 @@ pub async fn autotype_register_handlers(ipc_client: &JsIpcClient, driver: RawJsA
 
 /// Sends an `AutotypeSetEnabledRequest` to the desktop main process and reports whether the
 /// requested change was successful.
-#[wasm_bindgen(js_name = autotypeRequestSetEnabled)]
+///
+/// There is no built-in timeout: the request waits until main responds or `abort_signal` aborts,
+/// so pass a signal (for example `AbortSignal.timeout(ms)`) when the wait needs a bound.
+#[bitwarden_ffi::wasm_export(js_name = autotypeRequestSetEnabled)]
 pub async fn autotype_request_set_enabled(
     ipc_client: &JsIpcClient,
     enabled: bool,
@@ -415,7 +418,10 @@ pub async fn autotype_request_set_enabled(
 
 /// Sends an `AutotypeSetKeyboardShortcutRequest` to the desktop main process and reports whether
 /// the requested shortcut was applied.
-#[wasm_bindgen(js_name = autotypeRequestSetKeyboardShortcut)]
+///
+/// There is no built-in timeout: the request waits until main responds or `abort_signal` aborts,
+/// so pass a signal (for example `AbortSignal.timeout(ms)`) when the wait needs a bound.
+#[bitwarden_ffi::wasm_export(js_name = autotypeRequestSetKeyboardShortcut)]
 pub async fn autotype_request_set_keyboard_shortcut(
     ipc_client: &JsIpcClient,
     shortcut: Vec<String>,
@@ -435,7 +441,10 @@ pub async fn autotype_request_set_keyboard_shortcut(
 ///
 /// An empty list means either that nothing was found or that the main process could not determine
 /// it; the two are not distinguished.
-#[wasm_bindgen(js_name = autotypeRequestListRunningApps)]
+///
+/// There is no built-in timeout: the request waits until main responds or `abort_signal` aborts,
+/// so pass a signal (for example `AbortSignal.timeout(ms)`) when the wait needs a bound.
+#[bitwarden_ffi::wasm_export(js_name = autotypeRequestListRunningApps)]
 pub async fn autotype_request_list_running_apps(
     ipc_client: &JsIpcClient,
     abort_signal: Option<AbortSignal>,
