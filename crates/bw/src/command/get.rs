@@ -71,6 +71,10 @@ impl GetCommands {
     pub async fn run(self, ctx: ClientContext) -> CommandResult {
         match self {
             GetCommands::Item(args) => args.dispatch(ctx).await,
+            GetCommands::Username(args) => args.dispatch(ctx).await,
+            GetCommands::Password(args) => args.dispatch(ctx).await,
+            GetCommands::Uri(args) => args.dispatch(ctx).await,
+            GetCommands::Notes(args) => args.dispatch(ctx).await,
             GetCommands::Folder(args) => args.dispatch(ctx).await,
             GetCommands::Template { command } => command.run(),
             _ => todo!(),

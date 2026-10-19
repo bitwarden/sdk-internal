@@ -6,7 +6,7 @@ mod get;
 mod resolve;
 mod search;
 
-pub(crate) use resolve::{resolve_cipher, resolve_folder};
+pub(crate) use resolve::{CipherPredicate, ResolveError, resolve_cipher, resolve_folder};
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum TemplateCommands {
