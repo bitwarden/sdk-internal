@@ -53,10 +53,8 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-features
 
-      # The run above skips the access connector's #[ignore]d script-launcher tests, which need a
-      # real child process and real files. All three runner images ship pwsh, so they run on each.
-      # They run serially because the connector runs one script at a time in production, and
-      # parallel runs have seen hosts from different tests die together on CI runners.
+      # Runs the #[ignore]d pwsh script-launcher tests. Serial because parallel hosts die together
+      # on CI runners.
       - name: Test (integration, requires pwsh)
         run: cargo test -p bitwarden-access-connector --all-features -- --ignored --test-threads=1
 
