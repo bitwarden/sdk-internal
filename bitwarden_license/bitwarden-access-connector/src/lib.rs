@@ -11,7 +11,7 @@ pub(crate) mod auth;
 pub mod cli;
 /// Configuration loading and validation (exposed for `main.rs`).
 pub mod config;
-/// Cryptographic helpers (exposed for integration tests and `examples/register.rs`).
+/// Cryptographic helpers (exposed for integration tests).
 pub mod crypto;
 /// Top-level error types (exposed for `main.rs`).
 pub mod error;
