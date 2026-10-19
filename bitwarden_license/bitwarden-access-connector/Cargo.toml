@@ -50,9 +50,5 @@ tempfile = "3"
 tokio = { workspace = true, features = ["rt", "test-util"] }
 wiremock = { workspace = true }
 
-[[example]]
-name = "register"
-path = "examples/register.rs"
-
 [lints]
 workspace = true
