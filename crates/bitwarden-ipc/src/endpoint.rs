@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 /// Identifies a host endpoint, one that manages connections for other endpoints.
 ///
@@ -8,7 +6,7 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 /// and there is only one from their perspective) or by a specific transport-assigned ID
 /// (when distinguishing between multiple instances).
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum HostId {
     /// The sender's own instance of this endpoint type. Used when there is exactly one
     /// from the sender's perspective (e.g., a web tab addressing its browser background).
@@ -28,7 +26,7 @@ pub enum HostId {
 /// - **Singleton endpoints**: Exactly one instance globally, no ID needed.
 ///   ([`DesktopMain`](Endpoint::DesktopMain), [`DesktopRenderer`](Endpoint::DesktopRenderer))
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum Endpoint {
     /// A web endpoint identified by a Chrome tab ID (for routing via
     /// `chrome.tabs.sendMessage`) and a document ID (for identity validation).
@@ -70,7 +68,7 @@ pub enum Endpoint {
 /// for web sources). Use [`From<Source> for Endpoint`] to convert a source into an
 /// addressable endpoint (dropping the metadata).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum Source {
     /// A web source identified by tab ID and document ID, with the origin of the sending page.
     Web {

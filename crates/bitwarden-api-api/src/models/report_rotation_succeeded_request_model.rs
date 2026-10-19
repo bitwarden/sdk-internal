@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// ReportRotationSucceededRequestModel : The body of `POST
-/// access-connectors/rotation/attempts/{id}/success` (spec             `RecordRotationSucceeded`).
+/// ReportRotationSucceededRequestModel : A successful rotation report (spec
+/// `RecordRotationSucceeded`).
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ReportRotationSucceededRequestModel {
     #[serde(rename = "sessionTermination", alias = "SessionTermination")]
@@ -21,8 +21,7 @@ pub struct ReportRotationSucceededRequestModel {
 }
 
 impl ReportRotationSucceededRequestModel {
-    /// The body of `POST access-connectors/rotation/attempts/{id}/success` (spec
-    /// `RecordRotationSucceeded`).
+    /// A successful rotation report (spec `RecordRotationSucceeded`).
     pub fn new(
         session_termination: models::PamSessionTerminationOutcome,
     ) -> ReportRotationSucceededRequestModel {

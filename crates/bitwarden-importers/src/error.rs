@@ -14,6 +14,8 @@ pub enum ImportError {
     #[error("The KeePass database could not be read; it may be corrupted or unsupported")]
     KdbxCorruptOrUnsupported,
 
+    #[error("The 1Password email address is not valid")]
+    OnePasswordInvalidEmail,
     #[error("The 1Password sign-in address is not valid")]
     OnePasswordInvalidSignInAddress,
     #[error("The 1Password Secret Key is not valid")]

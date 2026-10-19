@@ -24,7 +24,7 @@ use super::{
     logs::{
         REPLAYED_MANUAL_LOCK, TEST_MANUAL_LOCK, TEST_MANUAL_UNLOCK, TopologyId, emit_log, kind,
     },
-    store::{LockDelays, LockStateStore},
+    store::{LockDelays, LockStateStore, PersistedManualLocks},
 };
 
 /// The client kinds every simulated device shares its users with. No scenario is about the
@@ -110,6 +110,8 @@ pub(super) struct DeviceInner {
     delays: LockDelays,
     vault_url: Option<String>,
     quirks: DeviceQuirks,
+    /// What the driver persists, kept here so it survives [`SimulatedDevice::process_reload`].
+    last_manual_locks: PersistedManualLocks,
     /// The endpoint this device's driver reports from `discover_leader`, or `None` at the top of
     /// the hierarchy. Taken from the declared leader rather than computed, so each of two browsers
     /// serves its own web clients.
@@ -158,6 +160,7 @@ impl SimulatedDevice {
             delays: options.delays,
             vault_url: options.vault_url,
             quirks: options.quirks,
+            last_manual_locks: PersistedManualLocks::default(),
             timing,
             transport,
             topology,
@@ -223,6 +226,7 @@ impl SimulatedDevice {
             &self.0.users,
             self.0.delays,
             self.0.vault_url.clone(),
+            self.0.last_manual_locks.clone(),
             self.0.topology,
         );
 
@@ -331,6 +335,31 @@ impl SimulatedDevice {
             kind::ONLINE,
             None,
             "process back online",
+        );
+    }
+
+    /// Stops anything reaching this device while its process keeps running, so it keeps its state
+    /// and misses whatever is sent to it. What it sends is still delivered.
+    pub(crate) fn disconnect(&self) {
+        emit_log(
+            self.0.topology,
+            &self.0.name,
+            kind::OFFLINE,
+            None,
+            "incoming cut",
+        );
+        self.0.transport.disconnect(&self.0.name);
+    }
+
+    /// Restores the links cut by [`SimulatedDevice::disconnect`].
+    pub(crate) fn reconnect(&self) {
+        self.0.transport.reconnect(&self.0.name);
+        emit_log(
+            self.0.topology,
+            &self.0.name,
+            kind::ONLINE,
+            None,
+            "incoming restored",
         );
     }
 

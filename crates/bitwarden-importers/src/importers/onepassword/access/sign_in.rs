@@ -51,7 +51,8 @@ impl SignInDomain {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
     feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify)
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
+    tsify(from_wasm_abi)
 )]
 pub struct SignInAddress {
     /// The account-specific DNS label, such as `my`.

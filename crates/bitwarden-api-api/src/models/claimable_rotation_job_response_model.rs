@@ -12,12 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// ClaimableRotationJobResponseModel : A single claimable rotation job, as an access connector's
-/// poll (`GET access-connectors/rotation/jobs`) sees it -- the candidate set spec `ClaimRotation`
-/// claims from.
-/// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.ClaimableRotationJobResponseModel.
-/// TargetSystemId comes from the config the poll query already joins for its eligibility check,
-/// since the job row itself carries only `RotationConfigId`.
+/// ClaimableRotationJobResponseModel : A claimable rotation job, as the access connector's poll
+/// returns it (the candidate set spec `ClaimRotation` claims from).
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ClaimableRotationJobResponseModel {
     #[serde(
@@ -26,7 +22,6 @@ pub struct ClaimableRotationJobResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    /// The rotation job's unique identifier -- the id a claim is placed against.
     #[serde(
         rename = "jobId",
         alias = "JobId",
@@ -39,21 +34,20 @@ pub struct ClaimableRotationJobResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub source: Option<models::PamRotationSource>,
-    /// The earliest time the job can be claimed (UTC). Pushed out on retry (backoff) or release.
+    /// The earliest time the job can be claimed; pushed out by retry backoff or a release.
     #[serde(
         rename = "nextClaimableAt",
         alias = "NextClaimableAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub next_claimable_at: Option<String>,
-    /// When the job times out if no attempt has succeeded by then (UTC).
+    /// When the job times out unless an attempt has succeeded.
     #[serde(
         rename = "expiresAt",
         alias = "ExpiresAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub expires_at: Option<String>,
-    /// The target system the job's rotation runs against.
     #[serde(
         rename = "targetSystemId",
         alias = "TargetSystemId",
@@ -63,12 +57,8 @@ pub struct ClaimableRotationJobResponseModel {
 }
 
 impl ClaimableRotationJobResponseModel {
-    /// A single claimable rotation job, as an access connector's poll (`GET
-    /// access-connectors/rotation/jobs`) sees it -- the candidate set spec `ClaimRotation` claims
-    /// from. Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.
-    /// ClaimableRotationJobResponseModel.TargetSystemId comes from the config the poll query
-    /// already joins for its eligibility check, since the job row itself carries only
-    /// `RotationConfigId`.
+    /// A claimable rotation job, as the access connector's poll returns it (the candidate set spec
+    /// `ClaimRotation` claims from).
     pub fn new() -> ClaimableRotationJobResponseModel {
         ClaimableRotationJobResponseModel {
             object: None,
