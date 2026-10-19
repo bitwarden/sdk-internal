@@ -310,3 +310,46 @@ async fn browser_serves_web_without_desktop() {
         "The browser's upward syncs should be reported unreachable"
     );
 }
+
+/// Two peers that both lost their session and resync at the same moment still
+/// share a working session afterwards, so a later lock propagates
+///
+/// ```text
+/// follower UNLOCKED --link cut both ways-- leader UNLOCKED   (both drop their Noise session)
+/// links restored, both lock at once            (both start a handshake toward each other)
+/// follower UNLOCKED again --> leader LOCKED --> UNLOCKED
+/// ```
+#[tokio::test]
+async fn simultaneous_resync_keeps_propagating() {
+    let user = test_user(TestUserId::A);
+    let simple = SimpleTopology::make(harness::FAST_DELAYS).await;
+    let timing = fast_timing();
+
+    // 1. Unlock the follower; all devices must become unlocked.
+    simple.follower.manual_unlock(user.id, &user.key).await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &simple.topology, &user).await;
+
+    // 2. Cut both links for two ticks, so each side's sync fails as unreachable and drops its
+    //    session. Shorter than `peer_stale_after`, so each side keeps the other as a target.
+    simple.leader.disconnect();
+    simple.follower.disconnect();
+    bitwarden_threading::time::sleep(timing.sync_interval * 3).await;
+    assert!(
+        count_unreachable(&simple.topology, "desktop") > 0
+            && count_unreachable(&simple.topology, "browser") > 0,
+        "trigger not reached: both sides should have dropped their session on an unreachable send"
+    );
+
+    // 3. Restore the links and lock on both sides at once: each starts a handshake toward the other
+    //    with no session.
+    simple.leader.reconnect();
+    simple.follower.reconnect();
+    tokio::join!(
+        simple.leader.manual_lock(user.id),
+        simple.follower.manual_lock(user.id)
+    );
+
+    // 4. Unlock the follower; the leader must follow.
+    simple.follower.manual_unlock(user.id, &user.key).await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &simple.topology, &user).await;
+}
