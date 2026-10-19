@@ -170,7 +170,7 @@ sub-step, and session-renewal details.
 | Code | Meaning                                                                                                                                                                |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `0`  | Clean shutdown (SIGTERM or Ctrl-C received).                                                                                                                           |
-| `1`  | Startup error: invalid configuration, I/O error, or parse failure.                                                                                                     |
+| `1`  | Startup error: invalid configuration, invalid command-line arguments, I/O error, or parse failure.                                                                     |
 | `2`  | Access connector credential refused. An admin must reissue the credential server-side (via `ReissueConnectorCredential`) and restart the connector with the new token. |
 | `3`  | Access connector not eligible for rotation endpoints. Check: connector record not revoked or disabled, organisation license active, `UsePam` enabled.                  |
 | `4`  | Access connector could not authenticate at startup (e.g. identity server unreachable). Check network connectivity and the identity URL; restarting may succeed.        |
