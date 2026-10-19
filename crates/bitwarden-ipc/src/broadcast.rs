@@ -19,7 +19,7 @@ pub enum BroadcastGroup {
     /// extension page) that the platform currently knows about.
     AllBrowserForeground,
     /// Every [`BrowserBackground`](Endpoint::BrowserBackground) endpoint addressed by a specific
-    /// [`HostId::Id`](crate::HostId::Id) that the platform currently knows about (e.g. every
+    /// [`HostId::Id`] that the platform currently knows about (e.g. every
     /// browser extension connected to the desktop app over native messaging).
     AllBrowserBackground,
 }
