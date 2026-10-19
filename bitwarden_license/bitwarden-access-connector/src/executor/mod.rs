@@ -372,24 +372,11 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         // Heartbeat: poll the jobs endpoint for the connectivity bump, ignoring the list, until the
         // rotation completes.
         let heartbeat_cancel = cancel.child_token();
-        let heartbeat_api = Arc::clone(&api);
-        let heartbeat_interval = cfg.heartbeat_interval;
-        let heartbeat_handle = tokio::spawn({
-            let heartbeat_cancel = heartbeat_cancel.clone();
-            async move {
-                let mut ticker = interval(heartbeat_interval);
-                ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
-                loop {
-                    tokio::select! {
-                        _ = heartbeat_cancel.cancelled() => break,
-                        _ = ticker.tick() => {
-                            tracing::debug!("heartbeat tick");
-                            let _ = heartbeat_api.poll_jobs().await;
-                        }
-                    }
-                }
-            }
-        });
+        let heartbeat_handle = spawn_heartbeat(
+            Arc::clone(&api),
+            cfg.heartbeat_interval,
+            heartbeat_cancel.clone(),
+        );
 
         let exec_ctx = ExecutionContext {
             api: Arc::clone(&api),
@@ -425,6 +412,28 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             }
         }
     }
+}
+
+/// Spawns the heartbeat task: it polls the jobs endpoint every `interval_period` for the
+/// connectivity bump, ignoring the list, until `cancel` fires.
+fn spawn_heartbeat(
+    api: Arc<RotationApi>,
+    interval_period: Duration,
+    cancel: CancellationToken,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut ticker = interval(interval_period);
+        ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        loop {
+            tokio::select! {
+                _ = cancel.cancelled() => break,
+                _ = ticker.tick() => {
+                    tracing::debug!("heartbeat tick");
+                    let _ = api.poll_jobs().await;
+                }
+            }
+        }
+    })
 }
 
 enum NotEligibleOutcome {
@@ -471,7 +480,7 @@ async fn handle_not_eligible(session: &SessionManager, api: &RotationApi) -> Not
 #[cfg(test)]
 mod tests {
     use std::{
-        sync::{Arc, Mutex},
+        sync::Arc,
         time::{Duration, Instant},
     };
 
@@ -570,17 +579,42 @@ mod tests {
         assert!(after >= before);
     }
 
+    /// Number of requests `server` received for `method_name` on a path ending with `suffix`.
+    async fn count_requests(server: &MockServer, method_name: &str, suffix: &str) -> usize {
+        server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .filter(|r| r.method.as_str() == method_name && r.url.path().ends_with(suffix))
+            .count()
+    }
+
     #[tokio::test]
     async fn single_flight_only_one_claim_per_tick() {
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
 
-        let session = make_session(&identity_server, "tok").await;
-        let (api, _rx) = make_api(&api_server, session);
+        let org_key = bitwarden_crypto::SymmetricCryptoKey::make(
+            bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
+        );
+        let payload = encrypted_payload_for(&org_key);
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(identity_ok("tok", &payload))
+            .mount(&identity_server)
+            .await;
 
         let job1 = uuid::Uuid::new_v4();
         let job2 = uuid::Uuid::new_v4();
+        let job3 = uuid::Uuid::new_v4();
+        let attempt_id = uuid::Uuid::new_v4();
+        let execute_by = chrono::Utc::now()
+            .checked_add_signed(chrono::Duration::minutes(5))
+            .unwrap()
+            .to_rfc3339();
 
+        // Offer all three jobs once, so the claim cycle doesn't repeat every poll tick.
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
             .respond_with(
@@ -588,14 +622,26 @@ mod tests {
                     .set_body_json(serde_json::json!({
                         "data": [
                             {"jobId": job1, "targetSystemId": uuid::Uuid::new_v4()},
-                            {"jobId": job2, "targetSystemId": uuid::Uuid::new_v4()}
+                            {"jobId": job2, "targetSystemId": uuid::Uuid::new_v4()},
+                            {"jobId": job3, "targetSystemId": uuid::Uuid::new_v4()}
                         ]
                     }))
+                    .insert_header("content-type", "application/json"),
+            )
+            .up_to_n_times(1)
+            .mount(&api_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/access-connectors/rotation/jobs"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({"data": []}))
                     .insert_header("content-type", "application/json"),
             )
             .mount(&api_server)
             .await;
 
+        // job1 loses its race, so the loop moves on to job2.
         Mock::given(method("POST"))
             .and(path(format!(
                 "/access-connectors/rotation/jobs/{job1}/claim"
@@ -604,15 +650,7 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        // job1 loses its race, so the loop moves on and stops after claiming job2.
-        let attempt_id = uuid::Uuid::new_v4();
-        let target_system_id = uuid::Uuid::new_v4();
-        let cipher_id = uuid::Uuid::new_v4();
-        let execute_by = chrono::Utc::now()
-            .checked_add_signed(chrono::Duration::minutes(5))
-            .unwrap()
-            .to_rfc3339();
-
+        // job2's claim succeeds, but its sealed blobs are rejected, so nothing executes.
         Mock::given(method("POST"))
             .and(path(format!(
                 "/access-connectors/rotation/jobs/{job2}/claim"
@@ -622,9 +660,11 @@ mod tests {
                     .set_body_json(serde_json::json!({
                         "attemptId": attempt_id,
                         "jobId": job2,
-                        "targetSystemId": target_system_id,
+                        "targetSystemId": uuid::Uuid::new_v4(),
                         "targetSystemName": "test",
-                        "cipherId": cipher_id,
+                        "cipherId": uuid::Uuid::new_v4(),
+                        "rotationConfigSealedData": "opaque-config-blob",
+                        "rotationConfigWrappedKey": "opaque-config-key",
                         "executeBy": execute_by
                     }))
                     .insert_header("content-type", "application/json"),
@@ -632,36 +672,71 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        let jobs = api.poll_jobs().await.unwrap();
-        assert_eq!(jobs.len(), 2);
+        // job3 would also succeed, so claiming it would show the loop did not stop.
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/access-connectors/rotation/jobs/{job3}/claim"
+            )))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({
+                        "attemptId": uuid::Uuid::new_v4(),
+                        "jobId": job3,
+                        "targetSystemId": uuid::Uuid::new_v4(),
+                        "targetSystemName": "test",
+                        "cipherId": uuid::Uuid::new_v4(),
+                        "rotationConfigSealedData": "opaque-config-blob",
+                        "rotationConfigWrappedKey": "opaque-config-key",
+                        "executeBy": execute_by
+                    }))
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&api_server)
+            .await;
 
-        // Mirrors the single-flight loop in run().
-        let mut claimed = 0;
-        let mut snapshot = None;
-        for job in &jobs {
-            if let Some(s) = api.claim(job.id).await.unwrap() {
-                snapshot = Some(s);
-                claimed += 1;
-                break;
-            }
-        }
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/failure"
+            )))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&api_server)
+            .await;
 
-        assert_eq!(claimed, 1);
-        assert!(snapshot.is_some());
+        let cfg = AccessConnectorConfig::new_for_test(
+            api_server.uri(),
+            identity_server.uri(),
+            test_token(),
+            Duration::from_millis(30),
+            None,
+        );
+        let cancel = CancellationToken::new();
+        let cancel_clone = cancel.clone();
+        let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
 
-        let snap = snapshot.unwrap();
-        assert_eq!(snap.job_id, job2);
+        wait_for_request(&api_server, &format!("/attempts/{attempt_id}/failure")).await;
+        cancel.cancel();
+        let exit = handle.await.expect("task panicked");
+        assert_eq!(exit, RunExit::Shutdown);
 
-        let all_reqs = api_server.received_requests().await.unwrap();
-        let claim_reqs: Vec<_> = all_reqs
-            .iter()
-            .filter(|r| r.url.path().contains("/claim"))
-            .collect();
-        assert_eq!(claim_reqs.len(), 2, "should have tried both jobs");
+        let claims = |job: uuid::Uuid| {
+            let suffix = format!("/jobs/{job}/claim");
+            let server = &api_server;
+            async move { count_requests(server, "POST", &suffix).await }
+        };
+        assert!(
+            claims(job1).await >= 1,
+            "job1 should have been claimed (and lost)"
+        );
+        assert!(claims(job2).await >= 1, "job2 should have been claimed");
+        assert_eq!(
+            claims(job3).await,
+            0,
+            "the loop must stop after the first successful claim in a tick"
+        );
     }
 
     #[tokio::test]
-    async fn heartbeat_fires_during_rotation_then_stops() {
+    async fn heartbeat_polls_jobs_until_cancelled() {
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
 
@@ -678,42 +753,28 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        let heartbeat_cancel = CancellationToken::new();
-        let heartbeat_api = Arc::clone(&api);
         let heartbeat_interval = Duration::from_millis(20);
+        let cancel = CancellationToken::new();
+        let handle = spawn_heartbeat(api, heartbeat_interval, cancel.clone());
 
-        let call_count = Arc::new(Mutex::new(0u32));
-        let call_count_clone = Arc::clone(&call_count);
+        // Wait for at least two polls rather than sleeping a fixed time.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while count_requests(&api_server, "GET", "/access-connectors/rotation/jobs").await < 2
+            && Instant::now() < deadline
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
 
-        let heartbeat_handle = tokio::spawn({
-            let heartbeat_cancel = heartbeat_cancel.clone();
-            async move {
-                let mut ticker = interval(heartbeat_interval);
-                ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
-                loop {
-                    tokio::select! {
-                        _ = heartbeat_cancel.cancelled() => break,
-                        _ = ticker.tick() => {
-                            let _ = heartbeat_api.poll_jobs().await;
-                            *call_count_clone.lock().unwrap() += 1;
-                        }
-                    }
-                }
-            }
-        });
+        cancel.cancel();
+        handle.await.expect("heartbeat task panicked");
+        let count_after_stop =
+            count_requests(&api_server, "GET", "/access-connectors/rotation/jobs").await;
 
-        // Let the heartbeat fire a few times.
-        tokio::time::sleep(Duration::from_millis(70)).await;
+        // Wait several intervals to confirm no new calls.
+        tokio::time::sleep(heartbeat_interval * 5).await;
 
-        heartbeat_cancel.cancel();
-        let _ = heartbeat_handle.await;
-
-        let count_after_stop = *call_count.lock().unwrap();
-
-        // Wait another interval to confirm no new calls.
-        tokio::time::sleep(Duration::from_millis(50)).await;
-
-        let count_final = *call_count.lock().unwrap();
+        let count_final =
+            count_requests(&api_server, "GET", "/access-connectors/rotation/jobs").await;
         assert_eq!(
             count_after_stop, count_final,
             "no heartbeat calls after cancellation"
@@ -722,14 +783,6 @@ mod tests {
             count_after_stop >= 2,
             "heartbeat should have fired at least twice"
         );
-    }
-
-    #[test]
-    fn run_exit_variants_exist() {
-        let _ = RunExit::Shutdown;
-        let _ = RunExit::CredentialRefused;
-        let _ = RunExit::StartupFailed;
-        let _ = RunExit::NotEligible;
     }
 
     #[tokio::test]
