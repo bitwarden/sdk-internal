@@ -119,12 +119,28 @@ async fn assert_outcome(api: &MockServer, expect_success: bool) {
     let saw = |suffix: &str| requests.iter().any(|r| r.url.path().ends_with(suffix));
 
     let (success, failure) = (saw("/success"), saw("/failure"));
+    let body_of = |suffix: &str| {
+        requests
+            .iter()
+            .find(|r| r.url.path().ends_with(suffix))
+            .map_or_else(
+                || "<none>".to_string(),
+                |r| String::from_utf8_lossy(&r.body).into_owned(),
+            )
+    };
+    let reports = || {
+        format!(
+            "failure report: {}; success report: {}",
+            body_of("/failure"),
+            body_of("/success")
+        )
+    };
     if expect_success {
-        assert!(success, "no success was reported");
-        assert!(!failure, "a failure was reported as well");
+        assert!(success, "no success was reported; {}", reports());
+        assert!(!failure, "a failure was reported as well; {}", reports());
     } else {
-        assert!(failure, "no failure was reported");
-        assert!(!success, "a success was reported as well");
+        assert!(failure, "no failure was reported; {}", reports());
+        assert!(!success, "a success was reported as well; {}", reports());
     }
 }
 
@@ -139,8 +155,8 @@ async fn run_access_connector_with_env(
     deadline: Duration,
 ) {
     {
-        let _guard = ENV_LOCK.lock().expect("env lock");
-        // SAFETY: protected by ENV_LOCK; no concurrent env mutation.
+        let _guard = lock_env();
+        // SAFETY: protected by the env lock; no concurrent env mutation.
         unsafe {
             for (k, v) in &vars {
                 std::env::set_var(k, v);
@@ -170,8 +186,8 @@ async fn run_access_connector_with_env(
     assert_eq!(exit, RunExit::Shutdown);
 
     {
-        let _guard = ENV_LOCK.lock().expect("env lock");
-        // SAFETY: protected by ENV_LOCK.
+        let _guard = lock_env();
+        // SAFETY: protected by the env lock.
         unsafe {
             for (k, _) in &vars {
                 std::env::remove_var(k);
@@ -225,7 +241,8 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
                 out.to_string_lossy().into_owned(),
             ),
         ],
-        Duration::from_millis(4000),
+        // Three host start-ups: rotate, verify and terminate.
+        Duration::from_millis(30_000),
     )
     .await;
 
@@ -444,7 +461,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
                 "SENTINEL_TOKEN_MUST_NOT_LEAK".to_string(),
             ),
         ],
-        Duration::from_millis(4000),
+        Duration::from_millis(30_000),
     )
     .await;
 
@@ -498,17 +515,18 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
         &api,
         &identity,
         None,
-        vec![
-            (
-                format!("{prefix}SCRIPT"),
-                fixtures_dir()
-                    .join("sleep_no_stdin.ps1")
-                    .to_string_lossy()
-                    .into_owned(),
-            ),
-            // 1 MiB clears the pipe buffer on every platform, so the write blocks.
-            (format!("{prefix}BULK"), "x".repeat(1024 * 1024)),
-        ],
+        vec![(
+            format!("{prefix}SCRIPT"),
+            fixtures_dir()
+                .join("sleep_no_stdin.ps1")
+                .to_string_lossy()
+                .into_owned(),
+        )]
+        .into_iter()
+        // About 1 MB in total clears the pipe buffer on every platform, so the write blocks. It is
+        // split because Windows caps a single environment variable at 32,767 characters.
+        .chain((0..36).map(|i| (format!("{prefix}BULK_{i:02}"), "x".repeat(30_000))))
+        .collect(),
         // The test config's script_timeout is 10s; allow it to fire and be reported.
         Duration::from_millis(20_000),
     )
