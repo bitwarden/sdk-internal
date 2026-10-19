@@ -53,7 +53,7 @@ wiremock = { workspace = true }
 zeroize = { workspace = true }
 
 [target.'cfg(unix)'.dev-dependencies]
-rexpect = "0.7.1"
+rexpect = "=0.7.1"
 
 [lints]
 workspace = true
