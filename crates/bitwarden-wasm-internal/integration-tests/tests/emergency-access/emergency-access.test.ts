@@ -89,16 +89,27 @@ describe("emergency access", () => {
 
         await granteeClient.takeover(id, NEW_PASSWORD, seeded.grantor.email);
 
-        // The old password no longer unlocks: the server now serves the unlock data the grantee set.
+        const oldGrantorPassword = users.get(vector.grantorVectorName).account.password;
+
+        // Authenticate: the identity server must refuse the old grantor password at login.
+        // The identity server compares the posted hash with the stored authentication hash.
+        // If the takeover does not replace the stored hash, this login succeeds, and the test fails.
+        const refused = harness.newClientEmulator();
+        await expect(
+          refused.login(seeded.grantor.email, LoginMethod.Password, oldGrantorPassword),
+        ).rejects.toThrow("Invalid username or password provided.");
+
+        // Unlock: the old grantor password must not decrypt the new unlock data.
+        // ForceLogin skips authentication. So this check tests unlock alone.
         const stale = harness.newClientEmulator();
         await stale.login(seeded.grantor.email, LoginMethod.ForceLogin);
-        await expect(
-          stale.unlock(users.get(vector.grantorVectorName).account.password),
-        ).rejects.toBeDefined();
+        await expect(stale.unlock(oldGrantorPassword)).rejects.toBeDefined();
 
-        // The new one unlocks to the same user key, so the vault decrypts unchanged.
+        // The new password must pass both authentication and unlock.
+        // If the takeover does not replace the stored hash, identity refuses this login with invalid_grant.
+        // The new, grantee-set password unwraps the same user key, so the vault decrypts unchanged.
         const client = harness.newClientEmulator();
-        await client.login(seeded.grantor.email, LoginMethod.ForceLogin);
+        await client.login(seeded.grantor.email, LoginMethod.Password, NEW_PASSWORD);
         await client.unlock(NEW_PASSWORD);
         await validateVault(client, seeded.grantor.seed, []);
       },
