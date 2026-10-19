@@ -1,5 +1,6 @@
 import {
   AutotypeRunningApp,
+  Source,
   autotypeRequestListRunningApps,
   autotypeRequestSetEnabled,
 } from "@bitwarden/sdk-internal";
@@ -136,5 +137,20 @@ describe("autotype list-running-apps ipc", () => {
     releaseList(RUNNING_APPS);
 
     expect(await list).toEqual({ ok: { apps: RUNNING_APPS } });
+  });
+
+  // Main's IPC client also carries native-messaging peers, labeled the way desktop's
+  // `sourceFor()` labels them. The driver has apps to report, so an empty list can only come
+  // from the refusal, and the driver is never asked to enumerate.
+  it.each<[string, Source]>([
+    ["the browser extension", { BrowserBackground: { id: { Id: 1 } } }],
+    ["the CLI", { Cli: { id: { Id: 1 } } }],
+  ])("refuses a list request sent by %s without calling the driver", async (_label, source) => {
+    const driver = makeMockAutotypeDriver({ listRunningApps: async () => RUNNING_APPS });
+    const { renderer: peer } = await setupClientPair(driver, source);
+
+    await expect(autotypeRequestListRunningApps(peer)).resolves.toEqual({ apps: [] });
+
+    expect(driver.listRunningAppsCalls).toBe(0);
   });
 });

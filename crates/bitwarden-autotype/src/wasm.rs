@@ -335,6 +335,9 @@ impl RpcRequest for AutotypeListRunningAppsRequest {
 }
 
 /// An [`RpcHandler`] that lists running applications through a [`RawJsAutotypeDriver`].
+///
+/// Only requests from the desktop renderer are answered; any other source gets an empty list
+/// without the driver being asked to enumerate anything. See [`from_renderer`].
 struct AutotypeListRunningAppsHandler {
     driver: JsAutotypeDriver,
 }
@@ -351,8 +354,12 @@ impl RpcHandler for AutotypeListRunningAppsHandler {
     async fn handle(
         &self,
         _: Self::Request,
-        _info: RpcRequestInfo,
+        info: RpcRequestInfo,
     ) -> AutotypeListRunningAppsResponse {
+        if !from_renderer(&info, Self::Request::NAME) {
+            return AutotypeListRunningAppsResponse { apps: Vec::new() };
+        }
+
         AutotypeListRunningAppsResponse {
             apps: self.driver.list_running_apps().await,
         }
