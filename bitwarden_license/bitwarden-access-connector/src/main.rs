@@ -1,7 +1,8 @@
 //! Entry point for the `bwac` binary.
 //!
-//! Exit codes: 0 clean shutdown (SIGTERM or Ctrl-C), 1 invalid configuration or token, 2 credential
-//! refused, 3 not eligible for the rotation endpoints, 4 startup authentication failed transiently.
+//! Exit codes: 0 clean shutdown (SIGTERM or Ctrl-C), 1 invalid configuration, token or arguments, 2
+//! credential refused, 3 not eligible for the rotation endpoints, 4 startup authentication failed
+//! transiently.
 
 use bitwarden_access_connector::{
     cli::{Cli, Command},
@@ -26,7 +27,15 @@ async fn main() {
         .with(filter)
         .init();
 
-    let cli = Cli::parse();
+    // Clap exits 2 on a usage error, which is the credential-refused code, so remap it to 1.
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(e) => {
+            // Prints help and version to stdout and errors to stderr.
+            let _ = e.print();
+            std::process::exit(if e.use_stderr() { 1 } else { 0 });
+        }
+    };
     let Command::Run(run_args) = cli.command;
 
     let connector_cfg = match Config::from_cli(run_args) {
