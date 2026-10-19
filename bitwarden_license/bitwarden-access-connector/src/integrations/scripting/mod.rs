@@ -194,16 +194,40 @@ pub(crate) struct CommandSpec {
     pub(crate) env: Vec<(OsString, OsString)>,
 }
 
+/// How a script process ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ScriptExit {
+    /// The process exited with this code.
+    Code(i32),
+    /// A signal ended the process, with its number when the platform reports one.
+    Signal(Option<i32>),
+}
+
+impl From<std::process::ExitStatus> for ScriptExit {
+    fn from(status: std::process::ExitStatus) -> Self {
+        if let Some(code) = status.code() {
+            return Self::Code(code);
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt as _;
+            Self::Signal(status.signal())
+        }
+        #[cfg(not(unix))]
+        Self::Signal(None)
+    }
+}
+
 /// Runs a [`CommandSpec`] and reports how it exited.
 #[async_trait]
 pub(crate) trait ScriptRunner: Send + Sync {
-    /// Runs `spec` with `payload` on stdin and returns its exit code, `None` if a signal ended it.
+    /// Runs `spec` with `payload` on stdin and returns how it exited.
     async fn run(
         &self,
         spec: CommandSpec,
         payload: &[u8],
         timeout: Duration,
-    ) -> Result<Option<i32>, InvokeError>;
+    ) -> Result<ScriptExit, InvokeError>;
 }
 
 /// Runs scripts as real child processes.
@@ -216,7 +240,7 @@ impl ScriptRunner for ProcessScriptRunner {
         spec: CommandSpec,
         payload: &[u8],
         timeout: Duration,
-    ) -> Result<Option<i32>, InvokeError> {
+    ) -> Result<ScriptExit, InvokeError> {
         use tokio::io::AsyncWriteExt as _;
 
         let mut command = Command::new(&spec.program);
@@ -244,7 +268,7 @@ impl ScriptRunner for ProcessScriptRunner {
         };
 
         match time::timeout(timeout, run).await {
-            Ok(Ok(status)) => Ok(status.code()),
+            Ok(Ok(status)) => Ok(status.into()),
             Ok(Err(e)) => Err(e),
             Err(_timeout) => {
                 // Explicit kill; kill_on_drop would also handle it on drop.
@@ -258,13 +282,13 @@ impl ScriptRunner for ProcessScriptRunner {
 /// Translates a [`ScriptRunner::run`] result into a rotation outcome, per the README's exit-code
 /// table.
 pub(crate) fn classify_outcome(
-    outcome: Result<Option<i32>, InvokeError>,
+    outcome: Result<ScriptExit, InvokeError>,
     operation: &str,
     timeout_secs: u64,
 ) -> Result<(), IntegrationError> {
     match outcome {
-        Ok(Some(0)) => Ok(()),
-        Ok(code) => Err(exit_code_error(code, operation)),
+        Ok(ScriptExit::Code(0)) => Ok(()),
+        Ok(exit) => Err(exit_error(exit, operation)),
         Err(InvokeError::Timeout) => Err(timeout_error(operation, timeout_secs)),
         Err(InvokeError::HostNotFound) => Err(IntegrationError {
             class: ErrorClass::Fatal,
@@ -309,56 +333,54 @@ fn timeout_error(operation: &str, timeout_secs: u64) -> IntegrationError {
     }
 }
 
-fn exit_code_error(code: Option<i32>, operation: &str) -> IntegrationError {
-    match code {
-        Some(0) => unreachable!("exit 0 is success, not an error"),
-        Some(1) => IntegrationError {
-            class: ErrorClass::Fatal,
-            effect: TargetEffect::NotApplied,
-            code: FailureCode::ScriptFailed,
-            detail: SafeDetail::from_exit_code(1),
-        },
-        Some(2) => IntegrationError {
-            class: ErrorClass::Fatal,
-            effect: TargetEffect::Applied,
-            code: FailureCode::ScriptFailed,
-            detail: SafeDetail::from_exit_code(2),
-        },
-        Some(3) => IntegrationError {
-            class: ErrorClass::Fatal,
-            effect: TargetEffect::Unknown,
-            code: FailureCode::ScriptFailed,
-            detail: SafeDetail::from_exit_code(3),
-        },
-        Some(4) => IntegrationError {
-            class: ErrorClass::Transient,
-            effect: TargetEffect::NotApplied,
-            code: FailureCode::ScriptFailed,
-            detail: SafeDetail::from_exit_code(4),
-        },
+fn exit_error(exit: ScriptExit, operation: &str) -> IntegrationError {
+    let (class, effect, detail) = match exit {
+        ScriptExit::Code(1) => (
+            ErrorClass::Fatal,
+            TargetEffect::NotApplied,
+            SafeDetail::from_exit_code(1),
+        ),
+        ScriptExit::Code(2) => (
+            ErrorClass::Fatal,
+            TargetEffect::Applied,
+            SafeDetail::from_exit_code(2),
+        ),
+        ScriptExit::Code(3) => (
+            ErrorClass::Fatal,
+            TargetEffect::Unknown,
+            SafeDetail::from_exit_code(3),
+        ),
+        ScriptExit::Code(4) => (
+            ErrorClass::Transient,
+            TargetEffect::NotApplied,
+            SafeDetail::from_exit_code(4),
+        ),
+        // Unknown exit code or signal termination.
         other => {
-            // Unknown exit code or signal termination.
             let effect = match operation {
                 "rotate" => TargetEffect::Unknown,
                 _ => TargetEffect::NotApplied,
             };
-            IntegrationError {
-                class: ErrorClass::Fatal,
-                effect,
-                code: FailureCode::ScriptFailed,
-                detail: match other {
-                    Some(n) => SafeDetail::from_exit_code(n),
-                    None => SafeDetail::from_kind("signal"),
-                },
-            }
+            let detail = match other {
+                ScriptExit::Code(n) => SafeDetail::from_exit_code(n),
+                ScriptExit::Signal(Some(n)) => SafeDetail::from_signal(n),
+                ScriptExit::Signal(None) => SafeDetail::from_kind("signal"),
+            };
+            (ErrorClass::Fatal, effect, detail)
         }
+    };
+    IntegrationError {
+        class,
+        effect,
+        code: FailureCode::ScriptFailed,
+        detail,
     }
 }
 
 /// A [`ScriptRunner`] that records what it was asked to run and returns a canned outcome.
 #[cfg(test)]
 pub(crate) struct RecordingRunner {
-    reply: Result<Option<i32>, InvokeError>,
+    reply: Result<ScriptExit, InvokeError>,
     calls: std::sync::Mutex<Vec<(CommandSpec, Vec<u8>)>>,
 }
 
@@ -366,7 +388,7 @@ pub(crate) struct RecordingRunner {
 impl RecordingRunner {
     pub(crate) fn exiting(code: i32) -> Self {
         Self {
-            reply: Ok(Some(code)),
+            reply: Ok(ScriptExit::Code(code)),
             calls: std::sync::Mutex::new(Vec::new()),
         }
     }
@@ -398,7 +420,7 @@ impl ScriptRunner for RecordingRunner {
         spec: CommandSpec,
         payload: &[u8],
         _timeout: Duration,
-    ) -> Result<Option<i32>, InvokeError> {
+    ) -> Result<ScriptExit, InvokeError> {
         self.calls
             .lock()
             .expect("recorder lock")
@@ -629,12 +651,33 @@ mod tests {
             (4, ErrorClass::Transient, TargetEffect::NotApplied),
         ];
         for (code, class, effect) in cases {
-            let err = classify_outcome(Ok(Some(code)), "rotate", 60).unwrap_err();
+            let err = classify_outcome(Ok(ScriptExit::Code(code)), "rotate", 60).unwrap_err();
             assert_eq!(err.class, class, "exit {code}");
             assert_eq!(err.effect, effect, "exit {code}");
             assert_eq!(err.code, FailureCode::ScriptFailed, "exit {code}");
         }
-        classify_outcome(Ok(Some(0)), "rotate", 60).unwrap();
+        classify_outcome(Ok(ScriptExit::Code(0)), "rotate", 60).unwrap();
+    }
+
+    #[test]
+    fn classify_outcome_reports_the_signal_number() {
+        let err = classify_outcome(Ok(ScriptExit::Signal(Some(9))), "rotate", 60).unwrap_err();
+        assert_eq!(err.class, ErrorClass::Fatal);
+        assert_eq!(err.effect, TargetEffect::Unknown);
+        assert_eq!(err.code, FailureCode::ScriptFailed);
+        assert_eq!(err.detail.as_str(), "signal 9");
+    }
+
+    #[test]
+    fn classify_outcome_names_a_signal_without_a_number() {
+        let err = classify_outcome(Ok(ScriptExit::Signal(None)), "rotate", 60).unwrap_err();
+        assert_eq!(err.detail.as_str(), "error kind: signal");
+    }
+
+    #[test]
+    fn classify_outcome_signal_leaves_a_non_rotate_target_alone() {
+        let err = classify_outcome(Ok(ScriptExit::Signal(Some(9))), "verify", 60).unwrap_err();
+        assert_eq!(err.effect, TargetEffect::NotApplied);
     }
 
     #[test]
