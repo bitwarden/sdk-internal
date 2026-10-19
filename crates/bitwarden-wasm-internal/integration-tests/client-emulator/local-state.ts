@@ -161,8 +161,14 @@ export class LocalState {
    *
    * The KDF settings, cryptographic state and upgrade token are read back out of the bridge, which
    * is where the crypto sync handler put them. Nothing is passed in behind the SDK's back.
+   *
+   * `client` defaults to a fresh locked one. Passing a client that was locked in place unlocks that
+   * same instance again, as a long-lived app does.
    */
-  async unlock(method: InitUserCryptoMethod): Promise<PasswordManagerClient> {
+  async unlock(
+    method: InitUserCryptoMethod,
+    client: PasswordManagerClient = this.locked(),
+  ): Promise<PasswordManagerClient> {
     const { userId, email } = this.account;
 
     const accountCryptographicState = await this.bridge.get_account_cryptographic_state();
@@ -172,8 +178,6 @@ export class LocalState {
     }
 
     const upgradeToken = await this.bridge.get_v2_upgrade_token();
-
-    const client = this.locked();
 
     await client.crypto().initialize_user_crypto({
       userId: asUserId(userId),
