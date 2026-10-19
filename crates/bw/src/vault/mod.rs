@@ -5,6 +5,8 @@ use crate::render::{CommandOutput, CommandResult};
 mod get;
 mod resolve;
 mod search;
+#[cfg(test)]
+mod test_vault;
 
 pub(crate) use resolve::{CipherPredicate, ResolveError, resolve_cipher, resolve_folder};
 

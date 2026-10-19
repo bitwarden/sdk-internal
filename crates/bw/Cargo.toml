@@ -46,6 +46,7 @@ tracing-subscriber = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
+bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-test = { workspace = true }
 uuid = { workspace = true }

@@ -253,4 +253,275 @@ mod tests {
         );
         assert_eq!(login_first_uri(&c).as_deref(), Some("https://a.example"));
     }
+
+    mod commands {
+        use super::*;
+        use crate::{
+            client_state::{BwCommandExt, ClientContext},
+            command::GetCommands,
+            render::CommandOutput,
+            vault::test_vault::TestVault,
+        };
+
+        const A: &str = "11111111-1111-4111-8111-111111111111";
+        const B: &str = "22222222-2222-4222-8222-222222222222";
+        const MISSING: &str = "99999999-9999-4999-8999-999999999999";
+
+        fn plain(result: crate::render::CommandResult) -> String {
+            match result.expect("command should succeed") {
+                CommandOutput::Plain(s) => s,
+                CommandOutput::Object(_) => panic!("expected plain output"),
+            }
+        }
+
+        fn object(result: crate::render::CommandResult) -> Value {
+            match result.expect("command should succeed") {
+                CommandOutput::Object(o) => serde_json::to_value(&*o).unwrap(),
+                CommandOutput::Plain(_) => panic!("expected object output"),
+            }
+        }
+
+        fn not_found(result: crate::render::CommandResult) -> bool {
+            result.is_err_and(|e| e.to_string() == "Not found.")
+        }
+
+        async fn vault_with_login() -> TestVault {
+            let v = TestVault::new().await;
+            v.add_login(
+                A,
+                "Example",
+                json!({
+                    "username": "jane",
+                    "password": "hunter2",
+                    "uris": [{ "uri": "" }, { "uri": "https://example.com" }],
+                }),
+            )
+            .await;
+            v
+        }
+
+        #[tokio::test]
+        async fn get_item_by_id_and_by_search_term() {
+            let v = vault_with_login().await;
+            let by_id = object(GetItemArgs { id: A.into() }.run(v.unlocked()).await);
+            assert_eq!(by_id["name"], "Example");
+            let by_term = object(
+                GetItemArgs {
+                    id: "example".into(),
+                }
+                .run(v.unlocked())
+                .await,
+            );
+            assert_eq!(by_term["id"], A);
+        }
+
+        #[tokio::test]
+        async fn get_item_missing_is_not_found() {
+            let v = vault_with_login().await;
+            assert!(not_found(
+                GetItemArgs { id: MISSING.into() }.run(v.unlocked()).await
+            ));
+            assert!(not_found(
+                GetItemArgs { id: "zzz".into() }.run(v.unlocked()).await
+            ));
+        }
+
+        #[tokio::test]
+        async fn get_item_ambiguous_term_lists_ids() {
+            let v = TestVault::new().await;
+            v.add_login(A, "Work mail", json!({})).await;
+            v.add_login(B, "Work vpn", json!({})).await;
+            let err = GetItemArgs { id: "work".into() }
+                .run(v.unlocked())
+                .await
+                .err()
+                .unwrap()
+                .to_string();
+            assert!(err.contains("More than one result"), "{err}");
+            assert!(err.contains(A) && err.contains(B), "{err}");
+        }
+
+        #[tokio::test]
+        async fn trashed_items_are_not_searchable_but_fetchable_by_id() {
+            let v = TestVault::new().await;
+            v.trash(A, "Old", json!({})).await;
+            assert!(not_found(
+                GetItemArgs { id: "old".into() }.run(v.unlocked()).await
+            ));
+            assert_eq!(
+                object(GetItemArgs { id: A.into() }.run(v.unlocked()).await)["name"],
+                "Old"
+            );
+        }
+
+        #[tokio::test]
+        async fn get_folder_by_id_and_name() {
+            let v = TestVault::new().await;
+            v.add_folder(A, "Personal").await;
+            let by_id = object(GetFolderArgs { id: A.into() }.run(v.unlocked()).await);
+            assert_eq!(by_id["name"], "Personal");
+            let by_name = object(
+                GetFolderArgs {
+                    id: "person".into(),
+                }
+                .run(v.unlocked())
+                .await,
+            );
+            assert_eq!(by_name["id"], A);
+            assert!(not_found(
+                GetFolderArgs { id: MISSING.into() }.run(v.unlocked()).await
+            ));
+            assert!(not_found(
+                GetFolderArgs { id: "zzz".into() }.run(v.unlocked()).await
+            ));
+        }
+
+        #[tokio::test]
+        async fn login_field_getters_return_plain_values() {
+            let v = vault_with_login().await;
+            assert_eq!(
+                plain(GetUsernameArgs { id: A.into() }.run(v.unlocked()).await),
+                "jane"
+            );
+            assert_eq!(
+                plain(GetPasswordArgs { id: A.into() }.run(v.unlocked()).await),
+                "hunter2"
+            );
+            assert_eq!(
+                plain(
+                    GetUriArgs {
+                        id: "example".into()
+                    }
+                    .run(v.unlocked())
+                    .await
+                ),
+                "https://example.com"
+            );
+        }
+
+        #[tokio::test]
+        async fn missing_or_empty_fields_are_not_found() {
+            let v = TestVault::new().await;
+            v.add_login(A, "Empty", json!({ "username": "", "password": "" }))
+                .await;
+            assert!(not_found(
+                GetUsernameArgs { id: A.into() }.run(v.unlocked()).await
+            ));
+            assert!(not_found(
+                GetPasswordArgs { id: A.into() }.run(v.unlocked()).await
+            ));
+            assert!(not_found(
+                GetUriArgs { id: A.into() }.run(v.unlocked()).await
+            ));
+            assert!(not_found(
+                GetNotesArgs { id: A.into() }.run(v.unlocked()).await
+            ));
+        }
+
+        #[tokio::test]
+        async fn search_predicate_skips_items_lacking_the_field() {
+            let v = TestVault::new().await;
+            v.add_login(A, "Shared one", json!({ "username": "", "password": "x" }))
+                .await;
+            v.add_login(
+                B,
+                "Shared two",
+                json!({ "username": "bob", "password": "y" }),
+            )
+            .await;
+            // Only B has a username, so the ambiguous term resolves uniquely.
+            assert_eq!(
+                plain(
+                    GetUsernameArgs {
+                        id: "shared".into()
+                    }
+                    .run(v.unlocked())
+                    .await
+                ),
+                "bob"
+            );
+        }
+
+        #[tokio::test]
+        async fn notes_getter_returns_notes() {
+            let v = TestVault::new().await;
+            v.add_cipher(A, "Note", json!({ "notes": "remember", "login": {} }))
+                .await;
+            assert_eq!(
+                plain(GetNotesArgs { id: A.into() }.run(v.unlocked()).await),
+                "remember"
+            );
+        }
+
+        #[tokio::test]
+        async fn get_commands_dispatch_to_each_subcommand() {
+            let v = TestVault::new().await;
+            v.add_cipher(A, "Example", json!({
+                "notes": "n",
+                "login": { "username": "jane", "password": "pw", "uris": [{ "uri": "https://a.example" }] },
+            }))
+            .await;
+            v.add_folder(B, "Personal").await;
+
+            let run = |c: GetCommands| c.run(v.context());
+            assert_eq!(
+                object(run(GetCommands::Item(GetItemArgs { id: A.into() })).await)["id"],
+                A
+            );
+            assert_eq!(
+                plain(run(GetCommands::Username(GetUsernameArgs { id: A.into() })).await),
+                "jane"
+            );
+            assert_eq!(
+                plain(run(GetCommands::Password(GetPasswordArgs { id: A.into() })).await),
+                "pw"
+            );
+            assert_eq!(
+                plain(run(GetCommands::Uri(GetUriArgs { id: A.into() })).await),
+                "https://a.example"
+            );
+            assert_eq!(
+                plain(run(GetCommands::Notes(GetNotesArgs { id: A.into() })).await),
+                "n"
+            );
+            assert_eq!(
+                object(run(GetCommands::Folder(GetFolderArgs { id: B.into() })).await)["name"],
+                "Personal"
+            );
+            assert_eq!(
+                object(
+                    run(GetCommands::Template {
+                        command: crate::vault::TemplateCommands::Folder
+                    })
+                    .await
+                )["name"],
+                "Folder name"
+            );
+        }
+
+        #[tokio::test]
+        async fn vaults_are_isolated_from_each_other() {
+            let one = vault_with_login().await;
+            let two = TestVault::new().await;
+            assert!(not_found(
+                GetItemArgs { id: A.into() }.run(two.unlocked()).await
+            ));
+            assert!(
+                GetItemArgs { id: A.into() }
+                    .run(one.unlocked())
+                    .await
+                    .is_ok()
+            );
+        }
+
+        #[tokio::test]
+        async fn dispatch_requires_an_unlocked_user() {
+            let v = TestVault::new().await;
+            let ctx = ClientContext {
+                global: v.context().global,
+                user: None,
+            };
+            assert!(GetItemArgs { id: A.into() }.dispatch(ctx).await.is_err());
+        }
+    }
 }
