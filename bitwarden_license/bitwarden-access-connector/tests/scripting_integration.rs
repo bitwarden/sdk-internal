@@ -12,6 +12,7 @@ use common::*;
 
 /// Mounts a full rotation exchange. The poll mock keeps offering the same job, so the connector
 /// rotates repeatedly; assert through [`assert_outcome`], which ignores the count.
+#[allow(clippy::too_many_arguments)]
 async fn mount_rotation(
     api: &MockServer,
     org_key: &bitwarden_crypto::SymmetricCryptoKey,
@@ -20,6 +21,7 @@ async fn mount_rotation(
     attempt_id: Uuid,
     target_id: Uuid,
     cipher_id: Uuid,
+    terminate_sessions: bool,
 ) {
     Mock::given(method("GET"))
         .and(path("/access-connectors/rotation/jobs"))
@@ -40,7 +42,12 @@ async fn mount_rotation(
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(claim_body(
-                    org_key, attempt_id, job_id, target_id, cipher_id, false,
+                    org_key,
+                    attempt_id,
+                    job_id,
+                    target_id,
+                    cipher_id,
+                    terminate_sessions,
                 ))
                 .insert_header("content-type", "application/json"),
         )
@@ -121,14 +128,15 @@ async fn assert_outcome(api: &MockServer, expect_success: bool) {
     }
 }
 
-/// Runs the connector against `api`/`identity` for `settle`, with `vars` in the environment, then
-/// shuts it down cleanly.
+/// Runs the connector against `api`/`identity` until it reports an outcome or `deadline` passes,
+/// with `vars` in the environment, then shuts it down cleanly. PowerShell start-up is slow and
+/// varies by platform, so the deadline is generous and the wait ends early.
 async fn run_access_connector_with_env(
     api: &MockServer,
     identity: &MockServer,
     script_root: Option<std::path::PathBuf>,
     vars: Vec<(String, String)>,
-    settle: Duration,
+    deadline: Duration,
 ) {
     {
         let _guard = ENV_LOCK.lock().expect("env lock");
@@ -146,7 +154,17 @@ async fn run_access_connector_with_env(
     let handle =
         tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
-    tokio::time::sleep(settle).await;
+    let give_up = tokio::time::Instant::now() + deadline;
+    while tokio::time::Instant::now() < give_up {
+        let requests = api.received_requests().await.expect("recording is on");
+        if requests.iter().any(|r| {
+            let p = r.url.path();
+            p.ends_with("/success") || p.ends_with("/failure")
+        }) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
     cancel.cancel();
     let exit = handle.await.expect("task panicked");
     assert_eq!(exit, RunExit::Shutdown);
@@ -186,6 +204,7 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
         attempt_id,
         target_id,
         cipher_id,
+        true,
     )
     .await;
 
@@ -212,13 +231,162 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
 
     assert_outcome(&api, true).await;
 
-    let payload: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&out).expect("the host wrote no payload"))
-            .expect("payload must be JSON");
-    assert_eq!(payload["accountIdentity"], "testuser@example.com");
+    let payload_for = |operation: &str| -> serde_json::Value {
+        let file = out.with_file_name(format!("payload.json.{operation}"));
+        let text = std::fs::read_to_string(&file)
+            .unwrap_or_else(|_| panic!("the host wrote no {operation} payload"));
+        serde_json::from_str(&text).expect("payload must be JSON")
+    };
+
+    for operation in ["rotate", "verify"] {
+        let payload = payload_for(operation);
+        assert_eq!(payload["operation"], operation);
+        assert_eq!(payload["accountIdentity"], "testuser@example.com");
+        assert!(
+            payload.get("newPassword").is_some(),
+            "the {operation} script must receive the new password: {payload}"
+        );
+    }
+
+    let terminate = payload_for("terminate");
+    assert_eq!(terminate["operation"], "terminate");
+    assert_eq!(terminate["accountIdentity"], "testuser@example.com");
     assert!(
-        payload.get("newPassword").is_some(),
-        "the script must receive the new password: {payload}"
+        terminate.get("newPassword").is_none(),
+        "the terminate script must not receive the new password: {terminate}"
+    );
+}
+
+#[tokio::test]
+#[ignore = "Integration test requires PowerShell (pwsh) on PATH"]
+async fn a_transient_exit_code_survives_a_real_powershell_host() {
+    // Only a real host shows `exit 4` coming back as the process exit status.
+    let identity = MockServer::start().await;
+    let api = MockServer::start().await;
+    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    mount_identity_ok(&identity, &encrypted_payload).await;
+
+    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let prefix = env_prefix(target_id);
+
+    mount_rotation(
+        &api,
+        &org_key,
+        make_cipher_data(&org_key, "old-password"),
+        job_id,
+        attempt_id,
+        target_id,
+        cipher_id,
+        false,
+    )
+    .await;
+
+    run_access_connector_with_env(
+        &api,
+        &identity,
+        None,
+        vec![
+            (
+                format!("{prefix}SCRIPT"),
+                fixtures_dir()
+                    .join("exit_code.ps1")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+            // Exit 4 is a transient failure that leaves the target untouched.
+            (format!("{prefix}EXIT_CODE"), "4".to_string()),
+        ],
+        // The test config allows two tries, so this needs two host start-ups.
+        Duration::from_millis(30_000),
+    )
+    .await;
+
+    assert_outcome(&api, false).await;
+
+    let requests = api.received_requests().await.expect("requests");
+    assert!(
+        !requests.iter().any(|r| r.method.as_str() == "PUT"),
+        "PUT cipher must NOT be called when rotate fails"
+    );
+
+    let body: serde_json::Value =
+        serde_json::from_str(&failure_detail(&api).await).expect("failure body is JSON");
+    assert_eq!(
+        body["errorCode"],
+        serde_json::json!("script_failed"),
+        "errorCode must be script_failed: {body}"
+    );
+    assert_eq!(
+        body["syncState"],
+        serde_json::json!(0),
+        "syncState must be 0 (TargetUnchanged) when rotate exits 4: {body}"
+    );
+    // A host that crashed would exit 1 and match the checks above; the detail pins the code itself.
+    assert_eq!(
+        body["detail"],
+        serde_json::json!("exit code 4"),
+        "the script's exit code must reach the connector: {body}"
+    );
+}
+
+#[tokio::test]
+#[ignore = "Integration test requires PowerShell (pwsh) on PATH"]
+async fn a_failing_terminate_step_is_reported_but_the_rotation_succeeds() {
+    let identity = MockServer::start().await;
+    let api = MockServer::start().await;
+    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    mount_identity_ok(&identity, &encrypted_payload).await;
+
+    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let prefix = env_prefix(target_id);
+
+    mount_rotation(
+        &api,
+        &org_key,
+        make_cipher_data(&org_key, "old-password"),
+        job_id,
+        attempt_id,
+        target_id,
+        cipher_id,
+        true,
+    )
+    .await;
+
+    run_access_connector_with_env(
+        &api,
+        &identity,
+        None,
+        vec![(
+            format!("{prefix}SCRIPT"),
+            fixtures_dir()
+                .join("terminate_fail.ps1")
+                .to_string_lossy()
+                .into_owned(),
+        )],
+        Duration::from_millis(20_000),
+    )
+    .await;
+
+    assert_outcome(&api, true).await;
+
+    let requests = api.received_requests().await.expect("requests");
+    assert!(
+        requests.iter().any(|r| r.method.as_str() == "PUT"),
+        "PUT cipher must be called (rotation succeeded even when terminate fails)"
+    );
+
+    let success = requests
+        .iter()
+        .find(|r| r.url.path().ends_with("/success"))
+        .expect("success report must be sent even when terminate exits nonzero");
+    let body: serde_json::Value =
+        serde_json::from_slice(&success.body).expect("success body is JSON");
+    assert_eq!(
+        body["sessionTermination"],
+        serde_json::json!(2),
+        "sessionTermination must be 2 (TermFailed) when terminate exits 1: {body}"
     );
 }
 
@@ -245,6 +413,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
         attempt_id,
         target_id,
         cipher_id,
+        false,
     )
     .await;
 
@@ -321,6 +490,7 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
         attempt_id,
         target_id,
         cipher_id,
+        false,
     )
     .await;
 
@@ -374,6 +544,7 @@ async fn a_symlink_pointing_outside_script_root_is_rejected() {
         attempt_id,
         target_id,
         cipher_id,
+        false,
     )
     .await;
 
