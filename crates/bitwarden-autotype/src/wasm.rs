@@ -2,7 +2,8 @@
 //! `@bitwarden/sdk-internal`.
 
 use bitwarden_ipc::{
-    Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest, RpcRequestInfo, wasm::JsIpcClient,
+    Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest, RpcRequestInfo, Source,
+    wasm::JsIpcClient,
 };
 use bitwarden_threading::{
     ThreadBoundRunner,
@@ -209,6 +210,10 @@ impl RpcRequest for AutotypeSetEnabledRequest {
 }
 
 /// An [`RpcHandler`] that applies the requested state through a [`RawJsAutotypeDriver`].
+///
+/// Only requests from the desktop renderer are applied. Main's IPC client also carries the browser
+/// extension and CLI over native messaging, so any other source is refused with `success: false`
+/// before the driver is called.
 struct AutotypeSetEnabledHandler {
     driver: JsAutotypeDriver,
 }
@@ -225,8 +230,16 @@ impl RpcHandler for AutotypeSetEnabledHandler {
     async fn handle(
         &self,
         request: Self::Request,
-        _info: RpcRequestInfo,
+        info: RpcRequestInfo,
     ) -> AutotypeSetEnabledResponse {
+        if !matches!(info.source, Source::DesktopRenderer) {
+            tracing::warn!(
+                source = ?info.source,
+                "Autotype rejected a set-enabled request from a non-renderer source"
+            );
+            return AutotypeSetEnabledResponse { success: false };
+        }
+
         AutotypeSetEnabledResponse {
             success: self.driver.set_autotype_enabled(request.enabled).await,
         }

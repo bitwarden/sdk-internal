@@ -2,6 +2,7 @@ import {
   AutotypeDriver,
   AutotypeRunningApp,
   IpcClient,
+  Source,
   autotypeRegisterHandlers,
   init_sdk,
 } from "@bitwarden/sdk-internal";
@@ -77,11 +78,18 @@ export function makeMockAutotypeDriver(
  *
  * Only `main` registers the handlers, matching the one-directional channels — the renderer sends,
  * main applies.
+ *
+ * `rendererSource` is the source main sees on the sending side's messages. It defaults to the real
+ * renderer; pass another source to stand in for a different peer of main, such as the browser
+ * extension or CLI over native messaging.
  */
-export async function setupClientPair(driver: AutotypeDriver = makeMockAutotypeDriver()) {
+export async function setupClientPair(
+  driver: AutotypeDriver = makeMockAutotypeDriver(),
+  rendererSource: Source = "DesktopRenderer",
+) {
   init_sdk();
 
-  const [mainBackend, rendererBackend] = makeMockTransportPair();
+  const [mainBackend, rendererBackend] = makeMockTransportPair("DesktopMain", rendererSource);
   const main = IpcClient.newWithSdkInMemorySessions(mainBackend);
   const renderer = IpcClient.newWithSdkInMemorySessions(rendererBackend);
 

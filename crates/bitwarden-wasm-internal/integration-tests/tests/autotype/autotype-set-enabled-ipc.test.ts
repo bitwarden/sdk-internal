@@ -1,4 +1,4 @@
-import { autotypeRequestSetEnabled } from "@bitwarden/sdk-internal";
+import { Source, autotypeRequestSetEnabled } from "@bitwarden/sdk-internal";
 
 import { makeMockAutotypeDriver, setupClientPair } from "./autotype-test-utils";
 
@@ -66,5 +66,20 @@ describe("autotype set-enabled ipc", () => {
     ]);
 
     expect(responses.map((r) => r.success)).toEqual([true, false, true]);
+  });
+
+  // Main's IPC client also carries native-messaging peers, labeled the way desktop's
+  // `sourceFor()` labels them. Only the renderer may toggle autotype, in either direction.
+  it.each<[string, Source]>([
+    ["the browser extension", { BrowserBackground: { id: { Id: 1 } } }],
+    ["the CLI", { Cli: { id: { Id: 1 } } }],
+  ])("refuses a toggle sent by %s without calling the driver", async (_label, source) => {
+    const driver = makeMockAutotypeDriver();
+    const { renderer: peer } = await setupClientPair(driver, source);
+
+    await expect(autotypeRequestSetEnabled(peer, true)).resolves.toEqual({ success: false });
+    await expect(autotypeRequestSetEnabled(peer, false)).resolves.toEqual({ success: false });
+
+    expect(driver.enabledCalls).toEqual([]);
   });
 });
