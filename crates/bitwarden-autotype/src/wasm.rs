@@ -188,6 +188,23 @@ impl JsAutotypeDriver {
     }
 }
 
+/// Whether a request came from the desktop renderer, the only client allowed to drive Autotype.
+///
+/// Main's IPC client also carries the browser extension and CLI over native messaging, so handlers
+/// call this before touching the driver. A rejection is logged with the request's
+/// [`RpcRequest::NAME`] and the source it came from.
+fn from_renderer(info: &RpcRequestInfo, request: &str) -> bool {
+    let allowed = matches!(info.source, Source::DesktopRenderer);
+    if !allowed {
+        tracing::warn!(
+            request,
+            source = ?info.source,
+            "Autotype rejected a request from a non-renderer source"
+        );
+    }
+    allowed
+}
+
 /// A request asking the receiving client to enable or disable Autotype.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutotypeSetEnabledRequest {
@@ -211,9 +228,8 @@ impl RpcRequest for AutotypeSetEnabledRequest {
 
 /// An [`RpcHandler`] that applies the requested state through a [`RawJsAutotypeDriver`].
 ///
-/// Only requests from the desktop renderer are applied. Main's IPC client also carries the browser
-/// extension and CLI over native messaging, so any other source is refused with `success: false`
-/// before the driver is called.
+/// Only requests from the desktop renderer are applied; any other source is refused with
+/// `success: false` before the driver is called. See [`from_renderer`].
 struct AutotypeSetEnabledHandler {
     driver: JsAutotypeDriver,
 }
@@ -232,11 +248,7 @@ impl RpcHandler for AutotypeSetEnabledHandler {
         request: Self::Request,
         info: RpcRequestInfo,
     ) -> AutotypeSetEnabledResponse {
-        if !matches!(info.source, Source::DesktopRenderer) {
-            tracing::warn!(
-                source = ?info.source,
-                "Autotype rejected a set-enabled request from a non-renderer source"
-            );
+        if !from_renderer(&info, Self::Request::NAME) {
             return AutotypeSetEnabledResponse { success: false };
         }
 
@@ -269,6 +281,9 @@ impl RpcRequest for AutotypeSetKeyboardShortcutRequest {
 }
 
 /// An [`RpcHandler`] that applies the requested shortcut through a [`RawJsAutotypeDriver`].
+///
+/// Only requests from the desktop renderer are applied; any other source is refused with
+/// `success: false` before the shortcut reaches the driver. See [`from_renderer`].
 struct AutotypeSetKeyboardShortcutHandler {
     driver: JsAutotypeDriver,
 }
@@ -285,8 +300,12 @@ impl RpcHandler for AutotypeSetKeyboardShortcutHandler {
     async fn handle(
         &self,
         request: Self::Request,
-        _info: RpcRequestInfo,
+        info: RpcRequestInfo,
     ) -> AutotypeSetKeyboardShortcutResponse {
+        if !from_renderer(&info, Self::Request::NAME) {
+            return AutotypeSetKeyboardShortcutResponse { success: false };
+        }
+
         AutotypeSetKeyboardShortcutResponse {
             success: self
                 .driver

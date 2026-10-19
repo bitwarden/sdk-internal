@@ -1,4 +1,5 @@
 import {
+  Source,
   autotypeRequestSetEnabled,
   autotypeRequestSetKeyboardShortcut,
 } from "@bitwarden/sdk-internal";
@@ -114,5 +115,22 @@ describe("autotype set-keyboard-shortcut ipc", () => {
     releaseShortcut(true);
 
     expect(await shortcut).toEqual({ ok: { success: true } });
+  });
+
+  // Main's IPC client also carries native-messaging peers, labeled the way desktop's
+  // `sourceFor()` labels them. The shortcut is a valid one, so the source is the only reason
+  // for the refusal.
+  it.each<[string, Source]>([
+    ["the browser extension", { BrowserBackground: { id: { Id: 1 } } }],
+    ["the CLI", { Cli: { id: { Id: 1 } } }],
+  ])("refuses a shortcut sent by %s without calling the driver", async (_label, source) => {
+    const driver = makeMockAutotypeDriver();
+    const { renderer: peer } = await setupClientPair(driver, source);
+
+    await expect(autotypeRequestSetKeyboardShortcut(peer, DEFAULT_SHORTCUT)).resolves.toEqual({
+      success: false,
+    });
+
+    expect(driver.shortcutCalls).toEqual([]);
   });
 });

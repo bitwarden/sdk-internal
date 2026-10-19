@@ -21,8 +21,9 @@ platform implementation. The **renderer** drives it but cannot reach it directly
   registered. A driver that fails on main still resolves; see
   [Failure semantics](#failure-semantics).
 - Main's IPC client also carries the browser extension and CLI over native messaging, so
-  `AutotypeSetEnabledRequest` is applied only when its source is `Source::DesktopRenderer`. Any
-  other sender gets `success: false` and the driver is never called.
+  `AutotypeSetEnabledRequest` and `AutotypeSetKeyboardShortcutRequest` are applied only when their
+  source is `Source::DesktopRenderer`. Any other sender gets `success: false` and the driver is
+  never called.
 
 ## Channels
 
@@ -40,9 +41,9 @@ combination is the receiving client's call, not the SDK's.
 The driver is platform code that may be unavailable, so no channel propagates an error to the
 renderer. Every failure is logged through `tracing` and folded into a benign value:
 
-- **Boolean channels** report `success: false` when the driver throws, returns a non-boolean, or
-  cannot be reached, and set-enabled also when the request did not come from the renderer. `true`
-  only ever means the driver said the change was applied.
+- **Boolean channels** report `success: false` when the request did not come from the renderer, or
+  when the driver throws, returns a non-boolean, or cannot be reached. `true` only ever means the
+  driver said the change was applied.
 - **`list_running_apps`** deserializes entry by entry and skips what it cannot read, so one
   unreadable process does not cost the caller the rest of the list. A driver that throws, cannot be
   reached, or resolves with anything that is not an array yields an empty list.
