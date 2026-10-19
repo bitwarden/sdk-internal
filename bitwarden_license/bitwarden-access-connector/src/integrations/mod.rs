@@ -12,7 +12,7 @@ use zeroize::Zeroizing;
 
 pub(crate) use crate::api::models::TargetKind;
 use crate::{
-    error::{ErrorClass, FailureCode, SafeDetail},
+    error::{ErrorClass, FailureCode, SafeDetail, SyncState},
     resolver::ResolvedCredentials,
 };
 
@@ -26,6 +26,17 @@ pub(crate) enum TargetEffect {
     Applied,
     /// It is not known whether the rotation was applied (e.g. timeout after send).
     Unknown,
+}
+
+impl From<TargetEffect> for SyncState {
+    /// The sync state to report when an operation failed with the given effect on the target.
+    fn from(effect: TargetEffect) -> Self {
+        match effect {
+            TargetEffect::NotApplied => SyncState::TargetUnchanged,
+            TargetEffect::Unknown => SyncState::Indeterminate,
+            TargetEffect::Applied => SyncState::TargetUpdated,
+        }
+    }
 }
 
 /// An error returned by any [`Integration`] operation, carrying what the failure report needs.
