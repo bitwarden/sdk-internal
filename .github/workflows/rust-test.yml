@@ -81,7 +81,7 @@ jobs:
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
       - name: Test WASM
-        run: cargo test --target wasm32-unknown-unknown -p bitwarden-wasm-internal -p bitwarden-threading -p bitwarden-error -p bitwarden-uuid --all-features
+        run: cargo test --target wasm32-unknown-unknown -p bitwarden-wasm-internal -p bitwarden-threading -p bitwarden-error -p bitwarden-uuid -p bitwarden-ffi --all-features
 
       - name: Test WASM (browser, bitwarden-state)
         run: |
