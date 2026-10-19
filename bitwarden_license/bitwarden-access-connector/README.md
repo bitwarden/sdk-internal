@@ -136,29 +136,30 @@ per-tick and per-substep chatter.
 
 #### Operator-visible events at `info` / `warn` / `error`
 
-| Level   | Event                                                    | Key fields                                                                 |
-| ------- | -------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `info`  | Access connector starting                                | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs` |
-| `info`  | Session established / renewed                            | `retry` (on renewal)                                                       |
-| `info`  | Shutdown signal received                                 | —                                                                          |
-| `info`  | Rotation job claimed                                     | `job_id`, `target_system_name`                                             |
-| `info`  | Starting rotation execution                              | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                  |
-| `info`  | Step 1: credentials resolved                             | `attempt_id`                                                               |
-| `info`  | Step 2: password generated                               | `attempt_id`                                                               |
-| `info`  | Step 3: target rotate succeeded                          | `attempt_id`, `kind`                                                       |
-| `info`  | Step 4: verify succeeded                                 | `attempt_id`                                                               |
-| `info`  | Step 5: cipher written                                   | `attempt_id`, `cipher_id`                                                  |
-| `info`  | Step 6: session termination succeeded                    | `attempt_id`                                                               |
-| `info`  | Step 7: rotation succeeded and reported                  | `attempt_id`, `termination`                                                |
-| `info`  | Access connector shut down cleanly                       | —                                                                          |
-| `warn`  | Session renewal failed (transient / protocol)            | `retry`, `sleep_ms`                                                        |
-| `warn`  | Session entered Revoked phase                            | —                                                                          |
-| `warn`  | Rotation failed (any step)                               | `attempt_id`, `failure_code`, `sync_state`, `detail`                       |
-| `warn`  | Step 6: session termination aborted / failed             | `attempt_id`, `abort_reason`                                               |
-| `warn`  | Transient poll error / backoff                           | backoff duration                                                           |
-| `warn`  | Success report rejected/unknown by server                | `attempt_id`                                                               |
-| `error` | Access connector credential refused (startup or mid-run) | —                                                                          |
-| `error` | Access connector not eligible for rotation endpoints     | —                                                                          |
+| Level   | Event                                                | Key fields                                                                 |
+| ------- | ---------------------------------------------------- | -------------------------------------------------------------------------- |
+| `info`  | Access connector starting                            | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs` |
+| `info`  | Session established / renewed                        | `retry` (on renewal)                                                       |
+| `info`  | Shutdown signal received                             | —                                                                          |
+| `info`  | Rotation job claimed                                 | `job_id`, `target_system_name`                                             |
+| `info`  | Starting rotation execution                          | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                  |
+| `info`  | Step 1: credentials resolved                         | `attempt_id`                                                               |
+| `info`  | Step 2: password generated                           | `attempt_id`                                                               |
+| `info`  | Step 3: target rotate succeeded                      | `attempt_id`, `kind`                                                       |
+| `info`  | Step 4: verify succeeded                             | `attempt_id`                                                               |
+| `info`  | Step 5: cipher written                               | `attempt_id`, `cipher_id`                                                  |
+| `info`  | Step 6: session termination succeeded                | `attempt_id`                                                               |
+| `info`  | Step 7: rotation succeeded and reported              | `attempt_id`, `termination`                                                |
+| `info`  | Access connector shut down cleanly                   | —                                                                          |
+| `warn`  | Session renewal failed (transient / protocol)        | `retry`, `sleep_ms`                                                        |
+| `warn`  | Session entered Revoked phase                        | —                                                                          |
+| `warn`  | Rotation failed (any step)                           | `attempt_id`, `failure_code`, `sync_state`, `detail`                       |
+| `warn`  | Step 6: session termination aborted / failed         | `attempt_id`, `abort_reason`                                               |
+| `warn`  | Transient poll error / backoff                       | backoff duration                                                           |
+| `warn`  | Success report rejected/unknown by server            | `attempt_id`                                                               |
+| `error` | Access connector credential refused                  | —                                                                          |
+| `error` | Access connector could not authenticate at startup   | —                                                                          |
+| `error` | Access connector not eligible for rotation endpoints | —                                                                          |
 
 At `RUST_LOG=debug` the following additional events appear: poll ticks (with claimable job count),
 heartbeat ticks, claim-race losses (409 per job), registered integration kinds, cipher-fetch
@@ -172,6 +173,7 @@ sub-step, and session-renewal details.
 | `1`  | Startup error: invalid configuration, I/O error, or parse failure.                                                                                                     |
 | `2`  | Access connector credential refused. An admin must reissue the credential server-side (via `ReissueConnectorCredential`) and restart the connector with the new token. |
 | `3`  | Access connector not eligible for rotation endpoints. Check: connector record not revoked or disabled, organisation license active, `UsePam` enabled.                  |
+| `4`  | Access connector could not authenticate at startup (e.g. identity server unreachable). Check network connectivity and the identity URL; restarting may succeed.        |
 
 ---
 
