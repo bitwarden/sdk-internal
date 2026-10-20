@@ -91,7 +91,7 @@ chrono = { version = ">=0.4.34, <0.5", features = [
 ciborium = ">=0.2.2, <0.3"
 clap = { version = ">=4.5.4, <5", features = ["derive"] }
 crypto-bigint = { version = "0.7.5", features = ["alloc"], default-features = false }
-curve25519-dalek = { version = "5.0.0-rc.1", features = ["zeroize"], default-features = false }
+curve25519-dalek = { version = "5.0.0", features = ["zeroize"], default-features = false }
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = "3.0.0-pre.7" }
 futures = ">=0.3.31, <0.4"
