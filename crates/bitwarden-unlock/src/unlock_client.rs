@@ -208,12 +208,11 @@ impl UnlockClient {
         Ok(())
     }
 
-    /// Invalidate the persisted session key, locking the vault for future invocations.
+    /// Delete the persisted session key, so later CLI invocations can no longer unlock with it.
     ///
-    /// Removes [`SESSION_PROTECTED_USER_KEY`] from the database. Distinct from
-    /// [`UnlockClient::lock`] on long-lived clients, which clears the keys a running client
-    /// holds: the CLI process exits between invocations, so locking must delete the persisted
-    /// session key rather than mutate in-memory state.
+    /// Removes [`SESSION_PROTECTED_USER_KEY`] from the database. This is how the CLI locks: each
+    /// command runs in a new process, so there are no in-memory keys to clear. Long-lived clients
+    /// lock with [`UnlockClient::lock`] instead.
     #[cfg(feature = "cli")]
     pub async fn invalidate_session_key(&self) -> Result<(), bitwarden_state::SettingsError> {
         self.client
@@ -273,6 +272,9 @@ impl UnlockClient {
     pub async fn lock(&self) {
         self.client.internal.get_key_store().clear();
 
+        // Same gate as `copy_user_key_to_state`, which copies the unlocked user key to the state
+        // bridge only on WASM. Clients on other bindings keep their SDK instance for the whole
+        // unlocked session, so unlocking never puts the key there for them.
         #[cfg(feature = "wasm")]
         {
             let bridge = self.client.km_state_bridge();
