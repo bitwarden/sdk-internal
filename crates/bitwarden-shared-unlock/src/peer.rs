@@ -327,6 +327,8 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
                 "Applying a peer's lock state through the driver"
             );
 
+            self.relay_user_state(user_id, &remote).await;
+
             match &remote.lock_state {
                 LockState::Locked => self
                     .0
@@ -357,6 +359,22 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
     async fn sync_user(&self, user_id: UserId) {
         for target in self.sync_targets().await {
             self.sync_user_to(user_id, &target).await;
+        }
+    }
+
+    /// Sends a state to every peer this peer syncs with, without recording it. Used to pass a
+    /// peer's lock on before this device has applied it.
+    async fn relay_user_state(&self, user_id: UserId, state: &TimestampedLockState) {
+        for target in self.sync_targets().await {
+            if !self.may_sync_user_to(user_id, &target).await {
+                continue;
+            }
+
+            let message = SharedUnlockSync {
+                user_id,
+                state: state.clone(),
+            };
+            self.send_message(message, target.endpoint.clone()).await;
         }
     }
 
