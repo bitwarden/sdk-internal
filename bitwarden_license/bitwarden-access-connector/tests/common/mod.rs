@@ -16,13 +16,14 @@ use std::{
 use bitwarden_access_connector::executor::AccessConnectorConfig;
 pub use bitwarden_access_connector::executor::RunExit;
 use bitwarden_access_token::{AccessToken, AccessTokenKind, make_access_token_secrets};
+use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{
     OrganizationId,
     key_management::{KeySlotIds, SymmetricKeySlotId},
 };
 use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, KeyDecryptable, KeyEncryptable, KeyStore, SymmetricCryptoKey,
-    SymmetricKeyAlgorithm,
+    BitwardenLegacyKeyBytes, Decryptable, EncString, KeyDecryptable, KeyEncryptable, KeyStore,
+    SymmetricCryptoKey, SymmetricKeyAlgorithm,
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_pam_sealed::{
@@ -30,6 +31,9 @@ use bitwarden_pam_sealed::{
     SealedTargetSystemMethod, TargetSystemSealedV1, seal_rotation_config, seal_target_system,
 };
 pub use bitwarden_threading::cancellation_token::CancellationToken;
+use bitwarden_vault::{
+    CipherId, CipherRepromptType, CipherType, CipherView, EncryptMode, LoginView,
+};
 pub use uuid::Uuid;
 pub use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -144,13 +148,109 @@ pub async fn mount_identity_ok(server: &MockServer, encrypted_payload: &str) {
         .await;
 }
 
-/// The cipher-read endpoint's `data`: the password encrypted under `org_key`, plus a username.
-pub fn make_cipher_data(org_key: &SymmetricCryptoKey, password: &str) -> String {
-    let enc = password
-        .encrypt_with_key(org_key)
-        .expect("encrypt password")
-        .to_string();
-    serde_json::json!({ "Password": enc, "Username": "testuser" }).to_string()
+/// The cipher-read endpoint's body: a login cipher in the test org, encrypted by the vault under
+/// `org_key` with the given password.
+pub fn make_cipher_json(
+    org_key: &SymmetricCryptoKey,
+    cipher_id: Uuid,
+    password: &str,
+) -> serde_json::Value {
+    let store = KeyStore::<KeySlotIds>::default();
+    #[allow(deprecated)]
+    store
+        .context_mut()
+        .set_symmetric_key(test_org_slot(), org_key.clone())
+        .expect("set_symmetric_key");
+
+    let view = CipherView {
+        partial: false,
+        id: Some(CipherId::new(cipher_id)),
+        organization_id: Some(test_org_id()),
+        folder_id: None,
+        collection_ids: vec![],
+        key: None,
+        name: "Prod database".to_owned(),
+        notes: None,
+        r#type: CipherType::Login,
+        login: Some(LoginView {
+            username: Some("testuser".to_owned()),
+            password: Some(password.to_owned()),
+            password_revision_date: None,
+            uris: None,
+            totp: None,
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        }),
+        identity: None,
+        card: None,
+        secure_note: None,
+        ssh_key: None,
+        bank_account: None,
+        drivers_license: None,
+        passport: None,
+        favorite: false,
+        reprompt: CipherRepromptType::None,
+        organization_use_totp: true,
+        edit: true,
+        permissions: None,
+        view_password: true,
+        local_data: None,
+        attachments: None,
+        attachment_decryption_failures: None,
+        fields: None,
+        password_history: None,
+        creation_date: "2024-01-01T00:00:00Z".parse().expect("valid date"),
+        deleted_date: None,
+        revision_date: "2024-01-01T00:00:00Z".parse().expect("valid date"),
+        archived_date: None,
+    };
+    let cipher = store
+        .encrypt(EncryptMode::Legacy(view))
+        .expect("encrypt cipher");
+    let request = CipherRequestModel::try_from(cipher).expect("request model");
+
+    // A request and a mini response share the cipher's field shapes.
+    let mut json = serde_json::to_value(request).expect("serialize");
+    let obj = json.as_object_mut().expect("object");
+    obj.remove("lastKnownRevisionDate");
+    obj.insert("id".to_owned(), cipher_id.to_string().into());
+    obj.insert("creationDate".to_owned(), "2024-01-01T00:00:00Z".into());
+    obj.insert("revisionDate".to_owned(), "2024-01-01T00:00:00Z".into());
+    json
+}
+
+/// Asserts a cipher write `body` rotated the password away from `old_password`: the new password
+/// differs, and the old one heads the history, both readable under the body's own item key.
+pub fn assert_cipher_write_rotated(
+    org_key: &SymmetricCryptoKey,
+    body: &serde_json::Value,
+    old_password: &str,
+) {
+    let store = KeyStore::<KeySlotIds>::default();
+    let mut ctx = store.context_mut();
+    #[allow(deprecated)]
+    ctx.set_symmetric_key(test_org_slot(), org_key.clone())
+        .expect("set_symmetric_key");
+
+    let wrapped: EncString = body["key"].as_str().expect("key").parse().expect("parse");
+    let item_key = ctx
+        .unwrap_symmetric_key(test_org_slot(), &wrapped)
+        .expect("item key unwraps under the org key");
+    let mut read = |pointer: &str| -> String {
+        let enc: EncString = body
+            .pointer(pointer)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_else(|| panic!("no string at {pointer}"))
+            .parse()
+            .expect("parse");
+        enc.decrypt(&mut ctx, item_key).expect("decrypt")
+    };
+
+    assert_ne!(read("/login/password"), old_password);
+    assert_eq!(read("/passwordHistory/0/password"), old_password);
+    assert!(body["login"]["passwordRevisionDate"].is_string());
+    assert_eq!(body["lastKnownRevisionDate"], "2024-01-01T00:00:00Z");
+    assert!(body["data"].is_null());
 }
 
 pub fn fixtures_dir() -> PathBuf {

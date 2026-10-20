@@ -13,12 +13,13 @@ use std::{
 use bitwarden_api_api::{
     apis::AuthRequired,
     models::{
-        ReportRotationFailedRequestModel, ReportRotationSucceededRequestModel,
-        SubmitCipherUpdateRequestModel,
+        CipherMiniResponseModel, CipherRequestModel, ReportRotationFailedRequestModel,
+        ReportRotationSucceededRequestModel,
     },
 };
 use bitwarden_core::{Client, ClientBuilder, ClientSettings, client::internal::ApiConfigurations};
-use models::{ApiError, JobRef, RotationCipher, WorkSnapshot};
+use bitwarden_vault::Cipher;
+use models::{ApiError, JobRef, WorkSnapshot};
 use reqwest_middleware::{Middleware, Next};
 use tokio::sync::watch;
 use uuid::Uuid;
@@ -296,7 +297,7 @@ impl RotationApi {
 
     /// Fetch the encrypted cipher for an executing attempt. A 404 maps to
     /// [`ApiError::UnknownAttempt`].
-    pub(crate) async fn get_cipher(&self, attempt_id: Uuid) -> Result<RotationCipher, ApiError> {
+    pub(crate) async fn get_cipher(&self, attempt_id: Uuid) -> Result<Cipher, ApiError> {
         let result = self
             .api_configurations
             .api_client
@@ -307,26 +308,21 @@ impl RotationApi {
         match result {
             Ok(model) => {
                 self.mark_ok();
-                parse_rotation_cipher(model)
+                parse_cipher(model)
             }
             Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
 
-    /// Write the re-encrypted cipher data back to the server.
+    /// Write the re-encrypted cipher back to the server. The request's `lastKnownRevisionDate`
+    /// is the optimistic-concurrency check.
     ///
     /// A 409 means revision-drift or capability-lost; a 404 means the attempt is unknown.
     pub(crate) async fn put_cipher(
         &self,
         attempt_id: Uuid,
-        data_json_string: String,
-        last_known_revision_date: String,
+        body: CipherRequestModel,
     ) -> Result<(), ApiError> {
-        let body = SubmitCipherUpdateRequestModel {
-            data: data_json_string,
-            last_known_revision_date,
-        };
-
         let result = self
             .api_configurations
             .api_client
@@ -505,32 +501,11 @@ fn parse_work_snapshot(
     })
 }
 
-/// Parse a [`bitwarden_api_api::models::RotationCipherResponseModel`] into a
-/// [`RotationCipher`]. A missing or malformed `data` field is a protocol error that never includes
-/// the field's content.
-fn parse_rotation_cipher(
-    model: bitwarden_api_api::models::RotationCipherResponseModel,
-) -> Result<RotationCipher, ApiError> {
-    macro_rules! required {
-        ($field:expr, $name:literal) => {
-            $field
-                .ok_or_else(|| ApiError::Protocol(concat!("missing field: ", $name).to_owned()))?
-        };
-    }
-
-    let cipher_id = required!(model.cipher_id, "cipherId");
-    let revision_date = required!(model.revision_date, "revisionDate");
-
-    let data_str = required!(model.data, "data");
-    let data = serde_json::from_str::<serde_json::Value>(&data_str)
-        .map_err(|_| ApiError::Protocol("cipher data field is not valid JSON".to_owned()))?;
-
-    Ok(RotationCipher {
-        cipher_id,
-        data,
-        key: model.key,
-        revision_date,
-    })
+/// Parse the cipher response into a vault [`Cipher`]. A conversion failure is a protocol error that
+/// never includes the payload.
+fn parse_cipher(model: CipherMiniResponseModel) -> Result<Cipher, ApiError> {
+    Cipher::try_from(model)
+        .map_err(|_| ApiError::Protocol("cipher response could not be parsed".to_owned()))
 }
 
 /// Serialise a [`FailureCode`] to its snake_case serde name. The server caps `errorCode` at 100
@@ -814,58 +789,46 @@ mod tests {
     }
 
     #[test]
-    fn parse_rotation_cipher_parses_data_string_to_value() {
-        use bitwarden_api_api::models::RotationCipherResponseModel;
+    fn parse_cipher_parses_a_login() {
+        let cipher_id = Uuid::new_v4();
+        let view = crate::test_support::login_view(cipher_id, Some("pw"));
+        let store = crate::test_support::org_store();
+        let json = crate::test_support::cipher_json(&store, &view);
+        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
 
-        let data_json = r#"{"Password":"2.abc123==","SomeOther":"field"}"#;
-        let model = RotationCipherResponseModel {
-            cipher_id: Some(Uuid::new_v4()),
-            organization_id: Some(Uuid::new_v4()),
-            r#type: None,
-            data: Some(data_json.to_owned()),
-            key: Some("encrypted-key".to_owned()),
-            revision_date: Some("2024-01-01T00:00:00Z".to_owned()),
-        };
-
-        let cipher = parse_rotation_cipher(model).expect("parse_rotation_cipher");
-        assert_eq!(cipher.data["Password"], "2.abc123==");
-        assert_eq!(cipher.data["SomeOther"], "field");
-        assert_eq!(cipher.key.as_deref(), Some("encrypted-key"));
-        assert_eq!(cipher.revision_date, "2024-01-01T00:00:00Z");
+        let cipher = parse_cipher(model).expect("parse_cipher");
+        assert_eq!(Uuid::from(cipher.id.expect("id")), cipher_id);
+        assert_eq!(cipher.r#type, bitwarden_vault::CipherType::Login);
+        assert!(cipher.key.is_some());
+        assert!(cipher.login.is_some());
     }
 
     #[test]
-    fn parse_rotation_cipher_missing_data_is_protocol_error() {
-        use bitwarden_api_api::models::RotationCipherResponseModel;
+    fn parse_cipher_missing_type_is_protocol_error() {
+        let view = crate::test_support::login_view(Uuid::new_v4(), Some("pw"));
+        let store = crate::test_support::org_store();
+        let mut json = crate::test_support::cipher_json(&store, &view);
+        json.as_object_mut().unwrap().remove("type");
+        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
 
-        let model = RotationCipherResponseModel {
-            cipher_id: Some(Uuid::new_v4()),
-            organization_id: None,
-            r#type: None,
-            data: None,
-            key: None,
-            revision_date: Some("2024-01-01T00:00:00Z".to_owned()),
-        };
-
-        let err = parse_rotation_cipher(model).expect_err("should fail");
-        assert!(matches!(err, ApiError::Protocol(_)));
+        let err = parse_cipher(model).expect_err("should fail");
+        assert!(matches!(err, ApiError::Protocol(_)), "got: {err:?}");
     }
 
+    /// The vault parses an unparseable field leniently; the strict decrypt in the pre-flight is
+    /// what rejects it (see `crypto::tests`), so parsing must not drop or echo the value.
     #[test]
-    fn parse_rotation_cipher_invalid_json_in_data_is_protocol_error() {
-        use bitwarden_api_api::models::RotationCipherResponseModel;
+    fn parse_cipher_keeps_garbage_enc_string_for_strict_decryption() {
+        let view = crate::test_support::login_view(Uuid::new_v4(), Some("pw"));
+        let store = crate::test_support::org_store();
+        let mut json = crate::test_support::cipher_json(&store, &view);
+        json["name"] = "2.secret!|garbage!|payload!".into();
+        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
 
-        let model = RotationCipherResponseModel {
-            cipher_id: Some(Uuid::new_v4()),
-            organization_id: None,
-            r#type: None,
-            data: Some("NOT VALID JSON".to_owned()),
-            key: None,
-            revision_date: Some("2024-01-01T00:00:00Z".to_owned()),
-        };
-
-        let err = parse_rotation_cipher(model).expect_err("should fail");
-        assert!(matches!(err, ApiError::Protocol(_)));
+        let cipher = parse_cipher(model).expect("lenient parse");
+        assert!(cipher.name.is_some());
+        let org_id = crate::test_support::test_org_id();
+        assert!(crate::crypto::decrypt_cipher_for_rotation(&store, org_id, cipher).is_err());
     }
 
     #[tokio::test]
@@ -1010,7 +973,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cipher_parses_data_string_to_value() {
+    async fn get_cipher_parses_the_cipher_response() {
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
 
@@ -1019,7 +982,8 @@ mod tests {
 
         let attempt_id = Uuid::new_v4();
         let cipher_id = Uuid::new_v4();
-        let data_json_str = r#"{"Password":"2.abc==","Username":"admin"}"#;
+        let view = crate::test_support::login_view(cipher_id, Some("pw"));
+        let store = crate::test_support::org_store();
 
         Mock::given(method("GET"))
             .and(path(format!(
@@ -1027,21 +991,18 @@ mod tests {
             )))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({
-                        "cipherId": cipher_id,
-                        "data": data_json_str,
-                        "revisionDate": "2024-06-01T12:00:00Z"
-                    }))
+                    .set_body_json(crate::test_support::cipher_json(&store, &view))
                     .insert_header("content-type", "application/json"),
             )
             .mount(&api_server)
             .await;
 
         let cipher = api.get_cipher(attempt_id).await.expect("get_cipher");
-        assert_eq!(cipher.cipher_id, cipher_id);
-        assert_eq!(cipher.data["Password"], "2.abc==");
-        assert_eq!(cipher.data["Username"], "admin");
-        assert_eq!(cipher.revision_date, "2024-06-01T12:00:00Z");
+        assert_eq!(Uuid::from(cipher.id.expect("id")), cipher_id);
+        assert_eq!(
+            cipher.revision_date.timestamp(),
+            view.revision_date.timestamp()
+        );
     }
 
     #[tokio::test]
@@ -1062,11 +1023,7 @@ mod tests {
             .await;
 
         let err = api
-            .put_cipher(
-                attempt_id,
-                r#"{"Password":"2.new=="}"#.to_owned(),
-                "2024-06-01T12:00:00Z".to_owned(),
-            )
+            .put_cipher(attempt_id, CipherRequestModel::default())
             .await
             .expect_err("should fail");
 
@@ -1094,11 +1051,7 @@ mod tests {
             .await;
 
         let err = api
-            .put_cipher(
-                attempt_id,
-                r#"{"Password":"2.new=="}"#.to_owned(),
-                "2024-06-01T12:00:00Z".to_owned(),
-            )
+            .put_cipher(attempt_id, CipherRequestModel::default())
             .await
             .expect_err("should fail");
 

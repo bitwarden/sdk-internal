@@ -57,19 +57,6 @@ pub(crate) struct WorkSnapshot {
     pub(crate) execute_by: DateTime<Utc>,
 }
 
-/// The cipher snapshot returned by the cipher-read endpoint.
-#[derive(Debug, Clone)]
-pub(crate) struct RotationCipher {
-    pub(crate) cipher_id: Uuid,
-    /// Parsed from the wire string at the API boundary, so the crypto layer can replace one field.
-    pub(crate) data: serde_json::Value,
-    /// Per-item cipher key (EncString), present when the item has its own key.
-    pub(crate) key: Option<String>,
-    /// Echoed back verbatim as `lastKnownRevisionDate` on the cipher write, for optimistic
-    /// concurrency.
-    pub(crate) revision_date: String,
-}
-
 impl From<SessionTermination> for bitwarden_api_api::models::PamSessionTerminationOutcome {
     fn from(t: SessionTermination) -> Self {
         match t {

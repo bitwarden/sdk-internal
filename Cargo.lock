@@ -509,6 +509,7 @@ dependencies = [
  "bitwarden-sensitive-value",
  "bitwarden-state",
  "bitwarden-threading",
+ "bitwarden-vault",
  "chrono",
  "clap",
  "http",

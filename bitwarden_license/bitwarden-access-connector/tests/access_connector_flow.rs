@@ -47,19 +47,14 @@ async fn happy_path_rotate_and_report_success() {
         .mount(&api)
         .await;
 
-    let cipher_data = make_cipher_data(&org_key, "old-password");
+    let cipher_json = make_cipher_json(&org_key, cipher_id, "old-password");
     Mock::given(method("GET"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({
-                    "cipherId": cipher_id,
-                    "data": cipher_data,
-                    "key": null,
-                    "revisionDate": "2024-01-01T00:00:00Z"
-                }))
+                .set_body_json(cipher_json.clone())
                 .insert_header("content-type", "application/json"),
         )
         .mount(&api)
@@ -120,6 +115,9 @@ async fn happy_path_rotate_and_report_success() {
         .filter(|r| r.method.as_str() == "PUT")
         .collect();
     assert!(!put_reqs.is_empty(), "PUT cipher must have been called");
+    let put_body: serde_json::Value =
+        serde_json::from_slice(&put_reqs[0].body).expect("PUT body is JSON");
+    assert_cipher_write_rotated(&org_key, &put_body, "old-password");
 
     let success_reqs: Vec<_> = all_reqs
         .iter()
@@ -181,19 +179,14 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         .mount(&api)
         .await;
 
-    let cipher_data = make_cipher_data(&org_key, "old-password");
+    let cipher_json = make_cipher_json(&org_key, cipher_id, "old-password");
     Mock::given(method("GET"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({
-                    "cipherId": cipher_id,
-                    "data": cipher_data,
-                    "key": null,
-                    "revisionDate": "2024-01-01T00:00:00Z"
-                }))
+                .set_body_json(cipher_json.clone())
                 .insert_header("content-type", "application/json"),
         )
         .mount(&api)
@@ -472,19 +465,14 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
         .mount(&api)
         .await;
 
-    let cipher_data = make_cipher_data(&org_key, "old-password");
+    let cipher_json = make_cipher_json(&org_key, cipher_id, "old-password");
     Mock::given(method("GET"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({
-                    "cipherId": cipher_id,
-                    "data": cipher_data,
-                    "key": null,
-                    "revisionDate": "2024-01-01T00:00:00Z"
-                }))
+                .set_body_json(cipher_json.clone())
                 .insert_header("content-type", "application/json"),
         )
         .mount(&api)

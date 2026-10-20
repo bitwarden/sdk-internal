@@ -205,6 +205,15 @@ POST  /access-connectors/rotation/attempts/{id}/success
 POST  /access-connectors/rotation/attempts/{id}/failure
 ```
 
+The cipher read returns the standard encrypted cipher and the write takes the standard cipher
+request, with `lastKnownRevisionDate` as the concurrency check. The connector decrypts the cipher
+with the organization key, replaces only the login password (the old one moves into the password
+history), and re-encrypts all of it. It refuses, before touching the target, a cipher that is not a
+login in its own organization, that the server restricted, or that does not fully decrypt. The write
+always carries the cipher's wrapped item key, generating one for a cipher that had none. A cipher
+with attachments but no item key is refused too, as the generated item key would orphan the
+attachment keys.
+
 ---
 
 ## Getting started

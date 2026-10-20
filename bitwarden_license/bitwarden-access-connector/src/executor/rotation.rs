@@ -2,6 +2,11 @@
 //!
 //! A `Revoked` or `Closed` session fails the attempt up front; an `Expired` one is refreshed by
 //! the gate. `execute_by` bounds only target-side steps (3, 4, 6), not server-side 5 and 7.
+//!
+//! The cipher is read and written through the vault's typed path: the encrypted cipher is
+//! decrypted, only its login password is replaced (the old one moves into the password history),
+//! and the whole cipher is re-encrypted. A cipher that is not a login in the connector's
+//! organization, or is restricted, is never rotated.
 
 use std::{
     sync::Arc,
@@ -11,6 +16,7 @@ use std::{
 use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
 use bitwarden_generators::GeneratorClient;
+use bitwarden_vault::Cipher;
 use chrono::Utc;
 
 use super::{
@@ -18,12 +24,9 @@ use super::{
     verify::VerifiedJob,
 };
 use crate::{
-    api::{
-        RotationApi,
-        models::{ApiError, RotationCipher},
-    },
+    api::{RotationApi, models::ApiError},
     auth::session::{SessionLost, SessionManager, SessionPhase},
-    crypto::{cipher_key_unwraps, encrypt_cipher_password},
+    crypto::{CryptoModuleError, decrypt_cipher_for_rotation, rotate_cipher_password},
     error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
     integrations::{Integration, IntegrationRegistry, RotateContext},
     policy,
@@ -105,8 +108,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         }
     }
 
-    // Check 8: runs before the target is touched, so a wrong cipher ID or an unwrappable per-item
-    // key fails as target_unchanged. Step 5 repeats the ID check.
+    // Check 8: runs before the target is touched, so a wrong cipher ID or a cipher that cannot be
+    // rotated (wrong organization or type, restricted, undecryptable) fails as target_unchanged.
+    // Step 5 repeats the checks.
     {
         let cipher = match fetch_cipher(&ctx.api, &ctx.retry_cfg, attempt_id).await {
             Ok(c) => c,
@@ -129,7 +133,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             }
         };
 
-        if cipher.cipher_id != job.cipher_id() {
+        if cipher.id.map(uuid::Uuid::from) != Some(job.cipher_id()) {
             report_failure_absorb(
                 &ctx.api,
                 attempt_id,
@@ -143,14 +147,15 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             return ExecutionResult::Reported;
         }
 
-        if cipher_key_unwraps(&ctx.key_store, ctx.organization_id, cipher.key.as_deref()).is_err() {
+        // The decrypted view is dropped right away; only the verdict matters here.
+        if let Err(e) = decrypt_cipher_for_rotation(&ctx.key_store, ctx.organization_id, cipher) {
             report_failure_absorb(
                 &ctx.api,
                 attempt_id,
                 FailureCode::SealedDataRejected,
-                Some(SafeDetail::from_seal_rejection(
-                    "pre_flight_cipher_key_unwrap_failed",
-                )),
+                Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
+                    &e, true,
+                ))),
                 SyncState::TargetUnchanged,
             )
             .await;
@@ -355,7 +360,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         };
 
         // Check 8, repeated: the target is already rotated, so this fails as target_updated.
-        if cipher.cipher_id != job.cipher_id() {
+        if cipher.id.map(uuid::Uuid::from) != Some(job.cipher_id()) {
             report_failure_absorb(
                 &ctx.api,
                 attempt_id,
@@ -369,56 +374,53 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             return ExecutionResult::Reported;
         }
 
-        tracing::debug!(attempt_id = %attempt_id, cipher_id = %cipher.cipher_id, "cipher fetched");
+        tracing::debug!(attempt_id = %attempt_id, cipher_id = %job.cipher_id(), "cipher fetched");
 
-        let mut data = cipher.data.clone();
-        let store = ctx.key_store.clone();
-        let encrypt_result = encrypt_cipher_password(
-            &store,
-            ctx.organization_id,
-            cipher.key.as_deref(),
-            &mut data,
-            &new_password,
-        );
+        // The plaintext view lives only inside this block.
+        let request = {
+            let view =
+                match decrypt_cipher_for_rotation(&ctx.key_store, ctx.organization_id, cipher) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        report_failure_absorb(
+                            &ctx.api,
+                            attempt_id,
+                            FailureCode::SealedDataRejected,
+                            Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
+                                &e, false,
+                            ))),
+                            SyncState::TargetUpdated,
+                        )
+                        .await;
+                        return ExecutionResult::Reported;
+                    }
+                };
 
-        if let Err(_e) = encrypt_result {
-            report_failure_absorb(
-                &ctx.api,
-                attempt_id,
-                FailureCode::CipherEncryptFailed,
-                None,
-                SyncState::TargetUpdated,
-            )
-            .await;
-            return ExecutionResult::Reported;
-        }
-
-        let data_str = match serde_json::to_string(&data) {
-            Ok(s) => s,
-            Err(_) => {
-                report_failure_absorb(
-                    &ctx.api,
-                    attempt_id,
-                    FailureCode::CipherEncryptFailed,
-                    None,
-                    SyncState::TargetUpdated,
-                )
-                .await;
-                return ExecutionResult::Reported;
+            match rotate_cipher_password(&ctx.key_store, &view, &new_password) {
+                Ok(r) => r,
+                Err(_) => {
+                    report_failure_absorb(
+                        &ctx.api,
+                        attempt_id,
+                        FailureCode::CipherEncryptFailed,
+                        None,
+                        SyncState::TargetUpdated,
+                    )
+                    .await;
+                    return ExecutionResult::Reported;
+                }
             }
         };
 
         let api = Arc::clone(&ctx.api);
-        let revision_date = cipher.revision_date.clone();
         let result = with_retries(
             &ctx.retry_cfg,
             None, // no deadline
             || {
                 let api = Arc::clone(&api);
-                let data_str = data_str.clone();
-                let revision_date = revision_date.clone();
+                let request = request.clone();
                 async move {
-                    match api.put_cipher(attempt_id, data_str, revision_date).await {
+                    match api.put_cipher(attempt_id, request).await {
                         Ok(()) => Ok(()),
                         Err(ApiError::Transient(s)) => {
                             Err((ErrorClass::Transient, ApiError::Transient(s)))
@@ -437,7 +439,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             Ok(()) => {
                 tracing::info!(
                     attempt_id = %attempt_id,
-                    cipher_id = %cipher.cipher_id,
+                    cipher_id = %job.cipher_id(),
                     "step 5: cipher written"
                 );
                 CipherWritten(())
@@ -702,7 +704,7 @@ async fn fetch_cipher(
     api: &RotationApi,
     retry_cfg: &RetryCfg,
     attempt_id: uuid::Uuid,
-) -> Result<RotationCipher, ApiError> {
+) -> Result<Cipher, ApiError> {
     with_retries(retry_cfg, None, move || async move {
         match api.get_cipher(attempt_id).await {
             Ok(c) => Ok(c),
@@ -712,6 +714,26 @@ async fn fetch_cipher(
         }
     })
     .await
+}
+
+/// A fixed, content-free reason for a rejected cipher, for the failure report.
+fn cipher_rejection_reason(err: &CryptoModuleError, pre_flight: bool) -> &'static str {
+    match (err, pre_flight) {
+        (CryptoModuleError::CipherOrganizationMismatch, true) => "pre_flight_cipher_org_mismatch",
+        (CryptoModuleError::CipherOrganizationMismatch, false) => "pre_write_cipher_org_mismatch",
+        (CryptoModuleError::CipherNotLogin, true) => "pre_flight_cipher_not_login",
+        (CryptoModuleError::CipherNotLogin, false) => "pre_write_cipher_not_login",
+        (CryptoModuleError::CipherRestricted, true) => "pre_flight_cipher_restricted",
+        (CryptoModuleError::CipherRestricted, false) => "pre_write_cipher_restricted",
+        (CryptoModuleError::CipherAttachmentsWithoutItemKey, true) => {
+            "pre_flight_cipher_attachments_without_item_key"
+        }
+        (CryptoModuleError::CipherAttachmentsWithoutItemKey, false) => {
+            "pre_write_cipher_attachments_without_item_key"
+        }
+        (_, true) => "pre_flight_cipher_decrypt_failed",
+        (_, false) => "pre_write_cipher_decrypt_failed",
+    }
 }
 
 /// Report a rotation failure, logging it and absorbing any report error; the rotation still counts
@@ -750,6 +772,7 @@ mod tests {
     };
 
     use async_trait::async_trait;
+    use wiremock::ResponseTemplate;
 
     use super::*;
     use crate::{
@@ -986,201 +1009,40 @@ mod tests {
         assert_eq!(s, r#""unsupported_kind""#);
     }
 
-    /// A get_cipher Protocol error after a successful rotate must still report `target_updated`.
-    #[tokio::test]
-    async fn get_cipher_protocol_error_after_rotate_reports_target_updated() {
-        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
-        use bitwarden_generators::GeneratorClientsExt as _;
-        use chrono::Utc;
-        use tokio::sync::watch;
-        use wiremock::{
-            Mock, MockServer, ResponseTemplate,
-            matchers::{method, path},
-        };
-
-        use crate::{
-            api::{
-                REQUEST_TIMEOUT, RotationApi, build_sdk_client,
-                models::{TargetKind, WorkSnapshot},
-            },
-            auth::{identity::IdentityClient, session::SessionManager},
-            executor::verify::{
-                self,
-                test_support::{sample_config, sample_target, sealed_pair, store_with_org_key},
-            },
-            integrations::IntegrationRegistry,
-            resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
-        };
-        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let payload = encrypted_payload_for(&org_key);
-
-        let identity_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/connect/token"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_string(identity_ok_body(&payload))
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&identity_server)
-            .await;
-
-        let attempt_id = uuid::Uuid::new_v4();
-        let job_id = uuid::Uuid::new_v4();
-        let target_system_id = uuid::Uuid::new_v4();
-        let cipher_id = uuid::Uuid::new_v4();
-
-        // The first GET /cipher is the pre-flight read and must succeed; the second is the
-        // pre-write read, which this test breaks.
-        Mock::given(method("GET"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
-            )))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({
-                        "cipherId": cipher_id,
-                        "data": "{}",
-                        "key": null,
-                        "revisionDate": "2024-01-01T00:00:00Z"
-                    }))
-                    .insert_header("content-type", "application/json"),
-            )
-            .up_to_n_times(1)
-            .mount(&api_server)
-            .await;
-        Mock::given(method("GET"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
-            )))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_string("NOT JSON")
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&api_server)
-            .await;
-
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/failure"
-            )))
-            .respond_with(ResponseTemplate::new(200))
-            .mount(&api_server)
-            .await;
-
-        let token = test_token();
-        let identity = IdentityClient::new(identity_server.uri()).unwrap();
-        let session = SessionManager::new(identity, token, KeyStore::default())
-            .await
-            .unwrap();
-        let (client, handler) = build_sdk_client(
-            api_server.uri(),
-            "http://identity.invalid".to_owned(),
-            REQUEST_TIMEOUT,
-        );
-        handler.set_session(Arc::clone(&session));
-
-        let (tx, _rx) = watch::channel(std::time::Instant::now());
-        let api = Arc::new(RotationApi::new(
-            client.internal.get_api_configurations(),
-            tx,
-        ));
-
-        struct AlwaysOkResolver;
-        #[async_trait::async_trait]
-        impl CredentialResolver for AlwaysOkResolver {
-            async fn resolve(
-                &self,
-                _id: uuid::Uuid,
-                _kind: TargetKind,
-            ) -> Result<ResolvedCredentials, ResolveError> {
-                Ok(ResolvedCredentials::new())
-            }
-        }
-
-        let integ = MockIntegration::always_ok();
-        let mut registry = IntegrationRegistry::new();
-        registry.register(TargetKind::CustomScript, Arc::new(integ));
-
-        let (store, _org_key) = store_with_org_key();
-        let (target_blob, config_blob) = sealed_pair(
-            &store,
-            sample_target(target_system_id),
-            sample_config(target_system_id, cipher_id),
-        );
-        let key_store = store;
-
-        let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
-        let last_ok_clone = Arc::clone(&last_ok_time);
-        let exec_ctx = ExecutionContext {
-            api: Arc::clone(&api),
-            session: Arc::clone(&session),
-            integrations: Arc::new(registry),
-            resolver: Arc::new(AlwaysOkResolver),
-            generator: bitwarden_core::Client::new(None).generator(),
-            key_store,
-            organization_id: test_org_id(),
-            retry_cfg: crate::executor::retry::RetryCfg {
-                max_retry_attempts: 1,
-                retry_base_delay: std::time::Duration::from_millis(0),
-            },
-            offline_grace: std::time::Duration::from_secs(60),
-            last_ok: Arc::new(move || *last_ok_clone.lock().unwrap()),
-            cancel: bitwarden_threading::cancellation_token::CancellationToken::new(),
-        };
-
-        let snapshot = WorkSnapshot {
-            attempt_id,
-            job_id,
-            target_system_id,
-            target_system_name: "test".to_owned(),
-            cipher_id,
-            target_system_sealed_data: Some(target_blob.0),
-            target_system_wrapped_key: Some(target_blob.1),
-            rotation_config_sealed_data: Some(config_blob.0),
-            rotation_config_wrapped_key: Some(config_blob.1),
-            execute_by: Utc::now() + chrono::Duration::minutes(5),
-        };
-        let job = verify::verify(snapshot, &exec_ctx.key_store, test_org_id())
-            .expect("well-formed claim");
-
-        let result = execute(job, &exec_ctx).await;
-
-        assert!(
-            matches!(result, ExecutionResult::Reported),
-            "expected Reported, got {result:?}"
-        );
-
-        let requests = api_server.received_requests().await.unwrap();
-        let failure_reqs: Vec<_> = requests
-            .iter()
-            .filter(|r| r.url.path().ends_with("/failure"))
-            .collect();
-        assert_eq!(
-            failure_reqs.len(),
-            1,
-            "expected exactly one failure report, got {}",
-            failure_reqs.len()
-        );
-        let body: serde_json::Value =
-            serde_json::from_slice(&failure_reqs[0].body).expect("parse failure body");
-        assert_eq!(
-            body["syncState"],
-            serde_json::json!(1),
-            "syncState must be 1 (TargetUpdated) for get_cipher protocol error: {body}"
-        );
+    /// What a [`run_execute`] call observed.
+    struct Run {
+        result: ExecutionResult,
+        rotate_calls: u32,
+        requests: Vec<wiremock::Request>,
+        store: KeyStore<KeySlotIds>,
     }
 
-    #[tokio::test]
-    async fn preflight_cipher_id_mismatch_rejects_before_any_integration_call() {
+    impl Run {
+        fn requests_to(&self, method: &str, suffix: &str) -> Vec<&wiremock::Request> {
+            self.requests
+                .iter()
+                .filter(|r| r.method.as_str() == method && r.url.path().ends_with(suffix))
+                .collect()
+        }
+
+        fn failure_body(&self) -> serde_json::Value {
+            let reqs = self.requests_to("POST", "/failure");
+            assert_eq!(reqs.len(), 1, "expected exactly one failure report");
+            serde_json::from_slice(&reqs[0].body).expect("parse failure body")
+        }
+    }
+
+    /// Runs one rotation against mock servers. `cipher_gets` are served in order to successive
+    /// `GET /cipher` calls (pre-flight, then pre-write); the last one repeats. `make` builds them
+    /// from the connector's key store and the claim's cipher id.
+    async fn run_execute(
+        make: impl FnOnce(&KeyStore<KeySlotIds>, uuid::Uuid) -> Vec<ResponseTemplate>,
+    ) -> Run {
         use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
         use bitwarden_generators::GeneratorClientsExt as _;
         use tokio::sync::watch;
         use wiremock::{
-            Mock, MockServer, ResponseTemplate,
+            Mock, MockServer,
             matchers::{method, path},
         };
 
@@ -1218,32 +1080,38 @@ mod tests {
         let job_id = uuid::Uuid::new_v4();
         let target_system_id = uuid::Uuid::new_v4();
         let cipher_id = uuid::Uuid::new_v4();
-        let different_cipher_id = uuid::Uuid::new_v4();
 
+        let (store, _org_key) = store_with_org_key();
+        let mut gets = make(&store, cipher_id);
+        let last = gets.pop().expect("at least one GET response");
+        let cipher_path = format!("/access-connectors/rotation/attempts/{attempt_id}/cipher");
+        for get in gets {
+            Mock::given(method("GET"))
+                .and(path(cipher_path.clone()))
+                .respond_with(get)
+                .up_to_n_times(1)
+                .mount(&api_server)
+                .await;
+        }
         Mock::given(method("GET"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
-            )))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({
-                        "cipherId": different_cipher_id,
-                        "data": "{}",
-                        "key": null,
-                        "revisionDate": "2024-01-01T00:00:00Z"
-                    }))
-                    .insert_header("content-type", "application/json"),
-            )
+            .and(path(cipher_path.clone()))
+            .respond_with(last)
             .mount(&api_server)
             .await;
-
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/failure"
-            )))
+        Mock::given(method("PUT"))
+            .and(path(cipher_path))
             .respond_with(ResponseTemplate::new(200))
             .mount(&api_server)
             .await;
+        for report in ["failure", "success"] {
+            Mock::given(method("POST"))
+                .and(path(format!(
+                    "/access-connectors/rotation/attempts/{attempt_id}/{report}"
+                )))
+                .respond_with(ResponseTemplate::new(200))
+                .mount(&api_server)
+                .await;
+        }
 
         let token = test_token();
         let identity = IdentityClient::new(identity_server.uri()).unwrap();
@@ -1280,13 +1148,11 @@ mod tests {
         let mut registry = IntegrationRegistry::new();
         registry.register(TargetKind::CustomScript, Arc::new(integ));
 
-        let (store, _org_key) = store_with_org_key();
         let (target_blob, config_blob) = sealed_pair(
             &store,
             sample_target(target_system_id),
             sample_config(target_system_id, cipher_id),
         );
-        let key_store = store;
 
         let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
         let last_ok_clone = Arc::clone(&last_ok_time);
@@ -1296,7 +1162,7 @@ mod tests {
             integrations: Arc::new(registry),
             resolver: Arc::new(AlwaysOkResolver),
             generator: bitwarden_core::Client::new(None).generator(),
-            key_store,
+            key_store: store.clone(),
             organization_id: test_org_id(),
             retry_cfg: crate::executor::retry::RetryCfg {
                 max_retry_attempts: 1,
@@ -1323,34 +1189,188 @@ mod tests {
             .expect("well-formed claim");
 
         let result = execute(job, &exec_ctx).await;
+        let calls = *rotate_calls.lock().unwrap();
+        Run {
+            result,
+            rotate_calls: calls,
+            requests: api_server.received_requests().await.unwrap(),
+            store,
+        }
+    }
 
-        assert!(
-            matches!(result, ExecutionResult::Reported),
-            "expected Reported, got {result:?}"
-        );
-        assert_eq!(
-            *rotate_calls.lock().unwrap(),
-            0,
-            "rotate must never be called when the pre-flight cipher check fails"
-        );
+    fn json_response(body: serde_json::Value) -> ResponseTemplate {
+        ResponseTemplate::new(200)
+            .set_body_json(body)
+            .insert_header("content-type", "application/json")
+    }
 
-        let requests = api_server.received_requests().await.unwrap();
-        let failure_reqs: Vec<_> = requests
-            .iter()
-            .filter(|r| r.url.path().ends_with("/failure"))
-            .collect();
-        assert_eq!(failure_reqs.len(), 1, "expected exactly one failure report");
-        let body: serde_json::Value =
-            serde_json::from_slice(&failure_reqs[0].body).expect("parse failure body");
-        assert_eq!(
-            body["errorCode"],
-            serde_json::json!("sealed_data_rejected"),
-            "errorCode must be sealed_data_rejected: {body}"
-        );
-        assert_eq!(
-            body["syncState"],
-            serde_json::json!(0),
-            "syncState must be 0 (TargetUnchanged): {body}"
-        );
+    /// A GET response for a fixture login cipher (with an item key) whose JSON `edit` may alter.
+    fn cipher_response(
+        store: &KeyStore<KeySlotIds>,
+        cipher_id: uuid::Uuid,
+        edit: impl FnOnce(&mut serde_json::Value),
+    ) -> ResponseTemplate {
+        let view = crate::test_support::login_view(cipher_id, Some("old-pw"));
+        let mut json = crate::test_support::cipher_json(store, &view);
+        edit(&mut json);
+        json_response(json)
+    }
+
+    /// A get_cipher Protocol error after a successful rotate must still report `target_updated`.
+    #[tokio::test]
+    async fn get_cipher_protocol_error_after_rotate_reports_target_updated() {
+        // The first GET is the pre-flight read and must succeed; the second breaks.
+        let run = run_execute(|store, id| {
+            vec![
+                cipher_response(store, id, |_| {}),
+                ResponseTemplate::new(200)
+                    .set_body_string("NOT JSON")
+                    .insert_header("content-type", "application/json"),
+            ]
+        })
+        .await;
+
+        assert!(matches!(run.result, ExecutionResult::Reported));
+        assert_eq!(run.rotate_calls, 1);
+        assert_eq!(run.failure_body()["syncState"], serde_json::json!(1));
+    }
+
+    #[tokio::test]
+    async fn preflight_cipher_id_mismatch_rejects_before_any_integration_call() {
+        let run =
+            run_execute(|store, _| vec![cipher_response(store, uuid::Uuid::new_v4(), |_| {})])
+                .await;
+
+        assert!(matches!(run.result, ExecutionResult::Reported));
+        assert_eq!(run.rotate_calls, 0, "rotate must not run");
+        let body = run.failure_body();
+        assert_eq!(body["errorCode"], serde_json::json!("sealed_data_rejected"));
+        assert_eq!(body["syncState"], serde_json::json!(0));
+    }
+
+    /// A cipher that cannot be rotated fails the pre-flight, before the target is touched.
+    async fn assert_preflight_rejects(edit: impl FnOnce(&mut serde_json::Value) + 'static) {
+        let run = run_execute(|store, id| vec![cipher_response(store, id, edit)]).await;
+
+        assert!(matches!(run.result, ExecutionResult::Reported));
+        assert_eq!(run.rotate_calls, 0, "rotate must not run");
+        assert!(run.requests_to("PUT", "/cipher").is_empty());
+        let body = run.failure_body();
+        assert_eq!(body["errorCode"], serde_json::json!("sealed_data_rejected"));
+        assert_eq!(body["syncState"], serde_json::json!(0));
+    }
+
+    #[tokio::test]
+    async fn preflight_rejects_cipher_of_another_organization() {
+        assert_preflight_rejects(|j| j["organizationId"] = uuid::Uuid::new_v4().to_string().into())
+            .await;
+    }
+
+    #[tokio::test]
+    async fn preflight_rejects_non_login_cipher() {
+        assert_preflight_rejects(|j| j["type"] = 2.into()).await;
+    }
+
+    /// Vault encryption would generate an item key for a keyless cipher and orphan its attachment
+    /// keys, so a keyless cipher with attachments is rejected before the target is touched.
+    #[tokio::test]
+    async fn preflight_rejects_attachments_without_item_key() {
+        let run = run_execute(|store, id| {
+            let view = crate::test_support::login_view(id, Some("old-pw"));
+            let mut json = crate::test_support::keyless_cipher_json(store, &view);
+            json["attachments"] = serde_json::json!([{"id": "att-1", "size": "10"}]);
+            vec![json_response(json)]
+        })
+        .await;
+
+        assert!(matches!(run.result, ExecutionResult::Reported));
+        assert_eq!(run.rotate_calls, 0, "rotate must not run");
+        assert!(run.requests_to("PUT", "/cipher").is_empty());
+        let body = run.failure_body();
+        assert_eq!(body["errorCode"], serde_json::json!("sealed_data_rejected"));
+        assert_eq!(body["syncState"], serde_json::json!(0));
+    }
+
+    #[tokio::test]
+    async fn rotation_of_cipher_with_item_key_and_attachments_succeeds() {
+        let run = run_execute(|store, id| {
+            vec![cipher_response(store, id, |j| {
+                j["attachments"] = serde_json::json!([{"id": "att-1", "size": "10"}]);
+            })]
+        })
+        .await;
+
+        assert_eq!(run.rotate_calls, 1);
+        assert_eq!(run.requests_to("PUT", "/cipher").len(), 1);
+    }
+
+    #[tokio::test]
+    async fn preflight_rejects_restricted_cipher() {
+        assert_preflight_rejects(|j| j["partialData"] = "{}".into()).await;
+    }
+
+    /// Lenient decryption would drop the field and the write would wipe it; strict decryption
+    /// fails the pre-flight instead.
+    #[tokio::test]
+    async fn preflight_rejects_cipher_with_undecryptable_field() {
+        use bitwarden_crypto::{KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
+
+        let other = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let foreign = "x".encrypt_with_key(&other).unwrap().to_string();
+        assert_preflight_rejects(move |j| j["notes"] = foreign.into()).await;
+    }
+
+    #[tokio::test]
+    async fn rotation_writes_typed_cipher_with_history() {
+        let mut date = String::new();
+        let run = run_execute(|store, id| {
+            let r = cipher_response(store, id, |j| {
+                date = j["revisionDate"].as_str().unwrap().to_owned();
+            });
+            vec![r]
+        })
+        .await;
+        assert_eq!(date, crate::test_support::CIPHER_REVISION_DATE);
+
+        assert!(matches!(run.result, ExecutionResult::Reported));
+        assert_eq!(run.rotate_calls, 1);
+        assert_eq!(run.requests_to("POST", "/success").len(), 1);
+
+        let puts = run.requests_to("PUT", "/cipher");
+        assert_eq!(puts.len(), 1);
+        let body: serde_json::Value = serde_json::from_slice(&puts[0].body).expect("PUT body");
+        let dec = |p| crate::test_support::decrypt_body_field(&run.store, &body, p);
+
+        // The password the integration set is what was written, and the old one is in history.
+        assert_ne!(dec("/login/password"), "old-pw");
+        assert_eq!(dec("/passwordHistory/0/password"), "old-pw");
+        assert_eq!(dec("/passwordHistory/1/password"), "older-password");
+        assert!(body["login"]["passwordRevisionDate"].is_string());
+        assert_eq!(body["lastKnownRevisionDate"], "2024-06-01T12:00:00Z");
+        assert!(body["data"].is_null());
+        assert_eq!(body["organizationId"], test_org_id().to_string());
+        assert_eq!(body["type"], 1);
+        assert_eq!(dec("/login/username"), "svc-account");
+        assert_eq!(dec("/login/uris/0/uri"), "https://db.example.com");
+        assert_eq!(dec("/name"), "Prod database");
+    }
+
+    #[tokio::test]
+    async fn rotation_of_cipher_without_item_key_writes_one() {
+        let run = run_execute(|store, id| {
+            let view = crate::test_support::login_view(id, Some("old-pw"));
+            vec![json_response(crate::test_support::keyless_cipher_json(
+                store, &view,
+            ))]
+        })
+        .await;
+
+        assert_eq!(run.rotate_calls, 1);
+        let puts = run.requests_to("PUT", "/cipher");
+        assert_eq!(puts.len(), 1);
+        let body: serde_json::Value = serde_json::from_slice(&puts[0].body).expect("PUT body");
+        let dec = |p| crate::test_support::decrypt_body_field(&run.store, &body, p);
+        assert_ne!(dec("/login/password"), "old-pw");
+        assert_eq!(dec("/passwordHistory/0/password"), "old-pw");
     }
 }

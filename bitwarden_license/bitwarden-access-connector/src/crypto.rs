@@ -1,14 +1,17 @@
 //! Cryptographic helpers used by the access connector.
 //!
 //! Exposed for integration tests. The org slot is keyed by the
-//! [`OrganizationId`] from the access token's `organization` claim.
+//! [`OrganizationId`] from the access token's `organization` claim. Cipher handling goes through
+//! the vault's typed models: decrypt, replace the login password, re-encrypt.
 
 use bitwarden_access_token::{AccessToken, AccessTokenError};
+use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{
     OrganizationId,
     key_management::{KeySlotIds, SymmetricKeySlotId},
 };
-use bitwarden_crypto::{EncString, KeyStore, KeyStoreContext, PrimitiveEncryptable};
+use bitwarden_crypto::KeyStore;
+use bitwarden_vault::{Cipher, CipherType, CipherView, EncryptMode, StrictDecrypt};
 use thiserror::Error;
 
 /// Errors produced by the cryptographic helpers in this module.
@@ -22,9 +25,27 @@ pub enum CryptoModuleError {
     #[error("org-key payload does not contain a valid encryption key")]
     InvalidOrgKey,
 
-    /// The cipher's `data` JSON is not an object. Carries no content, to avoid echoing cipher data.
-    #[error("cipher data JSON is not a JSON object")]
-    CipherDataShape,
+    /// The cipher belongs to a different organization than the connector's.
+    #[error("cipher does not belong to the connector's organization")]
+    CipherOrganizationMismatch,
+
+    /// The cipher is not a login, or has no login data.
+    #[error("cipher is not a login")]
+    CipherNotLogin,
+
+    /// The server returned a restricted cipher, which must never be rotated.
+    #[error("cipher is restricted")]
+    CipherRestricted,
+
+    /// The cipher has attachments but no per-item key. Vault encryption would generate an item key
+    /// and re-wrap the attachment keys under it, but the rotation write stores only the cipher data
+    /// and key, so the stored attachment keys would no longer unwrap.
+    #[error("cipher has attachments but no item key")]
+    CipherAttachmentsWithoutItemKey,
+
+    /// The re-encrypted cipher carries a `data` blob, which the server rejects.
+    #[error("re-encrypted cipher carries a data blob")]
+    CipherDataPresent,
 
     /// A generic cryptographic operation failed.
     #[error("cryptographic operation failed")]
@@ -58,81 +79,78 @@ pub fn unwrap_org_key(
         })
 }
 
-/// The server's `CipherLoginData` serializes as a flat PascalCase object that omits `Password`
-/// while it is null.
-const CIPHER_PASSWORD_KEY: &str = "Password";
-
-fn resolve_encrypt_slot(
-    ctx: &mut KeyStoreContext<'_, KeySlotIds>,
+/// Decrypts the fetched cipher for a rotation. Rejects, before any decryption, a cipher outside the
+/// connector's organization, one that is not a login, a restricted one, or one with attachments but
+/// no item key: re-encrypting a restricted cipher would wipe the fields the server withheld, and
+/// the attachment keys of a cipher without an item key would be orphaned by the item key the write
+/// generates. Decryption is strict, so a field that fails to decrypt is an error rather than
+/// silently dropped from the later re-encrypt.
+pub fn decrypt_cipher_for_rotation(
+    store: &KeyStore<KeySlotIds>,
     organization_id: OrganizationId,
-    cipher_key: Option<&str>,
-) -> Result<SymmetricKeySlotId, CryptoModuleError> {
-    if let Some(wrapped_key_str) = cipher_key {
-        let wrapped_enc: EncString = wrapped_key_str
-            .parse()
-            .map_err(|_| CryptoModuleError::InvalidPayload)?;
-
-        ctx.unwrap_symmetric_key(
-            SymmetricKeySlotId::Organization(organization_id),
-            &wrapped_enc,
-        )
-        .map_err(CryptoModuleError::Crypto)
-    } else {
-        Ok(SymmetricKeySlotId::Organization(organization_id))
+    cipher: Cipher,
+) -> Result<CipherView, CryptoModuleError> {
+    if cipher.organization_id != Some(organization_id) {
+        return Err(CryptoModuleError::CipherOrganizationMismatch);
     }
+    if cipher.r#type != CipherType::Login {
+        return Err(CryptoModuleError::CipherNotLogin);
+    }
+    if cipher.partial_data.is_some() {
+        return Err(CryptoModuleError::CipherRestricted);
+    }
+    if cipher.key.is_none() && cipher.attachments.as_ref().is_some_and(|a| !a.is_empty()) {
+        return Err(CryptoModuleError::CipherAttachmentsWithoutItemKey);
+    }
+
+    let view: CipherView = store.decrypt(&StrictDecrypt(cipher))?;
+    if view.login.is_none() {
+        return Err(CryptoModuleError::CipherNotLogin);
+    }
+    Ok(view)
 }
 
-/// Checks that the per-item key (if any) unwraps under the org key, without encrypting anything.
-pub fn cipher_key_unwraps(
+/// Builds the cipher write for rotating `original`'s password to `new_password`: the old password
+/// moves into the password history and the password revision date is set. Everything else is
+/// carried over from `original`.
+///
+/// Uses the legacy field-level encryption, since the server rejects `data` on an organization
+/// cipher. The vault always emits a wrapped item key, re-wrapping an existing one or generating
+/// one for a cipher that had none.
+pub fn rotate_cipher_password(
     store: &KeyStore<KeySlotIds>,
-    organization_id: OrganizationId,
-    cipher_key: Option<&str>,
-) -> Result<(), CryptoModuleError> {
-    let mut ctx = store.context_mut();
-    resolve_encrypt_slot(&mut ctx, organization_id, cipher_key).map(|_| ())
-}
-
-/// Encrypt `new_password` with the per-item `cipher_key` when present (unwrapped by the org key),
-/// else the org key, and insert or replace the password field in `data`. Other fields are
-/// untouched.
-pub fn encrypt_cipher_password(
-    store: &KeyStore<KeySlotIds>,
-    organization_id: OrganizationId,
-    cipher_key: Option<&str>,
-    data: &mut serde_json::Value,
+    original: &CipherView,
     new_password: &str,
-) -> Result<(), CryptoModuleError> {
-    let mut ctx = store.context_mut();
+) -> Result<CipherRequestModel, CryptoModuleError> {
+    let mut view = original.clone();
+    view.login
+        .as_mut()
+        .ok_or(CryptoModuleError::CipherNotLogin)?
+        .password = Some(new_password.to_owned());
+    view.update_password_history(original);
 
-    let encrypt_slot = resolve_encrypt_slot(&mut ctx, organization_id, cipher_key)?;
-
-    let encrypted: EncString = new_password
-        .encrypt(&mut ctx, encrypt_slot)
-        .map_err(CryptoModuleError::Crypto)?;
-
-    let encrypted_str = encrypted.to_string();
-
-    match data.as_object_mut() {
-        Some(obj) => {
-            obj.insert(
-                CIPHER_PASSWORD_KEY.to_owned(),
-                serde_json::Value::String(encrypted_str),
-            );
-            Ok(())
-        }
-        None => Err(CryptoModuleError::CipherDataShape),
+    let cipher = store.encrypt(EncryptMode::Legacy(view))?;
+    let request = CipherRequestModel::try_from(cipher)?;
+    if request.data.is_some() {
+        return Err(CryptoModuleError::CipherDataPresent);
     }
+    Ok(request)
 }
 
 #[cfg(test)]
 mod tests {
     use bitwarden_access_token::{AccessTokenKind, make_access_token_secrets};
-    use bitwarden_crypto::{KeyDecryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
-    use serde_json::json;
+    use bitwarden_crypto::{
+        KeyDecryptable, KeyEncryptable, PrimitiveEncryptable, SymmetricCryptoKey,
+        SymmetricKeyAlgorithm,
+    };
     use uuid::uuid;
 
     use super::*;
-    use crate::test_support::test_org_id as org_id;
+    use crate::test_support::{
+        cipher_json, decrypt_body_field, keyless_cipher_json, login_view, org_store,
+        test_org_id as org_id,
+    };
 
     fn org_slot() -> SymmetricKeySlotId {
         SymmetricKeySlotId::Organization(org_id())
@@ -202,183 +220,233 @@ mod tests {
         );
     }
 
-    #[test]
-    fn encrypt_cipher_password_org_key_path() {
-        let (store, org_key) = make_store_with_org_key();
+    fn cipher_from(json: serde_json::Value) -> Cipher {
+        let model: bitwarden_api_api::models::CipherMiniResponseModel =
+            serde_json::from_value(json).expect("model");
+        Cipher::try_from(model).expect("cipher")
+    }
 
-        let mut data = json!({ "Password": "old", "Username": "alice" });
-        encrypt_cipher_password(&store, org_id(), None, &mut data, "new-secret").expect("encrypt");
-
-        let password_field = data["Password"].as_str().expect("Password is a string");
-        assert!(
-            password_field.contains('.'),
-            "expected EncString format, got: {password_field}",
-        );
-
-        let enc: EncString = password_field.parse().expect("parse EncString");
-        let plaintext: String = enc.decrypt_with_key(&org_key).expect("decrypt");
-        assert_eq!(plaintext, "new-secret");
-
-        assert_eq!(data["Username"].as_str(), Some("alice"));
+    fn fixture_ciphers(
+        store: &KeyStore<KeySlotIds>,
+        password: Option<&str>,
+    ) -> [(&'static str, serde_json::Value); 2] {
+        let view = login_view(uuid::Uuid::new_v4(), password);
+        [
+            ("item key", cipher_json(store, &view)),
+            ("no item key", keyless_cipher_json(store, &view)),
+        ]
     }
 
     #[test]
-    fn encrypt_cipher_password_per_item_key_path() {
-        let (store, _org_key) = make_store_with_org_key();
+    fn decrypt_cipher_for_rotation_round_trips_both_key_layouts() {
+        let store = org_store();
+        for (label, json) in fixture_ciphers(&store, Some("old-pw")) {
+            let has_key = json.get("key").is_some_and(|k| !k.is_null());
+            assert_eq!(has_key, label == "item key");
 
-        let item_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let wrapped_cipher_key_str = {
-            let mut ctx = store.context_mut();
-            let item_key_slot = ctx.add_local_symmetric_key(item_key.clone());
-            let wrapped = ctx
-                .wrap_symmetric_key(org_slot(), item_key_slot)
-                .expect("wrap item key");
-            wrapped.to_string()
-        };
-
-        let mut data = json!({ "Password": "old" });
-        encrypt_cipher_password(
-            &store,
-            org_id(),
-            Some(&wrapped_cipher_key_str),
-            &mut data,
-            "per-item-secret",
-        )
-        .expect("encrypt");
-
-        let password_field = data["Password"].as_str().expect("Password is a string");
-        let enc: EncString = password_field.parse().expect("parse EncString");
-
-        let plaintext: String = enc
-            .decrypt_with_key(&item_key)
-            .expect("decrypt with item key");
-        assert_eq!(plaintext, "per-item-secret");
+            let view = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json))
+                .unwrap_or_else(|e| panic!("{label}: {e}"));
+            let login = view.login.as_ref().expect("login");
+            assert_eq!(login.password.as_deref(), Some("old-pw"), "{label}");
+            assert_eq!(login.username.as_deref(), Some("svc-account"), "{label}");
+            assert_eq!(view.name, "Prod database", "{label}");
+        }
     }
 
     #[test]
-    fn encrypt_cipher_password_preserves_sibling_fields() {
-        let (store, _) = make_store_with_org_key();
+    fn decrypt_cipher_for_rotation_rejects_other_organization() {
+        let store = org_store();
+        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        json["organizationId"] = uuid::Uuid::new_v4().to_string().into();
 
-        let original = json!({
-            "Password": "old",
-            "Username": "bob",
-            "Uri": "https://example.com",
-            "Totp": null,
-        });
-        let mut data = original.clone();
-
-        encrypt_cipher_password(&store, org_id(), None, &mut data, "new").expect("encrypt");
-
-        assert_eq!(data["Username"], original["Username"]);
-        assert_eq!(data["Uri"], original["Uri"]);
-        assert_eq!(data["Totp"], original["Totp"]);
-
-        assert_ne!(data["Password"], original["Password"]);
-    }
-
-    /// The server omits a null `Password`, so a missing key is inserted rather than an error.
-    #[test]
-    fn encrypt_cipher_password_inserts_missing_password_key() {
-        let (store, org_key) = make_store_with_org_key();
-
-        let mut data = json!({
-            "Uris": [],
-            "Username": "2.abc==|def==|ghi==",
-            "Name": "2.jkl==|mno==|pqr==",
-            "Fields": []
-        });
-        let original_username = data["Username"].clone();
-        let original_name = data["Name"].clone();
-        let original_uris = data["Uris"].clone();
-        let original_fields = data["Fields"].clone();
-
-        encrypt_cipher_password(&store, org_id(), None, &mut data, "first-rotation-secret")
-            .expect("insert must succeed even when Password key is absent");
-
-        let password_field = data["Password"].as_str().expect("Password is a string");
-        assert!(
-            password_field.contains('.'),
-            "expected EncString format, got: {password_field}",
-        );
-
-        let enc: EncString = password_field.parse().expect("parse EncString");
-        let plaintext: String = enc.decrypt_with_key(&org_key).expect("decrypt");
-        assert_eq!(plaintext, "first-rotation-secret");
-
-        assert_eq!(
-            data["Username"], original_username,
-            "Username must be untouched"
-        );
-        assert_eq!(data["Name"], original_name, "Name must be untouched");
-        assert_eq!(data["Uris"], original_uris, "Uris must be untouched");
-        assert_eq!(data["Fields"], original_fields, "Fields must be untouched");
+        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        assert!(matches!(
+            result,
+            Err(CryptoModuleError::CipherOrganizationMismatch)
+        ));
     }
 
     #[test]
-    fn cipher_key_unwraps_org_key_path_always_succeeds() {
-        let (store, _org_key) = make_store_with_org_key();
-        assert!(cipher_key_unwraps(&store, org_id(), None).is_ok());
+    fn decrypt_cipher_for_rotation_rejects_missing_organization() {
+        let store = org_store();
+        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        json.as_object_mut().unwrap().remove("organizationId");
+
+        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        assert!(matches!(
+            result,
+            Err(CryptoModuleError::CipherOrganizationMismatch)
+        ));
     }
 
     #[test]
-    fn cipher_key_unwraps_per_item_key_path_succeeds() {
-        let (store, _org_key) = make_store_with_org_key();
+    fn decrypt_cipher_for_rotation_rejects_non_login_type() {
+        let store = org_store();
+        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        json["type"] = 2.into();
 
-        let item_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let wrapped_cipher_key_str = {
-            let mut ctx = store.context_mut();
-            let item_key_slot = ctx.add_local_symmetric_key(item_key);
-            let wrapped = ctx
-                .wrap_symmetric_key(org_slot(), item_key_slot)
-                .expect("wrap item key");
-            wrapped.to_string()
-        };
+        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        assert!(matches!(result, Err(CryptoModuleError::CipherNotLogin)));
+    }
 
-        assert!(cipher_key_unwraps(&store, org_id(), Some(&wrapped_cipher_key_str)).is_ok());
+    fn with_attachment(json: &mut serde_json::Value) {
+        json["attachments"] = serde_json::json!([{"id": "att-1", "size": "10"}]);
     }
 
     #[test]
-    fn cipher_key_unwraps_garbage_key_fails() {
-        let (store, _org_key) = make_store_with_org_key();
-        let result = cipher_key_unwraps(&store, org_id(), Some("not-an-enc-string"));
-        assert!(
-            result.is_err(),
-            "garbage per-item key must fail, got {result:?}",
-        );
+    fn decrypt_cipher_for_rotation_rejects_attachments_without_item_key() {
+        let store = org_store();
+        let view = login_view(uuid::Uuid::new_v4(), Some("pw"));
+        let mut json = keyless_cipher_json(&store, &view);
+        with_attachment(&mut json);
+
+        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        assert!(matches!(
+            result,
+            Err(CryptoModuleError::CipherAttachmentsWithoutItemKey)
+        ));
     }
 
     #[test]
-    fn cipher_key_unwraps_key_wrapped_by_a_different_org_key_fails() {
-        let (store, _org_key) = make_store_with_org_key();
-        let (other_store, _other_org_key) = make_store_with_org_key();
+    fn decrypt_cipher_for_rotation_accepts_attachments_with_item_key() {
+        let store = org_store();
+        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        with_attachment(&mut json);
 
-        let item_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let wrapped_cipher_key_str = {
-            let mut ctx = other_store.context_mut();
-            let item_key_slot = ctx.add_local_symmetric_key(item_key);
-            ctx.wrap_symmetric_key(org_slot(), item_key_slot)
-                .expect("wrap under other store's org key")
-                .to_string()
-        };
-
-        let result = cipher_key_unwraps(&store, org_id(), Some(&wrapped_cipher_key_str));
-        assert!(result.is_err(), "unwrap under the wrong org key must fail");
+        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        assert!(result.is_ok(), "{result:?}");
     }
 
     #[test]
-    fn encrypt_cipher_password_non_object_root_returns_cipher_data_shape() {
-        let (store, _) = make_store_with_org_key();
+    fn decrypt_cipher_for_rotation_rejects_restricted_cipher() {
+        let store = org_store();
+        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        json["partialData"] = "{}".into();
 
-        for mut bad_root in [
-            serde_json::Value::String("not-an-object".to_owned()),
-            serde_json::json!([1, 2, 3]),
-            serde_json::Value::Null,
-            serde_json::json!(42),
-        ] {
-            let result = encrypt_cipher_password(&store, org_id(), None, &mut bad_root, "pw");
-            assert!(
-                matches!(result, Err(CryptoModuleError::CipherDataShape)),
-                "expected CipherDataShape for non-object root, got {result:?}",
+        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        assert!(matches!(result, Err(CryptoModuleError::CipherRestricted)));
+    }
+
+    #[test]
+    fn decrypt_cipher_for_rotation_rejects_login_without_login_data() {
+        let store = org_store();
+        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        json.as_object_mut().unwrap().remove("login");
+
+        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn decrypt_cipher_for_rotation_rejects_undecryptable_field() {
+        let store = org_store();
+        let other_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let foreign = "x"
+            .encrypt_with_key(&other_key)
+            .expect("encrypt")
+            .to_string();
+
+        for field in ["/login/password", "/login/username", "/notes", "/name"] {
+            for (label, mut json) in fixture_ciphers(&store, Some("pw")) {
+                *json.pointer_mut(field).expect("field present") = foreign.clone().into();
+
+                let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+                assert!(result.is_err(), "{label} {field}: must not decrypt");
+            }
+        }
+    }
+
+    fn decrypted_json(store: &KeyStore<KeySlotIds>, request: &CipherRequestModel) -> Vec<String> {
+        let body = serde_json::to_value(request).expect("serialize");
+        [
+            "/login/password",
+            "/login/username",
+            "/login/uris/0/uri",
+            "/name",
+            "/notes",
+            "/passwordHistory/0/password",
+        ]
+        .iter()
+        .map(|p| decrypt_body_field(store, &body, p))
+        .collect()
+    }
+
+    #[test]
+    fn rotate_cipher_password_rewrites_password_and_history() {
+        let store = org_store();
+        for (label, json) in fixture_ciphers(&store, Some("old-pw")) {
+            let view =
+                decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json)).expect("decrypt");
+
+            let request = rotate_cipher_password(&store, &view, "new-pw").expect("rotate");
+
+            assert!(request.data.is_none(), "{label}");
+            assert!(request.key.is_some(), "{label}: write carries an item key");
+            assert_eq!(
+                request.organization_id,
+                Some(org_id().to_string()),
+                "{label}"
+            );
+            assert_eq!(
+                request.r#type,
+                Some(bitwarden_api_api::models::CipherType::Login),
+                "{label}"
+            );
+            assert_eq!(
+                request.last_known_revision_date.as_deref(),
+                Some("2024-06-01T12:00:00Z"),
+                "{label}"
+            );
+            let body = serde_json::to_value(&request).expect("serialize");
+            assert!(body["login"]["passwordRevisionDate"].is_string(), "{label}");
+
+            assert_eq!(
+                decrypted_json(&store, &request),
+                [
+                    "new-pw",
+                    "svc-account",
+                    "https://db.example.com",
+                    "Prod database",
+                    "rotated by PAM",
+                    "old-pw",
+                ],
+                "{label}"
+            );
+            // The older entry follows the new one.
+            assert_eq!(
+                decrypt_body_field(&store, &body, "/passwordHistory/1/password"),
+                "older-password",
+                "{label}"
+            );
+        }
+    }
+
+    #[test]
+    fn rotate_cipher_password_without_old_password_adds_no_history_entry() {
+        let store = org_store();
+        for (label, json) in fixture_ciphers(&store, None) {
+            let view =
+                decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json)).expect("decrypt");
+
+            let request = rotate_cipher_password(&store, &view, "first-pw").expect("rotate");
+            let body = serde_json::to_value(&request).expect("serialize");
+
+            assert_eq!(
+                decrypt_body_field(&store, &body, "/login/password"),
+                "first-pw",
+                "{label}"
+            );
+            assert!(body["login"]["passwordRevisionDate"].is_string(), "{label}");
+            // Only the pre-existing entry remains.
+            assert_eq!(
+                body["passwordHistory"].as_array().map(Vec::len),
+                Some(1),
+                "{label}"
+            );
+            assert_eq!(
+                decrypt_body_field(&store, &body, "/passwordHistory/0/password"),
+                "older-password",
+                "{label}"
             );
         }
     }

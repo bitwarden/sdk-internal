@@ -16,7 +16,7 @@ use common::*;
 async fn mount_rotation(
     api: &MockServer,
     org_key: &bitwarden_crypto::SymmetricCryptoKey,
-    cipher_data: String,
+    cipher_json: serde_json::Value,
     job_id: Uuid,
     attempt_id: Uuid,
     target_id: Uuid,
@@ -60,12 +60,7 @@ async fn mount_rotation(
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({
-                    "cipherId": cipher_id,
-                    "data": cipher_data,
-                    "key": null,
-                    "revisionDate": "2024-01-01T00:00:00Z"
-                }))
+                .set_body_json(cipher_json)
                 .insert_header("content-type", "application/json"),
         )
         .mount(api)
@@ -215,7 +210,7 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        make_cipher_json(&org_key, cipher_id, "old-password"),
         job_id,
         attempt_id,
         target_id,
@@ -290,7 +285,7 @@ async fn a_transient_exit_code_survives_a_real_powershell_host() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        make_cipher_json(&org_key, cipher_id, "old-password"),
         job_id,
         attempt_id,
         target_id,
@@ -362,7 +357,7 @@ async fn a_failing_terminate_step_is_reported_but_the_rotation_succeeds() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        make_cipher_json(&org_key, cipher_id, "old-password"),
         job_id,
         attempt_id,
         target_id,
@@ -425,7 +420,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        make_cipher_json(&org_key, cipher_id, "old-password"),
         job_id,
         attempt_id,
         target_id,
@@ -502,7 +497,7 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        make_cipher_json(&org_key, cipher_id, "old-password"),
         job_id,
         attempt_id,
         target_id,
@@ -557,7 +552,7 @@ async fn a_symlink_pointing_outside_script_root_is_rejected() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        make_cipher_json(&org_key, cipher_id, "old-password"),
         job_id,
         attempt_id,
         target_id,
