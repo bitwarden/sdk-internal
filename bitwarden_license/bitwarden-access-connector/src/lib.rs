@@ -17,7 +17,6 @@ pub mod error;
 /// Connector run-loop config and exit variants (public for `main.rs` and `tests/`).
 pub mod executor;
 pub(crate) mod integrations;
-pub(crate) mod policy;
 pub(crate) mod resolver;
 pub(crate) mod sys;
 #[cfg(test)]
