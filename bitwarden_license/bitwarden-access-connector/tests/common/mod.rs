@@ -1,8 +1,7 @@
-//! Shared harness for the connector's integration tests: wiremock identity and API servers with
-//! self-consistent token, payload and cipher fixtures.
+//! Shared harness: wiremock identity and API servers with self-consistent token, payload and cipher
+//! fixtures.
 //!
-//! Tests set per-target credentials in the real process environment, so each takes [`lock_env`]
-//! first.
+//! Tests mutate per-target env vars, so each takes [`lock_env`] first.
 
 #![allow(dead_code)]
 
@@ -13,17 +12,19 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 
+use bitwarden_access_connector::executor::AccessConnectorConfig;
 pub use bitwarden_access_connector::executor::RunExit;
-use bitwarden_access_connector::{
-    crypto::{AccessConnectorKeyStore, AccessConnectorSymmSlotId},
-    executor::AccessConnectorConfig,
-};
 use bitwarden_access_token::{AccessToken, AccessTokenKind, make_access_token_secrets};
-use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, KeyDecryptable, KeyEncryptable, KeyStore, SymmetricCryptoKey,
-    SymmetricKeyAlgorithm,
+use bitwarden_api_api::models::CipherRequestModel;
+use bitwarden_core::{
+    OrganizationId,
+    key_management::{KeySlotIds, SymmetricKeySlotId},
 };
-use bitwarden_encoding::B64;
+use bitwarden_crypto::{
+    BitwardenLegacyKeyBytes, Decryptable, EncString, KeyDecryptable, KeyEncryptable, KeyStore,
+    SymmetricCryptoKey, SymmetricKeyAlgorithm,
+};
+use bitwarden_encoding::{B64, B64Url};
 use bitwarden_pam_sealed::{
     RotationConfigSealedV1, Sealed, SealedPasswordPolicy, SealedTargetSystemKind,
     SealedTargetSystemMethod, TargetSystemSealedV1, seal_rotation_config, seal_target_system,
@@ -38,36 +39,27 @@ pub use wiremock::{
 /// Serialises tests that mutate env vars.
 pub static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-/// Takes [`ENV_LOCK`], ignoring poison so a test that panics while holding it does not fail every
-/// other test.
+/// Takes [`ENV_LOCK`], ignoring poison so one panicking test doesn't fail the rest.
 pub fn lock_env() -> std::sync::MutexGuard<'static, ()> {
     ENV_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-/// A real token and its derived key, minted once via `make_access_token_secrets` so the two
-/// always agree.
+/// A real token and its derived key, minted via `make_access_token_secrets` so they agree.
 static TEST_CREDENTIAL: LazyLock<(String, SymmetricCryptoKey)> = LazyLock::new(|| {
     let wrapping_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-    let store: AccessConnectorKeyStore = KeyStore::default();
+    let store: KeyStore<KeySlotIds> = KeyStore::default();
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(
-            AccessConnectorSymmSlotId::Organization,
-            wrapping_key.clone(),
-        )
+        .set_symmetric_key(test_org_slot(), wrapping_key.clone())
         .expect("set_symmetric_key");
 
     let secrets = {
         let mut ctx = store.context_mut();
-        make_access_token_secrets(
-            &mut ctx,
-            AccessConnectorSymmSlotId::Organization,
-            AccessTokenKind::AccessConnector,
-        )
-        .expect("mint secrets")
+        make_access_token_secrets(&mut ctx, test_org_slot(), AccessTokenKind::AccessConnector)
+            .expect("mint secrets")
     };
 
     // Recover the derived key from the `key` field, as an organization would.
@@ -92,11 +84,23 @@ pub fn token_encryption_key() -> SymmetricCryptoKey {
     TEST_CREDENTIAL.1.clone()
 }
 
-/// Generate a fresh org key and its matching `encryptedPayload` for the
-/// identity server response.
-pub fn make_org_key_and_payload() -> (SymmetricCryptoKey, String) {
+/// The org key the cipher vectors in `tests/fixtures/ciphers` are encrypted under (base64 of the
+/// encoded `SymmetricCryptoKey`).
+const ORG_KEY_B64: &str =
+    "a4oGKmzuPXlJr6ANfFLy9DHw7lmaCo47mc01fROBKMUklVouVlwvgGsX1Sz9D9JHKbqOku/K25akClXWyp8a4g==";
+
+/// The id of the `keyed_login` vector.
+pub const KEYED_LOGIN_ID: Uuid = uuid::uuid!("8e1f3a2b-5c4d-4e6f-9a7b-0c1d2e3f4a5b");
+
+pub fn fixture_org_key() -> SymmetricCryptoKey {
+    SymmetricCryptoKey::try_from(B64::try_from(ORG_KEY_B64).expect("valid b64"))
+        .expect("valid org key")
+}
+
+/// [`fixture_org_key`] and its matching `encryptedPayload` for the identity response.
+pub fn org_key_and_payload() -> (SymmetricCryptoKey, String) {
     let token_key = token_encryption_key();
-    let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+    let org_key = fixture_org_key();
     let org_key_bytes = org_key.to_encoded();
     let org_key_b64_str: String = B64::from(org_key_bytes.as_ref()).into();
     let payload_json = format!(r#"{{"encryptionKey":"{org_key_b64_str}"}}"#);
@@ -108,9 +112,36 @@ pub fn make_org_key_and_payload() -> (SymmetricCryptoKey, String) {
     (org_key, encrypted_payload)
 }
 
+/// The organisation the harness authenticates into.
+pub fn test_org_id() -> OrganizationId {
+    "3f1a5c4e-7b2d-4f8a-9c6e-1d2b3a4c5d6e"
+        .parse()
+        .expect("valid uuid")
+}
+
+/// The org slot for [`test_org_id`].
+pub fn test_org_slot() -> SymmetricKeySlotId {
+    SymmetricKeySlotId::Organization(test_org_id())
+}
+
+/// An access token carrying the `organization` claim the connector reads. Mirrors
+/// `src/test_support.rs`, which integration tests cannot reach.
+pub fn access_token_for(organization_id: OrganizationId) -> String {
+    let claims = serde_json::json!({
+        "exp": 1_900_000_000u64,
+        "sub": "access-connector",
+        "scope": ["api.pam.rotation"],
+        "organization": organization_id.to_string(),
+    });
+
+    let payload = B64Url::from(claims.to_string().as_bytes());
+    format!("header.{payload}.signature")
+}
+
 pub async fn mount_identity_ok(server: &MockServer, encrypted_payload: &str) {
+    let access_token = access_token_for(test_org_id());
     let body = format!(
-        r#"{{"access_token":"test-bearer","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
+        r#"{{"access_token":"{access_token}","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
     );
     Mock::given(method("POST"))
         .and(path("/connect/token"))
@@ -123,13 +154,51 @@ pub async fn mount_identity_ok(server: &MockServer, encrypted_payload: &str) {
         .await;
 }
 
-/// The cipher-read endpoint's `data`: the password encrypted under `org_key`, plus a username.
-pub fn make_cipher_data(org_key: &SymmetricCryptoKey, password: &str) -> String {
-    let enc = password
-        .encrypt_with_key(org_key)
-        .expect("encrypt password")
-        .to_string();
-    serde_json::json!({ "Password": enc, "Username": "testuser" }).to_string()
+/// The cipher-read body: the recorded login cipher with its own item key, password
+/// `old-password`, encrypted under [`fixture_org_key`] (see `tests/fixtures/ciphers`).
+pub fn keyed_login_json() -> serde_json::Value {
+    serde_json::from_str(include_str!("../fixtures/ciphers/keyed_login.json"))
+        .expect("vector is JSON")
+}
+
+/// Asserts a cipher write `body` rotated the password away from `old_password`, with the old one
+/// heading the history. The write's `key` must be exactly `original_key` (the GET's), and the
+/// fields must decrypt under the item key unwrapped from it.
+pub fn assert_cipher_write_rotated(
+    org_key: &SymmetricCryptoKey,
+    body: &serde_json::Value,
+    original_key: &str,
+    old_password: &str,
+) {
+    assert_eq!(body["key"], original_key, "item key is sent back unchanged");
+    // The body is the real request type, not just JSON that happens to decrypt.
+    serde_json::from_value::<CipherRequestModel>(body.clone())
+        .expect("body is a CipherRequestModel");
+    let store = KeyStore::<KeySlotIds>::default();
+    let mut ctx = store.context_mut();
+    #[allow(deprecated)]
+    ctx.set_symmetric_key(test_org_slot(), org_key.clone())
+        .expect("set_symmetric_key");
+
+    let wrapped: EncString = original_key.parse().expect("parse");
+    let item_key = ctx
+        .unwrap_symmetric_key(test_org_slot(), &wrapped)
+        .expect("item key unwraps under the org key");
+    let mut read = |pointer: &str| -> String {
+        let enc: EncString = body
+            .pointer(pointer)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_else(|| panic!("no string at {pointer}"))
+            .parse()
+            .expect("parse");
+        enc.decrypt(&mut ctx, item_key).expect("decrypt")
+    };
+
+    assert_ne!(read("/login/password"), old_password);
+    assert_eq!(read("/passwordHistory/0/password"), old_password);
+    assert!(body["login"]["passwordRevisionDate"].is_string());
+    assert_eq!(body["lastKnownRevisionDate"], "2024-06-01T12:00:00Z");
+    assert!(body["data"].is_null());
 }
 
 pub fn fixtures_dir() -> PathBuf {
@@ -172,10 +241,10 @@ pub fn seal_claim_blobs(
     cipher_id: Uuid,
     terminate_sessions: bool,
 ) -> (Sealed, Sealed) {
-    let store = AccessConnectorKeyStore::default();
+    let store = KeyStore::<KeySlotIds>::default();
     let mut ctx = store.context_mut();
     #[allow(deprecated)]
-    ctx.set_symmetric_key(AccessConnectorSymmSlotId::Organization, org_key.clone())
+    ctx.set_symmetric_key(test_org_slot(), org_key.clone())
         .expect("set_symmetric_key");
 
     let target = TargetSystemSealedV1 {
@@ -199,12 +268,9 @@ pub fn seal_claim_blobs(
         terminate_sessions,
     };
 
-    let target_blob =
-        seal_target_system(target, &AccessConnectorSymmSlotId::Organization, &mut ctx)
-            .expect("seal target");
+    let target_blob = seal_target_system(target, &test_org_slot(), &mut ctx).expect("seal target");
     let config_blob =
-        seal_rotation_config(config, &AccessConnectorSymmSlotId::Organization, &mut ctx)
-            .expect("seal config");
+        seal_rotation_config(config, &test_org_slot(), &mut ctx).expect("seal config");
 
     (target_blob, config_blob)
 }
