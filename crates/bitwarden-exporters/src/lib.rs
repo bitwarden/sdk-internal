@@ -28,12 +28,9 @@ pub use error::ExportError;
 pub use export::encrypt_import;
 
 #[allow(missing_docs)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum ExportFormat {
     Csv,
     Json,

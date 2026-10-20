@@ -3,8 +3,6 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use reqwest::StatusCode;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{AttachmentsClient, CipherId};
 
@@ -24,7 +22,7 @@ pub enum CipherGetAttachmentDownloadUrlError {
     InvalidEmergencyAccessId,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Returns the attachment download URL.
     ///

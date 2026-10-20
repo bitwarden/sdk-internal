@@ -680,6 +680,7 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-commercial-marker",
  "bitwarden-core",
+ "bitwarden-ffi",
  "serde",
  "serde_json",
  "serde_repr",
@@ -920,6 +921,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-fido",
  "bitwarden-ssh",
  "bitwarden-vault",
@@ -996,6 +998,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-random",
  "password-rules-parser",
  "rand 0.10.2",
@@ -1026,6 +1029,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-exporters",
+ "bitwarden-ffi",
  "bitwarden-random",
  "bitwarden-ssh",
  "bitwarden-threading",
@@ -1160,6 +1164,7 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "bitwarden-ffi",
  "bitwarden-random",
  "bitwarden-sensitive-value",
  "rand 0.10.2",
@@ -1370,6 +1375,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-state",
  "bitwarden-sync",
  "bitwarden-test",
@@ -1398,6 +1404,7 @@ dependencies = [
 name = "bitwarden-sensitive-value"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-ffi",
  "serde",
  "serde_json",
  "uniffi",
@@ -1481,6 +1488,7 @@ name = "bitwarden-ssh"
 version = "4.0.0"
 dependencies = [
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-random",
  "block-padding",
  "ed25519",
@@ -1730,6 +1738,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-logging",
  "bitwarden-ssh",
  "bitwarden-state",

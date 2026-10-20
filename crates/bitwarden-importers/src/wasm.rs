@@ -26,7 +26,7 @@ export interface OnePasswordTwoFactorUi {
 }
 "#;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// The JavaScript object implementing the two-factor prompt.
     #[wasm_bindgen(js_name = OnePasswordTwoFactorUi, typescript_type = "OnePasswordTwoFactorUi")]
