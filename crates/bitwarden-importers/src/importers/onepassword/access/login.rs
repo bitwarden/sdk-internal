@@ -30,13 +30,9 @@ const AUTH_START_ENDPOINT: &str = "v3/auth/start";
 const AUTH_COMPLETE_ENDPOINT: &str = "v2/auth/complete";
 
 /// How an account can sign in. An account may offer both.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(into_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct SignInMethods {
     /// With the master password and Secret Key.
     pub password: bool,

@@ -5,8 +5,6 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError, RepositoryOption};
 use bitwarden_sync::{SyncHandler, SyncHandlerError};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{Send, SendClientExt as _, SendId};
 
@@ -76,7 +74,7 @@ pub enum SendSyncError {
 /// client) and only want the Send-persistence part of a sync run.
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct SendSyncHandlerClient {
     client: Client,
 }
@@ -87,7 +85,7 @@ impl SendSyncHandlerClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl SendSyncHandlerClient {
     /// Persists the sends from a sync response. Call this after each sync.
