@@ -373,24 +373,25 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
 
         // The plaintext view lives only inside this block.
         let request = {
-            let view = match api.decrypt_cipher_for_rotation(ctx.organization_id, cipher) {
-                Ok(v) => v,
-                Err(e) => {
-                    report_failure_absorb(
-                        &api,
-                        attempt_id,
-                        FailureCode::SealedDataRejected,
-                        Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
-                            &e, false,
-                        ))),
-                        SyncState::TargetUpdated,
-                    )
-                    .await;
-                    return ExecutionResult::Reported;
-                }
-            };
+            let (view, original_key) =
+                match api.decrypt_cipher_for_rotation(ctx.organization_id, cipher) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        report_failure_absorb(
+                            &api,
+                            attempt_id,
+                            FailureCode::SealedDataRejected,
+                            Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
+                                &e, false,
+                            ))),
+                            SyncState::TargetUpdated,
+                        )
+                        .await;
+                        return ExecutionResult::Reported;
+                    }
+                };
 
-            match api.rotate_cipher_password(&view, &new_password) {
+            match api.rotate_cipher_password(&view, &original_key, &new_password) {
                 Ok(r) => r,
                 Err(_) => {
                     report_failure_absorb(
@@ -717,12 +718,8 @@ fn cipher_rejection_reason(err: &CryptoModuleError, pre_flight: bool) -> &'stati
         (CryptoModuleError::CipherNotLogin, false) => "pre_write_cipher_not_login",
         (CryptoModuleError::CipherRestricted, true) => "pre_flight_cipher_restricted",
         (CryptoModuleError::CipherRestricted, false) => "pre_write_cipher_restricted",
-        (CryptoModuleError::CipherAttachmentsWithoutItemKey, true) => {
-            "pre_flight_cipher_attachments_without_item_key"
-        }
-        (CryptoModuleError::CipherAttachmentsWithoutItemKey, false) => {
-            "pre_write_cipher_attachments_without_item_key"
-        }
+        (CryptoModuleError::CipherWithoutItemKey, true) => "pre_flight_cipher_without_item_key",
+        (CryptoModuleError::CipherWithoutItemKey, false) => "pre_write_cipher_without_item_key",
         (_, true) => "pre_flight_cipher_decrypt_failed",
         (_, false) => "pre_write_cipher_decrypt_failed",
     }
@@ -1254,25 +1251,6 @@ mod tests {
         assert_preflight_rejects(|j| j["type"] = 2.into()).await;
     }
 
-    /// Encryption would add an item key and orphan attachment keys, so it is rejected up front.
-    #[tokio::test]
-    async fn preflight_rejects_attachments_without_item_key() {
-        let run = run_execute(|store, id| {
-            let view = crate::test_support::login_view(id, Some("old-pw"));
-            let mut json = crate::test_support::keyless_cipher_json(store, &view);
-            json["attachments"] = serde_json::json!([{"id": "att-1", "size": "10"}]);
-            vec![json_response(json)]
-        })
-        .await;
-
-        assert!(matches!(run.result, ExecutionResult::Reported));
-        assert_eq!(run.rotate_calls, 0, "rotate must not run");
-        assert!(run.requests_to("PUT", "/cipher").is_empty());
-        let body = run.failure_body();
-        assert_eq!(body["errorCode"], serde_json::json!("sealed_data_rejected"));
-        assert_eq!(body["syncState"], serde_json::json!(0));
-    }
-
     #[tokio::test]
     async fn rotation_of_cipher_with_item_key_and_attachments_succeeds() {
         let run = run_execute(|store, id| {
@@ -1304,9 +1282,11 @@ mod tests {
     #[tokio::test]
     async fn rotation_writes_typed_cipher_with_history() {
         let mut date = String::new();
+        let mut original_key = String::new();
         let run = run_execute(|store, id| {
             let r = cipher_response(store, id, |j| {
                 date = j["revisionDate"].as_str().unwrap().to_owned();
+                original_key = j["key"].as_str().unwrap().to_owned();
             });
             vec![r]
         })
@@ -1322,6 +1302,15 @@ mod tests {
         let body: serde_json::Value = serde_json::from_slice(&puts[0].body).expect("PUT body");
         let dec = |p| crate::test_support::decrypt_body_field(&run.store, &body, p);
 
+        // The item key is sent back exactly as fetched, and the new fields decrypt under it.
+        assert_eq!(body["key"], original_key.as_str());
+        let mut original_body = body.clone();
+        original_body["key"] = original_key.into();
+        assert_eq!(
+            crate::test_support::decrypt_body_field(&run.store, &original_body, "/login/password"),
+            dec("/login/password")
+        );
+
         // The password the integration set is what was written, and the old one is in history.
         assert_ne!(dec("/login/password"), "old-pw");
         assert_eq!(dec("/passwordHistory/0/password"), "old-pw");
@@ -1336,22 +1325,33 @@ mod tests {
         assert_eq!(dec("/name"), "Prod database");
     }
 
-    #[tokio::test]
-    async fn rotation_of_cipher_without_item_key_writes_one() {
-        let run = run_execute(|store, id| {
+    /// A keyless cipher would make the vault generate an item key, so it is rejected up front.
+    async fn assert_keyless_rejected(attachments: bool) {
+        let run = run_execute(move |store, id| {
             let view = crate::test_support::login_view(id, Some("old-pw"));
-            vec![json_response(crate::test_support::keyless_cipher_json(
-                store, &view,
-            ))]
+            let mut json = crate::test_support::keyless_cipher_json(store, &view);
+            if attachments {
+                json["attachments"] = serde_json::json!([{"id": "att-1", "size": "10"}]);
+            }
+            vec![json_response(json)]
         })
         .await;
 
-        assert_eq!(run.rotate_calls, 1);
-        let puts = run.requests_to("PUT", "/cipher");
-        assert_eq!(puts.len(), 1);
-        let body: serde_json::Value = serde_json::from_slice(&puts[0].body).expect("PUT body");
-        let dec = |p| crate::test_support::decrypt_body_field(&run.store, &body, p);
-        assert_ne!(dec("/login/password"), "old-pw");
-        assert_eq!(dec("/passwordHistory/0/password"), "old-pw");
+        assert!(matches!(run.result, ExecutionResult::Reported));
+        assert_eq!(run.rotate_calls, 0, "rotate must not run");
+        assert!(run.requests_to("PUT", "/cipher").is_empty());
+        let body = run.failure_body();
+        assert_eq!(body["errorCode"], serde_json::json!("sealed_data_rejected"));
+        assert_eq!(body["syncState"], serde_json::json!(0));
+    }
+
+    #[tokio::test]
+    async fn preflight_rejects_cipher_without_item_key() {
+        assert_keyless_rejected(false).await;
+    }
+
+    #[tokio::test]
+    async fn preflight_rejects_attachments_without_item_key() {
+        assert_keyless_rejected(true).await;
     }
 }

@@ -1356,7 +1356,7 @@ mod tests {
 
         // The key reached a client handed out earlier and one handed out later.
         for c in [access_connector, client.access_connector()] {
-            let view = c
+            let (view, _key) = c
                 .decrypt_cipher_for_rotation(org_id, cipher.clone())
                 .expect("decrypts with the shared store");
             assert_eq!(view.login.unwrap().password.as_deref(), Some("pw"));

@@ -116,7 +116,8 @@ async fn happy_path_rotate_and_report_success() {
     assert!(!put_reqs.is_empty(), "PUT cipher must have been called");
     let put_body: serde_json::Value =
         serde_json::from_slice(&put_reqs[0].body).expect("PUT body is JSON");
-    assert_cipher_write_rotated(&org_key, &put_body, "old-password");
+    let original_key = cipher_json["key"].as_str().expect("GET carries a key");
+    assert_cipher_write_rotated(&org_key, &put_body, original_key, "old-password");
 
     let success_reqs: Vec<_> = all_reqs
         .iter()

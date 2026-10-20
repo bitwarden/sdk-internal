@@ -215,19 +215,22 @@ pub fn make_cipher_json(
 }
 
 /// Asserts a cipher write `body` rotated the password away from `old_password`, with the old one
-/// heading the history.
+/// heading the history. The write's `key` must be exactly `original_key` (the GET's), and the
+/// fields must decrypt under the item key unwrapped from it.
 pub fn assert_cipher_write_rotated(
     org_key: &SymmetricCryptoKey,
     body: &serde_json::Value,
+    original_key: &str,
     old_password: &str,
 ) {
+    assert_eq!(body["key"], original_key, "item key is sent back unchanged");
     let store = KeyStore::<KeySlotIds>::default();
     let mut ctx = store.context_mut();
     #[allow(deprecated)]
     ctx.set_symmetric_key(test_org_slot(), org_key.clone())
         .expect("set_symmetric_key");
 
-    let wrapped: EncString = body["key"].as_str().expect("key").parse().expect("parse");
+    let wrapped: EncString = original_key.parse().expect("parse");
     let item_key = ctx
         .unwrap_symmetric_key(test_org_slot(), &wrapped)
         .expect("item key unwraps under the org key");
