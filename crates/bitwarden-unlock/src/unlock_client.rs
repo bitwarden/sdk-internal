@@ -107,7 +107,7 @@ impl UnlockClient {
     }
 
     /// Whether the key store holds the user key.
-    fn is_unlocked(&self) -> bool {
+    fn has_user_key(&self) -> bool {
         self.client
             .internal
             .get_key_store()
@@ -243,7 +243,7 @@ impl UnlockClient {
     /// user key is present: it does not check which key the client holds, or whether it belongs
     /// to the user or account in the request.
     pub async fn unlock(&self, method: UnlockMethod) -> Result<(), UnlockError> {
-        if self.is_unlocked() {
+        if self.has_user_key() {
             return Err(UnlockError::AlreadyUnlocked);
         }
 
@@ -647,7 +647,7 @@ mod tests {
         }
     }
 
-    fn is_unlocked(client: &Client) -> bool {
+    fn has_user_key(client: &Client) -> bool {
         client
             .internal
             .get_key_store()
@@ -796,7 +796,7 @@ mod tests {
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
         let client = Client::load_from_state(token_handler, reg).await.unwrap();
         assert!(
-            !is_unlocked(&client),
+            !has_user_key(&client),
             "Rehydrated client should start locked"
         );
 
@@ -806,7 +806,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(is_unlocked(&client));
+        assert!(has_user_key(&client));
         assert_eq!(
             user_key_base64(&client),
             expected_user_key,
