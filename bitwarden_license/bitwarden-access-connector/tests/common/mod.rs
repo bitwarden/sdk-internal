@@ -30,9 +30,6 @@ use bitwarden_pam_sealed::{
     SealedTargetSystemMethod, TargetSystemSealedV1, seal_rotation_config, seal_target_system,
 };
 pub use bitwarden_threading::cancellation_token::CancellationToken;
-use bitwarden_vault::{
-    CipherId, CipherRepromptType, CipherType, CipherView, EncryptMode, LoginView,
-};
 pub use uuid::Uuid;
 pub use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -87,10 +84,23 @@ pub fn token_encryption_key() -> SymmetricCryptoKey {
     TEST_CREDENTIAL.1.clone()
 }
 
-/// A fresh org key and its matching `encryptedPayload` for the identity response.
-pub fn make_org_key_and_payload() -> (SymmetricCryptoKey, String) {
+/// The org key the cipher vectors in `tests/fixtures/ciphers` are encrypted under (base64 of the
+/// encoded `SymmetricCryptoKey`).
+const ORG_KEY_B64: &str =
+    "a4oGKmzuPXlJr6ANfFLy9DHw7lmaCo47mc01fROBKMUklVouVlwvgGsX1Sz9D9JHKbqOku/K25akClXWyp8a4g==";
+
+/// The id of the `keyed_login` vector.
+pub const KEYED_LOGIN_ID: Uuid = uuid::uuid!("8e1f3a2b-5c4d-4e6f-9a7b-0c1d2e3f4a5b");
+
+pub fn fixture_org_key() -> SymmetricCryptoKey {
+    SymmetricCryptoKey::try_from(B64::try_from(ORG_KEY_B64).expect("valid b64"))
+        .expect("valid org key")
+}
+
+/// [`fixture_org_key`] and its matching `encryptedPayload` for the identity response.
+pub fn org_key_and_payload() -> (SymmetricCryptoKey, String) {
     let token_key = token_encryption_key();
-    let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+    let org_key = fixture_org_key();
     let org_key_bytes = org_key.to_encoded();
     let org_key_b64_str: String = B64::from(org_key_bytes.as_ref()).into();
     let payload_json = format!(r#"{{"encryptionKey":"{org_key_b64_str}"}}"#);
@@ -144,74 +154,11 @@ pub async fn mount_identity_ok(server: &MockServer, encrypted_payload: &str) {
         .await;
 }
 
-/// The cipher-read body: a login cipher in the test org, encrypted under `org_key` with `password`.
-pub fn make_cipher_json(
-    org_key: &SymmetricCryptoKey,
-    cipher_id: Uuid,
-    password: &str,
-) -> serde_json::Value {
-    let store = KeyStore::<KeySlotIds>::default();
-    #[allow(deprecated)]
-    store
-        .context_mut()
-        .set_symmetric_key(test_org_slot(), org_key.clone())
-        .expect("set_symmetric_key");
-
-    let view = CipherView {
-        partial: false,
-        id: Some(CipherId::new(cipher_id)),
-        organization_id: Some(test_org_id()),
-        folder_id: None,
-        collection_ids: vec![],
-        key: None,
-        name: "Prod database".to_owned(),
-        notes: None,
-        r#type: CipherType::Login,
-        login: Some(LoginView {
-            username: Some("testuser".to_owned()),
-            password: Some(password.to_owned()),
-            password_revision_date: None,
-            uris: None,
-            totp: None,
-            autofill_on_page_load: None,
-            fido2_credentials: None,
-        }),
-        identity: None,
-        card: None,
-        secure_note: None,
-        ssh_key: None,
-        bank_account: None,
-        drivers_license: None,
-        passport: None,
-        favorite: false,
-        reprompt: CipherRepromptType::None,
-        organization_use_totp: true,
-        edit: true,
-        permissions: None,
-        view_password: true,
-        local_data: None,
-        attachments: None,
-        attachment_decryption_failures: None,
-        fields: None,
-        password_history: None,
-        creation_date: "2024-01-01T00:00:00Z".parse().expect("valid date"),
-        deleted_date: None,
-        revision_date: "2024-01-01T00:00:00Z".parse().expect("valid date"),
-        archived_date: None,
-    };
-    let cipher = store
-        .encrypt(EncryptMode::Legacy(view))
-        .expect("encrypt cipher");
-    let request = CipherRequestModel::try_from(cipher).expect("request model");
-
-    // A request and a mini response share the cipher's field shapes.
-    let mut json = serde_json::to_value(request).expect("serialize");
-    let obj = json.as_object_mut().expect("object");
-    obj.remove("lastKnownRevisionDate");
-    obj.insert("id".to_owned(), cipher_id.to_string().into());
-    obj.insert("creationDate".to_owned(), "2024-01-01T00:00:00Z".into());
-    obj.insert("revisionDate".to_owned(), "2024-01-01T00:00:00Z".into());
-    json
+/// The cipher-read body: the recorded login cipher with its own item key, password
+/// `old-password`, encrypted under [`fixture_org_key`] (see `tests/fixtures/ciphers`).
+pub fn keyed_login_json() -> serde_json::Value {
+    serde_json::from_str(include_str!("../fixtures/ciphers/keyed_login.json"))
+        .expect("vector is JSON")
 }
 
 /// Asserts a cipher write `body` rotated the password away from `old_password`, with the old one
@@ -224,6 +171,9 @@ pub fn assert_cipher_write_rotated(
     old_password: &str,
 ) {
     assert_eq!(body["key"], original_key, "item key is sent back unchanged");
+    // The body is the real request type, not just JSON that happens to decrypt.
+    serde_json::from_value::<CipherRequestModel>(body.clone())
+        .expect("body is a CipherRequestModel");
     let store = KeyStore::<KeySlotIds>::default();
     let mut ctx = store.context_mut();
     #[allow(deprecated)]
@@ -247,7 +197,7 @@ pub fn assert_cipher_write_rotated(
     assert_ne!(read("/login/password"), old_password);
     assert_eq!(read("/passwordHistory/0/password"), old_password);
     assert!(body["login"]["passwordRevisionDate"].is_string());
-    assert_eq!(body["lastKnownRevisionDate"], "2024-01-01T00:00:00Z");
+    assert_eq!(body["lastKnownRevisionDate"], "2024-06-01T12:00:00Z");
     assert!(body["data"].is_null());
 }
 

@@ -10,13 +10,13 @@ async fn happy_path_rotate_and_report_success() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
 
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
     let job_id = Uuid::new_v4();
     let attempt_id = Uuid::new_v4();
     let target_id = Uuid::new_v4();
-    let cipher_id = Uuid::new_v4();
+    let cipher_id = KEYED_LOGIN_ID;
     let prefix = env_prefix(target_id);
 
     let script_path = fixtures_dir().join("exit_code.sh");
@@ -47,7 +47,7 @@ async fn happy_path_rotate_and_report_success() {
         .mount(&api)
         .await;
 
-    let cipher_json = make_cipher_json(&org_key, cipher_id, "old-password");
+    let cipher_json = keyed_login_json();
     Mock::given(method("GET"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"
@@ -143,13 +143,13 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
 
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
     let job_id = Uuid::new_v4();
     let attempt_id = Uuid::new_v4();
     let target_id = Uuid::new_v4();
-    let cipher_id = Uuid::new_v4();
+    let cipher_id = KEYED_LOGIN_ID;
     let prefix = env_prefix(target_id);
     let script_path = fixtures_dir().join("exit_code.sh");
 
@@ -179,7 +179,7 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         .mount(&api)
         .await;
 
-    let cipher_json = make_cipher_json(&org_key, cipher_id, "old-password");
+    let cipher_json = keyed_login_json();
     Mock::given(method("GET"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"
@@ -271,7 +271,7 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
 
-    let (_org_key, encrypted_payload) = make_org_key_and_payload();
+    let (_org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
     let job_id = Uuid::new_v4();
@@ -411,13 +411,13 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
 
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
     let job_id = Uuid::new_v4();
     let attempt_id = Uuid::new_v4();
     let target_id = Uuid::new_v4();
-    let cipher_id = Uuid::new_v4();
+    let cipher_id = KEYED_LOGIN_ID;
     let prefix = env_prefix(target_id);
 
     // Script exits 1 for terminate, 0 for every other operation.
@@ -463,7 +463,7 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
         .mount(&api)
         .await;
 
-    let cipher_json = make_cipher_json(&org_key, cipher_id, "old-password");
+    let cipher_json = keyed_login_json();
     Mock::given(method("GET"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"

@@ -157,8 +157,9 @@ mod tests {
 
     use super::*;
     use crate::test_support::{
-        cipher_json, client_with_store as client_for, decrypt_body_field, keyless_cipher_json,
-        login_view, org_store, test_org_id as org_id,
+        KEYED_LOGIN_WITH_ATTACHMENT, KEYLESS_LOGIN, RESTRICTED_LOGIN, attachments_json,
+        client_with_store as client_for, decrypt_body_field, keyed_login_json, org_store,
+        test_org_id as org_id, vector_json,
     };
 
     fn org_slot() -> SymmetricKeySlotId {
@@ -235,14 +236,10 @@ mod tests {
         Cipher::try_from(model).expect("cipher")
     }
 
-    fn fixture_cipher(store: &KeyStore<KeySlotIds>, password: Option<&str>) -> serde_json::Value {
-        cipher_json(store, &login_view(uuid::Uuid::new_v4(), password))
-    }
-
     #[test]
     fn decrypt_cipher_for_rotation_round_trips_and_returns_original_key() {
         let store = org_store();
-        let json = fixture_cipher(&store, Some("old-pw"));
+        let json = keyed_login_json();
         let original_key = json["key"].as_str().expect("key").to_owned();
 
         let (view, key) = client_for(&store)
@@ -250,7 +247,7 @@ mod tests {
             .expect("decrypt");
         assert_eq!(key.to_string(), original_key);
         let login = view.login.as_ref().expect("login");
-        assert_eq!(login.password.as_deref(), Some("old-pw"));
+        assert_eq!(login.password.as_deref(), Some("old-password"));
         assert_eq!(login.username.as_deref(), Some("svc-account"));
         assert_eq!(view.name, "Prod database");
     }
@@ -258,8 +255,7 @@ mod tests {
     #[test]
     fn decrypt_cipher_for_rotation_rejects_cipher_without_item_key() {
         let store = org_store();
-        let view = login_view(uuid::Uuid::new_v4(), Some("pw"));
-        let json = keyless_cipher_json(&store, &view);
+        let json = vector_json(KEYLESS_LOGIN);
 
         let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(matches!(
@@ -271,7 +267,7 @@ mod tests {
     #[test]
     fn decrypt_cipher_for_rotation_rejects_other_organization() {
         let store = org_store();
-        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        let mut json = keyed_login_json();
         json["organizationId"] = uuid::Uuid::new_v4().to_string().into();
 
         let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
@@ -284,7 +280,7 @@ mod tests {
     #[test]
     fn decrypt_cipher_for_rotation_rejects_missing_organization() {
         let store = org_store();
-        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        let mut json = keyed_login_json();
         json.as_object_mut().unwrap().remove("organizationId");
 
         let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
@@ -297,23 +293,19 @@ mod tests {
     #[test]
     fn decrypt_cipher_for_rotation_rejects_non_login_type() {
         let store = org_store();
-        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        let mut json = keyed_login_json();
         json["type"] = 2.into();
 
         let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(matches!(result, Err(CryptoModuleError::CipherNotLogin)));
     }
 
-    fn with_attachment(json: &mut serde_json::Value) {
-        json["attachments"] = serde_json::json!([{"id": "att-1", "size": "10"}]);
-    }
-
     #[test]
     fn decrypt_cipher_for_rotation_rejects_keyless_cipher_with_attachments() {
         let store = org_store();
-        let view = login_view(uuid::Uuid::new_v4(), Some("pw"));
-        let mut json = keyless_cipher_json(&store, &view);
-        with_attachment(&mut json);
+        // The keyless vector with the attachments of the keyed one grafted on.
+        let mut json = vector_json(KEYLESS_LOGIN);
+        json["attachments"] = attachments_json();
 
         let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(matches!(
@@ -325,8 +317,7 @@ mod tests {
     #[test]
     fn decrypt_cipher_for_rotation_accepts_attachments_with_item_key() {
         let store = org_store();
-        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
-        with_attachment(&mut json);
+        let json = vector_json(KEYED_LOGIN_WITH_ATTACHMENT);
 
         let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(result.is_ok(), "{result:?}");
@@ -335,8 +326,7 @@ mod tests {
     #[test]
     fn decrypt_cipher_for_rotation_rejects_restricted_cipher() {
         let store = org_store();
-        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
-        json["partialData"] = "{}".into();
+        let json = vector_json(RESTRICTED_LOGIN);
 
         let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(matches!(result, Err(CryptoModuleError::CipherRestricted)));
@@ -345,7 +335,7 @@ mod tests {
     #[test]
     fn decrypt_cipher_for_rotation_rejects_login_without_login_data() {
         let store = org_store();
-        let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
+        let mut json = keyed_login_json();
         json.as_object_mut().unwrap().remove("login");
 
         let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
@@ -362,7 +352,7 @@ mod tests {
             .to_string();
 
         for field in ["/login/password", "/login/username", "/notes", "/name"] {
-            let mut json = fixture_cipher(&store, Some("pw"));
+            let mut json = keyed_login_json();
             *json.pointer_mut(field).expect("field present") = foreign.clone().into();
 
             let result =
@@ -391,7 +381,7 @@ mod tests {
         let store = org_store();
         {
             let label = "item key";
-            let json = fixture_cipher(&store, Some("old-pw"));
+            let json = keyed_login_json();
             let original_key = json["key"].as_str().expect("key").to_owned();
             let (view, key) = client_for(&store)
                 .decrypt_cipher_for_rotation(org_id(), cipher_from(json))
@@ -433,7 +423,7 @@ mod tests {
                     "https://db.example.com",
                     "Prod database",
                     "rotated by PAM",
-                    "old-pw",
+                    "old-password",
                 ],
                 "{label}"
             );
@@ -451,7 +441,8 @@ mod tests {
         let store = org_store();
         {
             let label = "item key";
-            let json = fixture_cipher(&store, None);
+            let mut json = keyed_login_json();
+            json["login"]["password"] = serde_json::Value::Null;
             let (view, key) = client_for(&store)
                 .decrypt_cipher_for_rotation(org_id(), cipher_from(json))
                 .expect("decrypt");

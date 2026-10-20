@@ -785,14 +785,14 @@ mod tests {
 
     #[test]
     fn parse_cipher_parses_a_login() {
-        let cipher_id = Uuid::new_v4();
-        let view = crate::test_support::login_view(cipher_id, Some("pw"));
-        let store = crate::test_support::org_store();
-        let json = crate::test_support::cipher_json(&store, &view);
+        let json = crate::test_support::keyed_login_json();
         let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
 
         let cipher = parse_cipher(model).expect("parse_cipher");
-        assert_eq!(Uuid::from(cipher.id.expect("id")), cipher_id);
+        assert_eq!(
+            Uuid::from(cipher.id.expect("id")),
+            crate::test_support::KEYED_LOGIN_ID
+        );
         assert_eq!(cipher.r#type, bitwarden_vault::CipherType::Login);
         assert!(cipher.key.is_some());
         assert!(cipher.login.is_some());
@@ -800,9 +800,7 @@ mod tests {
 
     #[test]
     fn parse_cipher_missing_type_is_protocol_error() {
-        let view = crate::test_support::login_view(Uuid::new_v4(), Some("pw"));
-        let store = crate::test_support::org_store();
-        let mut json = crate::test_support::cipher_json(&store, &view);
+        let mut json = crate::test_support::keyed_login_json();
         json.as_object_mut().unwrap().remove("type");
         let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
 
@@ -814,9 +812,8 @@ mod tests {
     /// (see `crypto::tests`), so parsing must not drop or echo the value.
     #[test]
     fn parse_cipher_keeps_garbage_enc_string_for_strict_decryption() {
-        let view = crate::test_support::login_view(Uuid::new_v4(), Some("pw"));
         let store = crate::test_support::org_store();
-        let mut json = crate::test_support::cipher_json(&store, &view);
+        let mut json = crate::test_support::keyed_login_json();
         json["name"] = "2.secret!|garbage!|payload!".into();
         let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
 
@@ -980,9 +977,7 @@ mod tests {
         let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let attempt_id = Uuid::new_v4();
-        let cipher_id = Uuid::new_v4();
-        let view = crate::test_support::login_view(cipher_id, Some("pw"));
-        let store = crate::test_support::org_store();
+        let json = crate::test_support::keyed_login_json();
 
         Mock::given(method("GET"))
             .and(path(format!(
@@ -990,17 +985,22 @@ mod tests {
             )))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_json(crate::test_support::cipher_json(&store, &view))
+                    .set_body_json(json)
                     .insert_header("content-type", "application/json"),
             )
             .mount(&api_server)
             .await;
 
         let cipher = api.get_cipher(attempt_id).await.expect("get_cipher");
-        assert_eq!(Uuid::from(cipher.id.expect("id")), cipher_id);
         assert_eq!(
-            cipher.revision_date.timestamp(),
-            view.revision_date.timestamp()
+            Uuid::from(cipher.id.expect("id")),
+            crate::test_support::KEYED_LOGIN_ID
+        );
+        assert_eq!(
+            cipher.revision_date,
+            crate::test_support::CIPHER_REVISION_DATE
+                .parse::<chrono::DateTime<chrono::Utc>>()
+                .unwrap()
         );
     }
 
@@ -1322,12 +1322,9 @@ mod tests {
             tx,
         );
 
-        // Encrypt a cipher under a separate store, then give only the handler's store the key.
-        let issuer = crate::test_support::org_store();
-        let json = crate::test_support::cipher_json(
-            &issuer,
-            &crate::test_support::login_view(Uuid::new_v4(), Some("pw")),
-        );
+        // The cipher is encrypted under the vectors' org key; only the handler's store gets the
+        // key.
+        let json = crate::test_support::keyed_login_json();
         let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
         let cipher = parse_cipher(model).expect("parse");
         let org_id = crate::test_support::test_org_id();
@@ -1340,13 +1337,7 @@ mod tests {
             "no key yet"
         );
 
-        let org_key = {
-            let ctx = issuer.context();
-            #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::Organization(org_id))
-                .expect("org key")
-                .clone()
-        };
+        let org_key = crate::test_support::fixture_org_key();
         let store = handler.key_store().expect("key store");
         #[allow(deprecated)]
         store
@@ -1359,7 +1350,10 @@ mod tests {
             let (view, _key) = c
                 .decrypt_cipher_for_rotation(org_id, cipher.clone())
                 .expect("decrypts with the shared store");
-            assert_eq!(view.login.unwrap().password.as_deref(), Some("pw"));
+            assert_eq!(
+                view.login.unwrap().password.as_deref(),
+                Some("old-password")
+            );
         }
     }
 

@@ -769,7 +769,12 @@ mod tests {
         error::{FailureCode, SafeDetail},
         integrations::{Integration, IntegrationError, RotateContext, TargetEffect},
         resolver::ResolvedCredentials,
-        test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
+        test_support::{
+            KEYED_LOGIN_ID, KEYED_LOGIN_WITH_ATTACHMENT, KEYED_LOGIN_WITH_ATTACHMENT_ID,
+            KEYLESS_LOGIN, KEYLESS_LOGIN_ID, RESTRICTED_LOGIN, RESTRICTED_LOGIN_ID,
+            access_token_tagged, encrypted_payload_for, keyed_login_json, test_org_id, test_token,
+            vector_json,
+        },
     };
 
     /// An identity success body whose access token carries the `organization` claim.
@@ -1023,10 +1028,15 @@ mod tests {
 
     /// Runs one rotation against mock servers. `cipher_gets` serve successive `GET /cipher` calls
     /// (pre-flight, then pre-write); the last repeats.
-    async fn run_execute(
-        make: impl FnOnce(&KeyStore<KeySlotIds>, uuid::Uuid) -> Vec<ResponseTemplate>,
+    async fn run_execute(make: impl FnOnce() -> Vec<ResponseTemplate>) -> Run {
+        run_execute_for(crate::test_support::KEYED_LOGIN_ID, make).await
+    }
+
+    /// [`run_execute`] for a claim naming `cipher_id`.
+    async fn run_execute_for(
+        cipher_id: uuid::Uuid,
+        make: impl FnOnce() -> Vec<ResponseTemplate>,
     ) -> Run {
-        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
         use tokio::sync::watch;
         use wiremock::{
             Mock, MockServer,
@@ -1047,7 +1057,8 @@ mod tests {
             resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
         };
 
-        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        // The cipher vectors are encrypted under this org key, so the session must install it.
+        let org_key = crate::test_support::fixture_org_key();
         let payload = encrypted_payload_for(&org_key);
 
         let identity_server = MockServer::start().await;
@@ -1066,7 +1077,6 @@ mod tests {
         let attempt_id = uuid::Uuid::new_v4();
         let job_id = uuid::Uuid::new_v4();
         let target_system_id = uuid::Uuid::new_v4();
-        let cipher_id = uuid::Uuid::new_v4();
 
         // The client's own key store, which the session installs the org key into.
         let (tx, _rx) = watch::channel(std::time::Instant::now());
@@ -1083,7 +1093,7 @@ mod tests {
             .unwrap();
         handler.set_session(Arc::clone(&session));
 
-        let mut gets = make(&store, cipher_id);
+        let mut gets = make();
         let last = gets.pop().expect("at least one GET response");
         let cipher_path = format!("/access-connectors/rotation/attempts/{attempt_id}/cipher");
         for get in gets {
@@ -1184,25 +1194,13 @@ mod tests {
             .insert_header("content-type", "application/json")
     }
 
-    /// A GET response for a fixture login cipher (with an item key) whose JSON `edit` may alter.
-    fn cipher_response(
-        store: &KeyStore<KeySlotIds>,
-        cipher_id: uuid::Uuid,
-        edit: impl FnOnce(&mut serde_json::Value),
-    ) -> ResponseTemplate {
-        let view = crate::test_support::login_view(cipher_id, Some("old-pw"));
-        let mut json = crate::test_support::cipher_json(store, &view);
-        edit(&mut json);
-        json_response(json)
-    }
-
     /// A `get_cipher` protocol error after a successful rotate reports `target_updated`.
     #[tokio::test]
     async fn get_cipher_protocol_error_after_rotate_reports_target_updated() {
         // The first GET is the pre-flight read and must succeed; the second breaks.
-        let run = run_execute(|store, id| {
+        let run = run_execute(|| {
             vec![
-                cipher_response(store, id, |_| {}),
+                json_response(crate::test_support::keyed_login_json()),
                 ResponseTemplate::new(200)
                     .set_body_string("NOT JSON")
                     .insert_header("content-type", "application/json"),
@@ -1217,9 +1215,9 @@ mod tests {
 
     #[tokio::test]
     async fn preflight_cipher_id_mismatch_rejects_before_any_integration_call() {
-        let run =
-            run_execute(|store, _| vec![cipher_response(store, uuid::Uuid::new_v4(), |_| {})])
-                .await;
+        let mut json = keyed_login_json();
+        json["id"] = uuid::Uuid::new_v4().to_string().into();
+        let run = run_execute(|| vec![json_response(json)]).await;
 
         assert!(matches!(run.result, ExecutionResult::Reported));
         assert_eq!(run.rotate_calls, 0, "rotate must not run");
@@ -1228,9 +1226,10 @@ mod tests {
         assert_eq!(body["syncState"], serde_json::json!(0));
     }
 
-    /// A cipher that cannot be rotated fails the pre-flight, before the target is touched.
-    async fn assert_preflight_rejects(edit: impl FnOnce(&mut serde_json::Value) + 'static) {
-        let run = run_execute(|store, id| vec![cipher_response(store, id, edit)]).await;
+    /// A cipher that cannot be rotated fails the pre-flight, before the target is touched. The
+    /// claim names `cipher_id`, the id of the vector `json` is derived from.
+    async fn assert_preflight_rejects(cipher_id: uuid::Uuid, json: serde_json::Value) {
+        let run = run_execute_for(cipher_id, || vec![json_response(json)]).await;
 
         assert!(matches!(run.result, ExecutionResult::Reported));
         assert_eq!(run.rotate_calls, 0, "rotate must not run");
@@ -1242,21 +1241,22 @@ mod tests {
 
     #[tokio::test]
     async fn preflight_rejects_cipher_of_another_organization() {
-        assert_preflight_rejects(|j| j["organizationId"] = uuid::Uuid::new_v4().to_string().into())
-            .await;
+        let mut json = keyed_login_json();
+        json["organizationId"] = uuid::Uuid::new_v4().to_string().into();
+        assert_preflight_rejects(KEYED_LOGIN_ID, json).await;
     }
 
     #[tokio::test]
     async fn preflight_rejects_non_login_cipher() {
-        assert_preflight_rejects(|j| j["type"] = 2.into()).await;
+        let mut json = keyed_login_json();
+        json["type"] = 2.into();
+        assert_preflight_rejects(KEYED_LOGIN_ID, json).await;
     }
 
     #[tokio::test]
     async fn rotation_of_cipher_with_item_key_and_attachments_succeeds() {
-        let run = run_execute(|store, id| {
-            vec![cipher_response(store, id, |j| {
-                j["attachments"] = serde_json::json!([{"id": "att-1", "size": "10"}]);
-            })]
+        let run = run_execute_for(KEYED_LOGIN_WITH_ATTACHMENT_ID, || {
+            vec![json_response(vector_json(KEYED_LOGIN_WITH_ATTACHMENT))]
         })
         .await;
 
@@ -1266,7 +1266,7 @@ mod tests {
 
     #[tokio::test]
     async fn preflight_rejects_restricted_cipher() {
-        assert_preflight_rejects(|j| j["partialData"] = "{}".into()).await;
+        assert_preflight_rejects(RESTRICTED_LOGIN_ID, vector_json(RESTRICTED_LOGIN)).await;
     }
 
     /// Lenient decryption would drop the field and the write wipe it; strict fails the pre-flight.
@@ -1276,22 +1276,20 @@ mod tests {
 
         let other = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let foreign = "x".encrypt_with_key(&other).unwrap().to_string();
-        assert_preflight_rejects(move |j| j["notes"] = foreign.into()).await;
+        let mut json = keyed_login_json();
+        json["notes"] = foreign.into();
+        assert_preflight_rejects(KEYED_LOGIN_ID, json).await;
     }
 
     #[tokio::test]
     async fn rotation_writes_typed_cipher_with_history() {
-        let mut date = String::new();
-        let mut original_key = String::new();
-        let run = run_execute(|store, id| {
-            let r = cipher_response(store, id, |j| {
-                date = j["revisionDate"].as_str().unwrap().to_owned();
-                original_key = j["key"].as_str().unwrap().to_owned();
-            });
-            vec![r]
-        })
-        .await;
-        assert_eq!(date, crate::test_support::CIPHER_REVISION_DATE);
+        let json = keyed_login_json();
+        let original_key = json["key"].as_str().unwrap().to_owned();
+        assert_eq!(
+            json["revisionDate"],
+            crate::test_support::CIPHER_REVISION_DATE
+        );
+        let run = run_execute(|| vec![json_response(json)]).await;
 
         assert!(matches!(run.result, ExecutionResult::Reported));
         assert_eq!(run.rotate_calls, 1);
@@ -1312,8 +1310,8 @@ mod tests {
         );
 
         // The password the integration set is what was written, and the old one is in history.
-        assert_ne!(dec("/login/password"), "old-pw");
-        assert_eq!(dec("/passwordHistory/0/password"), "old-pw");
+        assert_ne!(dec("/login/password"), "old-password");
+        assert_eq!(dec("/passwordHistory/0/password"), "old-password");
         assert_eq!(dec("/passwordHistory/1/password"), "older-password");
         assert!(body["login"]["passwordRevisionDate"].is_string());
         assert_eq!(body["lastKnownRevisionDate"], "2024-06-01T12:00:00Z");
@@ -1327,15 +1325,11 @@ mod tests {
 
     /// A keyless cipher would make the vault generate an item key, so it is rejected up front.
     async fn assert_keyless_rejected(attachments: bool) {
-        let run = run_execute(move |store, id| {
-            let view = crate::test_support::login_view(id, Some("old-pw"));
-            let mut json = crate::test_support::keyless_cipher_json(store, &view);
-            if attachments {
-                json["attachments"] = serde_json::json!([{"id": "att-1", "size": "10"}]);
-            }
-            vec![json_response(json)]
-        })
-        .await;
+        let mut json = vector_json(KEYLESS_LOGIN);
+        if attachments {
+            json["attachments"] = crate::test_support::attachments_json();
+        }
+        let run = run_execute_for(KEYLESS_LOGIN_ID, || vec![json_response(json)]).await;
 
         assert!(matches!(run.result, ExecutionResult::Reported));
         assert_eq!(run.rotate_calls, 0, "rotate must not run");

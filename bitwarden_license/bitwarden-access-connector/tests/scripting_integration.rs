@@ -197,11 +197,11 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
     // A .ps1 cannot be executed by the kernel, so output at all proves a host interpreted it.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     let tmp = tempfile::TempDir::new().expect("temp dir");
@@ -210,7 +210,7 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_json(&org_key, cipher_id, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -275,17 +275,17 @@ async fn a_transient_exit_code_survives_a_real_powershell_host() {
     // Only a real host shows `exit 4` coming back as the process exit status.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_json(&org_key, cipher_id, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -347,17 +347,17 @@ async fn a_transient_exit_code_survives_a_real_powershell_host() {
 async fn a_failing_terminate_step_is_reported_but_the_rotation_succeeds() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_json(&org_key, cipher_id, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -407,11 +407,11 @@ async fn a_failing_terminate_step_is_reported_but_the_rotation_succeeds() {
 async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     let tmp = tempfile::TempDir::new().expect("temp dir");
@@ -420,7 +420,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_json(&org_key, cipher_id, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -486,17 +486,17 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
     // the payload exceeds the pipe buffer.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_json(&org_key, cipher_id, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -537,11 +537,11 @@ async fn a_symlink_pointing_outside_script_root_is_rejected() {
     // Containment is `canonicalize` plus `starts_with`; only a real link tests it.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     let root = tempfile::TempDir::new().expect("temp dir");
@@ -551,7 +551,7 @@ async fn a_symlink_pointing_outside_script_root_is_rejected() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_json(&org_key, cipher_id, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,

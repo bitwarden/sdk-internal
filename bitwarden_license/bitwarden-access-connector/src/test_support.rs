@@ -10,13 +10,10 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, Decryptable, EncString, KeyDecryptable, KeyEncryptable, KeyStore,
-    PrimitiveEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm,
+    SymmetricCryptoKey, SymmetricKeyAlgorithm,
 };
 use bitwarden_encoding::{B64, B64Url};
-use bitwarden_vault::{
-    CipherId, CipherRepromptType, CipherType, CipherView, EncryptMode, LoginUriView, LoginView,
-    PasswordHistoryView,
-};
+use bitwarden_vault::CipherView;
 
 use crate::api::{
     AccessConnectorClient, AccessConnectorClientExt as _, REQUEST_TIMEOUT, build_sdk_client,
@@ -91,127 +88,63 @@ pub(crate) fn encrypted_payload_for(org_key: &SymmetricCryptoKey) -> String {
         .to_string()
 }
 
-/// A key store holding a fresh org key in the test org's slot.
+/// The org key every cipher vector in `tests/fixtures/ciphers` is encrypted under (base64 of the
+/// encoded `SymmetricCryptoKey`).
+pub(crate) const ORG_KEY_B64: &str =
+    "a4oGKmzuPXlJr6ANfFLy9DHw7lmaCo47mc01fROBKMUklVouVlwvgGsX1Sz9D9JHKbqOku/K25akClXWyp8a4g==";
+
+/// The revision and creation date every cipher vector carries, with a millisecond part the write
+/// must truncate.
+pub(crate) const CIPHER_REVISION_DATE: &str = "2024-06-01T12:00:00.123Z";
+
+/// Org cipher with its own item key, a URI, notes and one password-history entry.
+pub(crate) const KEYED_LOGIN: &str = include_str!("../tests/fixtures/ciphers/keyed_login.json");
+pub(crate) const KEYED_LOGIN_ID: uuid::Uuid = uuid::uuid!("8e1f3a2b-5c4d-4e6f-9a7b-0c1d2e3f4a5b");
+/// [`KEYED_LOGIN`] plus an attachment with its own key.
+pub(crate) const KEYED_LOGIN_WITH_ATTACHMENT_ID: uuid::Uuid =
+    uuid::uuid!("9f2a4b3c-6d5e-4f70-8b8c-1d2e3f4a5b6c");
+pub(crate) const KEYED_LOGIN_WITH_ATTACHMENT: &str =
+    include_str!("../tests/fixtures/ciphers/keyed_login_with_attachment.json");
+/// Older-style cipher: no item key, every field encrypted directly under the org key.
+pub(crate) const KEYLESS_LOGIN: &str = include_str!("../tests/fixtures/ciphers/keyless_login.json");
+pub(crate) const KEYLESS_LOGIN_ID: uuid::Uuid = uuid::uuid!("a03b5c4d-7e6f-4081-9c9d-2e3f4a5b6c7d");
+/// Server-restricted cipher: carries `partialData`.
+pub(crate) const RESTRICTED_LOGIN: &str =
+    include_str!("../tests/fixtures/ciphers/restricted_login.json");
+
+pub(crate) const RESTRICTED_LOGIN_ID: uuid::Uuid =
+    uuid::uuid!("b14c6d5e-8f70-4192-8dae-3f4a5b6c7d8e");
+
+/// The org key the cipher vectors are encrypted under.
+pub(crate) fn fixture_org_key() -> SymmetricCryptoKey {
+    SymmetricCryptoKey::try_from(B64::try_from(ORG_KEY_B64).expect("valid b64"))
+        .expect("valid org key")
+}
+
+/// A vector's JSON, for tests to edit before serving it.
+pub(crate) fn vector_json(vector: &str) -> serde_json::Value {
+    serde_json::from_str(vector).expect("vector is JSON")
+}
+
+/// [`KEYED_LOGIN`] as the GET response JSON.
+pub(crate) fn keyed_login_json() -> serde_json::Value {
+    vector_json(KEYED_LOGIN)
+}
+
+/// The `attachments` array of [`KEYED_LOGIN_WITH_ATTACHMENT`], for grafting onto another vector.
+pub(crate) fn attachments_json() -> serde_json::Value {
+    vector_json(KEYED_LOGIN_WITH_ATTACHMENT)["attachments"].clone()
+}
+
+/// A key store holding the vectors' org key in the test org's slot.
 pub(crate) fn org_store() -> KeyStore<KeySlotIds> {
     let store = KeyStore::default();
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(
-            test_org_slot(),
-            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
-        )
+        .set_symmetric_key(test_org_slot(), fixture_org_key())
         .expect("set_symmetric_key");
     store
-}
-
-/// The revision date the cipher fixtures carry, with a millisecond part the write must truncate.
-pub(crate) const CIPHER_REVISION_DATE: &str = "2024-06-01T12:00:00.123Z";
-
-/// A login cipher view in the test org with fields and history a rotation must preserve.
-pub(crate) fn login_view(cipher_id: uuid::Uuid, password: Option<&str>) -> CipherView {
-    let revision_date = CIPHER_REVISION_DATE.parse().expect("valid date");
-    CipherView {
-        partial: false,
-        id: Some(CipherId::new(cipher_id)),
-        organization_id: Some(test_org_id()),
-        folder_id: None,
-        collection_ids: vec![],
-        key: None,
-        name: "Prod database".to_owned(),
-        notes: Some("rotated by PAM".to_owned()),
-        r#type: CipherType::Login,
-        login: Some(LoginView {
-            username: Some("svc-account".to_owned()),
-            password: password.map(str::to_owned),
-            password_revision_date: None,
-            uris: Some(vec![LoginUriView {
-                uri: Some("https://db.example.com".to_owned()),
-                r#match: None,
-                uri_checksum: None,
-            }]),
-            totp: None,
-            autofill_on_page_load: None,
-            fido2_credentials: None,
-        }),
-        identity: None,
-        card: None,
-        secure_note: None,
-        ssh_key: None,
-        bank_account: None,
-        drivers_license: None,
-        passport: None,
-        favorite: false,
-        reprompt: CipherRepromptType::None,
-        organization_use_totp: true,
-        edit: true,
-        permissions: None,
-        view_password: true,
-        local_data: None,
-        attachments: None,
-        attachment_decryption_failures: None,
-        fields: None,
-        password_history: Some(vec![PasswordHistoryView {
-            password: "older-password".to_owned(),
-            last_used_date: "2024-01-01T00:00:00Z".parse().expect("valid date"),
-        }]),
-        creation_date: revision_date,
-        deleted_date: None,
-        revision_date,
-        archived_date: None,
-    }
-}
-
-/// The wire `CipherMiniResponseModel` for `view`, encrypted by the vault under the org key in
-/// `store`. The vault always gives the cipher its own wrapped item key.
-pub(crate) fn cipher_json(store: &KeyStore<KeySlotIds>, view: &CipherView) -> serde_json::Value {
-    let cipher = store
-        .encrypt(EncryptMode::Legacy(view.clone()))
-        .expect("encrypt cipher");
-    let request = CipherRequestModel::try_from(cipher).expect("request model");
-
-    // A request and a mini response share the cipher's field shapes.
-    let mut json = serde_json::to_value(request).expect("serialize");
-    let obj = json.as_object_mut().expect("object");
-    obj.remove("lastKnownRevisionDate");
-    obj.insert("id".to_owned(), view.id.map(|id| id.to_string()).into());
-    obj.insert("creationDate".to_owned(), CIPHER_REVISION_DATE.into());
-    obj.insert("revisionDate".to_owned(), CIPHER_REVISION_DATE.into());
-    json
-}
-
-/// Like [`cipher_json`], but with every field encrypted directly under the org key and no item key.
-pub(crate) fn keyless_cipher_json(
-    store: &KeyStore<KeySlotIds>,
-    view: &CipherView,
-) -> serde_json::Value {
-    let mut ctx = store.context();
-    let mut enc = |s: &str| {
-        s.encrypt(&mut ctx, test_org_slot())
-            .expect("encrypt")
-            .to_string()
-    };
-    let login = view.login.as_ref().expect("login view");
-    serde_json::json!({
-        "id": view.id.map(|id| id.to_string()),
-        "organizationId": test_org_id().to_string(),
-        "type": 1,
-        "name": enc(&view.name),
-        "notes": view.notes.as_deref().map(&mut enc),
-        "login": {
-            "username": login.username.as_deref().map(&mut enc),
-            "password": login.password.as_deref().map(&mut enc),
-            "uris": login.uris.iter().flatten().map(|u| serde_json::json!({
-                "uri": u.uri.as_deref().map(&mut enc),
-            })).collect::<Vec<_>>(),
-        },
-        "passwordHistory": view.password_history.iter().flatten().map(|h| serde_json::json!({
-            "password": enc(&h.password),
-            "lastUsedDate": h.last_used_date.to_rfc3339(),
-        })).collect::<Vec<_>>(),
-        "creationDate": CIPHER_REVISION_DATE,
-        "revisionDate": CIPHER_REVISION_DATE,
-    })
 }
 
 /// Decrypts the string at JSON pointer `pointer` in a cipher write `body` under the item key its
@@ -221,6 +154,9 @@ pub(crate) fn decrypt_body_field(
     body: &serde_json::Value,
     pointer: &str,
 ) -> String {
+    // The body is the real request type, not just JSON that happens to decrypt.
+    serde_json::from_value::<CipherRequestModel>(body.clone())
+        .expect("body is a CipherRequestModel");
     let mut ctx = store.context_mut();
     let wrapped: EncString = body["key"]
         .as_str()
@@ -252,5 +188,86 @@ pub(crate) fn client_with_store(store: &KeyStore<KeySlotIds>) -> AccessConnector
     AccessConnectorClient {
         key_store: store.clone(),
         ..client.access_connector()
+    }
+}
+
+/// Pins the recorded cipher vectors: the GET response shape the connector must keep accepting.
+#[cfg(test)]
+mod tests {
+    use bitwarden_api_api::models::CipherMiniResponseModel;
+    use bitwarden_vault::{Cipher, StrictDecrypt};
+
+    use super::*;
+
+    fn strict_view(vector: &str) -> (Cipher, CipherView) {
+        let model: CipherMiniResponseModel = serde_json::from_str(vector).expect("model");
+        let cipher = Cipher::try_from(model).expect("cipher");
+        let view: CipherView = org_store()
+            .decrypt(&StrictDecrypt(cipher.clone()))
+            .expect("strict decrypt");
+        (cipher, view)
+    }
+
+    fn assert_full_login(view: &CipherView) {
+        assert_eq!(view.name, "Prod database");
+        assert_eq!(view.notes.as_deref(), Some("rotated by PAM"));
+        assert_eq!(view.organization_id, Some(test_org_id()));
+        let login = view.login.as_ref().expect("login");
+        assert_eq!(login.username.as_deref(), Some("svc-account"));
+        assert_eq!(login.password.as_deref(), Some("old-password"));
+        let uris = login.uris.as_ref().expect("uris");
+        assert_eq!(uris[0].uri.as_deref(), Some("https://db.example.com"));
+        let history = view.password_history.as_ref().expect("history");
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].password, "older-password");
+        assert_eq!(
+            view.revision_date,
+            CIPHER_REVISION_DATE
+                .parse::<chrono::DateTime<chrono::Utc>>()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn keyed_login_vector() {
+        let (cipher, view) = strict_view(KEYED_LOGIN);
+        assert!(cipher.key.is_some());
+        assert_eq!(view.id.map(uuid::Uuid::from), Some(KEYED_LOGIN_ID));
+        assert!(view.attachments.as_ref().is_none_or(Vec::is_empty));
+        assert_full_login(&view);
+    }
+
+    #[test]
+    fn keyed_login_with_attachment_vector() {
+        let (cipher, view) = strict_view(KEYED_LOGIN_WITH_ATTACHMENT);
+        assert!(cipher.key.is_some());
+        assert_full_login(&view);
+        let attachments = view.attachments.expect("attachments");
+        assert_eq!(attachments.len(), 1);
+        assert_eq!(attachments[0].id.as_deref(), Some("att-1"));
+        assert_eq!(attachments[0].file_name.as_deref(), Some("report.pdf"));
+        assert!(attachments[0].key.is_some());
+    }
+
+    #[test]
+    fn keyless_login_vector() {
+        let (cipher, view) = strict_view(KEYLESS_LOGIN);
+        assert!(cipher.key.is_none());
+        assert_full_login(&view);
+    }
+
+    #[test]
+    fn restricted_login_vector() {
+        let (cipher, view) = strict_view(RESTRICTED_LOGIN);
+        assert!(cipher.partial_data.is_some());
+        assert!(cipher.key.is_some());
+        assert!(view.partial);
+        assert_eq!(view.name, "Prod database");
+        let login = view.login.as_ref().expect("login");
+        assert_eq!(
+            login.uris.as_ref().expect("uris")[0].uri.as_deref(),
+            Some("https://db.example.com")
+        );
+        assert!(login.password.is_none());
     }
 }
