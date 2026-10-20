@@ -1,38 +1,64 @@
 //! Client for unlocking a rehydrated Bitwarden SDK client.
 
-use bitwarden_core::Client;
 #[cfg(feature = "cli")]
 use bitwarden_core::client::persisted_state::{
     ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, SESSION_PROTECTED_USER_KEY,
 };
+use bitwarden_core::{
+    Client,
+    client::encryption_settings::EncryptionSettingsError,
+    key_management::{SymmetricKeySlotId, crypto::InitUserCryptoRequest},
+};
+use bitwarden_error::bitwarden_error;
+use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "cli")]
 use crate::SessionKey;
 
-/// The unlock factor used to unlock a rehydrated client.
-///
-/// Currently only session-key unlock is supported. Master password, PIN,
-/// biometric, and device-key unlock are explicitly out of scope.
+/// The unlock factor passed to [`UnlockClient::unlock`].
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+// `SessionKey` has no UniFFI representation, so the enum is a UniFFI type only when the CLI-only
+// session-key variant is compiled out.
+#[cfg_attr(all(feature = "uniffi", not(feature = "cli")), derive(uniffi::Enum))]
+#[bitwarden_ffi::wasm_record]
+#[allow(clippy::large_enum_variant)]
 pub enum UnlockMethod {
+    /// Unlock by initializing the user's crypto state from an [`InitUserCryptoRequest`], as
+    /// [`CryptoClient::initialize_user_crypto`](bitwarden_core::key_management::CryptoClient::initialize_user_crypto)
+    /// does.
+    Legacy(InitUserCryptoRequest),
     /// Unlock using a session key previously obtained from
     /// [`UnlockClient::generate_session_key`].
+    ///
+    /// Only the CLI unlocks with a session key, so this variant is not part of the WASM or UniFFI
+    /// surface. `serde(skip)` keeps it out of the generated TypeScript type.
+    #[cfg(feature = "cli")]
+    #[serde(skip)]
     SessionKey(SessionKey),
 }
 
 /// Errors returned by [`UnlockClient::generate_session_key`] and
 /// [`UnlockClient::unlock`].
-///
-/// Detailed causes are emitted via `tracing::error!` rather than carried in the
-/// error type, so callers see a uniform failure shape while operators retain
-/// diagnostic visibility through logs.
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum UnlockError {
-    /// An unknown error occurred. See logs for details.
+    /// The client already holds a user key. Nothing was changed.
+    #[error("The client is already unlocked")]
+    AlreadyUnlocked,
+    /// Initializing the user's crypto state failed, for example because of a wrong PIN or
+    /// password.
+    #[error(transparent)]
+    EncryptionSettings(#[from] EncryptionSettingsError),
+    /// An unknown error occurred while handling a session key. The detailed cause is emitted via
+    /// `tracing::error!` rather than carried in the error, so callers see a uniform failure shape
+    /// while operators retain diagnostic visibility through logs.
     #[error("An unknown error occurred while unlocking the client")]
     Unknown,
 }
 
-/// Client for locking the vault in memory, and for minting session keys and unlocking the vault
-/// with one.
+/// Client for unlocking and locking the vault in memory, and for minting session keys and
+/// unlocking the vault with one.
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 #[bitwarden_ffi::wasm_object]
@@ -53,8 +79,6 @@ impl UnlockClient {
     /// rehydrated client.
     #[cfg(feature = "cli")]
     pub async fn generate_session_key(&self) -> Result<SessionKey, UnlockError> {
-        use bitwarden_core::key_management::SymmetricKeySlotId;
-
         let (envelope, session_key) = {
             let key_store = self.client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
@@ -82,15 +106,22 @@ impl UnlockClient {
         Ok(session_key)
     }
 
-    /// Unlock a rehydrated client using the supplied unlock factor.
+    /// Whether the key store holds the user key.
+    fn is_unlocked(&self) -> bool {
+        self.client
+            .internal
+            .get_key_store()
+            .context()
+            .has_symmetric_key(SymmetricKeySlotId::User)
+    }
+
+    /// Unlock a rehydrated client with a session key.
     ///
     /// Reads [`SESSION_PROTECTED_USER_KEY`] and [`ACCOUNT_CRYPTO_STATE`] from
     /// the state registry, unwraps the user key, initializes the user's crypto
     /// state, and restores any persisted organization keys.
     #[cfg(feature = "cli")]
-    pub async fn unlock(&self, unlock: UnlockMethod) -> Result<(), UnlockError> {
-        let UnlockMethod::SessionKey(session_key) = unlock;
-
+    async fn unlock_with_session_key(&self, session_key: SessionKey) -> Result<(), UnlockError> {
         let state = self.client.platform().state();
 
         let session_protected_user_key = state
@@ -195,10 +226,44 @@ impl UnlockClient {
 }
 
 #[bitwarden_ffi::wasm_export]
+// `UnlockMethod` is a UniFFI type only without the `cli` feature, see its definition.
+#[cfg_attr(
+    all(feature = "uniffi", not(feature = "cli")),
+    uniffi::export(async_runtime = "tokio")
+)]
+impl UnlockClient {
+    /// Unlock the client with the supplied unlock factor.
+    ///
+    /// [`UnlockMethod::Legacy`] initializes the user's crypto state from the request, as
+    /// `CryptoClient::initialize_user_crypto` does, and returns its errors as
+    /// [`UnlockError::EncryptionSettings`].
+    ///
+    /// If the client is already unlocked, this returns [`UnlockError::AlreadyUnlocked`] before
+    /// doing any work and leaves the client's keys untouched. The check only looks at whether a
+    /// user key is present: it does not check which key the client holds, or whether it belongs
+    /// to the user or account in the request.
+    pub async fn unlock(&self, method: UnlockMethod) -> Result<(), UnlockError> {
+        if self.is_unlocked() {
+            return Err(UnlockError::AlreadyUnlocked);
+        }
+
+        match method {
+            UnlockMethod::Legacy(request) => {
+                Ok(self.client.crypto().initialize_user_crypto(request).await?)
+            }
+            #[cfg(feature = "cli")]
+            UnlockMethod::SessionKey(session_key) => {
+                self.unlock_with_session_key(session_key).await
+            }
+        }
+    }
+}
+
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl UnlockClient {
     /// Clear the in-memory user and organization keys, retaining the client instance so that a
-    /// later `initialize_user_crypto` re-unlocks it.
+    /// later [`UnlockClient::unlock`] re-unlocks it.
     ///
     /// On WASM, unlocking also copies the user key into client-held state through the
     /// key-management state bridge, so locking clears it there as well. The in-memory keys are
@@ -368,6 +433,162 @@ mod lock_tests {
             bridge.get_user_key().await.is_none(),
             "Locking should clear the user key from the state bridge"
         );
+    }
+
+    fn user_key_base64(client: &Client) -> String {
+        let key_store = client.internal.get_key_store();
+        let ctx = key_store.context();
+        #[allow(deprecated)]
+        ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+            .unwrap()
+            .to_base64()
+            .to_string()
+    }
+
+    #[tokio::test]
+    async fn legacy_unlock_unlocks_fresh_client() {
+        let (user_key, crypto_state) = make_test_user_crypto();
+        let client = Client::new_test(None);
+
+        client
+            .unlock()
+            .unlock(UnlockMethod::Legacy(init_request(&user_key, &crypto_state)))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            user_key_base64(&client),
+            user_key.to_base64().to_string(),
+            "Unlocking should load the request's user key into the key store"
+        );
+    }
+
+    #[tokio::test]
+    async fn unlock_on_unlocked_client_returns_already_unlocked_and_keeps_user_key() {
+        let (client, _, encrypted) = unlocked_client().await;
+        let user_key_before = user_key_base64(&client);
+
+        // A request for a different user key: the check must not depend on the request.
+        let (other_user_key, other_crypto_state) = make_test_user_crypto();
+        let result = client
+            .unlock()
+            .unlock(UnlockMethod::Legacy(init_request(
+                &other_user_key,
+                &other_crypto_state,
+            )))
+            .await;
+
+        assert!(
+            matches!(result, Err(UnlockError::AlreadyUnlocked)),
+            "Unlocking an unlocked client should return AlreadyUnlocked, got {result:?}"
+        );
+        assert_eq!(user_key_base64(&client), user_key_before);
+        assert_eq!(
+            decrypt_with_user_key(&client, &encrypted).unwrap(),
+            PLAINTEXT
+        );
+    }
+
+    #[tokio::test]
+    async fn unlock_after_lock_reunlocks_same_instance() {
+        let (client, request, encrypted) = unlocked_client().await;
+
+        client.unlock().lock().await;
+        client
+            .unlock()
+            .unlock(UnlockMethod::Legacy(request))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            decrypt_with_user_key(&client, &encrypted).unwrap(),
+            PLAINTEXT
+        );
+    }
+
+    #[tokio::test]
+    async fn legacy_unlock_with_wrong_pin_passes_through_wrong_pin() {
+        use bitwarden_core::client::encryption_settings::EncryptionSettingsError;
+        use bitwarden_crypto::safe::{
+            PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace,
+        };
+
+        let (user_key, crypto_state) = make_test_user_crypto();
+        let envelope = {
+            let store: KeyStore<KeySlotIds> = KeyStore::default();
+            let mut ctx = store.context_mut();
+            let user_key_id = ctx.add_local_symmetric_key(user_key.clone());
+            PasswordProtectedKeyEnvelope::seal(
+                user_key_id,
+                "1234",
+                PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+                &ctx,
+            )
+            .unwrap()
+        };
+        let mut request = init_request(&user_key, &crypto_state);
+        request.method = InitUserCryptoMethod::PinEnvelope {
+            pin: "0000".to_string(),
+            pin_protected_user_key_envelope: envelope,
+        };
+        let client = Client::new_test(None);
+
+        let result = client.unlock().unlock(UnlockMethod::Legacy(request)).await;
+
+        assert!(
+            matches!(
+                result,
+                Err(UnlockError::EncryptionSettings(
+                    EncryptionSettingsError::WrongPin
+                ))
+            ),
+            "A wrong PIN should pass through as WrongPin, got {result:?}"
+        );
+        assert_eq!(result.unwrap_err().to_string(), "Wrong Pin");
+        assert!(
+            !client
+                .internal
+                .get_key_store()
+                .context()
+                .has_symmetric_key(SymmetricKeySlotId::User),
+            "A failed unlock should leave the client locked"
+        );
+    }
+
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn unlock_on_unlocked_client_keeps_user_key_in_state_bridge() {
+        use bitwarden_core::key_management::state_bridge::test_support::InMemoryStateBridge;
+
+        let (user_key, crypto_state) = make_test_user_crypto();
+        let client = Client::new_test(None);
+        let bridge = client.km_state_bridge();
+        bridge.register_bridge(Box::new(InMemoryStateBridge::default()));
+        client
+            .unlock()
+            .unlock(UnlockMethod::Legacy(init_request(&user_key, &crypto_state)))
+            .await
+            .unwrap();
+
+        let (other_user_key, other_crypto_state) = make_test_user_crypto();
+        let result = client
+            .unlock()
+            .unlock(UnlockMethod::Legacy(init_request(
+                &other_user_key,
+                &other_crypto_state,
+            )))
+            .await;
+
+        assert!(matches!(result, Err(UnlockError::AlreadyUnlocked)));
+        assert_eq!(
+            bridge
+                .get_user_key()
+                .await
+                .map(|k| k.to_base64().to_string()),
+            Some(user_key.to_base64().to_string()),
+            "An AlreadyUnlocked result should leave the state bridge user key in place"
+        );
+        assert_eq!(user_key_base64(&client), user_key.to_base64().to_string());
     }
 }
 
@@ -591,6 +812,31 @@ mod tests {
             expected_user_key,
             "Unlocked user key should match the original"
         );
+    }
+
+    #[tokio::test]
+    async fn unlock_with_session_key_on_unlocked_client_returns_already_unlocked() {
+        ensure_platform_info();
+        let (user_key, crypto_state) = make_test_user_crypto();
+        let expected_user_key = user_key.to_base64().to_string();
+        let (envelope, session_key) = seal_with_new_session_key(&user_key);
+
+        let reg = populate_registry_for_unlock(envelope, crypto_state).await;
+        let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
+        let client = Client::load_from_state(token_handler, reg).await.unwrap();
+        client
+            .unlock()
+            .unlock(UnlockMethod::SessionKey(session_key.clone()))
+            .await
+            .unwrap();
+
+        let result = client
+            .unlock()
+            .unlock(UnlockMethod::SessionKey(session_key))
+            .await;
+
+        assert!(matches!(result, Err(UnlockError::AlreadyUnlocked)));
+        assert_eq!(user_key_base64(&client), expected_user_key);
     }
 
     #[tokio::test]

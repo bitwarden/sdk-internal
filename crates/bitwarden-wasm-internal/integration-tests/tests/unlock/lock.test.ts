@@ -54,4 +54,47 @@ describe("lock", () => {
     },
     TIMEOUT,
   );
+
+  it(
+    "rejects unlocking an unlocked client and leaves its user key in place",
+    async () => {
+      const seeded = harness.server.seedUserTestVector(VECTOR);
+      const client = harness.newClientEmulator();
+      await client.login(seeded.email);
+      await client.unlock(VECTOR.account.password);
+
+      const sdk = client.getPasswordManagerClient();
+      const userKey = await sdk.crypto().get_user_encryption_key();
+
+      await expect(client.unlockInPlace(VECTOR.account.password)).rejects.toMatchObject({
+        name: "UnlockError",
+        variant: "AlreadyUnlocked",
+      });
+
+      expect(await client.bridge.get_user_key()).toBe(userKey);
+      expect(await sdk.crypto().get_user_encryption_key()).toBe(userKey);
+      await validateVault(client, seeded.seed);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "rejects a wrong password with the crypto initialization error and stays locked",
+    async () => {
+      const seeded = harness.server.seedUserTestVector(VECTOR);
+      const client = harness.newClientEmulator();
+      await client.login(seeded.email);
+      await client.unlock(VECTOR.account.password);
+      await client.getPasswordManagerClient().unlock().lock();
+
+      await expect(client.unlockInPlace("wrong password")).rejects.toMatchObject({
+        name: "UnlockError",
+        variant: "EncryptionSettings",
+      });
+
+      expect(await client.bridge.get_user_key()).toBeNull();
+      await expect(validateVault(client, seeded.seed)).rejects.toThrow();
+    },
+    TIMEOUT,
+  );
 });
