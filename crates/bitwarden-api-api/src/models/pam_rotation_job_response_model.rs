@@ -12,16 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// PamRotationJobResponseModel : One offer of rotation work for a config, together with every
-/// attempt recorded against it -- an element of
-/// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.
-/// PamRotationConfigDetailResponseModel.Jobs (the config detail page's attempt history).
+/// PamRotationJobResponseModel : One offer of rotation work for a config, with its attempts.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PamRotationJobResponseModel {
-    /// The job's unique identifier.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    /// The rotation config this job was offered for.
     #[serde(
         rename = "rotationConfigId",
         alias = "RotationConfigId",
@@ -40,7 +35,7 @@ pub struct PamRotationJobResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub status: Option<models::PamRotationJobStatus>,
-    /// The access connector currently holding the job's claim. Null unless
+    /// The access connector holding the claim. Null unless
     /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.PamRotationJobResponseModel.
     /// Status is Bit.Pam.Enums.PamRotationJobStatus.Claimed.
     #[serde(
@@ -49,7 +44,7 @@ pub struct PamRotationJobResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub claimed_by_access_connector_id: Option<uuid::Uuid>,
-    /// When the current claim was taken (UTC). Null unless
+    /// When the current claim was taken. Null unless
     /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.PamRotationJobResponseModel.
     /// Status is Bit.Pam.Enums.PamRotationJobStatus.Claimed.
     #[serde(
@@ -58,28 +53,27 @@ pub struct PamRotationJobResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub claimed_at: Option<String>,
-    /// When the job was offered (UTC).
     #[serde(
         rename = "creationDate",
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub creation_date: Option<String>,
-    /// The earliest time the job can be claimed (UTC). Pushed out on retry (backoff) or release.
+    /// The earliest time the job can be claimed; pushed out by retry backoff or a release.
     #[serde(
         rename = "nextClaimableAt",
         alias = "NextClaimableAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub next_claimable_at: Option<String>,
-    /// When the job times out if no attempt has succeeded by then (UTC).
+    /// When the job times out unless an attempt has succeeded.
     #[serde(
         rename = "expiresAt",
         alias = "ExpiresAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub expires_at: Option<String>,
-    /// Every attempt recorded against this job, oldest first.
+    /// The job's attempts, oldest first.
     #[serde(
         rename = "attempts",
         alias = "Attempts",
@@ -89,10 +83,7 @@ pub struct PamRotationJobResponseModel {
 }
 
 impl PamRotationJobResponseModel {
-    /// One offer of rotation work for a config, together with every attempt recorded against it --
-    /// an element of
-    /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.
-    /// PamRotationConfigDetailResponseModel.Jobs (the config detail page's attempt history).
+    /// One offer of rotation work for a config, with its attempts.
     pub fn new() -> PamRotationJobResponseModel {
         PamRotationJobResponseModel {
             id: None,

@@ -11,8 +11,6 @@ use bitwarden_crypto::{IdentifyKey, KeyStore, KeyStoreContext};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
 use crate::{
@@ -47,7 +45,7 @@ pub fn should_use_blob_encryption(
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CiphersClient {
     #[allow(dead_code)]
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -72,7 +70,7 @@ impl FromClient for CiphersClient {
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     pub(crate) fn should_use_blob_encryption(
         &self,

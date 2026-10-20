@@ -10,10 +10,16 @@ mod approvals;
 mod error;
 mod leases;
 mod pam_client;
+mod rotation;
 
 uuid_newtype!(pub AccessLeaseId);
 uuid_newtype!(pub AccessRequestId);
 uuid_newtype!(pub AccessRuleId);
+uuid_newtype!(pub AccessConnectorId);
+uuid_newtype!(pub RotationAttemptId);
+uuid_newtype!(pub RotationConfigId);
+uuid_newtype!(pub RotationJobId);
+uuid_newtype!(pub TargetSystemId);
 
 pub use access_requests::{
     AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
@@ -34,3 +40,15 @@ pub use leases::{
     AccessLeaseTermination, AccessLeaseView, LeasesClient,
 };
 pub use pam_client::{PamClient, PamClientExt};
+pub use rotation::{
+    AccessConnector, AccessConnectorDetail, AccessConnectorRegistrationResponse,
+    AccessConnectorStatus, AccessConnectorsClient, PasswordPolicy, QuartzSchedulePreset,
+    RotationAttempt, RotationAttemptStatus, RotationClient, RotationConfigActions,
+    RotationConfigCreateRequest, RotationConfigDetailView, RotationConfigSealedFields,
+    RotationConfigView, RotationConfigsClient, RotationError, RotationJob, RotationJobStatus,
+    RotationScheduleClient, RotationSource, RotationSyncState, RotationValidationError,
+    SessionTerminationOutcome, TargetSystemCreateError, TargetSystemCreateRequest,
+    TargetSystemKind, TargetSystemMethod, TargetSystemSealedFields, TargetSystemStatus,
+    TargetSystemView, TargetSystemsClient, is_likely_quartz_cron, preset_for_cron,
+    rotation_config_actions,
+};
