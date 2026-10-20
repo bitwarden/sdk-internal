@@ -6,11 +6,11 @@ pub(crate) mod scripting;
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
+use bitwarden_pam_sealed::SealedTargetSystemKind;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
-pub(crate) use crate::api::models::TargetKind;
 use crate::{
     error::{ErrorClass, FailureCode, SafeDetail, SyncState},
     resolver::ResolvedCredentials,
@@ -98,10 +98,10 @@ pub(crate) trait Integration: Send + Sync {
     async fn terminate_sessions(&self, ctx: &RotateContext) -> Result<(), IntegrationError>;
 }
 
-/// Maps a [`TargetKind`] to its [`Integration`] driver. Unregistered kinds such as `Mssql` return
-/// `None`, which the executor reports as `unsupported_kind`.
+/// Maps a [`SealedTargetSystemKind`] to its [`Integration`] driver. Unregistered kinds such as
+/// `Mssql` return `None`, which the executor reports as `unsupported_kind`.
 pub(crate) struct IntegrationRegistry {
-    map: HashMap<TargetKind, Arc<dyn Integration>>,
+    map: HashMap<SealedTargetSystemKind, Arc<dyn Integration>>,
 }
 
 impl IntegrationRegistry {
@@ -111,11 +111,15 @@ impl IntegrationRegistry {
         }
     }
 
-    pub(crate) fn register(&mut self, kind: TargetKind, integration: Arc<dyn Integration>) {
+    pub(crate) fn register(
+        &mut self,
+        kind: SealedTargetSystemKind,
+        integration: Arc<dyn Integration>,
+    ) {
         self.map.insert(kind, integration);
     }
 
-    pub(crate) fn get(&self, kind: TargetKind) -> Option<Arc<dyn Integration>> {
+    pub(crate) fn get(&self, kind: SealedTargetSystemKind) -> Option<Arc<dyn Integration>> {
         self.map.get(&kind).cloned()
     }
 }
@@ -148,15 +152,15 @@ mod tests {
     #[test]
     fn registry_get_registered_kind() {
         let mut reg = IntegrationRegistry::new();
-        reg.register(TargetKind::CustomScript, Arc::new(AlwaysOk));
-        assert!(reg.get(TargetKind::CustomScript).is_some());
+        reg.register(SealedTargetSystemKind::CustomScript, Arc::new(AlwaysOk));
+        assert!(reg.get(SealedTargetSystemKind::CustomScript).is_some());
     }
 
     #[test]
     fn registry_get_unregistered_kind_returns_none() {
         let reg = IntegrationRegistry::new();
-        assert!(reg.get(TargetKind::Mssql).is_none());
-        assert!(reg.get(TargetKind::Entra).is_none());
+        assert!(reg.get(SealedTargetSystemKind::Mssql).is_none());
+        assert!(reg.get(SealedTargetSystemKind::Entra).is_none());
     }
 
     #[test]

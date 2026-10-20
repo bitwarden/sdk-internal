@@ -11,6 +11,7 @@ use bitwarden_crypto::KeyStore;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 mod actions;
+mod claim;
 mod configs;
 mod connectors;
 mod error;
@@ -21,6 +22,7 @@ mod target_systems;
 mod validate;
 
 pub use actions::{RotationConfigActions, rotation_config_actions};
+pub use claim::{SealRejection, VerifiedJob, WorkSnapshot, WorkSnapshotError};
 pub use configs::{
     RotationConfigCreateRequest, RotationConfigDetailView, RotationConfigSealedFields,
     RotationConfigView, RotationConfigsClient,

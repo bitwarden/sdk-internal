@@ -7,11 +7,10 @@ pub(crate) mod env;
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use bitwarden_pam_sealed::SealedTargetSystemKind;
 use bitwarden_sensitive_value::Sensitive;
 use uuid::Uuid;
 use zeroize::Zeroizing;
-
-use crate::api::models::TargetKind;
 
 /// Resolved credentials keyed by suffix, the env var name after the `<TARGET_ID>_` prefix (e.g.
 /// `CLIENT_SECRET`). Values are [`Sensitive<Zeroizing<String>>`], zeroed on drop.
@@ -64,7 +63,7 @@ pub(crate) trait CredentialResolver: Send + Sync {
     async fn resolve(
         &self,
         target_system_id: Uuid,
-        kind: TargetKind,
+        kind: SealedTargetSystemKind,
     ) -> Result<ResolvedCredentials, ResolveError>;
 }
 

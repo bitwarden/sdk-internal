@@ -1,8 +1,6 @@
 //! Domain types produced by the [`super`] API wrapper; the wire DTOs come from
 //! `bitwarden_api_api::models`.
 
-use bitwarden_pam_sealed::SealedTargetSystemKind;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{
@@ -10,51 +8,10 @@ use crate::{
     error::{SessionTermination, SyncState},
 };
 
-/// The target-system kind, taken only from the unsealed blob, never the claim's plaintext `kind`.
-/// An unrecognised kind fails to unseal, so there is no catch-all variant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum TargetKind {
-    /// Microsoft Entra ID (Azure AD).
-    Entra,
-    /// Microsoft SQL Server.
-    Mssql,
-    /// Operator-supplied custom rotation script.
-    CustomScript,
-}
-
-impl From<SealedTargetSystemKind> for TargetKind {
-    fn from(kind: SealedTargetSystemKind) -> Self {
-        match kind {
-            SealedTargetSystemKind::Entra => TargetKind::Entra,
-            SealedTargetSystemKind::Mssql => TargetKind::Mssql,
-            SealedTargetSystemKind::CustomScript => TargetKind::CustomScript,
-        }
-    }
-}
-
 /// A claimable rotation job returned by the poll endpoint.
 #[derive(Debug, Clone)]
 pub(crate) struct JobRef {
     pub(crate) id: Uuid,
-}
-
-/// The work snapshot returned by a successful claim; `executor::verify` checks it before any field
-/// is trusted.
-#[derive(Debug, Clone)]
-pub(crate) struct WorkSnapshot {
-    /// Keys every attempt-scoped request (cipher read/write, outcome reports).
-    pub(crate) attempt_id: Uuid,
-    pub(crate) job_id: Uuid,
-    pub(crate) target_system_id: Uuid,
-    /// For logging only.
-    pub(crate) target_system_name: String,
-    pub(crate) cipher_id: Uuid,
-    pub(crate) target_system_sealed_data: Option<String>,
-    pub(crate) target_system_wrapped_key: Option<String>,
-    pub(crate) rotation_config_sealed_data: Option<String>,
-    pub(crate) rotation_config_wrapped_key: Option<String>,
-    /// Lease deadline: no target-side step starts after it.
-    pub(crate) execute_by: DateTime<Utc>,
 }
 
 impl From<SessionTermination> for bitwarden_api_api::models::PamSessionTerminationOutcome {
@@ -138,30 +95,6 @@ impl std::fmt::Display for ApiError {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn target_kind_from_entra() {
-        assert_eq!(
-            TargetKind::from(SealedTargetSystemKind::Entra),
-            TargetKind::Entra
-        );
-    }
-
-    #[test]
-    fn target_kind_from_mssql() {
-        assert_eq!(
-            TargetKind::from(SealedTargetSystemKind::Mssql),
-            TargetKind::Mssql
-        );
-    }
-
-    #[test]
-    fn target_kind_from_custom_script() {
-        assert_eq!(
-            TargetKind::from(SealedTargetSystemKind::CustomScript),
-            TargetKind::CustomScript
-        );
-    }
 
     #[test]
     fn session_termination_not_requested() {

@@ -5,11 +5,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
+use bitwarden_pam_sealed::SealedTargetSystemKind;
 use uuid::Uuid;
 
 use super::{CredentialResolver, ResolveError, ResolvedCredentials};
 use crate::{
-    api::models::TargetKind,
     resolver::env::{prefix_for, required_suffixes},
     sys::EnvSource,
 };
@@ -60,7 +60,7 @@ impl CredentialResolver for ConfigCredentialResolver {
     async fn resolve(
         &self,
         target_system_id: Uuid,
-        kind: TargetKind,
+        kind: SealedTargetSystemKind,
     ) -> Result<ResolvedCredentials, ResolveError> {
         let prefix = prefix_for(target_system_id);
         let required = required_suffixes(kind);
@@ -102,12 +102,12 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{api::models::TargetKind, resolver::env::prefix_for, sys::FakeEnv};
+    use crate::{resolver::env::prefix_for, sys::FakeEnv};
 
     /// Runs the resolver against exactly `vars`, touching no process state.
     fn run_resolver_with_env(
         id: Uuid,
-        kind: TargetKind,
+        kind: SealedTargetSystemKind,
         targets: HashMap<Uuid, TargetEntry>,
         vars: &HashMap<String, String>,
     ) -> Result<ResolvedCredentials, ResolveError> {
@@ -135,8 +135,13 @@ mod tests {
                 client_id: None,
             },
         );
-        let creds = run_resolver_with_env(id, TargetKind::CustomScript, targets, &HashMap::new())
-            .expect("config-only script should resolve");
+        let creds = run_resolver_with_env(
+            id,
+            SealedTargetSystemKind::CustomScript,
+            targets,
+            &HashMap::new(),
+        )
+        .expect("config-only script should resolve");
         use bitwarden_sensitive_value::ExposeSensitive as _;
         let script_val = creds
             .get("SCRIPT")
@@ -166,7 +171,7 @@ mod tests {
         vars.insert(format!("{prefix}CLIENT_ID"), "my-client".to_string());
         vars.insert(format!("{prefix}CLIENT_SECRET"), "my-secret".to_string());
 
-        let creds = run_resolver_with_env(id, TargetKind::Entra, targets, &vars)
+        let creds = run_resolver_with_env(id, SealedTargetSystemKind::Entra, targets, &vars)
             .expect("should resolve with config override");
 
         use bitwarden_sensitive_value::ExposeSensitive as _;
@@ -192,7 +197,7 @@ mod tests {
             "/usr/local/bin/rotate.sh".to_string(),
         );
 
-        let creds = run_resolver_with_env(id, TargetKind::CustomScript, targets, &vars)
+        let creds = run_resolver_with_env(id, SealedTargetSystemKind::CustomScript, targets, &vars)
             .expect("env fallback should resolve");
 
         use bitwarden_sensitive_value::ExposeSensitive as _;
@@ -218,7 +223,7 @@ mod tests {
 
         let vars: HashMap<String, String> = HashMap::new();
 
-        let err = run_resolver_with_env(id, TargetKind::Entra, targets, &vars)
+        let err = run_resolver_with_env(id, SealedTargetSystemKind::Entra, targets, &vars)
             .expect_err("should fail with missing vars");
 
         match err {

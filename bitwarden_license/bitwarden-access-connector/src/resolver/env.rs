@@ -3,17 +3,18 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use bitwarden_pam_sealed::SealedTargetSystemKind;
 use uuid::Uuid;
 
 use super::{CredentialResolver, ResolveError, ResolvedCredentials};
-use crate::{api::models::TargetKind, sys::EnvSource};
+use crate::sys::EnvSource;
 
 /// Environment variable suffixes required per target kind.
-pub(crate) fn required_suffixes(kind: TargetKind) -> &'static [&'static str] {
+pub(crate) fn required_suffixes(kind: SealedTargetSystemKind) -> &'static [&'static str] {
     match kind {
-        TargetKind::Entra => &["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"],
-        TargetKind::CustomScript => &["SCRIPT"],
-        TargetKind::Mssql => &["HOST", "USER", "SECRET"],
+        SealedTargetSystemKind::Entra => &["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"],
+        SealedTargetSystemKind::CustomScript => &["SCRIPT"],
+        SealedTargetSystemKind::Mssql => &["HOST", "USER", "SECRET"],
     }
 }
 
@@ -43,7 +44,7 @@ impl CredentialResolver for EnvCredentialResolver {
     async fn resolve(
         &self,
         target_system_id: Uuid,
-        kind: TargetKind,
+        kind: SealedTargetSystemKind,
     ) -> Result<ResolvedCredentials, ResolveError> {
         let prefix = prefix_for(target_system_id);
         let required = required_suffixes(kind);
@@ -81,12 +82,12 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{api::models::TargetKind, sys::FakeEnv};
+    use crate::sys::FakeEnv;
 
     /// Runs the resolver against exactly `vars`, touching no process state.
     fn run_resolver_with_env(
         id: Uuid,
-        kind: TargetKind,
+        kind: SealedTargetSystemKind,
         vars: &HashMap<String, String>,
     ) -> Result<ResolvedCredentials, ResolveError> {
         let env = vars
@@ -129,7 +130,7 @@ mod tests {
         vars.insert(format!("{prefix}TENANT_ID"), "my-tenant".to_string());
         vars.insert(format!("{prefix}CLIENT_ID"), "my-client".to_string());
         vars.insert(format!("{prefix}CLIENT_SECRET"), "my-secret".to_string());
-        let creds = run_resolver_with_env(id, TargetKind::Entra, &vars).unwrap();
+        let creds = run_resolver_with_env(id, SealedTargetSystemKind::Entra, &vars).unwrap();
         assert!(creds.get("TENANT_ID").is_some());
         assert!(creds.get("CLIENT_ID").is_some());
         assert!(creds.get("CLIENT_SECRET").is_some());
@@ -144,7 +145,7 @@ mod tests {
             format!("{prefix}SCRIPT"),
             "/usr/local/bin/rotate.sh".to_string(),
         );
-        let creds = run_resolver_with_env(id, TargetKind::CustomScript, &vars).unwrap();
+        let creds = run_resolver_with_env(id, SealedTargetSystemKind::CustomScript, &vars).unwrap();
         assert!(creds.get("SCRIPT").is_some());
     }
 
@@ -155,7 +156,7 @@ mod tests {
         let mut vars = HashMap::new();
         vars.insert(format!("{prefix}SCRIPT"), "/bin/sh".to_string());
         vars.insert(format!("{prefix}OUT_PATH"), "/tmp/out.txt".to_string());
-        let creds = run_resolver_with_env(id, TargetKind::CustomScript, &vars).unwrap();
+        let creds = run_resolver_with_env(id, SealedTargetSystemKind::CustomScript, &vars).unwrap();
         assert!(
             creds.get("OUT_PATH").is_some(),
             "extra var should be collected"
@@ -165,7 +166,8 @@ mod tests {
     #[test]
     fn entra_missing_all_reports_full_names() {
         let id: Uuid = "ec2c1d46-6a4b-4751-a310-af9601317f2d".parse().unwrap();
-        let err = run_resolver_with_env(id, TargetKind::Entra, &HashMap::new()).unwrap_err();
+        let err =
+            run_resolver_with_env(id, SealedTargetSystemKind::Entra, &HashMap::new()).unwrap_err();
         match err {
             ResolveError::Missing(names) => {
                 assert!(
@@ -189,7 +191,8 @@ mod tests {
     #[test]
     fn custom_script_missing_script_var() {
         let id = Uuid::new_v4();
-        let err = run_resolver_with_env(id, TargetKind::CustomScript, &HashMap::new()).unwrap_err();
+        let err = run_resolver_with_env(id, SealedTargetSystemKind::CustomScript, &HashMap::new())
+            .unwrap_err();
         let prefix = prefix_for(id);
         match err {
             ResolveError::Missing(names) => {
@@ -207,7 +210,7 @@ mod tests {
         let prefix = prefix_for(id);
         let mut vars = HashMap::new();
         vars.insert(format!("{prefix}TENANT_ID"), "t".to_string());
-        let err = run_resolver_with_env(id, TargetKind::Entra, &vars).unwrap_err();
+        let err = run_resolver_with_env(id, SealedTargetSystemKind::Entra, &vars).unwrap_err();
         match err {
             ResolveError::Missing(names) => {
                 assert_eq!(names.len(), 2, "only 2 vars missing: {names:?}");
@@ -221,7 +224,8 @@ mod tests {
     #[test]
     fn mssql_missing_all_lists_host_user_secret() {
         let id = Uuid::new_v4();
-        let err = run_resolver_with_env(id, TargetKind::Mssql, &HashMap::new()).unwrap_err();
+        let err =
+            run_resolver_with_env(id, SealedTargetSystemKind::Mssql, &HashMap::new()).unwrap_err();
         let prefix = prefix_for(id);
         match err {
             ResolveError::Missing(names) => {

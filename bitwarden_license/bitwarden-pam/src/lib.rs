@@ -47,8 +47,8 @@ pub use rotation::{
     RotationConfigCreateRequest, RotationConfigDetailView, RotationConfigSealedFields,
     RotationConfigView, RotationConfigsClient, RotationError, RotationJob, RotationJobStatus,
     RotationScheduleClient, RotationSource, RotationSyncState, RotationValidationError,
-    SessionTerminationOutcome, TargetSystemCreateError, TargetSystemCreateRequest,
+    SealRejection, SessionTerminationOutcome, TargetSystemCreateError, TargetSystemCreateRequest,
     TargetSystemKind, TargetSystemMethod, TargetSystemSealedFields, TargetSystemStatus,
-    TargetSystemView, TargetSystemsClient, is_likely_quartz_cron, preset_for_cron,
-    rotation_config_actions,
+    TargetSystemView, TargetSystemsClient, VerifiedJob, WorkSnapshot, WorkSnapshotError,
+    is_likely_quartz_cron, preset_for_cron, rotation_config_actions,
 };
