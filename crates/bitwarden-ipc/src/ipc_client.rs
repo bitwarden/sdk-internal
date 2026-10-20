@@ -207,9 +207,9 @@ where
     }
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError> {
-        let fragments = Fragments::split(message, self.inner.crypto.max_payload_len())
+        let messages = Fragments::split(message, self.inner.crypto.max_payload_len())
             .map_err(|e| SendError::Other(e.to_string()))?;
-        for message in fragments {
+        for message in messages {
             let result = self
                 .inner
                 .crypto
