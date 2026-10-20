@@ -13,7 +13,7 @@ use std::{
 };
 
 use bitwarden_access_token::AccessToken;
-use bitwarden_generators::GeneratorClientsExt as _;
+use bitwarden_core::Client;
 use bitwarden_threading::cancellation_token::CancellationToken;
 use retry::RetryCfg;
 use rotation::{AbortReason, ExecutionContext, ExecutionResult, execute};
@@ -23,7 +23,10 @@ use tokio::{
 };
 
 use crate::{
-    api::{REQUEST_TIMEOUT, RotationApi, build_sdk_client, models::ApiError},
+    api::{
+        AccessConnectorClient, AccessConnectorClientExt as _, REQUEST_TIMEOUT, build_sdk_client,
+        models::ApiError,
+    },
     auth::session::{SessionLost, SessionManager},
     error::{FailureCode, SafeDetail, SyncState},
     integrations::IntegrationRegistry,
@@ -154,10 +157,12 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
 
     // The client owns the key store the session installs the org key into, so it is built first;
     // the handler lets the session be filled in afterwards.
+    let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
     let (sdk_client, handler) = build_sdk_client(
         cfg.api_url.clone(),
         cfg.identity_url.clone(),
         REQUEST_TIMEOUT,
+        connectivity_tx,
     );
 
     let key_store = handler
@@ -196,11 +201,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
 
     handler.set_session(Arc::clone(&session));
 
-    let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
-    let api = Arc::new(RotationApi::new(
-        sdk_client.internal.get_api_configurations(),
-        connectivity_tx,
-    ));
+    let api = sdk_client.access_connector();
 
     let mut registry = IntegrationRegistry::new();
 
@@ -389,18 +390,16 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         // rotation completes.
         let heartbeat_cancel = cancel.child_token();
         let heartbeat_handle = spawn_heartbeat(
-            Arc::clone(&api),
+            sdk_client.clone(),
             cfg.heartbeat_interval,
             heartbeat_cancel.clone(),
         );
 
         let exec_ctx = ExecutionContext {
-            api: Arc::clone(&api),
+            client: sdk_client.clone(),
             session: Arc::clone(&session),
             integrations: Arc::clone(&integrations),
             resolver: Arc::clone(&resolver),
-            generator: sdk_client.generator(),
-            key_store: key_store.clone(),
             organization_id,
             retry_cfg: cfg.retry_cfg.clone(),
             offline_grace: cfg.offline_grace,
@@ -434,7 +433,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
 /// Spawns the heartbeat task: it polls the jobs endpoint every `interval_period` for the
 /// connectivity bump, ignoring the list, until `cancel` fires.
 fn spawn_heartbeat(
-    api: Arc<RotationApi>,
+    client: Client,
     interval_period: Duration,
     cancel: CancellationToken,
 ) -> tokio::task::JoinHandle<()> {
@@ -446,7 +445,7 @@ fn spawn_heartbeat(
                 _ = cancel.cancelled() => break,
                 _ = ticker.tick() => {
                     tracing::debug!("heartbeat tick");
-                    let _ = api.poll_jobs().await;
+                    let _ = client.access_connector().poll_jobs().await;
                 }
             }
         }
@@ -461,7 +460,10 @@ enum NotEligibleOutcome {
 
 /// Probes a `NotEligible` with a forced refresh: a rejected refresh means `CredentialRefused`, and
 /// a 404 on the re-poll after a good refresh means `NotEligible`.
-async fn handle_not_eligible(session: &SessionManager, api: &RotationApi) -> NotEligibleOutcome {
+async fn handle_not_eligible(
+    session: &SessionManager,
+    api: &AccessConnectorClient,
+) -> NotEligibleOutcome {
     // The current bearer is the stale token for force_refresh.
     let stale = match session.bearer(None).await {
         Ok(t) => t,
@@ -509,7 +511,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        api::{REQUEST_TIMEOUT, RotationApi, build_sdk_client},
+        api::{REQUEST_TIMEOUT, build_sdk_client},
         auth::{identity::IdentityClient, session::SessionManager},
         test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
     };
@@ -563,22 +565,19 @@ mod tests {
         .unwrap()
     }
 
-    fn make_api(
+    fn make_client(
         api_server: &MockServer,
         session: Arc<SessionManager>,
-    ) -> (Arc<RotationApi>, watch::Receiver<Instant>) {
+    ) -> (Client, watch::Receiver<Instant>) {
         let (tx, rx) = watch::channel(Instant::now());
         let (client, handler) = build_sdk_client(
             api_server.uri(),
             "http://identity.invalid".to_owned(),
             REQUEST_TIMEOUT,
+            tx,
         );
         handler.set_session(session);
-        let api = Arc::new(RotationApi::new(
-            client.internal.get_api_configurations(),
-            tx,
-        ));
-        (api, rx)
+        (client, rx)
     }
 
     #[test]
@@ -774,7 +773,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "tok").await;
-        let (api, _rx) = make_api(&api_server, Arc::clone(&session));
+        let (client, _rx) = make_client(&api_server, Arc::clone(&session));
 
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
@@ -788,7 +787,7 @@ mod tests {
 
         let heartbeat_interval = Duration::from_millis(20);
         let cancel = CancellationToken::new();
-        let handle = spawn_heartbeat(api, heartbeat_interval, cancel.clone());
+        let handle = spawn_heartbeat(client, heartbeat_interval, cancel.clone());
 
         // Wait for at least two polls rather than sleeping a fixed time.
         let deadline = Instant::now() + Duration::from_secs(10);
@@ -824,7 +823,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "tok").await;
-        let (api, _rx) = make_api(&api_server, session);
+        let (client, _rx) = make_client(&api_server, session);
 
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
@@ -832,7 +831,7 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        let err = api.poll_jobs().await.unwrap_err();
+        let err = client.access_connector().poll_jobs().await.unwrap_err();
         assert!(matches!(err, ApiError::NotEligible));
     }
 

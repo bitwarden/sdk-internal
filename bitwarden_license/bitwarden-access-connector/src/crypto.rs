@@ -1,8 +1,8 @@
 //! Cryptographic helpers used by the access connector.
 //!
-//! Exposed for integration tests. The org slot is keyed by the
-//! [`OrganizationId`] from the access token's `organization` claim. Cipher handling goes through
-//! the vault's typed models: decrypt, replace the login password, re-encrypt.
+//! The org slot is keyed by the [`OrganizationId`] from the access token's `organization` claim.
+//! Cipher handling, on `AccessConnectorClient`, goes through the vault's typed models: decrypt,
+//! replace the login password, re-encrypt.
 
 use bitwarden_access_token::{AccessToken, AccessTokenError};
 use bitwarden_api_api::models::CipherRequestModel;
@@ -14,9 +14,11 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{Cipher, CipherType, CipherView, EncryptMode, StrictDecrypt};
 use thiserror::Error;
 
+use crate::api::AccessConnectorClient;
+
 /// Errors produced by the cryptographic helpers in this module.
 #[derive(Debug, Error)]
-pub enum CryptoModuleError {
+pub(crate) enum CryptoModuleError {
     /// An encrypted payload or wrapped cipher key could not be decoded or decrypted.
     #[error("org-key payload is invalid")]
     InvalidPayload,
@@ -58,7 +60,7 @@ pub enum CryptoModuleError {
 
 /// Decrypt the identity server's `encrypted_payload` with `token`'s derived key and install the org
 /// key into `store`. Errors carry no payload content.
-pub fn unwrap_org_key(
+pub(crate) fn unwrap_org_key(
     store: &KeyStore<KeySlotIds>,
     organization_id: OrganizationId,
     token: &AccessToken,
@@ -79,62 +81,64 @@ pub fn unwrap_org_key(
         })
 }
 
-/// Decrypts the fetched cipher for a rotation. Rejects, before any decryption, a cipher outside the
-/// connector's organization, one that is not a login, a restricted one, or one with attachments but
-/// no item key: re-encrypting a restricted cipher would wipe the fields the server withheld, and
-/// the attachment keys of a cipher without an item key would be orphaned by the item key the write
-/// generates. Decryption is strict, so a field that fails to decrypt is an error rather than
-/// silently dropped from the later re-encrypt.
-pub fn decrypt_cipher_for_rotation(
-    store: &KeyStore<KeySlotIds>,
-    organization_id: OrganizationId,
-    cipher: Cipher,
-) -> Result<CipherView, CryptoModuleError> {
-    if cipher.organization_id != Some(organization_id) {
-        return Err(CryptoModuleError::CipherOrganizationMismatch);
-    }
-    if cipher.r#type != CipherType::Login {
-        return Err(CryptoModuleError::CipherNotLogin);
-    }
-    if cipher.partial_data.is_some() {
-        return Err(CryptoModuleError::CipherRestricted);
-    }
-    if cipher.key.is_none() && cipher.attachments.as_ref().is_some_and(|a| !a.is_empty()) {
-        return Err(CryptoModuleError::CipherAttachmentsWithoutItemKey);
+impl AccessConnectorClient {
+    /// Decrypts the fetched cipher for a rotation. Rejects, before any decryption, a cipher outside
+    /// the connector's organization, one that is not a login, a restricted one, or one with
+    /// attachments but no item key: re-encrypting a restricted cipher would wipe the fields the
+    /// server withheld, and the attachment keys of a cipher without an item key would be
+    /// orphaned by the item key the write generates. Decryption is strict, so a field that
+    /// fails to decrypt is an error rather than silently dropped from the later re-encrypt.
+    pub(crate) fn decrypt_cipher_for_rotation(
+        &self,
+        organization_id: OrganizationId,
+        cipher: Cipher,
+    ) -> Result<CipherView, CryptoModuleError> {
+        if cipher.organization_id != Some(organization_id) {
+            return Err(CryptoModuleError::CipherOrganizationMismatch);
+        }
+        if cipher.r#type != CipherType::Login {
+            return Err(CryptoModuleError::CipherNotLogin);
+        }
+        if cipher.partial_data.is_some() {
+            return Err(CryptoModuleError::CipherRestricted);
+        }
+        if cipher.key.is_none() && cipher.attachments.as_ref().is_some_and(|a| !a.is_empty()) {
+            return Err(CryptoModuleError::CipherAttachmentsWithoutItemKey);
+        }
+
+        let view: CipherView = self.key_store.decrypt(&StrictDecrypt(cipher))?;
+        if view.login.is_none() {
+            return Err(CryptoModuleError::CipherNotLogin);
+        }
+        Ok(view)
     }
 
-    let view: CipherView = store.decrypt(&StrictDecrypt(cipher))?;
-    if view.login.is_none() {
-        return Err(CryptoModuleError::CipherNotLogin);
-    }
-    Ok(view)
-}
+    /// Builds the cipher write for rotating `original`'s password to `new_password`: the old
+    /// password moves into the password history and the password revision date is set.
+    /// Everything else is carried over from `original`.
+    ///
+    /// Uses the legacy field-level encryption, since the server rejects `data` on an organization
+    /// cipher. The vault always emits a wrapped item key, re-wrapping an existing one or generating
+    /// one for a cipher that had none.
+    pub(crate) fn rotate_cipher_password(
+        &self,
+        original: &CipherView,
+        new_password: &str,
+    ) -> Result<CipherRequestModel, CryptoModuleError> {
+        let mut view = original.clone();
+        view.login
+            .as_mut()
+            .ok_or(CryptoModuleError::CipherNotLogin)?
+            .password = Some(new_password.to_owned());
+        view.update_password_history(original);
 
-/// Builds the cipher write for rotating `original`'s password to `new_password`: the old password
-/// moves into the password history and the password revision date is set. Everything else is
-/// carried over from `original`.
-///
-/// Uses the legacy field-level encryption, since the server rejects `data` on an organization
-/// cipher. The vault always emits a wrapped item key, re-wrapping an existing one or generating
-/// one for a cipher that had none.
-pub fn rotate_cipher_password(
-    store: &KeyStore<KeySlotIds>,
-    original: &CipherView,
-    new_password: &str,
-) -> Result<CipherRequestModel, CryptoModuleError> {
-    let mut view = original.clone();
-    view.login
-        .as_mut()
-        .ok_or(CryptoModuleError::CipherNotLogin)?
-        .password = Some(new_password.to_owned());
-    view.update_password_history(original);
-
-    let cipher = store.encrypt(EncryptMode::Legacy(view))?;
-    let request = CipherRequestModel::try_from(cipher)?;
-    if request.data.is_some() {
-        return Err(CryptoModuleError::CipherDataPresent);
+        let cipher = self.key_store.encrypt(EncryptMode::Legacy(view))?;
+        let request = CipherRequestModel::try_from(cipher)?;
+        if request.data.is_some() {
+            return Err(CryptoModuleError::CipherDataPresent);
+        }
+        Ok(request)
     }
-    Ok(request)
 }
 
 #[cfg(test)]
@@ -148,8 +152,8 @@ mod tests {
 
     use super::*;
     use crate::test_support::{
-        cipher_json, decrypt_body_field, keyless_cipher_json, login_view, org_store,
-        test_org_id as org_id,
+        cipher_json, client_with_store as client_for, decrypt_body_field, keyless_cipher_json,
+        login_view, org_store, test_org_id as org_id,
     };
 
     fn org_slot() -> SymmetricKeySlotId {
@@ -244,7 +248,8 @@ mod tests {
             let has_key = json.get("key").is_some_and(|k| !k.is_null());
             assert_eq!(has_key, label == "item key");
 
-            let view = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json))
+            let view = client_for(&store)
+                .decrypt_cipher_for_rotation(org_id(), cipher_from(json))
                 .unwrap_or_else(|e| panic!("{label}: {e}"));
             let login = view.login.as_ref().expect("login");
             assert_eq!(login.password.as_deref(), Some("old-pw"), "{label}");
@@ -259,7 +264,7 @@ mod tests {
         let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
         json["organizationId"] = uuid::Uuid::new_v4().to_string().into();
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(matches!(
             result,
             Err(CryptoModuleError::CipherOrganizationMismatch)
@@ -272,7 +277,7 @@ mod tests {
         let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
         json.as_object_mut().unwrap().remove("organizationId");
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(matches!(
             result,
             Err(CryptoModuleError::CipherOrganizationMismatch)
@@ -285,7 +290,7 @@ mod tests {
         let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
         json["type"] = 2.into();
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(matches!(result, Err(CryptoModuleError::CipherNotLogin)));
     }
 
@@ -300,7 +305,7 @@ mod tests {
         let mut json = keyless_cipher_json(&store, &view);
         with_attachment(&mut json);
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(matches!(
             result,
             Err(CryptoModuleError::CipherAttachmentsWithoutItemKey)
@@ -313,7 +318,7 @@ mod tests {
         let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
         with_attachment(&mut json);
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(result.is_ok(), "{result:?}");
     }
 
@@ -323,7 +328,7 @@ mod tests {
         let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
         json["partialData"] = "{}".into();
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(matches!(result, Err(CryptoModuleError::CipherRestricted)));
     }
 
@@ -333,7 +338,7 @@ mod tests {
         let mut json = cipher_json(&store, &login_view(uuid::Uuid::new_v4(), Some("pw")));
         json.as_object_mut().unwrap().remove("login");
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+        let result = client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
         assert!(result.is_err());
     }
 
@@ -350,7 +355,8 @@ mod tests {
             for (label, mut json) in fixture_ciphers(&store, Some("pw")) {
                 *json.pointer_mut(field).expect("field present") = foreign.clone().into();
 
-                let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+                let result =
+                    client_for(&store).decrypt_cipher_for_rotation(org_id(), cipher_from(json));
                 assert!(result.is_err(), "{label} {field}: must not decrypt");
             }
         }
@@ -375,10 +381,13 @@ mod tests {
     fn rotate_cipher_password_rewrites_password_and_history() {
         let store = org_store();
         for (label, json) in fixture_ciphers(&store, Some("old-pw")) {
-            let view =
-                decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json)).expect("decrypt");
+            let view = client_for(&store)
+                .decrypt_cipher_for_rotation(org_id(), cipher_from(json))
+                .expect("decrypt");
 
-            let request = rotate_cipher_password(&store, &view, "new-pw").expect("rotate");
+            let request = client_for(&store)
+                .rotate_cipher_password(&view, "new-pw")
+                .expect("rotate");
 
             assert!(request.data.is_none(), "{label}");
             assert!(request.key.is_some(), "{label}: write carries an item key");
@@ -425,10 +434,13 @@ mod tests {
     fn rotate_cipher_password_without_old_password_adds_no_history_entry() {
         let store = org_store();
         for (label, json) in fixture_ciphers(&store, None) {
-            let view =
-                decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json)).expect("decrypt");
+            let view = client_for(&store)
+                .decrypt_cipher_for_rotation(org_id(), cipher_from(json))
+                .expect("decrypt");
 
-            let request = rotate_cipher_password(&store, &view, "first-pw").expect("rotate");
+            let request = client_for(&store)
+                .rotate_cipher_password(&view, "first-pw")
+                .expect("rotate");
             let body = serde_json::to_value(&request).expect("serialize");
 
             assert_eq!(

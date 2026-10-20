@@ -13,9 +13,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
-use bitwarden_crypto::KeyStore;
-use bitwarden_generators::GeneratorClient;
+use bitwarden_core::{Client, OrganizationId};
+use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_vault::Cipher;
 use chrono::Utc;
 
@@ -24,9 +23,9 @@ use super::{
     verify::VerifiedJob,
 };
 use crate::{
-    api::{RotationApi, models::ApiError},
+    api::{AccessConnectorClient, AccessConnectorClientExt as _, models::ApiError},
     auth::session::{SessionLost, SessionManager, SessionPhase},
-    crypto::{CryptoModuleError, decrypt_cipher_for_rotation, rotate_cipher_password},
+    crypto::CryptoModuleError,
     error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
     integrations::{Integration, IntegrationRegistry, RotateContext},
     policy,
@@ -62,12 +61,10 @@ pub(crate) enum ExecutionResult {
 
 /// Everything [`execute`] needs to run a rotation attempt.
 pub(crate) struct ExecutionContext {
-    pub(crate) api: Arc<RotationApi>,
+    pub(crate) client: Client,
     pub(crate) session: Arc<SessionManager>,
     pub(crate) integrations: Arc<IntegrationRegistry>,
     pub(crate) resolver: Arc<dyn CredentialResolver>,
-    pub(crate) generator: GeneratorClient,
-    pub(crate) key_store: KeyStore<KeySlotIds>,
     /// The organisation whose key the cipher is encrypted under.
     pub(crate) organization_id: OrganizationId,
     pub(crate) retry_cfg: RetryCfg,
@@ -83,6 +80,7 @@ pub(crate) struct ExecutionContext {
 /// sessions, and report.
 pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> ExecutionResult {
     let attempt_id = job.attempt_id();
+    let api = ctx.client.access_connector();
 
     tracing::info!(
         attempt_id = %attempt_id,
@@ -97,7 +95,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         if matches!(phase, SessionPhase::Revoked | SessionPhase::Closed) {
             // Best-effort failure report: session is terminal, report may fail.
             report_failure_absorb(
-                &ctx.api,
+                &api,
                 attempt_id,
                 FailureCode::NoActiveSession,
                 None,
@@ -112,7 +110,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
     // rotated (wrong organization or type, restricted, undecryptable) fails as target_unchanged.
     // Step 5 repeats the checks.
     {
-        let cipher = match fetch_cipher(&ctx.api, &ctx.retry_cfg, attempt_id).await {
+        let cipher = match fetch_cipher(&api, &ctx.retry_cfg, attempt_id).await {
             Ok(c) => c,
             Err(ApiError::UnknownAttempt) => {
                 return ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed));
@@ -122,7 +120,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             }
             Err(_) => {
                 report_failure_absorb(
-                    &ctx.api,
+                    &api,
                     attempt_id,
                     FailureCode::Internal,
                     None,
@@ -135,7 +133,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
 
         if cipher.id.map(uuid::Uuid::from) != Some(job.cipher_id()) {
             report_failure_absorb(
-                &ctx.api,
+                &api,
                 attempt_id,
                 FailureCode::SealedDataRejected,
                 Some(SafeDetail::from_seal_rejection(
@@ -148,9 +146,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         }
 
         // The decrypted view is dropped right away; only the verdict matters here.
-        if let Err(e) = decrypt_cipher_for_rotation(&ctx.key_store, ctx.organization_id, cipher) {
+        if let Err(e) = api.decrypt_cipher_for_rotation(ctx.organization_id, cipher) {
             report_failure_absorb(
-                &ctx.api,
+                &api,
                 attempt_id,
                 FailureCode::SealedDataRejected,
                 Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
@@ -176,7 +174,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         Err(ResolveError::Missing(names)) => {
             let detail = SafeDetail::from_missing_vars(&names);
             report_failure_absorb(
-                &ctx.api,
+                &api,
                 attempt_id,
                 FailureCode::CredentialsUnresolved,
                 Some(detail),
@@ -193,7 +191,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         Ok(r) => r,
         Err(_) => {
             report_failure_absorb(
-                &ctx.api,
+                &api,
                 attempt_id,
                 FailureCode::InvalidPolicy,
                 None,
@@ -204,11 +202,11 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         }
     };
 
-    let new_password = match ctx.generator.password(gen_req) {
+    let new_password = match ctx.client.generator().password(gen_req) {
         Ok(p) => zeroize::Zeroizing::new(p),
         Err(_) => {
             report_failure_absorb(
-                &ctx.api,
+                &api,
                 attempt_id,
                 FailureCode::InvalidPolicy,
                 None,
@@ -227,7 +225,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         Some(i) => i,
         None => {
             report_failure_absorb(
-                &ctx.api,
+                &api,
                 attempt_id,
                 FailureCode::UnsupportedKind,
                 None,
@@ -282,7 +280,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             }
             GatedOutcome::Failed(err) => {
                 let sync_state = SyncState::from(err.effect);
-                report_failure_absorb(&ctx.api, attempt_id, err.code, Some(err.detail), sync_state)
+                report_failure_absorb(&api, attempt_id, err.code, Some(err.detail), sync_state)
                     .await;
                 return ExecutionResult::Reported;
             }
@@ -323,7 +321,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             GatedOutcome::Failed(err) => {
                 // The rotation applied but the vault was not written.
                 report_failure_absorb(
-                    &ctx.api,
+                    &api,
                     attempt_id,
                     err.code,
                     Some(err.detail),
@@ -337,7 +335,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
 
     // execute_by does not bound this step; the session's bearer refresh handles token expiry.
     let cipher_written = {
-        let cipher = match fetch_cipher(&ctx.api, &ctx.retry_cfg, attempt_id).await {
+        let cipher = match fetch_cipher(&api, &ctx.retry_cfg, attempt_id).await {
             Ok(c) => c,
             Err(ApiError::UnknownAttempt) => {
                 return ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed));
@@ -348,7 +346,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             Err(_) => {
                 // Step 3 already changed the target credential, so report target_updated.
                 report_failure_absorb(
-                    &ctx.api,
+                    &api,
                     attempt_id,
                     FailureCode::Internal,
                     None,
@@ -362,7 +360,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         // Check 8, repeated: the target is already rotated, so this fails as target_updated.
         if cipher.id.map(uuid::Uuid::from) != Some(job.cipher_id()) {
             report_failure_absorb(
-                &ctx.api,
+                &api,
                 attempt_id,
                 FailureCode::SealedDataRejected,
                 Some(SafeDetail::from_seal_rejection(
@@ -378,29 +376,28 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
 
         // The plaintext view lives only inside this block.
         let request = {
-            let view =
-                match decrypt_cipher_for_rotation(&ctx.key_store, ctx.organization_id, cipher) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        report_failure_absorb(
-                            &ctx.api,
-                            attempt_id,
-                            FailureCode::SealedDataRejected,
-                            Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
-                                &e, false,
-                            ))),
-                            SyncState::TargetUpdated,
-                        )
-                        .await;
-                        return ExecutionResult::Reported;
-                    }
-                };
+            let view = match api.decrypt_cipher_for_rotation(ctx.organization_id, cipher) {
+                Ok(v) => v,
+                Err(e) => {
+                    report_failure_absorb(
+                        &api,
+                        attempt_id,
+                        FailureCode::SealedDataRejected,
+                        Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
+                            &e, false,
+                        ))),
+                        SyncState::TargetUpdated,
+                    )
+                    .await;
+                    return ExecutionResult::Reported;
+                }
+            };
 
-            match rotate_cipher_password(&ctx.key_store, &view, &new_password) {
+            match api.rotate_cipher_password(&view, &new_password) {
                 Ok(r) => r,
                 Err(_) => {
                     report_failure_absorb(
-                        &ctx.api,
+                        &api,
                         attempt_id,
                         FailureCode::CipherEncryptFailed,
                         None,
@@ -412,12 +409,11 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             }
         };
 
-        let api = Arc::clone(&ctx.api);
         let result = with_retries(
             &ctx.retry_cfg,
             None, // no deadline
             || {
-                let api = Arc::clone(&api);
+                let api = &api;
                 let request = request.clone();
                 async move {
                     match api.put_cipher(attempt_id, request).await {
@@ -446,7 +442,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             }
             Err(ApiError::Rejected { .. }) => {
                 report_failure_absorb(
-                    &ctx.api,
+                    &api,
                     attempt_id,
                     FailureCode::CipherWriteRejected,
                     None,
@@ -464,7 +460,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             Err(_) => {
                 // The target credential already changed, so report target_updated.
                 report_failure_absorb(
-                    &ctx.api,
+                    &api,
                     attempt_id,
                     FailureCode::Internal,
                     None,
@@ -532,7 +528,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
 
     let termination = termination_result;
     let report_result = report_success_inner(
-        &ctx.api,
+        &api,
         &ctx.retry_cfg,
         attempt_id,
         termination,
@@ -558,7 +554,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
 /// Report a successful rotation. `_verified` and `_cipher_written` are tokens only this module can
 /// construct, so skipping step 4 or 5 is a compile error.
 async fn report_success_inner(
-    api: &RotationApi,
+    api: &AccessConnectorClient,
     retry_cfg: &super::retry::RetryCfg,
     attempt_id: uuid::Uuid,
     termination: crate::error::SessionTermination,
@@ -701,7 +697,7 @@ fn datetime_to_instant(dt: chrono::DateTime<chrono::Utc>) -> Instant {
 /// Fetch the cipher with retries. Callers handle failure themselves: the pre-flight read (check 8)
 /// and the pre-write read (step 5) report different sync states.
 async fn fetch_cipher(
-    api: &RotationApi,
+    api: &AccessConnectorClient,
     retry_cfg: &RetryCfg,
     attempt_id: uuid::Uuid,
 ) -> Result<Cipher, ApiError> {
@@ -740,7 +736,7 @@ fn cipher_rejection_reason(err: &CryptoModuleError, pre_flight: bool) -> &'stati
 /// as `Reported`. `pub(crate)` so the claim loop can report a `verify` rejection before an
 /// `ExecutionContext` exists.
 pub(crate) async fn report_failure_absorb(
-    api: &RotationApi,
+    api: &AccessConnectorClient,
     attempt_id: uuid::Uuid,
     code: FailureCode,
     detail: Option<SafeDetail>,
@@ -772,6 +768,8 @@ mod tests {
     };
 
     use async_trait::async_trait;
+    use bitwarden_core::key_management::KeySlotIds;
+    use bitwarden_crypto::KeyStore;
     use wiremock::ResponseTemplate;
 
     use super::*;
@@ -1039,7 +1037,6 @@ mod tests {
         make: impl FnOnce(&KeyStore<KeySlotIds>, uuid::Uuid) -> Vec<ResponseTemplate>,
     ) -> Run {
         use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
-        use bitwarden_generators::GeneratorClientsExt as _;
         use tokio::sync::watch;
         use wiremock::{
             Mock, MockServer,
@@ -1048,13 +1045,13 @@ mod tests {
 
         use crate::{
             api::{
-                REQUEST_TIMEOUT, RotationApi, build_sdk_client,
+                REQUEST_TIMEOUT, build_sdk_client,
                 models::{TargetKind, WorkSnapshot},
             },
             auth::{identity::IdentityClient, session::SessionManager},
             executor::verify::{
                 self,
-                test_support::{sample_config, sample_target, sealed_pair, store_with_org_key},
+                test_support::{sample_config, sample_target, sealed_pair},
             },
             integrations::IntegrationRegistry,
             resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
@@ -1081,7 +1078,21 @@ mod tests {
         let target_system_id = uuid::Uuid::new_v4();
         let cipher_id = uuid::Uuid::new_v4();
 
-        let (store, _org_key) = store_with_org_key();
+        // The client's own key store, which the session installs the org key into.
+        let (tx, _rx) = watch::channel(std::time::Instant::now());
+        let (client, handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_owned(),
+            REQUEST_TIMEOUT,
+            tx,
+        );
+        let store = handler.key_store().expect("client key store");
+        let identity = IdentityClient::new(identity_server.uri()).unwrap();
+        let session = SessionManager::new(identity, test_token(), store.clone())
+            .await
+            .unwrap();
+        handler.set_session(Arc::clone(&session));
+
         let mut gets = make(&store, cipher_id);
         let last = gets.pop().expect("at least one GET response");
         let cipher_path = format!("/access-connectors/rotation/attempts/{attempt_id}/cipher");
@@ -1113,24 +1124,6 @@ mod tests {
                 .await;
         }
 
-        let token = test_token();
-        let identity = IdentityClient::new(identity_server.uri()).unwrap();
-        let session = SessionManager::new(identity, token, KeyStore::default())
-            .await
-            .unwrap();
-        let (client, handler) = build_sdk_client(
-            api_server.uri(),
-            "http://identity.invalid".to_owned(),
-            REQUEST_TIMEOUT,
-        );
-        handler.set_session(Arc::clone(&session));
-
-        let (tx, _rx) = watch::channel(std::time::Instant::now());
-        let api = Arc::new(RotationApi::new(
-            client.internal.get_api_configurations(),
-            tx,
-        ));
-
         struct AlwaysOkResolver;
         #[async_trait::async_trait]
         impl CredentialResolver for AlwaysOkResolver {
@@ -1157,12 +1150,10 @@ mod tests {
         let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
         let last_ok_clone = Arc::clone(&last_ok_time);
         let exec_ctx = ExecutionContext {
-            api: Arc::clone(&api),
+            client,
             session: Arc::clone(&session),
             integrations: Arc::new(registry),
             resolver: Arc::new(AlwaysOkResolver),
-            generator: bitwarden_core::Client::new(None).generator(),
-            key_store: store.clone(),
             organization_id: test_org_id(),
             retry_cfg: crate::executor::retry::RetryCfg {
                 max_retry_attempts: 1,
@@ -1185,8 +1176,7 @@ mod tests {
             rotation_config_wrapped_key: Some(config_blob.1),
             execute_by: Utc::now() + chrono::Duration::minutes(5),
         };
-        let job = verify::verify(snapshot, &exec_ctx.key_store, test_org_id())
-            .expect("well-formed claim");
+        let job = verify::verify(snapshot, &store, test_org_id()).expect("well-formed claim");
 
         let result = execute(job, &exec_ctx).await;
         let calls = *rotate_calls.lock().unwrap();

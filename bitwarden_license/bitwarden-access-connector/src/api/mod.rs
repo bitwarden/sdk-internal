@@ -1,7 +1,7 @@
 //! HTTP API client wrappers for the Bitwarden server's PAM rotation endpoints.
 //!
-//! [`build_sdk_client`] assembles the client the connector runs on; [`RotationApi`] reaches
-//! through its configurations, mapping calls into domain types.
+//! [`build_sdk_client`] assembles the client the connector runs on; [`AccessConnectorClient`]
+//! reaches through its configurations, mapping calls into domain types.
 
 pub(crate) mod models;
 
@@ -17,7 +17,11 @@ use bitwarden_api_api::{
         ReportRotationSucceededRequestModel,
     },
 };
-use bitwarden_core::{Client, ClientBuilder, ClientSettings, client::internal::ApiConfigurations};
+use bitwarden_core::{
+    Client, ClientBuilder, ClientSettings, FromClient, client::internal::ApiConfigurations,
+    key_management::KeySlotIds,
+};
+use bitwarden_crypto::KeyStore;
 use bitwarden_vault::Cipher;
 use models::{ApiError, JobRef, WorkSnapshot};
 use reqwest_middleware::{Middleware, Next};
@@ -184,13 +188,45 @@ impl std::fmt::Display for RequestTimedOutError {
 
 impl std::error::Error for RequestTimedOutError {}
 
+/// Records the last successful server contact, which the rotation gate reads to pause target-side
+/// steps while the server is unreachable.
+///
+/// Any 2xx status counts, even if the body later fails to parse: the server answered. Redirects,
+/// client errors and server errors, and transport failures, do not.
+pub(crate) struct ConnectivityMiddleware {
+    last_ok_tx: watch::Sender<Instant>,
+}
+
+impl ConnectivityMiddleware {
+    pub(crate) fn new(last_ok_tx: watch::Sender<Instant>) -> Self {
+        Self { last_ok_tx }
+    }
+}
+
+#[async_trait::async_trait]
+impl Middleware for ConnectivityMiddleware {
+    async fn handle(
+        &self,
+        req: reqwest::Request,
+        ext: &mut http::Extensions,
+        next: Next<'_>,
+    ) -> Result<reqwest::Response, reqwest_middleware::Error> {
+        let response = next.run(req, ext).await?;
+        if response.status().is_success() {
+            self.last_ok_tx.send_modify(|t| *t = Instant::now());
+        }
+        Ok(response)
+    }
+}
+
 /// Builds the SDK client the connector runs against, plus the handler that carries its session
 /// once startup has one.
 ///
 /// [`TimeoutMiddleware`] is load-bearing twice over: core sets no per-request timeout, and it only
 /// disables redirect-following when the extra-middleware vec is non-empty (the auth middleware does
-/// not count). Passing none would drop the timeout and start following redirects, so
-/// `request_times_out_rather_than_hanging` and `does_not_follow_a_cross_host_redirect` guard both.
+/// not count). The vec is never empty here, but dropping it would remove the timeout and start
+/// following redirects, so `request_times_out_rather_than_hanging` and
+/// `does_not_follow_a_cross_host_redirect` guard both.
 ///
 /// Redirects are refused not because they would leak the bearer (reqwest strips `Authorization`
 /// when the host, port or scheme changes) but because these endpoints never legitimately redirect.
@@ -199,10 +235,15 @@ impl std::error::Error for RequestTimedOutError {}
 ///
 /// Chained outermost, the timeout also bounds token renewal, so the heartbeat cannot stall past
 /// `AccessConnectorOfflineAfter` whatever it is waiting on.
+///
+/// [`ConnectivityMiddleware`] sits just inside the timeout and outside the auth middleware, so it
+/// sees the response the caller gets: a 401 that the auth middleware retries into a 2xx counts
+/// once, and a 401 that stays a 401 does not count.
 pub(crate) fn build_sdk_client(
     api_url: String,
     identity_url: String,
     timeout: Duration,
+    last_ok_tx: watch::Sender<Instant>,
 ) -> (Client, AccessConnectorTokenHandler) {
     let handler = AccessConnectorTokenHandler::default();
 
@@ -213,39 +254,35 @@ pub(crate) fn build_sdk_client(
             ..Default::default()
         })
         .with_token_handler(Arc::new(handler.clone()))
-        .with_middleware(vec![Arc::new(TimeoutMiddleware::new(timeout))])
+        .with_middleware(vec![
+            Arc::new(TimeoutMiddleware::new(timeout)),
+            Arc::new(ConnectivityMiddleware::new(last_ok_tx)),
+        ])
         .build();
 
     (client, handler)
 }
 
-/// Domain-typed wrapper around the generated PAM rotation API clients.
-///
-/// Every successful response bumps `connectivity_tx`, which the rotation gate reads to pause
-/// target-side steps while the server is unreachable.
-pub(crate) struct RotationApi {
-    api_configurations: Arc<ApiConfigurations>,
-    connectivity_tx: watch::Sender<Instant>,
+/// Domain-typed wrapper around the generated PAM rotation API clients, plus the cipher crypto the
+/// rotation needs.
+#[derive(FromClient)]
+pub(crate) struct AccessConnectorClient {
+    pub(crate) key_store: KeyStore<KeySlotIds>,
+    pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-impl RotationApi {
-    /// Reaches through the client's shared configurations at the point of use, as `SyncClient`
-    /// does: `ApiClient` is not `Clone`, and rebuilding one would construct ~85 sub-API clients
-    /// the client already has.
-    pub(crate) fn new(
-        api_configurations: Arc<ApiConfigurations>,
-        connectivity_tx: watch::Sender<Instant>,
-    ) -> Self {
-        Self {
-            api_configurations,
-            connectivity_tx,
-        }
-    }
+/// Extension trait that exposes [`AccessConnectorClient`] on [`Client`].
+pub(crate) trait AccessConnectorClientExt {
+    fn access_connector(&self) -> AccessConnectorClient;
+}
 
-    fn mark_ok(&self) {
-        self.connectivity_tx.send_modify(|t| *t = Instant::now());
+impl AccessConnectorClientExt for Client {
+    fn access_connector(&self) -> AccessConnectorClient {
+        AccessConnectorClient::from_client(self)
     }
+}
 
+impl AccessConnectorClient {
     /// Poll for claimable rotation jobs. A 404 maps to [`ApiError::NotEligible`].
     pub(crate) async fn poll_jobs(&self) -> Result<Vec<JobRef>, ApiError> {
         let result = self
@@ -257,7 +294,6 @@ impl RotationApi {
 
         match result {
             Ok(list_model) => {
-                self.mark_ok();
                 let jobs = list_model
                     .data
                     .unwrap_or_default()
@@ -284,7 +320,6 @@ impl RotationApi {
 
         match result {
             Ok(model) => {
-                self.mark_ok();
                 let snapshot = parse_work_snapshot(model)?;
                 Ok(Some(snapshot))
             }
@@ -306,10 +341,7 @@ impl RotationApi {
             .await;
 
         match result {
-            Ok(model) => {
-                self.mark_ok();
-                parse_cipher(model)
-            }
+            Ok(model) => parse_cipher(model),
             Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
@@ -331,10 +363,7 @@ impl RotationApi {
             .await;
 
         match result {
-            Ok(()) => {
-                self.mark_ok();
-                Ok(())
-            }
+            Ok(()) => Ok(()),
             Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
@@ -360,10 +389,7 @@ impl RotationApi {
             .await;
 
         match result {
-            Ok(()) => {
-                self.mark_ok();
-                Ok(())
-            }
+            Ok(()) => Ok(()),
             Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
@@ -393,10 +419,7 @@ impl RotationApi {
             .await;
 
         match result {
-            Ok(()) => {
-                self.mark_ok();
-                Ok(())
-            }
+            Ok(()) => Ok(()),
             Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
@@ -603,28 +626,21 @@ mod tests {
         handler
     }
 
-    /// A [`RotationApi`] over the same client stack production builds.
-    fn make_rotation_api(
+    /// An [`AccessConnectorClient`] over the same client stack production builds, with `session`
+    /// installed on its handler, plus the connectivity receiver.
+    fn make_access_connector_client(
         api_server: &MockServer,
         session: Arc<SessionManager>,
-    ) -> (RotationApi, watch::Receiver<Instant>) {
+    ) -> (AccessConnectorClient, watch::Receiver<Instant>) {
         let (tx, rx) = watch::channel(Instant::now());
-        let api = RotationApi::new(api_configurations_for(api_server, session), tx);
-        (api, rx)
-    }
-
-    /// The client's [`ApiConfigurations`], with `session` installed on its handler.
-    fn api_configurations_for(
-        api_server: &MockServer,
-        session: Arc<SessionManager>,
-    ) -> Arc<ApiConfigurations> {
         let (client, handler) = build_sdk_client(
             api_server.uri(),
             "http://identity.invalid".to_owned(),
             REQUEST_TIMEOUT,
+            tx,
         );
         handler.set_session(session);
-        client.internal.get_api_configurations()
+        (client.access_connector(), rx)
     }
 
     #[test]
@@ -828,7 +844,11 @@ mod tests {
         let cipher = parse_cipher(model).expect("lenient parse");
         assert!(cipher.name.is_some());
         let org_id = crate::test_support::test_org_id();
-        assert!(crate::crypto::decrypt_cipher_for_rotation(&store, org_id, cipher).is_err());
+        assert!(
+            crate::test_support::client_with_store(&store)
+                .decrypt_cipher_for_rotation(org_id, cipher)
+                .is_err()
+        );
     }
 
     #[tokio::test]
@@ -837,7 +857,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, mut connectivity_rx) = make_rotation_api(&api_server, session);
+        let (api, mut connectivity_rx) = make_access_connector_client(&api_server, session);
 
         let before = *connectivity_rx.borrow();
 
@@ -875,7 +895,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
@@ -893,7 +913,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let job_id = Uuid::new_v4();
         let attempt_id = Uuid::new_v4();
@@ -957,7 +977,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let job_id = Uuid::new_v4();
         Mock::given(method("POST"))
@@ -978,7 +998,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let attempt_id = Uuid::new_v4();
         let cipher_id = Uuid::new_v4();
@@ -1011,7 +1031,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let attempt_id = Uuid::new_v4();
         Mock::given(method("PUT"))
@@ -1039,7 +1059,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let attempt_id = Uuid::new_v4();
         Mock::given(method("PUT"))
@@ -1064,7 +1084,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let attempt_id = Uuid::new_v4();
 
@@ -1193,8 +1213,7 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        let (tx, _rx) = watch::channel(Instant::now());
-        let api = RotationApi::new(api_configurations_for(&api_server, session), tx);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let jobs = api.poll_jobs().await.expect("poll_jobs after 401-refresh");
         assert!(jobs.is_empty());
@@ -1238,6 +1257,134 @@ mod tests {
             .await
     }
 
+    /// Sends a GET to `url` through a fresh client and reports whether connectivity was bumped.
+    async fn bumps_connectivity(url: String) -> bool {
+        let (tx, mut rx) = watch::channel(Instant::now());
+        let (client, _handler) = build_sdk_client(
+            "http://api.invalid".to_owned(),
+            "http://identity.invalid".to_owned(),
+            Duration::from_secs(5),
+            tx,
+        );
+        let before = *rx.borrow_and_update();
+
+        let _ = get_through_client(&client, url).await;
+
+        rx.has_changed().expect("sender alive") && *rx.borrow() > before
+    }
+
+    #[tokio::test]
+    async fn connectivity_is_bumped_by_a_2xx_even_with_an_unparseable_body() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/ok"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("not json"))
+            .mount(&server)
+            .await;
+
+        assert!(bumps_connectivity(format!("{}/ok", server.uri())).await);
+    }
+
+    #[tokio::test]
+    async fn connectivity_is_not_bumped_by_non_2xx_responses() {
+        let server = MockServer::start().await;
+        for status in [302, 401, 404, 409, 500, 503] {
+            Mock::given(method("GET"))
+                .and(path(format!("/status/{status}")))
+                .respond_with(ResponseTemplate::new(status))
+                .mount(&server)
+                .await;
+
+            assert!(
+                !bumps_connectivity(format!("{}/status/{status}", server.uri())).await,
+                "{status} must not count as server contact"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn connectivity_is_not_bumped_by_a_transport_error() {
+        // Nothing listens on port 1.
+        assert!(!bumps_connectivity("http://127.0.0.1:1/x".to_owned()).await);
+    }
+
+    #[tokio::test]
+    async fn connectivity_is_not_bumped_by_a_timeout() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/stall"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(30)))
+            .mount(&server)
+            .await;
+        let (tx, rx) = watch::channel(Instant::now());
+        let (client, _handler) = build_sdk_client(
+            server.uri(),
+            "http://identity.invalid".to_owned(),
+            Duration::from_millis(100),
+            tx,
+        );
+        let before = *rx.borrow();
+
+        get_through_client(&client, format!("{}/stall", server.uri()))
+            .await
+            .expect_err("times out");
+
+        assert_eq!(*rx.borrow(), before);
+    }
+
+    #[tokio::test]
+    async fn the_client_exposes_access_connector_sharing_its_key_store() {
+        use bitwarden_core::key_management::SymmetricKeySlotId;
+
+        let (tx, _rx) = watch::channel(Instant::now());
+        let (client, handler) = build_sdk_client(
+            "http://api.invalid".to_owned(),
+            "http://identity.invalid".to_owned(),
+            REQUEST_TIMEOUT,
+            tx,
+        );
+
+        // Encrypt a cipher under a separate store, then give only the handler's store the key.
+        let issuer = crate::test_support::org_store();
+        let json = crate::test_support::cipher_json(
+            &issuer,
+            &crate::test_support::login_view(Uuid::new_v4(), Some("pw")),
+        );
+        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
+        let cipher = parse_cipher(model).expect("parse");
+        let org_id = crate::test_support::test_org_id();
+
+        let access_connector = client.access_connector();
+        assert!(
+            access_connector
+                .decrypt_cipher_for_rotation(org_id, cipher.clone())
+                .is_err(),
+            "no key yet"
+        );
+
+        let org_key = {
+            let ctx = issuer.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::Organization(org_id))
+                .expect("org key")
+                .clone()
+        };
+        let store = handler.key_store().expect("key store");
+        #[allow(deprecated)]
+        store
+            .context_mut()
+            .set_symmetric_key(SymmetricKeySlotId::Organization(org_id), org_key)
+            .expect("set key");
+
+        // The key reached a client handed out earlier and one handed out later.
+        for c in [access_connector, client.access_connector()] {
+            let view = c
+                .decrypt_cipher_for_rotation(org_id, cipher.clone())
+                .expect("decrypts with the shared store");
+            assert_eq!(view.login.unwrap().password.as_deref(), Some("pw"));
+        }
+    }
+
     /// R1: core's builder sets no per-request timeout, so a black-holed connection would
     /// otherwise hang forever and starve the heartbeat past AccessAccessConnectorOfflineAfter.
     #[tokio::test]
@@ -1253,6 +1400,7 @@ mod tests {
             api_server.uri(),
             "http://identity.invalid".to_string(),
             Duration::from_millis(100),
+            watch::channel(Instant::now()).0,
         );
 
         let started = Instant::now();
@@ -1300,6 +1448,7 @@ mod tests {
             api_server.uri(),
             "http://identity.invalid".to_string(),
             Duration::from_secs(5),
+            watch::channel(Instant::now()).0,
         );
 
         let response = get_through_client(&client, format!("{}/redirect", api_server.uri()))
@@ -1334,7 +1483,7 @@ mod tests {
             .await;
         mount_jobs_401(&api_server).await;
 
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let err = api.poll_jobs().await.expect_err("revoked mid-session");
         assert!(
@@ -1350,7 +1499,7 @@ mod tests {
         let session = make_session(&identity_server, "bearer-1").await;
         session.close().await;
 
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let err = api.poll_jobs().await.expect_err("session closed");
         assert!(
@@ -1378,7 +1527,7 @@ mod tests {
             .await;
         mount_jobs_401(&api_server).await;
 
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let err = api.poll_jobs().await.expect_err("refresh keeps failing");
         assert!(

@@ -89,8 +89,8 @@ impl From<SyncState> for bitwarden_api_api::models::PamRotationSyncState {
     }
 }
 
-/// Errors returned by the [`super::RotationApi`] wrapper. They never include response bodies, which
-/// can contain sensitive data.
+/// Errors returned by the [`super::AccessConnectorClient`] wrapper. They never include response
+/// bodies, which can contain sensitive data.
 #[derive(Debug)]
 pub(crate) enum ApiError {
     /// The connector's session was terminally lost (revoked or closed).
