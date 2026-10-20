@@ -353,7 +353,7 @@ pub enum RotationFailureCode {
     CipherWriteRejected,
     /// Encrypting the updated cipher data failed.
     CipherEncryptFailed,
-    /// Sealed-data verification failed; see [`WorkSnapshot::verify`](crate::WorkSnapshot::verify).
+    /// A sealed-data check (1-8) failed; see [`WorkSnapshot::verify`](crate::WorkSnapshot::verify).
     SealedDataRejected,
     /// An unexpected internal error occurred.
     Internal,
