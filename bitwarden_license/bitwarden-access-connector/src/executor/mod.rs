@@ -4,7 +4,6 @@
 
 pub(crate) mod retry;
 pub(crate) mod rotation;
-pub(crate) mod verify;
 
 use std::{
     sync::Arc,
@@ -205,18 +204,21 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             Arc::new(crate::integrations::scripting::ProcessScriptRunner),
         ),
     );
-    registry.register(crate::api::models::TargetKind::CustomScript, custom_script);
+    registry.register(
+        bitwarden_pam_sealed::SealedTargetSystemKind::CustomScript,
+        custom_script,
+    );
 
     let entra = Arc::new(crate::integrations::entra::EntraIntegration::new(
         cfg.entra_verify_probe,
     ));
-    registry.register(crate::api::models::TargetKind::Entra, entra);
+    registry.register(bitwarden_pam_sealed::SealedTargetSystemKind::Entra, entra);
 
     let integrations = Arc::new(registry);
     tracing::debug!(
         kinds = ?[
-            crate::api::models::TargetKind::CustomScript,
-            crate::api::models::TargetKind::Entra,
+            bitwarden_pam_sealed::SealedTargetSystemKind::CustomScript,
+            bitwarden_pam_sealed::SealedTargetSystemKind::Entra,
         ],
         "registered integration kinds"
     );
@@ -356,7 +358,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         // Checks 1–7 run first: a rejection never touches the resolver, integration, or cipher
         // route.
         let attempt_id = snap.attempt_id;
-        let verified = match verify::verify(snap, &key_store, organization_id) {
+        let verified = match snap.verify(&key_store, organization_id) {
             Ok(v) => v,
             Err(rejection) => {
                 tracing::warn!(
