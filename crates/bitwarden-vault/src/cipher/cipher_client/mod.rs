@@ -29,6 +29,7 @@ mod create;
 mod delete;
 mod edit;
 mod get;
+pub use get::GetCipherError;
 mod move_many;
 mod restore;
 mod share_cipher;
