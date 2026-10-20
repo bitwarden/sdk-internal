@@ -35,7 +35,7 @@ pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,
     CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptMode,
-    EncryptionContext, ListOrganizationCiphersResult,
+    EncryptionContext, ListOrganizationCiphersResult, StrictDecrypt,
 };
 pub use cipher_client::{
     CiphersClient, GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError,
