@@ -1,7 +1,7 @@
 //! Converts a verified job's [`SealedPasswordPolicy`] into a [`PasswordGeneratorRequest`].
 //!
-//! `executor::verify` already validates the policy; re-validating here fails closed for any call
-//! site that skips `verify`.
+//! Re-validates although `executor::verify` already did, so any call site that skips it fails
+//! closed.
 
 use bitwarden_generators::PasswordGeneratorRequest;
 use bitwarden_pam_sealed::{
