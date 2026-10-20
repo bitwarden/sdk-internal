@@ -1,7 +1,9 @@
 use rand::RngExt;
 use thiserror::Error;
 
-use super::{FRAGMENT_TOPIC, FragmentHeader, MAX_HEADER_LEN, MAX_PAYLOAD_SIZE, Reassembler};
+use super::{
+    FRAGMENT_TOPIC, FragmentFrame, FragmentHeader, MAX_HEADER_LEN, MAX_PAYLOAD_SIZE, Reassembler,
+};
 use crate::message::OutgoingMessage;
 
 /// Error returned by [`Fragments::split`] when a message cannot be sent.
@@ -91,14 +93,17 @@ impl Iterator for Fragments {
                 }
                 let end = total_len.min(start + *fragment_len);
                 // Both fit in a u32 because `total_len` is at most `MAX_PAYLOAD_SIZE`.
-                let header = FragmentHeader {
-                    message_id: *message_id,
-                    index: *next_index,
-                    total_len: total_len as u32,
+                let frame = FragmentFrame {
+                    header: FragmentHeader {
+                        message_id: *message_id,
+                        index: *next_index,
+                        total_len: total_len as u32,
+                    },
+                    data: &message.payload[start..end],
                 };
                 *next_index += 1;
                 Some(OutgoingMessage {
-                    payload: header.encode(&message.payload[start..end]),
+                    payload: frame.encode(),
                     destination: message.destination.clone(),
                     topic: Some(topic.clone()),
                 })

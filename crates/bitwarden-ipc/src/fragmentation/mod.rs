@@ -4,9 +4,9 @@
 //! Fragmentation runs above the [`CryptoProvider`](crate::traits::CryptoProvider), so each fragment
 //! is an ordinary [`OutgoingMessage`](crate::message::OutgoingMessage) that the provider encrypts
 //! on its own. A fragment's topic is the original topic behind the reserved [`FRAGMENT_TOPIC`]
-//! prefix, and its payload is a CBOR [`FragmentHeader`] followed by the raw fragment data, so the
-//! data is copied once on each side. Peers without fragmentation support deliver such messages to
-//! subscribers as an unknown topic.
+//! prefix, and its payload is a [`FragmentFrame`]: a CBOR [`FragmentHeader`] followed by the raw
+//! fragment data, so the data is copied once on each side. Peers without fragmentation support
+//! deliver such messages to subscribers as an unknown topic.
 //!
 //! The sender awaits each fragment before sending the next and the communication backends deliver
 //! in order, so fragments are appended as they arrive and any gap discards the message.
@@ -35,7 +35,7 @@ pub(crate) const MAX_PAYLOAD_SIZE: usize = 5 * 1024 * 1024;
 /// Upper bound on the encoded size of a [`FragmentHeader`].
 const MAX_HEADER_LEN: usize = 128;
 
-/// Header at the start of every fragment payload, followed directly by the fragment's data.
+/// Metadata that identifies a fragment within its message.
 #[derive(Debug, Serialize, Deserialize)]
 struct FragmentHeader {
     /// Random per message, so fragments of concurrent sends from one sender don't mix.
@@ -45,20 +45,26 @@ struct FragmentHeader {
     total_len: u32,
 }
 
-impl FragmentHeader {
-    /// Encodes a fragment payload as this header in CBOR followed by the raw data.
-    fn encode(&self, data: &[u8]) -> Vec<u8> {
-        let mut payload = Vec::with_capacity(MAX_HEADER_LEN + data.len());
-        ciborium::into_writer(self, &mut payload).expect("Ciborium serialization should not fail");
-        payload.extend_from_slice(data);
+/// Payload of a fragment message: the [`FragmentHeader`] in CBOR followed directly by the raw
+/// data, so the data is not re-encoded.
+struct FragmentFrame<'a> {
+    header: FragmentHeader,
+    data: &'a [u8],
+}
+
+impl<'a> FragmentFrame<'a> {
+    fn encode(&self) -> Vec<u8> {
+        let mut payload = Vec::with_capacity(MAX_HEADER_LEN + self.data.len());
+        ciborium::into_writer(&self.header, &mut payload)
+            .expect("Ciborium serialization should not fail");
+        payload.extend_from_slice(self.data);
         payload
     }
 
-    /// Decodes the header of a fragment payload and returns it with the data that follows it.
-    fn decode(payload: &[u8]) -> Option<(Self, &[u8])> {
+    fn decode(payload: &'a [u8]) -> Option<Self> {
         let mut data = payload;
         let header = ciborium::from_reader(&mut data).ok()?;
-        Some((header, data))
+        Some(Self { header, data })
     }
 }
 
@@ -117,12 +123,15 @@ pub(crate) mod test_support {
         index: u32,
         total_len: usize,
     ) -> IncomingMessage {
-        let header = FragmentHeader {
-            message_id,
-            index,
-            total_len: total_len as u32,
-        };
-        let payload = header.encode(&[0; 16]);
+        let payload = FragmentFrame {
+            header: FragmentHeader {
+                message_id,
+                index,
+                total_len: total_len as u32,
+            },
+            data: &[0; 16],
+        }
+        .encode();
         incoming(
             outgoing(payload, &Fragments::fragment_topic(Some("bulk"))),
             source,
@@ -163,18 +172,26 @@ mod tests {
 
     #[test]
     fn largest_header_fits_and_decodes_up_to_its_data() {
-        let header = FragmentHeader {
+        let header = || FragmentHeader {
             message_id: u64::MAX,
             index: u32::MAX,
             total_len: u32::MAX,
         };
-        assert!(header.encode(&[]).len() <= MAX_HEADER_LEN);
+        let empty = FragmentFrame {
+            header: header(),
+            data: &[],
+        };
+        assert!(empty.encode().len() <= MAX_HEADER_LEN);
 
         let data = large_payload(FRAGMENT_LEN, 0);
-        let payload = header.encode(&data);
+        let payload = FragmentFrame {
+            header: header(),
+            data: &data,
+        }
+        .encode();
         assert!(payload.len() <= MAX_LEN);
-        let (decoded, decoded_data) = FragmentHeader::decode(&payload).unwrap();
-        assert_eq!(decoded.message_id, u64::MAX);
-        assert_eq!(decoded_data, data);
+        let decoded = FragmentFrame::decode(&payload).unwrap();
+        assert_eq!(decoded.header.message_id, u64::MAX);
+        assert_eq!(decoded.data, data);
     }
 }

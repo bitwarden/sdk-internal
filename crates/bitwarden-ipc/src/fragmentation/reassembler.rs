@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Mutex, time::Duration};
 use thiserror::Error;
 use web_time::Instant;
 
-use super::{FRAGMENT_TOPIC, FragmentHeader, MAX_PAYLOAD_SIZE, OriginalTopic};
+use super::{FRAGMENT_TOPIC, FragmentFrame, FragmentHeader, MAX_PAYLOAD_SIZE, OriginalTopic};
 use crate::{endpoint::Source, message::IncomingMessage};
 
 /// Time after the first fragment at which an incomplete message is discarded.
@@ -235,8 +235,8 @@ impl Reassembler {
         topic: OriginalTopic,
         now: Instant,
     ) -> Result<Option<IncomingMessage>, ReassemblyError> {
-        let (header, data) =
-            FragmentHeader::decode(&message.payload).ok_or(ReassemblyError::Malformed)?;
+        let FragmentFrame { header, data } =
+            FragmentFrame::decode(&message.payload).ok_or(ReassemblyError::Malformed)?;
 
         let total_len = header.total_len as usize;
         // Every fragment carries data, so a message has at most `total_len` fragments.
@@ -435,12 +435,15 @@ mod tests {
             accept(1, 0, MAX_PAYLOAD_SIZE + 1),
             Err(ReassemblyError::InvalidHeader)
         );
-        let empty = FragmentHeader {
-            message_id: 1,
-            index: 0,
-            total_len: 1024,
+        let empty = FragmentFrame {
+            header: FragmentHeader {
+                message_id: 1,
+                index: 0,
+                total_len: 1024,
+            },
+            data: &[],
         }
-        .encode(&[]);
+        .encode();
         assert_eq!(
             accept_payload(empty, &Fragments::fragment_topic(Some("bulk"))),
             Err(ReassemblyError::InvalidHeader)
@@ -457,12 +460,15 @@ mod tests {
         assert_eq!(reassembler.pending(), Usage::default());
 
         assert_eq!(accept(4, 0, 1024), Ok(None));
-        let other_topic = FragmentHeader {
-            message_id: 4,
-            index: 1,
-            total_len: 1024,
+        let other_topic = FragmentFrame {
+            header: FragmentHeader {
+                message_id: 4,
+                index: 1,
+                total_len: 1024,
+            },
+            data: &[0; 16],
         }
-        .encode(&[0; 16]);
+        .encode();
         assert_eq!(
             accept_payload(other_topic, &Fragments::fragment_topic(Some("other"))),
             Err(ReassemblyError::Inconsistent)
