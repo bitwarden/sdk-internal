@@ -14,7 +14,7 @@
 //! V2 user key            +  OrganizationPublicKey -> new AccountRecoveryKey
 //! ```
 //!
-//! Every sync, an owner or admin runs
+//! An owner or admin runs
 //! [`OrganizationUsersManagementClient::upgrade_pending_account_recovery_keys`]
 //! for each organization whose key it holds. The server returns the pending memberships one page
 //! at a time. The client sends the upgrades of each page to the server before it reads the next
@@ -34,7 +34,7 @@
 //! is missing, malformed, does not decrypt, or carries a user key other than the reported one.
 //! That unenrolls the member from account recovery and drops a key that no longer opens the
 //! member's vault. A retry would read the same keys and fail again, so the membership would
-//! otherwise stay pending on every sync. A membership that fails for any other reason is not sent
+//! otherwise stay pending on every run. A membership that fails for any other reason is not sent
 //! and stays pending.
 
 use bitwarden_api_api::models::{
@@ -206,7 +206,7 @@ impl OrganizationUsersManagementClient {
                         | PendingMembershipError::UpgradeTokenUnwrapFailed
                         | PendingMembershipError::UserKeyIdMismatch),
                     ) => {
-                        // Left pending, the membership would fail the same way on every sync,
+                        // Left pending, the membership would fail the same way on every run,
                         // because a retry reads the same keys.
                         warn!(
                             %organization_id,
@@ -222,7 +222,7 @@ impl OrganizationUsersManagementClient {
                         // A malformed key id is not unenrolled: unenrolling also sends the key id,
                         // and one malformed entry fails the whole request. A failed encapsulation
                         // is not unenrolled either: it happens in this client, not in the
-                        // membership's keys, so a later sync can succeed.
+                        // membership's keys, so a later run can succeed.
                         warn!(
                             %organization_id,
                             %organization_user_id,
@@ -272,7 +272,7 @@ impl OrganizationUsersManagementClient {
             .api_client
             .organization_users_keys_api();
         let mut continuation_token = None;
-        // Read on the first page that has pending memberships, so most syncs skip the request.
+        // Read on the first page that has pending memberships, so most runs skip the request.
         let mut wrapped_private_key = None;
 
         loop {

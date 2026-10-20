@@ -817,8 +817,6 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-ffi",
- "bitwarden-member-administration",
- "bitwarden-organizations",
  "bitwarden-sync",
  "serde",
  "thiserror",
@@ -826,7 +824,6 @@ dependencies = [
  "tracing",
  "tsify",
  "uniffi",
- "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
