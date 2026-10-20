@@ -16,8 +16,7 @@ use crate::{
     resolver::ResolvedCredentials,
 };
 
-/// Whether the target credential was (or might have been) changed before an error, so the
-/// executor can report the right [`crate::error::SyncState`].
+/// Effect of a failed operation on the target credential, mapped to a [`crate::error::SyncState`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TargetEffect {
     /// The credential rotation was not applied; target and vault are still in sync.
@@ -29,7 +28,7 @@ pub(crate) enum TargetEffect {
 }
 
 impl From<TargetEffect> for SyncState {
-    /// The sync state to report when an operation failed with the given effect on the target.
+    /// The sync state to report for this effect.
     fn from(effect: TargetEffect) -> Self {
         match effect {
             TargetEffect::NotApplied => SyncState::TargetUnchanged,
@@ -88,8 +87,7 @@ impl std::fmt::Debug for RotateContext {
 /// Trait implemented by each target-system driver, such as Entra or CustomScript.
 #[async_trait]
 pub(crate) trait Integration: Send + Sync {
-    /// Rotate the credential for `ctx.account_identity` to `ctx.new_password`
-    /// in the target system.
+    /// Rotate the credential to `ctx.new_password`.
     async fn rotate(&self, ctx: &RotateContext) -> Result<(), IntegrationError>;
 
     /// Verify that the rotation applied in the target system.

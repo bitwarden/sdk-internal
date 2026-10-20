@@ -83,8 +83,7 @@ mod tests {
     use super::*;
     use crate::{api::models::TargetKind, sys::FakeEnv};
 
-    /// Runs the resolver against exactly `vars`; no process state is touched, so no lock is
-    /// needed.
+    /// Runs the resolver against exactly `vars`, touching no process state.
     fn run_resolver_with_env(
         id: Uuid,
         kind: TargetKind,

@@ -570,7 +570,6 @@ src/models/revocation_reason.rs
 src/models/revoke_access_tokens_request.rs
 src/models/rotate_user_account_keys_and_data_request_model.rs
 src/models/rotate_user_keys_request_model.rs
-src/models/rotation_cipher_response_model.rs
 src/models/rotation_claim_response_model.rs
 src/models/rule_bypassable_ciphers_response_model.rs
 src/models/saml2_binding_type.rs
@@ -650,7 +649,6 @@ src/models/storage.rs
 src/models/storage_request_model.rs
 src/models/storage_update_request.rs
 src/models/string_authentication_extensions_prf_values_key_value_pair.rs
-src/models/submit_cipher_update_request_model.rs
 src/models/subscription_cancellation_request_model.rs
 src/models/subscription_preview.rs
 src/models/subscription_response_model.rs

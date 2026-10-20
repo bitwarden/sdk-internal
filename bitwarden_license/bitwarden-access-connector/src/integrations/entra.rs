@@ -30,12 +30,12 @@ const VERIFY_MAX_WAIT: Duration = Duration::from_secs(60);
 
 const VERIFY_POLL_INTERVAL: Duration = Duration::from_secs(5);
 
-/// Microsoft Entra ID integration driver. Each operation fetches a fresh service-principal token,
-/// and secrets live only inside operation bodies, never in `self`.
+/// Microsoft Entra ID integration driver. Each operation fetches a fresh token; secrets never live
+/// in `self`.
 pub(crate) struct EntraIntegration {
     http: Client,
-    /// Whether `verify` tries an ROPC sign-in before the directory check. Off by default, since
-    /// MFA or Conditional Access blocks ROPC in most production tenants.
+    /// Whether `verify` tries an ROPC sign-in first. Off by default: MFA or Conditional Access
+    /// blocks ROPC in most tenants.
     verify_probe: bool,
     login_base: String,
     graph_base: String,
@@ -65,8 +65,7 @@ impl EntraIntegration {
     /// Test constructor pointing at wiremock servers, with `verify` polling disabled.
     #[cfg(test)]
     fn new_with_bases(verify_probe: bool, login_base: String, graph_base: String) -> Self {
-        // The throwaway client installs the ring crypto provider (idempotent); the real client
-        // allows http:// for wiremock.
+        // The throwaway client installs the ring provider (idempotent); the real one allows http:// for wiremock.
         let _ = bitwarden_api_base::new_http_client_builder()
             .build()
             .expect("provider install client");
@@ -122,7 +121,7 @@ impl std::fmt::Debug for EntraIntegration {
 }
 
 /// Fetch a Graph bearer token by client-credentials grant. The client secret goes only into the
-/// form body and is not kept past this call.
+/// form body.
 async fn fetch_graph_token(
     http: &Client,
     login_base: &str,
@@ -186,7 +185,6 @@ async fn fetch_graph_token(
             detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
         })
     } else {
-        // 429, 5xx and any other status.
         Err(IntegrationError {
             class: ErrorClass::Transient,
             effect: TargetEffect::NotApplied,
@@ -220,9 +218,8 @@ struct GraphErrorInner {
     code: Option<String>,
 }
 
-/// Build a Graph user URL with `identity` as one opaque path segment. `identity` is
-/// attacker-influenced, and `push` encodes slashes and percent sequences, so it cannot inject a
-/// path.
+/// Build a Graph user URL with `identity` as one opaque path segment. `push` encodes slashes and
+/// percent sequences, so attacker-influenced input cannot inject a path.
 fn build_graph_user_url(
     graph_base: &str,
     identity: &str,
@@ -364,7 +361,6 @@ impl Integration for EntraIntegration {
                 detail: SafeDetail::from_http_status_and_graph_code(status_u16, graph_code_ref),
             })
         } else {
-            // 429, 5xx and any other status.
             Err(IntegrationError {
                 class: ErrorClass::Transient,
                 effect: TargetEffect::NotApplied,
@@ -374,9 +370,9 @@ impl Integration for EntraIntegration {
         }
     }
 
-    /// Verify with the optional ROPC probe first, since it is authoritative and immune to Graph's
-    /// replication lag, then poll up to `verify_max_wait` for a fresh `lastPasswordChangeDateTime`.
-    /// Graph and network errors carry `Applied`.
+    /// Verify with the optional ROPC probe first (authoritative, immune to replication lag), then
+    /// poll up to `verify_max_wait` for a fresh `lastPasswordChangeDateTime`. Errors carry
+    /// `Applied`.
     async fn verify(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let tenant_id = get_cred(&ctx.creds, "TENANT_ID")?;
         let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
@@ -418,7 +414,7 @@ impl Integration for EntraIntegration {
                     });
                 }
                 ProbeResult::Inconclusive => {
-                    // Continue to directory poll.
+                    // Fall through to the directory poll.
                 }
             }
         }
@@ -966,7 +962,7 @@ mod tests {
         let graph = MockServer::start().await;
         let tenant = "t1";
 
-        // Mounted first, so wiremock matches it ahead of the client_credentials mock below.
+        // Mounted first: wiremock matches it before the client_credentials mock.
         Mock::given(method("POST"))
             .and(path(format!("/{tenant}/oauth2/v2.0/token")))
             .and(body_string_contains("grant_type=password"))
@@ -1009,7 +1005,7 @@ mod tests {
         let graph = MockServer::start().await;
         let tenant = "t1";
 
-        // Mounted first, so wiremock matches it ahead of the client_credentials mock below.
+        // Mounted first: wiremock matches it before the client_credentials mock.
         Mock::given(method("POST"))
             .and(path(format!("/{tenant}/oauth2/v2.0/token")))
             .and(body_string_contains("grant_type=password"))
