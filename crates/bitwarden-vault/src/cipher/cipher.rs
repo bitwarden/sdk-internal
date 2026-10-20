@@ -543,31 +543,57 @@ pub enum CipherListViewType {
 #[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum CopyableCipherFields {
+    /// The login username can be copied.
     LoginUsername,
+    /// The login password can be copied.
     LoginPassword,
+    /// The login totp can be copied.
     LoginTotp,
+    /// The card number can be copied.
     CardNumber,
+    /// The card security code can be copied.
     CardSecurityCode,
+    /// The identity username can be copied.
     IdentityUsername,
+    /// The identity email can be copied.
     IdentityEmail,
+    /// The identity phone can be copied.
     IdentityPhone,
+    /// The identity address can be copied.
     IdentityAddress,
+    /// The ssh key can be copied.
     SshKey,
+    /// The secure notes can be copied.
     SecureNotes,
+    /// The bank account name on account can be copied.
     BankAccountNameOnAccount,
+    /// The bank account account number can be copied.
     BankAccountAccountNumber,
+    /// The bank account routing number can be copied.
     BankAccountRoutingNumber,
+    /// The bank account branch number can be copied.
     BankAccountBranchNumber,
+    /// The bank account pin can be copied.
     BankAccountPin,
+    /// The bank account iban can be copied.
     BankAccountIban,
+    /// The bank account swift can be copied.
     BankAccountSwift,
+    /// The passport given name can be copied.
     PassportGivenName,
+    /// The passport surname can be copied.
     PassportSurname,
+    /// The passport passport number can be copied.
     PassportPassportNumber,
+    /// The passport national identification number can be copied.
     PassportNationalIdentificationNumber,
+    /// The drivers license first name can be copied.
     DriversLicenseFirstName,
+    /// The drivers license middle name can be copied.
     DriversLicenseMiddleName,
+    /// The drivers license last name can be copied.
     DriversLicenseLastName,
+    /// The drivers license license number can be copied.
     DriversLicenseLicenseNumber,
 }
 
