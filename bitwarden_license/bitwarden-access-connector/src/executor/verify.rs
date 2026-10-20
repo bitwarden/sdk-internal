@@ -1,8 +1,8 @@
 //! Cross-checks a claim's two sealed values against each other and the plaintext claim (checks
 //! 1–7). Check 8, the pre-flight cipher read, needs the network and lives in `executor::rotation`.
 //!
-//! Only [`verify`] can construct a [`VerifiedJob`], so `rotation::execute` never reads an
-//! uncross-checked claim field.
+//! Only [`verify`] can construct a [`VerifiedJob`], so `rotation::execute` never reads an unchecked
+//! claim field.
 
 use bitwarden_core::{
     OrganizationId,

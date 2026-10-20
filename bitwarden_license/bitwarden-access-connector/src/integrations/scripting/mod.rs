@@ -271,7 +271,6 @@ impl ScriptRunner for ProcessScriptRunner {
             Ok(Ok(status)) => Ok(status.into()),
             Ok(Err(e)) => Err(e),
             Err(_timeout) => {
-                // Explicit kill; kill_on_drop would also handle it on drop.
                 let _ = child.kill().await;
                 Err(InvokeError::Timeout)
             }
@@ -490,8 +489,8 @@ mod tests {
         assert_eq!(detail_of(err), "error kind: ScriptOutsideRoot");
     }
 
-    /// Containment is checked after resolution, so a link inside the root that points out is
-    /// rejected. `tests/scripting_integration.rs` covers real symlinks, which a fake cannot.
+    /// Containment is checked after resolution, so an in-root link pointing out is rejected. Real
+    /// symlinks are covered in `tests/scripting_integration.rs`.
     #[test]
     fn resolve_script_path_rejects_a_link_escaping_the_root() {
         let fs = FakeFs::empty()

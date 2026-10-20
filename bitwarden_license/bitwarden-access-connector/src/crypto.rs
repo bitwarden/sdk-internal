@@ -1,8 +1,7 @@
 //! Cryptographic helpers used by the access connector.
 //!
 //! The org slot is keyed by the [`OrganizationId`] from the access token's `organization` claim.
-//! Cipher handling, on `AccessConnectorClient`, goes through the vault's typed models: decrypt,
-//! replace the login password, re-encrypt.
+//! Cipher handling on `AccessConnectorClient` goes through the vault's typed models.
 
 use bitwarden_access_token::{AccessToken, AccessTokenError};
 use bitwarden_api_api::models::CipherRequestModel;
@@ -39,9 +38,8 @@ pub(crate) enum CryptoModuleError {
     #[error("cipher is restricted")]
     CipherRestricted,
 
-    /// The cipher has attachments but no per-item key. Vault encryption would generate an item key
-    /// and re-wrap the attachment keys under it, but the rotation write stores only the cipher data
-    /// and key, so the stored attachment keys would no longer unwrap.
+    /// The cipher has attachments but no item key. Encryption would generate one, but the rotation
+    /// write doesn't re-wrap attachment keys under it, so they would not unwrap.
     #[error("cipher has attachments but no item key")]
     CipherAttachmentsWithoutItemKey,
 
@@ -82,12 +80,10 @@ pub(crate) fn unwrap_org_key(
 }
 
 impl AccessConnectorClient {
-    /// Decrypts the fetched cipher for a rotation. Rejects, before any decryption, a cipher outside
-    /// the connector's organization, one that is not a login, a restricted one, or one with
-    /// attachments but no item key: re-encrypting a restricted cipher would wipe the fields the
-    /// server withheld, and the attachment keys of a cipher without an item key would be
-    /// orphaned by the item key the write generates. Decryption is strict, so a field that
-    /// fails to decrypt is an error rather than silently dropped from the later re-encrypt.
+    /// Decrypts the fetched cipher for a rotation. Before decrypting, rejects a cipher outside the
+    /// connector's organization, a non-login, a restricted one (re-encrypting would wipe the
+    /// withheld fields), or one with attachments but no item key (the keys would be orphaned).
+    /// Decryption is strict: a field that fails to decrypt is an error, not silently dropped.
     pub(crate) fn decrypt_cipher_for_rotation(
         &self,
         organization_id: OrganizationId,
@@ -113,13 +109,11 @@ impl AccessConnectorClient {
         Ok(view)
     }
 
-    /// Builds the cipher write for rotating `original`'s password to `new_password`: the old
-    /// password moves into the password history and the password revision date is set.
-    /// Everything else is carried over from `original`.
+    /// Builds the cipher write rotating `original`'s password to `new_password`: the old password
+    /// moves into the password history and the revision date is set; the rest carries over.
     ///
-    /// Uses the legacy field-level encryption, since the server rejects `data` on an organization
-    /// cipher. The vault always emits a wrapped item key, re-wrapping an existing one or generating
-    /// one for a cipher that had none.
+    /// Uses field-level encryption (`EncryptMode::Legacy`), since the server rejects `data` on an
+    /// organization cipher. The vault always emits a wrapped item key.
     pub(crate) fn rotate_cipher_password(
         &self,
         original: &CipherView,

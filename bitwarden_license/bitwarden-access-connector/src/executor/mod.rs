@@ -1,7 +1,6 @@
 //! Rotation job executor: scheduling, retry, and lifecycle management.
 //!
-//! No socket exists, so a network blip does not close the session; only shutdown does, through
-//! `session.close()`.
+//! No socket exists, so a network blip does not close the session; only shutdown does.
 
 pub(crate) mod retry;
 pub(crate) mod rotation;
@@ -34,8 +33,7 @@ use crate::{
     sys::SystemEnv,
 };
 
-/// Reads the connectivity watch for the last successful server contact. Test-only; the rotation
-/// gate reads the channel through `last_ok`.
+/// Reads the connectivity watch. Test-only.
 #[cfg(test)]
 pub(crate) struct ConnectivityMonitor {
     rx: watch::Receiver<Instant>,
@@ -62,14 +60,11 @@ impl ConnectivityMonitor {
 pub enum RunExit {
     /// The cancellation token was cancelled (clean shutdown).
     Shutdown,
-    /// The credential was rejected, by the identity server or a revocation on a connector route;
-    /// the operator must reissue it and restart.
+    /// The credential was rejected or revoked; the operator must reissue it and restart.
     CredentialRefused,
-    /// The connector could not authenticate or start up for a reason other than a refused
-    /// credential (e.g. the identity server was unreachable). Restarting may succeed.
+    /// Startup or authentication failed for a reason other than a refused credential.
     StartupFailed,
-    /// The connector is not eligible to use the rotation endpoints. The operator should check the
-    /// server configuration.
+    /// The connector is not eligible to use the rotation endpoints.
     NotEligible,
 }
 
@@ -100,8 +95,7 @@ pub struct AccessConnectorConfig {
 }
 
 impl AccessConnectorConfig {
-    /// Build an [`AccessConnectorConfig`] for integration tests, bypassing validation such as the
-    /// poll-interval minimum. `pub` for `tests/`, hidden from docs.
+    /// Builds a config for integration tests, bypassing validation. `pub` for `tests/`.
     #[doc(hidden)]
     pub fn new_for_test(
         api_url: String,
@@ -131,10 +125,9 @@ impl AccessConnectorConfig {
     }
 }
 
-/// Run the connector poll loop until a clean exit condition is reached. A revoked session maps to
-/// [`RunExit::CredentialRefused`]; a startup failure other than a rejection maps to
-/// [`RunExit::StartupFailed`]; a 404 that survives a refresh probe maps to
-/// [`RunExit::NotEligible`].
+/// Runs the connector poll loop until a clean exit. A revoked session maps to
+/// [`RunExit::CredentialRefused`], other startup failures to [`RunExit::StartupFailed`], and a 404
+/// that survives a refresh probe to [`RunExit::NotEligible`].
 pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -> RunExit {
     let identity_client = match crate::auth::identity::IdentityClient::new(cfg.identity_url.clone())
     {
@@ -155,8 +148,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         "access connector starting"
     );
 
-    // The client owns the key store the session installs the org key into, so it is built first;
-    // the handler lets the session be filled in afterwards.
+    // The client owns the key store the session installs the org key into, so it is built first.
     let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
     let (sdk_client, handler) = build_sdk_client(
         cfg.api_url.clone(),
@@ -169,8 +161,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         .key_store()
         .expect("ClientBuilder::build calls initialize_middleware, which sets the key store");
 
-    // SessionManager::new backs off internally; the select! lets a cancellation during startup
-    // exit cleanly.
+    // SessionManager::new backs off internally; select! lets cancellation exit cleanly.
     let session = tokio::select! {
         result = crate::auth::session::SessionManager::new(identity_client, cfg.token, key_store) => {
             match result {
@@ -186,8 +177,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
                     return RunExit::CredentialRefused;
                 }
                 Err(e) => {
-                    // Transient failures that outlast the startup retries; `Lost(Closed)` cannot
-                    // occur here since nothing has closed the session yet.
+                    // Transient failures outlasting the startup retries; `Lost(Closed)` cannot occur here.
                     tracing::error!("startup authentication failed: {e}");
                     return RunExit::StartupFailed;
                 }
@@ -363,8 +353,8 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             continue;
         };
 
-        // Verify the sealed blobs (checks 1–7) before anything else: a rejection is reported
-        // without touching the resolver, integration layer, or cipher route.
+        // Checks 1–7 run first: a rejection never touches the resolver, integration, or cipher
+        // route.
         let attempt_id = snap.attempt_id;
         let verified = match verify::verify(snap, &key_store, organization_id) {
             Ok(v) => v,
@@ -386,8 +376,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             }
         };
 
-        // Heartbeat: poll the jobs endpoint for the connectivity bump, ignoring the list, until the
-        // rotation completes.
+        // Heartbeat until the rotation completes.
         let heartbeat_cancel = cancel.child_token();
         let heartbeat_handle = spawn_heartbeat(
             sdk_client.clone(),
@@ -430,8 +419,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
     }
 }
 
-/// Spawns the heartbeat task: it polls the jobs endpoint every `interval_period` for the
-/// connectivity bump, ignoring the list, until `cancel` fires.
+/// Spawns the heartbeat: polls the jobs endpoint for the connectivity bump until `cancel` fires.
 fn spawn_heartbeat(
     client: Client,
     interval_period: Duration,
@@ -458,8 +446,8 @@ enum NotEligibleOutcome {
     Retry,
 }
 
-/// Probes a `NotEligible` with a forced refresh: a rejected refresh means `CredentialRefused`, and
-/// a 404 on the re-poll after a good refresh means `NotEligible`.
+/// Probes a `NotEligible` with a forced refresh: rejected means `CredentialRefused`, a 404 on the
+/// re-poll after a good refresh means `NotEligible`.
 async fn handle_not_eligible(
     session: &SessionManager,
     api: &AccessConnectorClient,
@@ -516,8 +504,7 @@ mod tests {
         test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
     };
 
-    /// Polls until `server` has received a request whose path ends with `suffix`. A fixed sleep
-    /// is flaky on slow (instrumented) builds.
+    /// Polls until `server` has received a request whose path ends with `suffix`.
     async fn wait_for_request(server: &MockServer, suffix: &str) {
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
@@ -590,8 +577,8 @@ mod tests {
 
     #[test]
     fn connectivity_monitor_stale_after_offline_grace() {
-        // is_connected reads std::time::Instant, which tokio's virtual time does not advance, so
-        // seed an instant already past the grace period.
+        // tokio's virtual time does not advance `Instant`, so seed one already past the grace
+        // period.
         let stale = Instant::now()
             .checked_sub(Duration::from_secs(61))
             .unwrap_or_else(Instant::now);
@@ -646,7 +633,7 @@ mod tests {
             .unwrap()
             .to_rfc3339();
 
-        // Offer all three jobs once, so the claim cycle doesn't repeat every poll tick.
+        // Offer all three jobs once so the claim cycle doesn't repeat.
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
             .respond_with(
@@ -789,7 +776,6 @@ mod tests {
         let cancel = CancellationToken::new();
         let handle = spawn_heartbeat(client, heartbeat_interval, cancel.clone());
 
-        // Wait for at least two polls rather than sleeping a fixed time.
         let deadline = Instant::now() + Duration::from_secs(10);
         while count_requests(&api_server, "GET", "/access-connectors/rotation/jobs").await < 2
             && Instant::now() < deadline
@@ -859,7 +845,7 @@ mod tests {
             .unwrap()
             .to_rfc3339();
 
-        // Offer the job once, so the claim/reject cycle doesn't repeat every poll tick.
+        // Offer the job once so the claim/reject cycle doesn't repeat.
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
             .respond_with(

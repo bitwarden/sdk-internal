@@ -139,15 +139,10 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
     req.headers_mut().insert(http::header::AUTHORIZATION, value);
 }
 
-/// A black-holed connection must not starve the heartbeat past the server's
-/// `AccessConnectorOfflineAfter`.
+/// Keeps a black-holed connection from starving the heartbeat past `AccessConnectorOfflineAfter`.
 pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Applies [`REQUEST_TIMEOUT`] to a whole request.
-///
-/// Applies [`REQUEST_TIMEOUT`] to a whole request. Neither `new_http_client_builder` nor core's
-/// `ClientBuilder::build` sets one, so a client built through [`bitwarden_core::Client`] needs this
-/// passed as middleware.
+/// Applies [`REQUEST_TIMEOUT`] to a whole request; core sets none.
 pub(crate) struct TimeoutMiddleware {
     timeout: Duration,
 }
@@ -222,23 +217,17 @@ impl Middleware for ConnectivityMiddleware {
 /// Builds the SDK client the connector runs against, plus the handler that carries its session
 /// once startup has one.
 ///
-/// [`TimeoutMiddleware`] is load-bearing twice over: core sets no per-request timeout, and it only
-/// disables redirect-following when the extra-middleware vec is non-empty (the auth middleware does
-/// not count). The vec is never empty here, but dropping it would remove the timeout and start
-/// following redirects, so `request_times_out_rather_than_hanging` and
-/// `does_not_follow_a_cross_host_redirect` guard both.
+/// [`TimeoutMiddleware`] is load-bearing twice: core sets no per-request timeout, and it disables
+/// redirect-following only when the extra-middleware vec is non-empty (the auth middleware does not
+/// count). `request_times_out_rather_than_hanging` and `does_not_follow_a_cross_host_redirect`
+/// guard both.
 ///
-/// Redirects are refused not because they would leak the bearer (reqwest strips `Authorization`
-/// when the host, port or scheme changes) but because these endpoints never legitimately redirect.
-/// Following one would send the request to a host the server named, read that host's reply as the
-/// API's, and on a 307 forward the encrypted cipher body.
+/// Redirects are refused because these endpoints never legitimately redirect, not because the
+/// bearer would leak (reqwest strips `Authorization` on a host change): following one would read
+/// another host's reply as the API's and, on a 307, forward the encrypted cipher body.
 ///
-/// Chained outermost, the timeout also bounds token renewal, so the heartbeat cannot stall past
-/// `AccessConnectorOfflineAfter` whatever it is waiting on.
-///
-/// [`ConnectivityMiddleware`] sits just inside the timeout and outside the auth middleware, so it
-/// sees the response the caller gets: a 401 that the auth middleware retries into a 2xx counts
-/// once, and a 401 that stays a 401 does not count.
+/// Chained outermost, the timeout also bounds token renewal. [`ConnectivityMiddleware`] sits
+/// outside the auth middleware, so a 401 retried into a 2xx counts once and a persistent 401 not.
 pub(crate) fn build_sdk_client(
     api_url: String,
     identity_url: String,
@@ -263,8 +252,7 @@ pub(crate) fn build_sdk_client(
     (client, handler)
 }
 
-/// Domain-typed wrapper around the generated PAM rotation API clients, plus the cipher crypto the
-/// rotation needs.
+/// Domain-typed wrapper around the generated PAM rotation API clients.
 #[derive(FromClient)]
 pub(crate) struct AccessConnectorClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -330,8 +318,7 @@ impl AccessConnectorClient {
         }
     }
 
-    /// Fetch the encrypted cipher for an executing attempt. A 404 maps to
-    /// [`ApiError::UnknownAttempt`].
+    /// Fetch the encrypted cipher for an attempt. A 404 maps to [`ApiError::UnknownAttempt`].
     pub(crate) async fn get_cipher(&self, attempt_id: Uuid) -> Result<Cipher, ApiError> {
         let result = self
             .api_configurations
@@ -346,10 +333,8 @@ impl AccessConnectorClient {
         }
     }
 
-    /// Write the re-encrypted cipher back to the server. The request's `lastKnownRevisionDate`
-    /// is the optimistic-concurrency check.
-    ///
-    /// A 409 means revision-drift or capability-lost; a 404 means the attempt is unknown.
+    /// Write the re-encrypted cipher back. `lastKnownRevisionDate` is the optimistic-concurrency
+    /// check; a 409 means revision drift or capability lost, a 404 an unknown attempt.
     pub(crate) async fn put_cipher(
         &self,
         attempt_id: Uuid,
@@ -368,10 +353,7 @@ impl AccessConnectorClient {
         }
     }
 
-    /// Report a successful rotation attempt.
-    ///
-    /// A 409 or 404 here is final: the server rejected or abandoned the attempt.
-    /// Do not retry; log at warn-level and move on.
+    /// Report a successful rotation attempt. A 409 or 404 is final: do not retry.
     pub(crate) async fn report_success(
         &self,
         attempt_id: Uuid,
@@ -394,8 +376,7 @@ impl AccessConnectorClient {
         }
     }
 
-    /// Report a failed rotation attempt. A 409 or 404 here is final, as in
-    /// [`Self::report_success`].
+    /// Report a failed rotation attempt. A 409 or 404 is final, as in [`Self::report_success`].
     pub(crate) async fn report_failure(
         &self,
         attempt_id: Uuid,
@@ -428,11 +409,9 @@ impl AccessConnectorClient {
 /// Route class, for disambiguating 404 semantics.
 #[derive(Clone, Copy)]
 enum Route {
-    /// `/access-connectors/rotation/jobs` and `jobs/{id}/claim`, where a 404 means the connector is
-    /// not eligible.
+    /// `jobs` and `jobs/{id}/claim`: a 404 means the connector is not eligible.
     AccessConnectorOrJob,
-    /// `/access-connectors/rotation/attempts/{id}/…`, where a 404 means the server does not know
-    /// the attempt.
+    /// `attempts/{id}/…`: a 404 means the server does not know the attempt.
     Attempt,
 }
 
@@ -444,8 +423,8 @@ fn classify_error(err: bitwarden_api_base::Error, route: Route) -> ApiError {
             let status = rc.status.as_u16();
             match status {
                 401 => {
-                    // No async context to call session.phase() here, so a post-retry 401
-                    // maps to Transient; a terminal session loss surfaces earlier instead.
+                    // No async context to read session.phase(), so a post-retry 401 maps to
+                    // Transient; terminal loss surfaces earlier.
                     ApiError::Transient("HTTP 401 (post-retry)".to_string())
                 }
                 404 => match route {
@@ -458,8 +437,8 @@ fn classify_error(err: bitwarden_api_base::Error, route: Route) -> ApiError {
             }
         }
         Error::ReqwestMiddleware(mw_err) => {
-            // get_bearer and force_refresh_bearer keep the SessionError typed inside the middleware
-            // error, so session loss is detected by type rather than by message.
+            // The SessionError stays typed inside the middleware error, so loss is detected by
+            // type.
             if let reqwest_middleware::Error::Middleware(inner) = &mw_err
                 && let Some(SessionError::Lost(l)) = inner.downcast_ref::<SessionError>()
             {
@@ -477,7 +456,7 @@ fn classify_error(err: bitwarden_api_base::Error, route: Route) -> ApiError {
     }
 }
 
-/// Names only the variant of a [`reqwest_middleware::Error`], since its message can wrap arbitrary
+/// Names only the variant of a [`reqwest_middleware::Error`]; its message can wrap arbitrary
 /// strings.
 fn safe_middleware_description(err: &reqwest_middleware::Error) -> &'static str {
     match err {
@@ -531,8 +510,8 @@ fn parse_cipher(model: CipherMiniResponseModel) -> Result<Cipher, ApiError> {
         .map_err(|_| ApiError::Protocol("cipher response could not be parsed".to_owned()))
 }
 
-/// Serialise a [`FailureCode`] to its snake_case serde name. The server caps `errorCode` at 100
-/// characters, far above the longest variant name.
+/// Serialise a [`FailureCode`] to its snake_case serde name (the server caps `errorCode` at 100
+/// characters).
 fn failure_code_string(code: FailureCode) -> String {
     let v = serde_json::to_value(code)
         .unwrap_or_else(|_| serde_json::Value::String("internal".to_owned()));
@@ -626,8 +605,8 @@ mod tests {
         handler
     }
 
-    /// An [`AccessConnectorClient`] over the same client stack production builds, with `session`
-    /// installed on its handler, plus the connectivity receiver.
+    /// An [`AccessConnectorClient`] over the production client stack with `session` installed, plus
+    /// the connectivity receiver.
     fn make_access_connector_client(
         api_server: &MockServer,
         session: Arc<SessionManager>,
@@ -831,8 +810,8 @@ mod tests {
         assert!(matches!(err, ApiError::Protocol(_)), "got: {err:?}");
     }
 
-    /// The vault parses an unparseable field leniently; the strict decrypt in the pre-flight is
-    /// what rejects it (see `crypto::tests`), so parsing must not drop or echo the value.
+    /// The vault parses an unparseable field leniently; the strict pre-flight decrypt rejects it
+    /// (see `crypto::tests`), so parsing must not drop or echo the value.
     #[test]
     fn parse_cipher_keeps_garbage_enc_string_for_strict_decryption() {
         let view = crate::test_support::login_view(Uuid::new_v4(), Some("pw"));
@@ -1232,7 +1211,7 @@ mod tests {
         );
     }
 
-    /// Mounts a 401 on the jobs endpoint, so every authenticated call forces a session refresh.
+    /// Mounts a 401 on the jobs endpoint so every call forces a refresh.
     async fn mount_jobs_401(api_server: &MockServer) {
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
@@ -1241,8 +1220,7 @@ mod tests {
             .await;
     }
 
-    /// Issue a request through the client's own API HTTP stack, the one
-    /// [`build_sdk_client`] assembled.
+    /// Issue a request through the HTTP stack [`build_sdk_client`] assembled.
     async fn get_through_client(
         client: &Client,
         url: String,
@@ -1385,8 +1363,7 @@ mod tests {
         }
     }
 
-    /// R1: core's builder sets no per-request timeout, so a black-holed connection would
-    /// otherwise hang forever and starve the heartbeat past AccessAccessConnectorOfflineAfter.
+    /// R1: a black-holed connection must time out.
     #[tokio::test]
     async fn request_times_out_rather_than_hanging() {
         let api_server = MockServer::start().await;
@@ -1422,9 +1399,7 @@ mod tests {
         }
     }
 
-    /// R2: core disables redirects only when the extra-middleware vec is non-empty, and the
-    /// auth middleware does not count toward it. Following one would let the server redirect
-    /// the connector onto an arbitrary host and have its reply read as the API's.
+    /// R2: a cross-host redirect must not be followed.
     #[tokio::test]
     async fn does_not_follow_a_cross_host_redirect() {
         let elsewhere = MockServer::start().await;

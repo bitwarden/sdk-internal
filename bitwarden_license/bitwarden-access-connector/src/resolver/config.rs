@@ -14,8 +14,8 @@ use crate::{
     sys::EnvSource,
 };
 
-/// Per-target overrides from the `[targets]` TOML section; each `Some` field shadows its
-/// environment variable. There is no `client_secret` field, so secrets stay env-only.
+/// Per-target overrides from the `[targets]` TOML section; each `Some` field shadows its env var.
+/// No `client_secret` field, so secrets stay env-only.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct TargetEntry {
@@ -104,8 +104,7 @@ mod tests {
     use super::*;
     use crate::{api::models::TargetKind, resolver::env::prefix_for, sys::FakeEnv};
 
-    /// Runs the resolver against exactly `vars`; no process state is touched, so no lock is
-    /// needed.
+    /// Runs the resolver against exactly `vars`, touching no process state.
     fn run_resolver_with_env(
         id: Uuid,
         kind: TargetKind,

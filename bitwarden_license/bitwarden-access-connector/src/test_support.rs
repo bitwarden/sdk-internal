@@ -34,9 +34,8 @@ pub(crate) fn test_org_slot() -> SymmetricKeySlotId {
     SymmetricKeySlotId::Organization(test_org_id())
 }
 
-/// An access token carrying `organization_id`, shaped like the one the server issues. `tag` lands
-/// in the subject claim so two tokens can be told apart; tests asserting on an `Authorization`
-/// header build the expected value through this same function. Only the claims segment is real.
+/// An access token carrying `organization_id`; `tag` lands in the subject claim to tell tokens
+/// apart. Only the claims segment is real.
 pub(crate) fn access_token_tagged(organization_id: OrganizationId, tag: &str) -> String {
     let claims = serde_json::json!({
         "exp": 1_900_000_000u64,
@@ -49,8 +48,7 @@ pub(crate) fn access_token_tagged(organization_id: OrganizationId, tag: &str) ->
     format!("header.{payload}.signature")
 }
 
-/// A real token and its derived key, minted once via `make_access_token_secrets` so the two always
-/// agree.
+/// A real token and its derived key, minted together so they agree.
 static TEST_CREDENTIAL: LazyLock<(String, SymmetricCryptoKey)> = LazyLock::new(|| {
     let wrapping_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
     let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -110,8 +108,7 @@ pub(crate) fn org_store() -> KeyStore<KeySlotIds> {
 /// The revision date the cipher fixtures carry, with a millisecond part the write must truncate.
 pub(crate) const CIPHER_REVISION_DATE: &str = "2024-06-01T12:00:00.123Z";
 
-/// A login cipher view in the test org with a username, URI, notes, a hidden custom field and one
-/// history entry, so a rotation has something to preserve.
+/// A login cipher view in the test org with fields and history a rotation must preserve.
 pub(crate) fn login_view(cipher_id: uuid::Uuid, password: Option<&str>) -> CipherView {
     let revision_date = CIPHER_REVISION_DATE.parse().expect("valid date");
     CipherView {
@@ -217,8 +214,8 @@ pub(crate) fn keyless_cipher_json(
     })
 }
 
-/// Decrypts the string at JSON pointer `pointer` in a cipher write `body`, under the item key
-/// that the body's own `key` carries, as the server's clients would.
+/// Decrypts the string at JSON pointer `pointer` in a cipher write `body` under the item key its
+/// own `key` carries.
 pub(crate) fn decrypt_body_field(
     store: &KeyStore<KeySlotIds>,
     body: &serde_json::Value,
@@ -242,8 +239,8 @@ pub(crate) fn decrypt_body_field(
     enc.decrypt(&mut ctx, item_key).expect("field decrypts")
 }
 
-/// An [`AccessConnectorClient`] whose key store is `store`. Its API configurations point at an
-/// unreachable address, so only the crypto methods are usable.
+/// An [`AccessConnectorClient`] over `store` with an unreachable API address, so only the crypto
+/// methods work.
 pub(crate) fn client_with_store(store: &KeyStore<KeySlotIds>) -> AccessConnectorClient {
     let (tx, _rx) = tokio::sync::watch::channel(std::time::Instant::now());
     let (client, _handler) = build_sdk_client(

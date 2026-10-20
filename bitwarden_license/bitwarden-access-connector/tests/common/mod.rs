@@ -1,8 +1,7 @@
-//! Shared harness for the connector's integration tests: wiremock identity and API servers with
-//! self-consistent token, payload and cipher fixtures.
+//! Shared harness: wiremock identity and API servers with self-consistent token, payload and cipher
+//! fixtures.
 //!
-//! Tests set per-target credentials in the real process environment, so each takes [`lock_env`]
-//! first.
+//! Tests mutate per-target env vars, so each takes [`lock_env`] first.
 
 #![allow(dead_code)]
 
@@ -43,16 +42,14 @@ pub use wiremock::{
 /// Serialises tests that mutate env vars.
 pub static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-/// Takes [`ENV_LOCK`], ignoring poison so a test that panics while holding it does not fail every
-/// other test.
+/// Takes [`ENV_LOCK`], ignoring poison so one panicking test doesn't fail the rest.
 pub fn lock_env() -> std::sync::MutexGuard<'static, ()> {
     ENV_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-/// A real token and its derived key, minted once via `make_access_token_secrets` so the two
-/// always agree.
+/// A real token and its derived key, minted via `make_access_token_secrets` so they agree.
 static TEST_CREDENTIAL: LazyLock<(String, SymmetricCryptoKey)> = LazyLock::new(|| {
     let wrapping_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
     let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -90,8 +87,7 @@ pub fn token_encryption_key() -> SymmetricCryptoKey {
     TEST_CREDENTIAL.1.clone()
 }
 
-/// Generate a fresh org key and its matching `encryptedPayload` for the
-/// identity server response.
+/// A fresh org key and its matching `encryptedPayload` for the identity response.
 pub fn make_org_key_and_payload() -> (SymmetricCryptoKey, String) {
     let token_key = token_encryption_key();
     let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -148,8 +144,7 @@ pub async fn mount_identity_ok(server: &MockServer, encrypted_payload: &str) {
         .await;
 }
 
-/// The cipher-read endpoint's body: a login cipher in the test org, encrypted by the vault under
-/// `org_key` with the given password.
+/// The cipher-read body: a login cipher in the test org, encrypted under `org_key` with `password`.
 pub fn make_cipher_json(
     org_key: &SymmetricCryptoKey,
     cipher_id: Uuid,
@@ -219,8 +214,8 @@ pub fn make_cipher_json(
     json
 }
 
-/// Asserts a cipher write `body` rotated the password away from `old_password`: the new password
-/// differs, and the old one heads the history, both readable under the body's own item key.
+/// Asserts a cipher write `body` rotated the password away from `old_password`, with the old one
+/// heading the history.
 pub fn assert_cipher_write_rotated(
     org_key: &SymmetricCryptoKey,
     body: &serde_json::Value,

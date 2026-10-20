@@ -134,9 +134,8 @@ impl SessionState {
         self.set_phase(phase);
         self.bearer = None;
         self.expires_at = None;
-        // Empty the store in place rather than swapping in a fresh one: every holder of
-        // the Arc -- the executor hoists one before the poll loop -- must lose the org key,
-        // not just whoever asks the session for it next.
+        // Empty in place rather than swap: every holder of the Arc (the executor hoists one
+        // before the poll loop) must lose the org key.
         self.key_store.clear();
     }
 }
@@ -200,11 +199,9 @@ impl SessionManager {
         self.state.lock().await.organization_id
     }
 
-    /// Obtain a valid bearer token, renewing as needed.
-    ///
-    /// Retries transient errors with capped backoff up to `deadline` ([`NO_DEADLINE_MAX_TRIES`]
-    /// caps a `None` deadline); a rejected credential clears secrets and returns
-    /// `Err(Lost(Revoked))`.
+    /// Obtain a valid bearer, renewing as needed. Retries transient errors with capped backoff up
+    /// to `deadline` ([`NO_DEADLINE_MAX_TRIES`] caps a `None` deadline); a rejected credential
+    /// clears secrets and returns `Err(Lost(Revoked))`.
     pub(crate) async fn bearer(&self, deadline: Option<Instant>) -> Result<String, SessionError> {
         // Fast path, without holding the mutex across a network call.
         {
@@ -230,10 +227,8 @@ impl SessionManager {
         Ok(guard.bearer.clone().unwrap_or_default())
     }
 
-    /// Force a session refresh on the 401 path.
-    ///
-    /// A bearer that no longer matches `stale` was already renewed by a concurrent task and is
-    /// returned as-is, as in bitwarden-auth's `resolve_retry`.
+    /// Force a session refresh on the 401 path. A bearer that no longer matches `stale` was already
+    /// renewed concurrently and is returned as-is, as in bitwarden-auth's `resolve_retry`.
     pub(crate) async fn force_refresh(
         &self,
         stale: &str,
@@ -703,9 +698,8 @@ mod tests {
         );
     }
 
-    /// The executor hoists the key-store handle once, before the poll loop, and hands that
-    /// same `Arc` to every rotation. Swapping the session's store left that handle pointing
-    /// at the original, org key intact; clearing in place reaches every holder.
+    /// The executor hoists the key-store handle once before the poll loop; clearing in place
+    /// must reach that `Arc`, which swapping the session's store would not.
     #[tokio::test]
     async fn key_store_handle_taken_before_revocation_loses_the_org_key() {
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);

@@ -150,8 +150,8 @@ impl FileSystem for FakeFs {
     }
 }
 
-/// The ambient system state the scripting layer depends on, grouped so it travels as one
-/// argument. Each half is still its own trait, so a test can fake one and keep the other real.
+/// The ambient system state the scripting layer depends on. Each half is its own trait, so a test
+/// can fake one and keep the other real.
 #[derive(Clone)]
 pub(crate) struct Platform {
     pub(crate) env: Arc<dyn EnvSource>,

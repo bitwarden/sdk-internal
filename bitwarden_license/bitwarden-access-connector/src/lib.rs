@@ -34,7 +34,7 @@ pub async fn run(
     executor::run(cfg, cancel).await
 }
 
-/// Serialises every test that mutates process environment variables, since concurrent mutation is
-/// UB (hence `unsafe` `set_var` in Rust 2024). Hold it for the whole mutation window.
+/// Serialises tests that mutate environment variables, since concurrent mutation is UB. Hold it
+/// for the whole mutation window.
 #[cfg(test)]
 pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

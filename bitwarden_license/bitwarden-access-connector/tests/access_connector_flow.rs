@@ -94,7 +94,6 @@ async fn happy_path_rotate_and_report_success() {
     let handle =
         tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
-    // Wait for the success report, then cancel.
     tokio::time::sleep(Duration::from_millis(3000)).await;
     cancel.cancel();
 
@@ -218,7 +217,6 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let handle =
         tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
-    // Wait for failure report, then cancel.
     tokio::time::sleep(Duration::from_millis(3000)).await;
     cancel.cancel();
 
@@ -305,8 +303,7 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let handle =
         tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
-    // Wait until the connector has attempted the claim at least twice, i.e. it kept polling after
-    // losing the race.
+    // Wait until the connector has retried the claim at least twice after losing the race.
     let claim_path = format!("/access-connectors/rotation/jobs/{job_id}/claim");
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
     loop {

@@ -16,7 +16,7 @@ use crate::{
 pub(crate) enum TargetKind {
     /// Microsoft Entra ID (Azure AD).
     Entra,
-    /// Microsoft SQL Server (unimplemented in this build).
+    /// Microsoft SQL Server.
     Mssql,
     /// Operator-supplied custom rotation script.
     CustomScript,
