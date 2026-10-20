@@ -497,6 +497,7 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-commercial-marker",
  "clap",
+ "thiserror",
 ]
 
 [[package]]
@@ -1238,6 +1239,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-ffi",
+ "bitwarden-generators",
  "bitwarden-pam-sealed",
  "bitwarden-sensitive-value",
  "bitwarden-uuid",

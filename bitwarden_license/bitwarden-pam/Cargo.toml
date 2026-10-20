@@ -21,6 +21,7 @@ wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-error/wasm",
     "bitwarden-ffi/wasm",
+    "bitwarden-generators/wasm",
     "bitwarden-vault/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -36,6 +37,7 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-ffi = { workspace = true }
+bitwarden-generators = { workspace = true }
 bitwarden-pam-sealed = { workspace = true }
 bitwarden-uuid = { workspace = true }
 bitwarden-vault = { workspace = true }
