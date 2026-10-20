@@ -13,8 +13,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 use zeroize::Zeroizing;
 
@@ -36,7 +34,7 @@ pub(crate) const SEND_KEY_LEN: usize = 16;
 /// using the key derived from the URL fragment.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessResponse {
     /// The send access ID
     pub id: Option<String>,
@@ -60,7 +58,7 @@ pub struct SendAccessResponse {
 /// Encrypted text content of a text send.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessTextResponse {
     /// Encrypted text content
     pub text: Option<String>,
@@ -71,7 +69,7 @@ pub struct SendAccessTextResponse {
 /// Encrypted file metadata of a file send.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessFileResponse {
     /// The file ID
     pub id: Option<String>,
@@ -86,7 +84,7 @@ pub struct SendAccessFileResponse {
 /// Encrypted item metadata of an item send.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessItemResponse {
     /// The version of encryption used to encrypt the item data
     pub encryption_version: Option<SendEncryptionType>,
@@ -99,7 +97,7 @@ pub struct SendAccessItemResponse {
 /// File download URL data returned from a send file access call.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendFileDownloadData {
     /// The file ID
     pub id: Option<String>,
@@ -123,7 +121,7 @@ pub struct SendFileDownloadData {
 /// dumping whatever the server returned), which a total enum could not represent.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessView {
     /// The send access ID
     pub id: Option<String>,
@@ -148,7 +146,7 @@ pub struct SendAccessView {
 /// Decrypted text content of a text send.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessTextView {
     /// The decrypted text content
     pub text: Option<String>,
@@ -159,7 +157,7 @@ pub struct SendAccessTextView {
 /// Decrypted file metadata of a file send.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessFileView {
     /// The file ID
     pub id: Option<String>,
@@ -174,7 +172,7 @@ pub struct SendAccessFileView {
 /// Decrypted item metadata of an item send.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessItemView {
     /// The decrypted Cipher data
     pub data: Option<CipherView>,
@@ -472,7 +470,7 @@ impl From<models::SendFileDownloadDataResponseModel> for SendFileDownloadData {
 // wasm_bindgen generates glue that calls the deprecated methods below, which would otherwise
 // warn.
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Accesses a send, authenticated with a send access token.
     /// The returned [SendAccessResponse] contains encrypted fields that must be decrypted

@@ -3,8 +3,6 @@ use bitwarden_auth::{
     send_access::{SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse},
 };
 use bitwarden_core::{Client, ClientSettings};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     AccessSendError, GetFileDownloadDataError, SendAccessDecryptError, SendAccessKey,
@@ -20,12 +18,12 @@ use crate::{
 /// [`ClientSettings`] and carries no user identity, tokens, or key store. Creating and editing
 /// Sends never needs this, and should go through the regular
 /// [`SendClient`](crate::SendClient).
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct SendReceiveClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendReceiveClient {
     /// Create a receive client targeting the instance described by `settings`.
     #[cfg_attr(feature = "wasm", wasm_bindgen(constructor))]

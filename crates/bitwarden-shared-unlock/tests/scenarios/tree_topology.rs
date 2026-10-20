@@ -159,3 +159,92 @@ async fn returning_browser_relays_web_unlock_to_tree() {
     bitwarden_threading::time::sleep(GRACE).await;
     assert_user_state(TargetLockState::Unlocked, &tree.topology, &user);
 }
+
+/// A middle-tier browser that reloads on every lock keeps the desktop's lock after its reload, even
+/// when the desktop quits right after locking, and carries it down to its web client rather than
+/// taking the web client's older unlock back.
+///
+/// ```text
+/// web UNLOCKED --> LOCKED (stays)
+///    |
+/// browser UNLOCKED --> LOCKED --reload--> LOCKED (stays)
+///    |
+/// desktop UNLOCKED --> LOCKED (manual) --> quits
+/// ```
+#[tokio::test]
+async fn lock_desktop_then_quit_keeps_tree_locked() {
+    let user = test_user(TestUserId::A);
+    let topology = SharedUnlockTopology::new(fast_timing());
+
+    let desktop = topology.add_device(
+        "desktop",
+        DeviceOptions::new(ClientType::Desktop, &[user.id]),
+    );
+    let browser = topology.add_device(
+        "browser",
+        DeviceOptions::new(ClientType::Browser, &[user.id])
+            .following(&desktop)
+            .with_vault_url(VAULT_URL)
+            .with_quirks(DeviceQuirks {
+                reload_after_lock: Some(Duration::ZERO),
+                ..DeviceQuirks::default()
+            }),
+    );
+    let web = topology.add_device(
+        "web",
+        DeviceOptions::new(ClientType::Web, &[user.id])
+            .following(&browser)
+            .with_vault_url(VAULT_URL),
+    );
+    topology.start().await;
+
+    // 1. Unlock the web client; all devices must become unlocked.
+    web.manual_unlock(user.id, &user.key).await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology, &user).await;
+
+    // 2. Lock the desktop and quit it as soon as the browser has applied the lock.
+    let locked_at = harness::now_ms();
+    desktop.manual_lock(user.id).await;
+    let browser_locked = events_matching(&topology, |event| {
+        event.device() == "browser" && event.kind() == Some("lock_end") && event.at >= locked_at
+    });
+    let deadline = harness::now_ms() + 2_000;
+    let mut browser_locked = !browser_locked.is_empty();
+    while !browser_locked && harness::now_ms() < deadline {
+        bitwarden_threading::time::sleep(Duration::from_millis(1)).await;
+        browser_locked = !events_matching(&topology, |event| {
+            event.device() == "browser" && event.kind() == Some("lock_end") && event.at >= locked_at
+        })
+        .is_empty();
+    }
+    assert!(
+        browser_locked,
+        "trigger not reached: the browser should have applied the desktop's lock"
+    );
+    desktop.go_offline();
+
+    // 3. Let the browser's reload-on-lock run, and assert it fired.
+    bitwarden_threading::time::sleep(GRACE).await;
+    let reloads = events_matching(&topology, |event| {
+        event.device() == "browser" && event.kind() == Some("reload") && event.at >= locked_at
+    });
+    assert!(
+        !reloads.is_empty(),
+        "trigger not reached: the browser should have reloaded on the protocol lock"
+    );
+
+    // 4. The desktop's lock is newer than the web client's unlock: the remaining devices must end
+    //    locked, and none may unlock again.
+    let unlocks: Vec<String> = events_matching(&topology, |event| {
+        event.kind() == Some("unlock_start") && event.at >= locked_at
+    })
+    .iter()
+    .map(|event| format!("{} at {}ms", event.device(), event.at))
+    .collect();
+    assert!(
+        unlocks.is_empty(),
+        "No device may unlock after the desktop's lock, yet: {unlocks:?}\n{}",
+        topology.captured_log()
+    );
+    assert_user_state(TargetLockState::Locked, &topology, &user);
+}

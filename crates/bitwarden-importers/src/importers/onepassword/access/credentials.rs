@@ -8,11 +8,8 @@ use super::sign_in::SignInAddress;
 ///
 /// Deliberately neither `Debug` nor `Serialize`: it holds the master password and Secret Key.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize, tsify::Tsify),
-    tsify(from_wasm_abi)
-)]
+#[cfg_attr(feature = "wasm", derive(serde::Deserialize))]
+#[bitwarden_ffi::wasm_record(input)]
 #[derive(Clone)]
 pub struct Credentials {
     /// The account's email address.
