@@ -10,11 +10,8 @@ use super::{
 };
 use crate::{AccessLeaseId, access_requests::AccessRequestView};
 
-/// Client for reading and managing a requester's PAM access leases.
-///
-/// A lease is minted by [`AccessRequestsClient::activate`](crate::AccessRequestsClient::activate);
-/// this client covers the rest of a lease's life: listing the caller's leases, extending an active
-/// one, and ending one early.
+/// Client for reading and managing a requester's PAM access leases. Leases are minted by
+/// [`AccessRequestsClient::activate`](crate::AccessRequestsClient::activate).
 #[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct LeasesClient {
@@ -91,11 +88,9 @@ impl LeasesClient {
         Ok(())
     }
 
-    /// Reads the full cipher a lease unlocks, straight from the server.
-    ///
-    /// Returns `None` for a still-restricted (partial) payload: the lease lapsed between the
-    /// access-state read and this call. Never written to the cipher repository, so a lapsed
-    /// lease cannot leave decryptable secrets in state.
+    /// Reads the full cipher a lease unlocks from the server, or `None` if the server still
+    /// restricts it. The result is never stored, so a lapsed lease leaves no decryptable secrets
+    /// in state.
     pub async fn leased_cipher(
         &self,
         cipher_id: CipherId,
@@ -155,8 +150,7 @@ mod tests {
     }
 
     /// A full (unrestricted) cipher payload, as the server answers a caller holding a lease. Its
-    /// `name` is encrypted under a key the test store does not have, which is all the decrypt path
-    /// needs to be exercised - see `leased_cipher_surfaces_a_decrypt_failure`.
+    /// `name` is encrypted under a key the test store lacks, which lenient decryption tolerates.
     fn full_cipher_response() -> CipherDetailsResponseModel {
         CipherDetailsResponseModel {
             id: Some(cipher_id().into()),
@@ -293,8 +287,7 @@ mod tests {
 
         let result = client(api_client).leased_cipher(cipher_id()).await.unwrap();
 
-        // The lease lapsed between the access-state read and this one. Returning the partial would
-        // reveal an empty credential dressed as the real one.
+        // Returning the partial would show an empty credential as if it were the real one.
         assert!(result.is_none());
     }
 
