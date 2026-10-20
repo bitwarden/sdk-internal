@@ -142,13 +142,14 @@ mod tests {
         time::Duration,
     };
 
+    use bitwarden_pam::RotationFailureCode;
     use chrono::Utc;
     use uuid::Uuid;
     use zeroize::Zeroizing;
 
     use super::*;
     use crate::{
-        error::{ErrorClass, FailureCode},
+        error::ErrorClass,
         integrations::{TargetEffect, scripting::RecordingRunner},
         resolver::ResolvedCredentials,
         sys::{FakeEnv, FakeFs, Platform},
@@ -406,7 +407,7 @@ mod tests {
             let err = outcome_of(RecordingRunner::failing(InvokeError::Timeout), operation)
                 .await
                 .unwrap_err();
-            assert_eq!(err.code, FailureCode::ScriptTimeout, "{operation}");
+            assert_eq!(err.code, RotationFailureCode::ScriptTimeout, "{operation}");
             assert_eq!(err.effect, effect, "{operation}");
         }
     }

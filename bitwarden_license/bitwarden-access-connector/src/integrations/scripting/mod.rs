@@ -14,12 +14,13 @@ use std::{
 };
 
 use async_trait::async_trait;
+use bitwarden_pam::RotationFailureCode;
 use serde::Serialize;
 use tokio::{process::Command, time};
 
 use super::{IntegrationError, RotateContext, TargetEffect};
 use crate::{
-    error::{ErrorClass, FailureCode, SafeDetail},
+    error::{ErrorClass, SafeDetail},
     resolver::ResolvedCredentials,
     sys::FileSystem,
 };
@@ -113,7 +114,7 @@ pub(crate) fn resolve_script_path(
     let script_val = creds.get("SCRIPT").ok_or_else(|| IntegrationError {
         class: ErrorClass::Fatal,
         effect: TargetEffect::NotApplied,
-        code: FailureCode::CredentialsUnresolved,
+        code: RotationFailureCode::CredentialsUnresolved,
         detail: SafeDetail::from_kind("MissingScript"),
     })?;
 
@@ -123,7 +124,7 @@ pub(crate) fn resolve_script_path(
     let canonical = fs.canonicalize(&raw_path).map_err(|_| IntegrationError {
         class: ErrorClass::Fatal,
         effect: TargetEffect::NotApplied,
-        code: FailureCode::CredentialsUnresolved,
+        code: RotationFailureCode::CredentialsUnresolved,
         detail: SafeDetail::from_kind("ScriptNotFound"),
     })?;
 
@@ -131,7 +132,7 @@ pub(crate) fn resolve_script_path(
         let canonical_root = fs.canonicalize(root).map_err(|_| IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::NotApplied,
-            code: FailureCode::CredentialsUnresolved,
+            code: RotationFailureCode::CredentialsUnresolved,
             detail: SafeDetail::from_kind("ScriptRootInvalid"),
         })?;
 
@@ -139,7 +140,7 @@ pub(crate) fn resolve_script_path(
             return Err(IntegrationError {
                 class: ErrorClass::Fatal,
                 effect: TargetEffect::NotApplied,
-                code: FailureCode::CredentialsUnresolved,
+                code: RotationFailureCode::CredentialsUnresolved,
                 detail: SafeDetail::from_kind("ScriptOutsideRoot"),
             });
         }
@@ -161,7 +162,7 @@ pub(crate) fn resolve_script_type(
                 ScriptType::parse(exposed.as_ref() as &str).ok_or_else(|| IntegrationError {
                     class: ErrorClass::Fatal,
                     effect: TargetEffect::NotApplied,
-                    code: FailureCode::CredentialsUnresolved,
+                    code: RotationFailureCode::CredentialsUnresolved,
                     detail: SafeDetail::from_kind("UnknownScriptType"),
                 })?,
             )
@@ -292,7 +293,7 @@ pub(crate) fn classify_outcome(
         Err(InvokeError::HostNotFound) => Err(IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::NotApplied,
-            code: FailureCode::CredentialsUnresolved,
+            code: RotationFailureCode::CredentialsUnresolved,
             detail: SafeDetail::from_kind("PowerShellHostNotFound"),
         }),
         Err(InvokeError::StdinWrite) => Err(script_io_error(operation, "ScriptStdinWriteFailed")),
@@ -300,7 +301,7 @@ pub(crate) fn classify_outcome(
         Err(_) => Err(IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::NotApplied,
-            code: FailureCode::Internal,
+            code: RotationFailureCode::Internal,
             detail: SafeDetail::from_kind("ScriptSpawnError"),
         }),
     }
@@ -313,7 +314,7 @@ fn script_io_error(operation: &str, kind: &'static str) -> IntegrationError {
             "rotate" => TargetEffect::Unknown,
             _ => TargetEffect::NotApplied,
         },
-        code: FailureCode::Internal,
+        code: RotationFailureCode::Internal,
         detail: SafeDetail::from_kind(kind),
     }
 }
@@ -327,7 +328,7 @@ fn timeout_error(operation: &str, timeout_secs: u64) -> IntegrationError {
     IntegrationError {
         class: ErrorClass::Fatal,
         effect,
-        code: FailureCode::ScriptTimeout,
+        code: RotationFailureCode::ScriptTimeout,
         detail: SafeDetail::timed_out(timeout_secs),
     }
 }
@@ -371,7 +372,7 @@ fn exit_error(exit: ScriptExit, operation: &str) -> IntegrationError {
     IntegrationError {
         class,
         effect,
-        code: FailureCode::ScriptFailed,
+        code: RotationFailureCode::ScriptFailed,
         detail,
     }
 }
@@ -637,7 +638,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.class, ErrorClass::Fatal);
         assert_eq!(err.effect, TargetEffect::NotApplied);
-        assert_eq!(err.code, FailureCode::CredentialsUnresolved);
+        assert_eq!(err.code, RotationFailureCode::CredentialsUnresolved);
         assert_eq!(err.detail.as_str(), "error kind: UnknownScriptType");
     }
 
@@ -653,7 +654,7 @@ mod tests {
             let err = classify_outcome(Ok(ScriptExit::Code(code)), "rotate", 60).unwrap_err();
             assert_eq!(err.class, class, "exit {code}");
             assert_eq!(err.effect, effect, "exit {code}");
-            assert_eq!(err.code, FailureCode::ScriptFailed, "exit {code}");
+            assert_eq!(err.code, RotationFailureCode::ScriptFailed, "exit {code}");
         }
         classify_outcome(Ok(ScriptExit::Code(0)), "rotate", 60).unwrap();
     }
@@ -663,7 +664,7 @@ mod tests {
         let err = classify_outcome(Ok(ScriptExit::Signal(Some(9))), "rotate", 60).unwrap_err();
         assert_eq!(err.class, ErrorClass::Fatal);
         assert_eq!(err.effect, TargetEffect::Unknown);
-        assert_eq!(err.code, FailureCode::ScriptFailed);
+        assert_eq!(err.code, RotationFailureCode::ScriptFailed);
         assert_eq!(err.detail.as_str(), "signal 9");
     }
 
@@ -687,7 +688,7 @@ mod tests {
             ("terminate", TargetEffect::NotApplied),
         ] {
             let err = classify_outcome(Err(InvokeError::Timeout), operation, 60).unwrap_err();
-            assert_eq!(err.code, FailureCode::ScriptTimeout, "{operation}");
+            assert_eq!(err.code, RotationFailureCode::ScriptTimeout, "{operation}");
             assert_eq!(err.effect, effect, "{operation}");
         }
     }
@@ -721,14 +722,14 @@ mod tests {
     #[test]
     fn classify_outcome_separates_a_missing_host_from_a_spawn_failure() {
         let missing = classify_outcome(Err(InvokeError::HostNotFound), "rotate", 60).unwrap_err();
-        assert_eq!(missing.code, FailureCode::CredentialsUnresolved);
+        assert_eq!(missing.code, RotationFailureCode::CredentialsUnresolved);
         assert_eq!(
             missing.detail.as_str(),
             "error kind: PowerShellHostNotFound"
         );
 
         let spawn = classify_outcome(Err(InvokeError::Spawn), "rotate", 60).unwrap_err();
-        assert_eq!(spawn.code, FailureCode::Internal);
+        assert_eq!(spawn.code, RotationFailureCode::Internal);
         assert_eq!(spawn.detail.as_str(), "error kind: ScriptSpawnError");
     }
 }

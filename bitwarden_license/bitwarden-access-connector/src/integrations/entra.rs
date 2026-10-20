@@ -6,13 +6,14 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use bitwarden_pam::RotationFailureCode;
 use bitwarden_sensitive_value::ExposeSensitive as _;
 use reqwest::Client;
 use serde::Deserialize;
 use url::Url;
 
 use super::{Integration, IntegrationError, RotateContext, TargetEffect};
-use crate::error::{ErrorClass, FailureCode, SafeDetail};
+use crate::error::{ErrorClass, SafeDetail};
 
 const DEFAULT_LOGIN_BASE: &str = "https://login.microsoftonline.com";
 
@@ -132,7 +133,7 @@ async fn fetch_graph_token(
     let mut token_url = Url::parse(login_base).map_err(|_| IntegrationError {
         class: ErrorClass::Fatal,
         effect: TargetEffect::NotApplied,
-        code: FailureCode::TargetUnreachable,
+        code: RotationFailureCode::TargetUnreachable,
         detail: SafeDetail::from_kind("InvalidLoginBase"),
     })?;
     {
@@ -141,7 +142,7 @@ async fn fetch_graph_token(
             .map_err(|_| IntegrationError {
                 class: ErrorClass::Fatal,
                 effect: TargetEffect::NotApplied,
-                code: FailureCode::TargetUnreachable,
+                code: RotationFailureCode::TargetUnreachable,
                 detail: SafeDetail::from_kind("InvalidLoginBase"),
             })?;
         segments.push(tenant_id);
@@ -171,7 +172,7 @@ async fn fetch_graph_token(
         let body: TokenResponse = response.json().await.map_err(|_| IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::NotApplied,
-            code: FailureCode::TargetRejected,
+            code: RotationFailureCode::TargetRejected,
             detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
         })?;
         return Ok(body.access_token);
@@ -181,14 +182,14 @@ async fn fetch_graph_token(
         Err(IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::NotApplied,
-            code: FailureCode::TargetRejected,
+            code: RotationFailureCode::TargetRejected,
             detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
         })
     } else {
         Err(IntegrationError {
             class: ErrorClass::Transient,
             effect: TargetEffect::NotApplied,
-            code: FailureCode::TargetUnreachable,
+            code: RotationFailureCode::TargetUnreachable,
             detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
         })
     }
@@ -228,14 +229,14 @@ fn build_graph_user_url(
     let mut url = Url::parse(graph_base).map_err(|_| IntegrationError {
         class: ErrorClass::Fatal,
         effect: TargetEffect::NotApplied,
-        code: FailureCode::TargetUnreachable,
+        code: RotationFailureCode::TargetUnreachable,
         detail: SafeDetail::from_kind("InvalidGraphBase"),
     })?;
     {
         let mut segs = url.path_segments_mut().map_err(|_| IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::NotApplied,
-            code: FailureCode::TargetUnreachable,
+            code: RotationFailureCode::TargetUnreachable,
             detail: SafeDetail::from_kind("InvalidGraphBase"),
         })?;
         segs.push("v1.0");
@@ -253,7 +254,7 @@ fn network_error_before_send(e: reqwest::Error, effect: TargetEffect) -> Integra
     IntegrationError {
         class: ErrorClass::Transient,
         effect,
-        code: FailureCode::TargetUnreachable,
+        code: RotationFailureCode::TargetUnreachable,
         detail: if e.is_timeout() {
             SafeDetail::from_kind("ConnectTimeout")
         } else if e.is_connect() {
@@ -271,14 +272,14 @@ fn network_error_after_send(e: reqwest::Error, pre_send_effect: TargetEffect) ->
         IntegrationError {
             class: ErrorClass::Transient,
             effect: pre_send_effect,
-            code: FailureCode::TargetUnreachable,
+            code: RotationFailureCode::TargetUnreachable,
             detail: SafeDetail::from_kind("ConnectError"),
         }
     } else {
         IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::Unknown,
-            code: FailureCode::TargetUnreachable,
+            code: RotationFailureCode::TargetUnreachable,
             detail: if e.is_timeout() {
                 SafeDetail::from_kind("ResponseTimeout")
             } else {
@@ -357,14 +358,14 @@ impl Integration for EntraIntegration {
             Err(IntegrationError {
                 class: ErrorClass::Fatal,
                 effect: TargetEffect::NotApplied,
-                code: FailureCode::TargetRejected,
+                code: RotationFailureCode::TargetRejected,
                 detail: SafeDetail::from_http_status_and_graph_code(status_u16, graph_code_ref),
             })
         } else {
             Err(IntegrationError {
                 class: ErrorClass::Transient,
                 effect: TargetEffect::NotApplied,
-                code: FailureCode::TargetUnreachable,
+                code: RotationFailureCode::TargetUnreachable,
                 detail: SafeDetail::from_http_status_and_graph_code(status_u16, graph_code_ref),
             })
         }
@@ -409,7 +410,7 @@ impl Integration for EntraIntegration {
                     return Err(IntegrationError {
                         class: ErrorClass::Fatal,
                         effect: TargetEffect::Applied,
-                        code: FailureCode::VerificationFailed,
+                        code: RotationFailureCode::VerificationFailed,
                         detail: SafeDetail::from_kind("RopcWrongPassword"),
                     });
                 }
@@ -436,7 +437,7 @@ impl Integration for EntraIntegration {
                     // Network error during verify: password was already changed.
                     class: ErrorClass::Transient,
                     effect: TargetEffect::Applied,
-                    code: FailureCode::TargetUnreachable,
+                    code: RotationFailureCode::TargetUnreachable,
                     detail: SafeDetail::from_kind("NetworkError"),
                 })?;
 
@@ -456,7 +457,7 @@ impl Integration for EntraIntegration {
                 return Err(IntegrationError {
                     class,
                     effect: TargetEffect::Applied,
-                    code: FailureCode::TargetUnreachable,
+                    code: RotationFailureCode::TargetUnreachable,
                     detail,
                 });
             }
@@ -464,7 +465,7 @@ impl Integration for EntraIntegration {
             let user: UserResource = response.json().await.map_err(|_| IntegrationError {
                 class: ErrorClass::Fatal,
                 effect: TargetEffect::Applied,
-                code: FailureCode::VerificationFailed,
+                code: RotationFailureCode::VerificationFailed,
                 detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
             })?;
 
@@ -486,7 +487,7 @@ impl Integration for EntraIntegration {
                 return Err(IntegrationError {
                     class: ErrorClass::Fatal,
                     effect: TargetEffect::Applied,
-                    code: FailureCode::VerificationFailed,
+                    code: RotationFailureCode::VerificationFailed,
                     detail: SafeDetail::from_kind("StalePasswordChangeTimestamp"),
                 });
             }
@@ -541,7 +542,7 @@ impl Integration for EntraIntegration {
             Err(IntegrationError {
                 class: ErrorClass::Transient,
                 effect: TargetEffect::NotApplied,
-                code: FailureCode::TargetUnreachable,
+                code: RotationFailureCode::TargetUnreachable,
                 detail,
             })
         } else {
@@ -549,7 +550,7 @@ impl Integration for EntraIntegration {
             Err(IntegrationError {
                 class: ErrorClass::Fatal,
                 effect: TargetEffect::NotApplied,
-                code: FailureCode::TargetRejected,
+                code: RotationFailureCode::TargetRejected,
                 detail,
             })
         }
@@ -648,7 +649,7 @@ fn get_cred<'a>(
         .ok_or_else(|| IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::NotApplied,
-            code: FailureCode::CredentialsUnresolved,
+            code: RotationFailureCode::CredentialsUnresolved,
             detail: SafeDetail::from_kind(suffix),
         })
 }
@@ -665,7 +666,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        error::{ErrorClass, FailureCode},
+        error::ErrorClass,
         integrations::{RotateContext, TargetEffect},
         resolver::ResolvedCredentials,
     };
@@ -819,7 +820,7 @@ mod tests {
         let err = integ.rotate(&ctx).await.unwrap_err();
         assert_eq!(err.class, ErrorClass::Fatal);
         assert_eq!(err.effect, TargetEffect::NotApplied);
-        assert_eq!(err.code, FailureCode::TargetRejected);
+        assert_eq!(err.code, RotationFailureCode::TargetRejected);
     }
 
     #[tokio::test]
@@ -842,7 +843,7 @@ mod tests {
         let err = integ.rotate(&ctx).await.unwrap_err();
         assert_eq!(err.class, ErrorClass::Fatal);
         assert_eq!(err.effect, TargetEffect::NotApplied);
-        assert_eq!(err.code, FailureCode::TargetRejected);
+        assert_eq!(err.code, RotationFailureCode::TargetRejected);
     }
 
     #[tokio::test]
@@ -865,7 +866,7 @@ mod tests {
         let err = integ.rotate(&ctx).await.unwrap_err();
         assert_eq!(err.class, ErrorClass::Transient);
         assert_eq!(err.effect, TargetEffect::NotApplied);
-        assert_eq!(err.code, FailureCode::TargetUnreachable);
+        assert_eq!(err.code, RotationFailureCode::TargetUnreachable);
     }
 
     #[tokio::test]
@@ -927,7 +928,7 @@ mod tests {
         let err = integ.verify(&ctx).await.unwrap_err();
         assert_eq!(err.class, ErrorClass::Fatal);
         assert_eq!(err.effect, TargetEffect::Applied);
-        assert_eq!(err.code, FailureCode::VerificationFailed);
+        assert_eq!(err.code, RotationFailureCode::VerificationFailed);
     }
 
     #[tokio::test]
@@ -953,7 +954,7 @@ mod tests {
         let integ = integration(&login, &graph, false);
         let err = integ.verify(&ctx).await.unwrap_err();
         assert_eq!(err.effect, TargetEffect::Applied);
-        assert_eq!(err.code, FailureCode::VerificationFailed);
+        assert_eq!(err.code, RotationFailureCode::VerificationFailed);
     }
 
     #[tokio::test]
@@ -1043,7 +1044,7 @@ mod tests {
         let err = integ.verify(&ctx).await.unwrap_err();
         assert_eq!(err.class, ErrorClass::Fatal);
         assert_eq!(err.effect, TargetEffect::Applied);
-        assert_eq!(err.code, FailureCode::VerificationFailed);
+        assert_eq!(err.code, RotationFailureCode::VerificationFailed);
     }
 
     #[tokio::test]
@@ -1108,7 +1109,7 @@ mod tests {
         let err = integ.terminate_sessions(&ctx).await.unwrap_err();
         assert_eq!(err.class, ErrorClass::Fatal);
         assert_eq!(err.effect, TargetEffect::NotApplied);
-        assert_eq!(err.code, FailureCode::TargetRejected);
+        assert_eq!(err.code, RotationFailureCode::TargetRejected);
     }
 
     #[tokio::test]
@@ -1233,7 +1234,7 @@ mod tests {
         let err = integ.rotate(&ctx).await.unwrap_err();
         assert_eq!(err.class, ErrorClass::Fatal);
         assert_eq!(err.effect, TargetEffect::NotApplied);
-        assert_eq!(err.code, FailureCode::CredentialsUnresolved);
+        assert_eq!(err.code, RotationFailureCode::CredentialsUnresolved);
         assert!(
             err.detail.as_str().contains("TENANT_ID"),
             "detail must name the missing suffix: {}",
@@ -1379,6 +1380,6 @@ mod tests {
         let err = integ.verify(&ctx).await.unwrap_err();
         assert_eq!(err.class, ErrorClass::Fatal);
         assert_eq!(err.effect, TargetEffect::Applied);
-        assert_eq!(err.code, FailureCode::VerificationFailed);
+        assert_eq!(err.code, RotationFailureCode::VerificationFailed);
     }
 }

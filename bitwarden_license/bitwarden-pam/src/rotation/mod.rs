@@ -35,9 +35,9 @@ pub use connectors::{
 };
 pub use error::RotationError;
 pub use models::{
-    AccessConnectorStatus, PasswordPolicy, RotationAttempt, RotationAttemptStatus, RotationJob,
-    RotationJobStatus, RotationSource, RotationSyncState, SessionTerminationOutcome,
-    TargetSystemKind, TargetSystemMethod, TargetSystemStatus,
+    AccessConnectorStatus, PasswordPolicy, RotationAttempt, RotationAttemptStatus,
+    RotationFailureCode, RotationJob, RotationJobStatus, RotationSource, RotationSyncState,
+    SessionTerminationOutcome, TargetSystemKind, TargetSystemMethod, TargetSystemStatus,
 };
 pub use schedule::{
     QuartzSchedulePreset, RotationScheduleClient, is_likely_quartz_cron, preset_for_cron,

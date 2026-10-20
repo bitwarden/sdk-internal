@@ -6,17 +6,18 @@ pub(crate) mod scripting;
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
+use bitwarden_pam::{RotationFailureCode, RotationSyncState};
 use bitwarden_pam_sealed::SealedTargetSystemKind;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
 use crate::{
-    error::{ErrorClass, FailureCode, SafeDetail, SyncState},
+    error::{ErrorClass, SafeDetail},
     resolver::ResolvedCredentials,
 };
 
-/// Effect of a failed operation on the target credential, mapped to a [`crate::error::SyncState`].
+/// Effect of a failed operation on the target credential, mapped to a [`RotationSyncState`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TargetEffect {
     /// The credential rotation was not applied; target and vault are still in sync.
@@ -27,13 +28,13 @@ pub(crate) enum TargetEffect {
     Unknown,
 }
 
-impl From<TargetEffect> for SyncState {
+impl From<TargetEffect> for RotationSyncState {
     /// The sync state to report for this effect.
     fn from(effect: TargetEffect) -> Self {
         match effect {
-            TargetEffect::NotApplied => SyncState::TargetUnchanged,
-            TargetEffect::Unknown => SyncState::Indeterminate,
-            TargetEffect::Applied => SyncState::TargetUpdated,
+            TargetEffect::NotApplied => RotationSyncState::TargetUnchanged,
+            TargetEffect::Unknown => RotationSyncState::Indeterminate,
+            TargetEffect::Applied => RotationSyncState::TargetUpdated,
         }
     }
 }
@@ -43,7 +44,7 @@ impl From<TargetEffect> for SyncState {
 pub(crate) struct IntegrationError {
     pub(crate) class: ErrorClass,
     pub(crate) effect: TargetEffect,
-    pub(crate) code: FailureCode,
+    pub(crate) code: RotationFailureCode,
     pub(crate) detail: SafeDetail,
 }
 
@@ -175,7 +176,7 @@ mod tests {
         let e = IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::NotApplied,
-            code: FailureCode::ScriptFailed,
+            code: RotationFailureCode::ScriptFailed,
             detail: SafeDetail::from_exit_code(1),
         };
         let s = e.to_string();

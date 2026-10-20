@@ -22,7 +22,9 @@ use bitwarden_core::{
     key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
-use bitwarden_pam::WorkSnapshot;
+use bitwarden_pam::{
+    RotationFailureCode, RotationSyncState, SessionTerminationOutcome, WorkSnapshot,
+};
 use bitwarden_vault::Cipher;
 use models::{ApiError, JobRef};
 use reqwest_middleware::{Middleware, Next};
@@ -34,7 +36,7 @@ use crate::{
         session::{SessionError, SessionManager},
         token_handler::AccessConnectorTokenHandler,
     },
-    error::{FailureCode, SafeDetail, SessionTermination, SyncState},
+    error::SafeDetail,
 };
 
 /// [`reqwest_middleware::Middleware`] that attaches the connector bearer token and retries one 401
@@ -359,10 +361,10 @@ impl AccessConnectorClient {
     pub(crate) async fn report_success(
         &self,
         attempt_id: Uuid,
-        termination: SessionTermination,
+        termination: SessionTerminationOutcome,
     ) -> Result<(), ApiError> {
         let body = ReportRotationSucceededRequestModel {
-            session_termination: termination.into(),
+            session_termination: termination.try_into().map_err(unrecognized_variant)?,
         };
 
         let result = self
@@ -382,15 +384,13 @@ impl AccessConnectorClient {
     pub(crate) async fn report_failure(
         &self,
         attempt_id: Uuid,
-        code: FailureCode,
+        code: RotationFailureCode,
         detail: Option<SafeDetail>,
-        sync_state: SyncState,
+        sync_state: RotationSyncState,
     ) -> Result<(), ApiError> {
-        let error_code = failure_code_string(code);
-
         let body = ReportRotationFailedRequestModel {
-            sync_state: sync_state.into(),
-            error_code,
+            sync_state: sync_state.try_into().map_err(unrecognized_variant)?,
+            error_code: code.as_token().map_err(unrecognized_variant)?.to_owned(),
             detail: detail.map(|d| d.as_str().to_owned()),
         };
 
@@ -474,16 +474,10 @@ fn parse_cipher(model: CipherMiniResponseModel) -> Result<Cipher, ApiError> {
         .map_err(|_| ApiError::Protocol("cipher response could not be parsed".to_owned()))
 }
 
-/// Serialise a [`FailureCode`] to its snake_case serde name (the server caps `errorCode` at 100
-/// characters).
-fn failure_code_string(code: FailureCode) -> String {
-    let v = serde_json::to_value(code)
-        .unwrap_or_else(|_| serde_json::Value::String("internal".to_owned()));
-    match v {
-        serde_json::Value::String(s) => s,
-        // Unreachable: FailureCode serialises unit variants as strings.
-        _ => "internal".to_owned(),
-    }
+/// The connector never constructs an `Unknown` variant, so this guard failure is a bug rather than
+/// a server response.
+fn unrecognized_variant(_: bitwarden_pam::RotationError) -> ApiError {
+    ApiError::Protocol("unrecognized variant".to_owned())
 }
 
 #[cfg(test)]
@@ -504,7 +498,7 @@ mod tests {
             identity::IdentityClient,
             session::{SessionLost, SessionManager},
         },
-        error::{FailureCode, SafeDetail, SyncState},
+        error::SafeDetail,
         test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
     };
 
@@ -584,60 +578,6 @@ mod tests {
         );
         handler.set_session(session);
         (client.access_connector(), rx)
-    }
-
-    #[test]
-    fn failure_code_string_snake_case() {
-        assert_eq!(
-            failure_code_string(FailureCode::NoActiveSession),
-            "no_active_session"
-        );
-        assert_eq!(
-            failure_code_string(FailureCode::CredentialsUnresolved),
-            "credentials_unresolved"
-        );
-        assert_eq!(
-            failure_code_string(FailureCode::InvalidPolicy),
-            "invalid_policy"
-        );
-        assert_eq!(
-            failure_code_string(FailureCode::UnsupportedKind),
-            "unsupported_kind"
-        );
-        assert_eq!(failure_code_string(FailureCode::Internal), "internal");
-        assert_eq!(
-            failure_code_string(FailureCode::CipherWriteRejected),
-            "cipher_write_rejected"
-        );
-        assert_eq!(
-            failure_code_string(FailureCode::SealedDataRejected),
-            "sealed_data_rejected"
-        );
-    }
-
-    #[test]
-    fn failure_code_string_within_100_chars() {
-        for code in [
-            FailureCode::NoActiveSession,
-            FailureCode::CredentialsUnresolved,
-            FailureCode::InvalidPolicy,
-            FailureCode::UnsupportedKind,
-            FailureCode::TargetRejected,
-            FailureCode::TargetUnreachable,
-            FailureCode::VerificationFailed,
-            FailureCode::ScriptFailed,
-            FailureCode::ScriptTimeout,
-            FailureCode::CipherWriteRejected,
-            FailureCode::CipherEncryptFailed,
-            FailureCode::SealedDataRejected,
-            FailureCode::Internal,
-        ] {
-            let s = failure_code_string(code);
-            assert!(
-                s.len() <= 100,
-                "errorCode for {code:?} exceeds 100 chars: {s:?}"
-            );
-        }
     }
 
     #[test]
@@ -942,9 +882,9 @@ mod tests {
 
         api.report_failure(
             attempt_id,
-            FailureCode::TargetUnreachable,
+            RotationFailureCode::TargetUnreachable,
             Some(SafeDetail::from_status(503)),
-            SyncState::TargetUpdated,
+            RotationSyncState::TargetUpdated,
         )
         .await
         .expect("report_failure");
