@@ -40,23 +40,18 @@ pub trait PamAccessConnectorRotationAttemptsApi: Send + Sync {
     ) -> Result<(), Error>;
 
     /// GET /access-connectors/rotation/attempts/{id}/cipher
-    /// Returns the cipher for this access connector's claimed, executing attempt only -- never a
-    /// general cipher read. The shape is the standard cipher response, with the full encrypted
-    /// Data.
+    /// Returns the cipher of this access connector's claimed, executing attempt, with its full
+    /// encrypted data.
     async fn get_cipher<'a>(
         &self,
         id: uuid::Uuid,
     ) -> Result<models::CipherMiniResponseModel, Error>;
 
     /// PUT /access-connectors/rotation/attempts/{id}/cipher
-    /// Writes the rotated secret back to the cipher (spec AcceptCipherUpdate) via an atomic
-    /// capability check. The body is the standard cipher request: a Login cipher with the
-    /// structured fields, no Data, the same OrganizationId, and LastKnownRevisionDate set to the
-    /// revision date read before rotating. The server builds the stored Data itself and stores the
-    /// request's Key with it in the same write; anything else is a 400. 409 means the claim/attempt
-    /// no longer holds, or LastKnownRevisionDate no longer matches the cipher's current revision (a
-    /// concurrent user edit won) -- audited as write_rejected. 404 means the attempt id is unknown
-    /// (no audit).
+    /// Writes the rotated cipher (spec AcceptCipherUpdate): a Login cipher request without Data,
+    /// with the item key unchanged and LastKnownRevisionDate from the read. 409: the claim or
+    /// attempt no longer holds, or the revision moved (audited as write_rejected). 404: unknown
+    /// attempt.
     async fn put_cipher<'a>(
         &self,
         id: uuid::Uuid,
@@ -116,9 +111,8 @@ impl PamAccessConnectorRotationAttemptsApi for PamAccessConnectorRotationAttempt
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    /// Returns the cipher for this access connector's claimed, executing attempt only -- never a
-    /// general cipher read. The shape is the standard cipher response, with the full encrypted
-    /// Data.
+    /// Returns the cipher of this access connector's claimed, executing attempt, with its full
+    /// encrypted data.
     async fn get_cipher<'a>(
         &self,
         id: uuid::Uuid,
@@ -140,14 +134,10 @@ impl PamAccessConnectorRotationAttemptsApi for PamAccessConnectorRotationAttempt
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    /// Writes the rotated secret back to the cipher (spec AcceptCipherUpdate) via an atomic
-    /// capability check. The body is the standard cipher request: a Login cipher with the
-    /// structured fields, no Data, the same OrganizationId, and LastKnownRevisionDate set to the
-    /// revision date read before rotating. The server builds the stored Data itself and stores the
-    /// request's Key with it in the same write; anything else is a 400. 409 means the claim/attempt
-    /// no longer holds, or LastKnownRevisionDate no longer matches the cipher's current revision (a
-    /// concurrent user edit won) -- audited as write_rejected. 404 means the attempt id is unknown
-    /// (no audit).
+    /// Writes the rotated cipher (spec AcceptCipherUpdate): a Login cipher request without Data,
+    /// with the item key unchanged and LastKnownRevisionDate from the read. 409: the claim or
+    /// attempt no longer holds, or the revision moved (audited as write_rejected). 404: unknown
+    /// attempt.
     async fn put_cipher<'a>(
         &self,
         id: uuid::Uuid,
