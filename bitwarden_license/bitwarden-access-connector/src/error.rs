@@ -30,7 +30,7 @@ pub(crate) enum FailureCode {
     CipherWriteRejected,
     /// Encrypting the updated cipher data failed.
     CipherEncryptFailed,
-    /// A sealed-data check (1–8) failed; see `executor::verify`.
+    /// A sealed-data check (1–8) failed; see [`bitwarden_pam::WorkSnapshot::verify`].
     SealedDataRejected,
     /// An unexpected internal error occurred.
     Internal,

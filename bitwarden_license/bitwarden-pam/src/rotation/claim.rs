@@ -1,7 +1,8 @@
 //! A claimed rotation job and its verification.
 //!
 //! [`WorkSnapshot::verify`] cross-checks a claim's two sealed values against each other and the
-//! plaintext claim. The pre-flight cipher read needs the network, so the access connector does it.
+//! plaintext claim (checks 1–7). Check 8, the pre-flight cipher read, needs the network and lives
+//! in the access connector's executor.
 //!
 //! Only [`WorkSnapshot::verify`] can construct a [`VerifiedJob`], so the connector never reads an
 //! unchecked claim field.
@@ -94,23 +95,24 @@ impl TryFrom<RotationClaimResponseModel> for WorkSnapshot {
 /// check failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SealRejection {
-    /// The target system's sealed data or wrapped key is absent.
+    /// Check 1: the target system's sealed data or wrapped key is absent.
     MissingTargetBlob,
-    /// The rotation config's sealed data or wrapped key is absent.
+    /// Check 1: the rotation config's sealed data or wrapped key is absent.
     MissingConfigBlob,
     /// The target system blob did not parse or unseal.
     TargetBlobInvalid,
     /// The rotation config blob did not parse or unseal.
     ConfigBlobInvalid,
-    /// The claimed target system differs from one of the sealed blobs.
+    /// Check 2.
     TargetSystemIdMismatch,
-    /// The claimed cipher differs from the sealed config.
+    /// Check 3.
     CipherIdMismatch,
-    /// The sealed target system is not set to automatic rotation.
+    /// Check 4.
     TargetMethodNotAutomatic,
-    /// The sealed target system has no kind, which an `Automatic` target always seals.
+    /// A legitimate `Automatic` target always seals a kind.
+    /// Check 5.
     TargetKindMissing,
-    /// The sealed password policy is invalid.
+    /// Check 6.
     PolicyRejected,
 }
 
@@ -178,7 +180,7 @@ impl VerifiedJob {
         self.kind
     }
 
-    /// The sealed password policy, already validated.
+    /// The sealed password policy, validated by check 6.
     pub fn password_policy(&self) -> &SealedPasswordPolicy {
         &self.password_policy
     }
@@ -198,7 +200,7 @@ impl VerifiedJob {
         self.execute_by
     }
 
-    /// Converts the sealed password policy into a [`PasswordGeneratorRequest`] of length
+    /// Convert the sealed password policy into a [`PasswordGeneratorRequest`] of length
     /// `max_length`.
     ///
     /// Re-validates although [`WorkSnapshot::verify`] already did, so any call site that skips it
@@ -234,14 +236,13 @@ impl VerifiedJob {
 }
 
 impl WorkSnapshot {
-    /// Cross-checks the claim against its sealed values, rejecting it with a [`SealRejection`] on
-    /// the first failure.
+    /// Runs checks 1–7 on a claim, rejecting it with a [`SealRejection`] on the first failure.
     pub fn verify(
         self,
         key_store: &KeyStore<KeySlotIds>,
         organization_id: OrganizationId,
     ) -> Result<VerifiedJob, SealRejection> {
-        // Both halves of each sealed value must be present and parse.
+        // Check 1: both halves of each sealed value must be present and parse.
         let (target_envelope, target_key) = self
             .target_system_sealed_data
             .as_deref()
@@ -279,30 +280,33 @@ impl WorkSnapshot {
         )
         .map_err(|_| SealRejection::ConfigBlobInvalid)?;
 
+        // Check 2.
         if self.target_system_id != target.target_system_id
             || self.target_system_id != config.target_system_id
         {
             return Err(SealRejection::TargetSystemIdMismatch);
         }
 
+        // Check 3.
         if self.cipher_id != config.cipher_id {
             return Err(SealRejection::CipherIdMismatch);
         }
 
-        // Trust only the sealed method; the server's plaintext copy is advisory.
+        // Check 4: reads the sealed method only; the server's plaintext copy is advisory.
         if target.method != SealedTargetSystemMethod::Automatic {
             return Err(SealRejection::TargetMethodNotAutomatic);
         }
 
-        // Kind, policy and account identity come from the blobs only.
+        // Check 5: kind, policy, and account identity come from the blobs only.
         let kind = target.kind.ok_or(SealRejection::TargetKindMissing)?;
 
+        // Check 6.
         target
             .password_policy
             .validate()
             .map_err(|_| SealRejection::PolicyRejected)?;
 
-        // Unsupported termination is ANDed to false, not a rejection.
+        // Check 7: unsupported termination is ANDed to false, not a rejection.
         let terminate_sessions =
             config.terminate_sessions && target.supports_session_termination == Some(true);
 
@@ -325,32 +329,39 @@ impl WorkSnapshot {
 #[cfg(test)]
 mod test_support {
     use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
-    use bitwarden_pam_sealed::{Sealed, seal_rotation_config, seal_target_system};
+    use bitwarden_pam_sealed::Sealed;
 
     use super::*;
 
-    /// `(sealedData, wrappedKey)` as sent over the wire.
-    pub(super) type SealedStrings = (String, String);
-
-    fn org_id() -> OrganizationId {
+    pub(super) fn test_org_id() -> OrganizationId {
         "3f1a5c4e-7b2d-4f8a-9c6e-1d2b3a4c5d6e"
             .parse()
             .expect("valid uuid")
     }
 
-    fn org_slot() -> SymmetricKeySlotId {
-        SymmetricKeySlotId::Organization(org_id())
+    pub(super) fn test_org_slot() -> SymmetricKeySlotId {
+        SymmetricKeySlotId::Organization(test_org_id())
     }
 
-    /// Wire form of a [`Sealed`].
-    fn strings(sealed: Sealed) -> SealedStrings {
-        (sealed.envelope.to_string(), sealed.wrapped_key.to_string())
+    /// `(sealedData, wrappedKey)` as sent over the wire.
+    pub(super) type SealedStrings = (String, String);
+
+    /// A key store holding a fresh organization key, which is also returned.
+    pub(super) fn store_with_org_key() -> (KeyStore<KeySlotIds>, SymmetricCryptoKey) {
+        let store = KeyStore::default();
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        #[allow(deprecated)]
+        store
+            .context_mut()
+            .set_symmetric_key(test_org_slot(), org_key.clone())
+            .expect("set_symmetric_key");
+        (store, org_key)
     }
 
-    pub(super) fn all_classes(min_length: u32, max_length: u32) -> SealedPasswordPolicy {
+    pub(super) fn strong_policy() -> SealedPasswordPolicy {
         SealedPasswordPolicy {
-            min_length,
-            max_length,
+            min_length: 20,
+            max_length: 20,
             include_uppercase: true,
             include_lowercase: true,
             include_digits: true,
@@ -358,137 +369,113 @@ mod test_support {
         }
     }
 
-    pub(super) fn no_classes() -> SealedPasswordPolicy {
-        SealedPasswordPolicy {
-            include_uppercase: false,
-            include_lowercase: false,
-            include_digits: false,
-            include_symbols: false,
-            ..all_classes(20, 20)
+    pub(super) fn sample_target(target_system_id: Uuid) -> TargetSystemSealedV1 {
+        TargetSystemSealedV1 {
+            target_system_id,
+            method: SealedTargetSystemMethod::Automatic,
+            kind: Some(bitwarden_pam_sealed::SealedTargetSystemKind::CustomScript),
+            password_policy: strong_policy(),
+            supports_session_termination: Some(true),
         }
     }
 
-    /// A key store holding a fresh organization key, and the IDs a well-formed claim agrees on.
-    pub(super) struct Fixture {
-        store: KeyStore<KeySlotIds>,
-        pub(super) target_system_id: Uuid,
-        pub(super) cipher_id: Uuid,
+    pub(super) fn sample_config(target_system_id: Uuid, cipher_id: Uuid) -> RotationConfigSealedV1 {
+        RotationConfigSealedV1 {
+            target_system_id,
+            cipher_id,
+            account_identity: "svc-rotation@example.com".to_owned(),
+            terminate_sessions: true,
+        }
     }
 
-    impl Fixture {
-        pub(super) fn new() -> Self {
-            let store = KeyStore::default();
-            #[allow(deprecated)]
-            store
-                .context_mut()
-                .set_symmetric_key(
-                    org_slot(),
-                    SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
-                )
-                .expect("set_symmetric_key");
-            Self {
-                store,
-                target_system_id: Uuid::new_v4(),
-                cipher_id: Uuid::new_v4(),
-            }
+    pub(super) fn work_snapshot(
+        attempt_id: Uuid,
+        job_id: Uuid,
+        target_system_id: Uuid,
+        cipher_id: Uuid,
+        target_blob: Option<SealedStrings>,
+        config_blob: Option<SealedStrings>,
+    ) -> WorkSnapshot {
+        let (target_data, target_key) = target_blob.unzip();
+        let (config_data, config_key) = config_blob.unzip();
+        WorkSnapshot {
+            attempt_id,
+            job_id,
+            target_system_id,
+            target_system_name: "test-system".to_owned(),
+            cipher_id,
+            target_system_sealed_data: target_data,
+            target_system_wrapped_key: target_key,
+            rotation_config_sealed_data: config_data,
+            rotation_config_wrapped_key: config_key,
+            execute_by: Utc::now() + chrono::Duration::minutes(5),
         }
+    }
 
-        pub(super) fn target(&self) -> TargetSystemSealedV1 {
-            TargetSystemSealedV1 {
-                target_system_id: self.target_system_id,
-                method: SealedTargetSystemMethod::Automatic,
-                kind: Some(SealedTargetSystemKind::CustomScript),
-                password_policy: all_classes(20, 20),
-                supports_session_termination: Some(true),
-            }
-        }
+    pub(super) fn sealed_pair(
+        store: &KeyStore<KeySlotIds>,
+        target: TargetSystemSealedV1,
+        config: RotationConfigSealedV1,
+    ) -> (SealedStrings, SealedStrings) {
+        let mut ctx = store.context_mut();
+        let target_blob = bitwarden_pam_sealed::seal_target_system::<KeySlotIds>(
+            target,
+            &test_org_slot(),
+            &mut ctx,
+        )
+        .expect("seal target");
+        let config_blob = bitwarden_pam_sealed::seal_rotation_config::<KeySlotIds>(
+            config,
+            &test_org_slot(),
+            &mut ctx,
+        )
+        .expect("seal config");
+        (strings(target_blob), strings(config_blob))
+    }
 
-        pub(super) fn config(&self) -> RotationConfigSealedV1 {
-            RotationConfigSealedV1 {
-                target_system_id: self.target_system_id,
-                cipher_id: self.cipher_id,
-                account_identity: "svc-rotation@example.com".to_owned(),
-                terminate_sessions: true,
-            }
-        }
-
-        pub(super) fn seal_target(&self, target: TargetSystemSealedV1) -> SealedStrings {
-            let mut ctx = self.store.context_mut();
-            strings(seal_target_system::<KeySlotIds>(target, &org_slot(), &mut ctx).expect("seal"))
-        }
-
-        pub(super) fn seal_config(&self, config: RotationConfigSealedV1) -> SealedStrings {
-            let mut ctx = self.store.context_mut();
-            strings(
-                seal_rotation_config::<KeySlotIds>(config, &org_slot(), &mut ctx).expect("seal"),
-            )
-        }
-
-        /// A claim carrying the fixture's IDs and the given blobs.
-        pub(super) fn snapshot(
-            &self,
-            target_blob: Option<SealedStrings>,
-            config_blob: Option<SealedStrings>,
-        ) -> WorkSnapshot {
-            let (target_data, target_key) = target_blob.unzip();
-            let (config_data, config_key) = config_blob.unzip();
-            WorkSnapshot {
-                attempt_id: Uuid::new_v4(),
-                job_id: Uuid::new_v4(),
-                target_system_id: self.target_system_id,
-                target_system_name: "test-system".to_owned(),
-                cipher_id: self.cipher_id,
-                target_system_sealed_data: target_data,
-                target_system_wrapped_key: target_key,
-                rotation_config_sealed_data: config_data,
-                rotation_config_wrapped_key: config_key,
-                execute_by: Utc::now() + chrono::Duration::minutes(5),
-            }
-        }
-
-        /// A claim carrying `target` and `config`, both sealed under the fixture's org key.
-        pub(super) fn sealed_snapshot(
-            &self,
-            target: TargetSystemSealedV1,
-            config: RotationConfigSealedV1,
-        ) -> WorkSnapshot {
-            self.snapshot(
-                Some(self.seal_target(target)),
-                Some(self.seal_config(config)),
-            )
-        }
-
-        /// A claim that passes every check.
-        pub(super) fn valid_snapshot(&self) -> WorkSnapshot {
-            self.sealed_snapshot(self.target(), self.config())
-        }
-
-        pub(super) fn verify(&self, snapshot: WorkSnapshot) -> Result<VerifiedJob, SealRejection> {
-            snapshot.verify(&self.store, org_id())
-        }
-
-        pub(super) fn reject(&self, snapshot: WorkSnapshot) -> SealRejection {
-            self.verify(snapshot).expect_err("claim should be rejected")
-        }
+    /// Wire form of a [`Sealed`]: `(sealedData, wrappedKey)`.
+    pub(super) fn strings(sealed: Sealed) -> SealedStrings {
+        (sealed.envelope.to_string(), sealed.wrapped_key.to_string())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_pam_sealed::{seal_rotation_config, seal_target_system};
+
     use super::{test_support::*, *};
 
     #[test]
     fn happy_path_produces_verified_job() {
-        let f = Fixture::new();
-        let snapshot = f.valid_snapshot();
-        let (attempt_id, job_id) = (snapshot.attempt_id, snapshot.job_id);
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let attempt_id = Uuid::new_v4();
+        let job_id = Uuid::new_v4();
 
-        let job = f.verify(snapshot).expect("well-formed claim should verify");
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            attempt_id,
+            job_id,
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
+
+        let job = snapshot
+            .verify(&store, test_org_id())
+            .expect("well-formed claim should verify");
 
         assert_eq!(job.attempt_id(), attempt_id);
         assert_eq!(job.job_id(), job_id);
-        assert_eq!(job.target_system_id(), f.target_system_id);
-        assert_eq!(job.cipher_id(), f.cipher_id);
+        assert_eq!(job.target_system_id(), target_system_id);
+        assert_eq!(job.cipher_id(), cipher_id);
         assert_eq!(job.kind(), SealedTargetSystemKind::CustomScript);
         assert_eq!(job.account_identity(), "svc-rotation@example.com");
         assert!(job.terminate_sessions());
@@ -496,159 +483,482 @@ mod tests {
 
     #[test]
     fn missing_target_blob_is_rejected() {
-        let f = Fixture::new();
-        let snapshot = f.snapshot(None, Some(f.seal_config(f.config())));
-        assert_eq!(f.reject(snapshot), SealRejection::MissingTargetBlob);
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let (_target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            None,
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::MissingTargetBlob
+        );
     }
 
     #[test]
     fn missing_config_blob_is_rejected() {
-        let f = Fixture::new();
-        let snapshot = f.snapshot(Some(f.seal_target(f.target())), None);
-        assert_eq!(f.reject(snapshot), SealRejection::MissingConfigBlob);
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let (target_blob, _config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            None,
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::MissingConfigBlob
+        );
     }
 
     #[test]
     fn target_sealed_data_without_wrapped_key_is_rejected() {
-        let f = Fixture::new();
-        let mut snapshot = f.valid_snapshot();
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let mut snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
         snapshot.target_system_wrapped_key = None;
-        assert_eq!(f.reject(snapshot), SealRejection::MissingTargetBlob);
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::MissingTargetBlob
+        );
     }
 
     #[test]
     fn config_sealed_data_without_wrapped_key_is_rejected() {
-        let f = Fixture::new();
-        let mut snapshot = f.valid_snapshot();
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let mut snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
         snapshot.rotation_config_wrapped_key = None;
-        assert_eq!(f.reject(snapshot), SealRejection::MissingConfigBlob);
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::MissingConfigBlob
+        );
     }
 
     #[test]
     fn unparseable_wrapped_key_is_rejected() {
-        let f = Fixture::new();
-        let mut snapshot = f.valid_snapshot();
-        snapshot.target_system_wrapped_key = Some("not a wrapped key".to_owned());
-        assert_eq!(f.reject(snapshot), SealRejection::TargetBlobInvalid);
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let ((target_data, _), config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some((target_data, "not a wrapped key".to_owned())),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::TargetBlobInvalid
+        );
     }
 
     #[test]
     fn wrapped_key_from_a_different_seal_is_rejected() {
         // Envelope from one seal, wrapped key from another: the key does not open the envelope.
-        let f = Fixture::new();
-        let (_, other_key) = f.seal_target(f.target());
-        let mut snapshot = f.valid_snapshot();
-        snapshot.target_system_wrapped_key = Some(other_key);
-        assert_eq!(f.reject(snapshot), SealRejection::TargetBlobInvalid);
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let ((target_data, _), config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+        let ((_, other_key), _) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some((target_data, other_key)),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::TargetBlobInvalid
+        );
     }
 
     #[test]
     fn garbage_target_blob_is_rejected() {
-        let f = Fixture::new();
-        let mut snapshot = f.valid_snapshot();
-        snapshot.target_system_sealed_data = Some("not a sealed blob".to_owned());
-        assert_eq!(f.reject(snapshot), SealRejection::TargetBlobInvalid);
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let ((_, target_key), config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(("not a sealed blob".to_owned(), target_key)),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::TargetBlobInvalid
+        );
     }
 
     #[test]
     fn target_blob_sealed_under_a_different_org_key_is_rejected() {
-        let f = Fixture::new();
-        let other_key = Fixture::new();
-        let snapshot = f.snapshot(
-            Some(other_key.seal_target(f.target())),
-            Some(f.seal_config(f.config())),
+        let (store, _org_key) = store_with_org_key();
+        let (other_store, _other_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+
+        let wrong_key_target_blob = {
+            let mut ctx = other_store.context_mut();
+            strings(
+                seal_target_system::<KeySlotIds>(
+                    sample_target(target_system_id),
+                    &test_org_slot(),
+                    &mut ctx,
+                )
+                .expect("seal under other store's key"),
+            )
+        };
+        let (_target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
         );
-        assert_eq!(f.reject(snapshot), SealRejection::TargetBlobInvalid);
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(wrong_key_target_blob),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::TargetBlobInvalid
+        );
     }
 
     #[test]
     fn config_blob_from_a_different_config_is_rejected() {
         // A config swapped in from another rotation config: same target, different cipher.
-        let f = Fixture::new();
-        let other_config = RotationConfigSealedV1 {
-            cipher_id: Uuid::new_v4(),
-            ..f.config()
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let other_cipher_id = Uuid::new_v4();
+
+        let (target_blob, _matching_config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+        let wrong_config_blob = {
+            let mut ctx = store.context_mut();
+            strings(
+                seal_rotation_config::<KeySlotIds>(
+                    sample_config(target_system_id, other_cipher_id),
+                    &test_org_slot(),
+                    &mut ctx,
+                )
+                .expect("seal a different config"),
+            )
         };
-        let snapshot = f.sealed_snapshot(f.target(), other_config);
-        assert_eq!(f.reject(snapshot), SealRejection::CipherIdMismatch);
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(wrong_config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::CipherIdMismatch
+        );
     }
 
     #[test]
     fn target_blob_from_a_different_target_is_rejected() {
-        let f = Fixture::new();
-        let other_target = TargetSystemSealedV1 {
-            target_system_id: Uuid::new_v4(),
-            ..f.target()
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let other_target_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+
+        let wrong_target_blob = {
+            let mut ctx = store.context_mut();
+            strings(
+                seal_target_system::<KeySlotIds>(
+                    sample_target(other_target_id),
+                    &test_org_slot(),
+                    &mut ctx,
+                )
+                .expect("seal a different target"),
+            )
         };
-        let snapshot = f.sealed_snapshot(other_target, f.config());
-        assert_eq!(f.reject(snapshot), SealRejection::TargetSystemIdMismatch);
+        let (_matching_target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(wrong_target_blob),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::TargetSystemIdMismatch
+        );
     }
 
     #[test]
     fn claim_target_id_differs_from_sealed_blobs_is_rejected() {
-        let f = Fixture::new();
-        let mut snapshot = f.valid_snapshot();
-        snapshot.target_system_id = Uuid::new_v4();
-        assert_eq!(f.reject(snapshot), SealRejection::TargetSystemIdMismatch);
+        let (store, _org_key) = store_with_org_key();
+        let real_target_id = Uuid::new_v4();
+        let claim_target_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(real_target_id),
+            sample_config(real_target_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            claim_target_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::TargetSystemIdMismatch
+        );
     }
 
     #[test]
     fn claim_cipher_id_differs_from_config_blob_is_rejected() {
-        let f = Fixture::new();
-        let mut snapshot = f.valid_snapshot();
-        snapshot.cipher_id = Uuid::new_v4();
-        assert_eq!(f.reject(snapshot), SealRejection::CipherIdMismatch);
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let real_cipher_id = Uuid::new_v4();
+        let claim_cipher_id = Uuid::new_v4();
+
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, real_cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            claim_cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::CipherIdMismatch
+        );
     }
 
     #[test]
     fn manual_target_method_is_rejected() {
-        let f = Fixture::new();
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+
         let manual_target = TargetSystemSealedV1 {
             method: SealedTargetSystemMethod::Manual,
             kind: None,
             supports_session_termination: None,
-            ..f.target()
+            ..sample_target(target_system_id)
         };
-        let snapshot = f.sealed_snapshot(manual_target, f.config());
-        assert_eq!(f.reject(snapshot), SealRejection::TargetMethodNotAutomatic);
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            manual_target,
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::TargetMethodNotAutomatic
+        );
     }
 
     #[test]
     fn automatic_target_with_missing_kind_is_rejected() {
-        let f = Fixture::new();
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+
         let malformed_target = TargetSystemSealedV1 {
             kind: None,
-            ..f.target()
+            ..sample_target(target_system_id)
         };
-        let snapshot = f.sealed_snapshot(malformed_target, f.config());
-        assert_eq!(f.reject(snapshot), SealRejection::TargetKindMissing);
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            malformed_target,
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::TargetKindMissing
+        );
     }
 
     #[test]
     fn policy_with_no_character_classes_is_rejected() {
-        let f = Fixture::new();
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+
         let invalid_target = TargetSystemSealedV1 {
-            password_policy: no_classes(),
-            ..f.target()
+            password_policy: SealedPasswordPolicy {
+                min_length: 20,
+                max_length: 20,
+                include_uppercase: false,
+                include_lowercase: false,
+                include_digits: false,
+                include_symbols: false,
+            },
+            ..sample_target(target_system_id)
         };
-        let snapshot = f.sealed_snapshot(invalid_target, f.config());
-        assert_eq!(f.reject(snapshot), SealRejection::PolicyRejected);
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            invalid_target,
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
+        assert_eq!(
+            snapshot.verify(&store, test_org_id()).unwrap_err(),
+            SealRejection::PolicyRejected
+        );
     }
 
     #[test]
     fn terminate_requested_but_unsupported_is_anded_to_false_not_rejected() {
-        let f = Fixture::new();
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+
         let target = TargetSystemSealedV1 {
             supports_session_termination: Some(false),
-            ..f.target()
+            ..sample_target(target_system_id)
         };
         let config = RotationConfigSealedV1 {
             terminate_sessions: true,
-            ..f.config()
+            ..sample_config(target_system_id, cipher_id)
         };
+        let (target_blob, config_blob) = sealed_pair(&store, target, config);
 
-        let job = f
-            .verify(f.sealed_snapshot(target, config))
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
+
+        let job = snapshot
+            .verify(&store, test_org_id())
             .expect("an unsupported termination request must not be a rejection");
         assert!(!job.terminate_sessions());
     }
@@ -659,7 +969,7 @@ mod generator_request_tests {
     use bitwarden_core::Client;
     use bitwarden_generators::GeneratorClientsExt as _;
 
-    use super::{test_support::*, *};
+    use super::*;
 
     fn to_generator_request(
         policy: &SealedPasswordPolicy,
@@ -679,77 +989,113 @@ mod generator_request_tests {
         .generator_request()
     }
 
-    fn password(req: PasswordGeneratorRequest) -> String {
-        Client::new(None)
-            .generator()
-            .password(req)
-            .expect("generate password")
-    }
-
-    #[test]
-    fn length_is_taken_from_max_length() {
-        for (min, max) in [
-            (5, 20),
-            (16, 16),
-            (5, GENERATOR_MAX_LENGTH),
-            (GENERATOR_MIN_LENGTH, GENERATOR_MIN_LENGTH),
-        ] {
-            let req = to_generator_request(&all_classes(min, max)).unwrap();
-            assert_eq!(u32::from(req.length), max, "min={min} max={max}");
+    fn all_classes(min_length: u32, max_length: u32) -> SealedPasswordPolicy {
+        SealedPasswordPolicy {
+            min_length,
+            max_length,
+            include_uppercase: true,
+            include_lowercase: true,
+            include_digits: true,
+            include_symbols: true,
         }
     }
 
+    fn password(
+        req: PasswordGeneratorRequest,
+    ) -> Result<String, bitwarden_generators::PasswordError> {
+        Client::new(None).generator().password(req)
+    }
+
     #[test]
-    fn out_of_range_lengths_are_rejected() {
-        for (min, max) in [
-            (30, 20),
-            (5, GENERATOR_MAX_LENGTH + 1),
-            (GENERATOR_MIN_LENGTH - 1, 20),
-        ] {
-            assert_eq!(
-                to_generator_request(&all_classes(min, max)).unwrap_err(),
-                PasswordPolicyError::InvalidLengthBounds,
-                "min={min} max={max}"
-            );
-        }
+    fn valid_policy_converts_length_from_max_length() {
+        let req = to_generator_request(&all_classes(5, 20)).unwrap();
+        assert_eq!(req.length, 20);
+    }
+
+    #[test]
+    fn min_length_equal_max_length_is_valid() {
+        let req = to_generator_request(&all_classes(16, 16)).unwrap();
+        assert_eq!(req.length, 16);
+    }
+
+    #[test]
+    fn max_length_at_generator_ceiling_is_valid() {
+        let req = to_generator_request(&all_classes(5, GENERATOR_MAX_LENGTH)).unwrap();
+        assert_eq!(u32::from(req.length), GENERATOR_MAX_LENGTH);
+    }
+
+    #[test]
+    fn min_length_at_generator_floor_is_valid() {
+        let req =
+            to_generator_request(&all_classes(GENERATOR_MIN_LENGTH, GENERATOR_MIN_LENGTH)).unwrap();
+        assert_eq!(u32::from(req.length), GENERATOR_MIN_LENGTH);
+    }
+
+    #[test]
+    fn min_greater_than_max_is_rejected() {
+        let err = to_generator_request(&all_classes(30, 20)).unwrap_err();
+        assert_eq!(err, PasswordPolicyError::InvalidLengthBounds);
+    }
+
+    #[test]
+    fn max_length_above_generator_ceiling_is_rejected() {
+        let err = to_generator_request(&all_classes(5, GENERATOR_MAX_LENGTH + 1)).unwrap_err();
+        assert_eq!(err, PasswordPolicyError::InvalidLengthBounds);
+    }
+
+    #[test]
+    fn min_length_below_generator_floor_is_rejected() {
+        let err = to_generator_request(&all_classes(GENERATOR_MIN_LENGTH - 1, 20)).unwrap_err();
+        assert_eq!(err, PasswordPolicyError::InvalidLengthBounds);
     }
 
     #[test]
     fn no_character_classes_is_rejected() {
-        let err = to_generator_request(&no_classes()).unwrap_err();
+        let policy = SealedPasswordPolicy {
+            min_length: GENERATOR_MIN_LENGTH,
+            max_length: 20,
+            include_uppercase: false,
+            include_lowercase: false,
+            include_digits: false,
+            include_symbols: false,
+        };
+        let err = to_generator_request(&policy).unwrap_err();
         assert_eq!(err, PasswordPolicyError::NoCharacterClasses);
     }
 
     #[test]
     fn single_class_enabled_is_sufficient() {
-        for policy in [
-            SealedPasswordPolicy {
-                include_uppercase: true,
-                ..no_classes()
-            },
-            SealedPasswordPolicy {
-                include_lowercase: true,
-                ..no_classes()
-            },
-            SealedPasswordPolicy {
-                include_digits: true,
-                ..no_classes()
-            },
-            SealedPasswordPolicy {
-                include_symbols: true,
-                ..no_classes()
-            },
+        for (upper, lower, digits, symbols) in [
+            (true, false, false, false),
+            (false, true, false, false),
+            (false, false, true, false),
+            (false, false, false, true),
         ] {
-            assert!(to_generator_request(&policy).is_ok(), "{policy:?}");
+            let policy = SealedPasswordPolicy {
+                min_length: 30,
+                max_length: 30,
+                include_uppercase: upper,
+                include_lowercase: lower,
+                include_digits: digits,
+                include_symbols: symbols,
+            };
+            assert!(
+                to_generator_request(&policy).is_ok(),
+                "expected Ok for a single enabled class at length 30: \
+                 upper={upper} lower={lower} digits={digits} symbols={symbols}"
+            );
         }
     }
 
     #[test]
     fn include_flags_map_correctly() {
         let policy = SealedPasswordPolicy {
+            min_length: 30,
+            max_length: 30,
+            include_uppercase: true,
             include_lowercase: false,
+            include_digits: true,
             include_symbols: false,
-            ..all_classes(30, 30)
         };
         let req = to_generator_request(&policy).unwrap();
         assert!(req.uppercase);
@@ -767,12 +1113,31 @@ mod generator_request_tests {
     }
 
     #[test]
+    fn generated_request_produces_valid_password() {
+        let req = to_generator_request(&all_classes(14, 32)).unwrap();
+        let result = password(req);
+        assert!(result.is_ok(), "expected password() to succeed: {result:?}");
+        let pwd = result.unwrap();
+        assert!(
+            pwd.len() >= 5 && pwd.len() <= 128,
+            "password length {len} out of expected range",
+            len = pwd.len()
+        );
+    }
+
+    #[test]
     fn generated_password_uses_only_enabled_charset() {
         let policy = SealedPasswordPolicy {
+            min_length: 30,
+            max_length: 30,
+            include_uppercase: false,
+            include_lowercase: false,
             include_digits: true,
-            ..no_classes()
+            include_symbols: false,
         };
-        let pwd = password(to_generator_request(&policy).unwrap());
+        let req = to_generator_request(&policy).unwrap();
+        assert_eq!(req.length, 30);
+        let pwd = password(req).unwrap();
         assert!(
             pwd.chars().all(|c| c.is_ascii_digit()),
             "expected only digits in {pwd:?}"
@@ -782,7 +1147,8 @@ mod generator_request_tests {
     #[test]
     fn generated_password_at_maximum_length() {
         let req = to_generator_request(&all_classes(5, GENERATOR_MAX_LENGTH)).unwrap();
-        let pwd = password(req);
+        assert_eq!(u32::from(req.length), GENERATOR_MAX_LENGTH);
+        let pwd = password(req).unwrap();
         assert_eq!(pwd.len() as u32, GENERATOR_MAX_LENGTH);
     }
 }
