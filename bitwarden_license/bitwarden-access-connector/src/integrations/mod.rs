@@ -98,8 +98,8 @@ pub(crate) trait Integration: Send + Sync {
     async fn terminate_sessions(&self, ctx: &RotateContext) -> Result<(), IntegrationError>;
 }
 
-/// Maps a [`SealedTargetSystemKind`] to its [`Integration`] driver. Unregistered kinds such as
-/// `Mssql` return `None`, which the executor reports as `unsupported_kind`.
+/// Maps a [`SealedTargetSystemKind`] to its [`Integration`] driver. Kinds without a registered
+/// integration return `None`, which the executor reports as `unsupported_kind`.
 pub(crate) struct IntegrationRegistry {
     map: HashMap<SealedTargetSystemKind, Arc<dyn Integration>>,
 }
@@ -159,7 +159,6 @@ mod tests {
     #[test]
     fn registry_get_unregistered_kind_returns_none() {
         let reg = IntegrationRegistry::new();
-        assert!(reg.get(SealedTargetSystemKind::Mssql).is_none());
         assert!(reg.get(SealedTargetSystemKind::Entra).is_none());
     }
 

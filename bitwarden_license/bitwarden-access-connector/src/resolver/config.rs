@@ -347,24 +347,4 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    fn mssql_missing_all_lists_host_user_secret() {
-        let id = Uuid::new_v4();
-        let err = run_resolver_with_env(
-            id,
-            SealedTargetSystemKind::Mssql,
-            HashMap::new(),
-            &HashMap::new(),
-        )
-        .unwrap_err();
-        let prefix = prefix_for(id);
-        match err {
-            ResolveError::Missing(names) => {
-                assert!(names.iter().any(|n| n == &format!("{prefix}HOST")));
-                assert!(names.iter().any(|n| n == &format!("{prefix}USER")));
-                assert!(names.iter().any(|n| n == &format!("{prefix}SECRET")));
-            }
-        }
-    }
 }
