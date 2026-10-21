@@ -1,4 +1,37 @@
-//! Integration drivers for external credential targets.
+//! Drivers that apply a rotation to the external system holding the credential.
+//!
+//! Each target system kind has one [`Integration`], registered against its
+//! [`SealedTargetSystemKind`] in an [`IntegrationRegistry`]. For a claimed rotation the executor
+//! looks up the driver for the target's kind and calls it in order:
+//!
+//! 1. [`rotate`](Integration::rotate) sets the account's password to the newly generated one.
+//! 2. [`verify`](Integration::verify) confirms the target accepted it, after a successful rotate.
+//! 3. [`terminate_sessions`](Integration::terminate_sessions) ends the account's active sessions,
+//!    only when the claim asks for it. Its failure never fails the rotation.
+//!
+//! All three receive the same [`RotateContext`]: the target, the account identity, the new
+//! password and the target's [`ResolvedCredentials`].
+//!
+//! Drivers rotate by administrative reset. The current password is never available to them, so a
+//! retry after a partial failure converges on the newest password instead of failing because the
+//! "old" one has already changed.
+//!
+//! # Failures
+//!
+//! An operation fails with an [`IntegrationError`], which carries everything the failure report
+//! needs: whether to [`Retry`], the [`RotationFailureCode`], a [`SafeDetail`], and the
+//! [`TargetEffect`] on the credential in the target. The effect becomes the reported
+//! [`RotationSyncState`], which tells the vault whether it is still in sync with the target. A
+//! driver that cannot tell whether a change landed must report [`TargetEffect::Unknown`] rather
+//! than guess.
+//!
+//! # Drivers
+//!
+//! - [`entra`]: Microsoft Entra ID, through Microsoft Graph.
+//! - [`scripting`]: an operator-supplied script, run directly or through a PowerShell host.
+//!
+//! Operator-facing behaviour (required credentials, permissions, the script contract) is
+//! documented in the crate README.
 
 pub(crate) mod entra;
 pub(crate) mod scripting;
