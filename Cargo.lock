@@ -495,9 +495,23 @@ checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
 name = "bitwarden-access-connector"
 version = "4.0.0"
 dependencies = [
+ "async-trait",
+ "bitwarden-api-base",
  "bitwarden-commercial-marker",
+ "bitwarden-pam",
+ "bitwarden-pam-sealed",
+ "bitwarden-sensitive-value",
+ "chrono",
  "clap",
+ "reqwest",
+ "serde",
+ "serde_json",
  "thiserror",
+ "tokio",
+ "url",
+ "uuid",
+ "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -6625,6 +6639,7 @@ dependencies = [
  "libc",
  "mio 1.2.2",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",
