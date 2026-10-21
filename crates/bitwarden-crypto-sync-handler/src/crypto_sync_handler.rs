@@ -251,11 +251,6 @@ async fn handle_v2_upgrade(client: &Client, data: &CryptoSyncData) {
         return;
     };
 
-    // This is necessary until all clients implement the state bridge.
-    if !client.km_state_bridge().is_bridge_registered() {
-        return;
-    }
-
     let result = client
         .crypto()
         .reinit_user_crypto(ReinitUserCryptoRequest {
