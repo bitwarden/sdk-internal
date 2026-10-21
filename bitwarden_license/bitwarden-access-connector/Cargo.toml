@@ -19,6 +19,7 @@ path = "src/main.rs"
 async-trait = { workspace = true }
 bitwarden-api-base = { workspace = true }
 bitwarden-commercial-marker = { workspace = true }
+bitwarden-crypto = { workspace = true }
 bitwarden-pam = { workspace = true }
 bitwarden-pam-sealed = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }

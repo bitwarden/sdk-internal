@@ -498,6 +498,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-base",
  "bitwarden-commercial-marker",
+ "bitwarden-crypto",
  "bitwarden-pam",
  "bitwarden-pam-sealed",
  "bitwarden-sensitive-value",
