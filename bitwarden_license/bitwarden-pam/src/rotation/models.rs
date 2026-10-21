@@ -89,8 +89,6 @@ impl TryFrom<TargetSystemMethod> for ApiTargetSystemMethod {
 pub enum TargetSystemKind {
     /// Entra ID / Azure AD service-account password rotation.
     Entra,
-    /// SQL Server login password rotation.
-    Mssql,
     /// An operator-supplied script run by the connector.
     CustomScript,
     /// A kind this SDK version does not recognize.
@@ -110,7 +108,6 @@ impl From<SealedTargetSystemKind> for TargetSystemKind {
     fn from(kind: SealedTargetSystemKind) -> Self {
         match kind {
             SealedTargetSystemKind::Entra => Self::Entra,
-            SealedTargetSystemKind::Mssql => Self::Mssql,
             SealedTargetSystemKind::CustomScript => Self::CustomScript,
         }
     }
@@ -122,7 +119,6 @@ impl TryFrom<TargetSystemKind> for SealedTargetSystemKind {
     fn try_from(kind: TargetSystemKind) -> Result<Self, Self::Error> {
         match kind {
             TargetSystemKind::Entra => Ok(Self::Entra),
-            TargetSystemKind::Mssql => Ok(Self::Mssql),
             TargetSystemKind::CustomScript => Ok(Self::CustomScript),
             TargetSystemKind::Unknown => Err(RotationError::UnrecognizedVariant),
         }
