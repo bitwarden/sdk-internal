@@ -5,6 +5,7 @@
 //! when the account requires it.
 
 use serde_json::json;
+use zeroize::Zeroizing;
 
 use super::{
     account_key::AccountKey,
@@ -24,8 +25,36 @@ use super::{
 /// up. One round is the normal case.
 const MAX_DEVICE_ATTEMPTS: u32 = 2;
 const AUTH_METHODS_ENDPOINT: &str = "v2/auth/methods";
-const AUTH_START_ENDPOINT: &str = "v3/auth/start";
-const AUTH_COMPLETE_ENDPOINT: &str = "v2/auth/complete";
+const PASSWORD_METHOD: &str = "PASSWORD+SK";
+const SSO_METHOD: &str = "OIDC";
+pub(super) const AUTH_START_ENDPOINT: &str = "v3/auth/start";
+pub(super) const AUTH_COMPLETE_ENDPOINT: &str = "v2/auth/complete";
+
+/// How an account can sign in. An account may offer both.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
+pub struct SignInMethods {
+    /// With the master password and Secret Key.
+    pub password: bool,
+    /// With single sign-on through the account's identity provider.
+    pub sso: bool,
+}
+
+impl SignInMethods {
+    pub(super) fn of(login_info: &LoginInfo) -> SignInMethods {
+        let offers = |kind| {
+            login_info
+                .auth_methods
+                .iter()
+                .any(|method| method.kind == kind)
+        };
+        SignInMethods {
+            password: offers(PASSWORD_METHOD),
+            sso: offers(SSO_METHOD),
+        }
+    }
+}
 
 /// The result of a single login attempt: a finished session, or a rejected OTP that asks for a full
 /// restart.
@@ -36,13 +65,20 @@ pub(super) enum LoginOutcome {
     BadOtp,
 }
 
-/// Confirms the account offers a given auth method.
+/// Confirms the account offers a given auth method. The request carries only the email, so a bare
+/// 400 means 1Password refused it as malformed.
 pub(super) async fn fetch_auth_methods(
     username: &str,
     rest: &RestClient,
 ) -> Result<LoginInfo, OnePasswordError> {
     rest.post_json(AUTH_METHODS_ENDPOINT, json!({ "email": username }))
         .await
+        .map_err(|error| match error {
+            OnePasswordError::UnexpectedStatus { status: 400, .. } => {
+                OnePasswordError::InvalidEmail
+            }
+            error => error,
+        })
 }
 
 /// Runs one full login sequence: start a session, exchange SRP, verify the key, and drive 2FA if
@@ -64,10 +100,12 @@ pub(super) async fn login_attempt(
     let session_rest = rest.with_session_id(&session_id)?;
 
     // Step 2: Perform SRP exchange and verify key
-    let session_key = srp::perform_and_verify(
-        credentials,
-        account_key,
-        &srp_info,
+    let srp_x = Zeroizing::new(srp::compute_x(credentials, account_key, &srp_info)?);
+    let session_key = srp::perform_and_verify_with_x(
+        srp_x.as_slice(),
+        &credentials.username,
+        &account_key.uuid,
+        srp_info.salt(),
         &session_id,
         &session_rest,
     )
@@ -273,6 +311,64 @@ mod tests {
 
         assert_eq!(info.auth_methods[0].kind, "PASSWORD+SK");
         server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn a_refused_email_is_invalid() {
+        let server = MockServer::start().await;
+        server
+            .register(
+                Mock::given(matchers::path("/api/v2/auth/methods"))
+                    .respond_with(ResponseTemplate::new(400).set_body_json(json!({})))
+                    .expect(1),
+            )
+            .await;
+
+        let error = fetch_auth_methods("user@example", &client(&server))
+            .await
+            .expect_err("the email is refused");
+
+        assert!(matches!(error, OnePasswordError::InvalidEmail));
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn other_auth_methods_failures_keep_their_status() {
+        let server = MockServer::start().await;
+        server
+            .register(
+                Mock::given(matchers::path("/api/v2/auth/methods"))
+                    .respond_with(ResponseTemplate::new(503))
+                    .expect(1),
+            )
+            .await;
+
+        let error = fetch_auth_methods("user@example.com", &client(&server))
+            .await
+            .expect_err("the server is down");
+
+        assert!(matches!(
+            error,
+            OnePasswordError::UnexpectedStatus { status: 503, .. }
+        ));
+        server.verify().await;
+    }
+
+    #[test]
+    fn sign_in_methods_read_the_offered_auth_methods() {
+        let methods = |kinds: &[&str]| {
+            let login_info: LoginInfo = serde_json::from_value(json!({
+                "authMethods": kinds.iter().map(|kind| json!({"type": kind})).collect::<Vec<_>>(),
+            }))
+            .expect("valid login info");
+            SignInMethods::of(&login_info)
+        };
+        let only = |password, sso| SignInMethods { password, sso };
+
+        assert_eq!(methods(&["PASSWORD+SK"]), only(true, false));
+        assert_eq!(methods(&["OIDC"]), only(false, true));
+        assert_eq!(methods(&["PASSWORD+SK", "OIDC"]), only(true, true));
+        assert_eq!(methods(&["PASSKEY"]), only(false, false));
     }
 
     #[tokio::test]

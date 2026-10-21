@@ -4,17 +4,19 @@ use zeroize::Zeroizing;
 
 use super::{
     account_key::AccountKey,
-    credentials::Credentials,
+    credentials::{Credentials, SsoCredentials},
     device::ClientInfo,
     error::OnePasswordError,
-    keychain::Keychain,
-    login::{self, LoginOutcome},
+    keychain::{Keychain, MASTER_KEY_ID},
+    login::{self, LoginOutcome, SignInMethods},
     model::{
         DownloadedAccount, Item, ItemCategory, SkippedItem, SkippedReason, SkippedVault, Vault,
     },
-    opdata::Encrypted,
+    opdata::{AesKey, Encrypted},
     rest::RestClient,
     session::Session,
+    sign_in::SignInAddress,
+    sso::{Timing, sso_login, ui::SsoUi},
     two_factor::TwoFactorUi,
     wire::{
         AccountInfo, EncryptedEnvelope, KeysetsInfo, VaultAccess, VaultAttributes, VaultItem,
@@ -22,7 +24,6 @@ use super::{
     },
 };
 
-const PASSWORD_SK_METHOD: &str = "PASSWORD+SK";
 const MAX_OTP_ATTEMPTS: u32 = 3;
 const ACCOUNT_INFO_ENDPOINT: &str =
     "v1/account?attrs=billing,counts,groups,invite,me,settings,tier,user-flags,users,vaults";
@@ -41,6 +42,21 @@ impl Client {
         Client { http }
     }
 
+    /// Asks the server how the account signs in. It needs only the email, so a UI can find out
+    /// before asking for anything else.
+    pub async fn sign_in_methods(
+        &self,
+        username: &str,
+        mut sign_in_address: SignInAddress,
+    ) -> Result<SignInMethods, OnePasswordError> {
+        sign_in_address.normalize()?;
+        let device_uuid = super::device::generate_device_uuid();
+        let rest = self.rest_client(&sign_in_address, &ClientInfo::for_desktop(&device_uuid))?;
+
+        let login_info = login::fetch_auth_methods(username, &rest).await?;
+        Ok(SignInMethods::of(&login_info))
+    }
+
     /// Opens the account by signing in and decrypting every accessible vault, driving 2FA through
     /// `ui` when required.
     pub async fn open_account(
@@ -52,7 +68,33 @@ impl Client {
         credentials.sign_in_address.normalize()?;
         let account_key = AccountKey::parse(&credentials.account_key)?;
         let session = self.login(&credentials, &account_key, ui).await?;
-        download_vaults(&credentials, &account_key, &session).await
+        download_vaults(
+            MasterKey::Derived {
+                credentials: &credentials,
+                account_key: &account_key,
+            },
+            &session,
+        )
+        .await
+    }
+
+    /// Opens the account by signing in with single sign-on and decrypting every accessible vault.
+    ///
+    /// `ui` takes the user through the identity provider and the enrollment of the device, which
+    /// is new to the account every time.
+    pub async fn open_account_sso(
+        &self,
+        mut credentials: SsoCredentials,
+        ui: &dyn SsoUi,
+    ) -> Result<DownloadedAccount, OnePasswordError> {
+        credentials.validate()?;
+        let device_uuid = super::device::generate_device_uuid();
+        let client_info = ClientInfo::for_desktop(&device_uuid);
+        let rest = self.rest_client(&credentials.sign_in_address, &client_info)?;
+
+        let (session, master_key) =
+            sso_login(&credentials, &client_info, ui, &rest, &Timing::default()).await?;
+        download_vaults(MasterKey::Known(master_key), &session).await
     }
 
     /// Runs the login sequence, retrying the whole thing when the server rejects a TOTP code.
@@ -67,21 +109,11 @@ impl Client {
     ) -> Result<Session, OnePasswordError> {
         let device_uuid = super::device::generate_device_uuid();
         let client_info = ClientInfo::for_desktop(&device_uuid);
-        let rest = RestClient::new(
-            self.http.clone(),
-            format!("https://{}/api", credentials.sign_in_address),
-            &client_info.client_id(),
-            &client_info.user_agent,
-            &client_info.op_user_agent,
-        )?;
+        let rest = self.rest_client(&credentials.sign_in_address, &client_info)?;
 
         // Confirm password + Secret Key login is available. This does not change between attempts.
         let login_info = login::fetch_auth_methods(&credentials.username, &rest).await?;
-        if !login_info
-            .auth_methods
-            .iter()
-            .any(|m| m.kind == PASSWORD_SK_METHOD)
-        {
+        if !SignInMethods::of(&login_info).password {
             return Err(OnePasswordError::Unsupported(format!(
                 "no password login method found for account {}",
                 credentials.username
@@ -99,16 +131,40 @@ impl Client {
 
         Err(OnePasswordError::TwoFactorFailed)
     }
+
+    fn rest_client(
+        &self,
+        sign_in_address: &SignInAddress,
+        client_info: &ClientInfo,
+    ) -> Result<RestClient, OnePasswordError> {
+        RestClient::new(
+            self.http.clone(),
+            format!("https://{sign_in_address}/api"),
+            &client_info.client_id(),
+            &client_info.user_agent,
+            &client_info.op_user_agent,
+        )
+    }
+}
+
+/// Where the master key that unlocks the keysets comes from.
+pub(super) enum MasterKey<'a> {
+    /// Derived from the password and Secret Key.
+    Derived {
+        credentials: &'a Credentials,
+        account_key: &'a AccountKey,
+    },
+
+    /// Already known, like the account unlock key an SSO credential bundle carries.
+    Known(Zeroizing<Vec<u8>>),
 }
 
 /// Unlocks the account's keys and downloads every vault the session can open.
 pub(super) async fn download_vaults(
-    credentials: &Credentials,
-    account_key: &AccountKey,
+    master_key: MasterKey<'_>,
     session: &Session,
 ) -> Result<DownloadedAccount, OnePasswordError> {
-    let (keychain, vaults, mut skipped_vaults) =
-        unlock_account(credentials, account_key, session).await?;
+    let (keychain, vaults, mut skipped_vaults) = unlock_account(master_key, session).await?;
 
     let mut downloaded = Vec::with_capacity(vaults.len());
     for info in vaults {
@@ -166,8 +222,7 @@ async fn download_vault(
 
 /// Decrypts the account keysets and every accessible vault key.
 async fn unlock_account(
-    credentials: &Credentials,
-    account_key: &AccountKey,
+    master_key: MasterKey<'_>,
     session: &Session,
 ) -> Result<(Keychain, Vec<VaultInfo>, Vec<SkippedVault>), OnePasswordError> {
     // The vault list, and the keysets that unlock it.
@@ -180,14 +235,25 @@ async fn unlock_account(
         .get_encrypted_json(KEYSETS_ENDPOINT, &session.key)
         .await?;
 
-    // Everything else hangs off the master key, which only the credentials can produce.
+    // Everything else hangs off the master key, which the caller either derives or already has.
     let mut keychain = Keychain::new();
-    keychain.decrypt_keysets(
-        &keysets.keysets,
-        &credentials.username,
-        &credentials.password,
-        account_key,
-    )?;
+    match master_key {
+        MasterKey::Derived {
+            credentials,
+            account_key,
+        } => {
+            keychain.decrypt_keysets(
+                &keysets.keysets,
+                &credentials.username,
+                &credentials.password,
+                account_key,
+            )?;
+        }
+        MasterKey::Known(key) => {
+            keychain
+                .decrypt_reachable(&keysets.keysets, AesKey::new(MASTER_KEY_ID, key.to_vec()))?;
+        }
+    }
 
     let mut vaults = Vec::new();
     let mut skipped_vaults = Vec::new();

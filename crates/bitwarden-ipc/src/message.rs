@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     endpoint::{Endpoint, Source},
@@ -9,7 +7,7 @@ use crate::{
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 /// An untyped IPC message to be sent to another endpoint.
 pub struct OutgoingMessage {
     /// Serialized payload bytes.
@@ -25,7 +23,7 @@ pub struct OutgoingMessage {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 /// An untyped IPC message received from another endpoint.
 pub struct IncomingMessage {
     /// Serialized payload bytes.

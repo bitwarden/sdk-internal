@@ -6,8 +6,6 @@ use bitwarden_state::{
     repository::{Repository, RepositoryError},
 };
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{Send, SendId, send_client::SendClient};
 
@@ -103,7 +101,7 @@ async fn retry_pending_deletions<R: Repository<Send> + ?Sized>(
     Ok(())
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Delete a [Send] from the server and remove it from local state.
     pub async fn delete(&self, send_id: SendId) -> Result<(), DeleteSendError> {

@@ -17,6 +17,10 @@ where
     type SendError: Debug + Send + Sync + 'static + IpcErrorKind;
     type ReceiveError: Debug + Send + Sync + 'static + IpcErrorKind;
 
+    /// Largest payload [`send`](Self::send) accepts in a single message. The IPC client fragments
+    /// larger payloads into messages of at most this size.
+    fn max_payload_len(&self) -> usize;
+
     /// Send a message.
     ///
     /// Calling this function may result in multiple messages being sent, depending on the
@@ -70,6 +74,10 @@ where
     type Session = ();
     type SendError = Com::SendError;
     type ReceiveError = <Com::Receiver as CommunicationBackendReceiver>::ReceiveError;
+
+    fn max_payload_len(&self) -> usize {
+        usize::MAX
+    }
 
     async fn send(
         &self,
