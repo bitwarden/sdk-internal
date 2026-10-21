@@ -294,15 +294,14 @@ fn network_error_after_send(e: reqwest::Error, pre_send_effect: TargetEffect) ->
 async fn read_graph_error_code(response: reqwest::Response) -> Option<String> {
     let body = response.bytes().await.ok()?;
     let parsed: GraphError = serde_json::from_slice(&body).ok()?;
-    let code = parsed.error.code?;
-    if validate_graph_error_code(&code) {
-        Some(code)
-    } else {
-        None
-    }
+    parsed
+        .error
+        .code
+        .filter(|code| is_safe_graph_error_code(code))
 }
 
-fn validate_graph_error_code(code: &str) -> bool {
+/// Matches `^[A-Za-z0-9_]{1,64}$`.
+fn is_safe_graph_error_code(code: &str) -> bool {
     !code.is_empty()
         && code.len() <= 64
         && code.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
@@ -1334,19 +1333,19 @@ mod tests {
 
     #[test]
     fn valid_graph_error_code_passes_validation() {
-        assert!(super::validate_graph_error_code("Request_ResourceNotFound"));
-        assert!(super::validate_graph_error_code("A"));
-        assert!(super::validate_graph_error_code(&"x".repeat(64)));
+        assert!(super::is_safe_graph_error_code("Request_ResourceNotFound"));
+        assert!(super::is_safe_graph_error_code("A"));
+        assert!(super::is_safe_graph_error_code(&"x".repeat(64)));
     }
 
     #[test]
     fn invalid_graph_error_codes_are_rejected() {
-        assert!(!super::validate_graph_error_code(&"x".repeat(65)));
-        assert!(!super::validate_graph_error_code(""));
-        assert!(!super::validate_graph_error_code("Code\nInjection"));
-        assert!(!super::validate_graph_error_code("Bad:Code"));
-        assert!(!super::validate_graph_error_code("Code\x00bad"));
-        assert!(!super::validate_graph_error_code("Bad Code"));
+        assert!(!super::is_safe_graph_error_code(&"x".repeat(65)));
+        assert!(!super::is_safe_graph_error_code(""));
+        assert!(!super::is_safe_graph_error_code("Code\nInjection"));
+        assert!(!super::is_safe_graph_error_code("Bad:Code"));
+        assert!(!super::is_safe_graph_error_code("Code\x00bad"));
+        assert!(!super::is_safe_graph_error_code("Bad Code"));
     }
 
     #[tokio::test]
