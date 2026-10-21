@@ -8,7 +8,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use bitwarden_pam::RotationFailureCode;
 use bitwarden_sensitive_value::ExposeSensitive as _;
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use url::Url;
 
@@ -311,6 +311,7 @@ fn validate_graph_error_code(code: &str) -> bool {
 #[async_trait]
 impl Integration for EntraIntegration {
     /// Reset the password with `PATCH /v1.0/users/{identity}` and a `passwordProfile` body.
+    /// 429 is `NotApplied`, 5xx is `Unknown`, other rejections are permanent.
     async fn rotate(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let tenant_id = get_cred(&ctx.creds, "TENANT_ID")?;
         let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
@@ -354,21 +355,33 @@ impl Integration for EntraIntegration {
         let graph_code = read_graph_error_code(response).await;
         let graph_code_ref = graph_code.as_deref();
 
-        if status_u16 == 404 || status_u16 == 401 || status_u16 == 403 {
-            Err(IntegrationError {
-                retry: Retry::Permanent,
-                effect: TargetEffect::NotApplied,
-                code: RotationFailureCode::TargetRejected,
-                detail: SafeDetail::from_http_status_and_graph_code(status_u16, graph_code_ref),
-            })
-        } else {
-            Err(IntegrationError {
-                retry: Retry::Transient,
-                effect: TargetEffect::NotApplied,
-                code: RotationFailureCode::TargetUnreachable,
-                detail: SafeDetail::from_http_status_and_graph_code(status_u16, graph_code_ref),
-            })
-        }
+        let (retry, effect, code) = match status {
+            // Throttled before processing.
+            StatusCode::TOO_MANY_REQUESTS => (
+                Retry::Transient,
+                TargetEffect::NotApplied,
+                RotationFailureCode::TargetUnreachable,
+            ),
+            // A gateway or server error can arrive after Graph applied the reset, so the effect
+            // is unknown (like a post-send timeout).
+            s if s.is_server_error() => (
+                Retry::Transient,
+                TargetEffect::Unknown,
+                RotationFailureCode::TargetUnreachable,
+            ),
+            // 400 policy rejections, 401/403/404 and the rest.
+            _ => (
+                Retry::Permanent,
+                TargetEffect::NotApplied,
+                RotationFailureCode::TargetRejected,
+            ),
+        };
+        Err(IntegrationError {
+            retry,
+            effect,
+            code,
+            detail: SafeDetail::from_http_status_and_graph_code(status_u16, graph_code_ref),
+        })
     }
 
     /// Verify with the optional ROPC probe first (authoritative, immune to replication lag), then
@@ -867,6 +880,47 @@ mod tests {
         assert_eq!(err.retry, Retry::Transient);
         assert_eq!(err.effect, TargetEffect::NotApplied);
         assert_eq!(err.code, RotationFailureCode::TargetUnreachable);
+    }
+
+    #[tokio::test]
+    async fn rotate_400_gives_fatal_not_applied_target_rejected() {
+        let err = rotate_with_patch_status(400).await;
+        assert_eq!(err.retry, Retry::Permanent);
+        assert_eq!(err.effect, TargetEffect::NotApplied);
+        assert_eq!(err.code, RotationFailureCode::TargetRejected);
+    }
+
+    #[tokio::test]
+    async fn rotate_5xx_gives_transient_unknown() {
+        for status in [500, 502, 503, 504] {
+            let err = rotate_with_patch_status(status).await;
+            assert_eq!(err.retry, Retry::Transient, "status {status}");
+            assert_eq!(err.effect, TargetEffect::Unknown, "status {status}");
+            assert_eq!(
+                err.code,
+                RotationFailureCode::TargetUnreachable,
+                "status {status}"
+            );
+        }
+    }
+
+    async fn rotate_with_patch_status(status: u16) -> IntegrationError {
+        let login = MockServer::start().await;
+        let graph = MockServer::start().await;
+        let tenant = "t1";
+
+        mount_token_ok(&login, tenant, "tok").await;
+
+        Mock::given(method("PATCH"))
+            .and(path("/v1.0/users/some-user"))
+            .respond_with(ResponseTemplate::new(status))
+            .mount(&graph)
+            .await;
+
+        let creds = make_creds(tenant, "cid", "csecret");
+        let ctx = make_ctx(creds, "some-user", "P@ss1");
+        let integ = integration(&login, &graph, false);
+        integ.rotate(&ctx).await.unwrap_err()
     }
 
     #[tokio::test]
