@@ -293,21 +293,25 @@ impl SessionManager {
             // Other callers of bearer() block here until the lock releases.
             let result = self.identity.authenticate(&self.token).await;
 
-            match result {
-                Ok(success) => {
-                    guard
-                        .apply_success(success, &self.token)
-                        .map_err(SessionError::Transient)?;
-                    if tries == 0 {
-                        tracing::info!("session established (authentication succeeded)");
-                    } else {
-                        tracing::info!(
-                            retry = tries,
-                            "session renewed (re-authentication succeeded)"
-                        );
+            // Failures yield a kind label for the logs and the error message; the retry path
+            // below is shared.
+            let (kind, err_msg) = match result {
+                Ok(success) => match guard.apply_success(success, &self.token) {
+                    Ok(()) => {
+                        if tries == 0 {
+                            tracing::info!("session established (authentication succeeded)");
+                        } else {
+                            tracing::info!(
+                                retry = tries,
+                                "session renewed (re-authentication succeeded)"
+                            );
+                        }
+                        return Ok(());
                     }
-                    return Ok(());
-                }
+                    // A 200 whose payload does not open is treated like a protocol failure. The
+                    // error carries no secret material.
+                    Err(msg) => ("org key unwrap failed", msg),
+                },
                 Err(AuthError::Rejected) => {
                     guard.enter_terminal(SessionLost::Revoked);
                     // The executor logs the actionable message; this logs the transition.
@@ -316,86 +320,49 @@ impl SessionManager {
                     );
                     return Err(SessionError::Lost(SessionLost::Revoked));
                 }
-                Err(AuthError::Transient(msg)) => {
-                    let err_msg = msg;
+                Err(AuthError::Transient(msg)) => ("transient", msg),
+                Err(AuthError::Protocol) => (
+                    "protocol error",
+                    "identity server returned unexpected response".to_owned(),
+                ),
+            };
 
-                    tries += 1;
-                    let max_tries = match deadline {
-                        None => NO_DEADLINE_MAX_TRIES,
-                        Some(_) => u32::MAX,
-                    };
+            tries += 1;
+            let max_tries = match deadline {
+                None => NO_DEADLINE_MAX_TRIES,
+                Some(_) => u32::MAX,
+            };
 
-                    if tries >= max_tries {
-                        guard.set_phase(SessionPhase::Expired);
-                        tracing::warn!(
-                            retry = tries,
-                            "session renewal failed (transient): {err_msg}; giving up after {tries} attempts"
-                        );
-                        return Err(SessionError::Transient(err_msg));
-                    }
+            // Set Expired so phase-watchers see a transient stall.
+            guard.set_phase(SessionPhase::Expired);
 
-                    guard.set_phase(SessionPhase::Expired);
-                    drop(guard);
-
-                    let sleep_dur = compute_sleep(delay, deadline);
-                    if sleep_dur == Duration::ZERO {
-                        tracing::warn!(
-                            retry = tries,
-                            "session renewal deadline exceeded before retry; last error: {err_msg}"
-                        );
-                        return Err(SessionError::Transient(
-                            "renewal deadline exceeded".to_owned(),
-                        ));
-                    }
-                    tracing::warn!(
-                        retry = tries,
-                        sleep_ms = sleep_dur.as_millis(),
-                        "session renewal failed (transient): {err_msg}; retrying after {sleep_dur:?}"
-                    );
-                    tokio::time::sleep(sleep_dur).await;
-                    delay = (delay * 2).min(BACKOFF_CAP);
-                }
-                Err(AuthError::Protocol) => {
-                    let err_msg = "identity server returned unexpected response".to_owned();
-
-                    tries += 1;
-                    let max_tries = match deadline {
-                        None => NO_DEADLINE_MAX_TRIES,
-                        Some(_) => u32::MAX,
-                    };
-
-                    if tries >= max_tries {
-                        guard.set_phase(SessionPhase::Expired);
-                        tracing::warn!(
-                            retry = tries,
-                            "session renewal failed (protocol error): {err_msg}; giving up after {tries} attempts"
-                        );
-                        return Err(SessionError::Transient(err_msg));
-                    }
-
-                    // Set Expired so phase-watchers see a transient stall.
-                    guard.set_phase(SessionPhase::Expired);
-                    drop(guard);
-
-                    let sleep_dur = compute_sleep(delay, deadline);
-                    if sleep_dur == Duration::ZERO {
-                        tracing::warn!(
-                            retry = tries,
-                            "session renewal deadline exceeded before retry; last error: {err_msg}"
-                        );
-                        return Err(SessionError::Transient(
-                            "renewal deadline exceeded".to_owned(),
-                        ));
-                    }
-                    tracing::warn!(
-                        retry = tries,
-                        sleep_ms = sleep_dur.as_millis(),
-                        "session renewal failed (protocol error): {err_msg}; retrying after {sleep_dur:?}"
-                    );
-                    tokio::time::sleep(sleep_dur).await;
-                    delay = (delay * 2).min(BACKOFF_CAP);
-                }
+            if tries >= max_tries {
+                tracing::warn!(
+                    retry = tries,
+                    "session renewal failed ({kind}): {err_msg}; giving up after {tries} attempts"
+                );
+                return Err(SessionError::Transient(err_msg));
             }
+
+            drop(guard);
+
+            let sleep_dur = compute_sleep(delay, deadline);
+            if sleep_dur == Duration::ZERO {
+                tracing::warn!(
+                    retry = tries,
+                    "session renewal deadline exceeded before retry; last error: {err_msg}"
+                );
+                return Err(SessionError::Transient(
+                    "renewal deadline exceeded".to_owned(),
+                ));
+            }
+            tracing::warn!(
+                retry = tries,
+                sleep_ms = sleep_dur.as_millis(),
+                "session renewal failed ({kind}): {err_msg}; retrying after {sleep_dur:?}"
+            );
+            tokio::time::sleep(sleep_dur).await;
+            delay = (delay * 2).min(BACKOFF_CAP);
         }
     }
 }
@@ -869,5 +836,49 @@ mod tests {
             fail.is_err(),
             "probe must NOT decrypt under the old org key"
         );
+    }
+
+    /// A 200 whose `encrypted_payload` does not open must go through the same backoff and
+    /// `Expired` handling as other renewal failures, not return at once.
+    #[tokio::test]
+    async fn org_key_unwrap_failure_retries_with_backoff_and_expires() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, "not-a-valid-payload"))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let (phase_tx, _phase_rx) = watch::channel(SessionPhase::Authenticating);
+        let mgr = SessionManager {
+            state: Mutex::new(SessionState {
+                phase: SessionPhase::Authenticating,
+                bearer: None,
+                expires_at: None,
+                key_store: KeyStore::default(),
+                organization_id: None,
+                phase_tx,
+            }),
+            identity: client,
+            token: test_token(),
+        };
+
+        // Real time: the HTTP mock does not work under paused time. A short deadline bounds the
+        // backoff.
+        let deadline = Instant::now() + Duration::from_millis(1500);
+        let err = mgr
+            .bearer(Some(deadline))
+            .await
+            .expect_err("unwrap must fail");
+        assert!(
+            matches!(err, SessionError::Transient(_)),
+            "expected Transient, got {err:?}"
+        );
+        assert!(
+            server.received_requests().await.unwrap().len() > 1,
+            "must retry with backoff"
+        );
+        assert_eq!(mgr.phase().await, SessionPhase::Expired);
     }
 }

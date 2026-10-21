@@ -163,9 +163,13 @@ mod tests {
             .await;
 
         let handler = AccessConnectorTokenHandler::default();
-        let client = reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
-            .with(AccessConnectorAuthMiddleware::new(handler))
-            .build();
+        let client = reqwest_middleware::ClientBuilder::new(
+            bitwarden_api_base::new_http_client_builder()
+                .build()
+                .expect("http client"),
+        )
+        .with(AccessConnectorAuthMiddleware::new(handler))
+        .build();
 
         client
             .get(format!("{}/test", server.uri()))
