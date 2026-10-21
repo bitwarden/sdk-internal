@@ -16,6 +16,8 @@ import { LocalState, SETTINGS } from "./local-state";
 
 import { makePasswordManagerClient } from "../tests/utils";
 
+type SyncHandler = "Locked" | "Unlocked";
+
 export class ClientEmulator {
   readonly local = new LocalState();
 
@@ -30,8 +32,11 @@ export class ClientEmulator {
 
   /**
    * Simulates a sync from server to client
+   *
+   * - `Locked` hands the sync to a fresh locked client, as a login does.
+   * - `Unlocked` hands it to the running unlocked client, as a sync in a live session does.
    */
-  async sync(email: string): Promise<void> {
+  async sync(email: string, handler: SyncHandler = "Locked"): Promise<void> {
     const user = this.server.getUser(email);
 
     this.local.setIdentity({ userId: user.userId, email: user.email });
@@ -50,8 +55,11 @@ export class ClientEmulator {
 
     const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
-    const locked = makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
-    await locked.crypto_sync_handler().on_sync({
+    const syncClient =
+      handler === "Unlocked"
+        ? this.getPasswordManagerClient()
+        : makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
+    await syncClient.crypto_sync_handler().on_sync({
       accountCryptographicState: accountKeys.toAccountCryptographicState(),
       userDecryption: {
         masterPasswordUnlock:
