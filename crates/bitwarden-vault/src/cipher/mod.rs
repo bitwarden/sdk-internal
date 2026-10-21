@@ -21,6 +21,7 @@ pub(crate) mod ssh_key;
 
 pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
+    LegacyAttachmentError,
 };
 pub use attachment_client::{
     AttachmentAdminClient, AttachmentFileUploadType, AttachmentsClient,

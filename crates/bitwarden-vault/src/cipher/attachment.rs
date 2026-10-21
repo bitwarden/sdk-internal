@@ -5,6 +5,7 @@ use bitwarden_crypto::{
     OctetStreamBytes, PrimitiveEncryptable, SymmetricCryptoKey,
 };
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use super::Cipher;
 use crate::VaultParseError;
@@ -88,16 +89,65 @@ pub struct AttachmentEncryptResult {
     pub contents: Vec<u8>,
 }
 
-#[allow(missing_docs)]
+/// Returned when an attachment without its own key (legacy v1) is used where one is required.
+#[derive(Debug, Error)]
+#[error("Legacy attachments without an attachment key are not supported")]
+pub struct LegacyAttachmentError;
+
+/// Where an [`AttachmentFile`] comes from, which determines how legacy v1 contents are keyed.
+enum AttachmentOwner {
+    Cipher(Box<Cipher>),
+    /// The cipher belongs to a grantor's vault and isn't available. Construction guarantees
+    /// `attachment.key` is set, so decryption never needs an account-level key.
+    EmergencyAccess,
+}
+
+/// An encrypted attachment file, ready to be decrypted.
 pub struct AttachmentFile {
-    pub cipher: Cipher,
-    pub attachment: AttachmentView,
+    owner: AttachmentOwner,
+    attachment: AttachmentView,
 
     /// There are three different ways attachments are encrypted.
     /// 1. UserKey / OrgKey (Contents) - Legacy
     /// 2. AttachmentKey(Contents) - Pre CipherKey
     /// 3. CipherKey(AttachmentKey(Contents)) - Current
-    pub contents: EncString,
+    contents: EncString,
+}
+
+impl AttachmentFile {
+    /// Creates an attachment file belonging to a cipher in the current user's vault.
+    pub fn new(cipher: Cipher, attachment: AttachmentView, contents: EncString) -> Self {
+        Self {
+            owner: AttachmentOwner::Cipher(Box::new(cipher)),
+            attachment,
+            contents,
+        }
+    }
+
+    /// Creates an attachment file from a grantor's vault, accessed through emergency access.
+    ///
+    /// Fails for legacy v1 attachments: they have no attachment key, and the grantor's account
+    /// key isn't available to decrypt them.
+    pub fn for_emergency_access(
+        attachment: AttachmentView,
+        contents: EncString,
+    ) -> Result<Self, LegacyAttachmentError> {
+        if attachment.key.is_none() {
+            return Err(LegacyAttachmentError);
+        }
+        Ok(Self {
+            owner: AttachmentOwner::EmergencyAccess,
+            attachment,
+            contents,
+        })
+    }
+
+    fn cipher(&self) -> Option<&Cipher> {
+        match &self.owner {
+            AttachmentOwner::Cipher(cipher) => Some(cipher.as_ref()),
+            AttachmentOwner::EmergencyAccess => None,
+        }
+    }
 }
 
 #[allow(missing_docs)]
@@ -114,7 +164,12 @@ impl IdentifyKey<SymmetricKeySlotId> for AttachmentFileView<'_> {
 }
 impl IdentifyKey<SymmetricKeySlotId> for AttachmentFile {
     fn key_identifier(&self) -> SymmetricKeySlotId {
-        self.cipher.key_identifier()
+        match &self.owner {
+            AttachmentOwner::Cipher(cipher) => cipher.key_identifier(),
+            // Placeholder: emergency access attachments always carry an attachment key, so
+            // `decrypt` never reads this slot.
+            AttachmentOwner::EmergencyAccess => SymmetricKeySlotId::User,
+        }
     }
 }
 
@@ -168,24 +223,25 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Vec<u8>> for AttachmentFile {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<Vec<u8>, CryptoError> {
-        // Version 2 or 3: attachment view already holds the raw attachment key
+        // Version 2 or 3: attachment view already holds the raw attachment key, regardless of owner
         if let Some(attachment_key) = &self.attachment.key {
             let content_key = ctx.add_local_symmetric_key(attachment_key.clone());
             self.contents.decrypt(ctx, content_key).map_err(|e| {
                 tracing::warn!(
                     attachment_id = ?self.attachment.id,
-                    cipher_id = ?self.cipher.id,
+                    cipher_id = ?self.cipher().and_then(|c| c.id.as_ref()),
                     error = %e,
                     "Failed to decrypt attachment contents with attachment key (v2/v3)"
                 );
                 e
             })
         } else {
-            // Legacy attachment version 1, use user/org key
+            // Legacy attachment version 1, use user/org key. Only reachable for a cipher owner:
+            // `for_emergency_access` rejects attachments without a key.
             self.contents.decrypt(ctx, key).map_err(|e| {
                 tracing::warn!(
                     attachment_id = ?self.attachment.id,
-                    cipher_id = ?self.cipher.id,
+                    cipher_id = ?self.cipher().and_then(|c| c.id.as_ref()),
                     error = %e,
                     "Failed to decrypt attachment contents with user/org key (legacy v1)"
                 );
@@ -456,11 +512,11 @@ mod tests {
         let original = B64::try_from("rMweTemxOL9D0iWWfRxiY3enxiZ5IrwWD6ef2apGO6MvgdGhy2fpwmATmn7BpSj9lRumddLLXm7u8zSp6hnXt1hS71YDNh78LjGKGhGL4sbg8uNnpa/I6GK/83jzqGYN7+ESbg==").unwrap();
 
         let dec = key_store
-            .decrypt(&AttachmentFile {
+            .decrypt(&AttachmentFile::new(
                 cipher,
                 attachment,
-                contents: EncString::from_buffer(enc_file.as_bytes()).unwrap(),
-            })
+                EncString::from_buffer(enc_file.as_bytes()).unwrap(),
+            ))
             .unwrap();
 
         assert_eq!(dec, original.as_bytes());
@@ -519,13 +575,78 @@ mod tests {
         let original = B64::try_from("rMweTemxOL9D0iWWfRxiY3enxiZ5IrwWD6ef2apGO6MvgdGhy2fpwmATmn7BpSj9lRumddLLXm7u8zSp6hnXt1hS71YDNh78LjGKGhGL4sbg8uNnpa/I6GK/83jzqGYN7+ESbg==").unwrap();
 
         let dec = key_store
-            .decrypt(&AttachmentFile {
+            .decrypt(&AttachmentFile::new(
                 cipher,
                 attachment,
-                contents: EncString::from_buffer(enc_file.as_bytes()).unwrap(),
-            })
+                EncString::from_buffer(enc_file.as_bytes()).unwrap(),
+            ))
             .unwrap();
 
         assert_eq!(dec, original.as_bytes());
+    }
+
+    #[test]
+    fn test_for_emergency_access_rejects_legacy_attachment() {
+        let attachment = AttachmentView {
+            id: None,
+            url: None,
+            size: None,
+            size_name: None,
+            file_name: None,
+            key: None,
+        };
+        let contents = EncString::from_buffer(
+            B64::try_from("AsQLXOBHrJ8porroTUlPxeJOm9XID7LL9D2+KwYATXEpR1EFjLBpcCvMmnqcnYLXIEefe9TCeY4Us50ux43kRSpvdB7YkjxDKV0O1/y6tB7qC4vvv9J9+O/uDEnMx/9yXuEhAW/LA/TsU/WAgxkOM0uTvm8JdD9LUR1z9Ql7zOWycMVzkvGsk2KBNcqAdrotS5FlDftZOXyU8pWecNeyA/w=").unwrap().as_bytes(),
+        )
+        .unwrap();
+
+        assert!(AttachmentFile::for_emergency_access(attachment, contents).is_err());
+    }
+
+    #[test]
+    fn test_for_emergency_access_decrypts_with_attachment_key() {
+        // The key store has no keys the attachment could be decrypted with, so success proves
+        // only the attachment key was used.
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+
+        let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
+        let attachment_key = {
+            let grantor_store = create_test_crypto_with_user_key(user_key);
+            let mut ctx = grantor_store.context();
+            let cipher_key_enc: EncString = "2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap();
+            let cipher_key_slot = Cipher::decrypt_cipher_key(
+                &mut ctx,
+                bitwarden_core::key_management::SymmetricKeySlotId::User,
+                &Some(cipher_key_enc),
+            )
+            .unwrap();
+            let att_key_enc: EncString = "2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap();
+            let slot = ctx
+                .unwrap_symmetric_key(cipher_key_slot, &att_key_enc)
+                .unwrap();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(slot).unwrap().clone()
+        };
+
+        let attachment = AttachmentView {
+            id: None,
+            url: None,
+            size: None,
+            size_name: None,
+            file_name: None,
+            key: Some(attachment_key),
+        };
+        let enc_file = B64::try_from("Ao00qr1xLsV+ZNQpYZ/UwEwOWo3hheKwCYcOGIbsorZ6JIG2vLWfWEXCVqP0hDuzRvmx8otApNZr8pJYLNwCe1aQ+ySHQYGkdubFjoMojulMbQ959Y4SJ6Its/EnVvpbDnxpXTDpbutDxyhxfq1P3lstL2G9rObJRrxiwdGlRGu1h94UA1fCCkIUQux5LcqUee6W4MyQmRnsUziH8gGzmtI=").unwrap();
+        let original = B64::try_from("rMweTemxOL9D0iWWfRxiY3enxiZ5IrwWD6ef2apGO6MvgdGhy2fpwmATmn7BpSj9lRumddLLXm7u8zSp6hnXt1hS71YDNh78LjGKGhGL4sbg8uNnpa/I6GK/83jzqGYN7+ESbg==").unwrap();
+
+        let file = AttachmentFile::for_emergency_access(
+            attachment,
+            EncString::from_buffer(enc_file.as_bytes()).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(key_store.decrypt(&file).unwrap(), original.as_bytes());
     }
 }

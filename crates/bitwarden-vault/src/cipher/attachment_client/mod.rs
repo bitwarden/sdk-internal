@@ -79,11 +79,11 @@ impl AttachmentsClient {
         attachment: AttachmentView,
         encrypted_buffer: &[u8],
     ) -> Result<Vec<u8>, DecryptError> {
-        Ok(self.key_store.decrypt(&AttachmentFile {
+        Ok(self.key_store.decrypt(&AttachmentFile::new(
             cipher,
             attachment,
-            contents: EncString::from_buffer(encrypted_buffer)?,
-        })?)
+            EncString::from_buffer(encrypted_buffer)?,
+        ))?)
     }
 }
 
