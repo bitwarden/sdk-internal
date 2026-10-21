@@ -31,7 +31,7 @@ pub struct JsIpcClient {
 }
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
-/// [IpcClientSubscription](crate::IpcClientSubscription) documentation.
+/// [IpcClientSubscription] documentation.
 #[wasm_bindgen(js_name = IpcClientSubscription)]
 pub struct JsIpcClientSubscription {
     subscription: IpcClientSubscription,
