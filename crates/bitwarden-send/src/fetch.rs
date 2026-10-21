@@ -2,8 +2,6 @@ use bitwarden_core::{ApiError, MissingFieldError, require};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{Send, SendId, error::SendParseError, send_client::SendClient};
 
@@ -35,7 +33,7 @@ async fn fetch_send<R: Repository<Send> + ?Sized>(
     Ok(send)
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Fetch a single [Send] by its ID from the server and persist it to local state.
     ///

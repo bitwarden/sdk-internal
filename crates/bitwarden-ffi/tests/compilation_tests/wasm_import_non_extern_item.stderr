@@ -1,0 +1,5 @@
+error: #[wasm_import] applies to an `extern "C"` block
+ --> tests/compilation_tests/wasm_import_non_extern_item.rs:4:1
+  |
+4 | pub struct Driver;
+  | ^^^^^^^^^^^^^^^^^^
