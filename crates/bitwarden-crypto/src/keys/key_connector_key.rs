@@ -123,6 +123,7 @@ impl KeyConnectorKey {
                 let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&self.0));
                 user_key.decrypt_with_key(&stretched_key)?
             }
+            EncString::Unparseable { .. } => return Err(CryptoError::UnparseableEncString),
             _ => {
                 return Err(CryptoError::OperationNotSupported(
                     crate::error::UnsupportedOperationError::EncryptionNotImplementedForKey,

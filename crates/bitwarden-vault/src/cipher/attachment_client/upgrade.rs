@@ -12,8 +12,6 @@ use futures::TryStreamExt;
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio_util::io::StreamReader;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::{
     create::{
@@ -66,7 +64,7 @@ pub enum CipherUpgradeAttachmentError {
     Upload,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Upgrades a legacy v1 attachment to `CipherKey(AttachmentKey(Contents))`.
     ///
@@ -329,6 +327,7 @@ mod tests {
 
     fn cipher_with(name: EncString, attachments: Option<Vec<Attachment>>) -> Cipher {
         Cipher {
+            partial_data: None,
             id: TEST_CIPHER_ID.parse().ok(),
             name: Some(name),
             r#type: CipherType::Login,

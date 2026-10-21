@@ -112,7 +112,7 @@ async fn check_key_pair(
         (Some(pub_key), Some(priv_key)) => (pub_key, priv_key),
     };
 
-    let Ok(encrypted_private_key) = private_key_str.parse::<EncString>() else {
+    let Ok(encrypted_private_key) = EncString::parse_strict(private_key_str) else {
         info!("User's private key is not a valid encrypted string, regeneration needed");
         return Ok(KeyPairCheckResult::NeedsRegeneration);
     };
@@ -779,6 +779,7 @@ mod tests {
                 .encrypt(&mut ctx, cipher_key)
                 .unwrap();
             Cipher {
+                partial_data: None,
                 id: None,
                 organization_id: None,
                 folder_id: None,

@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 /// Identifies a host endpoint, one that manages connections for other endpoints.
 ///
@@ -8,7 +6,7 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 /// and there is only one from their perspective) or by a specific transport-assigned ID
 /// (when distinguishing between multiple instances).
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum HostId {
     /// The sender's own instance of this endpoint type. Used when there is exactly one
     /// from the sender's perspective (e.g., a web tab addressing its browser background).
@@ -22,13 +20,13 @@ pub enum HostId {
 ///
 /// Endpoints are categorized by their role in the connection topology:
 /// - **Host endpoints** ([`HostId`]): Connection hubs that can be addressed relationally or
-///   specifically. ([`BrowserBackground`](Endpoint::BrowserBackground))
+///   specifically. ([`BrowserBackground`](Endpoint::BrowserBackground), [`Cli`](Endpoint::Cli))
 /// - **Leaf endpoints**: Addressed by transport-assigned IDs. ([`Web`](Endpoint::Web),
 ///   [`BrowserForeground`](Endpoint::BrowserForeground))
 /// - **Singleton endpoints**: Exactly one instance globally, no ID needed.
 ///   ([`DesktopMain`](Endpoint::DesktopMain), [`DesktopRenderer`](Endpoint::DesktopRenderer))
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum Endpoint {
     /// A web endpoint identified by a Chrome tab ID (for routing via
     /// `chrome.tabs.sendMessage`) and a document ID (for identity validation).
@@ -51,6 +49,12 @@ pub enum Endpoint {
         /// Host identifier for addressing this endpoint.
         id: HostId,
     },
+    /// CLI endpoint. Each CLI invocation is its own process, so instances are
+    /// distinguished by a host identifier.
+    Cli {
+        /// Host identifier for addressing this endpoint.
+        id: HostId,
+    },
     /// Desktop renderer endpoint (singleton).
     DesktopRenderer,
     /// Desktop main-process endpoint (singleton).
@@ -64,7 +68,7 @@ pub enum Endpoint {
 /// for web sources). Use [`From<Source> for Endpoint`] to convert a source into an
 /// addressable endpoint (dropping the metadata).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum Source {
     /// A web source identified by tab ID and document ID, with the origin of the sending page.
     Web {
@@ -82,6 +86,11 @@ pub enum Source {
     },
     /// Browser background source (service worker/background context).
     BrowserBackground {
+        /// Host identifier for this endpoint.
+        id: HostId,
+    },
+    /// CLI source, identified by a host identifier.
+    Cli {
         /// Host identifier for this endpoint.
         id: HostId,
     },
@@ -112,6 +121,7 @@ impl From<Source> for Endpoint {
             },
             Source::BrowserForeground { id } => Endpoint::BrowserForeground { id },
             Source::BrowserBackground { id } => Endpoint::BrowserBackground { id },
+            Source::Cli { id } => Endpoint::Cli { id },
             Source::DesktopRenderer => Endpoint::DesktopRenderer,
             Source::DesktopMain => Endpoint::DesktopMain,
         }

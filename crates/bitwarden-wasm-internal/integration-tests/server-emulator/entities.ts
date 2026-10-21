@@ -1,0 +1,109 @@
+import type {
+  Cipher,
+  EncString,
+  Folder,
+  Kdf,
+  KeyId,
+  UnsignedSharedKey,
+  V2UpgradeToken,
+  WrappedAccountCryptographicState,
+} from "@bitwarden/sdk-internal";
+
+import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
+
+/** Master-password unlock data as the server holds it. */
+export interface StoredMasterPasswordUnlock {
+  masterKeyWrappedUserKey: EncString;
+  salt: string;
+  /** The SDK's `Kdf`; the serializers convert it to the server's numeric form on the way out. */
+  kdf: Kdf;
+  containedKeyId?: string;
+}
+
+/** An account's id, so it cannot be swapped for another id. */
+export type AccountId = string & { readonly __brand: "AccountId" };
+
+/** An account as the server holds it. */
+export interface UserEntity {
+  userId: AccountId;
+  email: string;
+  accountCryptographicState: WrappedAccountCryptographicState;
+  publicKey: string;
+  verifyingKey: string | null;
+  /** Absent for a V1 account, which has no security state. */
+  securityVersion?: number;
+  /**
+   * The account's KDF settings, held separately from {@link masterPasswordUnlock} because an account
+   * with none — key connector, trusted device — still has them and still needs them to initialize.
+   */
+  kdf: Kdf;
+  /**
+   * The id of the account's user key.
+   *
+   * Optional: an account created before key ids existed has none until it backfills one, which is
+   * the state `user_key_id_needs_backfill` reports on.
+   */
+  userKeyId?: KeyId;
+  /** `null` for an account with no master password. */
+  masterPasswordUnlock: StoredMasterPasswordUnlock | null;
+  /** Set while a V1 to V2 upgrade is outstanding; served in the account's decryption options. */
+  upgradeToken?: V2UpgradeToken;
+  /** Organization keys sealed to this account, keyed by organization id. */
+  organizationKeys: Record<string, string>;
+}
+
+/**
+ * A cipher as the server holds it: the encrypted model plus who owns it.
+ *
+ * Exactly one owner is set. A user cipher lives in one account's vault; an organization cipher is
+ * reachable by every member, so it cannot be attributed to the account that happened to create it.
+ */
+export interface CipherEntity {
+  /** The account that owns it, or `null` for an organization cipher. */
+  userId: string | null;
+  /** The organization that owns it, or `null` for a user cipher. */
+  organizationId: string | null;
+  cipher: Cipher;
+}
+
+/** A folder as the server holds it. Folders are always personal — organizations have collections. */
+export interface FolderEntity {
+  userId: string;
+  folder: Folder;
+}
+
+/** A member of an organization, as the server holds it. */
+export interface OrganizationMember {
+  userId: string;
+  /** The organization key sealed to this member's public key. */
+  organizationKeySealedToMember: string;
+  /** Present only for a member enrolled in account recovery. */
+  accountRecoveryKey?: string;
+}
+
+/** An organization as the server holds it. */
+export interface OrganizationEntity {
+  organizationId: string;
+  name: string;
+  publicKey?: string;
+  wrappedPrivateKey?: string;
+  organizationKeyId: string | null;
+  members: OrganizationMember[];
+}
+
+/** An emergency access grant, as the server holds it. */
+export interface EmergencyAccessEntity {
+  id: string;
+  grantorId: AccountId;
+  /** `null` until the invited account accepts. */
+  granteeId: AccountId | null;
+  /** The address the grantor invited. */
+  email: string;
+  type: EmergencyAccessTypeValue;
+  status: EmergencyAccessStatusValue;
+  waitTimeDays: number;
+  /** The grantor's user key sealed to the grantee, `null` until the grantor confirms. */
+  keyEncrypted: UnsignedSharedKey | null;
+  /** The token the invite email carries, which the grantee accepts with. */
+  inviteToken: string;
+}

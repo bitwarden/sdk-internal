@@ -5,8 +5,6 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use futures::future::OptionFuture;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, CiphersClient, DecryptCipherListResult, VaultParseError,
@@ -104,7 +102,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Restores a soft-deleted cipher on the server.
     pub async fn restore(&self, cipher_id: CipherId) -> Result<CipherView, RestoreCipherError> {
@@ -174,6 +172,7 @@ mod tests {
 
     fn generate_test_cipher() -> Cipher {
         Cipher {
+            partial_data: None,
             id: TEST_CIPHER_ID.parse().ok(),
             name: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap()),
             r#type: crate::CipherType::Login,

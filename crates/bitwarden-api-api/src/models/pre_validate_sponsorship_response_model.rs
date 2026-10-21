@@ -26,6 +26,12 @@ pub struct PreValidateSponsorshipResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub is_free_family_policy_enabled: Option<bool>,
+    #[serde(
+        rename = "sponsoringOrganizationName",
+        alias = "SponsoringOrganizationName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sponsoring_organization_name: Option<String>,
 }
 
 impl PreValidateSponsorshipResponseModel {
@@ -33,6 +39,7 @@ impl PreValidateSponsorshipResponseModel {
         PreValidateSponsorshipResponseModel {
             is_token_valid: None,
             is_free_family_policy_enabled: None,
+            sponsoring_organization_name: None,
         }
     }
 }

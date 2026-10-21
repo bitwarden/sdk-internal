@@ -4,8 +4,6 @@ use hybrid_array::Array;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 use typenum::U32;
 use zeroize::Zeroize;
 
@@ -76,11 +74,7 @@ impl KdfDerivedKeyMaterial {
                 // Argon2 is using some stack memory that is not zeroed. Eventually some function
                 // will overwrite the stack, but we use this trick to force the used
                 // stack to be zeroed.
-                #[inline(never)]
-                fn clear_stack() {
-                    std::hint::black_box([0u8; 4096]);
-                }
-                clear_stack();
+                crate::util::clear_stack();
 
                 Ok(KdfDerivedKeyMaterial(hash))
             }
@@ -123,7 +117,7 @@ pub fn dangerous_derive_kdf_material(
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum Kdf {
     PBKDF2 {
         iterations: NonZeroU32,

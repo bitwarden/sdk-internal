@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_collections::collection::CollectionId;
+use bitwarden_collections::collection::{CollectionId, CollectionType};
 use bitwarden_core::OrganizationId;
 use bitwarden_vault::{CipherType as VaultCipherType, FolderId};
 
@@ -16,15 +16,19 @@ mod importer_client;
 pub use importer_client::{ImporterClient, ImporterClientExt};
 mod importers;
 pub(crate) use importers::keeper;
+pub use importers::onepassword::access::{
+    Credentials, EnrollmentStatus as OnePasswordSsoEnrollmentStatus, SignInAddress, SignInDomain,
+    SignInMethods as OnePasswordSignInMethods, SsoCredentials as OnePasswordSsoCredentials,
+    SsoEnrollmentContext as OnePasswordSsoEnrollment,
+    SsoEnrollmentResult as OnePasswordSsoEnrollmentResult,
+    SsoLoginResult as OnePasswordSsoLoginResult, SsoUi as OnePasswordSsoUi,
+    TotpResult as OnePasswordTotpResult, TwoFactorUi as OnePasswordTwoFactorUi,
+    VerificationCodeResult as OnePasswordVerificationCodeResult,
+    model::{ItemCategory, SkippedItem, SkippedReason, SkippedVault},
+};
 mod pipeline;
-
-/// The 1Password access module: log in to an account and download its vaults.
-///
-/// Exposed only under the `test-utils` feature, for the out-of-tree CLI that drives it against
-/// a real account. Not part of this crate's supported API, and no stability is promised.
-// TODO: Remove once the importer consumes the module directly.
-#[cfg(feature = "test-utils")]
-pub use importers::onepassword::access as onepassword_access;
+#[cfg(feature = "wasm")]
+mod wasm;
 
 /// Destination options for a vault import.
 ///
@@ -35,12 +39,9 @@ pub use importers::onepassword::access as onepassword_access;
 /// its id and name together so a half-specified target can't be expressed. `restricted_types` are
 /// dropped before submission.
 #[allow(missing_docs)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct ImportOptions {
     pub organization_id: Option<OrganizationId>,
     pub target_folder: Option<ImportTargetFolder>,
@@ -53,53 +54,55 @@ pub struct ImportOptions {
 
 /// An existing personal folder to nest a personal import under.
 #[allow(missing_docs)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct ImportTargetFolder {
     pub id: FolderId,
     pub name: String,
 }
 
-/// An existing organization collection to assign an org import to.
+/// An existing organization collection to assign an org import to. `type` distinguishes the
+/// "My items" default collection (import.rs converts groups to personal folders instead of
+/// nested collections) from a normal shared collection.
 #[allow(missing_docs)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct ImportTargetCollection {
     pub id: CollectionId,
     pub name: String,
+    pub r#type: CollectionType,
 }
 
 /// Counts of what an import submitted to the server, broken down by cipher type so the client can
 /// render its per-type result table.
 #[allow(missing_docs)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(into_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct ImportSummary {
     pub ciphers: Vec<CipherTypeCount>,
     pub folders: u32,
     pub collections: u32,
 }
 
+/// Result of a direct 1Password import, including source data that could not be imported.
+#[allow(missing_docs)]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
+pub struct OnePasswordImportSummary {
+    pub imported: ImportSummary,
+    pub skipped_vaults: Vec<SkippedVault>,
+    pub skipped_items: Vec<SkippedItem>,
+}
+
 /// Number of imported ciphers of a given type.
 #[allow(missing_docs)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(into_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherTypeCount {
     #[cfg_attr(feature = "wasm", tsify(type = "CipherType"))]
     pub r#type: VaultCipherType,

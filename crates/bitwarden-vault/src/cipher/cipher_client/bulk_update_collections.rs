@@ -6,8 +6,6 @@ use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{CipherId, CiphersClient};
 
@@ -21,7 +19,7 @@ pub enum BulkUpdateCollectionsCipherError {
     Repository(#[from] RepositoryError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Updates collection membership for multiple [`Cipher`](crate::Cipher) objects.
     ///
@@ -101,6 +99,7 @@ mod tests {
 
     fn generate_test_cipher() -> Cipher {
         Cipher {
+            partial_data: None,
             id: TEST_CIPHER_ID.parse().ok(),
             name: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap()),
             r#type: crate::CipherType::Login,

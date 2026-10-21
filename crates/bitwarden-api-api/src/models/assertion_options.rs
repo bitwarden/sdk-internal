@@ -16,18 +16,6 @@ use crate::models;
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AssertionOptions {
-    #[serde(
-        rename = "status",
-        alias = "Status",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub status: Option<String>,
-    #[serde(
-        rename = "errorMessage",
-        alias = "ErrorMessage",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub error_message: Option<String>,
     #[serde_as(
         as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
     )]
@@ -42,7 +30,7 @@ pub struct AssertionOptions {
         alias = "Timeout",
         skip_serializing_if = "Option::is_none"
     )]
-    pub timeout: Option<i32>,
+    pub timeout: Option<i64>,
     #[serde(
         rename = "rpId",
         alias = "RpId",
@@ -62,6 +50,12 @@ pub struct AssertionOptions {
     )]
     pub user_verification: Option<models::UserVerificationRequirement>,
     #[serde(
+        rename = "hints",
+        alias = "Hints",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub hints: Option<Vec<models::PublicKeyCredentialHint>>,
+    #[serde(
         rename = "extensions",
         alias = "Extensions",
         skip_serializing_if = "Option::is_none"
@@ -72,13 +66,12 @@ pub struct AssertionOptions {
 impl AssertionOptions {
     pub fn new() -> AssertionOptions {
         AssertionOptions {
-            status: None,
-            error_message: None,
             challenge: None,
             timeout: None,
             rp_id: None,
             allow_credentials: None,
             user_verification: None,
+            hints: None,
             extensions: None,
         }
     }

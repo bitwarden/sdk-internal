@@ -1,6 +1,4 @@
 use bitwarden_core::key_management::MasterPasswordAuthenticationData;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::login::{
     LoginClient,
@@ -9,7 +7,7 @@ use crate::login::{
     models::LoginResponse,
 };
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl LoginClient {
     /// Authenticates a user via email and master password.
     ///
@@ -39,7 +37,7 @@ impl LoginClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::{
-        ClientSettings, DeviceType,
+        Client, ClientSettings, DeviceType,
         key_management::account_cryptographic_state::WrappedAccountCryptographicState,
     };
     use bitwarden_crypto::Kdf;
@@ -88,7 +86,7 @@ mod tests {
             bitwarden_client_version: None,
             bitwarden_package_type: None,
         };
-        LoginClient::new(settings)
+        LoginClient::new(Client::new(Some(settings)))
     }
 
     fn make_password_login_request(kdf_type: TestKdfType) -> PasswordLoginRequest {
@@ -474,7 +472,7 @@ mod tests {
             bitwarden_client_version: None,
             bitwarden_package_type: None,
         };
-        let login_client = LoginClient::new(settings);
+        let login_client = LoginClient::new(Client::new(Some(settings)));
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
         let result = login_client.login_via_password(request).await;
@@ -501,7 +499,7 @@ mod tests {
             bitwarden_client_version: None,
             bitwarden_package_type: None,
         };
-        let login_client = LoginClient::new(settings);
+        let login_client = LoginClient::new(Client::new(Some(settings)));
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
         let result = login_client.login_via_password(request).await;

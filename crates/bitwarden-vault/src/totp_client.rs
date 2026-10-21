@@ -1,18 +1,13 @@
-use bitwarden_core::Client;
 use chrono::{DateTime, Utc};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{CipherListView, TotpError, TotpResponse, generate_totp, generate_totp_cipher_view};
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub struct TotpClient {
-    pub(crate) client: Client,
-}
+#[bitwarden_ffi::wasm_object]
+pub struct TotpClient;
 
 #[cfg(feature = "wasm")]
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl TotpClient {
     /// Generates a TOTP code from a provided key
     ///
@@ -55,8 +50,6 @@ impl TotpClient {
         view: CipherListView,
         time: Option<DateTime<Utc>>,
     ) -> Result<TotpResponse, TotpError> {
-        let key_store = self.client.internal.get_key_store();
-
-        generate_totp_cipher_view(&mut key_store.context(), view, time)
+        generate_totp_cipher_view(view, time)
     }
 }

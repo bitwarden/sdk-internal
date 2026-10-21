@@ -59,7 +59,11 @@ pub trait AccessRequestsApi: Send + Sync {
     ) -> Result<models::AccessRequestDetailsResponseModelListResponseModel, Error>;
 
     /// POST /access-requests/{id}/revoke
-    async fn revoke<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
+    async fn revoke<'a>(
+        &self,
+        id: uuid::Uuid,
+        access_request_revoke_request_model: Option<models::AccessRequestRevokeRequestModel>,
+    ) -> Result<(), Error>;
 }
 
 pub struct AccessRequestsApiClient {
@@ -195,7 +199,11 @@ impl AccessRequestsApi for AccessRequestsApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn revoke<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
+    async fn revoke<'a>(
+        &self,
+        id: uuid::Uuid,
+        access_request_revoke_request_model: Option<models::AccessRequestRevokeRequestModel>,
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -209,6 +217,7 @@ impl AccessRequestsApi for AccessRequestsApiClient {
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&access_request_revoke_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }

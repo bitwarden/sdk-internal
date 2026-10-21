@@ -242,11 +242,14 @@ mod tests {
         let basic_auth: BasicAuthCredential = login.into();
 
         let username = basic_auth.username.as_ref().unwrap();
-        assert_eq!(username.value.0, "test@bitwarden.com");
+        assert_eq!(
+            username.value.as_expected().unwrap().0,
+            "test@bitwarden.com"
+        );
         assert!(username.label.is_none());
 
         let password = basic_auth.password.as_ref().unwrap();
-        assert_eq!(password.value.0, "asdfasdfasdf");
+        assert_eq!(password.value.as_expected().unwrap().0, "asdfasdfasdf");
         assert!(password.label.is_none());
     }
 

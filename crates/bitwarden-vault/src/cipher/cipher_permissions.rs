@@ -1,15 +1,13 @@
 use bitwarden_api_api::models::CipherPermissionsResponseModel;
 use bitwarden_core::require;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::VaultParseError;
 
 #[derive(Serialize, Copy, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherPermissions {
     pub delete: bool,
     pub restore: bool,

@@ -37,7 +37,10 @@ wasm32.
 ## Exposing types across bindings
 
 - UniFFI: `#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]` on structs, `uniffi::Enum` on
-  enums; crates with UniFFI exports call `uniffi::setup_scaffolding!()` in `lib.rs`.
+  enums; crates with UniFFI exports call `uniffi::setup_scaffolding!()` in `lib.rs` and ship a
+  `uniffi.toml` next to `Cargo.toml`, copying the `[bindings.kotlin]` / `[bindings.swift]` layout
+  from a neighboring crate and substituting this crate's Kotlin package name and Swift module names
+  (enforced by the `missing_uniffi_config` dylint lint, which only checks that the file exists).
 - WASM: `#[derive(Serialize, Deserialize)]` plus
   `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`.
 - Errors: annotate with `bitwarden-error` (`basic`/`flat`/`full` modes) to generate the WASM,

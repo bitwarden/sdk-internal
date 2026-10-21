@@ -389,6 +389,9 @@ fn token_error(err: SendAccessTokenError) -> color_eyre::eyre::Error {
 }
 
 /// Fetch the Send with the negotiated token, decrypt it with the URL key, and render it.
+// `bw` builds a full per-receive client targeting the Send's instance, so the signed-in-instance
+// caveat behind the `SendClient` deprecation does not apply here.
+#[allow(deprecated)]
 async fn render_access(
     client: &PasswordManagerClient,
     access_key: &SendAccessKey,
@@ -429,6 +432,9 @@ async fn render_access(
 }
 
 /// Download, decrypt, and save a file-type Send's blob.
+// `bw` builds a full per-receive client targeting the Send's instance, so the signed-in-instance
+// caveat behind the `SendClient` deprecation does not apply here.
+#[allow(deprecated)]
 async fn save_file_send(
     client: &PasswordManagerClient,
     access_key: &SendAccessKey,

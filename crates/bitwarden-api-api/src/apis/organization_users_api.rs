@@ -55,8 +55,9 @@ pub trait OrganizationUsersApi: Send + Sync {
     /// POST /organizations/{orgId}/users/{id}/auto-confirm
     async fn automatically_confirm_organization_user<'a>(
         &self,
-        org_id: uuid::Uuid,
         id: uuid::Uuid,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
@@ -257,6 +258,14 @@ pub trait OrganizationUsersApi: Send + Sync {
     /// PUT /organizations/{orgId}/users/revoke-self
     async fn revoke_self<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error>;
 
+    /// POST /organizations/{orgId}/users/send-invite
+    /// Backs the members-grid \"Send invite\" row action. Configuring role, collections, or groups while inviting goes through M:Bit.Api.AdminConsole.Controllers.OrganizationUsersController.Invite(System.Guid,Bit.Api.AdminConsole.Models.Request.Organizations.OrganizationUserInviteRequestModel) instead, which is email-keyed because a staged member cannot be told apart from a new one by email alone.
+    async fn send_invite_to_staged_users<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
+
     /// POST /organizations/{orgId}/users/public-keys
     async fn user_public_keys<'a>(
         &self,
@@ -357,8 +366,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
 
     async fn automatically_confirm_organization_user<'a>(
         &self,
-        org_id: uuid::Uuid,
         id: uuid::Uuid,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
@@ -370,12 +380,16 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/users/{id}/auto-confirm",
             local_var_configuration.base_path,
-            orgId = org_id,
-            id = id
+            id = id,
+            orgId = crate::apis::urlencode(org_id)
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = organization {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("organization", &serde_json::to_value(param_value)?)]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_confirm_request_model);
@@ -1061,6 +1075,30 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    /// Backs the members-grid \"Send invite\" row action. Configuring role, collections, or groups while inviting goes through M:Bit.Api.AdminConsole.Controllers.OrganizationUsersController.Invite(System.Guid,Bit.Api.AdminConsole.Models.Request.Organizations.OrganizationUserInviteRequestModel) instead, which is email-keyed because a staged member cannot be told apart from a new one by email alone.
+    async fn send_invite_to_staged_users<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/users/send-invite",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn user_public_keys<'a>(

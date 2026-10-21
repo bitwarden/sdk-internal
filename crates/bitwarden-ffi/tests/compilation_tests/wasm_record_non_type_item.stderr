@@ -1,0 +1,5 @@
+error: #[wasm_record] applies to a struct or an enum
+ --> tests/compilation_tests/wasm_record_non_type_item.rs:4:1
+  |
+4 | pub fn point() {}
+  | ^^^^^^^^^^^^^^^^^

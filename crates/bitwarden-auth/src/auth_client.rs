@@ -1,12 +1,10 @@
 use bitwarden_core::Client;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{login::LoginClient, registration::RegistrationClient, send_access::SendAccessClient};
 
 /// Subclient containing auth functionality.
 #[derive(Clone)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct AuthClient {
     // TODO: The AuthClient should probably not contain the whole bitwarden-core client.
     // Instead, it should contain the ApiConfigurations and Tokens struct to do API requests and
@@ -21,14 +19,11 @@ impl AuthClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AuthClient {
-    // TODO: in a future PR, we need to figure out a consistent mechanism for CoreClient
-    // vs ClientSettings instantiation across all subclients.
-
     /// Client for login functionality
-    pub fn login(&self, client_settings: bitwarden_core::ClientSettings) -> LoginClient {
-        LoginClient::new(client_settings)
+    pub fn login(&self) -> LoginClient {
+        LoginClient::new(self.client.clone())
     }
 
     /// Client for send access functionality
@@ -53,5 +48,27 @@ impl AuthClientExt for Client {
         AuthClient {
             client: self.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+
+    #[test]
+    fn login_client_shares_the_auth_clients_backing_client() {
+        let client = Client::new(None);
+        let auth_client = AuthClient::new(client.clone());
+
+        let login_client = auth_client.login();
+
+        assert!(
+            Arc::ptr_eq(&client.internal, &login_client.client.internal),
+            "LoginClient must reuse the same Client instance backing the AuthClient it came \
+             from, otherwise login requests can target a different server than the rest of the \
+             SDK"
+        );
     }
 }

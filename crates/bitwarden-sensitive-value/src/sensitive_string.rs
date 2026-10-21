@@ -111,54 +111,20 @@ uniffi::custom_type!(SensitiveString, String, {
     lower: |obj| obj.expose().to_string(),
 });
 
+bitwarden_ffi::impl_wire_string!(
+    SensitiveString,
+    parse = |wire: String| Ok::<_, std::convert::Infallible>(SensitiveString::from(wire)),
+    format = |value: SensitiveString| value.expose_owned(),
+);
+
 #[cfg(feature = "wasm")]
 const _: () = {
-    use wasm_bindgen::{
-        JsValue,
-        convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi, OptionIntoWasmAbi},
-        describe::WasmDescribe,
-        prelude::wasm_bindgen,
-    };
+    use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
     #[wasm_bindgen(typescript_custom_section)]
     const TS_CUSTOM_TYPES: &'static str = r#"
 export type SensitiveString = Tagged<string, "SensitiveString">;
 "#;
-
-    impl WasmDescribe for SensitiveString {
-        fn describe() {
-            <String as WasmDescribe>::describe();
-        }
-    }
-
-    impl FromWasmAbi for SensitiveString {
-        type Abi = <String as FromWasmAbi>::Abi;
-
-        unsafe fn from_abi(abi: Self::Abi) -> Self {
-            let string = unsafe { String::from_abi(abi) };
-            SensitiveString::from(string)
-        }
-    }
-
-    impl OptionFromWasmAbi for SensitiveString {
-        fn is_none(abi: &Self::Abi) -> bool {
-            <String as OptionFromWasmAbi>::is_none(abi)
-        }
-    }
-
-    impl IntoWasmAbi for SensitiveString {
-        type Abi = <String as IntoWasmAbi>::Abi;
-
-        fn into_abi(self) -> Self::Abi {
-            self.expose_owned().into_abi()
-        }
-    }
-
-    impl OptionIntoWasmAbi for SensitiveString {
-        fn none() -> Self::Abi {
-            <String as OptionIntoWasmAbi>::none()
-        }
-    }
 
     impl From<SensitiveString> for JsValue {
         fn from(value: SensitiveString) -> Self {

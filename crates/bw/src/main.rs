@@ -116,7 +116,7 @@ async fn process_commands(command: Commands, session: Option<SessionKey>) -> Com
 
         Commands::Update { .. } => todo!(),
 
-        Commands::Status(_) => todo!(),
+        Commands::Status(args) => args.dispatch(ctx).await,
 
         // Vault commands
         Commands::List { .. } => todo!(),

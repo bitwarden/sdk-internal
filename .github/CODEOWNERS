@@ -35,17 +35,24 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 .github/workflows/review-code.yml @bitwarden/team-ai-sme
 
 # Team-owned crates
+bitwarden_license/bitwarden-access-connector/** @bitwarden/team-pam-dev
 bitwarden_license/bitwarden-pam/** @bitwarden/team-pam-dev
+bitwarden_license/bitwarden-pam-sealed/** @bitwarden/team-pam-dev
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
+crates/bitwarden-access-token/** @bitwarden/team-pam-dev
+crates/bitwarden-access-token-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev
 crates/bitwarden-collections/** @bitwarden/team-admin-console-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-crypto-cipher-suite/** @bitwarden/team-key-management-dev
 crates/bitwarden-crypto-sync-handler/** @bitwarden/team-key-management-dev
+crates/bitwarden-emergency-access/** @bitwarden/team-auth-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev
 crates/bitwarden-generators/** @bitwarden/team-tools-dev
 crates/bitwarden-importers/** @bitwarden/team-tools-dev
+crates/bitwarden-member-administration/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organization-crypto/** @bitwarden/team-key-management-dev
+crates/bitwarden-organization-domains/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organization-invite-link/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev
 crates/bitwarden-policies/** @bitwarden/team-admin-console-dev
@@ -60,6 +67,11 @@ crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
+# Integration tests and test vectors are shared between teams; only team folders have an owner.
+crates/bitwarden-wasm-internal/integration-tests/**
+test-vectors/**
+crates/bitwarden-wasm-internal/integration-tests/server-emulator/emergency-access-server.ts @bitwarden/team-auth-dev
+crates/bitwarden-wasm-internal/integration-tests/tests/emergency-access/** @bitwarden/team-auth-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/organizations/** @bitwarden/team-admin-console-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/policies/** @bitwarden/team-admin-console-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/registration/** @bitwarden/team-auth-dev

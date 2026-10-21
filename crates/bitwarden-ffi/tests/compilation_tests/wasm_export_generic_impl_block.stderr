@@ -1,0 +1,5 @@
+error: #[wasm_export] does not support generic impl blocks; wasm_bindgen cannot export them
+ --> tests/compilation_tests/wasm_export_generic_impl_block.rs:6:5
+  |
+6 | impl<T> Canvas<T> {
+  |     ^

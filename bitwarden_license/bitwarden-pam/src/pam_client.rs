@@ -1,21 +1,22 @@
 use std::sync::Arc;
 
-use bitwarden_core::{Client, FromClient, client::ApiConfigurations};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
+use bitwarden_core::{Client, FromClient, client::ApiConfigurations, key_management::KeySlotIds};
+use bitwarden_crypto::KeyStore;
 
 use crate::{
-    access_requests::AccessRequestsClient, access_rules::AccessRulesClient, leases::LeasesClient,
+    access_requests::AccessRequestsClient, access_rules::AccessRulesClient,
+    approvals::ApprovalsClient, leases::LeasesClient, rotation::RotationClient,
 };
 
 /// Entry point for Privileged Access Management (PAM) operations.
 #[derive(Clone, FromClient)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct PamClient {
+    pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl PamClient {
     /// Access rule CRUD operations.
     pub fn access_rules(&self) -> AccessRulesClient {
@@ -31,9 +32,25 @@ impl PamClient {
         }
     }
 
+    /// Approver-side access request operations (inbox, history, and recording a decision).
+    pub fn approvals(&self) -> ApprovalsClient {
+        ApprovalsClient {
+            api_configurations: self.api_configurations.clone(),
+        }
+    }
+
     /// Access lease operations (read, extend, and end the caller's leases).
     pub fn leases(&self) -> LeasesClient {
         LeasesClient {
+            key_store: self.key_store.clone(),
+            api_configurations: self.api_configurations.clone(),
+        }
+    }
+
+    /// Credential rotation operations (access connectors, target systems, and managed credentials).
+    pub fn rotation(&self) -> RotationClient {
+        RotationClient {
+            key_store: self.key_store.clone(),
             api_configurations: self.api_configurations.clone(),
         }
     }

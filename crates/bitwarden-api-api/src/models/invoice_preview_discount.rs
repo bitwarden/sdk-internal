@@ -26,6 +26,12 @@ pub struct InvoicePreviewDiscount {
         skip_serializing_if = "Option::is_none"
     )]
     pub label: Option<String>,
+    #[serde(
+        rename = "durationInMonths",
+        alias = "DurationInMonths",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub duration_in_months: Option<i64>,
 }
 
 impl InvoicePreviewDiscount {
@@ -39,6 +45,7 @@ impl InvoicePreviewDiscount {
             value,
             amount,
             label: None,
+            duration_in_months: None,
         }
     }
 }

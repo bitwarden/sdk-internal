@@ -52,6 +52,18 @@ pub struct SecretVersionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub editor_organization_user_id: Option<uuid::Uuid>,
+    #[serde(
+        rename = "editorOrganizationUserName",
+        alias = "EditorOrganizationUserName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub editor_organization_user_name: Option<String>,
+    #[serde(
+        rename = "editorServiceAccountName",
+        alias = "EditorServiceAccountName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub editor_service_account_name: Option<String>,
 }
 
 impl SecretVersionResponseModel {
@@ -64,6 +76,8 @@ impl SecretVersionResponseModel {
             version_date: None,
             editor_service_account_id: None,
             editor_organization_user_id: None,
+            editor_organization_user_name: None,
+            editor_service_account_name: None,
         }
     }
 }

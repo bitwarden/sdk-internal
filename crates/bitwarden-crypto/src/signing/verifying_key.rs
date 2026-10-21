@@ -45,15 +45,6 @@ impl std::fmt::Debug for VerifyingKey {
         };
         let mut debug_struct = f.debug_struct(format!("VerifyingKey::{}", key_suffix).as_str());
         debug_struct.field("id", &self.id);
-        match &self.inner {
-            RawVerifyingKey::Ed25519(key) => {
-                debug_struct.field("key", &hex::encode(key.to_bytes()));
-            }
-            RawVerifyingKey::MlDsa44(key) => {
-                let encoded = key.encode();
-                debug_struct.field("key", &hex::encode(encoded));
-            }
-        }
         debug_struct.finish()
     }
 }

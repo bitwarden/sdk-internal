@@ -16,10 +16,6 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
-# Re-exports the 1Password access module so the out-of-tree CLI can drive it against a real
-# account. Never enable in production builds.
-# TODO: Remove once the importer consumes the module directly.
-test-utils = []
 uniffi = [
     "dep:uniffi",
     "bitwarden-core/uniffi",
@@ -28,8 +24,11 @@ uniffi = [
 ]
 wasm = [
     "bitwarden-collections/wasm",
+    "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-vault/wasm",
     "bitwarden-exporters/wasm",
+    "bitwarden-threading/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -41,19 +40,25 @@ aes-gcm = { workspace = true }
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-collections = { workspace = true }
-bitwarden-core = { workspace = true }
+bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-exporters = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-random = { workspace = true }
+bitwarden-ssh = { workspace = true }
+bitwarden-threading = { workspace = true }
 bitwarden-vault = { workspace = true }
 cbc = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 crypto-bigint = { workspace = true }
+curve25519-dalek = { workspace = true }
 data-encoding = { workspace = true }
+futures = { workspace = true }
 hkdf = { workspace = true }
 hmac = { workspace = true }
 icu_normalizer = { workspace = true }
+itertools = ">=0.15.0, <0.16"
 keepass = { workspace = true }
 p256 = { version = "=0.14.0", features = ["alloc", "ecdh", "pkcs8"], default-features = false }
 pbkdf2 = { workspace = true, features = ["hmac"] }
@@ -72,13 +77,13 @@ url = { workspace = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
-zeroize = { workspace = true }
+zeroize = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
 bitwarden-api-base = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
 keepass = { workspace = true, features = ["save_kdbx4"] }
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["rt", "sync"] }
 wiremock = { workspace = true }
 
 [lints]

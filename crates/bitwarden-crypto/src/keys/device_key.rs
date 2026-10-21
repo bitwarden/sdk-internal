@@ -17,11 +17,7 @@ pub struct DeviceKey(SymmetricCryptoKey);
 #[allow(missing_docs)]
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[derive(Serialize, Deserialize)]
 pub struct TrustDeviceResponse {
     /// Base64 encoded device key

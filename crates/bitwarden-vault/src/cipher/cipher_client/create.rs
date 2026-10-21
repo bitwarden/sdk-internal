@@ -10,10 +10,6 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
@@ -44,7 +40,7 @@ pub enum CreateCipherError {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherCreateRequest {
     pub organization_id: Option<OrganizationId>,
     pub collection_ids: Vec<CollectionId>,
@@ -70,6 +66,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
     // merge; `Utc::now()` is a safe placeholder.
     let now = chrono::Utc::now();
     CipherView {
+        partial: false,
         id: None,
         organization_id: r.organization_id,
         folder_id: r.folder_id,
@@ -157,7 +154,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Creates a new [Cipher] and saves it to the server.
     pub async fn create(
@@ -174,14 +171,7 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let mut view: CipherView = convert_request_to_cipher_view(request);
-
-        // TODO: Once this flag is removed, the key generation logic should
-        // be moved directly into the CompositeEncryptable implementation.
-        if self.client.flags().get().await.enable_cipher_key_encryption {
-            let key = view.key_identifier();
-            view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
-        }
+        let view: CipherView = convert_request_to_cipher_view(request);
 
         let use_blob = self.should_use_blob_encryption(view.organization_id);
 
@@ -389,6 +379,7 @@ mod tests {
                             .and_then(|id| id.parse().ok()),
                         name: request_body.cipher.name.clone(),
                         r#type: request_body.cipher.r#type,
+                        key: request_body.cipher.key.clone(),
                         creation_date: Some(Utc::now().to_string()),
                         revision_date: Some(Utc::now().to_string()),
                         ..Default::default()
@@ -450,6 +441,7 @@ mod tests {
 
         assert_eq!(response.id, cipher_view.id);
         assert_eq!(response.organization_id, cipher_view.organization_id);
+        assert_eq!(cipher_view.name, "Test Cipher");
 
         assert_eq!(response.id, Some(TEST_CIPHER_ID.parse().unwrap()));
         assert_eq!(response.organization_id, Some(TEST_ORG_ID.parse().unwrap()));

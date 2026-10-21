@@ -2,7 +2,7 @@
 
 use rand::Rng;
 use reqwest::{
-    Method,
+    Method, StatusCode,
     header::{HeaderMap, HeaderName, HeaderValue},
 };
 use serde::de::DeserializeOwned;
@@ -53,6 +53,17 @@ impl RestClient {
         })
     }
 
+    /// Derives a client for another API root. It keeps the transport and the headers, but does not
+    /// sign its requests, as the signer belongs to the receiver.
+    pub(super) fn with_base_url(&self, base_url: impl Into<String>) -> RestClient {
+        RestClient {
+            http: self.http.clone(),
+            base_url: base_url.into(),
+            headers: self.headers.clone(),
+            signer: None,
+        }
+    }
+
     /// Derives a client that adds the session id header.
     pub(super) fn with_session_id(&self, session_id: &str) -> Result<RestClient, OnePasswordError> {
         let mut headers = self.headers.clone();
@@ -86,12 +97,65 @@ impl RestClient {
         self.request_json(Method::POST, endpoint, Some(&body)).await
     }
 
+    /// POSTs a JSON body and parses the JSON response, reporting an empty success body as `None`.
+    ///
+    /// Some endpoints answer 200 with an empty body while the result is not ready yet, which must
+    /// not be mistaken for a parse error.
+    pub(super) async fn post_json_or_empty<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        body: Value,
+    ) -> Result<Option<T>, OnePasswordError> {
+        let text = self.request(Method::POST, endpoint, Some(&body)).await?;
+        if text.trim().is_empty() {
+            return Ok(None);
+        }
+        deserialize(text.as_bytes()).map(Some)
+    }
+
+    /// POSTs a JSON body and parses the JSON response, or returns `None` when the server answers
+    /// with `status`, whatever the body.
+    pub(super) async fn post_json_unless_status<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        body: Value,
+        status: StatusCode,
+    ) -> Result<Option<T>, OnePasswordError> {
+        let (response_status, text) = self.send(Method::POST, endpoint, Some(&body)).await?;
+        if response_status == status {
+            return Ok(None);
+        }
+        check_status(endpoint, response_status, &text)?;
+        deserialize(text.as_bytes()).map(Some)
+    }
+
+    /// PUTs a JSON body and parses the JSON response.
+    pub(super) async fn put_json<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        body: Value,
+    ) -> Result<T, OnePasswordError> {
+        self.request_json(Method::PUT, endpoint, Some(&body)).await
+    }
+
     /// PUTs with no body and parses the JSON response.
     pub(super) async fn put<T: DeserializeOwned>(
         &self,
         endpoint: &str,
     ) -> Result<T, OnePasswordError> {
         self.request_json(Method::PUT, endpoint, None).await
+    }
+
+    /// DELETEs a JSON body. The response carries nothing to parse and errors surface for the
+    /// caller to ignore.
+    pub(super) async fn delete_json(
+        &self,
+        endpoint: &str,
+        body: Value,
+    ) -> Result<(), OnePasswordError> {
+        self.request(Method::DELETE, endpoint, Some(&body))
+            .await
+            .map(|_| ())
     }
 
     /// GETs an opdata envelope, decrypts it, and parses the JSON plaintext.
@@ -143,6 +207,18 @@ impl RestClient {
         endpoint: &str,
         body: Option<&Value>,
     ) -> Result<String, OnePasswordError> {
+        let (status, text) = self.send(method, endpoint, body).await?;
+        check_status(endpoint, status, &text)?;
+        Ok(text)
+    }
+
+    /// Sends a request and returns the status and the body, whatever the status.
+    async fn send(
+        &self,
+        method: Method,
+        endpoint: &str,
+        body: Option<&Value>,
+    ) -> Result<(StatusCode, String), OnePasswordError> {
         let url = format!("{}/{}", self.base_url, endpoint);
 
         let mut builder = self
@@ -166,17 +242,22 @@ impl RestClient {
             .await
             .map_err(|e| OnePasswordError::Network(e.to_string()))?;
 
-        if !status.is_success() {
-            return Err(parse_server_error(text.as_bytes()).unwrap_or_else(|| {
-                OnePasswordError::Internal(format!(
-                    "unexpected response from '{endpoint}' (HTTP {})",
-                    status.as_u16()
-                ))
-            }));
-        }
-
-        Ok(text)
+        Ok((status, text))
     }
+}
+
+/// Turns an error status into the error its body describes.
+fn check_status(endpoint: &str, status: StatusCode, body: &str) -> Result<(), OnePasswordError> {
+    if status.is_success() {
+        return Ok(());
+    }
+
+    Err(
+        parse_server_error(body.as_bytes()).unwrap_or_else(|| OnePasswordError::UnexpectedStatus {
+            endpoint: endpoint.to_string(),
+            status: status.as_u16(),
+        }),
+    )
 }
 
 /// Decrypts an opdata envelope and parses its JSON plaintext.
@@ -340,6 +421,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn keeps_the_status_of_an_error_without_a_known_body() {
+        let server = MockServer::start().await;
+        server
+            .register(
+                Mock::given(matchers::path("/api/v2/auth/confirm-key"))
+                    .respond_with(ResponseTemplate::new(401))
+                    .expect(1),
+            )
+            .await;
+
+        let error = client(&server)
+            .post_json::<Greeting>("v2/auth/confirm-key", json!({}))
+            .await
+            .expect_err("server rejects");
+
+        assert!(matches!(
+            error,
+            OnePasswordError::UnexpectedStatus { ref endpoint, status: 401 }
+                if endpoint == "v2/auth/confirm-key"
+        ));
+        server.verify().await;
+    }
+
+    #[tokio::test]
     async fn signs_requests_once_a_signer_is_attached() {
         let server = MockServer::start().await;
         server
@@ -428,5 +533,36 @@ mod tests {
 
         assert!(matches!(error, OnePasswordError::BadCredentials));
         server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn post_json_or_empty_reads_a_blank_body_as_none_and_parses_json() {
+        let server = MockServer::start().await;
+        for (path, body) in [
+            ("empty", ""),
+            ("blank", "  "),
+            ("json", r#"{"hello":"you"}"#),
+        ] {
+            server
+                .register(
+                    Mock::given(matchers::path(format!("/api/{path}")))
+                        .respond_with(ResponseTemplate::new(200).set_body_string(body)),
+                )
+                .await;
+        }
+        let rest = client(&server);
+
+        for path in ["empty", "blank"] {
+            let response: Option<Greeting> = rest
+                .post_json_or_empty(path, json!({}))
+                .await
+                .expect("a blank body is not an error");
+            assert!(response.is_none());
+        }
+        let response: Option<Greeting> = rest
+            .post_json_or_empty("json", json!({}))
+            .await
+            .expect("request succeeds");
+        assert_eq!(response.expect("the body is not blank").hello, "you");
     }
 }

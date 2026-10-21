@@ -4,8 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use bitwarden_core::key_management::KeySlotIds;
-use bitwarden_crypto::{CryptoError, KeyStoreContext};
+use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use data_encoding::BASE32_NOPAD;
@@ -14,8 +13,6 @@ use percent_encoding::{NON_ALPHANUMERIC, percent_decode_str, percent_encode};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::CipherListView;
 
@@ -47,7 +44,7 @@ pub enum TotpError {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct TotpResponse {
     /// Generated TOTP code
     pub code: String,
@@ -86,12 +83,11 @@ pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpRes
 ///
 /// See [generate_totp] for more information.
 pub fn generate_totp_cipher_view(
-    ctx: &mut KeyStoreContext<KeySlotIds>,
     view: CipherListView,
     time: Option<DateTime<Utc>>,
 ) -> Result<TotpResponse, TotpError> {
     let key = view
-        .get_totp_key(ctx)?
+        .get_totp_key()?
         .filter(|s| !s.is_empty())
         .ok_or(TotpError::MissingSecret)?;
 
@@ -373,8 +369,6 @@ fn decode_b32(s: &str) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
     use chrono::Utc;
 
     use super::*;
@@ -731,18 +725,18 @@ mod tests {
     #[test]
     fn test_generate_totp_cipher_view() {
         let view = CipherListView {
+            partial: false,
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
-            key: None,
             name: "My test login".to_string(),
             subtitle: "test_username".to_string(),
-            r#type: CipherListViewType::Login(LoginListView{
+            r#type: CipherListViewType::Login(LoginListView {
                 fido2_credentials: None,
                 has_fido2: true,
                 username: None,
-                totp: Some("2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap()),
+                totp: Some("DKWOW4PCP3MYFWLN53BLYAMYQEQJU4MJ".to_string()),
                 uris: None,
             }),
             favorite: false,
@@ -767,15 +761,11 @@ mod tests {
             attachment_names: None,
         };
 
-        let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();
-        let key_store = create_test_crypto_with_user_key(key);
-
         let time = DateTime::parse_from_rfc3339("2023-01-01T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
 
-        let response =
-            generate_totp_cipher_view(&mut key_store.context(), view, Some(time)).unwrap();
+        let response = generate_totp_cipher_view(view, Some(time)).unwrap();
         assert_eq!(response.code, "559388".to_string());
         assert_eq!(response.period, 30);
     }

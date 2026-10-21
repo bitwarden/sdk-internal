@@ -11,11 +11,11 @@ use super::{CipherSuite, KeyStoreInner};
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeySlotId, KeySlotIds, LocalId,
-    Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
-    RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
-    derive_shareable_key, error::UnsupportedOperationError,
-    hazmat::symmetric_encryption::Aes256CbcHmacSha256, signing, store::backend::StoreBackend,
+    Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result, Signature,
+    SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey,
+    SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey, derive_shareable_key,
+    error::UnsupportedOperationError, hazmat::symmetric_encryption::Aes256CbcHmacSha256, signing,
+    store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -271,6 +271,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                     _ => return Err(CryptoError::InvalidKey),
                 }
             }
+            (EncString::Unparseable { .. }, _) => return Err(CryptoError::UnparseableEncString),
             _ => {
                 tracing::warn!(
                     "Unsupported unwrap operation for the given key and data {:?}, {:?}",
@@ -757,7 +758,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         key_id
     }
 
-    #[bitwarden_logging::instrument(err, fields(key = ?key))]
+    #[bitwarden_logging::instrument(err, level = "debug", fields(key = ?key))]
     pub(crate) fn decrypt_data_with_symmetric_key(
         &self,
         key: Ids::Symmetric,
@@ -793,6 +794,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 )?;
                 Ok(data)
             }
+            (EncString::Unparseable { .. }, _) => Err(CryptoError::UnparseableEncString),
             _ => {
                 tracing::warn!("Unsupported decryption operation for the given key and data");
                 Err(CryptoError::InvalidKey)
@@ -855,20 +857,6 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         self.get_signing_key(key)?.sign_detached(message, namespace)
     }
 
-    /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
-    pub fn dangerous_get_v2_rotated_account_keys(
-        &self,
-        current_user_private_key_id: Ids::Private,
-        current_user_signing_key_id: Ids::Signing,
-    ) -> Result<RotatedUserKeys> {
-        #[expect(deprecated)]
-        crate::dangerous_get_v2_rotated_account_keys(
-            current_user_private_key_id,
-            current_user_signing_key_id,
-            self,
-        )
-    }
-
     /// A test helper to assert that the symmetric keys corresponding to the given identifiers are
     /// equal.
     #[cfg(any(test, feature = "test-utils"))]
@@ -916,10 +904,8 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable, EncString,
-        KeyDecryptable, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm,
-        SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
-        SymmetricKeyAlgorithm,
+        CompositeEncryptable, CryptoError, Decryptable, EncString, SignatureAlgorithm, SigningKey,
+        SigningNamespace, SymmetricCryptoKey, SymmetricKeyAlgorithm,
         store::{
             KeyStore,
             tests::{Data, DataView},
@@ -1093,83 +1079,6 @@ mod tests {
     }
 
     #[test]
-    fn test_account_key_rotation() {
-        let store: KeyStore<TestIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-
-        // Make the keys
-        let current_user_signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
-        let current_user_private_key_id =
-            ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-
-        // Get the rotated account keys
-        let rotated_keys = ctx
-            .dangerous_get_v2_rotated_account_keys(
-                current_user_private_key_id,
-                current_user_signing_key_id,
-            )
-            .unwrap();
-
-        // Public/Private key
-        assert_eq!(
-            PublicKey::from_der(&rotated_keys.public_key)
-                .unwrap()
-                .to_der()
-                .unwrap(),
-            ctx.get_private_key(current_user_private_key_id)
-                .unwrap()
-                .to_public_key()
-                .to_der()
-                .unwrap()
-        );
-        let decrypted_private_key: Vec<u8> = rotated_keys
-            .private_key
-            .decrypt_with_key(&rotated_keys.user_key)
-            .unwrap();
-        let private_key =
-            PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key)).unwrap();
-        assert_eq!(
-            private_key.to_der().unwrap(),
-            ctx.get_private_key(current_user_private_key_id)
-                .unwrap()
-                .to_der()
-                .unwrap()
-        );
-
-        // Signing Key
-        let decrypted_signing_key: Vec<u8> = rotated_keys
-            .signing_key
-            .decrypt_with_key(&rotated_keys.user_key)
-            .unwrap();
-        let signing_key =
-            SigningKey::from_cose(&CoseKeyBytes::from(decrypted_signing_key)).unwrap();
-        assert_eq!(
-            signing_key.to_cose(),
-            ctx.get_signing_key(current_user_signing_key_id)
-                .unwrap()
-                .to_cose(),
-        );
-
-        // Signed Public Key
-        let signed_public_key = rotated_keys.signed_public_key;
-        let unwrapped_key = signed_public_key
-            .verify_and_unwrap(
-                &ctx.get_signing_key(current_user_signing_key_id)
-                    .unwrap()
-                    .to_verifying_key(),
-            )
-            .unwrap();
-        assert_eq!(
-            unwrapped_key.to_der().unwrap(),
-            ctx.get_private_key(current_user_private_key_id)
-                .unwrap()
-                .to_public_key()
-                .to_der()
-                .unwrap()
-        );
-    }
-
-    #[test]
     fn test_encrypt_fails_when_operation_not_allowed() {
         use coset::iana::KeyOperation;
         let store = KeyStore::<TestIds>::default();
@@ -1324,6 +1233,28 @@ mod tests {
             ),
             "Expected decrypt to fail when using deprecated type 0 keys",
         );
+    }
+
+    /// An unparseable `EncString` must fail at decryption time, with a precise error.
+    #[test]
+    fn test_decrypt_and_unwrap_fail_for_unparseable_enc_string() {
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+
+        let key_id = TestSymmKey::A(0);
+        ctx.set_symmetric_key_internal(key_id, SymmetricCryptoKey::make_aes256_cbc_hmac_key())
+            .unwrap();
+
+        let unparseable: EncString = "2.AAECAw==|Y3Q=|AAECAw==".parse().unwrap();
+
+        assert!(matches!(
+            ctx.decrypt_data_with_symmetric_key(key_id, &unparseable),
+            Err(CryptoError::UnparseableEncString)
+        ));
+        assert!(matches!(
+            ctx.unwrap_symmetric_key(key_id, &unparseable),
+            Err(CryptoError::UnparseableEncString)
+        ));
     }
 
     #[test]

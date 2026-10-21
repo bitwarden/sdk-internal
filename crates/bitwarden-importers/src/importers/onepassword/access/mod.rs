@@ -8,26 +8,31 @@ mod account_key;
 mod client;
 pub use client::Client;
 mod credentials;
-pub use credentials::Credentials;
+pub use credentials::{Credentials, SsoCredentials};
 mod device;
-pub use device::generate_device_uuid;
 mod error;
 pub use error::OnePasswordError;
 mod identity;
 mod kdf;
 mod keychain;
 mod login;
+pub use login::SignInMethods;
 mod mac;
 pub mod model;
 mod opdata;
+#[cfg(test)]
+pub(in crate::importers::onepassword) mod replay;
 mod rest;
 mod rsa;
 mod session;
 mod sign_in;
 pub use sign_in::{SignInAddress, SignInDomain};
 mod srp;
+mod sso;
+pub use sso::ui::{
+    EnrollmentStatus, SsoEnrollmentContext, SsoEnrollmentResult, SsoLoginResult, SsoUi,
+    VerificationCodeResult,
+};
 mod two_factor;
 pub use two_factor::{TotpResult, TwoFactorUi};
-// The DTO fields are named after the JSON keys they carry; documenting each one adds nothing.
-#[allow(missing_docs)]
 pub mod wire;

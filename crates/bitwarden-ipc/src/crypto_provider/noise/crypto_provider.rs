@@ -145,7 +145,7 @@ impl NoiseCryptoProvider {
         })
         .await
         .map_err(|_| {
-            info!(
+            debug!(
                 "Noise handshake with {:?} timed out after {} seconds",
                 destination, HANDSHAKE_TIMEOUT_SECS
             );

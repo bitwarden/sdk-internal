@@ -11,8 +11,6 @@ use bitwarden_crypto::{IdentifyKey, KeyStore, KeyStoreContext};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
 use crate::{
@@ -26,7 +24,7 @@ use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 mod admin;
 mod bulk_update_collections;
 
-pub use admin::GetAssignedOrgCiphersAdminError;
+pub use admin::{GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError};
 mod create;
 mod delete;
 mod edit;
@@ -47,7 +45,7 @@ pub fn should_use_blob_encryption(
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CiphersClient {
     #[allow(dead_code)]
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -72,7 +70,7 @@ impl FromClient for CiphersClient {
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     pub(crate) fn should_use_blob_encryption(
         &self,
@@ -83,9 +81,11 @@ impl CiphersClient {
     }
 
     #[allow(missing_docs)]
+    // The signature is part of the UniFFI and wasm public surface; keep it `async`.
+    #[allow(clippy::unused_async)]
     pub async fn encrypt(
         &self,
-        mut cipher_view: CipherView,
+        cipher_view: CipherView,
     ) -> Result<EncryptionContext, EncryptError> {
         let user_id = self
             .client
@@ -94,18 +94,9 @@ impl CiphersClient {
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
 
-        let wrapping_key = cipher_view.key_identifier();
-
-        // TODO: Once this flag is removed, the key generation logic should
-        // be moved directly into the KeyEncryptable implementation
-        if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
-        {
-            cipher_view.upgrade_to_cipher_key_encryption(&mut key_store.context(), wrapping_key)?;
-        }
-
         let encrypted_by_key_id = key_store
             .context()
-            .get_symmetric_key_id(wrapping_key)
+            .get_symmetric_key_id(cipher_view.key_identifier())
             .map(|id| id.to_string());
 
         let mode = if self.should_use_blob_encryption(cipher_view.organization_id) {
@@ -127,11 +118,13 @@ impl CiphersClient {
     /// Until key rotation is fully implemented in the SDK, this method must be provided the new
     /// symmetric key in base64 format. See PM-23084
     ///
-    /// If the cipher has a CipherKey, it will be re-encrypted with the new key.
-    /// If the cipher does not have a CipherKey and CipherKeyEncryption is enabled, one will be
-    /// generated using the new key. Otherwise, the cipher's data will be encrypted with the new
-    /// key directly.
+    /// The cipher key is wrapped with the new key. A cipher key is generated if the cipher
+    /// does not already have one.
+    ///
+    /// Returns [`CipherError::AttachmentsWithoutKeys`] if any attachment lacks its own key.
     #[cfg(feature = "wasm")]
+    // The signature is part of the wasm public surface; keep it `async`.
+    #[allow(clippy::unused_async)]
     pub async fn encrypt_cipher_for_rotation(
         &self,
         mut cipher_view: CipherView,
@@ -144,8 +137,6 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let enable_cipher_key_encryption =
-            self.client.flags().get().await.enable_cipher_key_encryption;
 
         let key_store = self.client.internal.get_key_store();
         let mut ctx = key_store.context();
@@ -153,11 +144,7 @@ impl CiphersClient {
         // Set the new key in the key store context
         let new_key_id = ctx.add_local_symmetric_key(new_key);
 
-        if cipher_view.key.is_none() && enable_cipher_key_encryption {
-            cipher_view.upgrade_to_cipher_key_encryption(&mut ctx, new_key_id)?;
-        } else {
-            cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
-        }
+        cipher_view.validate_attachment_keys()?;
 
         // Rotation installs the new key under a `Local` slot id (`new_key_id`), not the view's
         // natural `User`/`Organization` slot — so pass it explicitly to `encrypt_composite` rather
@@ -187,6 +174,8 @@ impl CiphersClient {
     /// This method attempts to encrypt all ciphers in the list. If any cipher
     /// fails to encrypt, the entire operation fails and an error is returned.
     #[cfg(feature = "wasm")]
+    // The signature is part of the wasm public surface; keep it `async`.
+    #[allow(clippy::unused_async)]
     pub async fn encrypt_list(
         &self,
         cipher_views: Vec<CipherView>,
@@ -197,30 +186,24 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
-        let enable_cipher_key = self.client.flags().get().await.enable_cipher_key_encryption;
-
-        let mut ctx = key_store.context();
+        let ctx = key_store.context();
 
         // Each cipher may be wrapped under a different key (organization vs. user), so the key id
         // is captured per cipher and zipped back up after the batch encrypt.
         let prepared: Vec<(EncryptMode<CipherView>, Option<String>)> = cipher_views
             .into_iter()
-            .map(|mut cv| {
-                let wrapping_key = cv.key_identifier();
-                if cv.key.is_none() && enable_cipher_key {
-                    cv.upgrade_to_cipher_key_encryption(&mut ctx, wrapping_key)?;
-                }
+            .map(|cv| {
                 let encrypted_by_key_id = ctx
-                    .get_symmetric_key_id(wrapping_key)
+                    .get_symmetric_key_id(cv.key_identifier())
                     .map(|id| id.to_string());
                 let mode = if self.should_use_blob_encryption(cv.organization_id) {
                     EncryptMode::Blob(cv)
                 } else {
                     EncryptMode::Legacy(cv)
                 };
-                Ok((mode, encrypted_by_key_id))
+                (mode, encrypted_by_key_id)
             })
-            .collect::<Result<Vec<_>, bitwarden_crypto::CryptoError>>()?;
+            .collect();
 
         let (prepared_modes, key_ids): (Vec<_>, Vec<_>) = prepared.into_iter().unzip();
 
@@ -311,16 +294,6 @@ impl CiphersClient {
         }
     }
 
-    #[allow(missing_docs)]
-    pub fn decrypt_fido2_credentials(
-        &self,
-        cipher_view: CipherView,
-    ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
-        let credentials = cipher_view.decrypt_fido2_credentials(&mut key_store.context())?;
-        Ok(credentials)
-    }
-
     /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
     /// Necessary until the TS clients utilize the SDK entirely for FIDO2 credentials management.
     /// TS clients create decrypted FIDO2 credentials that need to be encrypted manually when
@@ -332,9 +305,7 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         fido2_credentials: Vec<Fido2CredentialFullView>,
     ) -> Result<CipherView, CipherError> {
-        let key_store = self.client.internal.get_key_store();
-
-        cipher_view.set_new_fido2_credentials(&mut key_store.context(), fido2_credentials)?;
+        cipher_view.set_new_fido2_credentials(fido2_credentials)?;
 
         Ok(cipher_view)
     }
@@ -345,20 +316,8 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         organization_id: OrganizationId,
     ) -> Result<CipherView, CipherError> {
-        let key_store = self.client.internal.get_key_store();
-        cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
+        cipher_view.move_to_organization(organization_id)?;
         Ok(cipher_view)
-    }
-
-    #[cfg(feature = "wasm")]
-    #[allow(missing_docs)]
-    pub fn decrypt_fido2_private_key(
-        &self,
-        cipher_view: CipherView,
-    ) -> Result<String, CipherError> {
-        let key_store = self.client.internal.get_key_store();
-        let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
-        Ok(decrypted_key)
     }
 
     /// Returns a new client for performing admin operations.
@@ -390,13 +349,13 @@ mod tests {
     use bitwarden_crypto::{CryptoError, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::{
-        Attachment, CipherRepromptType, CipherType, Login, VaultClientExt,
-        cipher::blob::try_parse_blob,
-    };
+    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
+    #[cfg(feature = "wasm")]
+    use crate::{AttachmentView, cipher::blob::try_parse_blob};
 
     fn test_cipher() -> Cipher {
         Cipher {
+            partial_data: None,
             id: Some("358f2b2b-9326-4e5e-94a8-b18100bb0908".parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -443,6 +402,7 @@ mod tests {
     fn test_cipher_view() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
+            partial: false,
             r#type: CipherType::Login,
             login: Some(crate::LoginView {
                 username: Some("test_username".to_string()),
@@ -515,6 +475,7 @@ mod tests {
             .vault()
             .ciphers()
             .decrypt_list(vec![Cipher {
+                partial_data: None,
                 id: Some("a1569f46-0797-4d3f-b859-b181009e2e49".parse().unwrap()),
                 organization_id: Some("1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap()),
                 folder_id: None,
@@ -755,12 +716,6 @@ mod tests {
         let attachment_view = attachments.first().unwrap().clone();
         assert!(attachment_view.key.is_some());
 
-        // Ensure attachment key is updated since it's now protected by the cipher key
-        assert_ne!(
-            attachment.clone().key.unwrap().to_string(),
-            attachment_view.clone().key.unwrap().to_string()
-        );
-
         assert_eq!(attachment_view.file_name.as_deref(), Some("h.txt"));
 
         let buf = vec![
@@ -801,11 +756,9 @@ mod tests {
             .unwrap()
             .clone();
 
-        // Ensure attachment key is still the same since it's protected by the cipher key
-        assert_eq!(
-            attachment.clone().key.as_ref().unwrap().to_string(),
-            attachment_view.key.as_ref().unwrap().to_string()
-        );
+        // The attachment key (raw bytes) is unchanged; it's re-wrapped under the cipher key at
+        // encrypt time with a fresh IV, so EncString ≠ raw base64 — verify via round-trip instead.
+        assert!(attachment.key.is_some());
 
         let content = client
             .vault()
@@ -920,6 +873,45 @@ mod tests {
         ));
     }
 
+    /// Attachments that carry no key of their own are encrypted under the old user key, so
+    /// rotation must reject them regardless of whether the view already has a cipher key.
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_encrypt_cipher_for_rotation_with_keyless_attachment_fails() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        for generate_key in [false, true] {
+            let mut cipher_view = test_cipher_view();
+            if generate_key {
+                let _ = cipher_view
+                    .load_cipher_key_slot(&mut client.internal.get_key_store().context())
+                    .unwrap();
+            }
+            cipher_view.attachments = Some(vec![AttachmentView {
+                id: None,
+                url: None,
+                size: None,
+                size_name: None,
+                file_name: Some("h.txt".to_string()),
+                key: None,
+            }]);
+
+            let new_key =
+                SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac).to_base64();
+
+            let result = client
+                .vault()
+                .ciphers()
+                .encrypt_cipher_for_rotation(cipher_view, new_key)
+                .await;
+
+            assert!(matches!(
+                result.err(),
+                Some(CipherError::AttachmentsWithoutKeys)
+            ));
+        }
+    }
+
     #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list() {
@@ -933,7 +925,7 @@ mod tests {
         let contexts = result.unwrap();
         assert_eq!(contexts.len(), 2);
 
-        // Verify each encrypted cipher has a key (cipher key encryption is enabled)
+        // Every encrypted cipher gets a cipher key
         for ctx in &contexts {
             assert!(ctx.cipher.key.is_some());
         }
