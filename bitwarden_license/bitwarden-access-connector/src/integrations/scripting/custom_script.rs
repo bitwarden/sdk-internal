@@ -145,7 +145,6 @@ mod tests {
     use bitwarden_pam::RotationFailureCode;
     use chrono::Utc;
     use uuid::Uuid;
-    use zeroize::Zeroizing;
 
     use super::*;
     use crate::{
@@ -165,7 +164,7 @@ mod tests {
         RotateContext {
             target_system_id: Uuid::nil(),
             account_identity: "user@example.com".to_string(),
-            new_password: Zeroizing::new("super-secret-pw-SENTINEL".to_string()),
+            new_password: "super-secret-pw-SENTINEL".to_string(),
             creds,
             rotation_started_at: Utc::now(),
         }

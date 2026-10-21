@@ -31,7 +31,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "process", "time"] }
 url = { workspace = true }
 uuid = { workspace = true }
-zeroize = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt"] }

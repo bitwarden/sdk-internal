@@ -10,13 +10,13 @@ use async_trait::async_trait;
 use bitwarden_pam_sealed::SealedTargetSystemKind;
 use bitwarden_sensitive_value::Sensitive;
 use uuid::Uuid;
-use zeroize::Zeroizing;
 
 /// Resolved credentials keyed by suffix, the env var name after the `<TARGET_ID>_` prefix (e.g.
-/// `CLIENT_SECRET`). Values are [`Sensitive<Zeroizing<String>>`], zeroed on drop.
+/// `CLIENT_SECRET`). Values are [`Sensitive<String>`]; heap memory is wiped on free by the global
+/// `ZeroizingAllocator` (linked by bitwarden-crypto).
 #[derive(Debug)]
 pub(crate) struct ResolvedCredentials {
-    inner: HashMap<String, Sensitive<Zeroizing<String>>>,
+    inner: HashMap<String, Sensitive<String>>,
 }
 
 impl ResolvedCredentials {
@@ -27,15 +27,14 @@ impl ResolvedCredentials {
     }
 
     pub(crate) fn insert(&mut self, key: String, value: String) {
-        self.inner
-            .insert(key, Sensitive::from(Zeroizing::new(value)));
+        self.inner.insert(key, Sensitive::from(value));
     }
 
-    pub(crate) fn get(&self, key: &str) -> Option<&Sensitive<Zeroizing<String>>> {
+    pub(crate) fn get(&self, key: &str) -> Option<&Sensitive<String>> {
         self.inner.get(key)
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (&String, &Sensitive<Zeroizing<String>>)> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&String, &Sensitive<String>)> {
         self.inner.iter()
     }
 }

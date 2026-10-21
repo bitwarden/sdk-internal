@@ -10,7 +10,6 @@ use bitwarden_pam::{RotationFailureCode, RotationSyncState};
 use bitwarden_pam_sealed::SealedTargetSystemKind;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use zeroize::Zeroizing;
 
 use crate::{
     error::{Retry, SafeDetail},
@@ -61,12 +60,13 @@ impl std::fmt::Display for IntegrationError {
 impl std::error::Error for IntegrationError {}
 
 /// Input to every [`Integration`] operation, built from the claim and the resolved credentials.
-/// `new_password` and `creds` are zeroized on drop.
+/// Heap memory is wiped on free by the global `ZeroizingAllocator` (linked by
+/// bitwarden-crypto).
 pub(crate) struct RotateContext {
     pub(crate) target_system_id: Uuid,
     /// The opaque account identity string (e.g. a user principal name or object id).
     pub(crate) account_identity: String,
-    pub(crate) new_password: Zeroizing<String>,
+    pub(crate) new_password: String,
     pub(crate) creds: ResolvedCredentials,
     /// Wall-clock time after password generation (step 2); verify checks
     /// `lastPasswordChangeDateTime` against it.
@@ -190,7 +190,7 @@ mod tests {
         let ctx = RotateContext {
             target_system_id: Uuid::nil(),
             account_identity: "user@example.com".to_string(),
-            new_password: Zeroizing::new("super-secret-pw".to_string()),
+            new_password: "super-secret-pw".to_string(),
             creds: ResolvedCredentials::new(),
             rotation_started_at: Utc::now(),
         };

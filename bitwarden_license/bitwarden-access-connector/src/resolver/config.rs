@@ -147,7 +147,7 @@ mod tests {
             .get("SCRIPT")
             .expect("SCRIPT must be present")
             .expose();
-        assert_eq!(**script_val, "/opt/scripts/rotate.sh");
+        assert_eq!(*script_val, "/opt/scripts/rotate.sh");
     }
 
     #[test]
@@ -176,10 +176,10 @@ mod tests {
 
         use bitwarden_sensitive_value::ExposeSensitive as _;
         let tenant = creds.get("TENANT_ID").expect("TENANT_ID present").expose();
-        assert_eq!(**tenant, "config-tenant");
+        assert_eq!(*tenant, "config-tenant");
 
         let client = creds.get("CLIENT_ID").expect("CLIENT_ID present").expose();
-        assert_eq!(**client, "my-client");
+        assert_eq!(*client, "my-client");
 
         assert!(creds.get("CLIENT_SECRET").is_some());
     }
@@ -202,7 +202,7 @@ mod tests {
 
         use bitwarden_sensitive_value::ExposeSensitive as _;
         let script = creds.get("SCRIPT").expect("SCRIPT present").expose();
-        assert_eq!(**script, "/usr/local/bin/rotate.sh");
+        assert_eq!(*script, "/usr/local/bin/rotate.sh");
     }
 
     #[test]

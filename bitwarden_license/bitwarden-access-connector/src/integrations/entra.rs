@@ -674,7 +674,6 @@ mod tests {
         Mock, MockServer, ResponseTemplate,
         matchers::{body_string_contains, method, path, query_param},
     };
-    use zeroize::Zeroizing;
 
     use super::*;
     use crate::{
@@ -695,7 +694,7 @@ mod tests {
         RotateContext {
             target_system_id: Uuid::nil(),
             account_identity: identity.to_string(),
-            new_password: Zeroizing::new(new_password.to_string()),
+            new_password: new_password.to_string(),
             creds,
             rotation_started_at: Utc::now(),
         }
@@ -710,7 +709,7 @@ mod tests {
         RotateContext {
             target_system_id: Uuid::nil(),
             account_identity: identity.to_string(),
-            new_password: Zeroizing::new(new_password.to_string()),
+            new_password: new_password.to_string(),
             creds,
             rotation_started_at,
         }
