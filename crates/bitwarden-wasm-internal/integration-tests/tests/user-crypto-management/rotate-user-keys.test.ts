@@ -28,10 +28,8 @@ const NOT_ROTATABLE = ["v1-pbkdf2-password"];
 /** Enough consecutive rotations that a second one cannot pass by reusing the first one's state. */
 const ROTATION_COUNT = 3;
 
-/** A V1 user key is AES-256-CBC-HMAC: 32 bytes of encryption key plus 32 of MAC key. */
 const V1_USER_KEY_BYTES = 64;
 
-/** A V2 user key is a COSE key, which carries more than the raw 32 bytes of key material. */
 const isV2UserKey = (key: SymmetricKey | null) =>
   key !== null && Buffer.from(key as unknown as string, "base64").length > V1_USER_KEY_BYTES;
 
@@ -385,8 +383,9 @@ describe("rotate user keys", () => {
         "CreateIfNeeded",
       );
 
-      // 2. The device syncs the upgrade, then the state is put back to what a client that missed
-      //    the write would hold
+      // 2. The device locks and syncs the upgrade, so no re-initialization happens. The V1 key is
+      //    put back into state, as a client that keeps the key in state across a lock holds it.
+      await device.lock();
       await device.sync(seeded.email);
       await device.bridge.set_user_key(staleUserKey!);
       expect(isV2UserKey(await device.bridge.get_user_key())).toBe(false);
