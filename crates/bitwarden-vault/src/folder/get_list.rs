@@ -2,8 +2,6 @@ use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{FolderId, FolderView, FoldersClient, ItemNotFoundError};
 
@@ -19,7 +17,7 @@ pub enum GetFolderError {
     Repository(#[from] RepositoryError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl FoldersClient {
     /// Get a specific [crate::Folder] by its ID from state and decrypt it to a [FolderView].
     pub async fn get(&self, folder_id: FolderId) -> Result<FolderView, GetFolderError> {

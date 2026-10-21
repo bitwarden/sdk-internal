@@ -3,7 +3,10 @@
 //! These carry only the fields the client reads. serde ignores everything else on the wire, so the
 //! structs stay small while remaining forward compatible with the full server responses.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
+use zeroize::Zeroizing;
 
 /// The JSON "opdata" envelope as it appears on the wire.
 ///
@@ -90,8 +93,15 @@ impl KeyDerivationInfo {
 }
 
 /// Response from `v2/auth/methods`.
+///
+/// `userUuid` and `signInAddress` are only needed for an SSO login, and the server may leave them
+/// out.
 #[derive(Debug, Deserialize)]
 pub(super) struct LoginInfo {
+    #[serde(rename = "userUuid")]
+    pub user_uuid: Option<String>,
+    #[serde(rename = "signInAddress")]
+    pub sign_in_address: Option<String>,
     #[serde(rename = "authMethods")]
     pub auth_methods: Vec<AuthMethod>,
 }
@@ -101,6 +111,52 @@ pub(super) struct LoginInfo {
 pub(super) struct AuthMethod {
     #[serde(rename = "type")]
     pub kind: String,
+}
+
+/// Response from `v3/auth/sso/oidc/start`.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoLoginUrl {
+    #[serde(rename = "authRedirect")]
+    pub auth_redirect: String,
+}
+
+/// Response from `v3/auth/sso/oidc/verify`.
+///
+/// `type` is `device_not_enrolled` for a device the server has not seen, which every import is.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoSession {
+    #[serde(rename = "type")]
+    pub state: String,
+    pub user: SsoUser,
+    #[serde(rename = "ssoAuth")]
+    pub sso_auth: SsoAuth,
+}
+
+/// The user an SSO login authenticated.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoUser {
+    /// Goes into the header of every request that follows.
+    #[serde(rename = "sessionUuid")]
+    pub session_uuid: String,
+}
+
+/// What the identity provider login earned: a token to sign in with.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoAuth {
+    #[serde(rename = "signInTokenDetails")]
+    pub sign_in_token_details: SignInTokenDetails,
+}
+
+/// The sign-in token, a bearer credential for the login after the SSO step.
+#[derive(Deserialize)]
+pub(super) struct SignInTokenDetails {
+    pub token: Zeroizing<String>,
+}
+
+impl fmt::Debug for SignInTokenDetails {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SignInTokenDetails").finish_non_exhaustive()
+    }
 }
 
 /// Response from `v3/auth/start`.
@@ -131,7 +187,7 @@ pub(super) struct UserAuth {
     pub salt: String,
 }
 
-/// Response from `v1/device` and `v1/device/{uuid}/reauthorize`.
+/// Response from `v1/device`, `v1/device/{uuid}/reauthorize` and the CPace `msgb` and `tagb`.
 #[derive(Debug, Deserialize)]
 pub(super) struct SuccessStatus {
     pub success: i32,
@@ -199,6 +255,74 @@ impl MfaInfo {
 #[derive(Debug, Deserialize)]
 pub(super) struct BasicMfa {
     pub enabled: bool,
+}
+
+/// Response from `v3/device/enrollments`.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoEnrollInfo {
+    #[serde(rename = "enrollmentUuid")]
+    pub enrollment_uuid: String,
+}
+
+/// Response from `v3/device/enrollments/status`.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoEnrollStatus {
+    pub status: String,
+}
+
+/// Response from `v3/device/enrollments/{uuid}/cpace/msga`.
+#[derive(Debug, Deserialize)]
+pub(super) struct CpaceMsgA {
+    pub msga: String,
+}
+
+/// The CPace message from the enrolled device, base64 encoded inside the `msga` response of
+/// `v3/device/enrollments/{uuid}/cpace/msga`.
+#[derive(Debug, Deserialize)]
+pub(super) struct MsgA {
+    pub ya: String,
+    pub ad: MsgAAd,
+}
+
+/// The associated data of a CPace message.
+///
+/// `session_id` is a JSON array of byte values, so an element above 255 fails to parse.
+#[derive(Debug, Deserialize)]
+pub(super) struct MsgAAd {
+    pub version: i32,
+    pub salt: String,
+    pub session_id: Vec<u8>,
+}
+
+/// Response from `v3/device/enrollments/{uuid}/cpace/taga`.
+#[derive(Debug, Deserialize)]
+pub(super) struct CpaceTagA {
+    pub taga: String,
+}
+
+/// Response from `v3/device/enrollments/{uuid}/share/credentials`.
+#[derive(Debug, Deserialize)]
+pub(super) struct SharedCredentials {
+    #[serde(rename = "encCreds")]
+    pub encrypted_credentials: EncryptedEnvelope,
+}
+
+/// The credentials the enrolled device hands over, decrypted from the `encCreds` of
+/// `v3/device/enrollments/{uuid}/share/credentials`.
+///
+/// Deliberately not `Debug`: it holds the SRP `x` and the account unlock key. The secrets are
+/// `Zeroizing` field by field, so a bundle that fails to parse halfway is wiped too.
+#[derive(Deserialize)]
+pub(super) struct CredentialBundle {
+    pub srpx: Zeroizing<String>,
+    pub auk: Auk,
+}
+
+/// The account unlock key in the shape of a JWK, of which only the key is read. Deliberately not
+/// `Debug`.
+#[derive(Deserialize)]
+pub(super) struct Auk {
+    pub k: Zeroizing<String>,
 }
 
 /// A server error body.

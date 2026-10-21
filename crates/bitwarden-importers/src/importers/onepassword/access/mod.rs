@@ -8,7 +8,7 @@ mod account_key;
 mod client;
 pub use client::Client;
 mod credentials;
-pub use credentials::Credentials;
+pub use credentials::{Credentials, SsoCredentials};
 mod device;
 mod error;
 pub use error::OnePasswordError;
@@ -28,6 +28,11 @@ mod session;
 mod sign_in;
 pub use sign_in::{SignInAddress, SignInDomain};
 mod srp;
+mod sso;
+pub use sso::ui::{
+    EnrollmentStatus, SsoEnrollmentContext, SsoEnrollmentResult, SsoLoginResult, SsoUi,
+    VerificationCodeResult,
+};
 mod two_factor;
 pub use two_factor::{TotpResult, TwoFactorUi};
 pub mod wire;

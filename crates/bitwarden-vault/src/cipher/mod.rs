@@ -26,8 +26,9 @@ pub use attachment_client::{
     AttachmentAdminClient, AttachmentFileUploadType, AttachmentsClient,
     CipherAdminGetAttachmentDownloadUrlError, CipherCreateAttachmentError,
     CipherDeleteAttachmentError, CipherGetAttachmentDownloadUrlError,
-    CipherRenewFileUploadUrlError, CipherUpgradeAttachmentError, CreateAttachmentRequest,
-    CreatedAttachment, DecryptFileError, DeleteAttachmentAdminError, EncryptFileError,
+    CipherRenewFileUploadUrlError, CipherUpgradeAttachmentError, CreateAttachmentAdminError,
+    CreateAttachmentRequest, CreatedAttachment, DecryptFileError, DeleteAttachmentAdminError,
+    EncryptFileError,
 };
 pub use bank_account::{BankAccountListView, BankAccountView};
 pub use blob::{BlobEncryptionError, SealedCipherBlobError};
@@ -38,8 +39,10 @@ pub use cipher::{
     EncryptionContext, ListOrganizationCiphersResult,
 };
 pub use cipher_client::{
-    CiphersClient, GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError,
-    should_use_blob_encryption,
+    BulkUpdateCollectionsCipherError, CipherCreateRequest, CipherEditRequest,
+    CipherPartialEditRequest, CiphersClient, CreateCipherError, DeleteCipherError, EditCipherError,
+    GetAssignedOrgCiphersAdminError, GetCipherError, GetOrganizationCiphersAdminError,
+    MoveCipherError, RestoreCipherError, should_use_blob_encryption,
 };
 pub use cipher_view_type::CipherViewType;
 pub use drivers_license::DriversLicenseView;
