@@ -129,7 +129,6 @@ impl SessionState {
         )
         .map_err(|e| e.to_string())?;
 
-        // Exposed only to store it; never logged.
         self.bearer = Some(success.access_token.expose().to_owned());
         self.expires_at = Some(expires_at);
         self.organization_id = Some(success.organization_id);
@@ -146,8 +145,7 @@ impl SessionState {
         self.set_phase(phase);
         self.bearer = None;
         self.expires_at = None;
-        // Empty in place rather than swap: every holder of the Arc (the executor hoists one
-        // before the poll loop) must lose the org key.
+        // Clear in place rather than swap, so every clone of the store loses the org key.
         self.key_store.clear();
     }
 }
@@ -233,8 +231,6 @@ impl SessionManager {
             // Guard is dropped here; renewal re-checks the phase under its own guard.
         }
 
-        // The bearer is read under the guard that saw the session valid, so a concurrent `close()`
-        // cannot slip in between renewal and the read.
         self.renew_with_backoff(deadline, false).await
     }
 
@@ -259,8 +255,7 @@ impl SessionManager {
             }
         }
 
-        // force=true skips the active-and-fresh coalescing guard. The bearer comes back from the
-        // guard that renewed, so a concurrent `close()` cannot slip in before it is read.
+        // force=true skips the active-and-fresh coalescing guard.
         self.renew_with_backoff(deadline, true).await
     }
 
@@ -272,9 +267,9 @@ impl SessionManager {
         }
     }
 
-    /// Renew the session with backoff and return the resulting bearer, cloned under the guard that
-    /// saw the session valid. The mutex is held across the identity call, so only one runs at a
-    /// time, and released during the backoff sleep so `close()` can still run.
+    /// Renew the session with backoff and return the resulting bearer. The bearer is read under the
+    /// guard that saw the session valid, so a concurrent `close()` cannot slip in first. The mutex
+    /// is held across the identity call and released during the backoff sleep.
     async fn renew_with_backoff(
         &self,
         deadline: Option<Instant>,
@@ -303,8 +298,6 @@ impl SessionManager {
             // Other callers of bearer() block here until the lock releases.
             let result = self.identity.authenticate(&self.token).await;
 
-            // Failures yield a kind label for the logs and the error message; the retry path
-            // below is shared.
             let (kind, err_msg) = match result {
                 Ok(success) => match guard.apply_success(success, &self.token) {
                     Ok(()) => {
@@ -318,13 +311,11 @@ impl SessionManager {
                         }
                         return guard.active_bearer();
                     }
-                    // A 200 whose payload does not open is treated like a protocol failure. The
-                    // error carries no secret material.
+                    // A 200 whose payload does not open is treated like a protocol failure.
                     Err(msg) => ("org key unwrap failed", msg),
                 },
                 Err(AuthError::Rejected) => {
                     guard.enter_terminal(SessionLost::Revoked);
-                    // The executor logs the actionable message; this logs the transition.
                     tracing::warn!(
                         "session entered Revoked phase (credential rejected by identity server)"
                     );
@@ -675,8 +666,7 @@ mod tests {
         );
     }
 
-    /// The executor hoists the key-store handle once before the poll loop; clearing in place
-    /// must reach that `Arc`, which swapping the session's store would not.
+    /// A key-store clone taken before revocation must also lose the org key.
     #[tokio::test]
     async fn key_store_handle_taken_before_revocation_loses_the_org_key() {
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -700,7 +690,7 @@ mod tests {
             .await
             .expect("first auth");
 
-        // Taken before revocation, as the executor does.
+        // Taken before revocation.
         let hoisted = mgr.key_store().await;
         assert!(
             hoisted.context().has_symmetric_key(org_slot()),

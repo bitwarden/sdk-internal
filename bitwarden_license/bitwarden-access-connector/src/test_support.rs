@@ -1,4 +1,4 @@
-//! Helpers shared by the unit tests. Integration tests keep their own copy in `tests/common`.
+//! Helpers shared by the unit tests.
 
 use std::sync::LazyLock;
 

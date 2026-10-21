@@ -2,9 +2,6 @@
 //!
 //! Implements the core logic for the `bwac` binary, which continuously rotates
 //! PAM-managed credentials according to configured policies and schedules.
-//!
-//! The command-line surface, authentication, session management and the server API layer are
-//! present so far; the poll loop and rotation pipeline land in subsequent changes.
 
 bitwarden_commercial_marker::commercial_crate!();
 

@@ -1,12 +1,10 @@
 //! Bridges the access connector's session into `bitwarden_core::Client`.
 //!
-//! The connector authenticates through its own [`IdentityClient`][crate::auth::identity] (core's
-//! access-token request is Secrets-Manager-shaped), so this handler owns no token state. It hands
-//! core the auth middleware and gives that middleware somewhere to find the session.
+//! The connector authenticates through its own [`IdentityClient`][crate::auth::identity], so this
+//! handler owns no token state; it supplies core's auth middleware and holds the session for it.
 //!
-//! Like `SecretsManagerTokenHandler`, it is built empty: [`TokenHandler::initialize_middleware`]
-//! back-populates the key store during client construction, then
-//! [`AccessConnectorTokenHandler::set_session`] fills in the session, which needs that store.
+//! It is built empty: [`TokenHandler::initialize_middleware`] fills in the key store during client
+//! construction, then [`AccessConnectorTokenHandler::set_session`] adds the session.
 
 use std::sync::{Arc, RwLock};
 
