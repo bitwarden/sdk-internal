@@ -1,4 +1,4 @@
-//! Per-target credential resolution. [`config::ConfigCredentialResolver`] is the active resolver:
+//! Per-target credential resolution. [`config::ConfigCredentialResolver`] resolves credentials:
 //! the config file wins per key, and the environment is the fallback.
 
 pub(crate) mod config;

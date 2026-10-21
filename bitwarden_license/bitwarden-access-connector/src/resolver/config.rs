@@ -243,4 +243,128 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn entra_all_required_vars_present() {
+        let id = Uuid::new_v4();
+        let prefix = prefix_for(id);
+        let mut vars = HashMap::new();
+        vars.insert(format!("{prefix}TENANT_ID"), "my-tenant".to_string());
+        vars.insert(format!("{prefix}CLIENT_ID"), "my-client".to_string());
+        vars.insert(format!("{prefix}CLIENT_SECRET"), "my-secret".to_string());
+        let creds = run_resolver_with_env(id, SealedTargetSystemKind::Entra, HashMap::new(), &vars)
+            .unwrap();
+        assert!(creds.get("TENANT_ID").is_some());
+        assert!(creds.get("CLIENT_ID").is_some());
+        assert!(creds.get("CLIENT_SECRET").is_some());
+    }
+
+    #[test]
+    fn extra_vars_collected_into_map() {
+        let id = Uuid::new_v4();
+        let prefix = prefix_for(id);
+        let mut vars = HashMap::new();
+        vars.insert(format!("{prefix}SCRIPT"), "/bin/sh".to_string());
+        vars.insert(format!("{prefix}OUT_PATH"), "/tmp/out.txt".to_string());
+        let creds = run_resolver_with_env(
+            id,
+            SealedTargetSystemKind::CustomScript,
+            HashMap::new(),
+            &vars,
+        )
+        .unwrap();
+        assert!(
+            creds.get("OUT_PATH").is_some(),
+            "extra var should be collected"
+        );
+    }
+
+    #[test]
+    fn entra_missing_all_reports_full_names() {
+        let id: Uuid = "ec2c1d46-6a4b-4751-a310-af9601317f2d".parse().unwrap();
+        let err = run_resolver_with_env(
+            id,
+            SealedTargetSystemKind::Entra,
+            HashMap::new(),
+            &HashMap::new(),
+        )
+        .unwrap_err();
+        match err {
+            ResolveError::Missing(names) => {
+                assert!(
+                    names.contains(&"EC2C1D46_6A4B_4751_A310_AF9601317F2D_TENANT_ID".to_string()),
+                    "must list TENANT_ID: {names:?}"
+                );
+                assert!(
+                    names.contains(&"EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_ID".to_string()),
+                    "must list CLIENT_ID: {names:?}"
+                );
+                assert!(
+                    names.contains(
+                        &"EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_SECRET".to_string()
+                    ),
+                    "must list CLIENT_SECRET: {names:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn custom_script_missing_script_var() {
+        let id = Uuid::new_v4();
+        let err = run_resolver_with_env(
+            id,
+            SealedTargetSystemKind::CustomScript,
+            HashMap::new(),
+            &HashMap::new(),
+        )
+        .unwrap_err();
+        let prefix = prefix_for(id);
+        match err {
+            ResolveError::Missing(names) => {
+                assert!(
+                    names.iter().any(|n| n == &format!("{prefix}SCRIPT")),
+                    "must list SCRIPT var: {names:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn partial_entra_missing_lists_only_absent() {
+        let id = Uuid::new_v4();
+        let prefix = prefix_for(id);
+        let mut vars = HashMap::new();
+        vars.insert(format!("{prefix}TENANT_ID"), "t".to_string());
+        let err = run_resolver_with_env(id, SealedTargetSystemKind::Entra, HashMap::new(), &vars)
+            .unwrap_err();
+        match err {
+            ResolveError::Missing(names) => {
+                assert_eq!(names.len(), 2, "only 2 vars missing: {names:?}");
+                assert!(names.iter().any(|n| n.ends_with("CLIENT_ID")));
+                assert!(names.iter().any(|n| n.ends_with("CLIENT_SECRET")));
+                assert!(!names.iter().any(|n| n.ends_with("TENANT_ID")));
+            }
+        }
+    }
+
+    #[test]
+    fn mssql_missing_all_lists_host_user_secret() {
+        let id = Uuid::new_v4();
+        let err = run_resolver_with_env(
+            id,
+            SealedTargetSystemKind::Mssql,
+            HashMap::new(),
+            &HashMap::new(),
+        )
+        .unwrap_err();
+        let prefix = prefix_for(id);
+        match err {
+            ResolveError::Missing(names) => {
+                assert!(names.iter().any(|n| n == &format!("{prefix}HOST")));
+                assert!(names.iter().any(|n| n == &format!("{prefix}USER")));
+                assert!(names.iter().any(|n| n == &format!("{prefix}SECRET")));
+            }
+        }
+    }
 }
