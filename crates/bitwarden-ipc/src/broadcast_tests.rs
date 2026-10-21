@@ -416,6 +416,58 @@ async fn broadcast_fans_out_over_per_peer_encrypted_sessions() {
     }
 }
 
+/// A payload larger than one Noise message is fragmented separately for each resolved peer,
+/// and every peer reassembles the full payload.
+#[tokio::test]
+async fn broadcast_fragments_payloads_larger_than_one_noise_message() {
+    let network = TestNetwork::default();
+    let peer_ids = [1, 2];
+    let mut peers = Vec::new();
+    for id in peer_ids {
+        let (peer, _) = start_node(
+            &network,
+            Source::BrowserForeground { id },
+            BroadcastResolution::Unsupported,
+        )
+        .await;
+        peers.push(peer);
+    }
+    let (hub, _) = start_node(
+        &network,
+        Source::BrowserBackground { id: HostId::Own },
+        BroadcastResolution::Endpoints(peer_ids.iter().map(|id| foreground(*id)).collect()),
+    )
+    .await;
+
+    let receivers: Vec<_> = peers
+        .iter()
+        .cloned()
+        .map(|peer| tokio::spawn(async move { receive_one(&peer).await }))
+        .collect();
+    // Let every peer subscribe before the hub sends.
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    let payload: Vec<u8> = (0..200_000u32).map(|i| (i % 251) as u8).collect();
+    let results = hub
+        .broadcast(
+            BroadcastGroup::AllBrowserForeground,
+            payload.clone(),
+            Some("topic".to_owned()),
+        )
+        .await
+        .expect("group should resolve");
+
+    assert!(
+        results.iter().all(|r| r.result.is_ok()),
+        "every send should succeed, got {results:?}"
+    );
+    for receiver in receivers {
+        let message = receiver.await.expect("receiver task panicked");
+        assert_eq!(message.payload, payload);
+        assert_eq!(message.topic.as_deref(), Some("topic"));
+    }
+}
+
 /// An unreachable endpoint (e.g. a popup that closed after resolution) is reported for that
 /// endpoint only; delivery to the remaining endpoints, before and after it, still happens.
 #[tokio::test]

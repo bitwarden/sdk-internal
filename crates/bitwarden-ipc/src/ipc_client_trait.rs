@@ -32,6 +32,12 @@ pub trait IpcClient: Send + Sync {
     /// messages when the underlying error is fatal (see
     /// [`IpcErrorKind`](crate::IpcErrorKind)); recoverable errors leave the client running, so the
     /// send can be retried and existing subscriptions remain valid.
+    ///
+    /// Payloads are limited to 5 MiB. Payloads larger than one crypto provider message are split
+    /// into separately encrypted fragments that the receiving client reassembles. A peer that
+    /// predates fragmentation receives the fragments as messages on an unknown topic. Topics
+    /// `IpcFragment` and `IpcFragment/<topic>` are reserved for fragments, and sending on them
+    /// returns an error.
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError>;
 
     /// Send a message to every member of `group`, fire-and-forget.

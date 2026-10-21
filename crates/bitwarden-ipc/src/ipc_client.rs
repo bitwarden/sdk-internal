@@ -12,8 +12,14 @@ use crate::{
         AlreadyRunningError, BroadcastError, ErrorKind, IpcErrorKind, ReceiveError, SendError,
         SubscribeError, TypedReceiveError,
     },
+    fragmentation::{
+        FragmentationError, Fragments, MAX_PAYLOAD_SIZE, REASSEMBLY_IDLE_TIMEOUT,
+        REASSEMBLY_TIMEOUT, Reassembler,
+    },
+    ipc_client_trait::IpcClient,
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
     rpc::{
+        error::RpcError,
         exec::{
             handler::{ErasedRpcHandler, RpcRequestInfo},
             handler_registry::RpcHandlerRegistry,
@@ -55,6 +61,7 @@ where
     sessions: Ses,
 
     handlers: RpcHandlerRegistry,
+    reassembler: Reassembler,
     incoming: Mutex<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
     cancellation_token: Mutex<Option<CancellationToken>>,
 }
@@ -63,7 +70,7 @@ where
 /// It uses a crypto provider to encrypt and decrypt messages, a communication backend to send and
 /// receive messages, and a session repository to persist sessions.
 ///
-/// This is the concrete implementation of the [`IpcClient`](crate::IpcClient) trait.
+/// This is the concrete implementation of the [`IpcClient`] trait.
 pub struct IpcClientImpl<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -102,6 +109,7 @@ where
                 sessions,
 
                 handlers: RpcHandlerRegistry::new(),
+                reassembler: Reassembler::new(REASSEMBLY_TIMEOUT, REASSEMBLY_IDLE_TIMEOUT),
                 incoming: Mutex::new(None),
                 cancellation_token: Mutex::new(None),
             }),
@@ -143,7 +151,6 @@ where
         let inner = self.inner.clone();
         let future = async move {
             loop {
-                let rpc_topic = RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned();
                 select! {
                     _ = cancellation_token.cancelled() => {
                         tracing::debug!("Cancellation signal received, stopping IPC client");
@@ -151,11 +158,13 @@ where
                     }
                     received = inner.crypto.receive(&com_receiver, &inner.communication, &inner.sessions) => {
                         match received {
-                            Ok(message) if message.topic == Some(rpc_topic) => {
-                                handle_rpc_request(&inner, message)
-                            }
                             Ok(message) => {
-                                if client_tx.send(message).is_err() {
+                                let Some(message) = inner.reassembler.process(message) else {
+                                    continue;
+                                };
+                                if message.topic.as_deref() == Some(RPC_REQUEST_PAYLOAD_TYPE_NAME) {
+                                    handle_rpc_request(&inner, message);
+                                } else if client_tx.send(message).is_err() {
                                     tracing::error!("Failed to save incoming message");
                                     break;
                                 };
@@ -276,8 +285,43 @@ struct SendOutcome {
     fatal: bool,
 }
 
-/// Send a single message through the crypto provider, stopping the client on a fatal error.
+/// Send a message through the crypto provider, split into as many fragments as the provider's
+/// payload limit requires. Fragments are sent in order and sending stops at the first failed
+/// fragment. A fatal error stops the client.
 async fn send_message<Crypto, Com, Ses>(
+    inner: &IpcClientInner<Crypto, Com, Ses>,
+    message: OutgoingMessage,
+) -> SendOutcome
+where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Crypto::Session>,
+{
+    let fragments = match Fragments::split(message, inner.crypto.max_payload_len()) {
+        Ok(fragments) => fragments,
+        Err(e) => {
+            return SendOutcome {
+                result: Err(SendError::Other(e.to_string())),
+                fatal: false,
+            };
+        }
+    };
+
+    for fragment in fragments {
+        let outcome = send_fragment(inner, fragment).await;
+        if outcome.result.is_err() {
+            return outcome;
+        }
+    }
+
+    SendOutcome {
+        result: Ok(()),
+        fatal: false,
+    }
+}
+
+/// Send a single fragment through the crypto provider, stopping the client on a fatal error.
+async fn send_fragment<Crypto, Com, Ses>(
     inner: &IpcClientInner<Crypto, Com, Ses>,
     message: OutgoingMessage,
 ) -> SendOutcome
@@ -373,8 +417,19 @@ fn handle_rpc_request<Crypto, Com, Ses>(
             };
 
             // Publish the response on the dedicated topic the requester is subscribed to.
-            let payload = serde_utils::to_vec(&response_message)
+            let mut payload = serde_utils::to_vec(&response_message)
                 .map_err(|e: serde_utils::SerializeError| HandleError::Serialize(e.to_string()))?;
+            if payload.len() > MAX_PAYLOAD_SIZE {
+                // Report the error, or the requester waits for a response that never arrives.
+                let error = FragmentationError::PayloadTooLarge(payload.len()).to_string();
+                let error_message = OutgoingRpcResponseMessage {
+                    result: Err(RpcError::ResponseSerialization(error)),
+                    ..response_message
+                };
+                payload = serde_utils::to_vec(&error_message).map_err(
+                    |e: serde_utils::SerializeError| HandleError::Serialize(e.to_string()),
+                )?;
+            }
 
             Ok(OutgoingMessage {
                 payload,
@@ -385,12 +440,8 @@ fn handle_rpc_request<Crypto, Com, Ses>(
 
         match handle(incoming_message, &inner.handlers).await {
             Ok(outgoing_message) => {
-                // Send response directly through the crypto provider (not through the trait)
-                // since we're inside the background task and don't have a trait object.
-                let result = inner
-                    .crypto
-                    .send(&inner.communication, &inner.sessions, outgoing_message)
-                    .await;
+                // Send through the client, so the response is fragmented like any other message.
+                let result = IpcClientImpl { inner }.send(outgoing_message).await;
                 if result.is_err() {
                     tracing::error!("Failed to send response message");
                 }
@@ -504,6 +555,10 @@ mod tests {
         type Session = String;
         type SendError = TestCryptoError;
         type ReceiveError = TestCryptoError;
+
+        fn max_payload_len(&self) -> usize {
+            usize::MAX
+        }
 
         async fn receive(
             &self,
@@ -1518,6 +1573,261 @@ mod tests {
                     .expect("Deserialization should not fail");
 
             assert_eq!(outgoing_response.result, Ok(source));
+        }
+    }
+
+    mod fragmentation {
+        use super::*;
+        use crate::{
+            RequestError, RpcHandler, RpcRequestInfo,
+            crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
+            fragmentation::{FRAGMENT_TOPIC, MAX_PAYLOAD_SIZE, test_support::*},
+            traits::TestTwoWayCommunicationBackend,
+        };
+
+        /// Larger than several Noise messages, and not a multiple of the fragment size.
+        const LARGE_LEN: usize = 4 * 65535 + 123;
+
+        fn noise_client(
+            backend: TestTwoWayCommunicationBackend,
+        ) -> IpcClientImpl<
+            NoiseCryptoProvider,
+            TestTwoWayCommunicationBackend,
+            InMemorySessionRepository<crate::NoiseCryptoProviderState>,
+        > {
+            IpcClientImpl::new(
+                NoiseCryptoProvider::new(),
+                backend,
+                InMemorySessionRepository::new(HashMap::new()),
+            )
+        }
+
+        #[tokio::test]
+        async fn large_payload_round_trips_through_noise_once_on_its_topic() {
+            let (backend_1, backend_2) = TestTwoWayCommunicationBackend::new();
+            let client_1 = noise_client(backend_1);
+            let client_2 = noise_client(backend_2);
+            client_1.start(None).await.unwrap();
+            client_2.start(None).await.unwrap();
+            let mut all_messages = client_2.subscribe(None).await.unwrap();
+            let mut on_topic = client_2.subscribe(Some("bulk".to_owned())).await.unwrap();
+            let mut on_fragment_topic = client_2
+                .subscribe(Some(format!("{FRAGMENT_TOPIC}/bulk")))
+                .await
+                .unwrap();
+
+            let payload = large_payload(LARGE_LEN, 0);
+            let message = OutgoingMessage {
+                payload: payload.clone(),
+                destination: Endpoint::DesktopMain,
+                topic: Some("bulk".to_owned()),
+            };
+            client_1.send(message).await.unwrap();
+
+            let received = all_messages.receive(None).await.unwrap();
+            assert_eq!(received.topic.as_deref(), Some("bulk"));
+            assert_eq!(received.payload, payload);
+
+            // Neither the fragments nor a second copy reach subscribers.
+            let next = bitwarden_threading::time::timeout(
+                Duration::from_millis(200),
+                all_messages.receive(None),
+            )
+            .await;
+            assert!(next.is_err(), "unexpected extra message: {next:?}");
+
+            // Topic filters see the reassembled message, never its fragments.
+            assert_eq!(on_topic.receive(None).await.unwrap().payload, payload);
+            let fragment = bitwarden_threading::time::timeout(
+                Duration::from_millis(10),
+                on_fragment_topic.receive(None),
+            )
+            .await;
+            assert!(
+                fragment.is_err(),
+                "fragment reached a subscriber: {fragment:?}"
+            );
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        struct EchoRequest {
+            data: String,
+        }
+
+        impl RpcRequest for EchoRequest {
+            type Response = String;
+
+            const NAME: &str = "EchoRequest";
+        }
+
+        struct EchoHandler;
+
+        impl RpcHandler for EchoHandler {
+            type Request = EchoRequest;
+
+            async fn handle(&self, request: EchoRequest, _info: RpcRequestInfo) -> String {
+                request.data.repeat(2)
+            }
+        }
+
+        #[tokio::test]
+        async fn rpc_with_response_larger_than_one_noise_message_succeeds() {
+            let (backend_1, backend_2) = TestTwoWayCommunicationBackend::new();
+            let client_1 = noise_client(backend_1);
+            let client_2 = noise_client(backend_2);
+            client_1.start(None).await.unwrap();
+            client_2.start(None).await.unwrap();
+            client_2.register_rpc_handler(EchoHandler).await;
+
+            // The request itself also exceeds one Noise message.
+            let data = "a".repeat(LARGE_LEN / 2);
+            let response = client_1
+                .request(
+                    EchoRequest { data: data.clone() },
+                    Endpoint::DesktopMain,
+                    None,
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response, data.repeat(2));
+        }
+
+        #[tokio::test]
+        async fn rpc_response_over_the_maximum_returns_an_error_to_the_requester() {
+            let (backend_1, backend_2) = TestTwoWayCommunicationBackend::new();
+            let client_1 = noise_client(backend_1);
+            let client_2 = noise_client(backend_2);
+            client_1.start(None).await.unwrap();
+            client_2.start(None).await.unwrap();
+            client_2.register_rpc_handler(EchoHandler).await;
+
+            // The request fits, but the doubled response does not.
+            let data = "a".repeat(MAX_PAYLOAD_SIZE / 2 + 1);
+            let result = bitwarden_threading::time::timeout(
+                Duration::from_secs(10),
+                client_1.request(EchoRequest { data }, Endpoint::DesktopMain, None),
+            )
+            .await
+            .expect("Requester should receive an error response");
+
+            assert!(
+                matches!(
+                    result,
+                    Err(RequestError::Rpc(RpcError::ResponseSerialization(_)))
+                ),
+                "{result:?}"
+            );
+        }
+
+        #[tokio::test]
+        async fn client_keeps_receiving_after_invalid_fragments() {
+            let backend = TestCommunicationBackend::new();
+            let client = IpcClientImpl::new(
+                NoEncryptionCryptoProvider,
+                backend.clone(),
+                InMemorySessionRepository::default(),
+            );
+            client.start(None).await.unwrap();
+            let mut subscription = client.subscribe(None).await.unwrap();
+            let source = web_source(1);
+
+            backend.push_incoming(incoming(
+                outgoing(vec![1, 2, 3], FRAGMENT_TOPIC),
+                source.clone(),
+            ));
+            backend.push_incoming(crafted(source.clone(), 1, 5, 1024));
+            backend.push_incoming(crafted(source.clone(), 2, 0, MAX_PAYLOAD_SIZE + 1));
+            backend.push_incoming(crafted(source.clone(), 3, 0, 1024));
+            backend.push_incoming(crafted(source.clone(), 3, 0, 1024));
+
+            let payload = large_payload(FRAGMENT_LEN * 2 + 1, 0);
+            for fragment in split_all(outgoing(payload.clone(), "bulk"), MAX_LEN) {
+                backend.push_incoming(incoming(fragment, source.clone()));
+            }
+
+            let received = subscription.receive(None).await.unwrap();
+            assert_eq!(received.topic.as_deref(), Some("bulk"));
+            assert_eq!(received.payload, payload);
+            assert!(client.is_running());
+        }
+
+        #[tokio::test]
+        async fn send_rejects_reserved_fragment_topic() {
+            let client = IpcClientImpl::new(
+                NoEncryptionCryptoProvider,
+                TestCommunicationBackend::new(),
+                InMemorySessionRepository::default(),
+            );
+            let result = client.send(outgoing(vec![0; 16], FRAGMENT_TOPIC)).await;
+            assert!(matches!(result, Err(SendError::Other(_))));
+        }
+
+        /// Records sent messages of up to [`MAX_LEN`] bytes and fails the send at index `fail_at`.
+        struct FailingCryptoProvider {
+            fail_at: usize,
+            fatal: bool,
+            sent: Arc<Mutex<Vec<OutgoingMessage>>>,
+        }
+
+        impl CryptoProvider<TestCommunicationBackend, TestSessionRepository> for FailingCryptoProvider {
+            type Session = String;
+            type SendError = TestCryptoError;
+            type ReceiveError = TestCryptoError;
+
+            fn max_payload_len(&self) -> usize {
+                MAX_LEN
+            }
+
+            async fn send(
+                &self,
+                _communication: &TestCommunicationBackend,
+                _sessions: &TestSessionRepository,
+                message: OutgoingMessage,
+            ) -> Result<(), TestCryptoError> {
+                let mut sent = self.sent.lock().unwrap();
+                if sent.len() == self.fail_at {
+                    return Err(TestCryptoError {
+                        message: "Send failed".to_owned(),
+                        fatal: self.fatal,
+                    });
+                }
+                sent.push(message);
+                Ok(())
+            }
+
+            async fn receive(
+                &self,
+                _receiver: &<TestCommunicationBackend as CommunicationBackend>::Receiver,
+                _communication: &TestCommunicationBackend,
+                _sessions: &TestSessionRepository,
+            ) -> Result<IncomingMessage, TestCryptoError> {
+                std::future::pending().await
+            }
+        }
+
+        #[tokio::test]
+        async fn failed_fragment_send_stops_the_message_and_fatal_errors_stop_the_client() {
+            for fatal in [false, true] {
+                let sent = Arc::new(Mutex::new(Vec::new()));
+                let client = IpcClientImpl::new(
+                    FailingCryptoProvider {
+                        fail_at: 1,
+                        fatal,
+                        sent: sent.clone(),
+                    },
+                    TestCommunicationBackend::new(),
+                    TestSessionRepository::default(),
+                );
+                client.start(None).await.unwrap();
+
+                let message = outgoing(large_payload(FRAGMENT_LEN * 3, 0), "bulk");
+                assert!(client.send(message).await.is_err());
+
+                // Fragments after the failed one are not sent.
+                assert_eq!(sent.lock().unwrap().len(), 1);
+                assert_eq!(client.is_running(), !fatal);
+            }
         }
     }
 }
