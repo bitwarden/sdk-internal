@@ -12,7 +12,7 @@ wire between the two desktop processes.
 Autotype is owned by the **desktop main process**, which holds the global keyboard shortcut and the
 platform implementation. The **renderer** drives it but cannot reach it directly.
 
-- Main calls `autotypeRegisterHandlers(ipcClient, driver)` once, handing over a JavaScript object
+- Main calls `registerAutotypeHandlers(ipcClient, driver)` once, handing over a JavaScript object
   implementing the `AutotypeDriver` interface. One `ThreadBoundRunner` is shared across all
   handlers, so every channel reaches the same driver instance.
 - The renderer calls the `autotypeRequest*` functions, each of which sends to

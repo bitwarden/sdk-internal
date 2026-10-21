@@ -1,5 +1,8 @@
 //! WASM bindings for the autotype IPC requests, exposed to the clients through
 //! `@bitwarden/sdk-internal`.
+//!
+//! The `AutotypeDriver` interface is implemented by the user of this crate (for
+//! example, within the Bitwarden desktop app).
 
 use bitwarden_ipc::{
     Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest, RpcRequestInfo, Source,
@@ -15,6 +18,9 @@ use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
 #[wasm_bindgen(typescript_custom_section)]
+/// `TS_AUTOTYPE_TYPES` defines the TypeScript types for bindgen.
+/// The AutotypeDriver interface is a TS interface that will be implemented
+/// by the user of this crate (e.g. in the Bitwarden desktop app).
 const TS_AUTOTYPE_TYPES: &'static str = r#"
 export interface AutotypeDriver {
     /**
@@ -32,7 +38,7 @@ export interface AutotypeDriver {
     /**
      * List the applications currently running. Returns an empty
      * array if none could be determined. Entries that do not match
-     * `AutotypeRunningApp` are skipped rather than failing the batch.
+     * `AutotypeRunningApp` are skipped.
      */
     list_running_apps(): Promise<AutotypeRunningApp[]>;
 }
@@ -40,7 +46,7 @@ export interface AutotypeDriver {
 
 #[wasm_bindgen]
 extern "C" {
-    /// JavaScript implementation of the platform Autotype operations.
+    /// JavaScript implementation of the various Autotype operations.
     #[wasm_bindgen(js_name = AutotypeDriver, typescript_type = "AutotypeDriver")]
     pub type RawJsAutotypeDriver;
 
@@ -59,21 +65,20 @@ extern "C" {
         shortcut: Vec<String>,
     ) -> Result<JsValue, JsValue>;
 
-    /// List the applications currently running. Resolves with an `AutotypeRunningApp[]`, which is
-    /// deserialized entry by entry on the Rust side rather than returned as a typed value: a
-    /// `Vec<AutotypeRunningApp>` return would throw out of the promise on a malformed entry, where
-    /// `#[wasm_bindgen(catch)]` cannot reach it.
+    /// List the applications currently running. The driver returns an `AutotypeRunningApp[]`,
+    /// received here as a raw `JsValue` so `JsAutotypeDriver::list_running_apps` can skip
+    /// entries that don't match `AutotypeRunningApp`.
     #[wasm_bindgen(method, catch)]
     async fn list_running_apps(this: &RawJsAutotypeDriver) -> Result<JsValue, JsValue>;
 }
 
-/// A single application reported by the platform Autotype implementation.
+/// A running application.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[bitwarden_ffi::wasm_record]
 pub struct AutotypeRunningApp {
     /// Human-readable name for the app, e.g. `Google Chrome`.
     pub name: String,
-    /// Path to the executable backing the app.
+    /// Path to the app's executable.
     pub path: String,
 }
 
@@ -88,11 +93,8 @@ impl JsAutotypeDriver {
         Self { runner }
     }
 
-    /// Asks the driver to enable or disable autotype, returning whether the change was applied.
-    ///
-    /// A driver that throws, returns a non-boolean, or cannot be reached is reported as `false`:
-    /// the change is only ever reported as successful when the driver says so. Each of those is
-    /// logged, since `false` on its own does not say which one happened.
+    /// Sets the Autotype enabled state, and returns if setting the
+    /// enabled state was successful or not.
     async fn set_autotype_enabled(&self, enabled: bool) -> bool {
         self.runner
             .run_in_thread(move |driver| async move {
@@ -116,11 +118,8 @@ impl JsAutotypeDriver {
             })
     }
 
-    /// Asks the driver to change the keyboard shortcut, returning whether the change was applied.
-    ///
-    /// The shortcut is passed through untouched: the driver owns what counts as a valid
-    /// combination, and reports an unusable one as `false`. Failures fold into `false` the same
-    /// way [`Self::set_autotype_enabled`] does.
+    /// Sets the keyboard shortcut used for executing Autotype.
+    /// Returns if setting the keyboard shortcut was successful or not.
     async fn set_autotype_keyboard_shortcut(&self, shortcut: Vec<String>) -> bool {
         self.runner
             .run_in_thread(move |driver| async move {
@@ -142,11 +141,9 @@ impl JsAutotypeDriver {
             })
     }
 
-    /// Asks the driver for the applications currently running.
-    ///
-    /// Entries are deserialized one at a time and a malformed one is skipped, so a single
-    /// unreadable process does not cost the caller the whole list. A driver that throws, cannot be
-    /// reached, or resolves with anything that is not an array yields an empty list.
+    /// Retrieves the currently running apps.
+    /// Returns a Vec of `AutotypeRunningApp`. Apps that don't match the
+    /// `AutotypeRunningApp` model are filtered out.
     async fn list_running_apps(&self) -> Vec<AutotypeRunningApp> {
         self.runner
             .run_in_thread(|driver| async move {
@@ -158,14 +155,16 @@ impl JsAutotypeDriver {
                     }
                 };
 
-                // Rejects `null` and `undefined` along with every other non-array. Warn rather
-                // than error: a driver that is not implemented on this platform reports that by
-                // resolving with nothing, which is expected rather than broken.
+                // This converts value (a `JsValue`) into an Array.
+                // This is critical for rejecting `null`, `undefined`, and other non-array values
+                // that could have been passed from the JavaScript side.
                 let Ok(array) = value.dyn_into::<js_sys::Array>() else {
                     tracing::warn!("Autotype driver returned a non-array of running apps");
                     return Vec::new();
                 };
 
+                // Filter through `array`, keeping entries that deserialize correctly
+                // into the `AutotypeRunningApp` type. This filters out (skips) bad entries.
                 array
                     .iter()
                     .filter_map(|entry| match serde_wasm_bindgen::from_value(entry) {
@@ -188,13 +187,13 @@ impl JsAutotypeDriver {
     }
 }
 
-/// Whether a request came from the desktop renderer, the only client allowed to drive Autotype.
+/// Determines if a request came from the desktop render process.
 ///
-/// Main's IPC client also carries the browser extension and CLI over native messaging, so handlers
-/// call this before touching the driver. A rejection is logged with the request's
+/// A rejection is logged with the request's
 /// [`RpcRequest::NAME`] and the source it came from.
 fn from_renderer(info: &RpcRequestInfo, request: &str) -> bool {
     let allowed = matches!(info.source, Source::DesktopRenderer);
+
     if !allowed {
         tracing::warn!(
             request,
@@ -261,8 +260,7 @@ impl RpcHandler for AutotypeSetEnabledHandler {
 /// A request asking the receiving client to change the keyboard shortcut Autotype is triggered by.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutotypeSetKeyboardShortcutRequest {
-    /// The shortcut to use, as its individual keys — modifiers first, the base key last. Carried
-    /// through unvalidated; the receiving client decides what it accepts.
+    /// The shortcut used to execute Autotype.
     pub shortcut: Vec<String>,
 }
 
@@ -315,7 +313,7 @@ impl RpcHandler for AutotypeSetKeyboardShortcutHandler {
     }
 }
 
-/// A request asking the receiving client for the applications it currently has running.
+/// A request asking the receiving client for the applications that are currently running.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutotypeListRunningAppsRequest;
 
@@ -323,8 +321,7 @@ pub struct AutotypeListRunningAppsRequest;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[bitwarden_ffi::wasm_record]
 pub struct AutotypeListRunningAppsResponse {
-    /// The applications currently running. Empty when none were found, and also when the
-    /// receiving client could not determine them.
+    /// The applications currently running.
     pub apps: Vec<AutotypeRunningApp>,
 }
 
@@ -366,13 +363,10 @@ impl RpcHandler for AutotypeListRunningAppsHandler {
     }
 }
 
-/// Registers the handlers so that the client responds to Autotype requests by driving the platform
-/// Autotype implementation through the supplied [`RawJsAutotypeDriver`].
-///
-/// This belongs within the desktop main process, which owns the global shortcut. Every handler
-/// shares one runner, so all of them reach the same driver instance.
-#[bitwarden_ffi::wasm_export(js_name = autotypeRegisterHandlers)]
-pub async fn autotype_register_handlers(ipc_client: &JsIpcClient, driver: RawJsAutotypeDriver) {
+/// This registers the Autotype handlers so the client responds to Autotype requests through
+/// the `RawJsAutotypeDriver`.
+#[bitwarden_ffi::wasm_export(js_name = registerAutotypeHandlers)]
+pub async fn register_autotype_handlers(ipc_client: &JsIpcClient, driver: RawJsAutotypeDriver) {
     let runner = ThreadBoundRunner::new(driver);
 
     ipc_client
@@ -439,8 +433,8 @@ pub async fn autotype_request_set_keyboard_shortcut(
 
 /// Asks the desktop main process which applications are currently running.
 ///
-/// An empty list means either that nothing was found or that the main process could not determine
-/// it; the two are not distinguished.
+/// An empty list could mean there are no apps running, or that the apps running
+/// didn't have the matching data needed for use with Autotype.
 ///
 /// There is no built-in timeout: the request waits until main responds or `abort_signal` aborts,
 /// so pass a signal (for example `AbortSignal.timeout(ms)`) when the wait needs a bound.

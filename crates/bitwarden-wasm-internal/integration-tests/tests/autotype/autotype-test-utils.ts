@@ -3,8 +3,8 @@ import {
   AutotypeRunningApp,
   IpcClient,
   Source,
-  autotypeRegisterHandlers,
   init_sdk,
+  registerAutotypeHandlers,
 } from "@bitwarden/sdk-internal";
 
 import { makeMockTransportPair } from "../utils";
@@ -96,7 +96,7 @@ export async function setupClientPair(
   await main.start();
   await renderer.start();
 
-  await autotypeRegisterHandlers(main, driver);
+  await registerAutotypeHandlers(main, driver);
 
   return { main, renderer };
 }
