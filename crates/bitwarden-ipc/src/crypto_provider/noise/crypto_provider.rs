@@ -6,6 +6,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     crypto_provider::noise::{
+        NOISE_MAX_MESSAGE_LEN, NOISE_TAG_LEN,
         handshake::{
             CipherSuite, HandshakeFinishMessage, HandshakeInitiator, HandshakeResponder,
             HandshakeStartMessage,
@@ -192,6 +193,10 @@ where
     type Session = NoiseCryptoProviderState;
     type SendError = NoiseCryptoProviderError;
     type ReceiveError = NoiseCryptoProviderError;
+
+    fn max_payload_len(&self) -> usize {
+        NOISE_MAX_MESSAGE_LEN - NOISE_TAG_LEN
+    }
 
     async fn send(
         &self,

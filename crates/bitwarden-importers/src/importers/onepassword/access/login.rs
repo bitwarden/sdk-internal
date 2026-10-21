@@ -5,6 +5,7 @@
 //! when the account requires it.
 
 use serde_json::json;
+use zeroize::Zeroizing;
 
 use super::{
     account_key::AccountKey,
@@ -26,8 +27,8 @@ const MAX_DEVICE_ATTEMPTS: u32 = 2;
 const AUTH_METHODS_ENDPOINT: &str = "v2/auth/methods";
 const PASSWORD_METHOD: &str = "PASSWORD+SK";
 const SSO_METHOD: &str = "OIDC";
-const AUTH_START_ENDPOINT: &str = "v3/auth/start";
-const AUTH_COMPLETE_ENDPOINT: &str = "v2/auth/complete";
+pub(super) const AUTH_START_ENDPOINT: &str = "v3/auth/start";
+pub(super) const AUTH_COMPLETE_ENDPOINT: &str = "v2/auth/complete";
 
 /// How an account can sign in. An account may offer both.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -99,10 +100,12 @@ pub(super) async fn login_attempt(
     let session_rest = rest.with_session_id(&session_id)?;
 
     // Step 2: Perform SRP exchange and verify key
-    let session_key = srp::perform_and_verify(
-        credentials,
-        account_key,
-        &srp_info,
+    let srp_x = Zeroizing::new(srp::compute_x(credentials, account_key, &srp_info)?);
+    let session_key = srp::perform_and_verify_with_x(
+        srp_x.as_slice(),
+        &credentials.username,
+        &account_key.uuid,
+        srp_info.salt(),
         &session_id,
         &session_rest,
     )

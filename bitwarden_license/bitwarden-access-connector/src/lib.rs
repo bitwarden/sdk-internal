@@ -10,3 +10,7 @@ bitwarden_commercial_marker::commercial_crate!();
 
 /// CLI argument definitions (exposed for `main.rs`).
 pub mod cli;
+
+/// Retry decisions, safe report details and startup errors.
+#[allow(dead_code)]
+pub mod error;

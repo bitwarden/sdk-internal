@@ -14,10 +14,15 @@ const BASE32_ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
 const DEVICE_UUID_LENGTH: usize = 26;
 const DEVICE_ENDPOINT: &str = "v1/device";
 
+/// Shown in the account's device list, so it names us rather than a 1Password client.
+const DEVICE_NAME: &str = "Bitwarden";
+
+/// The `model` of the SSO device descriptors is this crate's version.
+const SSO_DEVICE_MODEL: &str = env!("CARGO_PKG_VERSION");
+
 /// Generates a 26-character 1Password device id from the lowercase base32 alphabet.
 ///
-/// A fresh id per import is expected: the login registers it with the account and nothing uses it
-/// afterwards.
+/// Every login takes a fresh one: the account sees each import as a new device.
 pub(super) fn generate_device_uuid() -> String {
     let mut rng = bitwarden_random::rng();
     (0..DEVICE_UUID_LENGTH)
@@ -65,11 +70,30 @@ impl ClientInfo {
             "uuid": self.device_uuid,
             "clientName": self.client_name,
             "clientVersion": self.client_version,
-            // Shown in the account's device list, so it names us rather than a 1Password client.
-            "name": "Bitwarden",
+            "name": DEVICE_NAME,
             "osName": PLATFORM.os_name,
             "userAgent": self.user_agent,
         })
+    }
+
+    /// The device descriptor of `v3/auth/sso/oidc/verify`.
+    pub(super) fn sso_verify_device_body(&self) -> Value {
+        json!({
+            "uuid": self.device_uuid,
+            "clientName": self.client_name,
+            "clientVersion": self.client_version,
+            "osName": PLATFORM.os_name,
+            "osVersion": "",
+            "name": DEVICE_NAME,
+            "model": SSO_DEVICE_MODEL,
+        })
+    }
+
+    /// The device descriptor of `v2/auth/complete`: the verify one plus the user agent.
+    pub(super) fn sso_complete_device_body(&self) -> Value {
+        let mut body = self.sso_verify_device_body();
+        body["userAgent"] = self.user_agent.clone().into();
+        body
     }
 }
 
