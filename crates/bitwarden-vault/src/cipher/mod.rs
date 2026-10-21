@@ -27,8 +27,8 @@ pub use attachment_client::{
     CipherAdminGetAttachmentDownloadUrlError, CipherCreateAttachmentError,
     CipherDeleteAttachmentError, CipherGetAttachmentDownloadUrlError,
     CipherRenewFileUploadUrlError, CipherUpgradeAttachmentError, CreateAttachmentAdminError,
-    CreateAttachmentRequest, CreatedAttachment, DecryptFileError, DeleteAttachmentAdminError,
-    EncryptFileError,
+    CreateAttachmentRequest, CreatedAttachment, DecryptEmergencyAccessAttachmentError,
+    DecryptFileError, DeleteAttachmentAdminError, EncryptFileError,
 };
 pub use bank_account::{BankAccountListView, BankAccountView};
 pub use blob::{BlobEncryptionError, SealedCipherBlobError};
