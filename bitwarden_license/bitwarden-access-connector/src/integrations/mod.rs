@@ -73,12 +73,13 @@ pub(crate) struct RotateContext {
     pub(crate) rotation_started_at: DateTime<Utc>,
 }
 
-// Hand-written to keep new_password and creds out of the output.
+// Hand-written to keep new_password, creds and account_identity (often a UPN/email) out of the
+// output.
 impl std::fmt::Debug for RotateContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RotateContext")
             .field("target_system_id", &self.target_system_id)
-            .field("account_identity", &self.account_identity)
+            .field("account_identity", &"[REDACTED]")
             .field("new_password", &"[REDACTED]")
             .field("rotation_started_at", &self.rotation_started_at)
             .finish()
@@ -185,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn rotate_context_debug_redacts_password() {
+    fn rotate_context_debug_redacts_password_and_identity() {
         let ctx = RotateContext {
             target_system_id: Uuid::nil(),
             account_identity: "user@example.com".to_string(),
@@ -197,6 +198,10 @@ mod tests {
         assert!(
             !debug.contains("super-secret-pw"),
             "password leaked: {debug}"
+        );
+        assert!(
+            !debug.contains("user@example.com"),
+            "account identity leaked: {debug}"
         );
         assert!(debug.contains("REDACTED"));
     }
