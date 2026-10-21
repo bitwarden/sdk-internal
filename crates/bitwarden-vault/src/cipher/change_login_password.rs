@@ -3,7 +3,10 @@ use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
-use super::cipher::{Cipher, CipherType, CipherView, EncryptMode, StrictDecrypt};
+use super::{
+    cipher::{Cipher, CipherType, CipherView, EncryptMode, StrictDecrypt},
+    cipher_client::should_use_blob_encryption,
+};
 
 /// Error returned by [`Cipher::change_login_password`].
 #[bitwarden_error(flat)]
@@ -48,20 +51,30 @@ impl Cipher {
         }
         view.update_password_history(&original);
 
-        // Legacy: field-level encryption. The blob format is behind a client feature flag this
-        // function cannot see, and organization cipher writes outside a user session use
-        // field-level encryption.
-        Ok(key_store.encrypt(EncryptMode::Legacy(view))?)
+        // The security state picks the format, as in the edit flows. Organization ciphers stay
+        // field-level until the helper supports them (PM-32430), then switch here automatically.
+        let use_blob = should_use_blob_encryption(&key_store.context(), view.organization_id);
+        let mode = if use_blob {
+            EncryptMode::Blob(view)
+        } else {
+            EncryptMode::Legacy(view)
+        };
+        Ok(key_store.encrypt(mode)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::{SymmetricKeySlotId, create_test_crypto_with_user_key};
+    use bitwarden_core::key_management::{
+        BLOB_SECURITY_VERSION, SymmetricKeySlotId, create_test_crypto_with_user_key,
+    };
     use bitwarden_crypto::{Decryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::{LoginUriView, LoginView, PasswordHistoryView, cipher::CipherRepromptType};
+    use crate::{
+        LoginUriView, LoginView, PasswordHistoryView,
+        cipher::{CipherRepromptType, blob::try_parse_blob},
+    };
 
     fn key_store() -> KeyStore<KeySlotIds> {
         create_test_crypto_with_user_key(SymmetricCryptoKey::make(
@@ -162,6 +175,37 @@ mod tests {
         assert_eq!(history[0].password, "old-password");
         assert_eq!(history[1].password, "older-password");
         assert!(view.login.unwrap().password_revision_date.is_some());
+    }
+
+    #[test]
+    fn keeps_legacy_format_below_blob_version() {
+        let key_store = key_store();
+        let cipher = encrypt(&key_store, login_view());
+
+        let changed = cipher
+            .change_login_password(&key_store, "new-password")
+            .unwrap();
+
+        assert!(try_parse_blob(&changed).is_none());
+    }
+
+    #[test]
+    fn uses_blob_format_at_blob_version() {
+        let key_store = key_store();
+        key_store.set_security_state_version(BLOB_SECURITY_VERSION);
+        let cipher = key_store.encrypt(EncryptMode::Blob(login_view())).unwrap();
+
+        let changed = cipher
+            .change_login_password(&key_store, "new-password")
+            .unwrap();
+
+        assert!(try_parse_blob(&changed).is_some());
+        let view: CipherView = key_store.decrypt(&changed).unwrap();
+        assert_eq!(
+            view.login.unwrap().password.as_deref(),
+            Some("new-password")
+        );
+        assert_eq!(view.password_history.unwrap()[0].password, "old-password");
     }
 
     #[test]
