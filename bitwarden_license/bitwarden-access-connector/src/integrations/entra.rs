@@ -66,22 +66,13 @@ impl EntraIntegration {
     /// Test constructor pointing at wiremock servers, with `verify` polling disabled.
     #[cfg(test)]
     fn new_with_bases(verify_probe: bool, login_base: String, graph_base: String) -> Self {
-        // The throwaway client installs the ring provider (idempotent); the real one allows http:// for wiremock.
-        let _ = bitwarden_api_base::new_http_client_builder()
-            .build()
-            .expect("provider install client");
-        let http = reqwest::Client::builder()
-            .timeout(HTTP_TIMEOUT)
-            .build()
-            .expect("test HTTP client build should not fail");
-        Self {
-            http,
+        Self::new_with_bases_and_settle(
             verify_probe,
             login_base,
             graph_base,
-            verify_max_wait: Duration::ZERO,
-            verify_poll_interval: Duration::ZERO,
-        }
+            Duration::ZERO,
+            Duration::ZERO,
+        )
     }
 
     /// Like `new_with_bases`, with explicit `verify` polling timings.
@@ -93,6 +84,7 @@ impl EntraIntegration {
         verify_max_wait: Duration,
         verify_poll_interval: Duration,
     ) -> Self {
+        // The throwaway client installs the ring provider (idempotent); the real one allows http:// for wiremock.
         let _ = bitwarden_api_base::new_http_client_builder()
             .build()
             .expect("provider install client");
@@ -109,6 +101,159 @@ impl EntraIntegration {
             verify_poll_interval,
         }
     }
+
+    /// Token endpoint URL for `tenant_id`, built from `login_base`.
+    fn token_url(&self, tenant_id: &str) -> Result<Url, IntegrationError> {
+        let invalid = || IntegrationError {
+            retry: Retry::Permanent,
+            effect: TargetEffect::NotApplied,
+            code: RotationFailureCode::TargetUnreachable,
+            detail: SafeDetail::from_kind("InvalidLoginBase"),
+        };
+        let mut token_url = Url::parse(&self.login_base).map_err(|_| invalid())?;
+        {
+            let mut segments = token_url.path_segments_mut().map_err(|_| invalid())?;
+            segments.push(tenant_id);
+            segments.push("oauth2");
+            segments.push("v2.0");
+            segments.push("token");
+        }
+        Ok(token_url)
+    }
+
+    /// Fetch a Graph bearer token by client-credentials grant. The client secret goes only into the
+    /// form body.
+    async fn graph_token(&self, creds: &EntraCredentials<'_>) -> Result<String, IntegrationError> {
+        let token_url = self.token_url(creds.tenant_id)?;
+
+        let form = [
+            ("grant_type", "client_credentials"),
+            ("scope", GRAPH_SCOPE),
+            ("client_id", creds.client_id),
+            ("client_secret", creds.client_secret),
+        ];
+
+        let response = self
+            .http
+            .post(token_url.as_str())
+            .form(&form)
+            .send()
+            .await
+            .map_err(|e| network_error_before_send(e, TargetEffect::NotApplied))?;
+
+        let status = response.status();
+        let status_u16 = status.as_u16();
+
+        if status.is_success() {
+            let body: TokenResponse = response.json().await.map_err(|_| IntegrationError {
+                retry: Retry::Permanent,
+                effect: TargetEffect::NotApplied,
+                code: RotationFailureCode::TargetRejected,
+                detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
+            })?;
+            return Ok(body.access_token);
+        }
+
+        if status_u16 == 400 || status_u16 == 401 {
+            Err(IntegrationError {
+                retry: Retry::Permanent,
+                effect: TargetEffect::NotApplied,
+                code: RotationFailureCode::TargetRejected,
+                detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
+            })
+        } else {
+            Err(IntegrationError {
+                retry: Retry::Transient,
+                effect: TargetEffect::NotApplied,
+                code: RotationFailureCode::TargetUnreachable,
+                detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
+            })
+        }
+    }
+
+    /// Build a Graph user URL with `identity` as one opaque path segment. `push` encodes slashes
+    /// and percent sequences, so attacker-influenced input cannot inject a path.
+    fn graph_user_url(
+        &self,
+        identity: &str,
+        extra_segments: &[&str],
+    ) -> Result<Url, IntegrationError> {
+        let invalid = || IntegrationError {
+            retry: Retry::Permanent,
+            effect: TargetEffect::NotApplied,
+            code: RotationFailureCode::TargetUnreachable,
+            detail: SafeDetail::from_kind("InvalidGraphBase"),
+        };
+        let mut url = Url::parse(&self.graph_base).map_err(|_| invalid())?;
+        {
+            let mut segs = url.path_segments_mut().map_err(|_| invalid())?;
+            segs.push("v1.0");
+            segs.push("users");
+            segs.push(identity);
+            for &seg in extra_segments {
+                segs.push(seg);
+            }
+        }
+        Ok(url)
+    }
+
+    /// Attempt an ROPC grant with the new password, which goes only into the form body and is never
+    /// stored, logged or returned.
+    async fn ropc_probe(
+        &self,
+        creds: &EntraCredentials<'_>,
+        account_identity: &str,
+        new_password: &str,
+    ) -> ProbeResult {
+        let token_url = match self.token_url(creds.tenant_id) {
+            Ok(u) => u,
+            Err(_) => return ProbeResult::Inconclusive,
+        };
+
+        let form = [
+            ("grant_type", "password"),
+            ("scope", GRAPH_SCOPE),
+            ("client_id", creds.client_id),
+            ("username", account_identity),
+            ("password", new_password),
+        ];
+
+        let response = match self.http.post(token_url.as_str()).form(&form).send().await {
+            Ok(r) => r,
+            Err(_) => return ProbeResult::Inconclusive,
+        };
+
+        if response.status().is_success() {
+            // Token issued without MFA challenge; password accepted.
+            return ProbeResult::Verified;
+        }
+
+        // Parse the AADSTS code: the first colon/whitespace-delimited token in `error_description`.
+        let body = match response.bytes().await {
+            Ok(b) => b,
+            Err(_) => return ProbeResult::Inconclusive,
+        };
+
+        let parsed: serde_json::Value = match serde_json::from_slice(&body) {
+            Ok(v) => v,
+            Err(_) => return ProbeResult::Inconclusive,
+        };
+
+        if let Some(desc) = parsed.get("error_description").and_then(|v| v.as_str()) {
+            let aadsts_code = desc
+                .split(|c: char| c == ':' || c.is_whitespace())
+                .next()
+                .unwrap_or("");
+
+            return match aadsts_code {
+                "AADSTS50076" | "AADSTS50079" => ProbeResult::Verified,
+                "AADSTS50126" => ProbeResult::WrongPassword,
+                _ => ProbeResult::Inconclusive,
+            };
+        }
+
+        ProbeResult::Inconclusive
+    }
 }
 
 impl std::fmt::Debug for EntraIntegration {
@@ -118,80 +263,6 @@ impl std::fmt::Debug for EntraIntegration {
             .field("verify_max_wait", &self.verify_max_wait)
             .field("verify_poll_interval", &self.verify_poll_interval)
             .finish_non_exhaustive()
-    }
-}
-
-/// Fetch a Graph bearer token by client-credentials grant. The client secret goes only into the
-/// form body.
-async fn fetch_graph_token(
-    http: &Client,
-    login_base: &str,
-    tenant_id: &str,
-    client_id: &str,
-    client_secret: &str,
-) -> Result<String, IntegrationError> {
-    let mut token_url = Url::parse(login_base).map_err(|_| IntegrationError {
-        retry: Retry::Permanent,
-        effect: TargetEffect::NotApplied,
-        code: RotationFailureCode::TargetUnreachable,
-        detail: SafeDetail::from_kind("InvalidLoginBase"),
-    })?;
-    {
-        let mut segments = token_url
-            .path_segments_mut()
-            .map_err(|_| IntegrationError {
-                retry: Retry::Permanent,
-                effect: TargetEffect::NotApplied,
-                code: RotationFailureCode::TargetUnreachable,
-                detail: SafeDetail::from_kind("InvalidLoginBase"),
-            })?;
-        segments.push(tenant_id);
-        segments.push("oauth2");
-        segments.push("v2.0");
-        segments.push("token");
-    }
-
-    let form = [
-        ("grant_type", "client_credentials"),
-        ("scope", GRAPH_SCOPE),
-        ("client_id", client_id),
-        ("client_secret", client_secret),
-    ];
-
-    let response = http
-        .post(token_url.as_str())
-        .form(&form)
-        .send()
-        .await
-        .map_err(|e| network_error_before_send(e, TargetEffect::NotApplied))?;
-
-    let status = response.status();
-    let status_u16 = status.as_u16();
-
-    if status.is_success() {
-        let body: TokenResponse = response.json().await.map_err(|_| IntegrationError {
-            retry: Retry::Permanent,
-            effect: TargetEffect::NotApplied,
-            code: RotationFailureCode::TargetRejected,
-            detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
-        })?;
-        return Ok(body.access_token);
-    }
-
-    if status_u16 == 400 || status_u16 == 401 {
-        Err(IntegrationError {
-            retry: Retry::Permanent,
-            effect: TargetEffect::NotApplied,
-            code: RotationFailureCode::TargetRejected,
-            detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
-        })
-    } else {
-        Err(IntegrationError {
-            retry: Retry::Transient,
-            effect: TargetEffect::NotApplied,
-            code: RotationFailureCode::TargetUnreachable,
-            detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
-        })
     }
 }
 
@@ -217,36 +288,6 @@ struct GraphError {
 struct GraphErrorInner {
     #[serde(default)]
     code: Option<String>,
-}
-
-/// Build a Graph user URL with `identity` as one opaque path segment. `push` encodes slashes and
-/// percent sequences, so attacker-influenced input cannot inject a path.
-fn build_graph_user_url(
-    graph_base: &str,
-    identity: &str,
-    extra_segments: &[&str],
-) -> Result<Url, IntegrationError> {
-    let mut url = Url::parse(graph_base).map_err(|_| IntegrationError {
-        retry: Retry::Permanent,
-        effect: TargetEffect::NotApplied,
-        code: RotationFailureCode::TargetUnreachable,
-        detail: SafeDetail::from_kind("InvalidGraphBase"),
-    })?;
-    {
-        let mut segs = url.path_segments_mut().map_err(|_| IntegrationError {
-            retry: Retry::Permanent,
-            effect: TargetEffect::NotApplied,
-            code: RotationFailureCode::TargetUnreachable,
-            detail: SafeDetail::from_kind("InvalidGraphBase"),
-        })?;
-        segs.push("v1.0");
-        segs.push("users");
-        segs.push(identity);
-        for &seg in extra_segments {
-            segs.push(seg);
-        }
-    }
-    Ok(url)
 }
 
 /// Maps a send error for a request with no credential effect; always Transient.
@@ -312,20 +353,10 @@ impl Integration for EntraIntegration {
     /// Reset the password with `PATCH /v1.0/users/{identity}` and a `passwordProfile` body.
     /// 429 is `NotApplied`, 5xx is `Unknown`, other rejections are permanent.
     async fn rotate(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
-        let tenant_id = get_cred(&ctx.creds, "TENANT_ID")?;
-        let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
-        let client_secret = get_cred(&ctx.creds, "CLIENT_SECRET")?;
+        let creds = EntraCredentials::from_ctx(ctx)?;
+        let bearer = self.graph_token(&creds).await?;
 
-        let bearer = fetch_graph_token(
-            &self.http,
-            &self.login_base,
-            tenant_id,
-            client_id,
-            client_secret,
-        )
-        .await?;
-
-        let url = build_graph_user_url(&self.graph_base, &ctx.account_identity, &[])?;
+        let url = self.graph_user_url(&ctx.account_identity, &[])?;
 
         // The new password is sent in the JSON body; it is never logged.
         let patch_body = serde_json::json!({
@@ -387,34 +418,17 @@ impl Integration for EntraIntegration {
     /// poll up to `verify_max_wait` for a fresh `lastPasswordChangeDateTime`. Errors carry
     /// `Applied`.
     async fn verify(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
-        let tenant_id = get_cred(&ctx.creds, "TENANT_ID")?;
-        let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
-        let client_secret = get_cred(&ctx.creds, "CLIENT_SECRET")?;
-
-        let bearer = fetch_graph_token(
-            &self.http,
-            &self.login_base,
-            tenant_id,
-            client_id,
-            client_secret,
-        )
-        .await
-        .map_err(|mut e| {
+        let creds = EntraCredentials::from_ctx(ctx)?;
+        let bearer = self.graph_token(&creds).await.map_err(|mut e| {
             // The rotation already applied.
             e.effect = TargetEffect::Applied;
             e
         })?;
 
         if self.verify_probe {
-            let probe_result = ropc_probe(
-                &self.http,
-                &self.login_base,
-                tenant_id,
-                client_id,
-                &ctx.account_identity,
-                ctx.new_password.as_str(),
-            )
-            .await;
+            let probe_result = self
+                .ropc_probe(&creds, &ctx.account_identity, ctx.new_password.as_str())
+                .await;
 
             match probe_result {
                 ProbeResult::Verified => return Ok(()),
@@ -433,7 +447,7 @@ impl Integration for EntraIntegration {
         }
 
         // Directory poll: tolerates Graph eventual-consistency lag.
-        let mut url = build_graph_user_url(&self.graph_base, &ctx.account_identity, &[])?;
+        let mut url = self.graph_user_url(&ctx.account_identity, &[])?;
         url.set_query(Some("$select=lastPasswordChangeDateTime"));
 
         let deadline = tokio::time::Instant::now() + self.verify_max_wait;
@@ -512,24 +526,10 @@ impl Integration for EntraIntegration {
     /// Revoke sign-in sessions with `POST /v1.0/users/{identity}/revokeSignInSessions`. Errors
     /// carry `NotApplied`, since termination never changes the credential.
     async fn terminate_sessions(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
-        let tenant_id = get_cred(&ctx.creds, "TENANT_ID")?;
-        let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
-        let client_secret = get_cred(&ctx.creds, "CLIENT_SECRET")?;
+        let creds = EntraCredentials::from_ctx(ctx)?;
+        let bearer = self.graph_token(&creds).await?;
 
-        let bearer = fetch_graph_token(
-            &self.http,
-            &self.login_base,
-            tenant_id,
-            client_id,
-            client_secret,
-        )
-        .await?;
-
-        let url = build_graph_user_url(
-            &self.graph_base,
-            &ctx.account_identity,
-            &["revokeSignInSessions"],
-        )?;
+        let url = self.graph_user_url(&ctx.account_identity, &["revokeSignInSessions"])?;
 
         let response = self
             .http
@@ -580,73 +580,21 @@ enum ProbeResult {
     Inconclusive,
 }
 
-/// Attempt an ROPC grant with the new password, which goes only into the form body and is never
-/// stored, logged or returned.
-async fn ropc_probe(
-    http: &Client,
-    login_base: &str,
-    tenant_id: &str,
-    client_id: &str,
-    account_identity: &str,
-    new_password: &str,
-) -> ProbeResult {
-    let mut token_url = match Url::parse(login_base) {
-        Ok(u) => u,
-        Err(_) => return ProbeResult::Inconclusive,
-    };
-    match token_url.path_segments_mut() {
-        Ok(mut segs) => {
-            segs.push(tenant_id);
-            segs.push("oauth2");
-            segs.push("v2.0");
-            segs.push("token");
-        }
-        Err(_) => return ProbeResult::Inconclusive,
+/// The app-registration credentials every Graph call needs, borrowed from the resolved credentials.
+struct EntraCredentials<'a> {
+    tenant_id: &'a str,
+    client_id: &'a str,
+    client_secret: &'a str,
+}
+
+impl<'a> EntraCredentials<'a> {
+    fn from_ctx(ctx: &'a RotateContext) -> Result<Self, IntegrationError> {
+        Ok(Self {
+            tenant_id: get_cred(&ctx.creds, "TENANT_ID")?,
+            client_id: get_cred(&ctx.creds, "CLIENT_ID")?,
+            client_secret: get_cred(&ctx.creds, "CLIENT_SECRET")?,
+        })
     }
-
-    let form = [
-        ("grant_type", "password"),
-        ("scope", GRAPH_SCOPE),
-        ("client_id", client_id),
-        ("username", account_identity),
-        ("password", new_password),
-    ];
-
-    let response = match http.post(token_url.as_str()).form(&form).send().await {
-        Ok(r) => r,
-        Err(_) => return ProbeResult::Inconclusive,
-    };
-
-    if response.status().is_success() {
-        // Token issued without MFA challenge; password accepted.
-        return ProbeResult::Verified;
-    }
-
-    // Parse the AADSTS code: the first colon/whitespace-delimited token in `error_description`.
-    let body = match response.bytes().await {
-        Ok(b) => b,
-        Err(_) => return ProbeResult::Inconclusive,
-    };
-
-    let parsed: serde_json::Value = match serde_json::from_slice(&body) {
-        Ok(v) => v,
-        Err(_) => return ProbeResult::Inconclusive,
-    };
-
-    if let Some(desc) = parsed.get("error_description").and_then(|v| v.as_str()) {
-        let aadsts_code = desc
-            .split(|c: char| c == ':' || c.is_whitespace())
-            .next()
-            .unwrap_or("");
-
-        return match aadsts_code {
-            "AADSTS50076" | "AADSTS50079" => ProbeResult::Verified,
-            "AADSTS50126" => ProbeResult::WrongPassword,
-            _ => ProbeResult::Inconclusive,
-        };
-    }
-
-    ProbeResult::Inconclusive
 }
 
 /// Look up a required credential suffix, or fail with `credentials_unresolved` naming only the
@@ -729,6 +677,15 @@ mod tests {
 
     fn integration(login: &MockServer, graph: &MockServer, verify_probe: bool) -> EntraIntegration {
         EntraIntegration::new_with_bases(verify_probe, login.uri(), graph.uri())
+    }
+
+    fn graph_user_url_for(identity: &str) -> Result<Url, IntegrationError> {
+        EntraIntegration::new_with_bases(
+            false,
+            DEFAULT_LOGIN_BASE.to_owned(),
+            DEFAULT_GRAPH_BASE.to_owned(),
+        )
+        .graph_user_url(identity, &[])
     }
 
     #[tokio::test]
@@ -1188,7 +1145,7 @@ mod tests {
 
     #[test]
     fn hostile_identity_slash_encoded() {
-        let url = build_graph_user_url("https://graph.microsoft.com", "a/b", &[]).unwrap();
+        let url = graph_user_url_for("a/b").unwrap();
         let path = url.path();
         assert!(
             path.contains("a%2Fb") || path.contains("a%2fb"),
@@ -1202,7 +1159,7 @@ mod tests {
 
     #[test]
     fn hostile_identity_dotdot_does_not_traverse() {
-        let url = build_graph_user_url("https://graph.microsoft.com", "..", &[]).unwrap();
+        let url = graph_user_url_for("..").unwrap();
         assert!(
             !url.as_str().contains("/../"),
             "dotdot must not appear as a path traversal: {url}"
@@ -1211,7 +1168,7 @@ mod tests {
 
     #[test]
     fn hostile_identity_query_char_encoded() {
-        let url = build_graph_user_url("https://graph.microsoft.com", "x?$filter=1", &[]).unwrap();
+        let url = graph_user_url_for("x?$filter=1").unwrap();
         let path = url.path();
         assert!(
             path.contains("x%3F") || path.contains("x%3f"),
@@ -1225,7 +1182,7 @@ mod tests {
 
     #[test]
     fn hostile_identity_percent_encoded_dotdot_not_decoded() {
-        let url = build_graph_user_url("https://graph.microsoft.com", "%2e%2e", &[]).unwrap();
+        let url = graph_user_url_for("%2e%2e").unwrap();
         assert!(
             !url.as_str().contains("/../"),
             "percent-encoded dotdot must not resolve to traversal: {url}"
