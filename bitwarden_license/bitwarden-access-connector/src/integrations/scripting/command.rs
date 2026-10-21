@@ -104,12 +104,12 @@ pub(crate) fn resolve_script_path(
 
     let canonical = fs
         .canonicalize(&raw_path)
-        .map_err(|_| misconfigured("ScriptNotFound"))?;
+        .map_err(|e| misconfigured("ScriptNotFound").with_source(e))?;
 
     if let Some(root) = script_root {
         let canonical_root = fs
             .canonicalize(root)
-            .map_err(|_| misconfigured("ScriptRootInvalid"))?;
+            .map_err(|e| misconfigured("ScriptRootInvalid").with_source(e))?;
 
         if !canonical.starts_with(&canonical_root) {
             return Err(misconfigured("ScriptOutsideRoot"));

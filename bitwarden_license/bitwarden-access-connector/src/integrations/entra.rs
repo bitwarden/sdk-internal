@@ -104,15 +104,18 @@ impl EntraIntegration {
 
     /// Token endpoint URL for `tenant_id`, built from `login_base`.
     fn token_url(&self, tenant_id: &str) -> Result<Url, IntegrationError> {
-        let invalid = || IntegrationError {
-            retry: Retry::Permanent,
-            effect: TargetEffect::NotApplied,
-            code: RotationFailureCode::TargetUnreachable,
-            detail: SafeDetail::from_kind("InvalidLoginBase"),
+        let invalid = || {
+            IntegrationError::new(
+                Retry::Permanent,
+                TargetEffect::NotApplied,
+                RotationFailureCode::TargetUnreachable,
+                SafeDetail::from_kind("InvalidLoginBase"),
+            )
         };
-        let mut token_url = Url::parse(&self.login_base).map_err(|_| invalid())?;
+        let mut token_url = Url::parse(&self.login_base).map_err(|e| invalid().with_source(e))?;
         {
-            let mut segments = token_url.path_segments_mut().map_err(|_| invalid())?;
+            // `path_segments_mut` fails with `()`, so there is no cause to keep.
+            let mut segments = token_url.path_segments_mut().map_err(|()| invalid())?;
             segments.push(tenant_id);
             segments.push("oauth2");
             segments.push("v2.0");
@@ -145,29 +148,32 @@ impl EntraIntegration {
         let status_u16 = status.as_u16();
 
         if status.is_success() {
-            let body: TokenResponse = response.json().await.map_err(|_| IntegrationError {
-                retry: Retry::Permanent,
-                effect: TargetEffect::NotApplied,
-                code: RotationFailureCode::TargetRejected,
-                detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
+            let body: TokenResponse = response.json().await.map_err(|e| {
+                IntegrationError::new(
+                    Retry::Permanent,
+                    TargetEffect::NotApplied,
+                    RotationFailureCode::TargetRejected,
+                    SafeDetail::from_http_status_and_graph_code(status_u16, None),
+                )
+                .with_source(e)
             })?;
             return Ok(body.access_token);
         }
 
         if status_u16 == 400 || status_u16 == 401 {
-            Err(IntegrationError {
-                retry: Retry::Permanent,
-                effect: TargetEffect::NotApplied,
-                code: RotationFailureCode::TargetRejected,
-                detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
-            })
+            Err(IntegrationError::new(
+                Retry::Permanent,
+                TargetEffect::NotApplied,
+                RotationFailureCode::TargetRejected,
+                SafeDetail::from_http_status_and_graph_code(status_u16, None),
+            ))
         } else {
-            Err(IntegrationError {
-                retry: Retry::Transient,
-                effect: TargetEffect::NotApplied,
-                code: RotationFailureCode::TargetUnreachable,
-                detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
-            })
+            Err(IntegrationError::new(
+                Retry::Transient,
+                TargetEffect::NotApplied,
+                RotationFailureCode::TargetUnreachable,
+                SafeDetail::from_http_status_and_graph_code(status_u16, None),
+            ))
         }
     }
 
@@ -178,15 +184,18 @@ impl EntraIntegration {
         identity: &str,
         extra_segments: &[&str],
     ) -> Result<Url, IntegrationError> {
-        let invalid = || IntegrationError {
-            retry: Retry::Permanent,
-            effect: TargetEffect::NotApplied,
-            code: RotationFailureCode::TargetUnreachable,
-            detail: SafeDetail::from_kind("InvalidGraphBase"),
+        let invalid = || {
+            IntegrationError::new(
+                Retry::Permanent,
+                TargetEffect::NotApplied,
+                RotationFailureCode::TargetUnreachable,
+                SafeDetail::from_kind("InvalidGraphBase"),
+            )
         };
-        let mut url = Url::parse(&self.graph_base).map_err(|_| invalid())?;
+        let mut url = Url::parse(&self.graph_base).map_err(|e| invalid().with_source(e))?;
         {
-            let mut segs = url.path_segments_mut().map_err(|_| invalid())?;
+            // `path_segments_mut` fails with `()`, so there is no cause to keep.
+            let mut segs = url.path_segments_mut().map_err(|()| invalid())?;
             segs.push("v1.0");
             segs.push("users");
             segs.push(identity);
@@ -292,41 +301,44 @@ struct GraphErrorInner {
 
 /// Maps a send error for a request with no credential effect; always Transient.
 fn network_error_before_send(e: reqwest::Error, effect: TargetEffect) -> IntegrationError {
-    IntegrationError {
-        retry: Retry::Transient,
+    IntegrationError::new(
+        Retry::Transient,
         effect,
-        code: RotationFailureCode::TargetUnreachable,
-        detail: if e.is_timeout() {
+        RotationFailureCode::TargetUnreachable,
+        if e.is_timeout() {
             SafeDetail::from_kind("ConnectTimeout")
         } else if e.is_connect() {
             SafeDetail::from_kind("ConnectError")
         } else {
             SafeDetail::from_kind("NetworkError")
         },
-    }
+    )
+    .with_source(e)
 }
 
 /// Maps a send error for a mutation. A connect error stays `Transient` with `pre_send_effect`;
 /// anything else is `Unknown`, since the mutation may have reached Graph.
 fn network_error_after_send(e: reqwest::Error, pre_send_effect: TargetEffect) -> IntegrationError {
     if e.is_connect() {
-        IntegrationError {
-            retry: Retry::Transient,
-            effect: pre_send_effect,
-            code: RotationFailureCode::TargetUnreachable,
-            detail: SafeDetail::from_kind("ConnectError"),
-        }
+        IntegrationError::new(
+            Retry::Transient,
+            pre_send_effect,
+            RotationFailureCode::TargetUnreachable,
+            SafeDetail::from_kind("ConnectError"),
+        )
+        .with_source(e)
     } else {
-        IntegrationError {
-            retry: Retry::Permanent,
-            effect: TargetEffect::Unknown,
-            code: RotationFailureCode::TargetUnreachable,
-            detail: if e.is_timeout() {
+        IntegrationError::new(
+            Retry::Permanent,
+            TargetEffect::Unknown,
+            RotationFailureCode::TargetUnreachable,
+            if e.is_timeout() {
                 SafeDetail::from_kind("ResponseTimeout")
             } else {
                 SafeDetail::from_kind("NetworkError")
             },
-        }
+        )
+        .with_source(e)
     }
 }
 
@@ -406,12 +418,12 @@ impl Integration for EntraIntegration {
                 RotationFailureCode::TargetRejected,
             ),
         };
-        Err(IntegrationError {
+        Err(IntegrationError::new(
             retry,
             effect,
             code,
-            detail: SafeDetail::from_http_status_and_graph_code(status_u16, graph_code_ref),
-        })
+            SafeDetail::from_http_status_and_graph_code(status_u16, graph_code_ref),
+        ))
     }
 
     /// Verify with the optional ROPC probe first (authoritative, immune to replication lag), then
@@ -433,12 +445,12 @@ impl Integration for EntraIntegration {
             match probe_result {
                 ProbeResult::Verified => return Ok(()),
                 ProbeResult::WrongPassword => {
-                    return Err(IntegrationError {
-                        retry: Retry::Permanent,
-                        effect: TargetEffect::Applied,
-                        code: RotationFailureCode::VerificationFailed,
-                        detail: SafeDetail::from_kind("RopcWrongPassword"),
-                    });
+                    return Err(IntegrationError::new(
+                        Retry::Permanent,
+                        TargetEffect::Applied,
+                        RotationFailureCode::VerificationFailed,
+                        SafeDetail::from_kind("RopcWrongPassword"),
+                    ));
                 }
                 ProbeResult::Inconclusive => {
                     // Fall through to the directory poll.
@@ -459,12 +471,15 @@ impl Integration for EntraIntegration {
                 .bearer_auth(&bearer)
                 .send()
                 .await
-                .map_err(|_| IntegrationError {
+                .map_err(|e| {
                     // Network error during verify: password was already changed.
-                    retry: Retry::Transient,
-                    effect: TargetEffect::Applied,
-                    code: RotationFailureCode::TargetUnreachable,
-                    detail: SafeDetail::from_kind("NetworkError"),
+                    IntegrationError::new(
+                        Retry::Transient,
+                        TargetEffect::Applied,
+                        RotationFailureCode::TargetUnreachable,
+                        SafeDetail::from_kind("NetworkError"),
+                    )
+                    .with_source(e)
                 })?;
 
             let status = response.status();
@@ -480,19 +495,22 @@ impl Integration for EntraIntegration {
                 } else {
                     Retry::Permanent
                 };
-                return Err(IntegrationError {
+                return Err(IntegrationError::new(
                     retry,
-                    effect: TargetEffect::Applied,
-                    code: RotationFailureCode::TargetUnreachable,
+                    TargetEffect::Applied,
+                    RotationFailureCode::TargetUnreachable,
                     detail,
-                });
+                ));
             }
 
-            let user: UserResource = response.json().await.map_err(|_| IntegrationError {
-                retry: Retry::Permanent,
-                effect: TargetEffect::Applied,
-                code: RotationFailureCode::VerificationFailed,
-                detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
+            let user: UserResource = response.json().await.map_err(|e| {
+                IntegrationError::new(
+                    Retry::Permanent,
+                    TargetEffect::Applied,
+                    RotationFailureCode::VerificationFailed,
+                    SafeDetail::from_http_status_and_graph_code(status_u16, None),
+                )
+                .with_source(e)
             })?;
 
             let is_fresh = match user.last_password_change_date_time {
@@ -510,12 +528,12 @@ impl Integration for EntraIntegration {
             let now = tokio::time::Instant::now();
             if now >= deadline {
                 // Budget exhausted; a zero verify_max_wait means a single check.
-                return Err(IntegrationError {
-                    retry: Retry::Permanent,
-                    effect: TargetEffect::Applied,
-                    code: RotationFailureCode::VerificationFailed,
-                    detail: SafeDetail::from_kind("StalePasswordChangeTimestamp"),
-                });
+                return Err(IntegrationError::new(
+                    Retry::Permanent,
+                    TargetEffect::Applied,
+                    RotationFailureCode::VerificationFailed,
+                    SafeDetail::from_kind("StalePasswordChangeTimestamp"),
+                ));
             }
             let remaining = deadline - now;
             let sleep_for = self.verify_poll_interval.min(remaining);
@@ -551,20 +569,20 @@ impl Integration for EntraIntegration {
         let detail = SafeDetail::from_http_status_and_graph_code(status_u16, graph_code.as_deref());
 
         if status_u16 == 429 || status_u16 >= 500 {
-            Err(IntegrationError {
-                retry: Retry::Transient,
-                effect: TargetEffect::NotApplied,
-                code: RotationFailureCode::TargetUnreachable,
+            Err(IntegrationError::new(
+                Retry::Transient,
+                TargetEffect::NotApplied,
+                RotationFailureCode::TargetUnreachable,
                 detail,
-            })
+            ))
         } else {
             // 4xx
-            Err(IntegrationError {
-                retry: Retry::Permanent,
-                effect: TargetEffect::NotApplied,
-                code: RotationFailureCode::TargetRejected,
+            Err(IntegrationError::new(
+                Retry::Permanent,
+                TargetEffect::NotApplied,
+                RotationFailureCode::TargetRejected,
                 detail,
-            })
+            ))
         }
     }
 }
@@ -606,11 +624,13 @@ fn get_cred<'a>(
     creds
         .get(suffix)
         .map(|s| s.expose().as_ref() as &str)
-        .ok_or_else(|| IntegrationError {
-            retry: Retry::Permanent,
-            effect: TargetEffect::NotApplied,
-            code: RotationFailureCode::CredentialsUnresolved,
-            detail: SafeDetail::from_kind(suffix),
+        .ok_or_else(|| {
+            IntegrationError::new(
+                Retry::Permanent,
+                TargetEffect::NotApplied,
+                RotationFailureCode::CredentialsUnresolved,
+                SafeDetail::from_kind(suffix),
+            )
         })
 }
 

@@ -160,12 +160,12 @@ impl Integration for CustomScriptIntegration {
 /// A failure caused by missing or invalid operator configuration; nothing ran, so the target is
 /// untouched.
 fn misconfigured(kind: &'static str) -> IntegrationError {
-    IntegrationError {
-        retry: Retry::Permanent,
-        effect: TargetEffect::NotApplied,
-        code: RotationFailureCode::CredentialsUnresolved,
-        detail: SafeDetail::from_kind(kind),
-    }
+    IntegrationError::new(
+        Retry::Permanent,
+        TargetEffect::NotApplied,
+        RotationFailureCode::CredentialsUnresolved,
+        SafeDetail::from_kind(kind),
+    )
 }
 
 /// The JSON document written to the script's stdin.
@@ -207,7 +207,7 @@ fn payload_json(operation: Operation, ctx: &RotateContext) -> Result<Vec<u8>, In
         credentials,
     };
 
-    serde_json::to_vec(&payload).map_err(|_| InvokeError::Serialize)
+    serde_json::to_vec(&payload).map_err(InvokeError::Serialize)
 }
 
 #[cfg(test)]
@@ -371,7 +371,7 @@ mod tests {
             (Operation::Verify, TargetEffect::Applied),
             (Operation::Terminate, TargetEffect::NotApplied),
         ] {
-            let err = outcome_of(RecordingRunner::failing(InvokeError::Timeout), operation)
+            let err = outcome_of(RecordingRunner::failing(|| InvokeError::Timeout), operation)
                 .await
                 .unwrap_err();
             assert_eq!(

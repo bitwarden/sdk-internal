@@ -36,7 +36,7 @@
 pub(crate) mod entra;
 pub(crate) mod scripting;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 use async_trait::async_trait;
 use bitwarden_pam::{RotationFailureCode, RotationSyncState};
@@ -72,25 +72,43 @@ impl From<TargetEffect> for RotationSyncState {
 }
 
 /// An error returned by any [`Integration`] operation, carrying what the failure report needs.
-#[derive(Debug)]
+///
+/// Only `retry`, `effect`, `code` and `detail` reach the failure report. `source` holds the raw
+/// cause for local debugging and must stay out of both `Display` and anything built from `Debug`
+/// for the report: it can contain URLs and account identities.
+#[derive(Debug, thiserror::Error)]
+#[error("{retry:?}/{effect:?} ({code:?}): {detail}")]
 pub(crate) struct IntegrationError {
     pub(crate) retry: Retry,
     pub(crate) effect: TargetEffect,
     pub(crate) code: RotationFailureCode,
     pub(crate) detail: SafeDetail,
+    #[source]
+    source: Option<Box<dyn Error + Send + Sync>>,
 }
 
-impl std::fmt::Display for IntegrationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?}/{:?} ({:?}): {}",
-            self.retry, self.effect, self.code, self.detail
-        )
+impl IntegrationError {
+    pub(crate) fn new(
+        retry: Retry,
+        effect: TargetEffect,
+        code: RotationFailureCode,
+        detail: SafeDetail,
+    ) -> Self {
+        Self {
+            retry,
+            effect,
+            code,
+            detail,
+            source: None,
+        }
+    }
+
+    /// Keeps `cause` for local debugging; it never reaches `Display` or the failure report.
+    pub(crate) fn with_source(mut self, cause: impl Into<Box<dyn Error + Send + Sync>>) -> Self {
+        self.source = Some(cause.into());
+        self
     }
 }
-
-impl std::error::Error for IntegrationError {}
 
 /// Input to every [`Integration`] operation, built from the claim and the resolved credentials.
 pub(crate) struct RotateContext {
@@ -204,15 +222,29 @@ mod tests {
 
     #[test]
     fn integration_error_display() {
-        let e = IntegrationError {
-            retry: Retry::Permanent,
-            effect: TargetEffect::NotApplied,
-            code: RotationFailureCode::ScriptFailed,
-            detail: SafeDetail::from_exit_code(1),
-        };
+        let e = IntegrationError::new(
+            Retry::Permanent,
+            TargetEffect::NotApplied,
+            RotationFailureCode::ScriptFailed,
+            SafeDetail::from_exit_code(1),
+        );
         let s = e.to_string();
         assert!(s.contains("ScriptFailed"));
         assert!(s.contains("exit code 1"));
+    }
+
+    #[test]
+    fn integration_error_display_excludes_the_source() {
+        let e = IntegrationError::new(
+            Retry::Transient,
+            TargetEffect::Unknown,
+            RotationFailureCode::TargetUnreachable,
+            SafeDetail::from_kind("NetworkError"),
+        )
+        .with_source(std::io::Error::other("SECRET-SENTINEL user@example.com"));
+        assert!(!e.to_string().contains("SECRET-SENTINEL"));
+        let source = Error::source(&e).expect("source is kept");
+        assert!(source.to_string().contains("SECRET-SENTINEL"));
     }
 
     #[test]

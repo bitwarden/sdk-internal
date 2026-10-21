@@ -22,33 +22,38 @@ pub(crate) fn classify_outcome(
         Ok(ScriptExit::Code(0)) => Ok(()),
         Ok(exit) => Err(exit_error(exit, operation)),
         Err(InvokeError::Timeout) => Err(timeout_error(operation, timeout_secs)),
-        Err(InvokeError::StdinWrite) => Err(script_io_error(operation, "ScriptStdinWriteFailed")),
-        Err(InvokeError::Wait) => Err(script_io_error(operation, "ScriptWaitFailed")),
-        Err(InvokeError::Serialize | InvokeError::Spawn) => Err(IntegrationError {
-            retry: Retry::Permanent,
-            effect: TargetEffect::NotApplied,
-            code: RotationFailureCode::Internal,
-            detail: SafeDetail::from_kind("ScriptSpawnError"),
-        }),
+        Err(e @ InvokeError::StdinWrite(_)) => {
+            Err(script_io_error(operation, "ScriptStdinWriteFailed").with_source(e))
+        }
+        Err(e @ InvokeError::Wait(_)) => {
+            Err(script_io_error(operation, "ScriptWaitFailed").with_source(e))
+        }
+        Err(e @ (InvokeError::Serialize(_) | InvokeError::Spawn(_))) => Err(IntegrationError::new(
+            Retry::Permanent,
+            TargetEffect::NotApplied,
+            RotationFailureCode::Internal,
+            SafeDetail::from_kind("ScriptSpawnError"),
+        )
+        .with_source(e)),
     }
 }
 
 fn script_io_error(operation: Operation, kind: &'static str) -> IntegrationError {
-    IntegrationError {
-        retry: Retry::Permanent,
-        effect: operation.effect_if_interrupted(),
-        code: RotationFailureCode::Internal,
-        detail: SafeDetail::from_kind(kind),
-    }
+    IntegrationError::new(
+        Retry::Permanent,
+        operation.effect_if_interrupted(),
+        RotationFailureCode::Internal,
+        SafeDetail::from_kind(kind),
+    )
 }
 
 fn timeout_error(operation: Operation, timeout_secs: u64) -> IntegrationError {
-    IntegrationError {
-        retry: Retry::Permanent,
-        effect: operation.effect_on_timeout(),
-        code: RotationFailureCode::ScriptTimeout,
-        detail: SafeDetail::timed_out(timeout_secs),
-    }
+    IntegrationError::new(
+        Retry::Permanent,
+        operation.effect_on_timeout(),
+        RotationFailureCode::ScriptTimeout,
+        SafeDetail::timed_out(timeout_secs),
+    )
 }
 
 fn exit_error(exit: ScriptExit, operation: Operation) -> IntegrationError {
@@ -83,17 +88,16 @@ fn exit_error(exit: ScriptExit, operation: Operation) -> IntegrationError {
             (Retry::Permanent, operation.effect_if_interrupted(), detail)
         }
     };
-    IntegrationError {
-        retry,
-        effect,
-        code: RotationFailureCode::ScriptFailed,
-        detail,
-    }
+    IntegrationError::new(retry, effect, RotationFailureCode::ScriptFailed, detail)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn io_error() -> std::io::Error {
+        std::io::Error::other("test io failure")
+    }
 
     #[test]
     fn classify_outcome_maps_the_exit_code_table() {
@@ -168,12 +172,17 @@ mod tests {
 
     #[test]
     fn classify_outcome_does_not_claim_rotate_left_the_target_alone() {
-        for err in [InvokeError::StdinWrite, InvokeError::Wait] {
-            let rotate = classify_outcome(Err(err.clone()), Operation::Rotate, 60).unwrap_err();
+        let errors: [fn() -> InvokeError; 2] = [
+            || InvokeError::StdinWrite(io_error()),
+            || InvokeError::Wait(io_error()),
+        ];
+        for make in errors {
+            let err = make();
+            let rotate = classify_outcome(Err(make()), Operation::Rotate, 60).unwrap_err();
             assert_eq!(rotate.effect, TargetEffect::Unknown, "{err:?}");
 
             for operation in [Operation::Verify, Operation::Terminate] {
-                let other = classify_outcome(Err(err.clone()), operation, 60).unwrap_err();
+                let other = classify_outcome(Err(make()), operation, 60).unwrap_err();
                 assert_eq!(
                     other.effect,
                     TargetEffect::NotApplied,
@@ -185,18 +194,36 @@ mod tests {
 
     #[test]
     fn classify_outcome_names_the_failing_stage() {
-        let write =
-            classify_outcome(Err(InvokeError::StdinWrite), Operation::Rotate, 60).unwrap_err();
+        let write = classify_outcome(
+            Err(InvokeError::StdinWrite(io_error())),
+            Operation::Rotate,
+            60,
+        )
+        .unwrap_err();
         assert_eq!(write.detail.as_str(), "error kind: ScriptStdinWriteFailed");
 
-        let wait = classify_outcome(Err(InvokeError::Wait), Operation::Rotate, 60).unwrap_err();
+        let wait = classify_outcome(Err(InvokeError::Wait(io_error())), Operation::Rotate, 60)
+            .unwrap_err();
         assert_eq!(wait.detail.as_str(), "error kind: ScriptWaitFailed");
     }
 
     #[test]
     fn classify_outcome_reports_a_spawn_failure_as_internal() {
-        let spawn = classify_outcome(Err(InvokeError::Spawn), Operation::Rotate, 60).unwrap_err();
+        let spawn = classify_outcome(Err(InvokeError::Spawn(io_error())), Operation::Rotate, 60)
+            .unwrap_err();
         assert_eq!(spawn.code, RotationFailureCode::Internal);
         assert_eq!(spawn.detail.as_str(), "error kind: ScriptSpawnError");
+    }
+
+    #[test]
+    fn classify_outcome_keeps_the_invoke_error_as_the_source() {
+        for err in [
+            InvokeError::Spawn(io_error()),
+            InvokeError::StdinWrite(io_error()),
+            InvokeError::Wait(io_error()),
+        ] {
+            let err = classify_outcome(Err(err), Operation::Rotate, 60).unwrap_err();
+            assert!(std::error::Error::source(&err).is_some());
+        }
     }
 }

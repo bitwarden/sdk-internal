@@ -8,17 +8,22 @@ use tokio::{process::Command, time};
 use super::command::CommandSpec;
 
 /// Internal errors from script invocation, translated by `classify_outcome`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum InvokeError {
     /// The stdin payload could not be serialized.
-    Serialize,
+    #[error("payload serialization failed")]
+    Serialize(#[source] serde_json::Error),
     /// The process could not be started.
-    Spawn,
+    #[error("script spawn failed")]
+    Spawn(#[source] std::io::Error),
     /// Writing the payload to the process's stdin failed.
-    StdinWrite,
+    #[error("script stdin write failed")]
+    StdinWrite(#[source] std::io::Error),
     /// Waiting for the process to exit failed.
-    Wait,
+    #[error("script wait failed")]
+    Wait(#[source] std::io::Error),
     /// The process outlived its timeout and was killed.
+    #[error("script timed out")]
     Timeout,
 }
 
@@ -83,16 +88,16 @@ impl ScriptRunner for ProcessScriptRunner {
             .stderr(std::process::Stdio::null())
             .kill_on_drop(true)
             .spawn()
-            .map_err(|_| InvokeError::Spawn)?;
+            .map_err(InvokeError::Spawn)?;
 
         let run = async {
             if let Some(mut stdin) = child.stdin.take() {
                 stdin
                     .write_all(payload)
                     .await
-                    .map_err(|_| InvokeError::StdinWrite)?;
+                    .map_err(InvokeError::StdinWrite)?;
             }
-            child.wait().await.map_err(|_| InvokeError::Wait)
+            child.wait().await.map_err(InvokeError::Wait)
         };
 
         match time::timeout(timeout, run).await {
@@ -109,7 +114,7 @@ impl ScriptRunner for ProcessScriptRunner {
 /// A [`ScriptRunner`] that records what it was asked to run and returns a canned outcome.
 #[cfg(test)]
 pub(crate) struct RecordingRunner {
-    reply: Result<ScriptExit, InvokeError>,
+    reply: Result<ScriptExit, fn() -> InvokeError>,
     calls: std::sync::Mutex<Vec<(CommandSpec, Vec<u8>)>>,
 }
 
@@ -123,10 +128,10 @@ impl RecordingRunner {
         }
     }
 
-    /// A runner whose every invocation fails with `err`.
-    pub(crate) fn failing(err: InvokeError) -> Self {
+    /// A runner whose every invocation fails with a fresh error from `make`.
+    pub(crate) fn failing(make: fn() -> InvokeError) -> Self {
         Self {
-            reply: Err(err),
+            reply: Err(make),
             calls: std::sync::Mutex::new(Vec::new()),
         }
     }
@@ -158,6 +163,9 @@ impl ScriptRunner for RecordingRunner {
             .lock()
             .expect("recorder lock")
             .push((spec, payload.to_vec()));
-        self.reply.clone()
+        match self.reply {
+            Ok(exit) => Ok(exit),
+            Err(make) => Err(make()),
+        }
     }
 }
