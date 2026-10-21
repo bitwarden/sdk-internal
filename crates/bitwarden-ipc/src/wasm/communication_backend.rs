@@ -174,13 +174,22 @@ impl CommunicationBackend for JsCommunicationBackend {
         // the call; treat any failure as Unsupported so the broadcast fails closed.
         self.sender
             .run_in_thread(|sender| async move {
-                sender
-                    .resolve(group)
-                    .await
-                    .unwrap_or(BroadcastResolution::Unsupported)
+                sender.resolve(group).await.unwrap_or_else(|error| {
+                    tracing::warn!(
+                        ?error,
+                        "Broadcast group resolution failed in the JS backend, treating as unsupported"
+                    );
+                    BroadcastResolution::Unsupported
+                })
             })
             .await
-            .unwrap_or(BroadcastResolution::Unsupported)
+            .unwrap_or_else(|error| {
+                tracing::warn!(
+                    ?error,
+                    "Failed to run broadcast group resolution, treating as unsupported"
+                );
+                BroadcastResolution::Unsupported
+            })
     }
 
     async fn subscribe(&self) -> Self::Receiver {
