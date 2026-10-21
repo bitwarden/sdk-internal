@@ -1,14 +1,14 @@
-//! Error taxonomy: retry classification, safe report details, and startup errors.
+//! Retry decisions, safe report details and startup errors.
 
 use thiserror::Error;
 
-/// Whether an integration or server error is worth a local retry.
+/// Whether a failed operation is worth retrying.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ErrorClass {
-    /// The error is likely temporary; the operation may be retried after a delay.
+pub(crate) enum Retry {
+    /// Likely temporary; retry after a backoff.
     Transient,
-    /// The error is permanent; retrying would not help.
-    Fatal,
+    /// Retrying would not help.
+    Permanent,
 }
 
 /// A bounded, zero-knowledge detail for a failure report. It is built only from vetted scalars
