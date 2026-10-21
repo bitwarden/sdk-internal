@@ -1,4 +1,8 @@
-import { isEncryptionSettingsError, type PasswordManagerClient } from "@bitwarden/sdk-internal";
+import {
+  isEncryptionSettingsError,
+  type PasswordManagerClient,
+  type SymmetricKey,
+} from "@bitwarden/sdk-internal";
 
 import type { ClientEmulator } from "../../client-emulator/client-emulator";
 import { IGNORED_FIELDS, validateVault } from "../../client-emulator/validate";
@@ -23,6 +27,13 @@ const NOT_ROTATABLE = ["v1-pbkdf2-password"];
 
 /** Enough consecutive rotations that a second one cannot pass by reusing the first one's state. */
 const ROTATION_COUNT = 3;
+
+/** A V1 user key is AES-256-CBC-HMAC: 32 bytes of encryption key plus 32 of MAC key. */
+const V1_USER_KEY_BYTES = 64;
+
+/** A V2 user key is a COSE key, which carries more than the raw 32 bytes of key material. */
+const isV2UserKey = (key: SymmetricKey | null) =>
+  key !== null && Buffer.from(key as unknown as string, "base64").length > V1_USER_KEY_BYTES;
 
 /** A key id the account never had, to tell "refused the downgrade" from "ignored the payload". */
 const REPLAYED_KEY_ID = asKeyId("0f0e0d0c0b0a09080706050403020100");
@@ -309,6 +320,83 @@ describe("rotate user keys", () => {
 
       // 3. Verify the vault reads again, with the plaintext unchanged
       await assertVaultDecrypts(second, seeded);
+    },
+    TIMEOUT,
+  );
+
+  /**
+   * Another device upgrades the account to V2. A client that syncs the upgrade has to persist the V2
+   * user key. Otherwise its next rebuild reads the stale V1 key back out of state and is prompted
+   * to rotate again, which signs every device out.
+   *
+   *   device   ──unlock(K1)──────────────────────┬── sync ─▶ state holds K2
+   *                                              │
+   *   rotating ──unlock(K1)──rotate──▶ K2 ───────┘
+   */
+  it(
+    "persists the V2 user key when an unlocked client syncs an upgrade from another device",
+    async () => {
+      // 1. A device unlocked on V1, and a second device that upgrades the account
+      const seeded = harness.server.seedUserTestVector(V1_VECTOR);
+      const device = harness.newClientEmulator();
+      await device.login(seeded.email);
+      await device.unlock(V1_VECTOR.account.password);
+      const rotatingDevice = harness.newClientEmulator();
+      await rotatingDevice.login(seeded.email);
+      await rotatingDevice.unlock(V1_VECTOR.account.password);
+      await rotate(
+        rotatingDevice.getPasswordManagerClient(),
+        V1_VECTOR.account.password,
+        "CreateIfNeeded",
+      );
+      expect(isV2UserKey(await device.bridge.get_user_key())).toBe(false);
+
+      // 2. The device syncs the upgrade, with no explicit re-initialization
+      await device.sync(seeded.email);
+
+      // 3. Verify the state holds the V2 key, and the vault reads
+      expect(isV2UserKey(await device.bridge.get_user_key())).toBe(true);
+      await assertVaultDecrypts(device, seeded);
+    },
+    TIMEOUT,
+  );
+
+  /**
+   * A client rebuilt from state that still holds the V1 key upgrades it in memory through the
+   * upgrade token, and has to write the V2 key back to state.
+   *
+   *   state    ── K1 + upgrade token ──▶ initialize(ClientManagedState) ──▶ K2 in memory and state
+   */
+  it(
+    "persists the V2 user key when a client rebuilds from state holding the V1 key",
+    async () => {
+      // 1. A device unlocked on V1, and a second device that upgrades the account
+      const seeded = harness.server.seedUserTestVector(V1_VECTOR);
+      const device = harness.newClientEmulator();
+      await device.login(seeded.email);
+      await device.unlock(V1_VECTOR.account.password);
+      const staleUserKey = await device.bridge.get_user_key();
+      const rotatingDevice = harness.newClientEmulator();
+      await rotatingDevice.login(seeded.email);
+      await rotatingDevice.unlock(V1_VECTOR.account.password);
+      await rotate(
+        rotatingDevice.getPasswordManagerClient(),
+        V1_VECTOR.account.password,
+        "CreateIfNeeded",
+      );
+
+      // 2. The device syncs the upgrade, then the state is put back to what a client that missed
+      //    the write would hold
+      await device.sync(seeded.email);
+      await device.bridge.set_user_key(staleUserKey!);
+      expect(isV2UserKey(await device.bridge.get_user_key())).toBe(false);
+
+      // 3. The sync-driven rebuild
+      await device.unlockWith({ clientManagedState: {} });
+
+      // 4. Verify the state holds the V2 key, and the vault reads
+      expect(isV2UserKey(await device.bridge.get_user_key())).toBe(true);
+      await assertVaultDecrypts(device, seeded);
     },
     TIMEOUT,
   );
