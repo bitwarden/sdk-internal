@@ -23,7 +23,7 @@ mod target_systems;
 mod validate;
 
 pub use actions::{RotationConfigActions, rotation_config_actions};
-pub use cipher::{RotationCipherError, decrypt_cipher_for_rotation, rotate_cipher_password};
+pub use cipher::{RotationCipherError, rotate_cipher_password};
 pub use claim::{SealRejection, VerifiedJob, WorkSnapshot, WorkSnapshotError};
 pub use configs::{
     RotationConfigCreateRequest, RotationConfigDetailView, RotationConfigSealedFields,
