@@ -1006,19 +1006,7 @@ impl CipherView {
         Ok(())
     }
 
-    /// Records password changes relative to `original_cipher` in this view's
-    /// [`password_history`](CipherView::password_history).
-    ///
-    /// Two kinds of change are detected:
-    /// - A changed login password. The previous password is recorded. This also updates the login's
-    ///   `password_revision_date`: set to now when the password was added or changed, and carried
-    ///   over from the original when unchanged.
-    /// - Changed hidden custom fields (see `FieldView::detect_hidden_field_changes`).
-    ///
-    /// The resulting history lists the new entries first, newest first, followed by the original's
-    /// existing history, and is truncated to `MAX_PASSWORD_HISTORY_ENTRIES`. Any history already
-    /// on `self` is replaced.
-    pub fn update_password_history(&mut self, original_cipher: &CipherView) {
+    pub(crate) fn update_password_history(&mut self, original_cipher: &CipherView) {
         let changes = self
             .login
             .as_mut()
@@ -1719,12 +1707,9 @@ impl IdentifyKey<SymmetricKeySlotId> for CipherListView {
 /// This is a transitional type gated behind the `PM-34500-strict_cipher_decryption` feature flag.
 /// It will eventually replace the default lenient [Decryptable] implementations.
 ///
-/// Public for callers that re-encrypt a decrypted cipher, such as the PAM access connector: lenient
-/// decryption would silently drop undecryptable fields and the re-encrypt would wipe them.
-///
 /// TODO [PM-34531]: Remove StrictDecrypt and `PM-34500-strict_cipher_decryption` feature flag
 /// after feature has fully rolled out.
-pub struct StrictDecrypt<T>(pub T);
+pub(crate) struct StrictDecrypt<T>(pub(crate) T);
 
 impl IdentifyKey<SymmetricKeySlotId> for StrictDecrypt<Cipher> {
     fn key_identifier(&self) -> SymmetricKeySlotId {
@@ -2224,8 +2209,6 @@ impl TryFrom<CipherResponseModel> for Cipher {
     }
 }
 
-/// Converts a mini response, which carries no user-specific state (folder, favorite,
-/// permissions).
 impl TryFrom<CipherMiniResponseModel> for Cipher {
     type Error = VaultParseError;
 
