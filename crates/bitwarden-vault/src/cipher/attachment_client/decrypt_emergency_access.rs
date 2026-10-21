@@ -6,7 +6,6 @@ use super::AttachmentsClient;
 use crate::{AttachmentView, cipher::attachment::decrypt_with_attachment_key};
 
 /// Errors returned when decrypting an attachment of a grantor's vault item.
-#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum DecryptEmergencyAccessAttachmentError {
