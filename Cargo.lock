@@ -495,9 +495,30 @@ checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
 name = "bitwarden-access-connector"
 version = "4.0.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
+ "bitwarden-access-token",
+ "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-commercial-marker",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-pam",
+ "bitwarden-sensitive-value",
+ "bitwarden-state",
+ "chrono",
  "clap",
+ "http",
+ "reqwest",
+ "reqwest-middleware",
+ "serde",
+ "serde_json",
  "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
+ "wiremock",
 ]
 
 [[package]]

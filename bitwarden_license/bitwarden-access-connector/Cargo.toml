@@ -16,9 +16,33 @@ name = "bwac"
 path = "src/main.rs"
 
 [dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bitwarden-access-token = { workspace = true }
+bitwarden-api-api = { workspace = true }
+bitwarden-api-base = { workspace = true }
 bitwarden-commercial-marker = { workspace = true }
+bitwarden-core = { workspace = true }
+bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
+bitwarden-pam = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
+bitwarden-state = { workspace = true }
 clap = { workspace = true, features = ["env"] }
+http = { workspace = true }
+reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros", "time", "sync"] }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }
+tokio = { workspace = true, features = ["rt", "test-util"] }
+wiremock = { workspace = true }
 
 [lints]
 workspace = true
