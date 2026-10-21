@@ -3,6 +3,7 @@
 mod accept;
 mod approve;
 mod confirm;
+mod decrypt_attachment;
 mod delete;
 mod emergency_access;
 mod emergency_access_client;
@@ -23,6 +24,7 @@ mod view_vault_items;
 pub use accept::EmergencyAccessAcceptError;
 pub use approve::EmergencyAccessApproveError;
 pub use confirm::EmergencyAccessConfirmError;
+pub use decrypt_attachment::EmergencyAccessDecryptAttachmentError;
 pub use delete::EmergencyAccessDeleteError;
 pub use emergency_access::{
     EmergencyAccessId, EmergencyAccessStatus, EmergencyAccessType, GranteeEmergencyAccess,
