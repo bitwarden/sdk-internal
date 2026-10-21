@@ -20,7 +20,7 @@ pub enum SealedTargetSystemMethod {
 }
 
 /// Connector plugin that rotates an automatic target.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum SealedTargetSystemKind {
     /// Microsoft Entra ID.

@@ -18,6 +18,7 @@ path = "src/main.rs"
 [dependencies]
 bitwarden-commercial-marker = { workspace = true }
 clap = { workspace = true, features = ["env"] }
+thiserror = { workspace = true }
 
 [lints]
 workspace = true
