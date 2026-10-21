@@ -236,16 +236,14 @@ pub(crate) fn strings(sealed: Sealed) -> SealedStrings {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::models::CipherMiniResponseModel;
-    use bitwarden_vault::{Cipher, StrictDecrypt};
+    use bitwarden_vault::Cipher;
 
     use super::*;
 
     fn strict_view(vector: &str) -> (Cipher, CipherView) {
         let model: CipherMiniResponseModel = serde_json::from_str(vector).expect("model");
         let cipher = Cipher::try_from(model).expect("cipher");
-        let view: CipherView = org_store()
-            .decrypt(&StrictDecrypt(cipher.clone()))
-            .expect("strict decrypt");
+        let view: CipherView = org_store().decrypt(&cipher).expect("decrypt");
         (cipher, view)
     }
 
