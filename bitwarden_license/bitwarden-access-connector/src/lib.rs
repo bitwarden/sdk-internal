@@ -8,8 +8,7 @@
 
 bitwarden_commercial_marker::commercial_crate!();
 
-// Links bitwarden-crypto's global `ZeroizingAllocator`, which wipes heap memory on free. Secrets
-// (new passwords, resolved credentials) are plain `String`s and rely on it.
+// Links bitwarden-crypto's global `ZeroizingAllocator`, which wipes heap memory on free.
 use bitwarden_crypto as _;
 
 /// CLI argument definitions (exposed for `main.rs`).

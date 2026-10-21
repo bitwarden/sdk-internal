@@ -60,8 +60,6 @@ impl std::fmt::Display for IntegrationError {
 impl std::error::Error for IntegrationError {}
 
 /// Input to every [`Integration`] operation, built from the claim and the resolved credentials.
-/// Heap memory is wiped on free by the global `ZeroizingAllocator` (linked by
-/// bitwarden-crypto).
 pub(crate) struct RotateContext {
     pub(crate) target_system_id: Uuid,
     /// The opaque account identity string (e.g. a user principal name or object id).

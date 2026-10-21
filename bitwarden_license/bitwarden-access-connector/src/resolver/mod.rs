@@ -12,8 +12,7 @@ use bitwarden_sensitive_value::Sensitive;
 use uuid::Uuid;
 
 /// Resolved credentials keyed by suffix, the env var name after the `<TARGET_ID>_` prefix (e.g.
-/// `CLIENT_SECRET`). Values are [`Sensitive<String>`]; heap memory is wiped on free by the global
-/// `ZeroizingAllocator` (linked by bitwarden-crypto).
+/// `CLIENT_SECRET`).
 #[derive(Debug)]
 pub(crate) struct ResolvedCredentials {
     inner: HashMap<String, Sensitive<String>>,
