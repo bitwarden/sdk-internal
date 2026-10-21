@@ -4,7 +4,7 @@ use std::{future::Future, time::Duration};
 
 use tokio::time::Instant;
 
-use crate::error::ErrorClass;
+use crate::error::Retry;
 
 /// Configuration for the retry helpers.
 #[derive(Debug, Clone)]
@@ -37,8 +37,8 @@ pub(crate) enum GatedOutcome<T, E, A> {
     Failed(E),
 }
 
-/// Retry `op` with exponential backoff. [`ErrorClass::Fatal`] returns at once;
-/// [`ErrorClass::Transient`] retries until the tries run out or `deadline` passes, with sleeps
+/// Retry `op` with exponential backoff. [`Retry::Permanent`] returns at once;
+/// [`Retry::Transient`] retries until the tries run out or `deadline` passes, with sleeps
 /// truncated to it.
 pub(crate) async fn with_retries<F, Fut, T, E>(
     cfg: &RetryCfg,
@@ -47,7 +47,7 @@ pub(crate) async fn with_retries<F, Fut, T, E>(
 ) -> Result<T, E>
 where
     F: FnMut() -> Fut,
-    Fut: Future<Output = Result<T, (ErrorClass, E)>>,
+    Fut: Future<Output = Result<T, (Retry, E)>>,
 {
     let max_tries = cfg.max_retry_attempts.max(1);
     let base = cfg.retry_base_delay;
@@ -56,8 +56,8 @@ where
     for attempt in 0..max_tries {
         match op().await {
             Ok(v) => return Ok(v),
-            Err((ErrorClass::Fatal, e)) => return Err(e),
-            Err((ErrorClass::Transient, e)) => {
+            Err((Retry::Permanent, e)) => return Err(e),
+            Err((Retry::Transient, e)) => {
                 last_err = Some(e);
 
                 if attempt + 1 >= max_tries {
@@ -91,7 +91,7 @@ where
     G: FnMut() -> GFut,
     GFut: Future<Output = Result<(), A>>,
     F: FnMut() -> Fut,
-    Fut: Future<Output = Result<T, (ErrorClass, E)>>,
+    Fut: Future<Output = Result<T, (Retry, E)>>,
 {
     let max_tries = cfg.max_retry_attempts.max(1);
     let base = cfg.retry_base_delay;
@@ -104,8 +104,8 @@ where
 
         match op().await {
             Ok(v) => return GatedOutcome::Ok(v),
-            Err((ErrorClass::Fatal, e)) => return GatedOutcome::Failed(e),
-            Err((ErrorClass::Transient, e)) => {
+            Err((Retry::Permanent, e)) => return GatedOutcome::Failed(e),
+            Err((Retry::Transient, e)) => {
                 last_err = Some(e);
 
                 if attempt + 1 >= max_tries {
@@ -156,7 +156,7 @@ mod tests {
     use tokio::time::Instant;
 
     use super::*;
-    use crate::error::ErrorClass;
+    use crate::error::Retry;
 
     #[tokio::test(start_paused = true)]
     async fn retry_calls_op_max_retry_attempts_times_on_transient() {
@@ -171,7 +171,7 @@ mod tests {
             let c = Arc::clone(&calls_clone);
             async move {
                 *c.lock().unwrap() += 1;
-                Err((ErrorClass::Transient, "transient".to_string()))
+                Err((Retry::Transient, "transient".to_string()))
             }
         })
         .await;
@@ -193,7 +193,7 @@ mod tests {
             let c = Arc::clone(&calls_clone);
             async move {
                 *c.lock().unwrap() += 1;
-                Err((ErrorClass::Fatal, "fatal".to_string()))
+                Err((Retry::Permanent, "fatal".to_string()))
             }
         })
         .await;
@@ -226,7 +226,7 @@ mod tests {
                 if *n >= 3 {
                     Ok(99)
                 } else {
-                    Err((ErrorClass::Transient, "wait".to_string()))
+                    Err((Retry::Transient, "wait".to_string()))
                 }
             }
         })
@@ -254,7 +254,7 @@ mod tests {
             let c = Arc::clone(&calls_clone);
             async move {
                 *c.lock().unwrap() += 1;
-                Err((ErrorClass::Transient, "t".to_string()))
+                Err((Retry::Transient, "t".to_string()))
             }
         })
         .await;
@@ -291,7 +291,7 @@ mod tests {
                 let oc = Arc::clone(&oc);
                 async move {
                     *oc.lock().unwrap() += 1;
-                    Err((ErrorClass::Transient, "t".to_string()))
+                    Err((Retry::Transient, "t".to_string()))
                 }
             },
         )
@@ -331,7 +331,7 @@ mod tests {
                 let oc = Arc::clone(&oc);
                 async move {
                     *oc.lock().unwrap() += 1;
-                    Err((ErrorClass::Transient, "t".to_string()))
+                    Err((Retry::Transient, "t".to_string()))
                 }
             },
         )
@@ -389,7 +389,7 @@ mod tests {
                     Ok(())
                 }
             },
-            || async { Err((ErrorClass::Fatal, "fatal".to_string())) },
+            || async { Err((Retry::Permanent, "fatal".to_string())) },
         )
         .await;
 
