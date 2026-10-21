@@ -163,8 +163,7 @@ pub struct AccessRequestView {
     pub organization_id: Option<OrganizationId>,
     /// The member who opened the request.
     pub requester_id: UserId,
-    /// The access rule pinned to the request at submit. None for requests that predate rule
-    /// pinning.
+    /// The access rule pinned to the request at submit, if any.
     pub rule_id: Option<AccessRuleId>,
     /// The request's lifecycle state.
     pub status: AccessRequestStatus,
