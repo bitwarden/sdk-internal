@@ -96,6 +96,18 @@ impl SessionState {
         }
     }
 
+    /// The stored bearer for a session the caller has just seen valid, still under the same guard.
+    /// Without a bearer this is the terminal error for the phase; any other phase is an invariant
+    /// breach (an `Active` session always has a bearer).
+    fn active_bearer(&self) -> Result<String, SessionError> {
+        match (&self.bearer, self.phase) {
+            (Some(bearer), _) => Ok(bearer.clone()),
+            (None, SessionPhase::Revoked) => Err(SessionError::Lost(SessionLost::Revoked)),
+            (None, SessionPhase::Closed) => Err(SessionError::Lost(SessionLost::Closed)),
+            (None, _) => Err(SessionError::Transient("session has no bearer".to_owned())),
+        }
+    }
+
     fn set_phase(&mut self, phase: SessionPhase) {
         self.phase = phase;
         self.phase_tx.send_if_modified(|p| {
@@ -214,17 +226,16 @@ impl SessionManager {
                     return Err(SessionError::Lost(SessionLost::Closed));
                 }
                 SessionPhase::Active if !guard.needs_renewal() => {
-                    return Ok(guard.bearer.clone().unwrap_or_default());
+                    return guard.active_bearer();
                 }
                 _ => {}
             }
-            // Guard is dropped here; another task may renew before it is re-acquired.
+            // Guard is dropped here; renewal re-checks the phase under its own guard.
         }
 
-        self.renew_with_backoff(deadline, false).await?;
-
-        let guard = self.state.lock().await;
-        Ok(guard.bearer.clone().unwrap_or_default())
+        // The bearer is read under the guard that saw the session valid, so a concurrent `close()`
+        // cannot slip in between renewal and the read.
+        self.renew_with_backoff(deadline, false).await
     }
 
     /// Force a session refresh on the 401 path. A bearer that no longer matches `stale` was already
@@ -248,11 +259,9 @@ impl SessionManager {
             }
         }
 
-        // force=true skips the active-and-fresh coalescing guard.
-        self.renew_with_backoff(deadline, true).await?;
-
-        let guard = self.state.lock().await;
-        Ok(guard.bearer.clone().unwrap_or_default())
+        // force=true skips the active-and-fresh coalescing guard. The bearer comes back from the
+        // guard that renewed, so a concurrent `close()` cannot slip in before it is read.
+        self.renew_with_backoff(deadline, true).await
     }
 
     /// Transition to `Closed`, dropping the bearer and the org key.
@@ -263,13 +272,14 @@ impl SessionManager {
         }
     }
 
-    /// Renew the session with backoff. The mutex is held across the identity call, so only one runs
-    /// at a time, and released during the backoff sleep so `close()` can still run.
+    /// Renew the session with backoff and return the resulting bearer, cloned under the guard that
+    /// saw the session valid. The mutex is held across the identity call, so only one runs at a
+    /// time, and released during the backoff sleep so `close()` can still run.
     async fn renew_with_backoff(
         &self,
         deadline: Option<Instant>,
         force: bool,
-    ) -> Result<(), SessionError> {
+    ) -> Result<String, SessionError> {
         let mut delay = BACKOFF_BASE;
         let mut tries: u32 = 0;
         let mut first_attempt = true;
@@ -282,7 +292,7 @@ impl SessionManager {
                 SessionPhase::Closed => return Err(SessionError::Lost(SessionLost::Closed)),
                 // Coalescing check, skipped on the first attempt under force=true.
                 SessionPhase::Active if !(guard.needs_renewal() || force && first_attempt) => {
-                    return Ok(());
+                    return guard.active_bearer();
                 }
                 _ => {}
             }
@@ -306,7 +316,7 @@ impl SessionManager {
                                 "session renewed (re-authentication succeeded)"
                             );
                         }
-                        return Ok(());
+                        return guard.active_bearer();
                     }
                     // A 200 whose payload does not open is treated like a protocol failure. The
                     // error carries no secret material.
@@ -880,5 +890,39 @@ mod tests {
             "must retry with backoff"
         );
         assert_eq!(mgr.phase().await, SessionPhase::Expired);
+    }
+
+    #[test]
+    fn active_bearer_maps_phase_and_bearer() {
+        let state = |phase, bearer: Option<&str>| {
+            let (phase_tx, _phase_rx) = watch::channel(phase);
+            SessionState {
+                phase,
+                bearer: bearer.map(str::to_owned),
+                expires_at: None,
+                key_store: KeyStore::default(),
+                organization_id: None,
+                phase_tx,
+            }
+        };
+
+        assert_eq!(
+            state(SessionPhase::Active, Some("x"))
+                .active_bearer()
+                .expect("bearer"),
+            "x"
+        );
+        assert!(matches!(
+            state(SessionPhase::Closed, None).active_bearer(),
+            Err(SessionError::Lost(SessionLost::Closed))
+        ));
+        assert!(matches!(
+            state(SessionPhase::Revoked, None).active_bearer(),
+            Err(SessionError::Lost(SessionLost::Revoked))
+        ));
+        assert!(matches!(
+            state(SessionPhase::Active, None).active_bearer(),
+            Err(SessionError::Transient(_))
+        ));
     }
 }
