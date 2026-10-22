@@ -193,8 +193,7 @@ impl SessionManager {
             token,
         });
 
-        // force=true: there is no stored token to coalesce on.
-        mgr.renew_with_backoff(None, true).await?;
+        mgr.renew_with_backoff(None, None).await?;
 
         Ok(mgr)
     }
@@ -216,25 +215,7 @@ impl SessionManager {
     /// to `deadline` ([`NO_DEADLINE_MAX_TRIES`] caps a `None` deadline); a rejected credential
     /// clears secrets and returns `Err(Lost(Revoked))`.
     pub(crate) async fn bearer(&self, deadline: Option<Instant>) -> Result<String, SessionError> {
-        // Fast path, without holding the mutex across a network call.
-        {
-            let guard = self.state.lock().await;
-            match guard.phase {
-                SessionPhase::Revoked => {
-                    return Err(SessionError::Lost(SessionLost::Revoked));
-                }
-                SessionPhase::Closed => {
-                    return Err(SessionError::Lost(SessionLost::Closed));
-                }
-                SessionPhase::Active if !guard.needs_renewal() => {
-                    return guard.active_bearer();
-                }
-                _ => {}
-            }
-            // Guard is dropped here; renewal re-checks the phase under its own guard.
-        }
-
-        self.renew_with_backoff(deadline, false).await
+        self.renew_with_backoff(deadline, None).await
     }
 
     /// Force a session refresh on the 401 path. A bearer that no longer matches `stale` was already
@@ -244,22 +225,7 @@ impl SessionManager {
         stale: &str,
         deadline: Option<Instant>,
     ) -> Result<String, SessionError> {
-        {
-            let guard = self.state.lock().await;
-            match guard.phase {
-                SessionPhase::Revoked => return Err(SessionError::Lost(SessionLost::Revoked)),
-                SessionPhase::Closed => return Err(SessionError::Lost(SessionLost::Closed)),
-                _ => {}
-            }
-            if let Some(current) = &guard.bearer
-                && current != stale
-            {
-                return Ok(current.clone());
-            }
-        }
-
-        // force=true skips the active-and-fresh coalescing guard.
-        self.renew_with_backoff(deadline, true).await
+        self.renew_with_backoff(deadline, Some(stale)).await
     }
 
     /// Transition to `Closed`, dropping the bearer and the org key.
@@ -270,17 +236,17 @@ impl SessionManager {
         }
     }
 
-    /// Renew the session with backoff and return the resulting bearer. The bearer is read under the
-    /// guard that saw the session valid, so a concurrent `close()` cannot slip in first. The mutex
-    /// is held across the identity call and released during the backoff sleep.
+    /// Return the stored bearer if it is fresh and not `stale`, otherwise renew with backoff. The
+    /// check runs under the same guard as the renewal, so concurrent callers coalesce onto one
+    /// renewal and a concurrent `close()` cannot slip in between. The mutex is held across the
+    /// identity call and released during the backoff sleep.
     async fn renew_with_backoff(
         &self,
         deadline: Option<Instant>,
-        force: bool,
+        stale: Option<&str>,
     ) -> Result<String, SessionError> {
         let mut delay = BACKOFF_BASE;
         let mut tries: u32 = 0;
-        let mut first_attempt = true;
 
         loop {
             let mut guard = self.state.lock().await;
@@ -288,30 +254,23 @@ impl SessionManager {
             match guard.phase {
                 SessionPhase::Revoked => return Err(SessionError::Lost(SessionLost::Revoked)),
                 SessionPhase::Closed => return Err(SessionError::Lost(SessionLost::Closed)),
-                // Coalescing check, skipped on the first attempt under force=true.
-                SessionPhase::Active if !(guard.needs_renewal() || force && first_attempt) => {
+                SessionPhase::Active
+                    if !guard.needs_renewal() && guard.bearer.as_deref() != stale =>
+                {
                     return guard.active_bearer();
                 }
                 _ => {}
             }
-            first_attempt = false;
 
             guard.set_phase(SessionPhase::Authenticating);
 
-            // Other callers of bearer() block here until the lock releases.
+            // Other callers block on the mutex until this attempt finishes.
             let result = self.identity.authenticate(&self.token).await;
 
             let (kind, err_msg) = match result {
                 Ok(success) => match guard.apply_success(success, &self.token) {
                     Ok(()) => {
-                        if tries == 0 {
-                            tracing::info!("session established (authentication succeeded)");
-                        } else {
-                            tracing::info!(
-                                retry = tries,
-                                "session renewed (re-authentication succeeded)"
-                            );
-                        }
+                        tracing::info!(retry = tries, "session authenticated");
                         return guard.active_bearer();
                     }
                     // A 200 whose payload does not open is treated like a protocol failure.
@@ -332,15 +291,12 @@ impl SessionManager {
             };
 
             tries += 1;
-            let max_tries = match deadline {
-                None => NO_DEADLINE_MAX_TRIES,
-                Some(_) => u32::MAX,
-            };
 
             // Set Expired so phase-watchers see a transient stall.
             guard.set_phase(SessionPhase::Expired);
+            drop(guard);
 
-            if tries >= max_tries {
+            if deadline.is_none() && tries >= NO_DEADLINE_MAX_TRIES {
                 tracing::warn!(
                     retry = tries,
                     "session renewal failed ({kind}): {err_msg}; giving up after {tries} attempts"
@@ -348,18 +304,23 @@ impl SessionManager {
                 return Err(SessionError::Transient(err_msg));
             }
 
-            drop(guard);
+            let sleep_dur = match deadline {
+                None => delay,
+                Some(dl) => {
+                    let remaining = dl.saturating_duration_since(Instant::now());
+                    if remaining.is_zero() {
+                        tracing::warn!(
+                            retry = tries,
+                            "session renewal deadline exceeded before retry; last error: {err_msg}"
+                        );
+                        return Err(SessionError::Transient(
+                            "renewal deadline exceeded".to_owned(),
+                        ));
+                    }
+                    delay.min(remaining)
+                }
+            };
 
-            let sleep_dur = compute_sleep(delay, deadline);
-            if sleep_dur == Duration::ZERO {
-                tracing::warn!(
-                    retry = tries,
-                    "session renewal deadline exceeded before retry; last error: {err_msg}"
-                );
-                return Err(SessionError::Transient(
-                    "renewal deadline exceeded".to_owned(),
-                ));
-            }
             tracing::warn!(
                 retry = tries,
                 sleep_ms = sleep_dur.as_millis(),
@@ -367,20 +328,6 @@ impl SessionManager {
             );
             tokio::time::sleep(sleep_dur).await;
             delay = (delay * 2).min(BACKOFF_CAP);
-        }
-    }
-}
-
-/// `delay` capped by the time left until `deadline`, or `Duration::ZERO` once it has passed.
-fn compute_sleep(delay: Duration, deadline: Option<Instant>) -> Duration {
-    match deadline {
-        None => delay.min(BACKOFF_CAP),
-        Some(dl) => {
-            let remaining = dl.checked_duration_since(Instant::now());
-            match remaining {
-                Some(r) if r > Duration::ZERO => delay.min(r).min(BACKOFF_CAP),
-                _ => Duration::ZERO,
-            }
         }
     }
 }
@@ -796,6 +743,58 @@ mod tests {
             count_after_init,
             "no additional identity call should be made"
         );
+    }
+
+    #[tokio::test]
+    async fn concurrent_force_refresh_with_same_stale_bearer_renews_once() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("initial-tok", 3600, &payload))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        // The delay makes the concurrent callers overlap.
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                success_response("renewed-tok", 3600, &payload)
+                    .set_delay(Duration::from_millis(50)),
+            )
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("SessionManager::new");
+
+        // Hold the state lock until every caller is queued on it, so they all observe the same
+        // stale bearer before any renewal runs.
+        let guard = mgr.state.lock().await;
+        let stale = access_token_tagged(test_org_id(), "initial-tok");
+        let handles: Vec<_> = (0..5)
+            .map(|_| {
+                let m = Arc::clone(&mgr);
+                let stale = stale.clone();
+                tokio::spawn(async move { m.force_refresh(&stale, None).await })
+            })
+            .collect();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        drop(guard);
+
+        for h in handles {
+            assert_eq!(
+                h.await.expect("spawn").expect("force_refresh"),
+                access_token_tagged(test_org_id(), "renewed-tok")
+            );
+        }
+
+        // Initial auth plus one renewal.
+        assert_eq!(server.received_requests().await.unwrap().len(), 2);
     }
 
     #[tokio::test]
