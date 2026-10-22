@@ -24,11 +24,7 @@ wasm = [
     "dep:wasm-bindgen",
 ]
 # Forwarding and collection of events over bitwarden-ipc. Only enabled by the WASM bindings.
-ipc = [
-    "dep:bitwarden-ipc",
-    "dep:bitwarden-threading",
-    "dep:tokio",
-]
+ipc = ["dep:bitwarden-ipc", "dep:bitwarden-threading", "dep:tokio"]
 
 [dependencies]
 bitwarden-ffi = { workspace = true }
@@ -38,8 +34,8 @@ bitwarden-threading = { workspace = true, optional = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tracing = { workspace = true }
 tokio = { workspace = true, features = ["sync"], optional = true }
+tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tsify = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
