@@ -66,8 +66,8 @@ Each `FlightRecorderEvent` contains `timestamp`, `level`, `target`, `message`, `
 The `ipc` cargo feature lets clients with several contexts collect their events in one context over
 `bitwarden-ipc`. One context is the collector (browser background, desktop main) and the others are
 forwarders that send their events to it. Forwarders keep events from the IPC stack itself locally.
-The collector labels each event's `process` with the context it came from, and only accepts
-messages from its own client's forwarders.
+The collector labels each event's `process` with the context it came from, and only accepts messages
+from its own client's forwarders.
 
 The WASM bindings expose this as `enableFlightRecorderCollection` and
 `enableFlightRecorderForwarding`. In a forwarder, `recorder.read()` returns the collector's events
