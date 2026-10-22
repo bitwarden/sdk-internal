@@ -478,47 +478,8 @@ mod tests {
     use super::*;
     use crate::{
         api::{REQUEST_TIMEOUT, build_sdk_client},
-        auth::session::SessionManager,
-        test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
+        test_support::{make_session, mount_identity_ok, test_token},
     };
-
-    /// `bearer` is a short tag, expanded to a real JWT so the `organization` claim parses.
-    fn identity_ok(bearer: &str, encrypted_payload: &str) -> ResponseTemplate {
-        let bearer = access_token_tagged(test_org_id(), bearer);
-        ResponseTemplate::new(200)
-            .set_body_string(format!(
-                r#"{{"access_token":"{bearer}","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
-            ))
-            .insert_header("content-type", "application/json")
-    }
-
-    /// Mounts a `/connect/token` mock that succeeds, for at most `times` requests when given.
-    async fn mount_identity_ok(server: &MockServer, times: Option<u64>) {
-        let org_key = bitwarden_crypto::SymmetricCryptoKey::make(
-            bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
-        );
-        let payload = encrypted_payload_for(&org_key);
-        let mock = Mock::given(method("POST"))
-            .and(path("/connect/token"))
-            .respond_with(identity_ok("tok", &payload));
-        match times {
-            Some(n) => mock.up_to_n_times(n).mount(server).await,
-            None => mock.mount(server).await,
-        }
-    }
-
-    async fn make_session(identity_server: &MockServer) -> Arc<SessionManager> {
-        mount_identity_ok(identity_server, None).await;
-
-        let identity = IdentityClient::new(identity_server.uri()).unwrap();
-        SessionManager::new(
-            identity,
-            test_token(),
-            bitwarden_crypto::KeyStore::default(),
-        )
-        .await
-        .unwrap()
-    }
 
     fn make_client(
         api_server: &MockServer,

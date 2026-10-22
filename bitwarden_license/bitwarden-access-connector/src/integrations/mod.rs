@@ -215,6 +215,22 @@ mod tests {
     }
 
     #[test]
+    fn target_effect_to_sync_state_mapping() {
+        assert_eq!(
+            RotationSyncState::from(TargetEffect::NotApplied),
+            RotationSyncState::TargetUnchanged
+        );
+        assert_eq!(
+            RotationSyncState::from(TargetEffect::Unknown),
+            RotationSyncState::Indeterminate
+        );
+        assert_eq!(
+            RotationSyncState::from(TargetEffect::Applied),
+            RotationSyncState::TargetUpdated
+        );
+    }
+
+    #[test]
     fn target_effect_variants_exist() {
         let _a = TargetEffect::NotApplied;
         let _b = TargetEffect::Applied;
