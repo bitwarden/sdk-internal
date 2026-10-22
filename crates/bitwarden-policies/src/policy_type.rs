@@ -72,6 +72,8 @@ pub enum PolicyType {
     /// have not explicitly set their Fill Assist preference, and optionally overrides the default
     /// rules feed URL.
     FillAssist = 22,
+    /// Enables AutoType GA policy for members who have not explicitly set their AutoType GA preference.
+    AutotypeGaPolicy = 23,
 }
 
 impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
@@ -103,6 +105,7 @@ impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
             Api::OrganizationUserNotification => PolicyType::OrganizationUserNotification,
             Api::SendControls => PolicyType::SendControls,
             Api::FillAssist => PolicyType::FillAssist,
+            Api::AutotypeGaPolicy => PolicyType::AutotypeGaPolicy,
             Api::__Unknown(value) => return Err(PolicyParseError::UnknownPolicyType(value)),
         })
     }
@@ -141,6 +144,7 @@ impl PolicyType {
             }
             PolicyType::SendControls => Box::new(SendControlsPolicy),
             PolicyType::FillAssist => Box::new(FillAssistPolicy),
+            PolicyType::AutotypeGaPolicy => Box::new(AutotypeGaPolicy),
         }
     }
 }
@@ -189,4 +193,5 @@ pub enum PolicyDataType {
     OrganizationUserNotification(OrganizationUserNotificationPolicyData),
     SendControls,
     FillAssist(FillAssistPolicyData),
+    AutotypeGaPolicy,
 }
