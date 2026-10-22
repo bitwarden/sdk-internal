@@ -1,6 +1,6 @@
 //! Retry helpers for target-side and server-side rotation steps.
 
-use std::{future::Future, time::Duration};
+use std::{convert::Infallible, future::Future, time::Duration};
 
 use tokio::time::Instant;
 
@@ -43,47 +43,43 @@ pub(crate) enum GatedOutcome<T, E, A> {
 pub(crate) async fn with_retries<F, Fut, T, E>(
     cfg: &RetryCfg,
     deadline: Option<Instant>,
-    mut op: F,
+    op: F,
 ) -> Result<T, E>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, (Retry, E)>>,
 {
-    let max_tries = cfg.max_retry_attempts.max(1);
-    let base = cfg.retry_base_delay;
-    let mut last_err: Option<E> = None;
+    let outcome = retry_loop(cfg, deadline, || async { Ok::<(), Infallible>(()) }, op).await;
 
-    for attempt in 0..max_tries {
-        match op().await {
-            Ok(v) => return Ok(v),
-            Err((Retry::Permanent, e)) => return Err(e),
-            Err((Retry::Transient, e)) => {
-                last_err = Some(e);
-
-                if attempt + 1 >= max_tries {
-                    break;
-                }
-
-                let sleep = exponential_delay(base, attempt);
-                let capped = cap_to_deadline(sleep, deadline);
-                if capped == Duration::ZERO {
-                    break;
-                }
-                tokio::time::sleep(capped).await;
-            }
-        }
+    match outcome {
+        GatedOutcome::Ok(v) => Ok(v),
+        GatedOutcome::Failed(e) => Err(e),
+        GatedOutcome::Aborted(never) => match never {},
     }
-
-    // At least one transient error was recorded.
-    #[allow(clippy::unwrap_used)]
-    Err(last_err.unwrap())
 }
 
 /// Like [`with_retries`], but awaits `gate()` before every try; an abort returns
 /// [`GatedOutcome::Aborted`]. Session loss or lease expiry stops target-side steps between tries,
-/// never mid-call.
+/// never mid-call. Sleeps are not capped to a deadline: the gate checks execute_by before the next
+/// try.
 pub(crate) async fn with_retries_gated<G, GFut, F, Fut, T, E, A>(
     cfg: &RetryCfg,
+    gate: G,
+    op: F,
+) -> GatedOutcome<T, E, A>
+where
+    G: FnMut() -> GFut,
+    GFut: Future<Output = Result<(), A>>,
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, (Retry, E)>>,
+{
+    retry_loop(cfg, None, gate, op).await
+}
+
+/// The shared retry loop: gate before each try, then `op`, sleeping between transient failures.
+async fn retry_loop<G, GFut, F, Fut, T, E, A>(
+    cfg: &RetryCfg,
+    deadline: Option<Instant>,
     mut gate: G,
     mut op: F,
 ) -> GatedOutcome<T, E, A>
@@ -112,13 +108,16 @@ where
                     break;
                 }
 
-                let sleep = exponential_delay(base, attempt);
-                // No deadline cap: the gate checks execute_by before the next try.
+                let Some(sleep) = cap_to_deadline(exponential_delay(base, attempt), deadline)
+                else {
+                    break;
+                };
                 tokio::time::sleep(sleep).await;
             }
         }
     }
 
+    // At least one transient error was recorded.
     #[allow(clippy::unwrap_used)]
     GatedOutcome::Failed(last_err.unwrap())
 }
@@ -129,18 +128,16 @@ fn exponential_delay(base: Duration, attempt: u32) -> Duration {
     base * (1u32 << shift)
 }
 
-/// Truncate `delay` so it does not push past `deadline`, or `Duration::ZERO`
-/// after the deadline passes.
-fn cap_to_deadline(delay: Duration, deadline: Option<Instant>) -> Duration {
+/// Truncate `delay` so it does not push past `deadline`, or `None` once the deadline has passed.
+fn cap_to_deadline(delay: Duration, deadline: Option<Instant>) -> Option<Duration> {
     match deadline {
-        None => delay,
+        None => Some(delay),
         Some(dl) => {
             let now = Instant::now();
             if now >= dl {
-                Duration::ZERO
+                None
             } else {
-                let remaining = dl - now;
-                delay.min(remaining)
+                Some(delay.min(dl - now))
             }
         }
     }
@@ -178,6 +175,32 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(*calls.lock().unwrap(), 5, "should try exactly 5 times");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn retry_zero_base_delay_still_retries() {
+        let calls = Arc::new(Mutex::new(0u32));
+        let cfg = RetryCfg {
+            max_retry_attempts: 3,
+            retry_base_delay: Duration::ZERO,
+        };
+
+        let calls_clone = Arc::clone(&calls);
+        let result = with_retries::<_, _, (), String>(&cfg, None, || {
+            let c = Arc::clone(&calls_clone);
+            async move {
+                *c.lock().unwrap() += 1;
+                Err((Retry::Transient, "transient".to_string()))
+            }
+        })
+        .await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            *calls.lock().unwrap(),
+            3,
+            "zero delay should not stop retries"
+        );
     }
 
     #[tokio::test(start_paused = true)]

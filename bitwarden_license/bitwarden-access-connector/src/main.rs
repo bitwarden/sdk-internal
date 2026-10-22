@@ -63,8 +63,8 @@ async fn main() {
         }
         RunExit::CredentialRefused => {
             tracing::error!(
-                "Access connector credential refused. Have an admin reissue the credential via \
-                 ReissueConnectorCredential, then restart the connector with the new token."
+                "The server rejected the access connector token. Check BWAC_TOKEN is current; \
+                 if so, ask an admin for a new token and restart."
             );
             std::process::exit(2);
         }
@@ -78,7 +78,8 @@ async fn main() {
         RunExit::NotEligible => {
             tracing::error!(
                 "Access connector not eligible for rotation endpoints. Check: connector record not \
-                 revoked or disabled, organisation license active, UsePam enabled."
+                 revoked or disabled, organisation license active, PAM included in the \
+                 organisation plan."
             );
             std::process::exit(3);
         }

@@ -23,13 +23,16 @@ use crate::{
         AccessConnectorClient, AccessConnectorClientExt as _, REQUEST_TIMEOUT, build_sdk_client,
         models::ApiError,
     },
-    auth::session::{SessionLost, SessionManager},
+    auth::{
+        identity::IdentityClient,
+        session::{SessionError, SessionLost, SessionManager},
+    },
     error::SafeDetail,
     integrations::{
         IntegrationRegistry,
         scripting::{CustomScriptIntegration, PowershellConfig, ProcessScriptRunner},
     },
-    resolver::CredentialResolver,
+    resolver::{CredentialResolver, config::ConfigCredentialResolver},
     sys::SystemEnv,
 };
 
@@ -128,8 +131,7 @@ impl AccessConnectorConfig {
 /// startup failures as [`RunExit::StartupFailed`], and a 404 that survives a refresh probe as
 /// [`RunExit::NotEligible`].
 pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -> RunExit {
-    let identity_client = match crate::auth::identity::IdentityClient::new(cfg.identity_url.clone())
-    {
+    let identity_client = match IdentityClient::new(cfg.identity_url.clone()) {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("failed to build identity client: {e}");
@@ -162,17 +164,11 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
 
     // `SessionManager::new` backs off internally; `select!` lets cancellation interrupt it.
     let session = tokio::select! {
-        result = crate::auth::session::SessionManager::new(identity_client, cfg.token, key_store) => {
+        result = SessionManager::new(identity_client, cfg.token, key_store) => {
             match result {
                 Ok(s) => s,
-                Err(crate::auth::session::SessionError::Lost(
-                    crate::auth::session::SessionLost::Revoked,
-                )) => {
-                    tracing::error!(
-                        "Access connector credential refused. Have an admin reissue the credential \
-                         via ReissueConnectorCredential, then restart the connector with the new \
-                         token."
-                    );
+                Err(SessionError::Lost(SessionLost::Revoked)) => {
+                    tracing::warn!("credential refused at startup");
                     return RunExit::CredentialRefused;
                 }
                 Err(e) => {
@@ -223,9 +219,10 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         "registered integration kinds"
     );
 
-    let resolver: Arc<dyn CredentialResolver> = Arc::new(
-        crate::resolver::config::ConfigCredentialResolver::new(cfg.targets, Arc::new(SystemEnv)),
-    );
+    let resolver: Arc<dyn CredentialResolver> = Arc::new(ConfigCredentialResolver::new(
+        cfg.targets,
+        Arc::new(SystemEnv),
+    ));
 
     let key_store = session.key_store().await;
 
@@ -262,11 +259,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
                 jobs
             }
             Err(ApiError::SessionLost(SessionLost::Revoked)) => {
-                tracing::error!(
-                    "Access connector credential refused (revoked mid-session). Have an admin \
-                     reissue the credential via ReissueConnectorCredential, then restart with the \
-                     new token."
-                );
+                tracing::warn!("credential refused while polling");
                 return RunExit::CredentialRefused;
             }
             Err(ApiError::NotEligible) => {
@@ -276,11 +269,6 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
                         return RunExit::CredentialRefused;
                     }
                     NotEligibleOutcome::NotEligible => {
-                        tracing::error!(
-                            "Access connector not eligible for rotation endpoints. Check: \
-                             connector record not revoked or disabled, organisation license \
-                             active, UsePam enabled."
-                        );
                         return RunExit::NotEligible;
                     }
                     NotEligibleOutcome::Retry => {
@@ -326,10 +314,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
                     tracing::debug!(job_id = %job.id, "claim race lost (409); trying next job");
                 }
                 Err(ApiError::SessionLost(SessionLost::Revoked)) => {
-                    tracing::error!(
-                        "Access connector credential refused during claim. Reissue credential and \
-                         restart."
-                    );
+                    tracing::warn!("credential refused while claiming a job");
                     return RunExit::CredentialRefused;
                 }
                 Err(ApiError::NotEligible) => {
@@ -407,9 +392,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
                 tracing::debug!(attempt_id = %attempt_id, "rotation attempt reported");
             }
             ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Revoked)) => {
-                tracing::error!(
-                    "Session revoked during rotation; credential refused. Reissue and restart."
-                );
+                tracing::warn!("credential refused during rotation");
                 return RunExit::CredentialRefused;
             }
             ExecutionResult::Unreported(reason) => {
@@ -454,9 +437,7 @@ async fn handle_not_eligible(
     // The current bearer is the stale token to refresh.
     let stale = match session.bearer(None).await {
         Ok(t) => t,
-        Err(crate::auth::session::SessionError::Lost(
-            crate::auth::session::SessionLost::Revoked,
-        )) => {
+        Err(SessionError::Lost(SessionLost::Revoked)) => {
             return NotEligibleOutcome::CredentialRefused;
         }
         Err(_) => String::new(),
@@ -464,9 +445,7 @@ async fn handle_not_eligible(
 
     match session.force_refresh(&stale, None).await {
         Ok(_) => {}
-        Err(crate::auth::session::SessionError::Lost(
-            crate::auth::session::SessionLost::Revoked,
-        )) => {
+        Err(SessionError::Lost(SessionLost::Revoked)) => {
             return NotEligibleOutcome::CredentialRefused;
         }
         Err(_) => {
@@ -496,7 +475,7 @@ mod tests {
     use super::*;
     use crate::{
         api::{REQUEST_TIMEOUT, build_sdk_client},
-        auth::{identity::IdentityClient, session::SessionManager},
+        auth::session::SessionManager,
         test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
     };
 

@@ -123,8 +123,8 @@ RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwac/confi
 | ---- | ----------------------------------------------------------------------------------------------------- |
 | `0`  | Clean shutdown (SIGTERM or Ctrl-C)                                                                    |
 | `1`  | Startup error: invalid configuration, token or arguments, I/O error, or parse failure                 |
-| `2`  | Credential refused. An admin reissues it (`ReissueConnectorCredential`); restart with the new token   |
-| `3`  | Not eligible. Check the connector isn't revoked or disabled, the license is active and `UsePam` is on |
+| `2`  | Credential refused. Check `BWAC_TOKEN`; if current, get a new token from an admin and restart         |
+| `3`  | Not eligible. Check the connector isn't revoked or disabled, the license is active and the organization's plan includes PAM |
 | `4`  | Startup authentication failed transiently. Check connectivity and the identity URL, then restart      |
 
 ## Credential resolution
