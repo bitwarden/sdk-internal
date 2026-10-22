@@ -2,6 +2,7 @@
 // hook that connects the emulator to the SDK's HTTP client.
 
 import { ApiServer } from "./api-server";
+import { AttachmentStorage, attachmentFileKey } from "./attachment-storage";
 import { Database } from "./database";
 import { EmergencyAccessServer } from "./emergency-access-server";
 import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
@@ -14,11 +15,12 @@ import type {
 import { installHttpMock, type HttpMock, type Routes } from "./http-mock";
 import { IdentityServer } from "./identity-server";
 import { KeyConnectorServer } from "./key-connector-server";
-import { API_URL, IDENTITY_URL, KEY_CONNECTOR_URL } from "./urls";
+import { API_URL, ATTACHMENTS_URL, IDENTITY_URL, KEY_CONNECTOR_URL } from "./urls";
 
 import { asAccountId, asEncString, fromUuid } from "../tests/type-assertion-helpers";
 import {
   toSeedAccount,
+  type AttachmentVersion,
   type EmergencyAccessVector,
   type PrivateKey,
   type UserVector,
@@ -98,8 +100,22 @@ export function toMasterPasswordUnlock(vector: SeedAccount): StoredMasterPasswor
   return null;
 }
 
+/** An attachment's file: the bytes storage serves, and the plaintext they decrypt to. Base64. */
+export interface SeedAttachmentFile {
+  /** Which generation of attachment key the file was sealed with. */
+  version: AttachmentVersion;
+  encrypted: string;
+  decrypted: string;
+}
+
 export interface SeedVault {
-  ciphers?: { id: string; encrypted: Cipher; decrypted?: CipherView }[];
+  ciphers?: {
+    id: string;
+    encrypted: Cipher;
+    decrypted?: CipherView;
+    /** Files of the cipher's attachments, keyed by attachment id. */
+    attachmentFiles?: Record<string, SeedAttachmentFile>;
+  }[];
   folders?: { id: string; encrypted: Folder; decrypted?: FolderView }[];
 }
 
@@ -162,6 +178,7 @@ export class ServerEmulator {
   readonly identity = new IdentityServer(this.db);
   readonly keyConnector = new KeyConnectorServer(this.db);
   readonly emergencyAccess = new EmergencyAccessServer(this.db);
+  readonly attachmentStorage = new AttachmentStorage(this.db);
 
   /** The seeded account with this email. Throws if there is none. */
   getUser(email: string): UserEntity {
@@ -206,6 +223,7 @@ export class ServerEmulator {
         organizationId: null,
         cipher: cipher.encrypted,
       });
+      this.seedAttachmentFiles(cipher.id, cipher.attachmentFiles);
     }
     for (const folder of vector.vault?.folders ?? []) {
       this.db.folders.set(folder.id, { userId: user.userId, folder: folder.encrypted });
@@ -271,6 +289,20 @@ export class ServerEmulator {
         // The row and the model have to agree: the response is built from the model.
         cipher: { ...cipher.encrypted, organizationId: vector.organizationId },
       });
+      this.seedAttachmentFiles(cipher.id, cipher.attachmentFiles);
+    }
+  }
+
+  /** Puts a cipher's attachment files into storage. */
+  private seedAttachmentFiles(
+    cipherId: string,
+    files: Record<string, SeedAttachmentFile> = {},
+  ): void {
+    for (const [attachmentId, file] of Object.entries(files)) {
+      this.db.attachmentFiles.set(
+        attachmentFileKey(cipherId, attachmentId),
+        Buffer.from(file.encrypted, "base64"),
+      );
     }
   }
 
@@ -328,6 +360,7 @@ export class ServerEmulator {
       ...bindToOrigin(this.emergencyAccess.routes(), API_URL),
       ...bindToOrigin(this.identity.routes(), IDENTITY_URL),
       ...bindToOrigin(this.keyConnector.routes(), KEY_CONNECTOR_URL),
+      ...bindToOrigin(this.attachmentStorage.routes(), ATTACHMENTS_URL),
     });
   }
 }

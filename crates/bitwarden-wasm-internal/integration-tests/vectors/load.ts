@@ -31,7 +31,7 @@ import type {
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
 
-import type { SeedAccount, SeedOrganization } from "../server-emulator/server-emulator";
+import type { SeedAccount, SeedOrganization, SeedVault } from "../server-emulator/server-emulator";
 
 const VECTORS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../test-vectors");
 
@@ -73,12 +73,23 @@ export interface RawCryptographicStateVector {
  */
 export type AttachmentVersion = "V0" | "V1" | "V2";
 
+/** An attachment's file, base64: the bytes storage serves, and the plaintext they decrypt to. */
+export interface AttachmentContentsVector {
+  encrypted: string;
+  decrypted: string;
+}
+
 export interface CipherKeysVector {
   cipherKey: string | null;
   cipherKeyId: KeyId | null;
   attachments: Record<
     string,
-    { version: AttachmentVersion; key: string | null; keyId: KeyId | null }
+    {
+      version: AttachmentVersion;
+      key: string | null;
+      keyId: KeyId | null;
+      contents: AttachmentContentsVector;
+    }
   >;
 }
 
@@ -195,6 +206,21 @@ export function unlockMethodName(method: InitUserCryptoMethod): string {
   return name;
 }
 
+/** A vector's ciphers as the server emulator seeds them, with their attachment files. */
+function toSeedCiphers(ciphers: CipherVectorItem[]): SeedVault["ciphers"] {
+  return ciphers.map((cipher) => ({
+    id: cipher.id,
+    encrypted: cipher.encrypted,
+    decrypted: cipher.decrypted,
+    attachmentFiles: Object.fromEntries(
+      Object.entries(cipher.keys.attachments).map(([id, attachment]) => [
+        id,
+        { version: attachment.version, ...attachment.contents },
+      ]),
+    ),
+  }));
+}
+
 /** A user vector as the server emulator seeds it. */
 export function toSeedAccount(vector: UserVector): SeedAccount {
   const raw = vector.rawCryptographicState;
@@ -220,7 +246,7 @@ export function toSeedAccount(vector: UserVector): SeedAccount {
       verifyingKey: raw.verifyingKey,
     },
     vault: {
-      ciphers: vector.vault.ciphers,
+      ciphers: toSeedCiphers(vector.vault.ciphers),
       folders: vector.vault.folders,
     },
   };
@@ -247,6 +273,6 @@ export function toSeedOrganization(
       organizationKeySealedToMember: member.organizationKeySealedToMember,
       accountRecoveryKey: member.accountRecoveryKey ?? undefined,
     })),
-    vault: { ciphers: vector.vault.ciphers },
+    vault: { ciphers: toSeedCiphers(vector.vault.ciphers) },
   };
 }

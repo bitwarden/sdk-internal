@@ -115,4 +115,6 @@ export class Database {
   readonly emergencyAccess = new Table<EmergencyAccessEntity>(
     new SequentialUuidGenerator("emergency-access"),
   );
+  /** Encrypted attachment files, keyed by `attachmentFileKey`. */
+  readonly attachmentFiles = new Map<string, Uint8Array<ArrayBuffer>>();
 }

@@ -31,8 +31,10 @@ export interface MockReply {
   status?: number;
   /** Serialized as JSON with a matching content type. */
   json?: unknown;
-  /** Raw body, sent as-is. Omit both `json` and `text` for an empty response. */
+  /** Raw body, sent as-is. Omit `json`, `text` and `bytes` for an empty response. */
   text?: string;
+  /** Binary body, sent as `application/octet-stream`. */
+  bytes?: Uint8Array<ArrayBuffer>;
 }
 
 export type RouteHandler = (request: MockRequest) => MockReply | Promise<MockReply>;
@@ -143,11 +145,22 @@ function matchPattern(
   return params;
 }
 
+function contentType(reply: MockReply): Record<string, string> {
+  if (reply.json !== undefined) {
+    return { "Content-Type": "application/json" };
+  }
+  if (reply.bytes !== undefined) {
+    return { "Content-Type": "application/octet-stream" };
+  }
+  return {};
+}
+
 function makeResponse(url: string, reply: MockReply): Response {
-  const body = reply.json !== undefined ? JSON.stringify(reply.json) : (reply.text ?? null);
+  const body =
+    reply.json !== undefined ? JSON.stringify(reply.json) : (reply.bytes ?? reply.text ?? null);
   const response = new Response(body, {
     status: reply.status ?? 200,
-    headers: reply.json !== undefined ? { "Content-Type": "application/json" } : {},
+    headers: contentType(reply),
   });
   // `new Response(...)` leaves `url` empty, which reqwest's wasm client cannot parse.
   Object.defineProperty(response, "url", { value: url });
