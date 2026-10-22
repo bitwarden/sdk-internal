@@ -202,6 +202,8 @@ impl SessionManager {
         self.state.lock().await.phase
     }
 
+    /// Test accessor for the held key store.
+    #[cfg(test)]
     pub(crate) async fn key_store(&self) -> KeyStore<KeySlotIds> {
         self.state.lock().await.key_store.clone()
     }

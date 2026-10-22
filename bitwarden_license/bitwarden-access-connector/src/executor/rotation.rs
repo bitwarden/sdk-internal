@@ -51,6 +51,9 @@ pub(crate) enum ExecutionResult {
     Unreported(AbortReason),
 }
 
+/// Reads the time of the last successful server contact.
+pub(crate) type LastOk = Arc<dyn Fn() -> Instant + Send + Sync>;
+
 /// Inputs to [`execute`].
 pub(crate) struct ExecutionContext {
     pub(crate) client: Client,
@@ -63,7 +66,7 @@ pub(crate) struct ExecutionContext {
     /// How long without server contact before the gate pauses target-side steps.
     pub(crate) offline_grace: Duration,
     /// The instant of the last successful server contact.
-    pub(crate) last_ok: Arc<dyn Fn() -> Instant + Send + Sync>,
+    pub(crate) last_ok: LastOk,
     pub(crate) cancel: bitwarden_threading::cancellation_token::CancellationToken,
 }
 
@@ -602,7 +605,7 @@ fn make_gate(
     session: Arc<SessionManager>,
     execute_by: Instant,
     offline_grace: Duration,
-    last_ok: Arc<dyn Fn() -> Instant + Send + Sync>,
+    last_ok: LastOk,
     cancel: bitwarden_threading::cancellation_token::CancellationToken,
 ) -> impl FnMut() -> std::pin::Pin<Box<dyn Future<Output = Result<(), AbortReason>> + Send>> {
     move || {
@@ -870,7 +873,7 @@ mod tests {
             .unwrap();
 
         let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
-        let last_ok: Arc<dyn Fn() -> Instant + Send + Sync> = Arc::new(Instant::now);
+        let last_ok: LastOk = Arc::new(Instant::now);
 
         let execute_by = Instant::now()
             .checked_sub(Duration::from_millis(1))
@@ -924,7 +927,7 @@ mod tests {
         cancel.cancel();
 
         let execute_by = Instant::now() + Duration::from_secs(300);
-        let last_ok: Arc<dyn Fn() -> Instant + Send + Sync> = Arc::new(Instant::now);
+        let last_ok: LastOk = Arc::new(Instant::now);
 
         let mut gate = make_gate(
             Arc::clone(&session),

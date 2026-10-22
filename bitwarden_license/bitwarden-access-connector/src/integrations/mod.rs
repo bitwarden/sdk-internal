@@ -167,6 +167,7 @@ impl IntegrationRegistry {
         kind: SealedTargetSystemKind,
         integration: Arc<dyn Integration>,
     ) {
+        tracing::debug!(?kind, "registered integration");
         self.map.insert(kind, integration);
     }
 
