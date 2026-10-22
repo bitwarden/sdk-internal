@@ -1,4 +1,6 @@
-use bitwarden_api_api::models::CipherMiniDetailsResponseModelListResponseModel;
+use bitwarden_api_api::models::{
+    CipherDetailsResponseModelListResponseModel, CipherMiniDetailsResponseModelListResponseModel,
+};
 use bitwarden_core::{ApiError, OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
 use bitwarden_error::bitwarden_error;
@@ -7,7 +9,8 @@ use thiserror::Error;
 use crate::{
     Cipher, VaultParseError,
     cipher::cipher::{
-        DecryptCipherResult, ListOrganizationCiphersResult, PartialCipher, StrictDecrypt,
+        DecryptCipherListResult, DecryptCipherResult, ListOrganizationCiphersResult, PartialCipher,
+        StrictDecrypt,
     },
     cipher_client::admin::CipherAdminClient,
 };
@@ -32,6 +35,87 @@ pub enum GetOrganizationCiphersAdminError {
     Api(#[from] ApiError),
 }
 
+/// Fetch all encrypted ciphers for an organization, without decrypting them.
+async fn fetch_org_ciphers(
+    org_id: OrganizationId,
+    include_member_items: bool,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+) -> Result<Vec<Cipher>, GetOrganizationCiphersAdminError> {
+    let response: CipherMiniDetailsResponseModelListResponseModel = api_client
+        .ciphers_api()
+        .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
+        .await?;
+    Ok(response
+        .data
+        .into_iter()
+        .flatten()
+        .map(|model| model.merge_with_cipher(None))
+        .collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Fetch the encrypted ciphers assigned to the current user for an organization, without
+/// decrypting them.
+async fn fetch_assigned_org_ciphers(
+    org_id: OrganizationId,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+) -> Result<Vec<Cipher>, GetAssignedOrgCiphersAdminError> {
+    let response: CipherDetailsResponseModelListResponseModel = api_client
+        .ciphers_api()
+        .get_assigned_organization_ciphers(Some(org_id.into()))
+        .await?;
+    Ok(response
+        .data
+        .into_iter()
+        .flatten()
+        .map(|model| model.merge_with_cipher(None))
+        .collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Decrypt ciphers to full [crate::CipherView], keeping the ciphers that failed to decrypt.
+fn decrypt_cipher_views(
+    ciphers: Vec<Cipher>,
+    key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
+) -> DecryptCipherResult {
+    if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+        DecryptCipherResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        }
+    } else {
+        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+        DecryptCipherResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
+    }
+}
+
+/// Decrypt ciphers to [crate::CipherListView], keeping the ciphers that failed to decrypt.
+fn decrypt_cipher_list_views(
+    ciphers: &[Cipher],
+    key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
+) -> DecryptCipherListResult {
+    if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> =
+            ciphers.iter().cloned().map(StrictDecrypt).collect();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        }
+    } else {
+        let (successes, failures) = key_store.decrypt_list_with_failures(ciphers);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
+    }
+}
+
 /// Get all ciphers for an organization.
 pub async fn list_org_ciphers(
     org_id: OrganizationId,
@@ -40,26 +124,9 @@ pub async fn list_org_ciphers(
     key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
 ) -> Result<ListOrganizationCiphersResult, GetOrganizationCiphersAdminError> {
-    let api = api_client.ciphers_api();
-    let response: CipherMiniDetailsResponseModelListResponseModel = api
-        .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
-        .await?;
-    let ciphers = response
-        .data
-        .into_iter()
-        .flatten()
-        .map(|model| model.merge_with_cipher(None))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let list_views = if use_strict_decryption {
-        let wrapped: Vec<StrictDecrypt<Cipher>> =
-            ciphers.iter().cloned().map(StrictDecrypt).collect();
-        let (list_views, _failures) = key_store.decrypt_list_with_failures(&wrapped);
-        list_views
-    } else {
-        let (list_views, _failures) = key_store.decrypt_list_with_failures(&ciphers);
-        list_views
-    };
+    let ciphers = fetch_org_ciphers(org_id, include_member_items, api_client).await?;
+    let list_views =
+        decrypt_cipher_list_views(&ciphers, key_store, use_strict_decryption).successes;
     Ok(ListOrganizationCiphersResult {
         ciphers,
         list_views,
@@ -84,61 +151,81 @@ pub async fn list_org_login_ciphers(
         .map(|model| model.merge_with_cipher(None))
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(if use_strict_decryption {
-        let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
-        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
-        DecryptCipherResult {
-            successes,
-            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-        }
-    } else {
-        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-        DecryptCipherResult {
-            successes,
-            failures: failures.into_iter().cloned().collect(),
-        }
-    })
+    Ok(decrypt_cipher_views(
+        ciphers,
+        key_store,
+        use_strict_decryption,
+    ))
 }
 
 #[bitwarden_ffi::wasm_export]
 impl CipherAdminClient {
     /// Fetches and decrypts all ciphers assigned to the current user for an organization.
+    ///
+    /// Returns both the encrypted ciphers and their list views. Prefer the single-purpose
+    /// [CipherAdminClient::get_assigned_org_ciphers],
+    /// [CipherAdminClient::list_assigned_org_cipher_list_views] or
+    /// [CipherAdminClient::list_assigned_org_cipher_views], which skip the work the caller
+    /// does not need.
     pub async fn list_assigned_org_ciphers(
         &self,
         org_id: OrganizationId,
     ) -> Result<ListOrganizationCiphersResult, GetAssignedOrgCiphersAdminError> {
-        use bitwarden_api_api::models::CipherDetailsResponseModelListResponseModel;
-
-        let response: CipherDetailsResponseModelListResponseModel = self
-            .api_configurations
-            .api_client
-            .ciphers_api()
-            .get_assigned_organization_ciphers(Some(org_id.into()))
-            .await?;
-
-        let ciphers = response
-            .data
-            .into_iter()
-            .flatten()
-            .map(|model| model.merge_with_cipher(None))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let list_views = if self.is_strict_decrypt().await {
-            let wrapped: Vec<StrictDecrypt<Cipher>> =
-                ciphers.iter().cloned().map(StrictDecrypt).collect();
-            let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&wrapped);
-            list_views
-        } else {
-            let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&ciphers);
-            list_views
-        };
+        let ciphers =
+            fetch_assigned_org_ciphers(org_id, &self.api_configurations.api_client).await?;
+        let list_views =
+            decrypt_cipher_list_views(&ciphers, &self.key_store, self.is_strict_decrypt().await)
+                .successes;
         Ok(ListOrganizationCiphersResult {
             ciphers,
             list_views,
         })
     }
 
+    /// Fetches the encrypted ciphers assigned to the current user for an organization, without
+    /// decrypting them.
+    pub async fn get_assigned_org_ciphers(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<Vec<Cipher>, GetAssignedOrgCiphersAdminError> {
+        fetch_assigned_org_ciphers(org_id, &self.api_configurations.api_client).await
+    }
+
+    /// Fetches the ciphers assigned to the current user for an organization and decrypts them to
+    /// [crate::CipherListView].
+    pub async fn list_assigned_org_cipher_list_views(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<DecryptCipherListResult, GetAssignedOrgCiphersAdminError> {
+        let ciphers =
+            fetch_assigned_org_ciphers(org_id, &self.api_configurations.api_client).await?;
+        Ok(decrypt_cipher_list_views(
+            &ciphers,
+            &self.key_store,
+            self.is_strict_decrypt().await,
+        ))
+    }
+
+    /// Fetches the ciphers assigned to the current user for an organization and decrypts them to
+    /// full [crate::CipherView].
+    pub async fn list_assigned_org_cipher_views(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<DecryptCipherResult, GetAssignedOrgCiphersAdminError> {
+        let ciphers =
+            fetch_assigned_org_ciphers(org_id, &self.api_configurations.api_client).await?;
+        Ok(decrypt_cipher_views(
+            ciphers,
+            &self.key_store,
+            self.is_strict_decrypt().await,
+        ))
+    }
+
     /// Get all ciphers for an organization.
+    ///
+    /// Returns both the encrypted ciphers and their list views. Prefer the single-purpose
+    /// [CipherAdminClient::get_org_ciphers], [CipherAdminClient::list_org_cipher_list_views] or
+    /// [CipherAdminClient::list_org_cipher_views], which skip the work the caller does not need.
     pub async fn list_org_ciphers(
         &self,
         org_id: OrganizationId,
@@ -152,6 +239,58 @@ impl CipherAdminClient {
             self.is_strict_decrypt().await,
         )
         .await
+    }
+
+    /// Fetches all encrypted ciphers for an organization, without decrypting them.
+    pub async fn get_org_ciphers(
+        &self,
+        org_id: OrganizationId,
+        include_member_items: bool,
+    ) -> Result<Vec<Cipher>, GetOrganizationCiphersAdminError> {
+        fetch_org_ciphers(
+            org_id,
+            include_member_items,
+            &self.api_configurations.api_client,
+        )
+        .await
+    }
+
+    /// Fetches all ciphers for an organization and decrypts them to [crate::CipherListView].
+    pub async fn list_org_cipher_list_views(
+        &self,
+        org_id: OrganizationId,
+        include_member_items: bool,
+    ) -> Result<DecryptCipherListResult, GetOrganizationCiphersAdminError> {
+        let ciphers = fetch_org_ciphers(
+            org_id,
+            include_member_items,
+            &self.api_configurations.api_client,
+        )
+        .await?;
+        Ok(decrypt_cipher_list_views(
+            &ciphers,
+            &self.key_store,
+            self.is_strict_decrypt().await,
+        ))
+    }
+
+    /// Fetches all ciphers for an organization and decrypts them to full [crate::CipherView].
+    pub async fn list_org_cipher_views(
+        &self,
+        org_id: OrganizationId,
+        include_member_items: bool,
+    ) -> Result<DecryptCipherResult, GetOrganizationCiphersAdminError> {
+        let ciphers = fetch_org_ciphers(
+            org_id,
+            include_member_items,
+            &self.api_configurations.api_client,
+        )
+        .await?;
+        Ok(decrypt_cipher_views(
+            ciphers,
+            &self.key_store,
+            self.is_strict_decrypt().await,
+        ))
     }
 
     /// Fetches all Login ciphers for an organization and decrypts them to full [crate::CipherView].
@@ -512,5 +651,168 @@ mod tests {
 
         assert!(result.ciphers.is_empty());
         assert!(result.list_views.is_empty());
+    }
+
+    const BAD_CIPHER_KEY: &str = "2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=";
+
+    fn mock_org_ciphers_api(with_failure: bool) -> ApiClient {
+        ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_get_organization_ciphers()
+                .withf(|org_id, include_member_items| {
+                    *org_id == TEST_ORG_ID.parse().ok() && *include_member_items == Some(true)
+                })
+                .returning(move |_org_id, _include_member_items| {
+                    let mut second = mock_mini_cipher(TEST_CIPHER_ID_2);
+                    if with_failure {
+                        second.key = Some(BAD_CIPHER_KEY.to_string());
+                    }
+                    Ok(CipherMiniDetailsResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![mock_mini_cipher(TEST_CIPHER_ID_1), second]),
+                        continuation_token: None,
+                    })
+                });
+        })
+    }
+
+    fn mock_assigned_org_ciphers_api(with_failure: bool) -> ApiClient {
+        ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_get_assigned_organization_ciphers()
+                .withf(|org_id| *org_id == TEST_ORG_ID.parse().ok())
+                .returning(move |_| {
+                    let mut second = mock_details_cipher(TEST_CIPHER_ID_2);
+                    if with_failure {
+                        second.key = Some(BAD_CIPHER_KEY.to_string());
+                    }
+                    Ok(CipherDetailsResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![mock_details_cipher(TEST_CIPHER_ID_1), second]),
+                        continuation_token: None,
+                    })
+                });
+        })
+    }
+
+    #[tokio::test]
+    async fn test_get_org_ciphers_returns_encrypted_ciphers() {
+        let client = create_test_client(mock_org_ciphers_api(true));
+        let ciphers = client
+            .get_org_ciphers(TEST_ORG_ID.parse().unwrap(), true)
+            .await
+            .unwrap();
+
+        // Nothing is decrypted, so a cipher with a bad key is still returned
+        assert_eq!(ciphers.len(), 2);
+        assert_eq!(ciphers[0].id, TEST_CIPHER_ID_1.parse().ok());
+        assert_eq!(ciphers[1].id, TEST_CIPHER_ID_2.parse().ok());
+    }
+
+    #[tokio::test]
+    async fn test_list_org_cipher_list_views_all_success() {
+        let client = create_test_client(mock_org_ciphers_api(false));
+        let result = client
+            .list_org_cipher_list_views(TEST_ORG_ID.parse().unwrap(), true)
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 2);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.successes[0].id, TEST_CIPHER_ID_1.parse().ok());
+    }
+
+    #[tokio::test]
+    async fn test_list_org_cipher_list_views_with_failures() {
+        let client = create_test_client(mock_org_ciphers_api(true));
+        let result = client
+            .list_org_cipher_list_views(TEST_ORG_ID.parse().unwrap(), true)
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.successes[0].id, TEST_CIPHER_ID_1.parse().ok());
+        assert_eq!(result.failures.len(), 1);
+        assert_eq!(result.failures[0].id, TEST_CIPHER_ID_2.parse().ok());
+    }
+
+    #[tokio::test]
+    async fn test_list_org_cipher_views_all_success() {
+        let client = create_test_client(mock_org_ciphers_api(false));
+        let result = client
+            .list_org_cipher_views(TEST_ORG_ID.parse().unwrap(), true)
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 2);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.successes[0].id, TEST_CIPHER_ID_1.parse().ok());
+        assert!(result.successes[0].login.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_list_org_cipher_views_with_failures() {
+        let client = create_test_client(mock_org_ciphers_api(true));
+        let result = client
+            .list_org_cipher_views(TEST_ORG_ID.parse().unwrap(), true)
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.successes[0].id, TEST_CIPHER_ID_1.parse().ok());
+        assert_eq!(result.failures.len(), 1);
+        assert_eq!(result.failures[0].id, TEST_CIPHER_ID_2.parse().ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_assigned_org_ciphers_returns_encrypted_ciphers() {
+        let client = create_test_client(mock_assigned_org_ciphers_api(true));
+        let ciphers = client
+            .get_assigned_org_ciphers(TEST_ORG_ID.parse().unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(ciphers.len(), 2);
+        assert_eq!(ciphers[1].id, TEST_CIPHER_ID_2.parse().ok());
+    }
+
+    #[tokio::test]
+    async fn test_list_assigned_org_cipher_list_views_with_failures() {
+        let client = create_test_client(mock_assigned_org_ciphers_api(true));
+        let result = client
+            .list_assigned_org_cipher_list_views(TEST_ORG_ID.parse().unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.successes[0].id, TEST_CIPHER_ID_1.parse().ok());
+        assert_eq!(result.failures.len(), 1);
+        assert_eq!(result.failures[0].id, TEST_CIPHER_ID_2.parse().ok());
+    }
+
+    #[tokio::test]
+    async fn test_list_assigned_org_cipher_views_all_success() {
+        let client = create_test_client(mock_assigned_org_ciphers_api(false));
+        let result = client
+            .list_assigned_org_cipher_views(TEST_ORG_ID.parse().unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 2);
+        assert!(result.failures.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_assigned_org_cipher_views_with_failures() {
+        let client = create_test_client(mock_assigned_org_ciphers_api(true));
+        let result = client
+            .list_assigned_org_cipher_views(TEST_ORG_ID.parse().unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.successes[0].id, TEST_CIPHER_ID_1.parse().ok());
+        assert_eq!(result.failures.len(), 1);
+        assert_eq!(result.failures[0].id, TEST_CIPHER_ID_2.parse().ok());
     }
 }
