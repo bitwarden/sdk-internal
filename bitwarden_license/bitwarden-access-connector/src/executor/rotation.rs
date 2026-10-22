@@ -655,40 +655,43 @@ fn make_gate(
                 }
 
                 // Wait for connectivity to recover.
-                if phase == SessionPhase::Active {
-                    let stale = (last_ok)();
-                    if stale.elapsed() > offline_grace {
-                        // Poll every second.
-                        loop {
-                            if Instant::now() >= execute_by {
-                                return Err(AbortReason::LeaseExpired);
-                            }
-                            if cancel.is_cancelled() {
-                                return Err(AbortReason::Cancelled);
-                            }
-                            let fresh = (last_ok)();
-                            if fresh.elapsed() <= offline_grace {
-                                break;
-                            }
-                            let remaining = execute_by.saturating_duration_since(Instant::now());
-                            let sleep = Duration::from_secs(1).min(remaining);
-                            if sleep == Duration::ZERO {
-                                return Err(AbortReason::LeaseExpired);
-                            }
-                            tokio::select! {
-                                _ = tokio::time::sleep(sleep) => {}
-                                _ = cancel.cancelled() => {
-                                    return Err(AbortReason::Cancelled);
-                                }
-                            }
-                        }
-                        continue;
-                    }
+                if phase == SessionPhase::Active && last_ok().elapsed() > offline_grace {
+                    wait_for_connectivity(execute_by, offline_grace, &*last_ok, &cancel).await?;
+                    continue;
                 }
 
                 return Ok(());
             }
         })
+    }
+}
+
+/// Polls every second until connectivity is fresh, the lease expires, or the run is cancelled.
+async fn wait_for_connectivity(
+    execute_by: Instant,
+    offline_grace: Duration,
+    last_ok: &(dyn Fn() -> Instant + Send + Sync),
+    cancel: &bitwarden_threading::cancellation_token::CancellationToken,
+) -> Result<(), AbortReason> {
+    loop {
+        if Instant::now() >= execute_by {
+            return Err(AbortReason::LeaseExpired);
+        }
+        if cancel.is_cancelled() {
+            return Err(AbortReason::Cancelled);
+        }
+        if last_ok().elapsed() <= offline_grace {
+            return Ok(());
+        }
+        let remaining = execute_by.saturating_duration_since(Instant::now());
+        let sleep = Duration::from_secs(1).min(remaining);
+        if sleep.is_zero() {
+            return Err(AbortReason::LeaseExpired);
+        }
+        tokio::select! {
+            _ = tokio::time::sleep(sleep) => {}
+            _ = cancel.cancelled() => return Err(AbortReason::Cancelled),
+        }
     }
 }
 
