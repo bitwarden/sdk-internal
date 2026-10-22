@@ -16,7 +16,7 @@ use std::{
     num::NonZeroUsize,
     sync::{
         Arc, OnceLock,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -128,15 +128,18 @@ struct ForwarderState {
     local: Arc<CircularBuffer<FlightRecorderEvent>>,
     pending: CircularBuffer<FlightRecorderEvent>,
     flushing: AtomicBool,
+    /// Number of aggregated reads in flight. Flushes wait while it is non-zero.
+    reading: AtomicUsize,
 }
 
 /// Sink that forwards events to a collector over IPC.
 ///
-/// Events wait in a bounded pending buffer. One flush task at a time waits [`FLUSH_INTERVAL`],
-/// drains the buffer, and sends the drained events as a single [`FlightRecorderBatch`], so at most
-/// one batch goes out per interval. Send failures drop the batch. When the buffer is full, the
-/// oldest events are dropped. Events from the IPC stack itself go to `local` and are never
-/// forwarded.
+/// Events wait in a bounded pending buffer. One flush task at a time waits 250 ms, drains the
+/// buffer, and sends the drained events as a single [`FlightRecorderBatch`], so at most one batch
+/// goes out per interval. Flushes do not drain while an aggregated read is in flight, so the read
+/// still finds in `pending` every event the collector's answer lacks. Send failures drop the batch.
+/// When the buffer is full, the oldest events are dropped. Events from the IPC stack itself go to
+/// `local` and are never forwarded.
 #[derive(Clone)]
 pub struct IpcForwardSink(Arc<ForwarderState>);
 
@@ -155,6 +158,7 @@ impl IpcForwardSink {
             local,
             pending: CircularBuffer::new(capacity),
             flushing: AtomicBool::new(false),
+            reading: AtomicUsize::new(0),
         }))
     }
 
@@ -175,6 +179,7 @@ impl IpcForwardSink {
         cancellation_token: Option<CancellationToken>,
     ) -> Vec<FlightRecorderEvent> {
         let state = &self.0;
+        let _reading = ReadingGuard::new(&state.reading);
         // `request` accepts the answer only from `destination`.
         let request = without_flight_recorder(state.client.request(
             ReadFlightRecorderRequest,
@@ -216,6 +221,9 @@ impl FlightRecorderSink for IpcForwardSink {
 async fn flush(state: Arc<ForwarderState>) {
     loop {
         sleep(FLUSH_INTERVAL).await;
+        if state.reading.load(Ordering::Acquire) > 0 {
+            continue;
+        }
         let events = state.pending.take_all();
         if events.is_empty() {
             if release_flush(&state) {
@@ -229,6 +237,22 @@ async fn flush(state: Arc<ForwarderState>) {
             .client
             .send_typed(FlightRecorderBatch { events }, state.destination.clone())
             .await;
+    }
+}
+
+/// Marks an aggregated read in flight until dropped, including when the read is cancelled.
+struct ReadingGuard<'a>(&'a AtomicUsize);
+
+impl<'a> ReadingGuard<'a> {
+    fn new(reading: &'a AtomicUsize) -> Self {
+        reading.fetch_add(1, Ordering::AcqRel);
+        Self(reading)
+    }
+}
+
+impl Drop for ReadingGuard<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
     }
 }
 
@@ -672,6 +696,38 @@ mod tests {
 
         let events = read.await.expect("task joins");
         assert_eq!(messages(&events), ["ipc", "unsent"]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_forwarder_read_keeps_pending_events_a_flush_would_send_mid_read() {
+        let collector = start_test_collector(&["collected"]).await;
+        let backend = TestCommunicationBackend::new();
+        let sink = IpcForwardSink::new(
+            start_client(&backend).await,
+            background().to_endpoint(),
+            NonZeroUsize::new(10).expect("non-zero"),
+            buffer(),
+        );
+        sink.push(event("app", "just before read"));
+
+        let read = tokio::spawn({
+            let sink = sink.clone();
+            async move { sink.read_aggregated(None).await }
+        });
+        settle().await;
+        relay(&backend, &collector, popup()).await;
+        // The flush interval elapses while the collector's answer is on its way.
+        wait_for_flush().await;
+        relay(&collector, &backend, background()).await;
+
+        let events = read.await.expect("task joins");
+        assert_eq!(messages(&events), ["collected", "just before read"]);
+
+        // The paused flush sends the event once the read is done.
+        wait_for_flush().await;
+        let batches = decode::<FlightRecorderBatch>(&backend.outgoing().await);
+        assert_eq!(batches.len(), 1);
+        assert_eq!(messages(&batches[0].events), ["just before read"]);
     }
 
     #[tokio::test(start_paused = true)]
