@@ -37,7 +37,9 @@ jobs:
           - windows-2022
     env:
       SCCACHE_GHA_ENABLED: "true"
-      RUSTC_WRAPPER: sccache
+      # On Windows, sccache calls rustc with the full argument list, which exceeds the command line
+      # length limit for crates with long argument lists such as web-sys (os error 206).
+      RUSTC_WRAPPER: ${{ matrix.os != 'windows-2022' && 'sccache' || '' }}
 
     steps:
       - name: Checkout
@@ -59,13 +61,14 @@ jobs:
       # rust-cache only restores third-party dependencies. sccache caches the workspace crates by
       # content hash, so crates a PR does not touch are not recompiled.
       - name: Set up sccache
+        if: matrix.os != 'windows-2022'
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Test
         run: cargo test --workspace --all-features
 
       - name: Show sccache stats
-        if: always()
+        if: always() && matrix.os != 'windows-2022'
         run: sccache --show-stats
 
   test-wasm:
