@@ -938,6 +938,125 @@ mod tests {
         assert!(matches!(result, Err(AbortReason::Cancelled)));
     }
 
+    // Connectivity is already fresh, so the wait returns immediately without sleeping.
+
+    #[tokio::test(start_paused = true)]
+    async fn wait_for_connectivity_already_fresh_returns_immediately() {
+        let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
+        let start = Instant::now();
+
+        let result = wait_for_connectivity(
+            start + Duration::from_secs(300),
+            Duration::from_secs(60),
+            &Instant::now,
+            &cancel,
+        )
+        .await;
+
+        assert!(matches!(result, Ok(())));
+        assert_eq!(start.elapsed(), Duration::ZERO);
+    }
+
+    // Connectivity is stale for the first three polls and then recovers, so the wait polls once a
+    // second and returns Ok.
+
+    #[tokio::test(start_paused = true)]
+    async fn wait_for_connectivity_recovers_after_polls() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
+        let grace = Duration::from_secs(60);
+        let start = Instant::now();
+        let stale = start.checked_sub(grace * 2).unwrap();
+        let calls = AtomicUsize::new(0);
+        let last_ok = move || {
+            if calls.fetch_add(1, Ordering::SeqCst) < 3 {
+                stale
+            } else {
+                Instant::now()
+            }
+        };
+
+        let result =
+            wait_for_connectivity(start + Duration::from_secs(300), grace, &last_ok, &cancel).await;
+
+        assert!(matches!(result, Ok(())));
+        assert_eq!(start.elapsed(), Duration::from_secs(3));
+    }
+
+    // Connectivity never recovers, so the wait aborts on the lease with the last sleep capped to
+    // the remaining lease.
+
+    #[tokio::test(start_paused = true)]
+    async fn wait_for_connectivity_lease_expires_while_stale() {
+        let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
+        let grace = Duration::from_secs(60);
+        let start = Instant::now();
+        let stale = start.checked_sub(grace * 2).unwrap();
+
+        let result = wait_for_connectivity(
+            start + Duration::from_millis(3500),
+            grace,
+            &move || stale,
+            &cancel,
+        )
+        .await;
+
+        assert!(matches!(result, Err(AbortReason::LeaseExpired)));
+        let elapsed = start.elapsed();
+        assert!(elapsed >= Duration::from_millis(3500));
+        assert!(elapsed < Duration::from_millis(4500));
+    }
+
+    // Cancelled while sleeping between polls, so the wait aborts without waiting out the poll.
+
+    #[tokio::test(start_paused = true)]
+    async fn wait_for_connectivity_cancelled_mid_sleep() {
+        let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
+        let grace = Duration::from_secs(60);
+        let start = Instant::now();
+        let stale = start.checked_sub(grace * 2).unwrap();
+
+        let canceller = cancel.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            canceller.cancel();
+        });
+
+        let result = wait_for_connectivity(
+            start + Duration::from_secs(300),
+            grace,
+            &move || stale,
+            &cancel,
+        )
+        .await;
+
+        assert!(matches!(result, Err(AbortReason::Cancelled)));
+        assert!(start.elapsed() < Duration::from_secs(1));
+    }
+
+    // Already cancelled before the first poll, so the wait aborts immediately.
+
+    #[tokio::test(start_paused = true)]
+    async fn wait_for_connectivity_already_cancelled() {
+        let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
+        cancel.cancel();
+        let grace = Duration::from_secs(60);
+        let start = Instant::now();
+        let stale = start.checked_sub(grace * 2).unwrap();
+
+        let result = wait_for_connectivity(
+            start + Duration::from_secs(300),
+            grace,
+            &move || stale,
+            &cancel,
+        )
+        .await;
+
+        assert!(matches!(result, Err(AbortReason::Cancelled)));
+        assert_eq!(start.elapsed(), Duration::ZERO);
+    }
+
     struct MockIntegration {
         rotate_result: Result<(), IntegrationError>,
         verify_result: Result<(), IntegrationError>,
