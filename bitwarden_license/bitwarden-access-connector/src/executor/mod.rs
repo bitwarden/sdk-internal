@@ -5,7 +5,7 @@
 pub(crate) mod retry;
 pub(crate) mod rotation;
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
+use std::{collections::HashMap, ops::ControlFlow, path::PathBuf, sync::Arc, time::Duration};
 
 use bitwarden_access_token::AccessToken;
 use bitwarden_core::{Client, key_management::KeySlotIds};
@@ -112,12 +112,16 @@ impl AccessConnectorConfig {
     }
 }
 
-/// Loop outcome of one stage: the value to carry on with, skip to the next tick, or exit.
-enum Step<T> {
-    Next(T),
+/// Why a tick of the run loop stopped early.
+enum Stop {
+    /// Nothing more to do this tick; wait for the next one.
     Skip,
     Exit(RunExit),
 }
+
+/// Poll backoff after a transient error, doubling from the base up to the cap.
+const POLL_BACKOFF_BASE: Duration = Duration::from_secs(1);
+const POLL_BACKOFF_CAP: Duration = Duration::from_secs(60);
 
 /// Authenticated connector state shared by the stages of the run loop.
 struct Worker {
@@ -140,7 +144,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
     let mut poll_ticker = interval(poll_interval);
     poll_ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
-    let mut poll_backoff = Duration::from_secs(1);
+    let mut poll_backoff = POLL_BACKOFF_BASE;
 
     let exit = loop {
         tokio::select! {
@@ -148,19 +152,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             _ = poll_ticker.tick() => {}
         }
 
-        let jobs = match worker.poll(&mut poll_backoff).await {
-            Step::Next(jobs) => jobs,
-            Step::Skip => continue,
-            Step::Exit(exit) => break exit,
-        };
-
-        let snap = match worker.claim_one(jobs).await {
-            Step::Next(snap) => snap,
-            Step::Skip => continue,
-            Step::Exit(exit) => break exit,
-        };
-
-        if let Some(exit) = worker.rotate(snap).await {
+        if let ControlFlow::Break(Stop::Exit(exit)) = worker.tick(&mut poll_backoff).await {
             break exit;
         }
     };
@@ -175,13 +167,10 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
 impl Worker {
     /// Authenticates and assembles the loop state, or returns the exit for a failed startup.
     async fn start(cfg: AccessConnectorConfig, cancel: CancellationToken) -> Result<Self, RunExit> {
-        let identity_client = match IdentityClient::new(cfg.identity_url.clone()) {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::error!("failed to build identity client: {e}");
-                return Err(RunExit::StartupFailed);
-            }
-        };
+        let identity_client = IdentityClient::new(cfg.identity_url.clone()).map_err(|e| {
+            tracing::error!("failed to build identity client: {e}");
+            RunExit::StartupFailed
+        })?;
 
         // URLs only, never the token.
         tracing::info!(
@@ -265,44 +254,53 @@ impl Worker {
         })
     }
 
-    /// Fetches claimable jobs, backing off on transient errors.
-    async fn poll(&self, backoff: &mut Duration) -> Step<Vec<JobRef>> {
-        const BACKOFF_CAP: Duration = Duration::from_secs(60);
+    /// One pass of the loop: poll, claim at most one job, and rotate it.
+    async fn tick(&self, backoff: &mut Duration) -> ControlFlow<Stop> {
+        let jobs = self.poll(backoff).await?;
+        let snap = self.claim_one(jobs).await?;
+        self.rotate(snap).await
+    }
 
+    /// Fetches claimable jobs, backing off on transient errors.
+    async fn poll(&self, backoff: &mut Duration) -> ControlFlow<Stop, Vec<JobRef>> {
         match self.api.poll_jobs().await {
             Ok(jobs) => {
-                *backoff = Duration::from_secs(1);
+                *backoff = POLL_BACKOFF_BASE;
                 tracing::debug!(claimable_jobs = jobs.len(), "poll tick");
-                Step::Next(jobs)
+                ControlFlow::Continue(jobs)
             }
             Err(ApiError::SessionLost(SessionLost::Revoked)) => {
                 tracing::warn!("credential refused while polling");
-                Step::Exit(RunExit::CredentialRefused)
+                ControlFlow::Break(Stop::Exit(RunExit::CredentialRefused))
             }
             Err(ApiError::NotEligible) => {
                 // Tell a revoked credential from an organization that lost access.
-                self.handle_not_eligible()
-                    .await
-                    .map_or(Step::Skip, Step::Exit)
+                ControlFlow::Break(
+                    self.handle_not_eligible()
+                        .await
+                        .map_or(Stop::Skip, Stop::Exit),
+                )
             }
             Err(ApiError::Transient(msg)) => {
                 tracing::warn!("transient poll error: {msg}; backing off {backoff:?}");
                 tokio::select! {
                     _ = tokio::time::sleep(*backoff) => {}
-                    _ = self.ctx.cancel.cancelled() => return Step::Exit(RunExit::Shutdown),
+                    _ = self.ctx.cancel.cancelled() => {
+                        return ControlFlow::Break(Stop::Exit(RunExit::Shutdown));
+                    }
                 }
-                *backoff = (*backoff * 2).min(BACKOFF_CAP);
-                Step::Skip
+                *backoff = (*backoff * 2).min(POLL_BACKOFF_CAP);
+                ControlFlow::Break(Stop::Skip)
             }
             Err(e) => {
                 tracing::warn!("poll error (non-transient): {e}");
-                Step::Skip
+                ControlFlow::Break(Stop::Skip)
             }
         }
     }
 
     /// Claims the first job that is still available; skips the tick when none is.
-    async fn claim_one(&self, jobs: Vec<JobRef>) -> Step<WorkSnapshot> {
+    async fn claim_one(&self, jobs: Vec<JobRef>) -> ControlFlow<Stop, WorkSnapshot> {
         for job in jobs {
             match self.api.claim(job.id).await {
                 Ok(Some(s)) => {
@@ -311,32 +309,33 @@ impl Worker {
                         target_system_name = %s.target_system_name,
                         "claimed rotation job"
                     );
-                    return Step::Next(s); // at most one claim per tick
+                    return ControlFlow::Continue(s); // at most one claim per tick
                 }
                 Ok(None) => {
                     tracing::debug!(job_id = %job.id, "claim race lost (409); trying next job");
                 }
                 Err(ApiError::SessionLost(SessionLost::Revoked)) => {
                     tracing::warn!("credential refused while claiming a job");
-                    return Step::Exit(RunExit::CredentialRefused);
+                    return ControlFlow::Break(Stop::Exit(RunExit::CredentialRefused));
                 }
                 Err(ApiError::NotEligible) => {
-                    return self
-                        .handle_not_eligible()
-                        .await
-                        .map_or(Step::Skip, Step::Exit);
+                    return ControlFlow::Break(
+                        self.handle_not_eligible()
+                            .await
+                            .map_or(Stop::Skip, Stop::Exit),
+                    );
                 }
                 Err(e) => {
                     tracing::warn!("claim error: {e}");
-                    return Step::Skip;
+                    return ControlFlow::Break(Stop::Skip);
                 }
             }
         }
-        Step::Skip
+        ControlFlow::Break(Stop::Skip)
     }
 
-    /// Verifies and executes a claimed job; returns an exit only when the credential is refused.
-    async fn rotate(&self, snap: WorkSnapshot) -> Option<RunExit> {
+    /// Verifies and executes a claimed job; breaks only when the credential is refused.
+    async fn rotate(&self, snap: WorkSnapshot) -> ControlFlow<Stop> {
         // A rejected job never reaches the resolver, an integration or the cipher route.
         let attempt_id = snap.attempt_id;
         let verified = match snap.verify(&self.key_store, self.ctx.organization_id) {
@@ -355,7 +354,7 @@ impl Worker {
                     RotationSyncState::TargetUnchanged,
                 )
                 .await;
-                return None;
+                return ControlFlow::Continue(());
             }
         };
 
@@ -370,20 +369,22 @@ impl Worker {
         let result = execute(verified, &self.ctx).await;
 
         heartbeat_cancel.cancel();
-        let _ = heartbeat_handle.await;
+        if let Err(e) = heartbeat_handle.await {
+            tracing::warn!("heartbeat task failed: {e}");
+        }
 
         match result {
             ExecutionResult::Reported => {
                 tracing::debug!(attempt_id = %attempt_id, "rotation attempt reported");
-                None
+                ControlFlow::Continue(())
             }
             ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Revoked)) => {
                 tracing::warn!("credential refused during rotation");
-                Some(RunExit::CredentialRefused)
+                ControlFlow::Break(Stop::Exit(RunExit::CredentialRefused))
             }
             ExecutionResult::Unreported(reason) => {
                 tracing::info!("rotation attempt aborted (unreported): {reason:?}");
-                None
+                ControlFlow::Continue(())
             }
         }
     }
@@ -397,21 +398,10 @@ impl Worker {
         // The current bearer is the stale token to refresh.
         let stale = match session.bearer(None).await {
             Ok(t) => t,
-            Err(SessionError::Lost(SessionLost::Revoked)) => {
-                return Some(RunExit::CredentialRefused);
-            }
-            Err(_) => String::new(),
+            Err(e) => return refused(&e),
         };
-
-        match session.force_refresh(&stale, None).await {
-            Ok(_) => {}
-            Err(SessionError::Lost(SessionLost::Revoked)) => {
-                return Some(RunExit::CredentialRefused);
-            }
-            Err(_) => {
-                // Transient failure; keep polling.
-                return None;
-            }
+        if let Err(e) = session.force_refresh(&stale, None).await {
+            return refused(&e);
         }
 
         match self.api.poll_jobs().await {
@@ -444,6 +434,11 @@ fn build_integrations(cfg: &AccessConnectorConfig) -> Arc<IntegrationRegistry> {
     Arc::new(registry)
 }
 
+/// A revoked session ends the run; any other session error is transient, so keep polling.
+fn refused(e: &SessionError) -> Option<RunExit> {
+    matches!(e, SessionError::Lost(SessionLost::Revoked)).then_some(RunExit::CredentialRefused)
+}
+
 /// Polls the jobs endpoint for the connectivity bump until `cancel` fires.
 fn spawn_heartbeat(
     client: Client,
@@ -451,6 +446,7 @@ fn spawn_heartbeat(
     cancel: CancellationToken,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
+        let api = client.access_connector();
         let mut ticker = interval(interval_period);
         ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
         loop {
@@ -458,7 +454,7 @@ fn spawn_heartbeat(
                 _ = cancel.cancelled() => break,
                 _ = ticker.tick() => {
                     tracing::debug!("heartbeat tick");
-                    let _ = client.access_connector().poll_jobs().await;
+                    let _ = api.poll_jobs().await;
                 }
             }
         }
@@ -467,19 +463,15 @@ fn spawn_heartbeat(
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Duration};
-
-    use tokio::{sync::watch, time::Instant};
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{method, path},
     };
 
     use super::*;
-    use crate::{
-        api::{REQUEST_TIMEOUT, build_sdk_client},
-        test_support::{make_session, mount_identity_ok, test_token},
-    };
+    use crate::test_support::{make_session, mount_identity_ok, test_token};
+
+    const JOBS_PATH: &str = "/access-connectors/rotation/jobs";
 
     fn make_client(
         api_server: &MockServer,
@@ -500,12 +492,32 @@ mod tests {
     /// given.
     async fn mount_jobs(server: &MockServer, response: ResponseTemplate, times: Option<u64>) {
         let mock = Mock::given(method("GET"))
-            .and(path("/access-connectors/rotation/jobs"))
+            .and(path(JOBS_PATH))
             .respond_with(response);
         match times {
             Some(n) => mock.up_to_n_times(n).mount(server).await,
             None => mock.mount(server).await,
         }
+    }
+
+    /// Mounts a claim mock for `job_id` answering `response`.
+    async fn mount_claim(server: &MockServer, job_id: Uuid, response: ResponseTemplate) {
+        Mock::given(method("POST"))
+            .and(path(format!("{JOBS_PATH}/{job_id}/claim")))
+            .respond_with(response)
+            .mount(server)
+            .await;
+    }
+
+    /// Mounts a failure-report mock for `attempt_id` that accepts the report.
+    async fn mount_failure(server: &MockServer, attempt_id: Uuid) {
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/failure"
+            )))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(server)
+            .await;
     }
 
     /// A jobs list offering each `(job id, target system id)` pair.
@@ -553,6 +565,23 @@ mod tests {
             Duration::from_millis(30),
             None,
         )
+    }
+
+    /// Spawns `run` and returns its cancellation token and handle.
+    fn spawn_run(
+        cfg: AccessConnectorConfig,
+    ) -> (CancellationToken, tokio::task::JoinHandle<RunExit>) {
+        let cancel = CancellationToken::new();
+        let cancel_clone = cancel.clone();
+        let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
+        (cancel, handle)
+    }
+
+    /// Runs `cfg` until the loop exits on its own, failing if it takes over 10s.
+    async fn run_until_exit(cfg: AccessConnectorConfig) -> RunExit {
+        tokio::time::timeout(Duration::from_secs(10), run(cfg, CancellationToken::new()))
+            .await
+            .expect("run should exit on its own")
     }
 
     /// Number of requests `server` received for `method_name` on a path ending with `suffix`.
@@ -608,44 +637,18 @@ mod tests {
         mount_jobs(&api_server, empty_jobs(), None).await;
 
         // job1 loses its race, so the loop moves on to job2.
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/jobs/{job1}/claim"
-            )))
-            .respond_with(ResponseTemplate::new(409))
-            .mount(&api_server)
-            .await;
+        mount_claim(&api_server, job1, ResponseTemplate::new(409)).await;
 
         // job2's claim succeeds, but its sealed blobs are rejected, so nothing executes.
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/jobs/{job2}/claim"
-            )))
-            .respond_with(claim_ok(job2, attempt_id))
-            .mount(&api_server)
-            .await;
+        mount_claim(&api_server, job2, claim_ok(job2, attempt_id)).await;
 
         // job3 would also succeed, so claiming it would show the loop did not stop.
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/jobs/{job3}/claim"
-            )))
-            .respond_with(claim_ok(job3, Uuid::new_v4()))
-            .mount(&api_server)
-            .await;
+        mount_claim(&api_server, job3, claim_ok(job3, Uuid::new_v4())).await;
 
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/failure"
-            )))
-            .respond_with(ResponseTemplate::new(200))
-            .mount(&api_server)
-            .await;
+        mount_failure(&api_server, attempt_id).await;
 
         let cfg = test_cfg(&api_server, &identity_server);
-        let cancel = CancellationToken::new();
-        let cancel_clone = cancel.clone();
-        let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
+        let (cancel, handle) = spawn_run(cfg);
 
         wait_for_requests(
             &api_server,
@@ -658,18 +661,17 @@ mod tests {
         let exit = handle.await.expect("task panicked");
         assert_eq!(exit, RunExit::Shutdown);
 
-        let claims = |job: Uuid| {
-            let suffix = format!("/jobs/{job}/claim");
-            let server = &api_server;
-            async move { count_requests(server, "POST", &suffix).await }
-        };
+        let claim_suffix = |job: Uuid| format!("/jobs/{job}/claim");
         assert!(
-            claims(job1).await >= 1,
+            count_requests(&api_server, "POST", &claim_suffix(job1)).await >= 1,
             "job1 should have been claimed (and lost)"
         );
-        assert!(claims(job2).await >= 1, "job2 should have been claimed");
+        assert!(
+            count_requests(&api_server, "POST", &claim_suffix(job2)).await >= 1,
+            "job2 should have been claimed"
+        );
         assert_eq!(
-            claims(job3).await,
+            count_requests(&api_server, "POST", &claim_suffix(job3)).await,
             0,
             "the loop must stop after the first successful claim in a tick"
         );
@@ -689,18 +691,16 @@ mod tests {
         let cancel = CancellationToken::new();
         let handle = spawn_heartbeat(client, heartbeat_interval, cancel.clone());
 
-        wait_for_requests(&api_server, "GET", "/access-connectors/rotation/jobs", 2).await;
+        wait_for_requests(&api_server, "GET", JOBS_PATH, 2).await;
 
         cancel.cancel();
         handle.await.expect("heartbeat task panicked");
-        let count_after_stop =
-            count_requests(&api_server, "GET", "/access-connectors/rotation/jobs").await;
+        let count_after_stop = count_requests(&api_server, "GET", JOBS_PATH).await;
 
         // Wait several intervals to confirm no new calls.
         tokio::time::sleep(heartbeat_interval * 5).await;
 
-        let count_final =
-            count_requests(&api_server, "GET", "/access-connectors/rotation/jobs").await;
+        let count_final = count_requests(&api_server, "GET", JOBS_PATH).await;
         assert_eq!(
             count_after_stop, count_final,
             "no heartbeat calls after cancellation"
@@ -718,15 +718,7 @@ mod tests {
         mount_identity_ok(&identity_server, None).await;
         mount_jobs(&api_server, ResponseTemplate::new(404), None).await;
 
-        let exit = tokio::time::timeout(
-            Duration::from_secs(10),
-            run(
-                test_cfg(&api_server, &identity_server),
-                CancellationToken::new(),
-            ),
-        )
-        .await
-        .expect("run should exit on its own");
+        let exit = run_until_exit(test_cfg(&api_server, &identity_server)).await;
         assert_eq!(exit, RunExit::NotEligible);
 
         let token_requests = count_requests(&identity_server, "POST", "/connect/token").await;
@@ -744,13 +736,10 @@ mod tests {
         mount_jobs(&api_server, ResponseTemplate::new(404), Some(1)).await;
         mount_jobs(&api_server, empty_jobs(), None).await;
 
-        let cancel = CancellationToken::new();
-        let cancel_clone = cancel.clone();
-        let cfg = test_cfg(&api_server, &identity_server);
-        let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
+        let (cancel, handle) = spawn_run(test_cfg(&api_server, &identity_server));
 
         // One 404, the re-poll after the refresh, then at least one more regular tick.
-        wait_for_requests(&api_server, "GET", "/access-connectors/rotation/jobs", 3).await;
+        wait_for_requests(&api_server, "GET", JOBS_PATH, 3).await;
         assert!(!handle.is_finished(), "a cleared 404 must not end the loop");
 
         cancel.cancel();
@@ -777,15 +766,7 @@ mod tests {
             .await;
         mount_jobs(&api_server, ResponseTemplate::new(404), None).await;
 
-        let exit = tokio::time::timeout(
-            Duration::from_secs(10),
-            run(
-                test_cfg(&api_server, &identity_server),
-                CancellationToken::new(),
-            ),
-        )
-        .await
-        .expect("run should exit on its own");
+        let exit = run_until_exit(test_cfg(&api_server, &identity_server)).await;
         assert_eq!(exit, RunExit::CredentialRefused);
     }
 
@@ -802,26 +783,12 @@ mod tests {
         mount_jobs(&api_server, jobs(&[(job_id, Uuid::new_v4())]), Some(1)).await;
         mount_jobs(&api_server, empty_jobs(), None).await;
 
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/jobs/{job_id}/claim"
-            )))
-            .respond_with(claim_ok(job_id, attempt_id))
-            .mount(&api_server)
-            .await;
+        mount_claim(&api_server, job_id, claim_ok(job_id, attempt_id)).await;
 
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/failure"
-            )))
-            .respond_with(ResponseTemplate::new(200))
-            .mount(&api_server)
-            .await;
+        mount_failure(&api_server, attempt_id).await;
 
         let cfg = test_cfg(&api_server, &identity_server);
-        let cancel = CancellationToken::new();
-        let cancel_clone = cancel.clone();
-        let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
+        let (cancel, handle) = spawn_run(cfg);
 
         wait_for_requests(&api_server, "POST", "/failure", 1).await;
         cancel.cancel();
