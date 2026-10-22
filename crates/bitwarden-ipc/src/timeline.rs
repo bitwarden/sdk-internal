@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! IPC
-//! ├─ Sent        [msg]   [msg]          one entry per message, at least 10 ms wide
+//! ├─ Sent        [msg]   [msg]          one entry per message, at least 1 ms wide 
 //! ├─ Received       [msg]     [msg]
 //! ├─ Requests    [── MyRequest ──]      request sent until response received
 //! ├─ Handlers         [MyRequest]       remote handler run
@@ -40,7 +40,7 @@ pub(crate) struct Entry {
 
 /// Minimum drawn duration of a single sent or received message.
 #[cfg_attr(not(all(feature = "wasm", target_arch = "wasm32")), allow(dead_code))]
-const MIN_MESSAGE_DURATION_MS: f64 = 10.0;
+const MIN_MESSAGE_DURATION_MS: f64 = 1.0;
 
 #[cfg(all(feature = "wasm", target_arch = "wasm32"))]
 pub(crate) use wasm::span;
