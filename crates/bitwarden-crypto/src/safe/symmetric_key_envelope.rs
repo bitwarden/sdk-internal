@@ -6,8 +6,6 @@ use bitwarden_encoding::{B64, FromStrVisitor};
 use coset::{CborSerializable, CoseEncrypt0Builder, HeaderBuilder};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
@@ -247,23 +245,7 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type SymmetricKeyEnvelope = Tagged<string, "SymmetricKeyEnvelope">;
 "#;
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for SymmetricKeyEnvelope {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for SymmetricKeyEnvelope {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-        let string = unsafe { String::from_abi(abi) };
-        SymmetricKeyEnvelope::from_str(&string).unwrap_throw()
-    }
-}
+bitwarden_ffi::impl_wire_string!(SymmetricKeyEnvelope, parse = |wire: String| wire.parse());
 
 /// Content namespace for the symmetric key envelope
 #[allow(clippy::enum_variant_names)]

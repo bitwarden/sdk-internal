@@ -4,8 +4,6 @@ use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{CompositeEncryptable, KeyStore, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "wasm")]
 use crate::{Send, SendView, send_client::SendClient, send_client::SendEncryptError};
@@ -29,7 +27,7 @@ fn encrypt_send_for_rotation(
 }
 
 #[cfg(feature = "wasm")]
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Encrypt a send with the provided key. This should only be used when rotating encryption
     /// keys in the Web client.

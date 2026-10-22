@@ -12,10 +12,6 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
@@ -61,21 +57,34 @@ pub enum EditCipherError {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherEditRequest {
+    /// ID of the cipher to edit.
     pub id: CipherId,
 
+    /// Organization that owns the cipher, or `None` for the user's individual vault.
     pub organization_id: Option<OrganizationId>,
+    /// Folder to place the cipher in, if any.
     pub folder_id: Option<FolderId>,
+    /// Whether the cipher is marked as a favorite.
     pub favorite: bool,
+    /// Whether the user must re-enter their master password to view the cipher.
     pub reprompt: CipherRepromptType,
+    /// Display name of the cipher.
     pub name: String,
+    /// Free-form notes.
     pub notes: Option<String>,
+    /// Custom fields.
     pub fields: Vec<FieldView>,
+    /// Type of the cipher and its type-specific data.
     pub r#type: CipherViewType,
+    /// Revision date of the cipher being edited, as last seen by the client.
     pub revision_date: DateTime<Utc>,
+    /// When the cipher was archived, or `None` if it is not archived.
     pub archived_date: Option<DateTime<Utc>>,
+    /// Attachments on the cipher.
     pub attachments: Vec<AttachmentView>,
+    /// The cipher's own encryption key, if it has one.
     #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey | undefined"))]
     pub key: Option<SymmetricCryptoKey>,
 }
@@ -120,10 +129,13 @@ impl TryFrom<CipherView> for CipherEditRequest {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherPartialEditRequest {
+    /// ID of the cipher to edit.
     pub id: CipherId,
+    /// Folder to place the cipher in, if any.
     pub folder_id: Option<FolderId>,
+    /// Whether the cipher is marked as a favorite.
     pub favorite: bool,
 }
 
@@ -365,7 +377,7 @@ async fn partial_edit_cipher<R: Repository<Cipher> + ?Sized>(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
     pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {
@@ -459,7 +471,6 @@ impl CiphersClient {
         &self,
         cipher_id: CipherId,
         collection_ids: Vec<CollectionId>,
-        is_admin: bool,
     ) -> Result<CipherView, EditCipherError> {
         let req = CipherCollectionsRequestModel {
             collection_ids: collection_ids
@@ -472,21 +483,14 @@ impl CiphersClient {
         let api_config = self.client.internal.get_api_configurations();
         let api = api_config.api_client.ciphers_api();
         let orig_cipher = repository.get(cipher_id).await?;
-        let cipher = if is_admin {
-            api.put_collections_admin(&cipher_id.to_string(), Some(req))
-                .await?
-                .merge_with_cipher(orig_cipher)?
-        } else {
-            let cipher_response = api
-                .put_collections_v_next(cipher_id.into(), Some(req))
-                .await?
-                .cipher
-                .map(|c| *c)
-                .ok_or(MissingFieldError("cipher"))?;
-            let response: Cipher = cipher_response.merge_with_cipher(orig_cipher)?;
-            repository.set(cipher_id, response.clone()).await?;
-            response
-        };
+        let cipher_response = api
+            .put_collections_v_next(cipher_id.into(), Some(req))
+            .await?
+            .cipher
+            .map(|c| *c)
+            .ok_or(MissingFieldError("cipher"))?;
+        let cipher: Cipher = cipher_response.merge_with_cipher(orig_cipher)?;
+        repository.set(cipher_id, cipher.clone()).await?;
 
         Ok(self
             .decrypt(cipher)

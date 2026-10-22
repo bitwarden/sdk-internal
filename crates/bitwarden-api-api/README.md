@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`747d2e80546507cb25c39379e10a82bba04776d1`](https://github.com/bitwarden/server/commit/747d2e80546507cb25c39379e10a82bba04776d1)
+  [`4aa2373be206cc2949f928de69648f467ed4f811`](https://github.com/bitwarden/server/commit/4aa2373be206cc2949f928de69648f467ed4f811)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -339,8 +339,9 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationSponsorshipsApi_                | [**pre_validate_sponsorship_token**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_pre_validate_sponsorship_token)                               | **POST** /organization/sponsorship/validate-token                                                        |
 | _OrganizationSponsorshipsApi_                | [**redeem_sponsorship**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_redeem_sponsorship)                                                       | **POST** /organization/sponsorship/redeem                                                                |
 | _OrganizationSponsorshipsApi_                | [**remove_sponsorship**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_remove_sponsorship)                                                       | **DELETE** /organization/sponsorship/sponsored/{sponsoredOrgId}                                          |
+| _OrganizationSponsorshipsApi_                | [**resend_own_sponsorship_offer**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_resend_own_sponsorship_offer)                                   | **POST** /organization/sponsorship/{organizationId}/families-for-enterprise/resend-self                  |
 | _OrganizationSponsorshipsApi_                | [**resend_sponsorship_offer**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_resend_sponsorship_offer)                                           | **POST** /organization/sponsorship/{organizationId}/families-for-enterprise/resend                       |
-| _OrganizationSponsorshipsApi_                | [**revoke_sponsorship**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_revoke_sponsorship)                                                       | **DELETE** /organization/sponsorship/{sponsoringOrganizationId}                                          |
+| _OrganizationSponsorshipsApi_                | [**revoke_sponsorship**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_revoke_sponsorship)                                                       | **DELETE** /organization/sponsorship/{organizationId}                                                    |
 | _OrganizationSponsorshipsApi_                | [**sync**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_sync)                                                                                   | **POST** /organization/sponsorship/sync                                                                  |
 | _OrganizationSubscriptionsApi_               | [**get_organization_subscription_preview**](docs/OrganizationSubscriptionsApi.md#get_organization_subscription_preview)                                          | **GET** /organizations/{organizationId}/billing/subscription/preview                                     |
 | _OrganizationSubscriptionsApi_               | [**preview_organization_plan_change**](docs/OrganizationSubscriptionsApi.md#preview_organization_plan_change)                                                    | **POST** /organizations/{organizationId}/billing/subscription/plan-change/preview                        |
@@ -880,6 +881,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationDomainSsoDetailsRequestModel](docs/OrganizationDomainSsoDetailsRequestModel.md)
 - [OrganizationIntegrationConfigurationRequestModel](docs/OrganizationIntegrationConfigurationRequestModel.md)
 - [OrganizationIntegrationConfigurationResponseModel](docs/OrganizationIntegrationConfigurationResponseModel.md)
+- [OrganizationIntegrationOAuthRedirectResponseModel](docs/OrganizationIntegrationOAuthRedirectResponseModel.md)
 - [OrganizationIntegrationRequestModel](docs/OrganizationIntegrationRequestModel.md)
 - [OrganizationIntegrationResponseModel](docs/OrganizationIntegrationResponseModel.md)
 - [OrganizationIntegrationStatus](docs/OrganizationIntegrationStatus.md)
@@ -1020,6 +1022,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PreviewPremiumUpgradeProrationRequest](docs/PreviewPremiumUpgradeProrationRequest.md)
 - [Priority](docs/Priority.md)
 - [PrivateKeysResponseModel](docs/PrivateKeysResponseModel.md)
+- [PrivilegedControlsInvoiceItems](docs/PrivilegedControlsInvoiceItems.md)
 - [ProductTierType](docs/ProductTierType.md)
 - [ProfileOrganizationResponseModel](docs/ProfileOrganizationResponseModel.md)
 - [ProfileOrganizationResponseModelListResponseModel](docs/ProfileOrganizationResponseModelListResponseModel.md)
