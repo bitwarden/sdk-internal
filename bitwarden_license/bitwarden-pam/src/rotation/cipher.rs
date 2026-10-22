@@ -1,9 +1,8 @@
 //! The vault cipher half of a rotation.
 //!
 //! [`rotate_cipher_password`] vets the cipher the server returned and builds the write that
-//! replaces its password. The vault owns the strict decryption, the password history and the
-//! encryption ([`Cipher::change_login_password`]); this module adds the PAM vetting and the
-//! original-item-key rule. It goes through the vault's typed models.
+//! replaces its password. Decryption, password history and encryption are the vault's
+//! ([`Cipher::change_login_password`]).
 
 use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
@@ -54,19 +53,12 @@ impl From<ChangeLoginPasswordError> for RotationCipherError {
     }
 }
 
-/// Builds the cipher write rotating `cipher`'s password to `new_password`. Before touching it,
-/// rejects a cipher outside the connector's organization, a non-login, a restricted one
-/// (re-encrypting would wipe the withheld fields), or one without an item key (a rotation would
-/// make the vault generate one). The vault then decrypts strictly (a field that fails to decrypt
-/// is an error, not silently dropped), moves the old password into the password history and
-/// re-encrypts; the rest carries over.
+/// Builds the cipher write that rotates `cipher`'s password to `new_password`.
 ///
-/// Uses field-level encryption, since the server rejects `data` on an organization cipher.
-///
-/// The request's `key` is the item key as fetched, never the one the vault emits. Encryption
-/// re-wraps the decrypted item key under the org key with a fresh IV, so the emitted string
-/// differs but wraps the same key the new fields are encrypted under; the original therefore
-/// unwraps to the right key, and the server requires it unchanged.
+/// Rejects ciphers from another organization, non-logins, restricted ciphers (re-encrypting would
+/// wipe the withheld fields) and ciphers without an item key. Decryption is strict, so a field that
+/// fails to decrypt is an error rather than wiped. The request sends back the item key as fetched,
+/// since the server requires it unchanged.
 pub fn rotate_cipher_password(
     key_store: &KeyStore<KeySlotIds>,
     organization_id: OrganizationId,
@@ -120,7 +112,7 @@ mod test_support {
     /// `KEYED_LOGIN` plus an attachment with its own key.
     pub(super) const KEYED_LOGIN_WITH_ATTACHMENT: &str =
         include_str!("../../tests/fixtures/ciphers/keyed_login_with_attachment.json");
-    /// Older-style cipher: no item key, every field encrypted directly under the org key.
+    /// Cipher without an item key: every field is encrypted directly under the org key.
     pub(super) const KEYLESS_LOGIN: &str =
         include_str!("../../tests/fixtures/ciphers/keyless_login.json");
     /// Server-restricted cipher: carries `partialData`.

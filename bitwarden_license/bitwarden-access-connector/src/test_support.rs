@@ -106,7 +106,7 @@ pub(crate) const KEYED_LOGIN_WITH_ATTACHMENT_ID: uuid::Uuid =
     uuid::uuid!("9f2a4b3c-6d5e-4f70-8b8c-1d2e3f4a5b6c");
 pub(crate) const KEYED_LOGIN_WITH_ATTACHMENT: &str =
     include_str!("../tests/fixtures/ciphers/keyed_login_with_attachment.json");
-/// Older-style cipher: no item key, every field encrypted directly under the org key.
+/// Cipher without an item key: every field is encrypted directly under the org key.
 pub(crate) const KEYLESS_LOGIN: &str = include_str!("../tests/fixtures/ciphers/keyless_login.json");
 pub(crate) const KEYLESS_LOGIN_ID: uuid::Uuid = uuid::uuid!("a03b5c4d-7e6f-4081-9c9d-2e3f4a5b6c7d");
 /// Server-restricted cipher: carries `partialData`.

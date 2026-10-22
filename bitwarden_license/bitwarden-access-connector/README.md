@@ -2,60 +2,48 @@
 
 Bitwarden PAM access connector.
 
-This crate provides the `bwac` binary. It continuously rotates PAM-managed credentials by polling
-the Bitwarden server for claimable rotation jobs, executing each job (resolve credentials → generate
-password → rotate in the target system → verify → write re-encrypted vault cipher → optionally
-terminate sessions → report outcome), and then returning to the poll loop.
+This crate provides the `bwac` binary. It polls the Bitwarden server for claimable rotation jobs and
+runs each one: resolve credentials, generate a password, rotate it in the target system, verify,
+write the re-encrypted vault cipher, optionally terminate sessions, and report the outcome.
 
 ## Usage
 
-```
-bwac run [--config <PATH>]
-```
+| Command                    | Description                                            |
+| -------------------------- | ------------------------------------------------------ |
+| `bwac run`                 | Start the connector poll loop                          |
+| `bwac run --config <PATH>` | Use this configuration file, also set by `BWAC_CONFIG` |
+| `bwac --version`           | Print the version                                      |
+| `bwac --help`              | Print help; `bwac run --help` for the run options      |
 
-All connector settings live in the TOML configuration file (see
-[Configuration file](#configuration-file)); they are **not** individual CLI flags.
+Connector settings live in the [configuration file](#configuration-file), not in command-line flags.
 
 ### Environment variables
 
-| Variable            | Purpose                                                        |
-| ------------------- | -------------------------------------------------------------- |
-| `BWAC_TOKEN`        | Access connector token (required)                              |
-| `BWAC_CONFIG`       | Path to the TOML configuration file (equivalent to `--config`) |
-| `BWAC_API_URL`      | Bitwarden API server URL (overrides the config file)           |
-| `BWAC_IDENTITY_URL` | Bitwarden identity server URL (overrides the config file)      |
-| `RUST_LOG`          | Log filter directives; default `info` (e.g. `RUST_LOG=debug`)  |
-
-### Flags and options
-
-| Flag / option     | Description                         |
-| ----------------- | ----------------------------------- |
-| `--config <PATH>` | Path to the TOML configuration file |
+| Variable            | Purpose                                                  |
+| ------------------- | -------------------------------------------------------- |
+| `BWAC_TOKEN`        | Access connector token (required)                        |
+| `BWAC_CONFIG`       | Path to the TOML configuration file, same as `--config`  |
+| `BWAC_API_URL`      | Bitwarden API server URL, overrides the config file      |
+| `BWAC_IDENTITY_URL` | Bitwarden identity server URL, overrides the config file |
+| `RUST_LOG`          | Log filter directives, default `info`                    |
 
 ### Token security
 
-The access connector token contains the org-key encryption key. It is **never** accepted as a plain
-`--token` argument — argv is visible via `ps`/`/proc/<pid>/cmdline`. Supply it via the `BWAC_TOKEN`
-environment variable only.
-
-After reading `BWAC_TOKEN` at startup, the connector removes it from the process environment so that
-child processes (e.g. custom scripts) cannot inherit the token value.
+The token contains the org-key encryption key, so it is only read from `BWAC_TOKEN`, never from a
+flag, since argv is visible in `ps` and `/proc/<pid>/cmdline`. The connector removes it from its
+environment after reading it, so custom scripts and other child processes do not inherit it.
 
 ### Configuration file
 
-The connector is configured from a TOML file. Specify the file with `--config <PATH>` or the
-`BWAC_CONFIG` environment variable. The server URLs may additionally be overridden with the
-`BWAC_API_URL` / `BWAC_IDENTITY_URL` environment variables.
+Pass the file with `--config <PATH>` or `BWAC_CONFIG`. Unknown keys are a startup error, and so is a
+`token` key; see [Token security](#token-security).
 
-**Precedence** (highest to lowest):
+Server URLs resolve in this order, highest first. If none is set, startup fails with an error naming
+all three.
 
 1. `BWAC_API_URL` / `BWAC_IDENTITY_URL` environment variables
 2. `[environment].api` / `[environment].identity` in the config file
 3. Derived from `[environment].base` as `{base}/api` / `{base}/identity`
-4. Error — startup fails with a message naming all three supply methods
-
-The access connector token **cannot** be supplied via the config file. Any config file that contains
-a `token` key is rejected at startup. Use `BWAC_TOKEN` only.
 
 #### Example configuration file
 
@@ -98,49 +86,46 @@ RUST_LOG=debug bwac run --config /etc/bwac/config.toml
 RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwac/config.toml
 ```
 
-The default level (`info`) produces one log line per lifecycle milestone; `RUST_LOG=debug` adds
-per-tick and per-substep chatter.
-
 #### Operator-visible events at `info` / `warn` / `error`
 
-| Level   | Event                                                | Key fields                                                                 |
-| ------- | ---------------------------------------------------- | -------------------------------------------------------------------------- |
-| `info`  | Access connector starting                            | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs` |
-| `info`  | Session established / renewed                        | `retry` (on renewal)                                                       |
-| `info`  | Shutdown signal received                             | —                                                                          |
-| `info`  | Rotation job claimed                                 | `job_id`, `target_system_name`                                             |
-| `info`  | Starting rotation execution                          | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                  |
-| `info`  | Step 1: credentials resolved                         | `attempt_id`                                                               |
-| `info`  | Step 2: password generated                           | `attempt_id`                                                               |
-| `info`  | Step 3: target rotate succeeded                      | `attempt_id`, `kind`                                                       |
-| `info`  | Step 4: verify succeeded                             | `attempt_id`                                                               |
-| `info`  | Step 5: cipher written                               | `attempt_id`, `cipher_id`                                                  |
-| `info`  | Step 6: session termination succeeded                | `attempt_id`                                                               |
-| `info`  | Step 7: rotation succeeded and reported              | `attempt_id`, `termination`                                                |
-| `info`  | Access connector shut down cleanly                   | —                                                                          |
-| `warn`  | Session renewal failed (transient / protocol)        | `retry`, `sleep_ms`                                                        |
-| `warn`  | Session entered Revoked phase                        | —                                                                          |
-| `warn`  | Rotation failed (any step)                           | `attempt_id`, `failure_code`, `sync_state`, `detail`                       |
-| `warn`  | Step 6: session termination aborted / failed         | `attempt_id`, `abort_reason`                                               |
-| `warn`  | Transient poll error / backoff                       | backoff duration                                                           |
-| `warn`  | Success report rejected/unknown by server            | `attempt_id`                                                               |
-| `error` | Access connector credential refused                  | —                                                                          |
-| `error` | Access connector could not authenticate at startup   | —                                                                          |
-| `error` | Access connector not eligible for rotation endpoints | —                                                                          |
+| Level   | Event                                                | Key fields                                                                                       |
+| ------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `info`  | Access connector starting                            | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs`, `configured_targets` |
+| `info`  | Session authenticated                                | `retry`                                                                                          |
+| `info`  | Shutdown signal received                             |                                                                                                  |
+| `info`  | Rotation job claimed                                 | `job_id`, `target_system_name`                                                                   |
+| `info`  | Starting rotation execution                          | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                                        |
+| `info`  | Pre-flight cipher check passed                       | `attempt_id`                                                                                     |
+| `info`  | Step 1: credentials resolved                         | `attempt_id`                                                                                     |
+| `info`  | Step 2: password generated                           | `attempt_id`                                                                                     |
+| `info`  | Step 3: target rotate succeeded                      | `attempt_id`, `kind`                                                                             |
+| `info`  | Step 4: verify succeeded                             | `attempt_id`                                                                                     |
+| `info`  | Step 5: cipher written                               | `attempt_id`, `cipher_id`                                                                        |
+| `info`  | Step 6: session termination succeeded                | `attempt_id`                                                                                     |
+| `info`  | Step 7: rotation succeeded and reported              | `attempt_id`, `termination`                                                                      |
+| `info`  | Access connector shut down cleanly                   |                                                                                                  |
+| `warn`  | Session renewal failed (transient / protocol)        | `retry`, `sleep_ms`                                                                              |
+| `warn`  | Session entered Revoked phase                        |                                                                                                  |
+| `warn`  | Rotation failed (any step)                           | `attempt_id`, `failure_code`, `sync_state`, `detail`                                             |
+| `warn`  | Step 6: session termination aborted / failed         | `attempt_id`, `abort_reason`                                                                     |
+| `warn`  | Transient poll error / backoff                       |                                                                                                  |
+| `warn`  | Success report rejected/unknown by server            | `attempt_id`                                                                                     |
+| `error` | Access connector credential refused                  |                                                                                                  |
+| `error` | Access connector could not authenticate at startup   |                                                                                                  |
+| `error` | Access connector not eligible for rotation endpoints |                                                                                                  |
 
-At `RUST_LOG=debug` the following additional events appear: poll ticks (with claimable job count),
-heartbeat ticks, claim-race losses (409 per job), registered integration kinds, cipher-fetch
-sub-step, and session-renewal details.
+`RUST_LOG=debug` adds: poll ticks (with claimable job count), heartbeat ticks, claim-race losses
+(409 per job), cipher fetches and reported attempts.
 
 ### Exit codes
 
-| Code | Meaning                                                                                                                                                                |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0`  | Clean shutdown (SIGTERM or Ctrl-C received).                                                                                                                           |
-| `1`  | Startup error: invalid configuration, invalid command-line arguments, I/O error, or parse failure.                                                                     |
-| `2`  | Access connector credential refused. An admin must reissue the credential server-side (via `ReissueConnectorCredential`) and restart the connector with the new token. |
-| `3`  | Access connector not eligible for rotation endpoints. Check: connector record not revoked or disabled, organisation license active, `UsePam` enabled.                  |
-| `4`  | Access connector could not authenticate at startup (e.g. identity server unreachable). Check network connectivity and the identity URL; restarting may succeed.        |
+| Code | Meaning                                                                                               |
+| ---- | ----------------------------------------------------------------------------------------------------- |
+| `0`  | Clean shutdown (SIGTERM or Ctrl-C)                                                                    |
+| `1`  | Startup error: invalid configuration, token or arguments, I/O error, or parse failure                 |
+| `2`  | Credential refused. An admin reissues it (`ReissueConnectorCredential`); restart with the new token   |
+| `3`  | Not eligible. Check the connector isn't revoked or disabled, the license is active and `UsePam` is on |
+| `4`  | Startup authentication failed transiently. Check connectivity and the identity URL, then restart      |
 
 ## Credential resolution
 

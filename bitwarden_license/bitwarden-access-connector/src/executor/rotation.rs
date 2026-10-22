@@ -1,11 +1,8 @@
 //! Core rotation execution pipeline.
 //!
 //! A `Revoked` or `Closed` session fails the attempt up front; an `Expired` one is refreshed by
-//! the gate. `execute_by` bounds only target-side steps (3, 4, 6), not server-side 5 and 7.
-//!
-//! The cipher goes through the vault's typed path: decrypt, replace only the login password
-//! (the old one moves into history), re-encrypt. Non-login, foreign-organization and restricted
-//! ciphers are never rotated.
+//! the gate. `execute_by` bounds only the target-side steps (rotate, verify, terminate sessions),
+//! not the server-side cipher write and report.
 
 use std::{
     sync::Arc,
@@ -30,30 +27,29 @@ use crate::{
     resolver::{CredentialResolver, ResolveError},
 };
 
-/// Why a step-boundary gate aborted the rotation, unreported; the server's release sweep reclaims
-/// it.
+/// Why a gate aborted the rotation without reporting. The server's release sweep reclaims the job.
 #[derive(Debug, Clone)]
 pub(crate) enum AbortReason {
-    /// The claim's `execute_by` lease deadline has passed.
+    /// The claim's `execute_by` deadline has passed.
     LeaseExpired,
-    /// The session was terminally lost (revoked or closed).
+    /// The session was revoked or closed.
     SessionLost(SessionLost),
-    /// The `CancellationToken` was cancelled (shutdown).
+    /// Shutdown was requested.
     Cancelled,
 }
 
-/// Proof that step 4 (verify) succeeded.
+/// Proof that verify succeeded.
 pub(crate) struct Verified(());
 
-/// Proof that step 5 (cipher write) succeeded.
+/// Proof that the cipher write succeeded.
 pub(crate) struct CipherWritten(());
 
 /// The outcome of a single [`execute`] call.
 #[derive(Debug)]
 pub(crate) enum ExecutionResult {
-    /// An outcome (success or failure) was reported to the server.
+    /// An outcome was reported to the server.
     Reported,
-    /// Aborted before an outcome could be reported; the server's release sweep reclaims the job.
+    /// Aborted before reporting; the server's release sweep reclaims the job.
     Unreported(AbortReason),
 }
 
@@ -63,18 +59,18 @@ pub(crate) struct ExecutionContext {
     pub(crate) session: Arc<SessionManager>,
     pub(crate) integrations: Arc<IntegrationRegistry>,
     pub(crate) resolver: Arc<dyn CredentialResolver>,
-    /// The organisation whose key the cipher is encrypted under.
+    /// The organisation that owns the cipher.
     pub(crate) organization_id: OrganizationId,
     pub(crate) retry_cfg: RetryCfg,
-    /// How long without a successful server contact before the gate pauses target-side steps.
+    /// How long without server contact before the gate pauses target-side steps.
     pub(crate) offline_grace: Duration,
-    /// Returns the instant of the last successful server contact.
+    /// The instant of the last successful server contact.
     pub(crate) last_ok: Arc<dyn Fn() -> Instant + Send + Sync>,
     pub(crate) cancel: bitwarden_threading::cancellation_token::CancellationToken,
 }
 
-/// Runs one rotation attempt: pre-flight cipher check (check 8), then the seven steps: resolve,
-/// generate, rotate, verify, write cipher, terminate sessions, report.
+/// Runs one rotation attempt: a cipher pre-flight check, then resolve, generate, rotate, verify,
+/// write cipher, terminate sessions and report.
 pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> ExecutionResult {
     let attempt_id = job.attempt_id();
     let api = ctx.client.access_connector();
@@ -90,7 +86,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
     {
         let phase = ctx.session.phase().await;
         if matches!(phase, SessionPhase::Revoked | SessionPhase::Closed) {
-            // Best-effort failure report: session is terminal, report may fail.
+            // Best effort: the session is terminal, so the report may fail.
             report_failure_absorb(
                 &api,
                 attempt_id,
@@ -103,8 +99,8 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         }
     }
 
-    // Check 8: runs before the target is touched, so an unrotatable cipher (wrong organization or
-    // type, restricted, undecryptable) fails as target_unchanged. Step 5 repeats it.
+    // Pre-flight cipher check, before the target is touched, so an unrotatable cipher (wrong
+    // organization or type, restricted, undecryptable) fails as target_unchanged.
     {
         let cipher = match fetch_cipher(&api, &ctx.retry_cfg, attempt_id).await {
             Ok(c) => c,
@@ -141,8 +137,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             return ExecutionResult::Reported;
         }
 
-        // A dry run of the write in step 5: the new password does not exist yet, so a placeholder
-        // stands in, and the request is discarded. Only the verdict matters here.
+        // Dry run of the cipher write with a placeholder password; the request is discarded.
         if let Err(e) = rotate_cipher_password(
             &api.key_store,
             ctx.organization_id,
@@ -163,7 +158,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         }
     }
 
-    tracing::info!(attempt_id = %attempt_id, "check 8: pre-flight cipher read succeeded");
+    tracing::info!(attempt_id = %attempt_id, "pre-flight cipher check passed");
 
     let execute_by_instant = datetime_to_instant(job.execute_by());
 
@@ -321,7 +316,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 return ExecutionResult::Unreported(reason);
             }
             GatedOutcome::Failed(err) => {
-                // The rotation applied but the vault was not written.
+                // The target was rotated but the cipher was not written.
                 report_failure_absorb(
                     &api,
                     attempt_id,
@@ -335,7 +330,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         }
     };
 
-    // execute_by does not bound this step; the session's bearer refresh handles token expiry.
+    // Not bounded by execute_by; the session's bearer refresh handles token expiry.
     let cipher_written = {
         let cipher = match fetch_cipher(&api, &ctx.retry_cfg, attempt_id).await {
             Ok(c) => c,
@@ -346,7 +341,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 return ExecutionResult::Unreported(AbortReason::SessionLost(l));
             }
             Err(_) => {
-                // Step 3 already changed the target credential, so report target_updated.
+                // The target credential already changed.
                 report_failure_absorb(
                     &api,
                     attempt_id,
@@ -359,7 +354,8 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             }
         };
 
-        // Check 8, repeated: the target is already rotated, so this fails as target_updated.
+        // Repeats the pre-flight id check; the target is already rotated, so this is
+        // target_updated.
         if cipher.id.map(uuid::Uuid::from) != Some(job.cipher_id()) {
             report_failure_absorb(
                 &api,
@@ -383,7 +379,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             &new_password,
         ) {
             Ok(r) => r,
-            // The vault re-encrypted the cipher, but the request built from it is unusable.
+            // The re-encrypted cipher produced an unusable request.
             Err(RotationCipherError::CipherDataPresent | RotationCipherError::Json(_)) => {
                 report_failure_absorb(
                     &api,
@@ -395,8 +391,8 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 .await;
                 return ExecutionResult::Reported;
             }
-            // A `Crypto` error cannot be split into decrypt vs encrypt; the pre-flight dry run
-            // already exercised encryption, so treat it as a rejected cipher.
+            // A `Crypto` error can't be split into decrypt or encrypt. The pre-flight already
+            // exercised encryption, so treat it as a rejected cipher.
             Err(e) => {
                 report_failure_absorb(
                     &api,
@@ -461,7 +457,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 return ExecutionResult::Unreported(AbortReason::SessionLost(l));
             }
             Err(_) => {
-                // The target credential already changed, so report target_updated.
+                // The target credential already changed.
                 report_failure_absorb(
                     &api,
                     attempt_id,
@@ -475,7 +471,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         }
     };
 
-    // Termination never fails the rotation, but a lost session blocks the success report.
+    // Termination never fails the rotation, but a lost session blocks the report.
     let termination_result: SessionTerminationOutcome = if !job.terminate_sessions() {
         SessionTerminationOutcome::NotRequested
     } else {
@@ -510,7 +506,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 return ExecutionResult::Unreported(AbortReason::SessionLost(l));
             }
             GatedOutcome::Aborted(reason) => {
-                // Lease expired or cancelled during termination: report success with term_failed.
+                // Lease expired or cancelled: report success with term_failed.
                 tracing::warn!(
                     attempt_id = %attempt_id,
                     abort_reason = ?reason,
@@ -553,7 +549,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
     }
 }
 
-/// Reports a successful rotation. The proof tokens are module-private, so skipping step 4 or 5 is a
+/// Reports a successful rotation. The proof tokens make skipping verify or the cipher write a
 /// compile error.
 async fn report_success_inner(
     api: &AccessConnectorClient,
@@ -570,7 +566,7 @@ async fn report_success_inner(
                 Ok(()) => Ok(()),
                 Err(ApiError::Transient(s)) => Err((Retry::Transient, ApiError::Transient(s))),
                 Err(ApiError::SessionLost(l)) => Err((Retry::Permanent, ApiError::SessionLost(l))),
-                // 409/404 on report is final; treat as reported.
+                // A 409 or 404 on report is final.
                 Err(ApiError::Rejected { .. }) | Err(ApiError::UnknownAttempt) => {
                     tracing::warn!(
                         attempt_id = %attempt_id,
@@ -585,8 +581,8 @@ async fn report_success_inner(
     .await
 }
 
-/// Builds the gate for the gated-retry steps (3, 4, 6): lease expiry, cancellation, session loss,
-/// and pauses for re-authentication or stale connectivity.
+/// Builds the gate for the target-side steps. It aborts on lease expiry, cancellation or session
+/// loss, and waits out re-authentication or stale connectivity.
 fn make_gate(
     session: Arc<SessionManager>,
     execute_by: Instant,
@@ -601,19 +597,19 @@ fn make_gate(
 
         Box::pin(async move {
             loop {
-                // Arm 1: lease expired.
+                // Lease expired.
                 if Instant::now() >= execute_by {
                     return Err(AbortReason::LeaseExpired);
                 }
 
-                // Arm 2: cancelled.
+                // Cancelled.
                 if cancel.is_cancelled() {
                     return Err(AbortReason::Cancelled);
                 }
 
                 let phase = session.phase().await;
 
-                // Arm 3: terminal session.
+                // Terminal session.
                 match phase {
                     SessionPhase::Revoked => {
                         return Err(AbortReason::SessionLost(SessionLost::Revoked));
@@ -624,9 +620,9 @@ fn make_gate(
                     _ => {}
                 }
 
-                // Arm 4: expired/authenticating → pause waiting for refresh.
+                // Wait for the token refresh.
                 if matches!(phase, SessionPhase::Expired | SessionPhase::Authenticating) {
-                    // bearer() renews the token, bounded by execute_by.
+                    // `bearer` renews the token, bounded by `execute_by`.
                     match session.bearer(Some(execute_by)).await {
                         Ok(_) => {
                             continue;
@@ -635,18 +631,17 @@ fn make_gate(
                             return Err(AbortReason::SessionLost(l));
                         }
                         Err(crate::auth::session::SessionError::Transient(_)) => {
-                            // Transient renewal failure up to deadline → LeaseExpired.
+                            // Renewal kept failing until the deadline.
                             return Err(AbortReason::LeaseExpired);
                         }
                     }
                 }
 
-                // Arm 5: active but connectivity stale.
+                // Wait for connectivity to recover.
                 if phase == SessionPhase::Active {
                     let stale = (last_ok)();
                     if stale.elapsed() > offline_grace {
-                        // Poll every second until connectivity recovers, execute_by passes, or
-                        // shutdown is requested.
+                        // Poll every second.
                         loop {
                             if Instant::now() >= execute_by {
                                 return Err(AbortReason::LeaseExpired);
@@ -696,8 +691,7 @@ fn datetime_to_instant(dt: chrono::DateTime<chrono::Utc>) -> Instant {
     }
 }
 
-/// Fetches the cipher with retries. Callers handle failure: check 8 and step 5 report different
-/// sync states.
+/// Fetches the cipher with retries. Callers handle failure, since the sync state differs.
 async fn fetch_cipher(
     api: &AccessConnectorClient,
     retry_cfg: &RetryCfg,
@@ -714,10 +708,10 @@ async fn fetch_cipher(
     .await
 }
 
-/// Stands in for the new password in the pre-flight dry run of the cipher write.
+/// Stands in for the new password in the pre-flight dry run.
 const PRE_FLIGHT_PLACEHOLDER_PASSWORD: &str = "pre-flight-placeholder";
 
-/// A fixed, content-free reason for a rejected cipher, for the failure report.
+/// A fixed, content-free reason for a rejected cipher.
 fn cipher_rejection_reason(err: &RotationCipherError, pre_flight: bool) -> &'static str {
     match (err, pre_flight) {
         (RotationCipherError::CipherOrganizationMismatch, true) => "pre_flight_cipher_org_mismatch",
@@ -736,8 +730,8 @@ fn cipher_rejection_reason(err: &RotationCipherError, pre_flight: bool) -> &'sta
     }
 }
 
-/// Reports a rotation failure, absorbing report errors (still `Reported`). `pub(crate)` so the
-/// claim loop can report a `verify` rejection before an `ExecutionContext` exists.
+/// Reports a rotation failure, absorbing report errors. Also used by the claim loop, before an
+/// `ExecutionContext` exists.
 pub(crate) async fn report_failure_absorb(
     api: &AccessConnectorClient,
     attempt_id: uuid::Uuid,
@@ -759,9 +753,6 @@ pub(crate) async fn report_failure_absorb(
         tracing::warn!(attempt_id = %attempt_id, "failure report itself failed: {e}");
     }
 }
-
-// Used in make_gate's return type.
-use std::future::Future;
 
 #[cfg(test)]
 mod tests {
@@ -810,7 +801,7 @@ mod tests {
         assert!(instant > std::time::Instant::now());
     }
 
-    // execute_by is past, so arm 1 fires before phase() is awaited.
+    // `execute_by` has passed, so the gate aborts on the lease before checking the session.
 
     #[tokio::test]
     async fn gate_lease_expired_aborts() {
@@ -862,7 +853,7 @@ mod tests {
         assert!(matches!(result, Err(AbortReason::LeaseExpired)));
     }
 
-    // cancel is pre-cancelled, so arm 2 fires before session.phase().
+    // Already cancelled, so the gate aborts before checking the session.
 
     #[tokio::test]
     async fn gate_cancelled_aborts() {
@@ -1046,7 +1037,7 @@ mod tests {
             test_support::{sample_config, sample_target, sealed_pair},
         };
 
-        // The cipher vectors are encrypted under this org key, so the session must install it.
+        // The session installs the org key the cipher vectors are encrypted under.
         let org_key = crate::test_support::fixture_org_key();
         let payload = encrypted_payload_for(&org_key);
 
@@ -1067,7 +1058,7 @@ mod tests {
         let job_id = uuid::Uuid::new_v4();
         let target_system_id = uuid::Uuid::new_v4();
 
-        // The client's own key store, which the session installs the org key into.
+        // The client's key store, which the session installs the org key into.
         let (tx, _rx) = watch::channel(std::time::Instant::now());
         let (client, handler) = build_sdk_client(
             api_server.uri(),
@@ -1188,7 +1179,7 @@ mod tests {
     /// A `get_cipher` protocol error after a successful rotate reports `target_updated`.
     #[tokio::test]
     async fn get_cipher_protocol_error_after_rotate_reports_target_updated() {
-        // The first GET is the pre-flight read and must succeed; the second breaks.
+        // The first GET is the pre-flight and must succeed; the second breaks.
         let run = run_execute(|| {
             vec![
                 json_response(crate::test_support::keyed_login_json()),
@@ -1217,8 +1208,7 @@ mod tests {
         assert_eq!(body["syncState"], serde_json::json!(0));
     }
 
-    /// A cipher that cannot be rotated fails the pre-flight, before the target is touched. The
-    /// claim names `cipher_id`, the id of the vector `json` is derived from.
+    /// A cipher that cannot be rotated fails the pre-flight, before the target is touched.
     async fn assert_preflight_rejects(cipher_id: uuid::Uuid, json: serde_json::Value) {
         let run = run_execute_for(cipher_id, || vec![json_response(json)]).await;
 
@@ -1260,7 +1250,7 @@ mod tests {
         assert_preflight_rejects(RESTRICTED_LOGIN_ID, vector_json(RESTRICTED_LOGIN)).await;
     }
 
-    /// Lenient decryption would drop the field and the write wipe it; strict fails the pre-flight.
+    /// Lenient decryption would drop the field and the write would wipe it.
     #[tokio::test]
     async fn preflight_rejects_cipher_with_undecryptable_field() {
         use bitwarden_crypto::{KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
@@ -1291,7 +1281,7 @@ mod tests {
         let body: serde_json::Value = serde_json::from_slice(&puts[0].body).expect("PUT body");
         let dec = |p| crate::test_support::decrypt_body_field(&run.store, &body, p);
 
-        // The item key is sent back exactly as fetched, and the new fields decrypt under it.
+        // The item key is sent back unchanged, and the new fields decrypt under it.
         assert_eq!(body["key"], original_key.as_str());
         let mut original_body = body.clone();
         original_body["key"] = original_key.into();
@@ -1300,7 +1290,7 @@ mod tests {
             dec("/login/password")
         );
 
-        // The password the integration set is what was written, and the old one is in history.
+        // The written password is the one the integration set; the old one is in history.
         assert_ne!(dec("/login/password"), "old-password");
         assert_eq!(dec("/passwordHistory/0/password"), "old-password");
         assert_eq!(dec("/passwordHistory/1/password"), "older-password");
@@ -1314,7 +1304,7 @@ mod tests {
         assert_eq!(dec("/name"), "Prod database");
     }
 
-    /// A keyless cipher would make the vault generate an item key, so it is rejected up front.
+    /// A keyless cipher would make the vault generate an item key.
     async fn assert_keyless_rejected(attachments: bool) {
         let mut json = vector_json(KEYLESS_LOGIN);
         if attachments {

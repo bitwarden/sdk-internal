@@ -36,7 +36,7 @@ use crate::{
     sys::SystemEnv,
 };
 
-/// Reads the connectivity watch. Test-only.
+/// Reads the connectivity watch.
 #[cfg(test)]
 pub(crate) struct ConnectivityMonitor {
     rx: watch::Receiver<Instant>,
@@ -58,16 +58,16 @@ impl ConnectivityMonitor {
     }
 }
 
-/// Why the connector's main loop exited cleanly.
+/// Why the run loop exited.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunExit {
-    /// The cancellation token was cancelled (clean shutdown).
+    /// Shutdown was requested.
     Shutdown,
-    /// The credential was rejected or revoked; the operator must reissue it and restart.
+    /// The credential was rejected or revoked; it must be reissued.
     CredentialRefused,
-    /// Startup or authentication failed for a reason other than a refused credential.
+    /// Startup authentication failed, but not because the credential was refused.
     StartupFailed,
-    /// The connector is not eligible to use the rotation endpoints.
+    /// The connector is not eligible for the rotation endpoints.
     NotEligible,
 }
 
@@ -80,8 +80,7 @@ pub struct AccessConnectorConfig {
     pub(crate) poll_interval: Duration,
     /// How often the heartbeat fires during an executing rotation (default: 30 s).
     pub(crate) heartbeat_interval: Duration,
-    /// Maximum time without a successful server contact before the gate pauses
-    /// target-side steps (default: 60 s).
+    /// Time without server contact before the gate pauses target-side steps (default: 60 s).
     pub(crate) offline_grace: Duration,
     pub(crate) retry_cfg: RetryCfg,
     pub(crate) script_root: Option<std::path::PathBuf>,
@@ -98,7 +97,7 @@ pub struct AccessConnectorConfig {
 }
 
 impl AccessConnectorConfig {
-    /// Builds a config for integration tests, bypassing validation. `pub` for `tests/`.
+    /// Builds a config for integration tests, bypassing validation.
     #[doc(hidden)]
     pub fn new_for_test(
         api_url: String,
@@ -128,9 +127,9 @@ impl AccessConnectorConfig {
     }
 }
 
-/// Runs the connector poll loop until a clean exit. A revoked session maps to
-/// [`RunExit::CredentialRefused`], other startup failures to [`RunExit::StartupFailed`], and a 404
-/// that survives a refresh probe to [`RunExit::NotEligible`].
+/// Runs the connector poll loop. A revoked session exits as [`RunExit::CredentialRefused`], other
+/// startup failures as [`RunExit::StartupFailed`], and a 404 that survives a refresh probe as
+/// [`RunExit::NotEligible`].
 pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -> RunExit {
     let identity_client = match crate::auth::identity::IdentityClient::new(cfg.identity_url.clone())
     {
@@ -151,7 +150,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         "access connector starting"
     );
 
-    // The client owns the key store the session installs the org key into, so it is built first.
+    // Built first, since the session installs the org key into the client's key store.
     let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
     let (sdk_client, handler) = build_sdk_client(
         cfg.api_url.clone(),
@@ -164,7 +163,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         .key_store()
         .expect("ClientBuilder::build calls initialize_middleware, which sets the key store");
 
-    // SessionManager::new backs off internally; select! lets cancellation exit cleanly.
+    // `SessionManager::new` backs off internally; `select!` lets cancellation interrupt it.
     let session = tokio::select! {
         result = crate::auth::session::SessionManager::new(identity_client, cfg.token, key_store) => {
             match result {
@@ -180,7 +179,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
                     return RunExit::CredentialRefused;
                 }
                 Err(e) => {
-                    // Transient failures outlasting the startup retries; `Lost(Closed)` cannot occur here.
+                    // Transient failures outlasted the startup retries.
                     tracing::error!("startup authentication failed: {e}");
                     return RunExit::StartupFailed;
                 }
@@ -233,7 +232,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
 
     let key_store = session.key_store().await;
 
-    // `SessionManager::new` authenticated eagerly, so the claim has already been read.
+    // `SessionManager::new` authenticates eagerly, so the claim is already available.
     let Some(organization_id) = session.organization_id().await else {
         tracing::error!("access token carries no usable organization claim");
         return RunExit::CredentialRefused;
@@ -274,7 +273,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
                 return RunExit::CredentialRefused;
             }
             Err(ApiError::NotEligible) => {
-                // Probe whether the credential was revoked or only the organization lost access.
+                // Tell a revoked credential from an organization that lost access.
                 match handle_not_eligible(&session, &api).await {
                     NotEligibleOutcome::CredentialRefused => {
                         return RunExit::CredentialRefused;
@@ -359,8 +358,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             continue;
         };
 
-        // Checks 1–7 run first: a rejection never touches the resolver, integration, or cipher
-        // route.
+        // A rejected job never reaches the resolver, an integration or the cipher route.
         let attempt_id = snap.attempt_id;
         let verified = match snap.verify(&key_store, organization_id) {
             Ok(v) => v,
@@ -382,7 +380,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             }
         };
 
-        // Heartbeat until the rotation completes.
+        // Keeps the connectivity watch fresh during the rotation.
         let heartbeat_cancel = cancel.child_token();
         let heartbeat_handle = spawn_heartbeat(
             sdk_client.clone(),
@@ -409,7 +407,6 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
 
         match result {
             ExecutionResult::Reported => {
-                // rotation.rs already logged the outcome.
                 tracing::debug!(attempt_id = %attempt_id, "rotation attempt reported");
             }
             ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Revoked)) => {
@@ -425,7 +422,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
     }
 }
 
-/// Spawns the heartbeat: polls the jobs endpoint for the connectivity bump until `cancel` fires.
+/// Polls the jobs endpoint for the connectivity bump until `cancel` fires.
 fn spawn_heartbeat(
     client: Client,
     interval_period: Duration,
@@ -452,13 +449,12 @@ enum NotEligibleOutcome {
     Retry,
 }
 
-/// Probes a `NotEligible` with a forced refresh: rejected means `CredentialRefused`, a 404 on the
-/// re-poll after a good refresh means `NotEligible`.
+/// Forces a token refresh to tell a revoked credential from a connector that is not eligible.
 async fn handle_not_eligible(
     session: &SessionManager,
     api: &AccessConnectorClient,
 ) -> NotEligibleOutcome {
-    // The current bearer is the stale token for force_refresh.
+    // The current bearer is the stale token to refresh.
     let stale = match session.bearer(None).await {
         Ok(t) => t,
         Err(crate::auth::session::SessionError::Lost(
@@ -477,7 +473,7 @@ async fn handle_not_eligible(
             return NotEligibleOutcome::CredentialRefused;
         }
         Err(_) => {
-            // Transient refresh failure; keep polling.
+            // Transient failure; keep polling.
             return NotEligibleOutcome::Retry;
         }
     }

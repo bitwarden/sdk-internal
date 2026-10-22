@@ -74,7 +74,7 @@ where
         }
     }
 
-    // Safe: reaching here means at least one transient error was recorded.
+    // At least one transient error was recorded.
     #[allow(clippy::unwrap_used)]
     Err(last_err.unwrap())
 }

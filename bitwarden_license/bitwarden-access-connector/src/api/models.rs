@@ -19,21 +19,19 @@ pub(crate) enum ApiError {
     #[error("session lost: {0:?}")]
     SessionLost(SessionLost),
 
-    /// The server returned 409. A claim maps it to `Ok(None)` instead; on a cipher write it means
-    /// revision drift or capability lost.
+    /// The server returned 409. A claim maps it to `Ok(None)` instead.
     #[error("rejected (HTTP {status})")]
     Rejected {
         /// The HTTP status, typically 409.
         status: u16,
     },
 
-    /// A 404 on an attempt-scoped route (`/cipher`, `/success`, `/failure`): the server does not
-    /// know the attempt, so the executor abandons it unreported.
+    /// A 404 on an attempt-scoped route: the server does not know the attempt, so it should be
+    /// abandoned unreported.
     #[error("attempt not found (404)")]
     UnknownAttempt,
 
-    /// A 404 on a connector or job route: the server does not consider this connector eligible. The
-    /// executor runs a refresh probe to tell this apart from `CredentialRefused`.
+    /// A 404 on a connector or job route: the server does not consider this connector eligible.
     #[error("access connector not eligible (404 on connector route)")]
     NotEligible,
 

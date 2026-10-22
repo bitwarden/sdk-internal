@@ -270,14 +270,14 @@ mod tests {
     #[test]
     fn env_token_path_succeeds() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://api.example.com");
             std::env::set_var("BWAC_IDENTITY_URL", "https://identity.example.com");
         }
         let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
             std::env::remove_var("BWAC_API_URL");
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn missing_bwac_token_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -303,12 +303,12 @@ mod tests {
     #[test]
     fn empty_bwac_token_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", "  ");
         }
         let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -322,12 +322,12 @@ mod tests {
     fn malformed_token_is_invalid_token_and_does_not_echo_value() {
         let _guard = ENV_LOCK.lock().unwrap();
         let bad_token = "not-a-valid-token-string";
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", bad_token);
         }
         let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn env_token_removed_from_environment_after_config_load() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://api.example.com");
@@ -357,7 +357,7 @@ mod tests {
             "BWAC_TOKEN must be present before from_cli"
         );
         let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
@@ -372,7 +372,7 @@ mod tests {
     #[test]
     fn poll_interval_below_minimum_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -389,7 +389,7 @@ identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -403,7 +403,7 @@ identity = "https://identity.example.com"
     #[test]
     fn poll_interval_at_minimum_is_valid() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -420,7 +420,7 @@ identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -433,7 +433,7 @@ identity = "https://identity.example.com"
     #[test]
     fn heartbeat_interval_at_120_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -451,7 +451,7 @@ identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -465,7 +465,7 @@ identity = "https://identity.example.com"
     #[test]
     fn heartbeat_interval_at_119_is_valid() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -482,7 +482,7 @@ identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -495,14 +495,14 @@ identity = "https://identity.example.com"
     #[test]
     fn env_urls_without_file_are_used() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://api.env.example.com");
             std::env::set_var("BWAC_IDENTITY_URL", "https://identity.env.example.com");
         }
         let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
             std::env::remove_var("BWAC_API_URL");
@@ -517,7 +517,7 @@ identity = "https://identity.example.com"
     #[test]
     fn env_urls_override_file() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://api.env.example.com");
@@ -532,7 +532,7 @@ identity = "https://identity.file.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
             std::env::remove_var("BWAC_API_URL");
@@ -547,7 +547,7 @@ identity = "https://identity.file.example.com"
     #[test]
     fn whitespace_env_url_is_treated_as_unset() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "  ");
@@ -563,7 +563,7 @@ identity = "https://identity.file.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
             std::env::remove_var("BWAC_API_URL");
@@ -577,7 +577,7 @@ identity = "https://identity.file.example.com"
     #[test]
     fn missing_api_url_from_all_layers_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -592,7 +592,7 @@ identity = "https://identity.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -611,7 +611,7 @@ identity = "https://identity.example.com"
     #[test]
     fn missing_identity_url_from_all_layers_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -626,7 +626,7 @@ api = "https://api.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -645,7 +645,7 @@ api = "https://api.example.com"
     #[test]
     fn file_only_values_are_used() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -669,7 +669,7 @@ identity = "https://identity.file.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -690,7 +690,7 @@ identity = "https://identity.file.example.com"
     #[test]
     fn defaults_apply_when_file_omits_tunables() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -706,7 +706,7 @@ identity = "https://identity.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -744,7 +744,7 @@ identity = "https://identity.example.com"
     #[test]
     fn token_in_file_is_denied_by_unknown_fields() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
         }
@@ -762,7 +762,7 @@ identity = "https://identity.example.com"
         let f = write_toml(&toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -783,7 +783,7 @@ identity = "https://identity.example.com"
     #[test]
     fn nonexistent_config_path_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
         }
@@ -793,7 +793,7 @@ identity = "https://identity.example.com"
         };
 
         let result = Config::from_cli(args);
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -807,7 +807,7 @@ identity = "https://identity.example.com"
     #[test]
     fn file_entra_verify_probe_true_is_used() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -825,7 +825,7 @@ identity = "https://identity.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -841,7 +841,7 @@ identity = "https://identity.example.com"
     #[test]
     fn base_only_derives_api_and_identity() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Leaked URL env vars would skew the test.
@@ -856,7 +856,7 @@ base = "https://bitwarden.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -871,7 +871,7 @@ base = "https://bitwarden.example.com"
     #[test]
     fn base_with_trailing_slash_derives_clean_urls() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::remove_var("BWAC_API_URL");
@@ -885,7 +885,7 @@ base = "https://bitwarden.example.com/"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -900,7 +900,7 @@ base = "https://bitwarden.example.com/"
     #[test]
     fn explicit_api_overrides_base_while_identity_derives() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::remove_var("BWAC_API_URL");
@@ -915,7 +915,7 @@ api  = "https://custom-api.example.com/v2"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -930,7 +930,7 @@ api  = "https://custom-api.example.com/v2"
     #[test]
     fn env_vars_override_explicit_environment_section() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://override.env.example.com/api");
@@ -949,7 +949,7 @@ identity = "https://identity.file.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
             std::env::remove_var("BWAC_API_URL");
@@ -969,7 +969,7 @@ identity = "https://identity.file.example.com"
     #[test]
     fn old_top_level_api_url_key_is_rejected() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::remove_var("BWAC_API_URL");
@@ -983,7 +983,7 @@ identity_url = "https://identity.example.com"
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
@@ -997,7 +997,7 @@ identity_url = "https://identity.example.com"
     #[test]
     fn no_environment_section_and_no_env_vars_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::remove_var("BWAC_API_URL");
@@ -1010,7 +1010,7 @@ poll_interval = 15
         let f = write_toml(toml);
 
         let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
