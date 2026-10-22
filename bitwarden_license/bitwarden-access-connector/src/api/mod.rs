@@ -72,16 +72,9 @@ impl AccessConnectorAuthMiddleware {
 }
 
 /// A request needed a bearer before [`AccessConnectorTokenHandler::set_session`] ran.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("session not installed")]
 pub(crate) struct SessionNotInstalledError;
-
-impl std::fmt::Display for SessionNotInstalledError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "session not installed")
-    }
-}
-
-impl std::error::Error for SessionNotInstalledError {}
 
 #[async_trait::async_trait]
 impl Middleware for AccessConnectorAuthMiddleware {
@@ -171,16 +164,9 @@ impl Middleware for TimeoutMiddleware {
 }
 
 /// A request exceeded [`REQUEST_TIMEOUT`].
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("request timed out")]
 pub(crate) struct RequestTimedOutError;
-
-impl std::fmt::Display for RequestTimedOutError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "request timed out")
-    }
-}
-
-impl std::error::Error for RequestTimedOutError {}
 
 /// Records the last successful server contact, so target-side steps can pause while the server is
 /// unreachable. Any 2xx counts, even if the body later fails to parse.
