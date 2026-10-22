@@ -43,11 +43,8 @@ impl Drop for Credentials {
 /// Unlike [`Credentials`] there is no secret in here: the identity provider authenticates the
 /// user and the enrolled device supplies the account keys.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Deserialize, tsify::Tsify),
-    tsify(from_wasm_abi)
-)]
+#[cfg_attr(feature = "wasm", derive(serde::Deserialize))]
+#[bitwarden_ffi::wasm_record(input)]
 #[derive(Debug, Clone)]
 pub struct SsoCredentials {
     /// The account's email address.
