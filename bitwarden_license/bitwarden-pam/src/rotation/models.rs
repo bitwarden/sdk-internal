@@ -325,7 +325,7 @@ impl TryFrom<SessionTerminationOutcome> for ApiSessionTerminationOutcome {
 /// Why a rotation attempt failed, as the connector reports it. On the wire it is a snake_case
 /// token, which the server stores as the start of [`RotationAttempt::failure_reason`].
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum RotationFailureCode {
     /// No active session at the start of execution (terminal session state).
