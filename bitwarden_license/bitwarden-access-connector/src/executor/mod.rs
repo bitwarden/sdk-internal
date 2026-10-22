@@ -5,10 +5,7 @@
 pub(crate) mod retry;
 pub(crate) mod rotation;
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 use bitwarden_access_token::AccessToken;
 use bitwarden_core::Client;
@@ -18,7 +15,7 @@ use retry::RetryCfg;
 use rotation::{AbortReason, ExecutionContext, ExecutionResult, execute};
 use tokio::{
     sync::watch,
-    time::{MissedTickBehavior, interval},
+    time::{Instant, MissedTickBehavior, interval},
 };
 
 use crate::{
@@ -488,12 +485,9 @@ async fn handle_not_eligible(
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::Arc,
-        time::{Duration, Instant},
-    };
+    use std::{sync::Arc, time::Duration};
 
-    use tokio::sync::watch;
+    use tokio::{sync::watch, time::Instant};
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{method, path},

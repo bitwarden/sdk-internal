@@ -4,10 +4,7 @@
 //! the gate. `execute_by` bounds only the target-side steps (rotate, verify, terminate sessions),
 //! not the server-side cipher write and report.
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 use bitwarden_core::{Client, OrganizationId};
 use bitwarden_generators::GeneratorClientsExt as _;
@@ -17,6 +14,7 @@ use bitwarden_pam::{
 };
 use bitwarden_vault::Cipher;
 use chrono::Utc;
+use tokio::time::Instant;
 
 use super::retry::{GatedOutcome, RetryCfg, with_retries, with_retries_gated};
 use crate::{
@@ -695,7 +693,7 @@ async fn wait_for_connectivity(
     }
 }
 
-/// Converts a UTC `DateTime` to an [`std::time::Instant`]; past maps to now, far future caps at
+/// Converts a UTC `DateTime` to an [`Instant`]; past maps to now, far future caps at
 /// `now + 24h`.
 fn datetime_to_instant(dt: chrono::DateTime<chrono::Utc>) -> Instant {
     use chrono::Utc;
@@ -829,14 +827,14 @@ mod tests {
     fn past_datetime_maps_to_now_or_earlier() {
         let past = Utc::now() - chrono::Duration::minutes(5);
         let instant = datetime_to_instant(past);
-        assert!(instant <= std::time::Instant::now() + Duration::from_millis(100));
+        assert!(instant <= Instant::now() + Duration::from_millis(100));
     }
 
     #[test]
     fn future_datetime_maps_to_future_instant() {
         let future = Utc::now() + chrono::Duration::minutes(5);
         let instant = datetime_to_instant(future);
-        assert!(instant > std::time::Instant::now());
+        assert!(instant > Instant::now());
     }
 
     // `execute_by` has passed, so the gate aborts on the lease before checking the session.
@@ -872,12 +870,11 @@ mod tests {
             .unwrap();
 
         let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
-        let last_ok: Arc<dyn Fn() -> std::time::Instant + Send + Sync> =
-            Arc::new(std::time::Instant::now);
+        let last_ok: Arc<dyn Fn() -> Instant + Send + Sync> = Arc::new(Instant::now);
 
-        let execute_by = std::time::Instant::now()
+        let execute_by = Instant::now()
             .checked_sub(Duration::from_millis(1))
-            .unwrap_or_else(std::time::Instant::now);
+            .unwrap_or_else(Instant::now);
 
         let mut gate = make_gate(
             Arc::clone(&session),
@@ -926,9 +923,8 @@ mod tests {
         let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
         cancel.cancel();
 
-        let execute_by = std::time::Instant::now() + Duration::from_secs(300);
-        let last_ok: Arc<dyn Fn() -> std::time::Instant + Send + Sync> =
-            Arc::new(std::time::Instant::now);
+        let execute_by = Instant::now() + Duration::from_secs(300);
+        let last_ok: Arc<dyn Fn() -> Instant + Send + Sync> = Arc::new(Instant::now);
 
         let mut gate = make_gate(
             Arc::clone(&session),
@@ -1110,7 +1106,7 @@ mod tests {
         let target_system_id = uuid::Uuid::new_v4();
 
         // The client's key store, which the session installs the org key into.
-        let (tx, _rx) = watch::channel(std::time::Instant::now());
+        let (tx, _rx) = watch::channel(Instant::now());
         let (client, handler) = build_sdk_client(
             api_server.uri(),
             "http://identity.invalid".to_owned(),
@@ -1176,7 +1172,7 @@ mod tests {
             sample_config(target_system_id, cipher_id),
         );
 
-        let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
+        let last_ok_time = Arc::new(std::sync::Mutex::new(Instant::now()));
         let last_ok_clone = Arc::clone(&last_ok_time);
         let exec_ctx = ExecutionContext {
             client,

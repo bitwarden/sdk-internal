@@ -8,15 +8,15 @@
 //!
 //! Entering `Revoked` or `Closed` drops the bearer and clears the key store.
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 use bitwarden_access_token::AccessToken;
 use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
-use tokio::sync::{Mutex, watch};
+use tokio::{
+    sync::{Mutex, watch},
+    time::Instant,
+};
 
 use crate::{
     auth::identity::{AuthError, AuthSuccess, IdentityClient},
