@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 /// ProfileOrganizationResponseModel : Sync data for organization members and their organization.
-/// Note: see Bit.Api.AdminConsole.Models.Response.ProfileProviderOrganizationResponseModel for
+/// Note: see Bit.Api.Providers.Models.Response.ProfileProviderOrganizationResponseModel for
 /// organization sync data received by provider users.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProfileOrganizationResponseModel {
@@ -397,8 +397,8 @@ pub struct ProfileOrganizationResponseModel {
 
 impl ProfileOrganizationResponseModel {
     /// Sync data for organization members and their organization. Note: see
-    /// Bit.Api.AdminConsole.Models.Response.ProfileProviderOrganizationResponseModel for
-    /// organization sync data received by provider users.
+    /// Bit.Api.Providers.Models.Response.ProfileProviderOrganizationResponseModel for organization
+    /// sync data received by provider users.
     pub fn new() -> ProfileOrganizationResponseModel {
         ProfileOrganizationResponseModel {
             object: None,
