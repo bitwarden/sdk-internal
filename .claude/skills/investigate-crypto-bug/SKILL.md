@@ -6,7 +6,6 @@ description:
   (logs, error messages, stack traces, bug tickets) of a crypto misbehavior and asks to
   "investigate", "find the root cause", or "reproduce" it. Traces code paths back from each evidence
   point to form theories, then proves or disproves each with a failing integration test.
-model: opus
 ---
 
 # Investigate a crypto bug
