@@ -673,7 +673,7 @@ mod tests {
     fn automatic_create_request() -> TargetSystemCreateRequest {
         TargetSystemCreateRequest::Automatic {
             name: "Prod SQL".to_string(),
-            kind: TargetSystemKind::Mssql,
+            kind: TargetSystemKind::CustomScript,
             password_policy: policy(),
             supports_session_termination: true,
         }
@@ -717,7 +717,7 @@ mod tests {
         TargetSystemSealedV1 {
             target_system_id: target_system_id().into(),
             method: SealedTargetSystemMethod::Automatic,
-            kind: Some(bitwarden_pam_sealed::SealedTargetSystemKind::Mssql),
+            kind: Some(bitwarden_pam_sealed::SealedTargetSystemKind::CustomScript),
             password_policy: sealed_policy(),
             supports_session_termination: Some(true),
         }
@@ -774,7 +774,7 @@ mod tests {
         assert_eq!(target.method, TargetSystemMethod::Automatic);
         assert_eq!(target.status, TargetSystemStatus::Active);
         let sealed = target.sealed.expect("the blob is sealed");
-        assert_eq!(sealed.kind, Some(TargetSystemKind::Mssql));
+        assert_eq!(sealed.kind, Some(TargetSystemKind::CustomScript));
         assert_eq!(sealed.password_policy, policy());
         assert_eq!(sealed.supports_session_termination, Some(true));
         assert_eq!(
@@ -1027,7 +1027,7 @@ mod tests {
     fn a_create_request_serializes_with_the_servers_method_discriminant() {
         let automatic = serde_json::to_value(automatic_create_request()).expect("it serializes");
         assert_eq!(automatic["method"], "automatic");
-        assert_eq!(automatic["kind"], "mssql");
+        assert_eq!(automatic["kind"], "custom_script");
         assert_eq!(automatic["supportsSessionTermination"], true);
         assert_eq!(automatic["passwordPolicy"]["minLength"], 14);
 
@@ -1232,7 +1232,7 @@ mod tests {
                         unsealed.target_system_id == Uuid::from(target_system_id())
                             && unsealed.method == SealedTargetSystemMethod::Automatic
                             && unsealed.kind
-                                == Some(bitwarden_pam_sealed::SealedTargetSystemKind::Mssql)
+                                == Some(bitwarden_pam_sealed::SealedTargetSystemKind::CustomScript)
                             && unsealed.supports_session_termination == Some(true)
                             && unsealed.password_policy == sealed_policy()
                     })
@@ -1250,7 +1250,7 @@ mod tests {
         assert_eq!(target.status, TargetSystemStatus::Active);
         assert_eq!(
             target.sealed.and_then(|sealed| sealed.kind),
-            Some(TargetSystemKind::Mssql)
+            Some(TargetSystemKind::CustomScript)
         );
     }
 
@@ -1333,7 +1333,7 @@ mod tests {
             (
                 TargetSystemCreateRequest::Automatic {
                     name: "  ".to_string(),
-                    kind: TargetSystemKind::Mssql,
+                    kind: TargetSystemKind::CustomScript,
                     password_policy: policy(),
                     supports_session_termination: true,
                 },
@@ -1349,7 +1349,7 @@ mod tests {
             (
                 TargetSystemCreateRequest::Automatic {
                     name: "Prod SQL".to_string(),
-                    kind: TargetSystemKind::Mssql,
+                    kind: TargetSystemKind::CustomScript,
                     password_policy: unsatisfiable.clone(),
                     supports_session_termination: true,
                 },
@@ -1460,7 +1460,7 @@ mod tests {
                 target_system_id(),
                 TargetSystemCreateRequest::Automatic {
                     name: "   ".to_string(),
-                    kind: TargetSystemKind::Mssql,
+                    kind: TargetSystemKind::CustomScript,
                     password_policy: policy(),
                     supports_session_termination: true,
                 },
@@ -1523,7 +1523,8 @@ mod tests {
                     .expect_get_all()
                     .returning(move |_org_id| {
                         Ok(PamTargetSystemResponseModelListResponseModel {
-                            // Existing target has sealed kind Mssql (see `sample_sealed_data`).
+                            // Existing target has sealed kind CustomScript (see
+                            // `sample_sealed_data`).
                             data: Some(vec![sample_response(&organization_key)]),
                             ..Default::default()
                         })
@@ -1538,7 +1539,7 @@ mod tests {
                 target_system_id(),
                 TargetSystemCreateRequest::Automatic {
                     name: "Prod SQL".to_string(),
-                    // Request names Entra, disagreeing with the sealed Mssql.
+                    // Request names Entra, disagreeing with the sealed CustomScript.
                     kind: TargetSystemKind::Entra,
                     password_policy: policy(),
                     supports_session_termination: true,

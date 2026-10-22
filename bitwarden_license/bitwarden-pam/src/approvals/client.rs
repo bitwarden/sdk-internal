@@ -6,11 +6,8 @@ use bitwarden_core::{FromClient, client::ApiConfigurations};
 use super::{error::ApprovalError, models::AccessDecisionRequest};
 use crate::{AccessRequestId, access_requests::AccessRequestView};
 
-/// Client for a PAM approver's queue.
-///
-/// Lists pending ([`list_inbox`](ApprovalsClient::list_inbox)) and decided
-/// ([`list_history`](ApprovalsClient::list_history)) requests, and decides one. The requester
-/// side is [`AccessRequestsClient`](crate::AccessRequestsClient).
+/// Client for a PAM approver's queue. The requester side is
+/// [`AccessRequestsClient`](crate::AccessRequestsClient).
 #[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct ApprovalsClient {
@@ -19,11 +16,8 @@ pub struct ApprovalsClient {
 
 #[bitwarden_ffi::wasm_export]
 impl ApprovalsClient {
-    /// Lists the pending access requests awaiting the caller's decision.
-    ///
-    /// `GET /access-requests/inbox`. The server scopes this by Manage permission on the request's
-    /// collection and returns only pending requests, so an empty list is the normal answer for a
-    /// member who approves nothing.
+    /// Lists the pending access requests awaiting the caller's decision, in collections the caller
+    /// can manage.
     pub async fn list_inbox(&self) -> Result<Vec<AccessRequestView>, ApprovalError> {
         let response = self
             .api_configurations
@@ -42,9 +36,6 @@ impl ApprovalsClient {
     }
 
     /// Lists the decided access requests for collections the caller manages.
-    ///
-    /// `GET /access-requests/history`. Same response shape as [`list_inbox`](Self::list_inbox),
-    /// not an audit-event shape.
     pub async fn list_history(&self) -> Result<Vec<AccessRequestView>, ApprovalError> {
         let response = self
             .api_configurations
@@ -64,9 +55,8 @@ impl ApprovalsClient {
 
     /// Records a decision on a pending access request.
     ///
-    /// `POST /access-requests/{id}/decision`. Only `status`, `resolved_at`, and the decision just
-    /// recorded are guaranteed populated on the response, so callers should merge it onto the row
-    /// they already hold rather than replacing it.
+    /// The response guarantees only `status`, `resolved_at` and the new decision, so merge it onto
+    /// the row already held instead of replacing it.
     pub async fn decide(
         &self,
         id: AccessRequestId,

@@ -3,8 +3,6 @@ use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{CipherId, CiphersClient, FolderId};
 
@@ -18,7 +16,7 @@ pub enum MoveCipherError {
     Repository(#[from] RepositoryError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Moves multiple [`Cipher`](crate::Cipher) objects to a folder, or clears their folder when
     /// `folder_id` is `None`.

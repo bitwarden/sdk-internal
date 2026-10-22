@@ -17,9 +17,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
-use zeroize::Zeroizing;
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
+use zeroize::Zeroizing;
 
 use crate::{SendParseError, access::SEND_KEY_LEN, error::SendItemDeserializationFailureError};
 pub const SEND_ITERATIONS: u32 = 100_000;
@@ -36,7 +36,7 @@ pub struct EmptyEmailListError;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendFile {
     /// The file's ID
     pub id: Option<String>,
@@ -52,7 +52,7 @@ pub struct SendFile {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendFileView {
     /// The file's ID
     pub id: Option<String>,
@@ -68,7 +68,7 @@ pub struct SendFileView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendText {
     pub text: Option<EncString>,
     pub hidden: bool,
@@ -78,7 +78,7 @@ pub struct SendText {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendItemView {
     /// The item content of the send
     pub data: CipherView,
@@ -88,7 +88,7 @@ pub struct SendItemView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendItem {
     pub encryption_version: SendEncryptionType,
     /// Opaque sealed cipher blob, see [`CipherView::seal_blob_for_item_sends`].
@@ -100,7 +100,7 @@ pub struct SendItem {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendItemMetadata {
     /// Id of the vault item being sent
     pub item_id: CipherId,
@@ -110,7 +110,7 @@ pub struct SendItemMetadata {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendTextView {
     /// The text content of the send
     pub text: Option<String>,
@@ -122,7 +122,7 @@ pub struct SendTextView {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum SendType {
     /// Text-based send
     Text = 0,
@@ -136,7 +136,7 @@ pub enum SendType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum AuthType {
     /// Email-based OTP authentication
     Email = 0,
@@ -152,7 +152,7 @@ pub enum AuthType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum SendEncryptionType {
     /// V1 encryption (field by field)
     V1 = 1,
@@ -163,7 +163,7 @@ pub enum SendEncryptionType {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum SendAuthType {
     /// No authentication required
     None,
@@ -251,7 +251,7 @@ impl SendAuthType {
 
 /// View model for decrypted Send type
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum SendViewType {
     /// File-based send
     File(SendFileView),
@@ -318,7 +318,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Send {
     pub id: Option<SendId>,
     pub access_id: Option<String>,
@@ -389,7 +389,7 @@ impl From<Send> for SendWithIdRequestModel {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendView {
     pub id: Option<SendId>,
     pub access_id: Option<String>,
@@ -432,7 +432,7 @@ pub struct SendView {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendListView {
     pub id: Option<SendId>,
     pub access_id: Option<String>,
@@ -893,6 +893,11 @@ impl From<SendItem> for SendDataModel {
             data: Some(item.data),
             metadata: Box::new(SendItemMetadataModel {
                 item_id: item.metadata.item_id.into(),
+                folder_name: None,
+                organization_name: None,
+                collection_names: None,
+                creation_date: None,
+                revision_date: None,
             }),
         }
     }
@@ -1024,6 +1029,11 @@ pub(crate) mod tests {
             data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
             metadata: Box::new(SendItemMetadataModel {
                 item_id: TEST_ITEM_ID.parse().unwrap(),
+                folder_name: None,
+                organization_name: None,
+                collection_names: None,
+                creation_date: None,
+                revision_date: None,
             }),
         })
         .unwrap();

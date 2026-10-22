@@ -873,7 +873,7 @@ mod tests {
             TargetSystemSealedV1 {
                 target_system_id: target_system_id().into(),
                 method: SealedTargetSystemMethod::Automatic,
-                kind: Some(SealedTargetSystemKind::Mssql),
+                kind: Some(SealedTargetSystemKind::CustomScript),
                 password_policy: SealedPasswordPolicy {
                     min_length: 14,
                     max_length: 20,
@@ -1622,7 +1622,7 @@ mod tests {
                             TargetSystemSealedV1 {
                                 target_system_id: target_system_id().into(),
                                 method: SealedTargetSystemMethod::Automatic,
-                                kind: Some(SealedTargetSystemKind::Mssql),
+                                kind: Some(SealedTargetSystemKind::CustomScript),
                                 password_policy: SealedPasswordPolicy {
                                     min_length: 14,
                                     max_length: 20,
