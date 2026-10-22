@@ -1,6 +1,11 @@
-import type { DecryptCipherResult } from "@bitwarden/sdk-internal";
+import {
+  isDecryptEmergencyAccessAttachmentError,
+  type DecryptCipherResult,
+  type EmergencyAccessId,
+} from "@bitwarden/sdk-internal";
 
-import type { SeedAccount } from "../server-emulator/server-emulator";
+import type { SeedAccount, SeedAttachmentFile } from "../server-emulator/server-emulator";
+import { asCipherId } from "../tests/type-assertion-helpers";
 
 import type { ClientEmulator } from "./client-emulator";
 
@@ -34,6 +39,119 @@ export async function validateVault(
 
     expectPlaintextEqual(folder, recorded, `folder ${id}`, ignore);
   }
+
+  // 3. Download every attachment and compare its decrypted file
+  const attachments = sdk.vault().attachments();
+  for (const cipher of await client.local.ciphers.list()) {
+    const cipherId = String(cipher.id);
+    const view = await sdk.vault().ciphers().decrypt(cipher);
+
+    for (const attachment of view.attachments ?? []) {
+      const attachmentId = String(attachment.id);
+      const label = `attachment ${attachmentId} on cipher ${cipherId}`;
+      const recorded = recordedFile(seed, cipherId, attachmentId);
+
+      const url = await attachments.get_attachment_download_url(asCipherId(cipherId), attachmentId);
+      const decrypted = attachments.decrypt_buffer(cipher, attachment, await download(url));
+
+      expectFileEqual(decrypted, recorded, label);
+    }
+  }
+}
+
+/**
+ * Downloads and decrypts every attachment on the grantor's items an emergency access view
+ * returned, comparing to the plaintext `seed` records.
+ *
+ * Without the grantor's user key, only attachments with a key of their own decrypt. A `V0`
+ * attachment has none, so it must be refused as unsupported rather than decrypt to garbage.
+ */
+export async function validateEmergencyAccessAttachments(
+  client: ClientEmulator,
+  emergencyAccessId: EmergencyAccessId,
+  result: DecryptCipherResult,
+  seed: SeedAccount,
+): Promise<void> {
+  const attachments = client.getPasswordManagerClient().vault().attachments();
+
+  for (const cipher of result.successes) {
+    const cipherId = String(cipher.id);
+
+    for (const attachment of cipher.attachments ?? []) {
+      const attachmentId = String(attachment.id);
+      const label = `attachment ${attachmentId} on cipher ${cipherId}`;
+      const recorded = recordedFile(seed, cipherId, attachmentId);
+
+      const url = await attachments.get_attachment_download_url(
+        asCipherId(cipherId),
+        attachmentId,
+        String(emergencyAccessId),
+      );
+      const encrypted = await download(url);
+
+      if (recorded.version === "V0") {
+        expect({
+          label,
+          error: decryptError(() =>
+            attachments.decrypt_emergency_access_buffer(attachment, encrypted),
+          ),
+        }).toEqual({ label, error: "LegacyAttachmentUnsupported" });
+        continue;
+      }
+
+      const decrypted = attachments.decrypt_emergency_access_buffer(attachment, encrypted);
+      expectFileEqual(decrypted, recorded, label);
+    }
+  }
+}
+
+/** The file `seed` records for an attachment. Throws when it records none. */
+function recordedFile(
+  seed: SeedAccount,
+  cipherId: string,
+  attachmentId: string,
+): SeedAttachmentFile {
+  const cipher = (seed.vault?.ciphers ?? []).find((item) => item.id === cipherId);
+  const file = cipher?.attachmentFiles?.[attachmentId];
+  if (file === undefined) {
+    throw new Error(
+      `cipher ${cipherId} holds attachment ${attachmentId}, whose file the vector does not record`,
+    );
+  }
+
+  return file;
+}
+
+/** Fetches an attachment file from the URL the SDK handed back, as a client does. */
+async function download(url: string): Promise<Uint8Array> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`downloading ${url} answered ${response.status}`);
+  }
+
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+/** The variant `decrypt` throws an emergency access attachment error with. Throws otherwise. */
+function decryptError(decrypt: () => unknown): string {
+  try {
+    decrypt();
+  } catch (error) {
+    if (isDecryptEmergencyAccessAttachmentError(error)) {
+      return error.variant;
+    }
+    throw error;
+  }
+
+  throw new Error("expected decryption to be refused, but it succeeded");
+}
+
+/** Compares a decrypted file to the plaintext the seed records. */
+function expectFileEqual(actual: Uint8Array, recorded: SeedAttachmentFile, label: string): void {
+  expect({ label, file: Buffer.from(actual).toString("base64") }).toEqual({
+    label,
+    file: recorded.decrypted,
+  });
 }
 
 /**
