@@ -2,12 +2,13 @@
 //!
 //! [`rotate_cipher_password`] vets the cipher the server returned and builds the write that
 //! replaces its password. Decryption, password history and encryption are the vault's
-//! ([`Cipher::change_login_password`]).
+//! ([`Cipher::change_login_password`]). [`cipher_has_password`] tells whether a cipher already
+//! holds a given password, so an ambiguous write outcome can be settled.
 
 use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
-use bitwarden_vault::{ChangeLoginPasswordError, Cipher, CipherType};
+use bitwarden_vault::{ChangeLoginPasswordError, Cipher, CipherType, CipherView};
 use thiserror::Error;
 
 /// Errors from the cipher half of a rotation. They never include cipher content.
@@ -86,6 +87,20 @@ pub fn rotate_cipher_password(
         return Err(RotationCipherError::CipherDataPresent);
     }
     Ok(request)
+}
+
+/// Whether `cipher`'s login password is `password`.
+///
+/// Settles a write whose outcome is unknown: the server may have stored it even though the
+/// connector saw a rejection. A cipher without a login is [`RotationCipherError::CipherNotLogin`].
+pub fn cipher_has_password(
+    key_store: &KeyStore<KeySlotIds>,
+    cipher: &Cipher,
+    password: &str,
+) -> Result<bool, RotationCipherError> {
+    let view: CipherView = key_store.decrypt(cipher)?;
+    let login = view.login.ok_or(RotationCipherError::CipherNotLogin)?;
+    Ok(login.password.as_deref() == Some(password))
 }
 
 /// Fixture builders for the tests below.
@@ -390,5 +405,28 @@ mod tests {
                 "{label}"
             );
         }
+    }
+
+    #[test]
+    fn cipher_has_password_matches_current_password() {
+        let cipher = cipher_from(keyed_login_json());
+        assert!(cipher_has_password(&org_store(), &cipher, "old-password").unwrap());
+    }
+
+    #[test]
+    fn cipher_has_password_rejects_other_password() {
+        let cipher = cipher_from(keyed_login_json());
+        assert!(!cipher_has_password(&org_store(), &cipher, "other-password").unwrap());
+    }
+
+    #[test]
+    fn cipher_has_password_without_login_is_not_login() {
+        let mut json = keyed_login_json();
+        json.as_object_mut().unwrap().remove("login");
+
+        assert!(matches!(
+            cipher_has_password(&org_store(), &cipher_from(json), "old-password"),
+            Err(RotationCipherError::CipherNotLogin)
+        ));
     }
 }

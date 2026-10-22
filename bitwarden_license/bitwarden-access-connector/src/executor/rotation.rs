@@ -13,7 +13,7 @@ use bitwarden_core::{Client, OrganizationId};
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_pam::{
     RotationCipherError, RotationFailureCode, RotationSyncState, SessionTerminationOutcome,
-    VerifiedJob, rotate_cipher_password,
+    VerifiedJob, cipher_has_password, rotate_cipher_password,
 };
 use bitwarden_vault::Cipher;
 use chrono::Utc;
@@ -439,16 +439,33 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 );
                 CipherWritten(())
             }
+            // A retried PUT repeats its `lastKnownRevisionDate`, so a 409 can follow a first try
+            // that committed with its response lost. Only the vault's contents settle it.
             Err(ApiError::Rejected { .. }) => {
-                report_failure_absorb(
-                    &api,
-                    attempt_id,
-                    RotationFailureCode::CipherWriteRejected,
-                    None,
-                    RotationSyncState::TargetUpdated,
-                )
-                .await;
-                return ExecutionResult::Reported;
+                match cipher_write_landed(&api, &ctx.retry_cfg, attempt_id, &new_password).await {
+                    Ok(true) => {
+                        tracing::info!(
+                            attempt_id = %attempt_id,
+                            cipher_id = %job.cipher_id(),
+                            "step 5: cipher write confirmed after 409"
+                        );
+                        CipherWritten(())
+                    }
+                    Ok(false) => {
+                        report_failure_absorb(
+                            &api,
+                            attempt_id,
+                            RotationFailureCode::CipherWriteRejected,
+                            None,
+                            RotationSyncState::TargetUpdated,
+                        )
+                        .await;
+                        return ExecutionResult::Reported;
+                    }
+                    Err(lost) => {
+                        return ExecutionResult::Unreported(AbortReason::SessionLost(lost));
+                    }
+                }
             }
             Err(ApiError::UnknownAttempt) => {
                 return ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed));
@@ -706,6 +723,24 @@ async fn fetch_cipher(
         }
     })
     .await
+}
+
+/// Whether the vault's cipher already holds `new_password`, so a rejected write did land. Any
+/// failure to tell counts as not landed; only a lost session is an error.
+async fn cipher_write_landed(
+    api: &AccessConnectorClient,
+    retry_cfg: &RetryCfg,
+    attempt_id: uuid::Uuid,
+    new_password: &str,
+) -> Result<bool, SessionLost> {
+    match fetch_cipher(api, retry_cfg, attempt_id).await {
+        Ok(cipher) => {
+            Ok(cipher_has_password(&api.key_store, &cipher, new_password).unwrap_or(false))
+        }
+        Err(ApiError::UnknownAttempt) => Err(SessionLost::Closed),
+        Err(ApiError::SessionLost(l)) => Err(l),
+        Err(_) => Ok(false),
+    }
 }
 
 /// Stands in for the new password in the pre-flight dry run.
@@ -1021,6 +1056,19 @@ mod tests {
         cipher_id: uuid::Uuid,
         make: impl FnOnce() -> Vec<ResponseTemplate>,
     ) -> Run {
+        let mut gets = make();
+        let last = gets.pop().expect("at least one GET response");
+        run_execute_with(cipher_id, gets, last, ResponseTemplate::new(200)).await
+    }
+
+    /// [`run_execute_for`] with the final `GET /cipher` responder and the `PUT /cipher` responder
+    /// chosen by the caller. `earlier_gets` serve the first GETs, one each.
+    async fn run_execute_with(
+        cipher_id: uuid::Uuid,
+        earlier_gets: Vec<ResponseTemplate>,
+        last_get: impl wiremock::Respond + 'static,
+        put: impl wiremock::Respond + 'static,
+    ) -> Run {
         use bitwarden_pam::WorkSnapshot;
         use bitwarden_pam_sealed::SealedTargetSystemKind;
         use tokio::sync::watch;
@@ -1073,10 +1121,8 @@ mod tests {
             .unwrap();
         handler.set_session(Arc::clone(&session));
 
-        let mut gets = make();
-        let last = gets.pop().expect("at least one GET response");
         let cipher_path = format!("/access-connectors/rotation/attempts/{attempt_id}/cipher");
-        for get in gets {
+        for get in earlier_gets {
             Mock::given(method("GET"))
                 .and(path(cipher_path.clone()))
                 .respond_with(get)
@@ -1086,12 +1132,12 @@ mod tests {
         }
         Mock::given(method("GET"))
             .and(path(cipher_path.clone()))
-            .respond_with(last)
+            .respond_with(last_get)
             .mount(&api_server)
             .await;
         Mock::given(method("PUT"))
             .and(path(cipher_path))
-            .respond_with(ResponseTemplate::new(200))
+            .respond_with(put)
             .mount(&api_server)
             .await;
         for report in ["failure", "success"] {
@@ -1302,6 +1348,69 @@ mod tests {
         assert_eq!(dec("/login/username"), "svc-account");
         assert_eq!(dec("/login/uris/0/uri"), "https://db.example.com");
         assert_eq!(dec("/name"), "Prod database");
+    }
+
+    /// Answers `PUT /cipher` with a 409 and keeps the body, as a write that committed and was
+    /// retried would see.
+    struct ConflictAfterCommit(Arc<Mutex<Option<serde_json::Value>>>);
+
+    impl wiremock::Respond for ConflictAfterCommit {
+        fn respond(&self, request: &wiremock::Request) -> ResponseTemplate {
+            *self.0.lock().unwrap() =
+                Some(serde_json::from_slice(&request.body).expect("PUT body"));
+            ResponseTemplate::new(409)
+        }
+    }
+
+    /// Serves the cipher as the vault holds it: the fixture, carrying the password written by the
+    /// PUT (if any). The PUT keeps the item key, so its encrypted password decrypts in the
+    /// fixture.
+    struct VaultAfterPut(Arc<Mutex<Option<serde_json::Value>>>);
+
+    impl wiremock::Respond for VaultAfterPut {
+        fn respond(&self, _request: &wiremock::Request) -> ResponseTemplate {
+            let mut json = crate::test_support::keyed_login_json();
+            if let Some(put) = self.0.lock().unwrap().as_ref() {
+                json["login"]["password"] = put["login"]["password"].clone();
+            }
+            json_response(json)
+        }
+    }
+
+    /// A 409 on the PUT whose write did land (the vault holds the new password) is a success.
+    #[tokio::test]
+    async fn cipher_write_409_with_new_password_in_vault_reports_success() {
+        let put = Arc::new(Mutex::new(None));
+        let run = run_execute_with(
+            crate::test_support::KEYED_LOGIN_ID,
+            vec![json_response(crate::test_support::keyed_login_json())],
+            VaultAfterPut(Arc::clone(&put)),
+            ConflictAfterCommit(put),
+        )
+        .await;
+
+        assert!(matches!(run.result, ExecutionResult::Reported));
+        assert_eq!(run.requests_to("PUT", "/cipher").len(), 1);
+        assert_eq!(run.requests_to("POST", "/success").len(), 1);
+        assert!(run.requests_to("POST", "/failure").is_empty());
+    }
+
+    /// A 409 on the PUT with the old password still in the vault is a rejected write.
+    #[tokio::test]
+    async fn cipher_write_409_with_old_password_in_vault_reports_rejected() {
+        let run = run_execute_with(
+            crate::test_support::KEYED_LOGIN_ID,
+            vec![json_response(crate::test_support::keyed_login_json())],
+            json_response(crate::test_support::keyed_login_json()),
+            ResponseTemplate::new(409),
+        )
+        .await;
+
+        assert!(matches!(run.result, ExecutionResult::Reported));
+        assert!(run.requests_to("POST", "/success").is_empty());
+        let body = run.failure_body();
+        assert_eq!(body["errorCode"], "cipher_write_rejected");
+        assert_eq!(body["syncState"], serde_json::json!(1));
     }
 
     /// A keyless cipher would make the vault generate an item key.

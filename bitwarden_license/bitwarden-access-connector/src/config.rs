@@ -213,6 +213,20 @@ impl Config {
             )));
         }
 
+        // A zero heartbeat panics `tokio::time::interval`, a zero grace holds every rotation, and a
+        // zero timeout kills every script.
+        for (name, value) in [
+            ("heartbeat_interval", file.heartbeat_interval),
+            ("offline_grace", file.offline_grace),
+            ("script_timeout", file.script_timeout),
+        ] {
+            if value == 0 {
+                return Err(AccessConnectorError::InvalidConfig(format!(
+                    "{name} must be > 0 seconds"
+                )));
+            }
+        }
+
         Ok(Config {
             inner: AccessConnectorConfig {
                 api_url,
@@ -460,6 +474,54 @@ identity = "https://identity.example.com"
             matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
             "expected InvalidConfig for heartbeat_interval >= 120, got {result:?}"
         );
+    }
+
+    /// Loads a config file setting `field = 0` and asserts it is `InvalidConfig`.
+    fn assert_zero_is_invalid_config(field: &str) {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: guarded by ENV_LOCK.
+        unsafe {
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            // Leaked URL env vars would skew the test.
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
+        }
+
+        let toml = format!(
+            r#"
+{field} = 0
+
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
+"#
+        );
+        let f = write_toml(&toml);
+        let result = Config::from_cli(file_args(&f));
+        // SAFETY: guarded by ENV_LOCK.
+        unsafe {
+            std::env::remove_var("BWAC_TOKEN");
+        }
+
+        assert!(
+            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
+            "expected InvalidConfig for {field} = 0, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn heartbeat_interval_of_zero_is_invalid_config() {
+        assert_zero_is_invalid_config("heartbeat_interval");
+    }
+
+    #[test]
+    fn offline_grace_of_zero_is_invalid_config() {
+        assert_zero_is_invalid_config("offline_grace");
+    }
+
+    #[test]
+    fn script_timeout_of_zero_is_invalid_config() {
+        assert_zero_is_invalid_config("script_timeout");
     }
 
     #[test]
