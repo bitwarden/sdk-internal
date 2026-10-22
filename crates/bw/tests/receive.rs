@@ -20,6 +20,8 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use bitwarden_crypto::{
     KeyEncryptable as _, OctetStreamBytes, SymmetricCryptoKey, derive_shareable_key,
 };
+#[cfg(unix)]
+use rexpect::{error::Error, session::spawn_command};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{body_string_contains, method, path},
@@ -275,8 +277,15 @@ async fn receive_prints_a_text_sends_content() {
         .expect(1)
         .mount(&server)
         .await;
-
-    let output = run_bw(vec!["receive".to_string(), receive_url(&server)], vec![]).await;
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
 
     assert!(
         output.status.success(),
@@ -303,7 +312,11 @@ async fn receive_full_object_emits_the_decrypted_json() {
         .mount(&server)
         .await;
 
-    let output = run_bw(
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
         vec![
             "receive".to_string(),
             receive_url(&server),
@@ -340,7 +353,11 @@ async fn receive_accepts_the_kebab_case_full_object_alias() {
         .mount(&server)
         .await;
 
-    let output = run_bw(
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
         vec![
             "receive".to_string(),
             receive_url(&server),
@@ -371,7 +388,11 @@ async fn send_receive_alias_runs_the_same_flow() {
         .mount(&server)
         .await;
 
-    let output = run_bw(
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
         vec![
             "send".to_string(),
             "receive".to_string(),
@@ -418,7 +439,11 @@ async fn receive_exchanges_a_supplied_password_for_a_token() {
         .mount(&server)
         .await;
 
-    let output = run_bw(
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
         vec![
             "receive".to_string(),
             receive_url(&server),
@@ -461,7 +486,11 @@ async fn receive_reads_the_password_from_an_environment_variable() {
         .mount(&server)
         .await;
 
-    let output = run_bw(
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
         vec![
             "receive".to_string(),
             receive_url(&server),
@@ -492,7 +521,11 @@ async fn receive_reports_an_invalid_password() {
         .mount(&server)
         .await;
 
-    let output = run_bw(
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
         vec![
             "receive".to_string(),
             receive_url(&server),
@@ -514,7 +547,7 @@ async fn receive_reports_an_invalid_password() {
 /// With `BW_NOINTERACTION=true` a password-protected Send must fail fast instead of blocking on
 /// a prompt that can never be answered.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn receive_errors_instead_of_prompting_when_non_interactive() {
+async fn receive_reports_that_password_needs_interactive_mode() {
     let server = MockServer::start().await;
     mock_token(
         &server,
@@ -522,7 +555,11 @@ async fn receive_errors_instead_of_prompting_when_non_interactive() {
     )
     .await;
 
-    let output = run_bw(
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
         vec!["receive".to_string(), receive_url(&server)],
         vec![("BW_NOINTERACTION", "true")],
     )
@@ -531,6 +568,42 @@ async fn receive_errors_instead_of_prompting_when_non_interactive() {
     assert!(!output.status.success());
     assert!(
         stderr(&output).contains("Password required"),
+        "got:\n{}",
+        stderr(&output)
+    );
+    assert!(
+        !stderr(&output).contains("but a TTY prompt for submission is unavailable"),
+        "got:\n{}",
+        stderr(&output)
+    );
+}
+
+/// When running in an environment with no TTY (like these tests) a password-protected Send should
+/// fail quickly with a different error message than above instead of blocking on an unavailable
+/// prompt
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn receive_reports_that_password_needs_interactive_mode_no_tty() {
+    let server = MockServer::start().await;
+    mock_token(
+        &server,
+        token_error("invalid_request", "password_hash_b64_required"),
+    )
+    .await;
+
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
+
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output)
+            .contains("Password required but a TTY prompt for submission is unavailable"),
         "got:\n{}",
         stderr(&output)
     );
@@ -543,7 +616,11 @@ async fn receive_reports_that_email_verification_needs_interactive_mode() {
     let server = MockServer::start().await;
     mock_token(&server, token_error("invalid_request", "email_required")).await;
 
-    let output = run_bw(
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
         vec!["receive".to_string(), receive_url(&server)],
         vec![("BW_NOINTERACTION", "true")],
     )
@@ -551,7 +628,32 @@ async fn receive_reports_that_email_verification_needs_interactive_mode() {
 
     assert!(!output.status.success());
     assert!(
-        stderr(&output).contains("Email verification required"),
+        stderr(&output).contains("Email verification required. Run in interactive mode."),
+        "got:\n{}",
+        stderr(&output)
+    );
+}
+
+/// This should fail with the same message as the previous test even though BW_NOINTERACTION is not
+/// set, because a TTY prompt is not available when running these tests
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn receive_reports_that_email_verification_needs_interactive_mode_no_tty() {
+    let server = MockServer::start().await;
+    mock_token(&server, token_error("invalid_request", "email_required")).await;
+
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
+
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("Email verification required. Run in interactive mode."),
         "got:\n{}",
         stderr(&output)
     );
@@ -562,7 +664,15 @@ async fn receive_reports_an_unknown_send_as_not_found() {
     let server = MockServer::start().await;
     mock_token(&server, token_error("invalid_grant", "send_id_invalid")).await;
 
-    let output = run_bw(vec!["receive".to_string(), receive_url(&server)], vec![]).await;
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
 
     assert!(!output.status.success());
     assert!(
@@ -621,7 +731,11 @@ async fn receive_downloads_decrypts_and_saves_a_file_send() {
     ));
     let output_path = format!("{}{}", dir.display(), std::path::MAIN_SEPARATOR);
 
-    let output = run_bw(
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
         vec![
             "receive".to_string(),
             receive_url(&server),
@@ -684,7 +798,15 @@ async fn receive_reports_a_failed_file_download() {
         .mount(&server)
         .await;
 
-    let output = run_bw(vec!["receive".to_string(), receive_url(&server)], vec![]).await;
+    // The server origin must be marked as trusted to avoid the untrusted domain prompt
+    let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
+    let output = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
 
     assert!(!output.status.success());
     assert!(
@@ -760,8 +882,13 @@ async fn receive_reuses_a_cached_token_on_a_second_invocation() {
 /// at all, matching the corresponding TS client fix. The token mock is capped at `expect(2)`:
 /// caching would make a second call to it fail this test the same way a missing second call
 /// would fail the cached-token test above.
+///
+/// Since the host is untrusted we have to pass through the interactive "Do you want to proceed?"
+/// prompt first before we get to the code under test, hence running the command via rexpect. This
+/// dependency is Unix-only so we can't run this test on Windows
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn receive_does_not_cache_a_token_for_an_untrusted_host() {
+async fn receive_does_not_cache_a_token_for_an_untrusted_host() -> Result<(), Error> {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/identity/connect/token"))
@@ -776,37 +903,85 @@ async fn receive_does_not_cache_a_token_for_an_untrusted_host() {
             "id": SEND_ID,
             "type": 0,
             "name": encrypt_string("My Send"),
-            "text": { "text": encrypt_string("the secret text"), "hidden": false },
+            "text": { "text": encrypt_string("the super secret text"), "hidden": false },
         })))
         .expect(2)
         .mount(&server)
         .await;
 
-    // Deliberately no `configure_server` call: this host stays untrusted.
+    // Deliberately no `configure_server` call: this host stays untrusted. We reuse
+    // this appdata for both commands to ensure that no caching is occurring
     let appdata = TempAppdata::new();
-    let first = run_bw_in(
-        &appdata,
-        vec!["receive".to_string(), receive_url(&server)],
-        vec![],
-    )
-    .await;
-    assert!(
-        first.status.success(),
-        "first receive should succeed; stderr:\n{}",
-        stderr(&first)
-    );
 
-    let second = run_bw_in(
-        &appdata,
-        vec!["receive".to_string(), receive_url(&server)],
-        vec![],
-    )
-    .await;
-    assert!(
-        second.status.success(),
-        "second receive should succeed by minting a fresh token; stderr:\n{}",
-        stderr(&second)
-    );
+    let mut first_command = bw();
+    first_command
+        .args(vec!["receive".to_string(), receive_url(&server)])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .env_remove("BW_NOINTERACTION")
+        .env("BITWARDENCLI_APPDATA_DIR", &appdata.0);
+    let mut p = spawn_command(first_command, Some(30_000))?;
+    p.exp_regex("You are attempting to access a Send hosted on")?;
+    p.send_line("Y")?;
+    p.exp_string("the super secret text")?;
+
+    let mut second_command = bw();
+    second_command
+        .args(vec!["receive".to_string(), receive_url(&server)])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .env_remove("BW_NOINTERACTION")
+        .env("BITWARDENCLI_APPDATA_DIR", &appdata.0);
+    let mut p = spawn_command(second_command, Some(30_000))?;
+    p.exp_regex("You are attempting to access a Send hosted on")?;
+    p.send_line("Y")?;
+    p.exp_string("the super secret text")?;
+
+    Ok(())
 
     // wiremock verifies the `expect(2)` bounds when `server` drops at end of scope.
+}
+
+/// When we aren't allowed to interact to override an untrusted host we fail informatively
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn receive_refuses_an_untrusted_host_without_a_prompt() {
+    let server = MockServer::start().await;
+    // Deliberately no `configure_server` call: this host stays untrusted.
+    let appdata = TempAppdata::new();
+    let output = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![("BW_NOINTERACTION", "true")],
+    )
+    .await;
+
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("Send access will not be attempted, the origin of the Send URL is untrusted. Run command interactively to override"),
+        "got:\n{}",
+        stderr(&output)
+    );
+}
+
+/// When our environment doesn't support interactive prompting for user confirmation of an untrusted
+/// host (such as in this test-running environment) we also fail informatively, with a different
+/// messange than above
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn receive_refuses_an_untrusted_host_when_prompting_unavailable() {
+    let server = MockServer::start().await;
+    // Deliberately no `configure_server` call: this host stays untrusted.
+    let appdata = TempAppdata::new();
+    let output = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
+
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("Send access will not be attempted; the origin of the Send URL is untrusted and a TTY prompt for override is unavailable"),
+        "got:\n{}",
+        stderr(&output)
+    );
 }
