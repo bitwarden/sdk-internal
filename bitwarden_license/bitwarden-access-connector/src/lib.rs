@@ -5,6 +5,9 @@
 
 bitwarden_commercial_marker::commercial_crate!();
 
+// Links bitwarden-crypto's global `ZeroizingAllocator`, which wipes heap memory on free.
+use bitwarden_crypto as _;
+
 /// CLI argument definitions (exposed for `main.rs`).
 pub mod cli;
 
@@ -20,6 +23,15 @@ pub(crate) mod auth;
 
 #[allow(dead_code)]
 pub(crate) mod crypto;
+
+#[allow(dead_code)]
+pub(crate) mod integrations;
+
+#[allow(dead_code)]
+pub(crate) mod resolver;
+
+#[allow(dead_code)]
+pub(crate) mod sys;
 
 #[cfg(test)]
 mod test_support;

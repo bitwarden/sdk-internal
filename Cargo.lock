@@ -505,6 +505,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-pam",
+ "bitwarden-pam-sealed",
  "bitwarden-sensitive-value",
  "bitwarden-state",
  "chrono",
@@ -517,6 +518,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "url",
  "uuid",
  "wiremock",
 ]
@@ -6646,6 +6648,7 @@ dependencies = [
  "libc",
  "mio 1.2.2",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",
