@@ -20,7 +20,7 @@ use tokio::sync::{Mutex, watch};
 
 use crate::{
     auth::identity::{AuthError, AuthSuccess, IdentityClient},
-    crypto::unwrap_org_key,
+    crypto::{CryptoModuleError, unwrap_org_key},
 };
 
 /// Proactive renewal margin, matching bitwarden-auth's `TOKEN_RENEW_MARGIN_SECONDS`.
@@ -116,7 +116,11 @@ impl SessionState {
         });
     }
 
-    fn apply_success(&mut self, success: AuthSuccess, token: &AccessToken) -> Result<(), String> {
+    fn apply_success(
+        &mut self,
+        success: AuthSuccess,
+        token: &AccessToken,
+    ) -> Result<(), CryptoModuleError> {
         use bitwarden_sensitive_value::ExposeSensitive as _;
 
         let expires_at = Instant::now() + Duration::from_secs(success.expires_in);
@@ -126,8 +130,7 @@ impl SessionState {
             success.organization_id,
             token,
             &success.encrypted_payload,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
 
         self.bearer = Some(success.access_token.expose().to_owned());
         self.expires_at = Some(expires_at);
@@ -312,7 +315,7 @@ impl SessionManager {
                         return guard.active_bearer();
                     }
                     // A 200 whose payload does not open is treated like a protocol failure.
-                    Err(msg) => ("org key unwrap failed", msg),
+                    Err(e) => ("org key unwrap failed", e.to_string()),
                 },
                 Err(AuthError::Rejected) => {
                     guard.enter_terminal(SessionLost::Revoked);
