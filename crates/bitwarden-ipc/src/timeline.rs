@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! IPC
-//! ├─ Sent        [msg]   [msg]          one entry per message, at least 1 ms wide 
+//! ├─ Sent        [msg]   [msg]          one entry per message, at least 1 ms wide
 //! ├─ Received       [msg]     [msg]
 //! ├─ Requests    [── MyRequest ──]      request sent until response received
 //! ├─ Handlers         [MyRequest]       remote handler run
