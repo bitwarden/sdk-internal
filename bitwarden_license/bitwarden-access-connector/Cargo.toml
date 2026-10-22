@@ -40,13 +40,12 @@ reqwest-middleware = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["rt", "macros", "process", "time", "signal", "sync"] }
+tokio = { workspace = true, features = ["io-util", "macros", "process", "rt", "signal", "sync", "time"] }
 toml = "0.9"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
-zeroize = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"
