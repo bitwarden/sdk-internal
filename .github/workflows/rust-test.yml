@@ -35,11 +35,6 @@ jobs:
           - ubuntu-24.04
           - macOS-14
           - windows-2022
-    env:
-      SCCACHE_GHA_ENABLED: "true"
-      # On Windows, sccache calls rustc with the full argument list, which exceeds the command line
-      # length limit for crates with long argument lists such as web-sys (os error 206).
-      RUSTC_WRAPPER: ${{ matrix.os != 'windows-2022' && 'sccache' || '' }}
 
     steps:
       - name: Checkout
@@ -58,18 +53,8 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      # rust-cache only restores third-party dependencies. sccache caches the workspace crates by
-      # content hash, so crates a PR does not touch are not recompiled.
-      - name: Set up sccache
-        if: matrix.os != 'windows-2022'
-        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
-
       - name: Test
         run: cargo test --workspace --all-features
-
-      - name: Show sccache stats
-        if: always() && matrix.os != 'windows-2022'
-        run: sccache --show-stats
 
   test-wasm:
     name: WASM
@@ -109,9 +94,6 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-24.04
-    env:
-      SCCACHE_GHA_ENABLED: "true"
-      RUSTC_WRAPPER: sccache
 
     steps:
       - name: Checkout
@@ -131,11 +113,6 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      # rust-cache only restores third-party dependencies. sccache caches the workspace crates by
-      # content hash, so crates a PR does not touch are not recompiled.
-      - name: Set up sccache
-        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
-
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
 
@@ -144,10 +121,6 @@ jobs:
 
       - name: Generate coverage
         run: cargo bin cargo-llvm-cov --all-features --lcov --output-path lcov.info --ignore-filename-regex "crates/bitwarden-api-"
-
-      - name: Show sccache stats
-        if: always()
-        run: sccache --show-stats
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
