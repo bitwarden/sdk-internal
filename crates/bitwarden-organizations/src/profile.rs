@@ -378,7 +378,9 @@ mod tests {
                     "managePolicies": false,
                     "manageUsers": true,
                     "manageResetPassword": false,
-                    "manageScim": false
+                    "manageScim": false,
+                    "manageAccessRules": false,
+                    "manageRotation": false
                 },
                 "userId": "1c6b3e3d-7c4a-4d8f-8a5b-1b2c3d4e5f60",
                 "organizationUserId": "2d7c4f4e-8d5b-4e9a-9b6c-2c3d4e5f6071",
@@ -387,7 +389,8 @@ mod tests {
                 "resetPasswordEnrolled": true,
                 "ssoBound": false,
                 "userIsClaimedByOrganization": false,
-                "accessSecretsManager": false
+                "accessSecretsManager": false,
+                "accessPam": false
             },
             "collectionManagement": {
                 "limitCollectionCreation": true,
