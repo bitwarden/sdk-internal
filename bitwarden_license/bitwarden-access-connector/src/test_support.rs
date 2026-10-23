@@ -122,10 +122,10 @@ pub(crate) fn fixture_org_key() -> SymmetricCryptoKey {
         .expect("valid org key")
 }
 
-/// A successful identity response; `bearer` is a short tag, expanded to a real JWT so the
+/// A successful identity response; `tag` is expanded to a real JWT bearer so the
 /// `organization` claim parses.
-fn identity_ok(bearer: &str, encrypted_payload: &str) -> ResponseTemplate {
-    let bearer = access_token_tagged(test_org_id(), bearer);
+fn identity_ok(tag: &str, encrypted_payload: &str) -> ResponseTemplate {
+    let bearer = access_token_tagged(test_org_id(), tag);
     ResponseTemplate::new(200)
         .set_body_string(format!(
             r#"{{"access_token":"{bearer}","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
