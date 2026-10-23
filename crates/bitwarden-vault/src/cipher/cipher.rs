@@ -1516,6 +1516,7 @@ fn decrypt_restricted_cipher_view(
             uris: decrypt_restricted_uris(&restricted, ctx, ciphers_key, strict)?,
             totp: None,
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             fido2_credentials: None,
         })
     } else {
@@ -2403,6 +2404,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             id: Some(test_id),
@@ -4242,6 +4244,7 @@ mod tests {
                 uris: None,
                 totp: Some("otpauth://totp/test?secret=SECRET".to_string()),
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             });
             view
@@ -4765,6 +4768,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             });
             view
@@ -4888,6 +4892,60 @@ mod tests {
             let login = restored.login.expect("round-trip should restore login");
             assert_eq!(login.username, original.login.as_ref().unwrap().username);
             assert_eq!(login.password, original.login.as_ref().unwrap().password);
+        }
+
+        fn with_http_authentication(enabled: Option<bool>) -> CipherView {
+            let mut view = base_login_view();
+            if let Some(login) = view.login.as_mut() {
+                login.http_authentication_enabled = enabled;
+            }
+            view
+        }
+
+        /// The HTTP authentication setting is sealed in the blob and restored on decryption.
+        #[test]
+        fn blob_variant_round_trips_http_authentication_enabled() {
+            let key_store = make_key_store();
+
+            let cipher: Cipher = key_store
+                .encrypt(EncryptMode::Blob(with_http_authentication(Some(true))))
+                .unwrap();
+            let restored: CipherView = key_store.decrypt(&cipher).unwrap();
+
+            assert_eq!(
+                restored.login.unwrap().http_authentication_enabled,
+                Some(true)
+            );
+        }
+
+        /// A login without the HTTP authentication setting is stored with it turned off.
+        #[test]
+        fn blob_variant_stores_missing_http_authentication_enabled_as_off() {
+            let key_store = make_key_store();
+
+            let cipher: Cipher = key_store
+                .encrypt(EncryptMode::Blob(with_http_authentication(None)))
+                .unwrap();
+            let restored: CipherView = key_store.decrypt(&cipher).unwrap();
+
+            assert_eq!(
+                restored.login.unwrap().http_authentication_enabled,
+                Some(false)
+            );
+        }
+
+        /// The legacy field-level format does not store the HTTP authentication setting, so it
+        /// never reaches the server outside a sealed blob.
+        #[test]
+        fn legacy_variant_drops_http_authentication_enabled() {
+            let key_store = make_key_store();
+
+            let cipher: Cipher = key_store
+                .encrypt(EncryptMode::Legacy(with_http_authentication(Some(true))))
+                .unwrap();
+            let restored: CipherView = key_store.decrypt(&cipher).unwrap();
+
+            assert_eq!(restored.login.unwrap().http_authentication_enabled, None);
         }
 
         /// `key_identifier` must delegate to the inner view so `encrypt_list`

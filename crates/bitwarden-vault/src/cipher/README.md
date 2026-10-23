@@ -76,13 +76,23 @@ flowchart LR
 
 ## Encryption flow
 
-Today, all encryption entry points (`CiphersClient::encrypt`, `encrypt_list`,
-`encrypt_cipher_for_rotation`, and the `create` / `edit` request paths) go through the **legacy
-field-level path** via the `CompositeEncryptable` impls on `CipherView`,
-`CipherCreateRequestInternal`, and `CipherEditRequestInternal`.
+Encryption entry points (`CiphersClient::encrypt`, `encrypt_list`, `encrypt_cipher_for_rotation`,
+the `create` / `edit` request paths and their admin counterparts, `change_login_password`, and
+`bitwarden-exporters`) choose a format per cipher with `should_use_blob_encryption` and wrap the
+`CipherView` in `EncryptMode`:
 
-Blob-path encryption dispatch is tracked in
-[PM-32695](https://bitwarden.atlassian.net/browse/PM-32695).
+- **`EncryptMode::Blob`** when the cipher belongs to an individual vault (no `organization_id`) and
+  the user's security state version is at least `BLOB_SECURITY_VERSION`.
+- **`EncryptMode::Legacy`** otherwise. Blob encryption for organization-vault ciphers is tracked in
+  [PM-32430](https://bitwarden.atlassian.net/browse/PM-32430).
+
+The `CompositeEncryptable` impl on `EncryptMode<CipherView>` seals the blob or encrypts each field
+under an explicit wrapping key, so key rotation can encrypt under the new key's `Local` slot rather
+than the view's `User` / `Organization` slot.
+
+Some fields exist only in the blob format. `LoginView.http_authentication_enabled` is stored in the
+blob as a `bool`, with an unset value stored as `false`; legacy encryption drops it, and legacy
+decryption returns `None`.
 
 ## Wrapper types
 

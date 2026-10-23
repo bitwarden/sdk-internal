@@ -346,6 +346,10 @@ pub struct LoginView {
     pub uris: Option<Vec<LoginUriView>>,
     pub totp: Option<String>,
     pub autofill_on_page_load: Option<bool>,
+    /// Whether the login's credentials may answer HTTP authentication challenges. Only stored for
+    /// blob-encrypted ciphers; `None` for ciphers in the legacy field-level format.
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    pub http_authentication_enabled: Option<bool>,
 
     pub fido2_credentials: Option<Vec<Fido2CredentialView>>,
 }
@@ -491,6 +495,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for Login {
             uris: self.uris.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.decrypt(ctx, key).ok().flatten(),
             autofill_on_page_load: self.autofill_on_page_load,
+            http_authentication_enabled: None,
             fido2_credentials: self
                 .fido2_credentials
                 .as_ref()
@@ -531,6 +536,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for StrictDecrypt<&L
             uris: self.0.uris.decrypt(ctx, key)?,
             totp: self.0.totp.decrypt(ctx, key)?,
             autofill_on_page_load: self.0.autofill_on_page_load,
+            http_authentication_enabled: None,
             fido2_credentials: self
                 .0
                 .fido2_credentials
