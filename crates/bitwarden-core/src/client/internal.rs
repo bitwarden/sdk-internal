@@ -140,12 +140,10 @@ impl InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) async fn get_login_method(&self) -> Option<UserLoginMethod> {
         self.state_registry
-            .setting(USER_LOGIN_METHOD)
-            .ok()?
+            .value::<USER_LOGIN_METHOD>()
             .get()
             .await
             .ok()
-            .flatten()
     }
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -153,9 +151,11 @@ impl InternalClient {
         match login_method {
             #[cfg(feature = "internal")]
             LoginMethod::User(lm) => {
-                if let Ok(setting) = self.state_registry.setting(USER_LOGIN_METHOD) {
-                    setting.update(lm).await.ok();
-                }
+                self.state_registry
+                    .value::<USER_LOGIN_METHOD>()
+                    .set(lm)
+                    .await
+                    .ok();
             }
             #[cfg(feature = "secrets")]
             LoginMethod::ServiceAccount(lm) => {
@@ -253,9 +253,7 @@ impl InternalClient {
         }
 
         #[cfg(feature = "internal")]
-        if let Ok(setting) = self.state_registry.setting(USER_ID)
-            && let Err(e) = setting.update(user_id).await
-        {
+        if let Err(e) = self.state_registry.value::<USER_ID>().set(user_id).await {
             tracing::warn!("Failed to persist user_id: {e}");
         }
 
@@ -493,12 +491,11 @@ mod tests {
         let persisted = client
             .internal
             .state_registry
-            .setting(USER_ID)
-            .unwrap()
+            .value::<USER_ID>()
             .get()
             .await
             .unwrap();
-        assert_eq!(persisted, Some(user_id));
+        assert_eq!(persisted, user_id);
 
         // Trying to set the same user_id again should not return an error.
         assert!(client.internal.init_user_id(user_id).await.is_ok());

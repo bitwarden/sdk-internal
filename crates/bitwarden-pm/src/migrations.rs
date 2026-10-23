@@ -5,7 +5,7 @@ use bitwarden_organizations::ProfileOrganization;
 use bitwarden_policies::Policy;
 use bitwarden_send::Send;
 use bitwarden_state::{
-    SettingItem,
+    PersistedValueItem,
     repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations},
 };
 use bitwarden_vault::{Cipher, Folder};
@@ -18,7 +18,7 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
         // requires a separate migration step using `Remove(...)`.
         Add(Cipher::data()),
         Add(Folder::data()),
-        Add(SettingItem::data()),
+        Add(PersistedValueItem::data()),
         Add(OrganizationSharedKey::data()),
         Add(Send::data()),
         Add(Policy::data()),

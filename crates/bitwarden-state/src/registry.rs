@@ -5,10 +5,9 @@ use thiserror::Error;
 
 use crate::{
     any_map::AnyMap,
-    persist::Persist,
+    persisted_value::{PersistedValue, PersistedValueKey},
     repository::{Repository, RepositoryItem, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
-    settings::{Key, Setting},
 };
 
 /// A registry that contains repositories for different types of items.
@@ -69,9 +68,9 @@ impl StateRegistry {
         Ok(registry)
     }
 
-    /// Get a handle to a setting by its type-safe key.
-    pub fn setting<T: Persist>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
-        Ok(Setting::new(self.database.get_setting::<T>(key.name)))
+    /// Get a handle to a persisted value by its type-safe key.
+    pub fn value<K: PersistedValueKey>(&self) -> PersistedValue<K> {
+        PersistedValue::new(self.database.get_persisted_value::<K::Value>(K::NAME))
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
@@ -297,95 +296,90 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_setting_on_memory_db() {
-        use crate::register_setting_key;
-        register_setting_key!(const TEST_SETTING: String = "test_registry_setting_key");
+    async fn test_persisted_value_on_memory_db() {
+        use crate::register_persisted_value;
+        register_persisted_value!(TEST_VALUE: String = "test_registry_persisted_value_key");
 
         let registry = StateRegistry::new_with_memory_db();
-        let setting = registry.setting(TEST_SETTING).unwrap();
+        let value = registry.value::<TEST_VALUE>();
 
         // Value must not exist initially
-        assert_eq!(setting.get().await.unwrap(), None::<String>);
+        assert_eq!(value.try_get().await.unwrap(), None::<String>);
 
         // Update and read back
-        setting.update("hello".to_string()).await.unwrap();
-        assert_eq!(setting.get().await.unwrap(), Some("hello".to_string()));
+        value.set("hello".to_string()).await.unwrap();
+        assert_eq!(value.try_get().await.unwrap(), Some("hello".to_string()));
 
         // Delete and confirm gone
-        setting.delete().await.unwrap();
-        assert_eq!(setting.get().await.unwrap(), None::<String>);
+        value.remove().await.unwrap();
+        assert_eq!(value.try_get().await.unwrap(), None::<String>);
     }
 
     #[tokio::test]
-    async fn test_settings_are_isolated_by_key() {
-        use crate::register_setting_key;
-        register_setting_key!(const THEME: String = "test_theme");
-        register_setting_key!(const LOCALE: String = "test_locale");
+    async fn test_persisted_values_are_isolated_by_key() {
+        use crate::register_persisted_value;
+        register_persisted_value!(THEME: String = "test_theme");
+        register_persisted_value!(LOCALE: String = "test_locale");
 
         let registry = StateRegistry::new_with_memory_db();
-        let theme = registry.setting(THEME).unwrap();
-        let locale = registry.setting(LOCALE).unwrap();
+        let theme = registry.value::<THEME>();
+        let locale = registry.value::<LOCALE>();
 
-        theme.update("dark".to_string()).await.unwrap();
-        locale.update("en-US".to_string()).await.unwrap();
+        theme.set("dark".to_string()).await.unwrap();
+        locale.set("en-US".to_string()).await.unwrap();
 
-        theme.delete().await.unwrap();
-        assert_eq!(theme.get().await.unwrap(), None::<String>);
-        assert_eq!(locale.get().await.unwrap(), Some("en-US".to_string()));
+        theme.remove().await.unwrap();
+        assert_eq!(theme.try_get().await.unwrap(), None::<String>);
+        assert_eq!(locale.try_get().await.unwrap(), Some("en-US".to_string()));
     }
 
     #[tokio::test]
-    async fn test_setting_is_stored_in_the_setting_table_as_bare_json() {
-        use crate::{register_setting_key, settings::SettingItem};
+    async fn test_persisted_value_is_stored_in_the_persisted_value_table_as_bare_json() {
+        use crate::{persisted_value::PersistedValueItem, register_persisted_value};
 
         #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
         struct Config {
             theme: String,
         }
-        register_setting_key!(const CONFIG: Config = "test_config");
+        register_persisted_value!(CONFIG: Config = "test_config");
 
         let registry = StateRegistry::new_with_memory_db();
         let value = Config {
             theme: "dark".to_string(),
         };
         let expected = serde_json::to_value(&value).unwrap();
-        registry
-            .setting(CONFIG)
-            .unwrap()
-            .update(value)
-            .await
-            .unwrap();
+        registry.value::<CONFIG>().set(value).await.unwrap();
 
-        // Storage contract for existing databases: settings live in the `Setting` table,
-        // addressed by key name, holding the bare serialized value.
-        assert_eq!(SettingItem::NAME, "Setting");
-        let raw: SettingItem = registry
+        // Storage contract for existing databases: persisted values live in the `PersistedValue`
+        // table, addressed by key name, holding the bare serialized value.
+        assert_eq!(PersistedValueItem::NAME, "PersistedValue");
+        let raw: PersistedValueItem = registry
             .database
-            .get::<SettingItem>("test_config")
+            .get::<PersistedValueItem>("test_config")
             .await
             .unwrap()
-            .expect("setting is present");
+            .expect("persisted value is present");
         assert_eq!(raw.0, expected);
     }
 
     #[tokio::test]
-    async fn test_setting_reports_closed_after_wipe() {
-        use crate::{register_setting_key, settings::SettingsError};
-        register_setting_key!(const TEST_SETTING: String = "test_wiped_setting");
+    async fn test_persisted_value_reports_closed_after_wipe() {
+        use crate::{persisted_value::PersistedValueError, register_persisted_value};
+        register_persisted_value!(TEST_VALUE: String = "test_wiped_persisted_value");
 
         let registry = StateRegistry::new_with_memory_db();
-        let setting = registry.setting(TEST_SETTING).unwrap();
-        setting.update("hello".to_string()).await.unwrap();
+        let value = registry.value::<TEST_VALUE>();
+        value.set("hello".to_string()).await.unwrap();
 
         registry.wipe().await.unwrap();
 
         assert!(matches!(
-            setting.get().await,
-            Err(SettingsError::Database(DatabaseError::Closed))
+            value.try_get().await,
+            Err(PersistedValueError::Closed)
         ));
         assert!(matches!(
-            setting.update("bye".to_string()).await,
-            Err(SettingsError::Database(DatabaseError::Closed))
+            value.set("bye".to_string()).await,
+            Err(PersistedValueError::Closed)
         ));
     }
 
