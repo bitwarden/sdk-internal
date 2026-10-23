@@ -1672,6 +1672,7 @@ dependencies = [
  "bitwarden-server-communication-config",
  "bitwarden-ssh",
  "bitwarden-state",
+ "bitwarden-sync",
  "bitwarden-uniffi-error",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
@@ -1680,6 +1681,7 @@ dependencies = [
  "libloading",
  "rustls-platform-verifier",
  "thiserror",
+ "tokio",
  "tracing",
  "tracing-android",
  "tracing-oslog",
@@ -1835,6 +1837,7 @@ dependencies = [
  "bitwarden-shared-unlock",
  "bitwarden-ssh",
  "bitwarden-state",
+ "bitwarden-sync",
  "bitwarden-threading",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
@@ -1851,6 +1854,7 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-bindgen-test",
 ]
 
 [[package]]

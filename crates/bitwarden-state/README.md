@@ -248,6 +248,51 @@ at compile time, preventing type mismatches while maintaining ergonomic usage. T
 `PersistedValue<K>` handle provides async methods to get, update, and delete the value: `get()`
 fails if the value is absent, and `try_get()` returns `None` instead.
 
+### Client-managed persisted values
+
+A client can provide its own storage for individual persisted values, the same way it can for
+repositories. Values without a client-managed backend use SDK-managed storage, so clients take over
+one value at a time.
+
+To let clients manage a value, add its key to `create_client_managed_values!` at the end of
+`crates/bitwarden-pm/src/migrations.rs`, and make the key's crate a dependency of `bitwarden-uniffi`
+and `bitwarden-wasm-internal`. The key must be declared with `register_persisted_value!`, and UniFFI
+must support its value type (a `uniffi::Record`, `uniffi::Enum`, or a type with a UniFFI custom type
+such as `DateTime<Utc>`). The WASM bindings convert values with serde, so the value type needs no
+wasm ABI derives, but the TypeScript type named in the entry must exist in the generated
+declarations (a `Tsify` type, or an alias such as those in `bitwarden-wasm-internal`'s
+`custom_types.rs`). `LAST_SYNC` is the example:
+
+```rust,ignore
+// crates/bitwarden-sync/src/state.rs
+register_persisted_value!(
+    /// The timestamp of the last successful sync (or skip). Clients can manage it.
+    pub LAST_SYNC: DateTime<Utc> = "last_sync"
+);
+
+// crates/bitwarden-pm/src/migrations.rs
+macro_rules! create_client_managed_values {
+    ($container_name:ident, $macro:ident) => {
+        $macro! {
+            $container_name;
+            // <fully qualified path to the key>, <TypeScript value type>, <field name>, <name of the value implementation>
+            ::bitwarden_sync::LAST_SYNC, "DateTime<Utc>", last_sync, LastSyncPersistedValue;
+        }
+    };
+}
+```
+
+Each entry becomes a field of `PersistedValues`, which clients pass to
+`register_client_managed_values`. On the web clients each field is a `PersistedValue<T>` with `get`,
+`set`, and `remove`; on mobile it is a generated interface named after the entry, here
+`LastSyncPersistedValue`.
+
+- Register before building the SDK clients that use a value. A `PersistedValue` handle captures its
+  backend when it is built and does not see later registrations.
+- A client-managed backend is looked up by storage name. Reading the same name with a different
+  value type fails rather than falling back to SDK-managed storage.
+- `StateRegistry::wipe()` drops client-managed backends along with repositories.
+
 ## Testing
 
 Most tests run as standard `cargo test` against the native target — the SQLite backend uses
