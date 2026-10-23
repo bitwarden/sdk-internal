@@ -1,17 +1,22 @@
 //! The generated vectors and the mock server of an enrolled device, shared by the tests of the
 //! SSO submodules.
 
-use std::{collections::BTreeMap, time::Duration};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use bitwarden_api_base::new_http_client;
 use data_encoding::{BASE64, BASE64URL_NOPAD, HEXLOWER};
 use serde::Deserialize;
-use serde_json::json;
-use wiremock::{Mock, MockServer, Respond, ResponseTemplate, matchers};
+use serde_json::{Value, json};
+use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate, matchers};
 
 use super::{
     super::{rest::RestClient, wire::EncryptedEnvelope},
     Timing,
+    cpace::{enrolled_device_msg_a, expected_tag_b, share_credentials},
 };
 
 pub(super) const SIGN_IN_TOKEN: &str = "SIGN_IN_TOKEN";
@@ -96,12 +101,16 @@ pub(super) fn path(vectors: &CpaceVectors, method: &str) -> String {
 
 /// Answers the `msga` request with the vector's message, standard base64 like the server.
 pub(super) async fn mock_msga(server: &MockServer, vectors: &CpaceVectors) {
+    mock_msga_json(server, vectors, &vectors.msga_json).await;
+}
+
+async fn mock_msga_json(server: &MockServer, vectors: &CpaceVectors, msga_json: &str) {
     server
         .register(
             Mock::given(matchers::method("POST"))
                 .and(matchers::path(path(vectors, "cpace/msga")))
                 .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                    "msga": BASE64.encode(vectors.msga_json.as_bytes()),
+                    "msga": BASE64.encode(msga_json.as_bytes()),
                 })))
                 .expect(1),
         )
@@ -178,4 +187,106 @@ pub(super) async fn mock_enrolled_device(server: &MockServer, vectors: &CpaceVec
         })),
     )
     .await;
+}
+
+/// Like [`mock_enrolled_device`], for a client that picks its own secret, as production does, and
+/// enrolls at `sign_in_address` rather than the address of the vectors. The enrolled device sends
+/// a first message for that address, takes whatever `msgb` arrives, refuses a `tagb` that does not
+/// prove the same key, and shares the credentials encrypted under that key.
+pub(super) async fn mock_enrolled_device_for_any_client(
+    server: &MockServer,
+    vectors: &CpaceVectors,
+    sign_in_address: &str,
+) {
+    let ya_secret = hex_array(&vectors.ya_secret);
+    let msga_json = enrolled_device_msg_a(
+        &vectors.username,
+        sign_in_address,
+        &vectors.enrollment_uuid,
+        &vectors.verification_code,
+        &ya_secret,
+        &[3; 16],
+        &[4; 16],
+    );
+    mock_msga_json(
+        server,
+        vectors,
+        std::str::from_utf8(&msga_json).expect("the message is JSON"),
+    )
+    .await;
+
+    let seen_msg_b = Arc::new(Mutex::new(None::<Vec<u8>>));
+    let record_msg_b = {
+        let seen_msg_b = seen_msg_b.clone();
+        move |request: &Request| {
+            let body: Value = request.body_json().expect("a JSON body");
+            let msg_b = BASE64URL_NOPAD
+                .decode(body["msgb"].as_str().expect("msgb is a string").as_bytes())
+                .expect("msgb is base64url");
+            *seen_msg_b.lock().expect("not poisoned") = Some(msg_b);
+            ResponseTemplate::new(200).set_body_json(json!({"success": 1}))
+        }
+    };
+    server
+        .register(
+            Mock::given(matchers::method("PUT"))
+                .and(matchers::path(path(vectors, "cpace/msgb")))
+                .respond_with(record_msg_b)
+                .expect(1),
+        )
+        .await;
+
+    mock_empty_then_answer(
+        server,
+        path(vectors, "cpace/taga"),
+        ResponseTemplate::new(200)
+            .set_body_json(json!({ "taga": BASE64URL_NOPAD.encode(&[7; 64]) })),
+    )
+    .await;
+
+    let check_tag_b = {
+        let seen_msg_b = seen_msg_b.clone();
+        let msga_json = msga_json.clone();
+        move |request: &Request| {
+            let body: Value = request.body_json().expect("a JSON body");
+            let tag_b = BASE64URL_NOPAD
+                .decode(body["tagb"].as_str().expect("tagb is a string").as_bytes())
+                .expect("tagb is base64url");
+            let msg_b = seen_msg_b
+                .lock()
+                .expect("not poisoned")
+                .clone()
+                .expect("msgb arrives before tagb");
+            let expected = expected_tag_b(&ya_secret, &msga_json, &msg_b).expect("a valid msgb");
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"success": u8::from(tag_b == expected)}))
+        }
+    };
+    server
+        .register(
+            Mock::given(matchers::method("PUT"))
+                .and(matchers::path(path(vectors, "cpace/tagb")))
+                .respond_with(check_tag_b)
+                .expect(1),
+        )
+        .await;
+
+    let bundle_json = vectors.credential_bundle_json.clone();
+    let share = move |_: &Request| {
+        let msg_b = seen_msg_b
+            .lock()
+            .expect("not poisoned")
+            .clone()
+            .expect("msgb arrives before the credentials are asked for");
+        let encrypted = share_credentials(
+            &ya_secret,
+            &msga_json,
+            &msg_b,
+            bundle_json.as_bytes(),
+            &[7; 12],
+        )
+        .expect("shares");
+        ResponseTemplate::new(200).set_body_json(json!({ "encCreds": encrypted }))
+    };
+    mock_empty_then_answer(server, path(vectors, "share/credentials"), share).await;
 }
