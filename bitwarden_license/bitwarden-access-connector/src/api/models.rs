@@ -3,7 +3,7 @@
 
 use uuid::Uuid;
 
-use crate::auth::session::SessionLost;
+use crate::{auth::session::SessionLost, error::Retry};
 
 /// A claimable rotation job returned by the poll endpoint.
 #[derive(Debug, Clone)]
@@ -43,4 +43,14 @@ pub(crate) enum ApiError {
     /// The response could not be decoded or lacked a required field.
     #[error("protocol error: {0}")]
     Protocol(String),
+}
+
+impl ApiError {
+    /// Only a transient error is worth retrying.
+    pub(crate) fn retry_class(&self) -> Retry {
+        match self {
+            ApiError::Transient(_) => Retry::Transient,
+            _ => Retry::Permanent,
+        }
+    }
 }
