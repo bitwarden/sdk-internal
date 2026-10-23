@@ -1,6 +1,10 @@
 import { EmergencyAccessStatus, EmergencyAccessType } from "@bitwarden/sdk-internal";
 
-import { validateCiphers, validateVault } from "../../client-emulator/validate";
+import {
+  validateCiphers,
+  validateEmergencyAccessAttachments,
+  validateVault,
+} from "../../client-emulator/validate";
 import {
   EmergencyAccessStatus as ServerStatus,
   EmergencyAccessType as ServerType,
@@ -40,6 +44,21 @@ describe("emergency access", () => {
       ).toEqual(["v1-grants-v2", "v2-grants-v1"]);
     });
 
+    /**
+     * Each attachment generation must stay covered: keyed ones decrypt through emergency access,
+     * and keyless `V0` ones are refused.
+     */
+    it("the grantors' vaults hold every attachment version", () => {
+      const users = testVectors.users.withMasterPassword();
+      const versions = testVectors.emergencyAccess
+        .all()
+        .flatMap((vector) => users.get(vector.grantorVectorName).vault.ciphers)
+        .flatMap((cipher) => Object.values(cipher.keys.attachments))
+        .map((attachment) => attachment.version);
+
+      expect(new Set(versions)).toEqual(new Set(["V0", "V1", "V2"]));
+    });
+
     testVectors.emergencyAccess.each(
       "$name: the grantee decrypts the grantor's vault with the recorded key",
       async (vector) => {
@@ -59,6 +78,7 @@ describe("emergency access", () => {
 
         expect(result.successes).toHaveLength(seeded.grantor.ciphers().length);
         validateCiphers(result, seeded.grantor.seed, []);
+        await validateEmergencyAccessAttachments(grantee, id, result, seeded.grantor.seed);
       },
       UNLOCK_TIMEOUT,
     );
@@ -157,6 +177,7 @@ describe("emergency access", () => {
         const result = await granteeClient.view_vault_items(id);
         expect(result.successes).toHaveLength(grantor.ciphers().length);
         validateCiphers(result, grantor.seed, []);
+        await validateEmergencyAccessAttachments(granteeEmulator, id, result, grantor.seed);
       },
       UNLOCK_TIMEOUT,
     );

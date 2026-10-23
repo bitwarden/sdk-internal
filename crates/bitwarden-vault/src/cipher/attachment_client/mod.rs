@@ -13,6 +13,7 @@ use crate::{
 
 mod admin;
 mod create;
+mod decrypt_emergency_access;
 mod delete;
 mod download_url;
 mod renew;
@@ -26,6 +27,7 @@ pub use create::{
     AttachmentFileUploadType, CipherCreateAttachmentError, CreateAttachmentRequest,
     CreatedAttachment,
 };
+pub use decrypt_emergency_access::DecryptEmergencyAccessAttachmentError;
 pub use delete::CipherDeleteAttachmentError;
 pub use download_url::CipherGetAttachmentDownloadUrlError;
 pub use renew::CipherRenewFileUploadUrlError;

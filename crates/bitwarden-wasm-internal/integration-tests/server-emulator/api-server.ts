@@ -4,6 +4,8 @@ import type { Cipher, Folder } from "@bitwarden/sdk-internal";
 
 import type { MockReply, Routes } from "./http-mock";
 
+import { AttachmentStorage } from "./attachment-storage";
+
 import {
   asEncString,
   asKeyId,
@@ -98,6 +100,9 @@ export class ApiServer {
       ),
       "PUT /ciphers/:id/restore": authenticatedRoute(this.db, (user, request) =>
         this.restamp(user, request.params.id, null),
+      ),
+      "GET /ciphers/:id/attachment/:attachmentId": authenticatedRoute(this.db, (user, request) =>
+        this.attachmentData(user, request.params.id, request.params.attachmentId),
       ),
 
       "POST /folders": authenticatedRoute(this.db, (user, request) =>
@@ -381,6 +386,15 @@ export class ApiServer {
 
     this.db.ciphers.update(id, { ...stored, cipher });
     return { json: CipherResponse.fromCipher(cipher) };
+  }
+
+  private attachmentData(user: UserEntity, id: string, attachmentId: string): MockReply {
+    const stored = this.reachableCipher(user, id);
+    if (stored === undefined) {
+      return error(HTTP_NOT_FOUND, `no cipher ${id}`);
+    }
+
+    return AttachmentStorage.attachmentData(this.db, stored.cipher, attachmentId);
   }
 
   private deleteCipher(user: UserEntity, id: string): MockReply {
