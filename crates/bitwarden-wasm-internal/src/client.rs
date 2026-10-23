@@ -110,6 +110,11 @@ impl PasswordManagerClient {
         self.0.0.user_crypto_management()
     }
 
+    /// Unlock related operations.
+    pub fn unlock(&self) -> UnlockClient {
+        self.0.unlock()
+    }
+
     /// Vault item related operations.
     pub fn vault(&self) -> VaultClient {
         self.0.vault()

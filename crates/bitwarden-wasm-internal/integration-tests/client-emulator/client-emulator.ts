@@ -97,14 +97,29 @@ export class ClientEmulator {
    * The password is the caller's to supply — it is the one thing neither emulator holds.
    */
   async unlock(password: string): Promise<void> {
+    this.client = await this.local.unlock(await this.masterPasswordUnlock(password));
+  }
+
+  /**
+   * Unlocks the client this emulator already holds with the master password, keeping the instance.
+   *
+   * This is the unlock that follows `PasswordManagerClient.unlock().lock()`, which locks a client in
+   * place where {@link lock} replaces it.
+   */
+  async unlockInPlace(password: string): Promise<void> {
+    await this.local.unlock(
+      await this.masterPasswordUnlock(password),
+      this.getPasswordManagerClient(),
+    );
+  }
+
+  private async masterPasswordUnlock(password: string): Promise<InitUserCryptoMethod> {
     const unlockData = await this.local.bridge.get_masterpassword_unlock_data();
     if (unlockData === null) {
       throw new Error("local state holds no master-password unlock data; sync one down first");
     }
 
-    this.client = await this.local.unlock({
-      masterPasswordUnlock: { password, master_password_unlock: unlockData },
-    });
+    return { masterPasswordUnlock: { password, master_password_unlock: unlockData } };
   }
 
   /** Brings a client up with an unlock method the test supplies rather than the account's own. */
