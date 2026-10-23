@@ -114,6 +114,8 @@ prost = "0.14.4"
 quote = ">=1.0.37, <2"
 rand = ">=0.10.0, <0.11"
 rand_chacha = ">=0.10.0, <0.11"
+regex = ">=1.11, <2"
+regex-syntax = ">=0.8.5, <0.9"
 reqwest = { version = "0.13.3", features = [
     "json",
     "multipart",
@@ -195,6 +197,8 @@ unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(dylint_lib, values("bitwarden_lints"))',
     # Set by CI on non-commercial builds; see bitwarden_license/bitwarden-commercial-marker.
     'cfg(bitwarden_ensure_non_commercial)',
+    # Set by cargo-llvm-cov in the coverage job.
+    'cfg(coverage)',
 ] }
 
 [workspace.metadata.dylint]
