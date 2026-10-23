@@ -39,9 +39,9 @@ jobs:
         variant:
           - default
         include:
-          - os: windows-2022
-            variant: rust-lld
-          - os: windows-2022
+          - os: windows-2025
+            variant: default
+          - os: windows-2025
             variant: devdrive
 
     steps:
@@ -71,7 +71,7 @@ jobs:
         if: matrix.variant == 'devdrive'
         shell: pwsh
         run: |
-          $volume = New-VHD -Path D:\dev_drive.vhdx -SizeBytes 40GB -Dynamic |
+          $volume = New-VHD -Path "$env:RUNNER_TEMP\dev_drive.vhdx" -SizeBytes 40GB -Dynamic |
             Mount-VHD -Passthru |
             Initialize-Disk -PartitionStyle GPT -Passthru |
             New-Partition -DriveLetter V -UseMaximumSize
@@ -90,10 +90,6 @@ jobs:
         with:
           key: ${{ matrix.variant }}
 
-      - name: Use rust-lld
-        if: matrix.variant == 'rust-lld'
-        shell: bash
-        run: echo "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=rust-lld.exe" >> "$GITHUB_ENV"
 
       - name: Test
         run: cargo test --workspace --all-features --timings
