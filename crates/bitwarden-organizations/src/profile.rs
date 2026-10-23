@@ -202,6 +202,8 @@ pub struct OrganizationMembership {
     pub user_is_claimed_by_organization: bool,
     /// Whether the current user has access to Secrets Manager for this organization.
     pub access_secrets_manager: bool,
+    /// Whether the current user has access to Privileged Controls for this organization.
+    pub access_pam: bool,
 }
 
 impl Default for OrganizationMembership {
@@ -218,6 +220,7 @@ impl Default for OrganizationMembership {
             sso_bound: false,
             user_is_claimed_by_organization: false,
             access_secrets_manager: false,
+            access_pam: false,
         }
     }
 }
