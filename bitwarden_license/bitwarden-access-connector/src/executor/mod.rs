@@ -5,69 +5,54 @@
 pub(crate) mod retry;
 pub(crate) mod rotation;
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, ops::ControlFlow, path::PathBuf, sync::Arc, time::Duration};
 
 use bitwarden_access_token::AccessToken;
-use bitwarden_core::Client;
-use bitwarden_pam::{RotationFailureCode, RotationSyncState};
+use bitwarden_core::{Client, key_management::KeySlotIds};
+use bitwarden_crypto::KeyStore;
+use bitwarden_pam::{RotationFailureCode, RotationSyncState, WorkSnapshot};
+use bitwarden_pam_sealed::SealedTargetSystemKind;
 use bitwarden_threading::cancellation_token::CancellationToken;
 use retry::RetryCfg;
-use rotation::{AbortReason, ExecutionContext, ExecutionResult, execute};
+use rotation::{AbortReason, ExecutionContext, ExecutionResult, LastOk, execute};
 use tokio::{
     sync::watch,
-    time::{MissedTickBehavior, interval},
+    time::{Instant, MissedTickBehavior, interval},
 };
+use uuid::Uuid;
 
 use crate::{
     api::{
         AccessConnectorClient, AccessConnectorClientExt as _, REQUEST_TIMEOUT, build_sdk_client,
-        models::ApiError,
+        models::{ApiError, JobRef},
     },
-    auth::session::{SessionLost, SessionManager},
+    auth::{
+        identity::IdentityClient,
+        session::{SessionError, SessionLost, SessionManager},
+    },
     error::SafeDetail,
     integrations::{
         IntegrationRegistry,
+        entra::EntraIntegration,
         scripting::{CustomScriptIntegration, PowershellConfig, ProcessScriptRunner},
     },
-    resolver::CredentialResolver,
-    sys::SystemEnv,
+    resolver::{
+        CredentialResolver,
+        config::{ConfigCredentialResolver, TargetEntry},
+    },
+    sys::{Platform, SystemEnv},
 };
 
-/// Reads the connectivity watch. Test-only.
-#[cfg(test)]
-pub(crate) struct ConnectivityMonitor {
-    rx: watch::Receiver<Instant>,
-    offline_grace: Duration,
-}
-
-#[cfg(test)]
-impl ConnectivityMonitor {
-    pub(crate) fn new(rx: watch::Receiver<Instant>, offline_grace: Duration) -> Self {
-        Self { rx, offline_grace }
-    }
-
-    pub(crate) fn last_ok(&self) -> Instant {
-        *self.rx.borrow()
-    }
-
-    pub(crate) fn is_connected(&self) -> bool {
-        self.last_ok().elapsed() <= self.offline_grace
-    }
-}
-
-/// Why the connector's main loop exited cleanly.
+/// Why the run loop exited.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunExit {
-    /// The cancellation token was cancelled (clean shutdown).
+    /// Shutdown was requested.
     Shutdown,
-    /// The credential was rejected or revoked; the operator must reissue it and restart.
+    /// The credential was rejected or revoked; it must be reissued.
     CredentialRefused,
-    /// Startup or authentication failed for a reason other than a refused credential.
+    /// Startup authentication failed, but not because the credential was refused.
     StartupFailed,
-    /// The connector is not eligible to use the rotation endpoints.
+    /// The connector is not eligible for the rotation endpoints.
     NotEligible,
 }
 
@@ -80,32 +65,31 @@ pub struct AccessConnectorConfig {
     pub(crate) poll_interval: Duration,
     /// How often the heartbeat fires during an executing rotation (default: 30 s).
     pub(crate) heartbeat_interval: Duration,
-    /// Maximum time without a successful server contact before the gate pauses
-    /// target-side steps (default: 60 s).
+    /// Time without server contact before the gate pauses target-side steps (default: 60 s).
     pub(crate) offline_grace: Duration,
     pub(crate) retry_cfg: RetryCfg,
-    pub(crate) script_root: Option<std::path::PathBuf>,
+    pub(crate) script_root: Option<PathBuf>,
     /// Script execution timeout for the `CustomScript` integration (default: 60 s).
     pub(crate) script_timeout: Duration,
     /// Explicit PowerShell host path; `None` discovers one on `PATH`.
-    pub(crate) powershell_path: Option<std::path::PathBuf>,
+    pub(crate) powershell_path: Option<PathBuf>,
     /// `-ExecutionPolicy` value passed to the PowerShell host (default: `Bypass`).
     pub(crate) powershell_execution_policy: String,
     /// Whether to enable the Entra verify probe (ROPC-based; off by default).
     pub(crate) entra_verify_probe: bool,
     /// Per-target credential overrides from the `[targets]` config section.
-    pub(crate) targets: std::collections::HashMap<uuid::Uuid, crate::resolver::config::TargetEntry>,
+    pub(crate) targets: HashMap<Uuid, TargetEntry>,
 }
 
 impl AccessConnectorConfig {
-    /// Builds a config for integration tests, bypassing validation. `pub` for `tests/`.
+    /// Builds a config for integration tests, bypassing validation.
     #[doc(hidden)]
     pub fn new_for_test(
         api_url: String,
         identity_url: String,
         token: AccessToken,
         poll_interval: Duration,
-        script_root: Option<std::path::PathBuf>,
+        script_root: Option<PathBuf>,
     ) -> Self {
         Self {
             api_url,
@@ -123,79 +107,313 @@ impl AccessConnectorConfig {
             powershell_path: None,
             powershell_execution_policy: "Bypass".to_string(),
             entra_verify_probe: false,
-            targets: std::collections::HashMap::new(),
+            targets: HashMap::new(),
         }
     }
 }
 
-/// Runs the connector poll loop until a clean exit. A revoked session maps to
-/// [`RunExit::CredentialRefused`], other startup failures to [`RunExit::StartupFailed`], and a 404
-/// that survives a refresh probe to [`RunExit::NotEligible`].
+/// Why a tick of the run loop stopped early.
+enum Stop {
+    /// Nothing more to do this tick; wait for the next one.
+    Skip,
+    Exit(RunExit),
+}
+
+/// Poll backoff after a transient error, doubling from the base up to the cap.
+const POLL_BACKOFF_BASE: Duration = Duration::from_secs(1);
+const POLL_BACKOFF_CAP: Duration = Duration::from_secs(60);
+
+/// Authenticated connector state shared by the stages of the run loop.
+struct Worker {
+    ctx: ExecutionContext,
+    api: AccessConnectorClient,
+    key_store: KeyStore<KeySlotIds>,
+    heartbeat_interval: Duration,
+}
+
+/// Runs the connector poll loop. A revoked session exits as [`RunExit::CredentialRefused`], other
+/// startup failures as [`RunExit::StartupFailed`], and a 404 that survives a refresh probe as
+/// [`RunExit::NotEligible`].
 pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -> RunExit {
-    let identity_client = match crate::auth::identity::IdentityClient::new(cfg.identity_url.clone())
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("failed to build identity client: {e}");
-            return RunExit::StartupFailed;
+    let poll_interval = cfg.poll_interval;
+    let worker = match Worker::start(cfg, cancel.clone()).await {
+        Ok(w) => w,
+        Err(exit) => return exit,
+    };
+
+    let mut poll_ticker = interval(poll_interval);
+    poll_ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
+    let mut poll_backoff = POLL_BACKOFF_BASE;
+
+    let exit = loop {
+        tokio::select! {
+            _ = cancel.cancelled() => break RunExit::Shutdown,
+            _ = poll_ticker.tick() => {}
+        }
+
+        if let ControlFlow::Break(Stop::Exit(exit)) = worker.tick(&mut poll_backoff).await {
+            break exit;
         }
     };
 
-    // URLs only, never the token.
-    tracing::info!(
-        api_url = %cfg.api_url,
-        identity_url = %cfg.identity_url,
-        poll_interval_secs = cfg.poll_interval.as_secs(),
-        heartbeat_interval_secs = cfg.heartbeat_interval.as_secs(),
-        configured_targets = cfg.targets.len(),
-        "access connector starting"
-    );
+    if exit == RunExit::Shutdown {
+        tracing::info!("shutdown requested; closing session");
+        worker.ctx.session.close().await;
+    }
+    exit
+}
 
-    // The client owns the key store the session installs the org key into, so it is built first.
-    let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
-    let (sdk_client, handler) = build_sdk_client(
-        cfg.api_url.clone(),
-        cfg.identity_url.clone(),
-        REQUEST_TIMEOUT,
-        connectivity_tx,
-    );
+impl Worker {
+    /// Authenticates and assembles the loop state, or returns the exit for a failed startup.
+    async fn start(cfg: AccessConnectorConfig, cancel: CancellationToken) -> Result<Self, RunExit> {
+        let identity_client = IdentityClient::new(cfg.identity_url.clone()).map_err(|e| {
+            tracing::error!("failed to build identity client: {e}");
+            RunExit::StartupFailed
+        })?;
 
-    let key_store = handler
-        .key_store()
-        .expect("ClientBuilder::build calls initialize_middleware, which sets the key store");
+        // URLs only, never the token.
+        tracing::info!(
+            api_url = %cfg.api_url,
+            identity_url = %cfg.identity_url,
+            poll_interval_secs = cfg.poll_interval.as_secs(),
+            heartbeat_interval_secs = cfg.heartbeat_interval.as_secs(),
+            configured_targets = cfg.targets.len(),
+            "access connector starting"
+        );
 
-    // SessionManager::new backs off internally; select! lets cancellation exit cleanly.
-    let session = tokio::select! {
-        result = crate::auth::session::SessionManager::new(identity_client, cfg.token, key_store) => {
-            match result {
-                Ok(s) => s,
-                Err(crate::auth::session::SessionError::Lost(
-                    crate::auth::session::SessionLost::Revoked,
-                )) => {
-                    tracing::error!(
-                        "Access connector credential refused. Have an admin reissue the credential \
-                         via ReissueConnectorCredential, then restart the connector with the new \
-                         token."
+        // Built first, since the session installs the org key into the client's key store.
+        let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
+        let (sdk_client, handler) = build_sdk_client(
+            cfg.api_url.clone(),
+            cfg.identity_url.clone(),
+            REQUEST_TIMEOUT,
+            connectivity_tx,
+        );
+
+        let key_store = handler
+            .key_store()
+            .expect("ClientBuilder::build calls initialize_middleware, which sets the key store");
+
+        let integrations = build_integrations(&cfg);
+
+        // `SessionManager::new` backs off internally; `select!` lets cancellation interrupt it.
+        let session = tokio::select! {
+            result = SessionManager::new(identity_client, cfg.token, key_store.clone()) => {
+                match result {
+                    Ok(s) => s,
+                    Err(SessionError::Lost(SessionLost::Revoked)) => {
+                        tracing::warn!("credential refused at startup");
+                        return Err(RunExit::CredentialRefused);
+                    }
+                    Err(e) => {
+                        // Transient failures outlasted the startup retries.
+                        tracing::error!("startup authentication failed: {e}");
+                        return Err(RunExit::StartupFailed);
+                    }
+                }
+            }
+            _ = cancel.cancelled() => {
+                tracing::info!("shutdown requested during startup; exiting");
+                return Err(RunExit::Shutdown);
+            }
+        };
+
+        handler.set_session(Arc::clone(&session));
+
+        let api = sdk_client.access_connector();
+
+        let resolver: Arc<dyn CredentialResolver> = Arc::new(ConfigCredentialResolver::new(
+            cfg.targets,
+            Arc::new(SystemEnv),
+        ));
+
+        // `SessionManager::new` authenticates eagerly, so the claim is already available.
+        let Some(organization_id) = session.organization_id().await else {
+            tracing::error!("access token carries no usable organization claim");
+            return Err(RunExit::CredentialRefused);
+        };
+
+        let last_ok: LastOk = Arc::new(move || *connectivity_rx.borrow());
+
+        Ok(Self {
+            ctx: ExecutionContext {
+                client: sdk_client,
+                session,
+                integrations,
+                resolver,
+                organization_id,
+                retry_cfg: cfg.retry_cfg,
+                offline_grace: cfg.offline_grace,
+                last_ok,
+                cancel,
+            },
+            api,
+            key_store,
+            heartbeat_interval: cfg.heartbeat_interval,
+        })
+    }
+
+    /// One pass of the loop: poll, claim at most one job, and rotate it.
+    async fn tick(&self, backoff: &mut Duration) -> ControlFlow<Stop> {
+        let jobs = self.poll(backoff).await?;
+        let snap = self.claim_one(jobs).await?;
+        self.rotate(snap).await
+    }
+
+    /// Fetches claimable jobs, backing off on transient errors.
+    async fn poll(&self, backoff: &mut Duration) -> ControlFlow<Stop, Vec<JobRef>> {
+        match self.api.poll_jobs().await {
+            Ok(jobs) => {
+                *backoff = POLL_BACKOFF_BASE;
+                tracing::debug!(claimable_jobs = jobs.len(), "poll tick");
+                ControlFlow::Continue(jobs)
+            }
+            Err(ApiError::SessionLost(SessionLost::Revoked)) => {
+                tracing::warn!("credential refused while polling");
+                ControlFlow::Break(Stop::Exit(RunExit::CredentialRefused))
+            }
+            Err(ApiError::NotEligible) => {
+                // Tell a revoked credential from an organization that lost access.
+                ControlFlow::Break(
+                    self.handle_not_eligible()
+                        .await
+                        .map_or(Stop::Skip, Stop::Exit),
+                )
+            }
+            Err(ApiError::Transient(msg)) => {
+                tracing::warn!("transient poll error: {msg}; backing off {backoff:?}");
+                tokio::select! {
+                    _ = tokio::time::sleep(*backoff) => {}
+                    _ = self.ctx.cancel.cancelled() => {
+                        return ControlFlow::Break(Stop::Exit(RunExit::Shutdown));
+                    }
+                }
+                *backoff = (*backoff * 2).min(POLL_BACKOFF_CAP);
+                ControlFlow::Break(Stop::Skip)
+            }
+            Err(e) => {
+                tracing::warn!("poll error (non-transient): {e}");
+                ControlFlow::Break(Stop::Skip)
+            }
+        }
+    }
+
+    /// Claims the first job that is still available; skips the tick when none is.
+    async fn claim_one(&self, jobs: Vec<JobRef>) -> ControlFlow<Stop, WorkSnapshot> {
+        for job in jobs {
+            match self.api.claim(job.id).await {
+                Ok(Some(s)) => {
+                    tracing::info!(
+                        job_id = %s.job_id,
+                        target_system_name = %s.target_system_name,
+                        "claimed rotation job"
                     );
-                    return RunExit::CredentialRefused;
+                    return ControlFlow::Continue(s); // at most one claim per tick
+                }
+                Ok(None) => {
+                    tracing::debug!(job_id = %job.id, "claim race lost (409); trying next job");
+                }
+                Err(ApiError::SessionLost(SessionLost::Revoked)) => {
+                    tracing::warn!("credential refused while claiming a job");
+                    return ControlFlow::Break(Stop::Exit(RunExit::CredentialRefused));
+                }
+                Err(ApiError::NotEligible) => {
+                    return ControlFlow::Break(
+                        self.handle_not_eligible()
+                            .await
+                            .map_or(Stop::Skip, Stop::Exit),
+                    );
                 }
                 Err(e) => {
-                    // Transient failures outlasting the startup retries; `Lost(Closed)` cannot occur here.
-                    tracing::error!("startup authentication failed: {e}");
-                    return RunExit::StartupFailed;
+                    tracing::warn!("claim error: {e}");
+                    return ControlFlow::Break(Stop::Skip);
                 }
             }
         }
-        _ = cancel.cancelled() => {
-            tracing::info!("shutdown requested during startup; exiting");
-            return RunExit::Shutdown;
+        ControlFlow::Break(Stop::Skip)
+    }
+
+    /// Verifies and executes a claimed job; breaks only when the credential is refused.
+    async fn rotate(&self, snap: WorkSnapshot) -> ControlFlow<Stop> {
+        // A rejected job never reaches the resolver, an integration or the cipher route.
+        let attempt_id = snap.attempt_id;
+        let verified = match snap.verify(&self.key_store, self.ctx.organization_id) {
+            Ok(v) => v,
+            Err(rejection) => {
+                tracing::warn!(
+                    attempt_id = %attempt_id,
+                    rejection = rejection.as_str(),
+                    "rotation job rejected: sealed data check failed"
+                );
+                rotation::report_failure_absorb(
+                    &self.api,
+                    attempt_id,
+                    RotationFailureCode::SealedDataRejected,
+                    Some(SafeDetail::from_seal_rejection(rejection.as_str())),
+                    RotationSyncState::TargetUnchanged,
+                )
+                .await;
+                return ControlFlow::Continue(());
+            }
+        };
+
+        // Keeps the connectivity watch fresh during the rotation.
+        let heartbeat_cancel = self.ctx.cancel.child_token();
+        let heartbeat_handle = spawn_heartbeat(
+            self.ctx.client.clone(),
+            self.heartbeat_interval,
+            heartbeat_cancel.clone(),
+        );
+
+        let result = execute(verified, &self.ctx).await;
+
+        heartbeat_cancel.cancel();
+        if let Err(e) = heartbeat_handle.await {
+            tracing::warn!("heartbeat task failed: {e}");
         }
-    };
 
-    handler.set_session(Arc::clone(&session));
+        match result {
+            ExecutionResult::Reported => {
+                tracing::debug!(attempt_id = %attempt_id, "rotation attempt reported");
+                ControlFlow::Continue(())
+            }
+            ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Revoked)) => {
+                tracing::warn!("credential refused during rotation");
+                ControlFlow::Break(Stop::Exit(RunExit::CredentialRefused))
+            }
+            ExecutionResult::Unreported(reason) => {
+                tracing::info!("rotation attempt aborted (unreported): {reason:?}");
+                ControlFlow::Continue(())
+            }
+        }
+    }
 
-    let api = sdk_client.access_connector();
+    /// Forces a token refresh to tell a revoked credential from a connector that is not eligible.
+    /// `None` means the 404 did not survive the refresh (or a transient error hid it); keep
+    /// polling.
+    async fn handle_not_eligible(&self) -> Option<RunExit> {
+        let session = &self.ctx.session;
 
+        // The current bearer is the stale token to refresh.
+        let stale = match session.bearer(None).await {
+            Ok(t) => t,
+            Err(e) => return refused(&e),
+        };
+        if let Err(e) = session.force_refresh(&stale, None).await {
+            return refused(&e);
+        }
+
+        match self.api.poll_jobs().await {
+            Err(ApiError::NotEligible) => Some(RunExit::NotEligible),
+            Err(ApiError::SessionLost(SessionLost::Revoked)) => Some(RunExit::CredentialRefused),
+            _ => None,
+        }
+    }
+}
+
+/// Registers the integrations the connector can drive.
+fn build_integrations(cfg: &AccessConnectorConfig) -> Arc<IntegrationRegistry> {
     let mut registry = IntegrationRegistry::new();
 
     let custom_script = Arc::new(CustomScriptIntegration {
@@ -205,233 +423,30 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
             host: cfg.powershell_path.clone(),
             execution_policy: cfg.powershell_execution_policy.clone(),
         },
-        platform: crate::sys::Platform::system(),
+        platform: Platform::system(),
         runner: Arc::new(ProcessScriptRunner),
     });
-    registry.register(
-        bitwarden_pam_sealed::SealedTargetSystemKind::CustomScript,
-        custom_script,
-    );
+    registry.register(SealedTargetSystemKind::CustomScript, custom_script);
 
-    let entra = Arc::new(crate::integrations::entra::EntraIntegration::new(
-        cfg.entra_verify_probe,
-    ));
-    registry.register(bitwarden_pam_sealed::SealedTargetSystemKind::Entra, entra);
+    let entra = Arc::new(EntraIntegration::new(cfg.entra_verify_probe));
+    registry.register(SealedTargetSystemKind::Entra, entra);
 
-    let integrations = Arc::new(registry);
-    tracing::debug!(
-        kinds = ?[
-            bitwarden_pam_sealed::SealedTargetSystemKind::CustomScript,
-            bitwarden_pam_sealed::SealedTargetSystemKind::Entra,
-        ],
-        "registered integration kinds"
-    );
-
-    let resolver: Arc<dyn CredentialResolver> = Arc::new(
-        crate::resolver::config::ConfigCredentialResolver::new(cfg.targets, Arc::new(SystemEnv)),
-    );
-
-    let key_store = session.key_store().await;
-
-    // `SessionManager::new` authenticated eagerly, so the claim has already been read.
-    let Some(organization_id) = session.organization_id().await else {
-        tracing::error!("access token carries no usable organization claim");
-        return RunExit::CredentialRefused;
-    };
-
-    let connectivity_rx_for_gate = connectivity_rx.clone();
-    let last_ok: Arc<dyn Fn() -> Instant + Send + Sync> =
-        Arc::new(move || *connectivity_rx_for_gate.borrow());
-
-    let mut poll_ticker = interval(cfg.poll_interval);
-    poll_ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
-
-    let mut poll_backoff = Duration::from_secs(1);
-    let poll_backoff_cap = Duration::from_secs(60);
-
-    loop {
-        tokio::select! {
-            _ = cancel.cancelled() => {
-                tracing::info!("shutdown requested; closing session");
-                session.close().await;
-                return RunExit::Shutdown;
-            }
-            _ = poll_ticker.tick() => {}
-        }
-
-        let jobs = match api.poll_jobs().await {
-            Ok(jobs) => {
-                poll_backoff = Duration::from_secs(1);
-                tracing::debug!(claimable_jobs = jobs.len(), "poll tick");
-                jobs
-            }
-            Err(ApiError::SessionLost(SessionLost::Revoked)) => {
-                tracing::error!(
-                    "Access connector credential refused (revoked mid-session). Have an admin \
-                     reissue the credential via ReissueConnectorCredential, then restart with the \
-                     new token."
-                );
-                return RunExit::CredentialRefused;
-            }
-            Err(ApiError::NotEligible) => {
-                // Probe whether the credential was revoked or only the organization lost access.
-                match handle_not_eligible(&session, &api).await {
-                    NotEligibleOutcome::CredentialRefused => {
-                        return RunExit::CredentialRefused;
-                    }
-                    NotEligibleOutcome::NotEligible => {
-                        tracing::error!(
-                            "Access connector not eligible for rotation endpoints. Check: \
-                             connector record not revoked or disabled, organisation license \
-                             active, UsePam enabled."
-                        );
-                        return RunExit::NotEligible;
-                    }
-                    NotEligibleOutcome::Retry => {
-                        continue;
-                    }
-                }
-            }
-            Err(ApiError::Transient(msg)) => {
-                tracing::warn!("transient poll error: {msg}; backing off {poll_backoff:?}");
-                tokio::select! {
-                    _ = tokio::time::sleep(poll_backoff) => {}
-                    _ = cancel.cancelled() => {
-                        session.close().await;
-                        return RunExit::Shutdown;
-                    }
-                }
-                poll_backoff = (poll_backoff * 2).min(poll_backoff_cap);
-                continue;
-            }
-            Err(e) => {
-                tracing::warn!("poll error (non-transient): {e}");
-                continue;
-            }
-        };
-
-        if jobs.is_empty() {
-            continue;
-        }
-
-        let mut snapshot = None;
-        for job in jobs {
-            match api.claim(job.id).await {
-                Ok(Some(s)) => {
-                    tracing::info!(
-                        job_id = %s.job_id,
-                        target_system_name = %s.target_system_name,
-                        "claimed rotation job"
-                    );
-                    snapshot = Some(s);
-                    break; // at most one claim per tick
-                }
-                Ok(None) => {
-                    tracing::debug!(job_id = %job.id, "claim race lost (409); trying next job");
-                }
-                Err(ApiError::SessionLost(SessionLost::Revoked)) => {
-                    tracing::error!(
-                        "Access connector credential refused during claim. Reissue credential and \
-                         restart."
-                    );
-                    return RunExit::CredentialRefused;
-                }
-                Err(ApiError::NotEligible) => {
-                    match handle_not_eligible(&session, &api).await {
-                        NotEligibleOutcome::CredentialRefused => {
-                            return RunExit::CredentialRefused;
-                        }
-                        NotEligibleOutcome::NotEligible => {
-                            return RunExit::NotEligible;
-                        }
-                        NotEligibleOutcome::Retry => {}
-                    }
-                    break;
-                }
-                Err(e) => {
-                    tracing::warn!("claim error: {e}");
-                    break;
-                }
-            }
-        }
-
-        let Some(snap) = snapshot else {
-            continue;
-        };
-
-        // Checks 1–7 run first: a rejection never touches the resolver, integration, or cipher
-        // route.
-        let attempt_id = snap.attempt_id;
-        let verified = match snap.verify(&key_store, organization_id) {
-            Ok(v) => v,
-            Err(rejection) => {
-                tracing::warn!(
-                    attempt_id = %attempt_id,
-                    rejection = rejection.as_str(),
-                    "rotation job rejected: sealed data check failed"
-                );
-                rotation::report_failure_absorb(
-                    &api,
-                    attempt_id,
-                    RotationFailureCode::SealedDataRejected,
-                    Some(SafeDetail::from_seal_rejection(rejection.as_str())),
-                    RotationSyncState::TargetUnchanged,
-                )
-                .await;
-                continue;
-            }
-        };
-
-        // Heartbeat until the rotation completes.
-        let heartbeat_cancel = cancel.child_token();
-        let heartbeat_handle = spawn_heartbeat(
-            sdk_client.clone(),
-            cfg.heartbeat_interval,
-            heartbeat_cancel.clone(),
-        );
-
-        let exec_ctx = ExecutionContext {
-            client: sdk_client.clone(),
-            session: Arc::clone(&session),
-            integrations: Arc::clone(&integrations),
-            resolver: Arc::clone(&resolver),
-            organization_id,
-            retry_cfg: cfg.retry_cfg.clone(),
-            offline_grace: cfg.offline_grace,
-            last_ok: Arc::clone(&last_ok),
-            cancel: cancel.clone(),
-        };
-
-        let result = execute(verified, &exec_ctx).await;
-
-        heartbeat_cancel.cancel();
-        let _ = heartbeat_handle.await;
-
-        match result {
-            ExecutionResult::Reported => {
-                // rotation.rs already logged the outcome.
-                tracing::debug!(attempt_id = %attempt_id, "rotation attempt reported");
-            }
-            ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Revoked)) => {
-                tracing::error!(
-                    "Session revoked during rotation; credential refused. Reissue and restart."
-                );
-                return RunExit::CredentialRefused;
-            }
-            ExecutionResult::Unreported(reason) => {
-                tracing::info!("rotation attempt aborted (unreported): {reason:?}");
-            }
-        }
-    }
+    Arc::new(registry)
 }
 
-/// Spawns the heartbeat: polls the jobs endpoint for the connectivity bump until `cancel` fires.
+/// A revoked session ends the run; any other session error is transient, so keep polling.
+fn refused(e: &SessionError) -> Option<RunExit> {
+    matches!(e, SessionError::Lost(SessionLost::Revoked)).then_some(RunExit::CredentialRefused)
+}
+
+/// Polls the jobs endpoint for the connectivity bump until `cancel` fires.
 fn spawn_heartbeat(
     client: Client,
     interval_period: Duration,
     cancel: CancellationToken,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
+        let api = client.access_connector();
         let mut ticker = interval(interval_period);
         ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
         loop {
@@ -439,124 +454,24 @@ fn spawn_heartbeat(
                 _ = cancel.cancelled() => break,
                 _ = ticker.tick() => {
                     tracing::debug!("heartbeat tick");
-                    let _ = client.access_connector().poll_jobs().await;
+                    let _ = api.poll_jobs().await;
                 }
             }
         }
     })
 }
 
-enum NotEligibleOutcome {
-    CredentialRefused,
-    NotEligible,
-    Retry,
-}
-
-/// Probes a `NotEligible` with a forced refresh: rejected means `CredentialRefused`, a 404 on the
-/// re-poll after a good refresh means `NotEligible`.
-async fn handle_not_eligible(
-    session: &SessionManager,
-    api: &AccessConnectorClient,
-) -> NotEligibleOutcome {
-    // The current bearer is the stale token for force_refresh.
-    let stale = match session.bearer(None).await {
-        Ok(t) => t,
-        Err(crate::auth::session::SessionError::Lost(
-            crate::auth::session::SessionLost::Revoked,
-        )) => {
-            return NotEligibleOutcome::CredentialRefused;
-        }
-        Err(_) => String::new(),
-    };
-
-    match session.force_refresh(&stale, None).await {
-        Ok(_) => {}
-        Err(crate::auth::session::SessionError::Lost(
-            crate::auth::session::SessionLost::Revoked,
-        )) => {
-            return NotEligibleOutcome::CredentialRefused;
-        }
-        Err(_) => {
-            // Transient refresh failure; keep polling.
-            return NotEligibleOutcome::Retry;
-        }
-    }
-
-    match api.poll_jobs().await {
-        Ok(_) => NotEligibleOutcome::Retry,
-        Err(ApiError::NotEligible) => NotEligibleOutcome::NotEligible,
-        Err(ApiError::SessionLost(SessionLost::Revoked)) => NotEligibleOutcome::CredentialRefused,
-        Err(_) => NotEligibleOutcome::Retry,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::Arc,
-        time::{Duration, Instant},
-    };
-
-    use tokio::sync::watch;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{method, path},
     };
 
     use super::*;
-    use crate::{
-        api::{REQUEST_TIMEOUT, build_sdk_client},
-        auth::{identity::IdentityClient, session::SessionManager},
-        test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
-    };
+    use crate::test_support::{make_session, mount_identity_ok, test_token};
 
-    /// Polls until `server` has received a request whose path ends with `suffix`.
-    async fn wait_for_request(server: &MockServer, suffix: &str) {
-        let deadline = Instant::now() + Duration::from_secs(10);
-        loop {
-            let reqs = server.received_requests().await.unwrap();
-            if reqs.iter().any(|r| r.url.path().ends_with(suffix)) {
-                return;
-            }
-            assert!(
-                Instant::now() < deadline,
-                "no request ending with {suffix} arrived within 10s: {reqs:?}"
-            );
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    }
-
-    /// `bearer` is a short tag, expanded to a real JWT so the `organization` claim parses.
-    fn identity_ok(bearer: &str, encrypted_payload: &str) -> ResponseTemplate {
-        let bearer = access_token_tagged(test_org_id(), bearer);
-        ResponseTemplate::new(200)
-            .set_body_string(format!(
-                r#"{{"access_token":"{bearer}","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
-            ))
-            .insert_header("content-type", "application/json")
-    }
-
-    async fn make_session(identity_server: &MockServer, bearer: &str) -> Arc<SessionManager> {
-        let org_key = bitwarden_crypto::SymmetricCryptoKey::make(
-            bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
-        );
-        let payload = encrypted_payload_for(&org_key);
-
-        Mock::given(method("POST"))
-            .and(path("/connect/token"))
-            .respond_with(identity_ok(bearer, &payload))
-            .mount(identity_server)
-            .await;
-
-        let identity = IdentityClient::new(identity_server.uri()).unwrap();
-        SessionManager::new(
-            identity,
-            test_token(),
-            bitwarden_crypto::KeyStore::default(),
-        )
-        .await
-        .unwrap()
-    }
+    const JOBS_PATH: &str = "/access-connectors/rotation/jobs";
 
     fn make_client(
         api_server: &MockServer,
@@ -573,35 +488,100 @@ mod tests {
         (client, rx)
     }
 
-    #[test]
-    fn connectivity_monitor_fresh_is_connected() {
-        let (tx, rx) = watch::channel(Instant::now());
-        let monitor = ConnectivityMonitor::new(rx, Duration::from_secs(60));
-        assert!(monitor.is_connected());
-        drop(tx);
+    /// Mounts a `/rotation/jobs` mock answering `response`, for at most `times` requests when
+    /// given.
+    async fn mount_jobs(server: &MockServer, response: ResponseTemplate, times: Option<u64>) {
+        let mock = Mock::given(method("GET"))
+            .and(path(JOBS_PATH))
+            .respond_with(response);
+        match times {
+            Some(n) => mock.up_to_n_times(n).mount(server).await,
+            None => mock.mount(server).await,
+        }
     }
 
-    #[test]
-    fn connectivity_monitor_stale_after_offline_grace() {
-        // tokio's virtual time does not advance `Instant`, so seed one already past the grace
-        // period.
-        let stale = Instant::now()
-            .checked_sub(Duration::from_secs(61))
-            .unwrap_or_else(Instant::now);
-        let (tx, rx) = watch::channel(stale);
-        let monitor = ConnectivityMonitor::new(rx, Duration::from_secs(60));
-        assert!(!monitor.is_connected());
-        drop(tx);
+    /// Mounts a claim mock for `job_id` answering `response`.
+    async fn mount_claim(server: &MockServer, job_id: Uuid, response: ResponseTemplate) {
+        Mock::given(method("POST"))
+            .and(path(format!("{JOBS_PATH}/{job_id}/claim")))
+            .respond_with(response)
+            .mount(server)
+            .await;
     }
 
-    #[test]
-    fn connectivity_monitor_bumps_last_ok() {
-        let (tx, rx) = watch::channel(Instant::now());
-        let monitor = ConnectivityMonitor::new(rx, Duration::from_secs(60));
-        let before = monitor.last_ok();
-        tx.send_modify(|t| *t = Instant::now());
-        let after = monitor.last_ok();
-        assert!(after >= before);
+    /// Mounts a failure-report mock for `attempt_id` that accepts the report.
+    async fn mount_failure(server: &MockServer, attempt_id: Uuid) {
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/failure"
+            )))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(server)
+            .await;
+    }
+
+    /// A jobs list offering each `(job id, target system id)` pair.
+    fn jobs(refs: &[(Uuid, Uuid)]) -> ResponseTemplate {
+        let data: Vec<_> = refs
+            .iter()
+            .map(|(job_id, target_system_id)| {
+                serde_json::json!({"jobId": job_id, "targetSystemId": target_system_id})
+            })
+            .collect();
+        ResponseTemplate::new(200)
+            .set_body_json(serde_json::json!({ "data": data }))
+            .insert_header("content-type", "application/json")
+    }
+
+    fn empty_jobs() -> ResponseTemplate {
+        jobs(&[])
+    }
+
+    /// A successful claim of `job_id` whose sealed blobs are opaque, so verification rejects them.
+    fn claim_ok(job_id: Uuid, attempt_id: Uuid) -> ResponseTemplate {
+        let execute_by = chrono::Utc::now()
+            .checked_add_signed(chrono::Duration::minutes(5))
+            .unwrap()
+            .to_rfc3339();
+        ResponseTemplate::new(200)
+            .set_body_json(serde_json::json!({
+                "attemptId": attempt_id,
+                "jobId": job_id,
+                "targetSystemId": Uuid::new_v4(),
+                "targetSystemName": "test",
+                "cipherId": Uuid::new_v4(),
+                "rotationConfigSealedData": "opaque-config-blob",
+                "rotationConfigWrappedKey": "opaque-config-key",
+                "executeBy": execute_by
+            }))
+            .insert_header("content-type", "application/json")
+    }
+
+    fn test_cfg(api_server: &MockServer, identity_server: &MockServer) -> AccessConnectorConfig {
+        AccessConnectorConfig::new_for_test(
+            api_server.uri(),
+            identity_server.uri(),
+            test_token(),
+            Duration::from_millis(30),
+            None,
+        )
+    }
+
+    /// Spawns `run` and returns its cancellation token and handle.
+    fn spawn_run(
+        cfg: AccessConnectorConfig,
+    ) -> (CancellationToken, tokio::task::JoinHandle<RunExit>) {
+        let cancel = CancellationToken::new();
+        let cancel_clone = cancel.clone();
+        let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
+        (cancel, handle)
+    }
+
+    /// Runs `cfg` until the loop exits on its own, failing if it takes over 10s.
+    async fn run_until_exit(cfg: AccessConnectorConfig) -> RunExit {
+        tokio::time::timeout(Duration::from_secs(10), run(cfg, CancellationToken::new()))
+            .await
+            .expect("run should exit on its own")
     }
 
     /// Number of requests `server` received for `method_name` on a path ending with `suffix`.
@@ -615,146 +595,83 @@ mod tests {
             .count()
     }
 
+    /// Polls until `server` has received `n` requests for `method_name` on a path ending with
+    /// `suffix`.
+    async fn wait_for_requests(server: &MockServer, method_name: &str, suffix: &str, n: usize) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let count = count_requests(server, method_name, suffix).await;
+            if count >= n {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "expected {n} {method_name} requests ending with {suffix} within 10s, got {count}"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+
     #[tokio::test]
     async fn single_flight_only_one_claim_per_tick() {
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
+        mount_identity_ok(&identity_server, None).await;
 
-        let org_key = bitwarden_crypto::SymmetricCryptoKey::make(
-            bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
-        );
-        let payload = encrypted_payload_for(&org_key);
-        Mock::given(method("POST"))
-            .and(path("/connect/token"))
-            .respond_with(identity_ok("tok", &payload))
-            .mount(&identity_server)
-            .await;
-
-        let job1 = uuid::Uuid::new_v4();
-        let job2 = uuid::Uuid::new_v4();
-        let job3 = uuid::Uuid::new_v4();
-        let attempt_id = uuid::Uuid::new_v4();
-        let execute_by = chrono::Utc::now()
-            .checked_add_signed(chrono::Duration::minutes(5))
-            .unwrap()
-            .to_rfc3339();
+        let job1 = Uuid::new_v4();
+        let job2 = Uuid::new_v4();
+        let job3 = Uuid::new_v4();
+        let attempt_id = Uuid::new_v4();
 
         // Offer all three jobs once so the claim cycle doesn't repeat.
-        Mock::given(method("GET"))
-            .and(path("/access-connectors/rotation/jobs"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({
-                        "data": [
-                            {"jobId": job1, "targetSystemId": uuid::Uuid::new_v4()},
-                            {"jobId": job2, "targetSystemId": uuid::Uuid::new_v4()},
-                            {"jobId": job3, "targetSystemId": uuid::Uuid::new_v4()}
-                        ]
-                    }))
-                    .insert_header("content-type", "application/json"),
-            )
-            .up_to_n_times(1)
-            .mount(&api_server)
-            .await;
-        Mock::given(method("GET"))
-            .and(path("/access-connectors/rotation/jobs"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({"data": []}))
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&api_server)
-            .await;
+        mount_jobs(
+            &api_server,
+            jobs(&[
+                (job1, Uuid::new_v4()),
+                (job2, Uuid::new_v4()),
+                (job3, Uuid::new_v4()),
+            ]),
+            Some(1),
+        )
+        .await;
+        mount_jobs(&api_server, empty_jobs(), None).await;
 
         // job1 loses its race, so the loop moves on to job2.
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/jobs/{job1}/claim"
-            )))
-            .respond_with(ResponseTemplate::new(409))
-            .mount(&api_server)
-            .await;
+        mount_claim(&api_server, job1, ResponseTemplate::new(409)).await;
 
         // job2's claim succeeds, but its sealed blobs are rejected, so nothing executes.
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/jobs/{job2}/claim"
-            )))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({
-                        "attemptId": attempt_id,
-                        "jobId": job2,
-                        "targetSystemId": uuid::Uuid::new_v4(),
-                        "targetSystemName": "test",
-                        "cipherId": uuid::Uuid::new_v4(),
-                        "rotationConfigSealedData": "opaque-config-blob",
-                        "rotationConfigWrappedKey": "opaque-config-key",
-                        "executeBy": execute_by
-                    }))
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&api_server)
-            .await;
+        mount_claim(&api_server, job2, claim_ok(job2, attempt_id)).await;
 
         // job3 would also succeed, so claiming it would show the loop did not stop.
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/jobs/{job3}/claim"
-            )))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({
-                        "attemptId": uuid::Uuid::new_v4(),
-                        "jobId": job3,
-                        "targetSystemId": uuid::Uuid::new_v4(),
-                        "targetSystemName": "test",
-                        "cipherId": uuid::Uuid::new_v4(),
-                        "rotationConfigSealedData": "opaque-config-blob",
-                        "rotationConfigWrappedKey": "opaque-config-key",
-                        "executeBy": execute_by
-                    }))
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&api_server)
-            .await;
+        mount_claim(&api_server, job3, claim_ok(job3, Uuid::new_v4())).await;
 
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/failure"
-            )))
-            .respond_with(ResponseTemplate::new(200))
-            .mount(&api_server)
-            .await;
+        mount_failure(&api_server, attempt_id).await;
 
-        let cfg = AccessConnectorConfig::new_for_test(
-            api_server.uri(),
-            identity_server.uri(),
-            test_token(),
-            Duration::from_millis(30),
-            None,
-        );
-        let cancel = CancellationToken::new();
-        let cancel_clone = cancel.clone();
-        let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
+        let cfg = test_cfg(&api_server, &identity_server);
+        let (cancel, handle) = spawn_run(cfg);
 
-        wait_for_request(&api_server, &format!("/attempts/{attempt_id}/failure")).await;
+        wait_for_requests(
+            &api_server,
+            "POST",
+            &format!("/attempts/{attempt_id}/failure"),
+            1,
+        )
+        .await;
         cancel.cancel();
         let exit = handle.await.expect("task panicked");
         assert_eq!(exit, RunExit::Shutdown);
 
-        let claims = |job: uuid::Uuid| {
-            let suffix = format!("/jobs/{job}/claim");
-            let server = &api_server;
-            async move { count_requests(server, "POST", &suffix).await }
-        };
+        let claim_suffix = |job: Uuid| format!("/jobs/{job}/claim");
         assert!(
-            claims(job1).await >= 1,
+            count_requests(&api_server, "POST", &claim_suffix(job1)).await >= 1,
             "job1 should have been claimed (and lost)"
         );
-        assert!(claims(job2).await >= 1, "job2 should have been claimed");
+        assert!(
+            count_requests(&api_server, "POST", &claim_suffix(job2)).await >= 1,
+            "job2 should have been claimed"
+        );
         assert_eq!(
-            claims(job3).await,
+            count_requests(&api_server, "POST", &claim_suffix(job3)).await,
             0,
             "the loop must stop after the first successful claim in a tick"
         );
@@ -765,40 +682,25 @@ mod tests {
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
 
-        let session = make_session(&identity_server, "tok").await;
+        let session = make_session(&identity_server).await;
         let (client, _rx) = make_client(&api_server, Arc::clone(&session));
 
-        Mock::given(method("GET"))
-            .and(path("/access-connectors/rotation/jobs"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({"data": []}))
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&api_server)
-            .await;
+        mount_jobs(&api_server, empty_jobs(), None).await;
 
         let heartbeat_interval = Duration::from_millis(20);
         let cancel = CancellationToken::new();
         let handle = spawn_heartbeat(client, heartbeat_interval, cancel.clone());
 
-        let deadline = Instant::now() + Duration::from_secs(10);
-        while count_requests(&api_server, "GET", "/access-connectors/rotation/jobs").await < 2
-            && Instant::now() < deadline
-        {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
+        wait_for_requests(&api_server, "GET", JOBS_PATH, 2).await;
 
         cancel.cancel();
         handle.await.expect("heartbeat task panicked");
-        let count_after_stop =
-            count_requests(&api_server, "GET", "/access-connectors/rotation/jobs").await;
+        let count_after_stop = count_requests(&api_server, "GET", JOBS_PATH).await;
 
         // Wait several intervals to confirm no new calls.
         tokio::time::sleep(heartbeat_interval * 5).await;
 
-        let count_final =
-            count_requests(&api_server, "GET", "/access-connectors/rotation/jobs").await;
+        let count_final = count_requests(&api_server, "GET", JOBS_PATH).await;
         assert_eq!(
             count_after_stop, count_final,
             "no heartbeat calls after cancellation"
@@ -810,111 +712,85 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn poll_404_returns_not_eligible() {
+    async fn poll_404_surviving_refresh_exits_not_eligible() {
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
+        mount_identity_ok(&identity_server, None).await;
+        mount_jobs(&api_server, ResponseTemplate::new(404), None).await;
 
-        let session = make_session(&identity_server, "tok").await;
-        let (client, _rx) = make_client(&api_server, session);
+        let exit = run_until_exit(test_cfg(&api_server, &identity_server)).await;
+        assert_eq!(exit, RunExit::NotEligible);
 
-        Mock::given(method("GET"))
-            .and(path("/access-connectors/rotation/jobs"))
-            .respond_with(ResponseTemplate::new(404))
-            .mount(&api_server)
+        let token_requests = count_requests(&identity_server, "POST", "/connect/token").await;
+        assert!(
+            token_requests >= 2,
+            "expected startup plus a forced refresh, got {token_requests} token requests"
+        );
+    }
+
+    #[tokio::test]
+    async fn poll_404_cleared_by_refresh_keeps_polling() {
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+        mount_identity_ok(&identity_server, None).await;
+        mount_jobs(&api_server, ResponseTemplate::new(404), Some(1)).await;
+        mount_jobs(&api_server, empty_jobs(), None).await;
+
+        let (cancel, handle) = spawn_run(test_cfg(&api_server, &identity_server));
+
+        // One 404, the re-poll after the refresh, then at least one more regular tick.
+        wait_for_requests(&api_server, "GET", JOBS_PATH, 3).await;
+        assert!(!handle.is_finished(), "a cleared 404 must not end the loop");
+
+        cancel.cancel();
+        let exit = tokio::time::timeout(Duration::from_secs(10), handle)
+            .await
+            .expect("run should stop on cancel")
+            .expect("task panicked");
+        assert_eq!(exit, RunExit::Shutdown);
+    }
+
+    #[tokio::test]
+    async fn poll_404_with_refused_refresh_exits_credential_refused() {
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+        mount_identity_ok(&identity_server, Some(1)).await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(400)
+                    .set_body_string(r#"{"error":"invalid_grant"}"#)
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&identity_server)
             .await;
+        mount_jobs(&api_server, ResponseTemplate::new(404), None).await;
 
-        let err = client.access_connector().poll_jobs().await.unwrap_err();
-        assert!(matches!(err, ApiError::NotEligible));
+        let exit = run_until_exit(test_cfg(&api_server, &identity_server)).await;
+        assert_eq!(exit, RunExit::CredentialRefused);
     }
 
     #[tokio::test]
     async fn claim_with_missing_target_blob_reports_sealed_data_rejected_and_never_executes() {
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
+        mount_identity_ok(&identity_server, None).await;
 
-        let org_key = bitwarden_crypto::SymmetricCryptoKey::make(
-            bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
-        );
-        let payload = encrypted_payload_for(&org_key);
-        Mock::given(method("POST"))
-            .and(path("/connect/token"))
-            .respond_with(identity_ok("tok", &payload))
-            .mount(&identity_server)
-            .await;
-
-        let job_id = uuid::Uuid::new_v4();
-        let attempt_id = uuid::Uuid::new_v4();
-        let target_system_id = uuid::Uuid::new_v4();
-        let cipher_id = uuid::Uuid::new_v4();
-        let execute_by = chrono::Utc::now()
-            .checked_add_signed(chrono::Duration::minutes(5))
-            .unwrap()
-            .to_rfc3339();
+        let job_id = Uuid::new_v4();
+        let attempt_id = Uuid::new_v4();
 
         // Offer the job once so the claim/reject cycle doesn't repeat.
-        Mock::given(method("GET"))
-            .and(path("/access-connectors/rotation/jobs"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({
-                        "data": [{"jobId": job_id, "targetSystemId": target_system_id}]
-                    }))
-                    .insert_header("content-type", "application/json"),
-            )
-            .up_to_n_times(1)
-            .mount(&api_server)
-            .await;
-        Mock::given(method("GET"))
-            .and(path("/access-connectors/rotation/jobs"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({"data": []}))
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&api_server)
-            .await;
+        mount_jobs(&api_server, jobs(&[(job_id, Uuid::new_v4())]), Some(1)).await;
+        mount_jobs(&api_server, empty_jobs(), None).await;
 
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/jobs/{job_id}/claim"
-            )))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({
-                        "attemptId": attempt_id,
-                        "jobId": job_id,
-                        "targetSystemId": target_system_id,
-                        "targetSystemName": "test",
-                        "cipherId": cipher_id,
-                        "rotationConfigSealedData": "opaque-config-blob",
-                        "rotationConfigWrappedKey": "opaque-config-key",
-                        "executeBy": execute_by
-                    }))
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&api_server)
-            .await;
+        mount_claim(&api_server, job_id, claim_ok(job_id, attempt_id)).await;
 
-        Mock::given(method("POST"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/failure"
-            )))
-            .respond_with(ResponseTemplate::new(200))
-            .mount(&api_server)
-            .await;
+        mount_failure(&api_server, attempt_id).await;
 
-        let cfg = AccessConnectorConfig::new_for_test(
-            api_server.uri(),
-            identity_server.uri(),
-            test_token(),
-            Duration::from_millis(30),
-            None,
-        );
-        let cancel = CancellationToken::new();
-        let cancel_clone = cancel.clone();
-        let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
+        let cfg = test_cfg(&api_server, &identity_server);
+        let (cancel, handle) = spawn_run(cfg);
 
-        wait_for_request(&api_server, "/failure").await;
+        wait_for_requests(&api_server, "POST", "/failure", 1).await;
         cancel.cancel();
         let exit = handle.await.expect("task panicked");
         assert_eq!(exit, RunExit::Shutdown);

@@ -1,7 +1,4 @@
 //! Bitwarden PAM access connector library, the core of the `bwac` binary.
-//!
-//! Build an [`executor::AccessConnectorConfig`] with [`crate::config::Config::from_cli`], then pass
-//! it to [`run`] with a cancellation token for graceful shutdown.
 
 bitwarden_commercial_marker::commercial_crate!();
 
@@ -10,14 +7,14 @@ use bitwarden_crypto as _;
 
 pub(crate) mod api;
 pub(crate) mod auth;
-/// CLI argument definitions (public for `main.rs`).
+/// CLI arguments.
 pub mod cli;
-/// Configuration loading and validation (public for `main.rs`).
+/// Configuration loading.
 pub mod config;
 pub(crate) mod crypto;
-/// Startup error type, public because it is returned by [`config::Config::from_cli`].
+/// Startup errors.
 pub mod error;
-/// Connector run-loop config and exit variants (public for `main.rs` and `tests/`).
+/// Run loop configuration and exit reasons.
 pub mod executor;
 pub(crate) mod integrations;
 pub(crate) mod resolver;
@@ -25,10 +22,7 @@ pub(crate) mod sys;
 #[cfg(test)]
 mod test_support;
 
-/// Start the connector poll loop. It runs until shutdown ([`executor::RunExit::Shutdown`]), a
-/// rejected credential ([`executor::RunExit::CredentialRefused`]), a startup failure other than a
-/// rejection ([`executor::RunExit::StartupFailed`]) or an ineligible connector
-/// ([`executor::RunExit::NotEligible`]).
+/// Run the connector poll loop until it exits; the result says why.
 pub async fn run(
     cfg: executor::AccessConnectorConfig,
     cancel: bitwarden_threading::cancellation_token::CancellationToken,
@@ -36,7 +30,6 @@ pub async fn run(
     executor::run(cfg, cancel).await
 }
 
-/// Serialises tests that mutate environment variables, since concurrent mutation is UB. Hold it
-/// for the whole mutation window.
+/// Serialises tests that mutate environment variables. Hold it for the whole mutation.
 #[cfg(test)]
 pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
