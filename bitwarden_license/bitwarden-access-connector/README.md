@@ -6,6 +6,8 @@ This crate provides the `bwac` binary. It polls the Bitwarden server for claimab
 runs each one: resolve credentials, generate a password, rotate it in the target system, verify,
 write the re-encrypted vault cipher, optionally terminate sessions, and report the outcome.
 
+For the operator guide (setup, security model, deployment), see [OPERATIONS.md](OPERATIONS.md).
+
 ## Usage
 
 | Command                    | Description                                            |
@@ -238,7 +240,8 @@ script is identified by the `SCRIPT` credential (`<ID>_SCRIPT` in the environmen
    or testing service reachability.
 6. **`accountIdentity` is untrusted input.** It comes from a blob the admin client sealed, so the
    server cannot read or change it, but it is still chosen by whoever saved the rotation config.
-   Never interpolate it unsanitised into a shell command, SQL query or API path.
+   Never interpolate it unsanitised into a shell command, SQL query or API path. See
+   [OPERATIONS.md](OPERATIONS.md#sealed-rotation-data) for the full trust model.
 
 ### Operations
 
