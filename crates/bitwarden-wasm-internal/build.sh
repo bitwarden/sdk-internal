@@ -77,15 +77,14 @@ cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target nodej
 # Format TypeScript definition files only (skip generated .wasm.js files)
 npx prettier --write "./crates/bitwarden-wasm-internal/${NPM_FOLDER}/**/*.ts"
 
-# Optimize size
-wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm
-wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm
-
-# Build the MVP binary and transpile it to JS. Debug builds skip this to save build time, and write
-# a stub instead so bundlers importing the fallback still resolve it.
+# Optimize size, then build the MVP binary and transpile it to JS. Debug builds skip this to save
+# build time, and write a stub instead so bundlers importing the fallback still resolve it.
 if [ -z "$RELEASE_FLAG" ]; then
   echo 'throw new Error("wasm2js fallback is not built in debug mode, use build.sh -r");' > ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
 else
+  wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm
+  wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm
+
   build_wasm "${MVP_CPU}" "${MVP_TARGET_DIR}"
   rm -rf "${MVP_BINDGEN_DIR}"
   cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundler --out-dir "${MVP_BINDGEN_DIR}" ${MVP_TARGET_DIR}/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
