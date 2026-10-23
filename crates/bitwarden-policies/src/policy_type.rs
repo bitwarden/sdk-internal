@@ -72,7 +72,8 @@ pub enum PolicyType {
     /// have not explicitly set their Fill Assist preference, and optionally overrides the default
     /// rules feed URL.
     FillAssist = 22,
-    /// Enables AutoType GA policy for members who have not explicitly set their AutoType GA preference.
+    /// Enables AutoType GA policy for members who have not explicitly set their AutoType GA
+    /// preference.
     AutotypeGaPolicy = 23,
 }
 
