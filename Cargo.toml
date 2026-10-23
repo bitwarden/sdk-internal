@@ -177,7 +177,7 @@ zeroize = { version = ">=1.7.0, <2.0" }
 zxcvbn = ">=3.0.1, <4.0"
 
 [workspace.lints.clippy]
-disallowed-macros = "deny"
+disallowed_macros = "deny"
 unused_async = "warn"
 unwrap_used = "deny"
 string_slice = "warn"
