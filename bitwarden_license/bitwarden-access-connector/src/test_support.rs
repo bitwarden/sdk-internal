@@ -1,6 +1,6 @@
 //! Helpers shared by the unit tests. Integration tests keep their own copy in `tests/common`.
 
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use bitwarden_access_token::{AccessToken, AccessTokenKind, make_access_token_secrets};
 use bitwarden_api_api::models::CipherRequestModel;
@@ -19,6 +19,12 @@ use bitwarden_pam_sealed::{
 };
 use bitwarden_vault::CipherView;
 use uuid::Uuid;
+use wiremock::{
+    Mock, MockServer, ResponseTemplate,
+    matchers::{method, path},
+};
+
+use crate::auth::{identity::IdentityClient, session::SessionManager};
 
 /// The organisation every unit test authenticates into.
 pub(crate) fn test_org_id() -> OrganizationId {
@@ -102,24 +108,52 @@ pub(crate) const CIPHER_REVISION_DATE: &str = "2024-06-01T12:00:00.123Z";
 pub(crate) const KEYED_LOGIN: &str = include_str!("../tests/fixtures/ciphers/keyed_login.json");
 pub(crate) const KEYED_LOGIN_ID: uuid::Uuid = uuid::uuid!("8e1f3a2b-5c4d-4e6f-9a7b-0c1d2e3f4a5b");
 /// [`KEYED_LOGIN`] plus an attachment with its own key.
-pub(crate) const KEYED_LOGIN_WITH_ATTACHMENT_ID: uuid::Uuid =
-    uuid::uuid!("9f2a4b3c-6d5e-4f70-8b8c-1d2e3f4a5b6c");
 pub(crate) const KEYED_LOGIN_WITH_ATTACHMENT: &str =
     include_str!("../tests/fixtures/ciphers/keyed_login_with_attachment.json");
-/// Older-style cipher: no item key, every field encrypted directly under the org key.
+/// Cipher without an item key: every field is encrypted directly under the org key.
 pub(crate) const KEYLESS_LOGIN: &str = include_str!("../tests/fixtures/ciphers/keyless_login.json");
-pub(crate) const KEYLESS_LOGIN_ID: uuid::Uuid = uuid::uuid!("a03b5c4d-7e6f-4081-9c9d-2e3f4a5b6c7d");
 /// Server-restricted cipher: carries `partialData`.
 pub(crate) const RESTRICTED_LOGIN: &str =
     include_str!("../tests/fixtures/ciphers/restricted_login.json");
-
-pub(crate) const RESTRICTED_LOGIN_ID: uuid::Uuid =
-    uuid::uuid!("b14c6d5e-8f70-4192-8dae-3f4a5b6c7d8e");
 
 /// The org key the cipher vectors are encrypted under.
 pub(crate) fn fixture_org_key() -> SymmetricCryptoKey {
     SymmetricCryptoKey::try_from(B64::try_from(ORG_KEY_B64).expect("valid b64"))
         .expect("valid org key")
+}
+
+/// A successful identity response; `tag` is expanded to a real JWT bearer so the
+/// `organization` claim parses.
+fn identity_ok(tag: &str, encrypted_payload: &str) -> ResponseTemplate {
+    let bearer = access_token_tagged(test_org_id(), tag);
+    ResponseTemplate::new(200)
+        .set_body_string(format!(
+            r#"{{"access_token":"{bearer}","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
+        ))
+        .insert_header("content-type", "application/json")
+}
+
+/// Mounts a `/connect/token` mock that succeeds with [`fixture_org_key`], for at most `times`
+/// requests when given.
+pub(crate) async fn mount_identity_ok(server: &MockServer, times: Option<u64>) {
+    let payload = encrypted_payload_for(&fixture_org_key());
+    let mock = Mock::given(method("POST"))
+        .and(path("/connect/token"))
+        .respond_with(identity_ok("tok", &payload));
+    match times {
+        Some(n) => mock.up_to_n_times(n).mount(server).await,
+        None => mock.mount(server).await,
+    }
+}
+
+/// A session authenticated against `identity_server`, over an empty key store.
+pub(crate) async fn make_session(identity_server: &MockServer) -> Arc<SessionManager> {
+    mount_identity_ok(identity_server, None).await;
+
+    let identity = IdentityClient::new(identity_server.uri()).unwrap();
+    SessionManager::new(identity, test_token(), KeyStore::default())
+        .await
+        .unwrap()
 }
 
 /// A vector's JSON, for tests to edit before serving it.
