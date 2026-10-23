@@ -13,7 +13,7 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 # The generated code has no unit tests or doc tests, so skip building a test harness and running
-# rustdoc over it. For bitwarden-api-api that build takes minutes in CI.
+# rustdoc over it. Building the test harness for this crate takes minutes in CI.
 [lib]
 test = false
 doctest = false

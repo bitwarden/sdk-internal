@@ -9,7 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Debug info is not needed to run tests in CI and makes linking the test binaries much slower,
+  # Debug info is not needed to run tests in CI and makes building the test binaries much slower,
   # especially on Windows. The test profile inherits this setting from the dev profile.
   CARGO_PROFILE_DEV_DEBUG: "0"
 
@@ -27,22 +27,14 @@ jobs:
         run: exit 0
 
   test:
-    name: ${{ matrix.os }} / ${{ matrix.variant }}
+    name: ${{ matrix.os }} / default
     runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
     strategy:
-      fail-fast: false
       matrix:
         os:
           - ubuntu-24.04
           - macOS-14
           - windows-2022
-        variant:
-          - default
-        include:
-          - os: windows-2025
-            variant: default
-          - os: windows-2025
-            variant: devdrive
 
     steps:
       - name: Checkout
@@ -58,48 +50,11 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Show CPU
-        shell: bash
-        run: |
-          case "$RUNNER_OS" in
-            Linux) lscpu | grep -E 'Model name|^CPU\(s\)' ;;
-            macOS) sysctl -n machdep.cpu.brand_string hw.ncpu ;;
-            Windows) powershell -Command "Get-CimInstance Win32_Processor | Format-List Name,NumberOfCores,NumberOfLogicalProcessors" ;;
-          esac
-
-      - name: Set up Dev Drive
-        if: matrix.variant == 'devdrive'
-        shell: pwsh
-        run: |
-          $volume = New-VHD -Path "$env:RUNNER_TEMP\dev_drive.vhdx" -SizeBytes 40GB -Dynamic |
-            Mount-VHD -Passthru |
-            Initialize-Disk -PartitionStyle GPT -Passthru |
-            New-Partition -DriveLetter V -UseMaximumSize
-          try {
-            $volume | Format-Volume -DevDrive -Confirm:$false -Force -ErrorAction Stop
-          } catch {
-            Write-Host "Dev Drive not supported, formatting as plain ReFS: $_"
-            $volume | Format-Volume -FileSystem ReFS -Confirm:$false -Force
-          }
-          Get-Volume -DriveLetter V | Format-List FileSystemType,Size
-          New-Item -ItemType Directory -Path V:\target | Out-Null
-          New-Item -ItemType Junction -Path target -Target V:\target | Out-Null
-
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
-        with:
-          key: ${{ matrix.variant }}
-
 
       - name: Test
-        run: cargo test --workspace --all-features --timings
-
-      - name: Upload build timings
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: cargo-timings-${{ matrix.os }}-${{ matrix.variant }}
-          path: target/cargo-timings/cargo-timing.html
+        run: cargo test --workspace --all-features
 
   test-wasm:
     name: WASM
