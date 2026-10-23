@@ -11,6 +11,7 @@ use crate::{
     RawPublicKey, SymmetricCryptoKey,
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
+    slow_crypto_span::{SlowCryptoOp, SlowCryptoSpan},
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -254,6 +255,7 @@ impl UnsignedSharedKey {
         match decapsulation_key.inner() {
             RawPrivateKey::RsaOaepSha1(rsa_private_key) => {
                 use UnsignedSharedKey::*;
+                let span = SlowCryptoSpan::start(SlowCryptoOp::RsaDecrypt);
                 let key_data = match self {
                     Rsa2048_OaepSha256_B64 { data } => {
                         rsa_private_key.decrypt(Oaep::<sha2::Sha256>::new(), data)
@@ -271,6 +273,7 @@ impl UnsignedSharedKey {
                     }
                 }
                 .map_err(|_| CryptoError::KeyDecrypt)?;
+                drop(span);
                 SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_data))
             }
         }
