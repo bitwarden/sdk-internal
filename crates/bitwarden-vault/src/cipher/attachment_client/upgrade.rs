@@ -143,7 +143,6 @@ impl AttachmentsClient {
             file_name: material.encrypted_file_name,
             file_size: reencrypted.len() as u64,
             last_known_revision_date: cipher.revision_date,
-            as_admin: false,
         };
         let created = self.create_attachment(cipher_id, request).await?;
 

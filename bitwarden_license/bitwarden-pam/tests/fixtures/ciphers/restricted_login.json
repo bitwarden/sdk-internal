@@ -1,0 +1,18 @@
+{
+  "attachments": [],
+  "creationDate": "2024-06-01T12:00:00.123Z",
+  "fields": null,
+  "id": "b14c6d5e-8f70-4192-8dae-3f4a5b6c7d8e",
+  "key": "2.lGEbwb7u5ody03/cX0hwlA==|nCXtLs1LTFePojicP4ywJuajluYnRzCrAc44jjiQ10rzWvvAbVmqrfmQ2gR/dH3Sfg5gH71SPtMkhVWoFSyGLmKl/snhvI4cxBH74XDr5Xk=|SC/F6mjaRaQIfciqYCmtdiZxCWseviaSfFf34XLYuzI=",
+  "login": null,
+  "name": "2.fwxLEeTtyIx1gh3myoIOfQ==|qCGTmTnIzLqQffPvR1f2Cw==|ao6lSe2eEgqUIeuJ1yQgxtfNqCUPRXjgHsy5JsuC8ZY=",
+  "notes": null,
+  "object": "cipherMini",
+  "organizationId": "3f1a5c4e-7b2d-4f8a-9c6e-1d2b3a4c5d6e",
+  "organizationUseTotp": true,
+  "partialData": "{\"name\":\"2.fwxLEeTtyIx1gh3myoIOfQ==|qCGTmTnIzLqQffPvR1f2Cw==|ao6lSe2eEgqUIeuJ1yQgxtfNqCUPRXjgHsy5JsuC8ZY=\",\"uris\":[{\"uri\":\"2.Mjom8NuRp/uCdxulCE1ldw==|zmoBlYuq031fMaWWW8l5Zu87hcFwetnbbtgf0BO/8jQ=|tkfGCo7Q6MyJJHI9kxgmBU/iwju6Zh8363oz5VuWNbY=\",\"uriChecksum\":\"2.oI5Ee+77PT2Hx8MzU33Wig==|+E+OF/ZhIMytSV3Rxj+8zIm6A4jVHmtAMyXuJivkI7NMGM+02arxny1yQgSlyg8l|YgO21QhzNT6WQHfp8X9bkko8rg/cykWGLU+g6HjGPwQ=\"}]}",
+  "passwordHistory": null,
+  "reprompt": 0,
+  "revisionDate": "2024-06-01T12:00:00.123Z",
+  "type": 1
+}

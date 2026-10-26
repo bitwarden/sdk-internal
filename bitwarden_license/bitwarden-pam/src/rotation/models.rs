@@ -89,8 +89,6 @@ impl TryFrom<TargetSystemMethod> for ApiTargetSystemMethod {
 pub enum TargetSystemKind {
     /// Entra ID / Azure AD service-account password rotation.
     Entra,
-    /// SQL Server login password rotation.
-    Mssql,
     /// An operator-supplied script run by the connector.
     CustomScript,
     /// A kind this SDK version does not recognize.
@@ -110,7 +108,6 @@ impl From<SealedTargetSystemKind> for TargetSystemKind {
     fn from(kind: SealedTargetSystemKind) -> Self {
         match kind {
             SealedTargetSystemKind::Entra => Self::Entra,
-            SealedTargetSystemKind::Mssql => Self::Mssql,
             SealedTargetSystemKind::CustomScript => Self::CustomScript,
         }
     }
@@ -122,7 +119,6 @@ impl TryFrom<TargetSystemKind> for SealedTargetSystemKind {
     fn try_from(kind: TargetSystemKind) -> Result<Self, Self::Error> {
         match kind {
             TargetSystemKind::Entra => Ok(Self::Entra),
-            TargetSystemKind::Mssql => Ok(Self::Mssql),
             TargetSystemKind::CustomScript => Ok(Self::CustomScript),
             TargetSystemKind::Unknown => Err(RotationError::UnrecognizedVariant),
         }
@@ -276,6 +272,19 @@ impl From<ApiRotationSyncState> for RotationSyncState {
     }
 }
 
+impl TryFrom<RotationSyncState> for ApiRotationSyncState {
+    type Error = RotationError;
+
+    fn try_from(state: RotationSyncState) -> Result<Self, Self::Error> {
+        match state {
+            RotationSyncState::TargetUnchanged => Ok(Self::TargetUnchanged),
+            RotationSyncState::TargetUpdated => Ok(Self::TargetUpdated),
+            RotationSyncState::Indeterminate => Ok(Self::Indeterminate),
+            RotationSyncState::Unknown => Err(RotationError::UnrecognizedVariant),
+        }
+    }
+}
+
 /// Whether the connector terminated the account's active sessions after rotating.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -298,6 +307,100 @@ impl From<ApiSessionTerminationOutcome> for SessionTerminationOutcome {
             ApiSessionTerminationOutcome::Terminated => Self::Terminated,
             ApiSessionTerminationOutcome::TermFailed => Self::TermFailed,
             ApiSessionTerminationOutcome::__Unknown(_) => Self::Unknown,
+        }
+    }
+}
+
+impl TryFrom<SessionTerminationOutcome> for ApiSessionTerminationOutcome {
+    type Error = RotationError;
+
+    fn try_from(outcome: SessionTerminationOutcome) -> Result<Self, Self::Error> {
+        match outcome {
+            SessionTerminationOutcome::NotRequested => Ok(Self::NotRequested),
+            SessionTerminationOutcome::Terminated => Ok(Self::Terminated),
+            SessionTerminationOutcome::TermFailed => Ok(Self::TermFailed),
+            SessionTerminationOutcome::Unknown => Err(RotationError::UnrecognizedVariant),
+        }
+    }
+}
+
+/// Why a rotation attempt failed, as the connector reports it. On the wire it is a snake_case
+/// token, which the server stores as the start of [`RotationAttempt::failure_reason`].
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "snake_case")]
+pub enum RotationFailureCode {
+    /// No active session at the start of execution (terminal session state).
+    NoActiveSession,
+    /// Target-system credentials could not be resolved from the configured resolver.
+    CredentialsUnresolved,
+    /// The password policy received from the server is invalid or cannot be satisfied.
+    InvalidPolicy,
+    /// The target-system kind is not supported by this connector build.
+    UnsupportedKind,
+    /// The target system rejected the rotation (e.g. wrong account, policy violation at the
+    /// target).
+    TargetRejected,
+    /// The target system could not be reached (network or connectivity error).
+    TargetUnreachable,
+    /// Verification of the rotated credential failed after the rotation step.
+    VerificationFailed,
+    /// A custom script exited with a failure code.
+    ScriptFailed,
+    /// A custom script exceeded its configured timeout.
+    ScriptTimeout,
+    /// The server rejected the cipher write (e.g. revision-date conflict).
+    CipherWriteRejected,
+    /// Encrypting the updated cipher data failed.
+    CipherEncryptFailed,
+    /// Sealed-data verification failed; see [`WorkSnapshot::verify`](crate::WorkSnapshot::verify).
+    SealedDataRejected,
+    /// An unexpected internal error occurred.
+    Internal,
+    /// A code this SDK version does not recognize.
+    Unknown,
+}
+
+impl RotationFailureCode {
+    /// The wire token the server stores for this code, at most 100 characters. Refuses
+    /// [`Unknown`](Self::Unknown), which has no token to send.
+    pub fn as_token(self) -> Result<&'static str, RotationError> {
+        match self {
+            Self::NoActiveSession => Ok("no_active_session"),
+            Self::CredentialsUnresolved => Ok("credentials_unresolved"),
+            Self::InvalidPolicy => Ok("invalid_policy"),
+            Self::UnsupportedKind => Ok("unsupported_kind"),
+            Self::TargetRejected => Ok("target_rejected"),
+            Self::TargetUnreachable => Ok("target_unreachable"),
+            Self::VerificationFailed => Ok("verification_failed"),
+            Self::ScriptFailed => Ok("script_failed"),
+            Self::ScriptTimeout => Ok("script_timeout"),
+            Self::CipherWriteRejected => Ok("cipher_write_rejected"),
+            Self::CipherEncryptFailed => Ok("cipher_encrypt_failed"),
+            Self::SealedDataRejected => Ok("sealed_data_rejected"),
+            Self::Internal => Ok("internal"),
+            Self::Unknown => Err(RotationError::UnrecognizedVariant),
+        }
+    }
+
+    /// Parses a wire token; an unrecognized token, including `"unknown"`, is
+    /// [`Unknown`](Self::Unknown).
+    pub fn from_token(token: &str) -> Self {
+        match token {
+            "no_active_session" => Self::NoActiveSession,
+            "credentials_unresolved" => Self::CredentialsUnresolved,
+            "invalid_policy" => Self::InvalidPolicy,
+            "unsupported_kind" => Self::UnsupportedKind,
+            "target_rejected" => Self::TargetRejected,
+            "target_unreachable" => Self::TargetUnreachable,
+            "verification_failed" => Self::VerificationFailed,
+            "script_failed" => Self::ScriptFailed,
+            "script_timeout" => Self::ScriptTimeout,
+            "cipher_write_rejected" => Self::CipherWriteRejected,
+            "cipher_encrypt_failed" => Self::CipherEncryptFailed,
+            "sealed_data_rejected" => Self::SealedDataRejected,
+            "internal" => Self::Internal,
+            _ => Self::Unknown,
         }
     }
 }
@@ -374,6 +477,10 @@ pub struct RotationAttempt {
     /// Operator-facing failure reason, set for an errored attempt. Reported by the connector and
     /// never raw target output; treat it as untrusted text for display only.
     pub failure_reason: Option<String>,
+    /// The code at the start of [`failure_reason`](Self::failure_reason). `None` when there is no
+    /// reason; [`Unknown`](RotationFailureCode::Unknown) when the code is not one this SDK
+    /// recognizes.
+    pub failure_code: Option<RotationFailureCode>,
     /// Whether the vault cipher was written with the rotated credential.
     pub cipher_updated: bool,
     /// Whether a failure left the target's credential changed. `None` unless the attempt errored.
@@ -397,6 +504,10 @@ impl TryFrom<PamRotationAttemptResponseModel> for RotationAttempt {
                 .claimed_by_access_connector_id
                 .map(AccessConnectorId::new),
             status: require!(response.status).into(),
+            failure_code: response
+                .failure_reason
+                .as_deref()
+                .map(failure_code_from_reason),
             failure_reason: response.failure_reason,
             cipher_updated: response.cipher_updated.unwrap_or(false),
             sync_state: response.sync_state.map(Into::into),
@@ -408,6 +519,12 @@ impl TryFrom<PamRotationAttemptResponseModel> for RotationAttempt {
                 .transpose()?,
         })
     }
+}
+
+/// The server builds the reason as `ErrorCode` or `ErrorCode: Detail`.
+fn failure_code_from_reason(reason: &str) -> RotationFailureCode {
+    let token = reason.split_once(": ").map_or(reason, |(code, _)| code);
+    RotationFailureCode::from_token(token)
 }
 
 /// One dispatch of the rotation workflow for a config. Each claim records an attempt, so a retried
@@ -464,5 +581,177 @@ impl TryFrom<PamRotationJobResponseModel> for RotationJob {
                 .map(RotationAttempt::try_from)
                 .collect::<Result<Vec<_>, _>>()?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const KNOWN_CODES: [(RotationFailureCode, &str); 13] = [
+        (RotationFailureCode::NoActiveSession, "no_active_session"),
+        (
+            RotationFailureCode::CredentialsUnresolved,
+            "credentials_unresolved",
+        ),
+        (RotationFailureCode::InvalidPolicy, "invalid_policy"),
+        (RotationFailureCode::UnsupportedKind, "unsupported_kind"),
+        (RotationFailureCode::TargetRejected, "target_rejected"),
+        (RotationFailureCode::TargetUnreachable, "target_unreachable"),
+        (
+            RotationFailureCode::VerificationFailed,
+            "verification_failed",
+        ),
+        (RotationFailureCode::ScriptFailed, "script_failed"),
+        (RotationFailureCode::ScriptTimeout, "script_timeout"),
+        (
+            RotationFailureCode::CipherWriteRejected,
+            "cipher_write_rejected",
+        ),
+        (
+            RotationFailureCode::CipherEncryptFailed,
+            "cipher_encrypt_failed",
+        ),
+        (
+            RotationFailureCode::SealedDataRejected,
+            "sealed_data_rejected",
+        ),
+        (RotationFailureCode::Internal, "internal"),
+    ];
+
+    #[test]
+    fn sync_state_maps_to_api_values() {
+        let pairs = [
+            (RotationSyncState::TargetUnchanged, 0),
+            (RotationSyncState::TargetUpdated, 1),
+            (RotationSyncState::Indeterminate, 2),
+        ];
+        for (state, expected) in pairs {
+            let api = ApiRotationSyncState::try_from(state).unwrap();
+            assert_eq!(api.as_i64(), expected, "{state:?}");
+        }
+    }
+
+    #[test]
+    fn sync_state_unknown_is_refused() {
+        assert!(matches!(
+            ApiRotationSyncState::try_from(RotationSyncState::Unknown),
+            Err(RotationError::UnrecognizedVariant)
+        ));
+    }
+
+    #[test]
+    fn session_termination_maps_to_api_values() {
+        let pairs = [
+            (SessionTerminationOutcome::NotRequested, 0),
+            (SessionTerminationOutcome::Terminated, 1),
+            (SessionTerminationOutcome::TermFailed, 2),
+        ];
+        for (outcome, expected) in pairs {
+            let api = ApiSessionTerminationOutcome::try_from(outcome).unwrap();
+            assert_eq!(api.as_i64(), expected, "{outcome:?}");
+        }
+    }
+
+    #[test]
+    fn session_termination_unknown_is_refused() {
+        assert!(matches!(
+            ApiSessionTerminationOutcome::try_from(SessionTerminationOutcome::Unknown),
+            Err(RotationError::UnrecognizedVariant)
+        ));
+    }
+
+    #[test]
+    fn failure_code_tokens_round_trip() {
+        for (code, token) in KNOWN_CODES {
+            assert_eq!(code.as_token().unwrap(), token, "{code:?}");
+            assert_eq!(RotationFailureCode::from_token(token), code);
+            assert_eq!(
+                serde_json::to_string(&code).unwrap(),
+                format!("\"{token}\""),
+                "{code:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn failure_code_tokens_are_bounded_snake_case() {
+        for (code, _) in KNOWN_CODES {
+            let token = code.as_token().unwrap();
+            assert!(token.len() <= 100, "{code:?}");
+            assert!(
+                token.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+                "{code:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn failure_code_unknown_is_refused() {
+        assert!(matches!(
+            RotationFailureCode::Unknown.as_token(),
+            Err(RotationError::UnrecognizedVariant)
+        ));
+    }
+
+    #[test]
+    fn failure_code_unrecognized_token_is_unknown() {
+        for token in ["", "from_the_future", "unknown", "Internal"] {
+            assert_eq!(
+                RotationFailureCode::from_token(token),
+                RotationFailureCode::Unknown,
+                "{token:?}"
+            );
+        }
+    }
+
+    fn attempt_response(failure_reason: Option<&str>) -> PamRotationAttemptResponseModel {
+        PamRotationAttemptResponseModel {
+            id: Some(uuid::Uuid::new_v4()),
+            job_id: Some(uuid::Uuid::new_v4()),
+            status: Some(ApiRotationAttemptStatus::Errored),
+            failure_reason: failure_reason.map(str::to_owned),
+            creation_date: Some("2026-01-01T00:00:00Z".to_owned()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn attempt_failure_code_from_code_alone() {
+        let attempt = RotationAttempt::try_from(attempt_response(Some("script_timeout"))).unwrap();
+        assert_eq!(
+            attempt.failure_code,
+            Some(RotationFailureCode::ScriptTimeout)
+        );
+        assert_eq!(attempt.failure_reason.as_deref(), Some("script_timeout"));
+    }
+
+    #[test]
+    fn attempt_failure_code_from_code_and_detail() {
+        let attempt = RotationAttempt::try_from(attempt_response(Some(
+            "target_rejected: HTTP 403: forbidden",
+        )))
+        .unwrap();
+        assert_eq!(
+            attempt.failure_code,
+            Some(RotationFailureCode::TargetRejected)
+        );
+        assert_eq!(
+            attempt.failure_reason.as_deref(),
+            Some("target_rejected: HTTP 403: forbidden")
+        );
+    }
+
+    #[test]
+    fn attempt_failure_code_unrecognized() {
+        let attempt =
+            RotationAttempt::try_from(attempt_response(Some("from_the_future: detail"))).unwrap();
+        assert_eq!(attempt.failure_code, Some(RotationFailureCode::Unknown));
+    }
+
+    #[test]
+    fn attempt_failure_code_none_without_reason() {
+        let attempt = RotationAttempt::try_from(attempt_response(None)).unwrap();
+        assert_eq!(attempt.failure_code, None);
     }
 }

@@ -2209,6 +2209,14 @@ impl TryFrom<CipherResponseModel> for Cipher {
     }
 }
 
+impl TryFrom<CipherMiniResponseModel> for Cipher {
+    type Error = VaultParseError;
+
+    fn try_from(cipher: CipherMiniResponseModel) -> Result<Self, Self::Error> {
+        cipher.merge_with_cipher(None)
+    }
+}
+
 impl PartialCipher for CipherMiniResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         let cipher = cipher.as_ref();
@@ -4058,6 +4066,42 @@ mod tests {
         assert_eq!(decrypted.r#type, CipherType::DriversLicense);
         assert_eq!(decrypted.drivers_license, Some(dl));
         assert!(decrypted.login.is_none());
+    }
+
+    #[test]
+    fn test_try_from_cipher_mini_response_model_login() {
+        use bitwarden_api_api::models::CipherLoginModel;
+        use chrono::Utc;
+
+        let mini_response = CipherMiniResponseModel {
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: Some(TEST_UUID.parse().unwrap()),
+            name: Some(TEST_CIPHER_NAME.to_string()),
+            r#type: Some(bitwarden_api_api::models::CipherType::Login),
+            login: Some(Box::new(CipherLoginModel {
+                username: Some(TEST_CIPHER_NAME.to_string()),
+                ..Default::default()
+            })),
+            creation_date: Some(Utc::now().to_rfc3339()),
+            revision_date: Some(Utc::now().to_rfc3339()),
+            ..Default::default()
+        };
+
+        let cipher = Cipher::try_from(mini_response).unwrap();
+
+        assert_eq!(cipher.id, Some(TEST_UUID.parse().unwrap()));
+        assert_eq!(
+            cipher.organization_id,
+            Some(TEST_UUID.parse::<OrganizationId>().unwrap())
+        );
+        assert_eq!(cipher.r#type, CipherType::Login);
+        assert_eq!(cipher.name, Some(TEST_CIPHER_NAME.parse().unwrap()));
+        assert_eq!(
+            cipher.login.as_ref().unwrap().username,
+            Some(TEST_CIPHER_NAME.parse().unwrap())
+        );
+        assert!(cipher.view_password);
+        assert!(cipher.key.is_none());
     }
 
     #[test]

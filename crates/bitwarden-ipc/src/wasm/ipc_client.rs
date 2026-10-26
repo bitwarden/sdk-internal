@@ -1,13 +1,16 @@
 use std::{collections::HashMap, sync::Arc};
 
 use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use super::communication_backend::JsCommunicationBackend;
 use crate::{
     IpcClientImpl,
+    broadcast::{BroadcastGroup, EndpointSendResult},
     crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
-    error::{AlreadyRunningError, ReceiveError, SubscribeError},
+    endpoint::Endpoint,
+    error::{AlreadyRunningError, BroadcastError, ReceiveError, SendError, SubscribeError},
     ipc_client::IpcClientSubscription,
     ipc_client_trait::IpcClient,
     message::{IncomingMessage, OutgoingMessage},
@@ -28,6 +31,26 @@ pub struct JsIpcClient {
     /// send typed messages, etc. For examples see
     /// [wasm::ipc_register_discover_handler](crate::wasm::ipc_register_discover_handler).
     pub client: Arc<dyn IpcClient>,
+}
+
+/// The outcome of delivering a broadcast message to one member of a [`BroadcastGroup`].
+/// JavaScript counterpart of [`EndpointSendResult`].
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[bitwarden_ffi::wasm_record]
+pub struct IpcEndpointSendResult {
+    /// The endpoint the message was sent to.
+    pub endpoint: Endpoint,
+    /// Why the send to this endpoint failed. Absent if the send succeeded.
+    pub error: Option<SendError>,
+}
+
+impl From<EndpointSendResult> for IpcEndpointSendResult {
+    fn from(value: EndpointSendResult) -> Self {
+        Self {
+            endpoint: value.endpoint,
+            error: value.result.err(),
+        }
+    }
 }
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
@@ -116,6 +139,18 @@ impl JsIpcClient {
             .send(message)
             .await
             .map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    #[wasm_only]
+    #[allow(missing_docs)]
+    pub async fn broadcast(
+        &self,
+        group: BroadcastGroup,
+        payload: Vec<u8>,
+        topic: Option<String>,
+    ) -> Result<Vec<IpcEndpointSendResult>, BroadcastError> {
+        let results = self.client.broadcast(group, payload, topic).await?;
+        Ok(results.into_iter().map(Into::into).collect())
     }
 
     #[wasm_only]

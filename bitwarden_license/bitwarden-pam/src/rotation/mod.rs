@@ -11,6 +11,8 @@ use bitwarden_crypto::KeyStore;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 mod actions;
+mod cipher;
+mod claim;
 mod configs;
 mod connectors;
 mod error;
@@ -21,6 +23,8 @@ mod target_systems;
 mod validate;
 
 pub use actions::{RotationConfigActions, rotation_config_actions};
+pub use cipher::{RotationCipherError, cipher_has_password, rotate_cipher_password};
+pub use claim::{SealRejection, VerifiedJob, WorkSnapshot, WorkSnapshotError};
 pub use configs::{
     RotationConfigCreateRequest, RotationConfigDetailView, RotationConfigSealedFields,
     RotationConfigView, RotationConfigsClient,
@@ -31,9 +35,9 @@ pub use connectors::{
 };
 pub use error::RotationError;
 pub use models::{
-    AccessConnectorStatus, PasswordPolicy, RotationAttempt, RotationAttemptStatus, RotationJob,
-    RotationJobStatus, RotationSource, RotationSyncState, SessionTerminationOutcome,
-    TargetSystemKind, TargetSystemMethod, TargetSystemStatus,
+    AccessConnectorStatus, PasswordPolicy, RotationAttempt, RotationAttemptStatus,
+    RotationFailureCode, RotationJob, RotationJobStatus, RotationSource, RotationSyncState,
+    SessionTerminationOutcome, TargetSystemKind, TargetSystemMethod, TargetSystemStatus,
 };
 pub use schedule::{
     QuartzSchedulePreset, RotationScheduleClient, is_likely_quartz_cron, preset_for_cron,

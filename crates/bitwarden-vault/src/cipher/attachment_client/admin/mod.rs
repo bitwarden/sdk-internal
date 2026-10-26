@@ -2,9 +2,11 @@ use std::sync::Arc;
 
 use bitwarden_core::client::ApiConfigurations;
 
+mod create;
 mod delete;
 mod download_url;
 
+pub use create::CreateAttachmentAdminError;
 pub use delete::DeleteAttachmentAdminError;
 pub use download_url::CipherAdminGetAttachmentDownloadUrlError;
 

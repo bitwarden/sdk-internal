@@ -893,6 +893,11 @@ impl From<SendItem> for SendDataModel {
             data: Some(item.data),
             metadata: Box::new(SendItemMetadataModel {
                 item_id: item.metadata.item_id.into(),
+                folder_name: None,
+                organization_name: None,
+                collection_names: None,
+                creation_date: None,
+                revision_date: None,
             }),
         }
     }
@@ -1024,6 +1029,11 @@ pub(crate) mod tests {
             data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
             metadata: Box::new(SendItemMetadataModel {
                 item_id: TEST_ITEM_ID.parse().unwrap(),
+                folder_name: None,
+                organization_name: None,
+                collection_names: None,
+                creation_date: None,
+                revision_date: None,
             }),
         })
         .unwrap();

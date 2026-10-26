@@ -4,12 +4,13 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_threading::ThreadBoundRunner;
 use thiserror::Error;
 use tokio::sync::RwLock;
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::{convert::TryFromJsValue, prelude::*};
 
 use crate::{
+    broadcast::BroadcastGroup,
     error::{ErrorKind, IpcErrorKind},
     message::{IncomingMessage, OutgoingMessage},
-    traits::{CommunicationBackend, CommunicationBackendReceiver},
+    traits::{BroadcastResolution, CommunicationBackend, CommunicationBackendReceiver},
 };
 
 #[allow(missing_docs)]
@@ -66,7 +67,14 @@ impl IpcErrorKind for WasmCommunicationError {
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
 export interface IpcCommunicationBackendSender {
+    /** The SDK frees `message` once the returned promise settles, so it must not be kept. */
     send(message: OutgoingMessage): Promise<void>;
+    /**
+     * Optional. Resolves a broadcast group into the endpoints that are currently its members.
+     * When omitted, or when it throws, every group resolves to `"Unsupported"` and broadcasts fail
+     * without delivering anything.
+     */
+    resolve?(group: BroadcastGroup): Promise<BroadcastResolution>;
 }
 "#;
 
@@ -76,16 +84,24 @@ extern "C" {
     #[wasm_bindgen(js_name = IpcCommunicationBackendSender, typescript_type = "IpcCommunicationBackendSender")]
     pub type JsCommunicationBackendSender;
 
-    /// Used by the IPC framework to send an outgoing message.
+    /// Used by the IPC framework to send an outgoing message, an [`OutgoingMessage`] object.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn send(
         this: &JsCommunicationBackendSender,
-        message: OutgoingMessage,
+        message: &JsValue,
     ) -> Result<(), JsValue>;
 
     /// Used by JavaScript to provide an incoming message to the IPC framework.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn receive(this: &JsCommunicationBackendSender) -> Result<JsValue, JsValue>;
+
+    /// Optional broadcast group resolution. A sender that does not implement this method causes
+    /// the call to reject, which is mapped to [`BroadcastResolution::Unsupported`].
+    #[wasm_bindgen(catch, method, structural)]
+    pub async fn resolve(
+        this: &JsCommunicationBackendSender,
+        group: BroadcastGroup,
+    ) -> Result<BroadcastResolution, JsValue>;
 }
 
 /// JavaScript implementation of the `CommunicationBackend` trait for IPC communication.
@@ -137,7 +153,12 @@ impl CommunicationBackend for JsCommunicationBackend {
         // a single failed send must not tear down the shared IPC client.
         self.sender
             .run_in_thread(|sender| async move {
-                sender.send(message).await.map_err(|e| format!("{e:?}"))
+                let message = JsValue::from(message);
+                let result = sender.send(&message).await.map_err(|e| format!("{e:?}"));
+                // Take the message back and drop it, so its memory is freed now rather than when
+                // the garbage collector finalizes the JavaScript object.
+                drop(OutgoingMessage::try_from_js_value(message));
+                result
             })
             .await
             .map_err(|e| WasmCommunicationError::Js(e.to_string()))?
@@ -150,6 +171,30 @@ impl CommunicationBackend for JsCommunicationBackend {
                 } else {
                     WasmCommunicationError::Js(message)
                 }
+            })
+    }
+
+    async fn resolve(&self, group: &BroadcastGroup) -> BroadcastResolution {
+        let group = group.clone();
+        // A sender that does not implement `resolve` (or one whose implementation throws) rejects
+        // the call; treat any failure as Unsupported so the broadcast fails closed.
+        self.sender
+            .run_in_thread(|sender| async move {
+                sender.resolve(group).await.unwrap_or_else(|error| {
+                    tracing::warn!(
+                        ?error,
+                        "Broadcast group resolution failed in the JS backend, treating as unsupported"
+                    );
+                    BroadcastResolution::Unsupported
+                })
+            })
+            .await
+            .unwrap_or_else(|error| {
+                tracing::warn!(
+                    ?error,
+                    "Failed to run broadcast group resolution, treating as unsupported"
+                );
+                BroadcastResolution::Unsupported
             })
     }
 
