@@ -101,10 +101,10 @@ describe("feature", () => {
 ### Rules
 
 - **Raw route mocks are discouraged.** Don't call `installHttpMock({ [ROUTE]: … })` from a test, and
-  don't hand-build initialized clients from fixtures (`make*Client`). Existing tests that do
-  (`organization-domains`, `invite-link`, `crypto-sync-handler`, `collections-client`) are legacy;
-  don't copy them. Missing route → model it in `ApiServer` (or the right service) like the real
-  server, refusals included. Missing state → add a seeding helper to the emulator.
+  don't hand-build initialized clients from fixtures (`make*Client`). Any existing test that calls
+  `installHttpMock` or `make*Client` is legacy; don't copy it. Missing route → model it in
+  `ApiServer` (or the right service) like the real server, refusals included. Missing state → add a
+  seeding helper to the emulator.
 - **Never mutate crypto state directly via the state bridge.** Crypto state reaches the client only
   via `sync()` → crypto sync handler → state bridge. The password is the only secret a test
   supplies.
@@ -124,8 +124,8 @@ describe("feature", () => {
 - **Vectors are permanent.** Never edit or regenerate a committed vector to make a test pass — that
   is a backward-compat break. `unlock/test-vector-stability.test.ts` pins the set; adding a vector
   means updating that list.
-- Unmatched routes return 501 (not a throw) and land in `harness`'s mock `unmatched` — check it when
-  a call fails oddly.
+- Unmatched routes return 501 (not a throw) — a 501 response is the signal that `ApiServer` is
+  missing the route.
 - Tests use vitest globals; number steps `// 1. …`, `// 2. Verify …`.
 
 ### Run
