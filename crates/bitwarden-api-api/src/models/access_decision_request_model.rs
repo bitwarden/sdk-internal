@@ -12,8 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessDecisionRequestModel : An approver's decision on a pending access request: approve or
-/// deny, with a comment for the requester.
+/// AccessDecisionRequestModel : An approver's decision on a pending access request.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessDecisionRequestModel {
     #[serde(rename = "verdict", alias = "Verdict")]
@@ -28,8 +27,7 @@ pub struct AccessDecisionRequestModel {
 }
 
 impl AccessDecisionRequestModel {
-    /// An approver's decision on a pending access request: approve or deny, with a comment for the
-    /// requester.
+    /// An approver's decision on a pending access request.
     pub fn new(verdict: models::AccessDecisionVerdict) -> AccessDecisionRequestModel {
         AccessDecisionRequestModel {
             verdict,
