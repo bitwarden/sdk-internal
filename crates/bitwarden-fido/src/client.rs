@@ -63,8 +63,6 @@ impl Fido2Client<'_> {
             .get_mut()
             .expect("Mutex is not poisoned") = uv;
 
-        let rp_id = request.public_key.rp.id.clone();
-
         let mut client = passkey::client::Client::new(self.authenticator.get_authenticator(true));
         let result = client.register(origin, request, client_data).await?;
 
@@ -85,11 +83,7 @@ impl Fido2Client<'_> {
                 public_key: result.response.public_key.map(|x| x.into()),
                 public_key_algorithm: result.response.public_key_algorithm,
                 attestation_object: result.response.attestation_object.into(),
-                transports: if rp_id.unwrap_or_default() == "https://google.com" {
-                    Some(vec!["internal".to_string(), "usb".to_string()])
-                } else {
-                    Some(vec!["internal".to_string()])
-                },
+                transports: Some(vec!["internal".to_string()]),
             },
             selected_credential: self.authenticator.get_selected_credential()?,
         })
