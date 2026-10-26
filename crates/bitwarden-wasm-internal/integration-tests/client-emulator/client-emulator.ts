@@ -133,10 +133,10 @@ export class ClientEmulator {
    * rather than this client's state.
    */
   private async authenticate(email: string, password: string): Promise<void> {
-    const login = makePasswordManagerClient(makeStateBridge(), SETTINGS).auth().login();
+    const loginClient = makePasswordManagerClient(makeStateBridge(), SETTINGS).auth().login();
 
-    const preloginResponse = await login.get_password_prelogin(email);
-    await login.login_via_password({
+    const preloginResponse = await loginClient.get_password_prelogin(email);
+    await loginClient.login_via_password({
       loginRequest: LOGIN_REQUEST,
       email,
       password,
