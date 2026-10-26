@@ -83,7 +83,7 @@ impl Fido2Client<'_> {
                 public_key: result.response.public_key.map(|x| x.into()),
                 public_key_algorithm: result.response.public_key_algorithm,
                 attestation_object: result.response.attestation_object.into(),
-                transports: Some(vec!["internal".to_string()]),
+                transports: Some(vec!["internal".to_string(), "hybrid".to_string()]),
             },
             selected_credential: self.authenticator.get_selected_credential()?,
         })
