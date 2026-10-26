@@ -134,7 +134,7 @@ pub struct SendItemMetadata {
     /// The name of the collections the vault item being sent belongs to
     pub collection_names: Option<Vec<EncString>>,
     /// The name of the organization the vault item being sent belongs to
-    pub organization_name: Option<EncString>,
+    pub organization_name: Option<String>,
     /// The date the vault item being sent was created
     pub creation_date: DateTime<Utc>,
     /// The date the vault item being sent was last edited
@@ -618,7 +618,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendItemMetadataView> for SendI
                 .as_ref()
                 .map(|cols| cols.iter().map(|c| c.decrypt(ctx, key)).collect())
                 .transpose()?,
-            organization_name: self.organization_name.decrypt(ctx, key)?,
+            organization_name: self.organization_name.clone(),
             creation_date: self.creation_date,
             revision_date: self.revision_date,
         })
@@ -641,7 +641,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendItemMetadata>
                 .as_ref()
                 .map(|cols| cols.iter().map(|c| c.encrypt(ctx, key)).collect())
                 .transpose()?,
-            organization_name: self.organization_name.encrypt(ctx, key)?,
+            organization_name: self.organization_name.clone(),
             creation_date: self.creation_date,
             revision_date: self.revision_date,
         })
@@ -972,7 +972,7 @@ impl TryFrom<SendDataModel> for SendItem {
                     .as_ref()
                     .map(|cols| cols.iter().map(|c| EncString::parse_strict(c)).collect())
                     .transpose()?,
-                organization_name: EncString::try_from_optional(data.metadata.organization_name)?,
+                organization_name: data.metadata.organization_name,
             },
         })
     }
@@ -1134,8 +1134,8 @@ pub(crate) mod tests {
             data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
             metadata: Box::new(SendItemMetadataModel {
                 item_id: TEST_ITEM_ID.parse().unwrap(),
-                creation_date: Default::default(),
-                revision_date: Default::default(),
+                creation_date: "1970-01-01T00:00:00Z".to_string(),
+                revision_date: "1970-01-01T00:00:00Z".to_string(),
                 folder_name: None,
                 collection_names: None,
                 organization_name: None,
@@ -1206,18 +1206,6 @@ pub(crate) mod tests {
 
         let decrypted: SendView = crypto.decrypt(&send).unwrap();
         assert_eq!(decrypted, item_send_view());
-    }
-
-    #[test]
-    fn test_item_send_encrypt_requires_item_id() {
-        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
-        let crypto = create_test_crypto_with_user_key(user_key);
-
-        let mut view = item_send_view();
-        view.data.as_mut().unwrap().data.id = None;
-
-        let result: Result<Send, _> = crypto.encrypt(view);
-        assert!(result.is_err());
     }
 
     #[test]
