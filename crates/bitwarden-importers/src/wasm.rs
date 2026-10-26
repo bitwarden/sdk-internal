@@ -122,7 +122,7 @@ impl OnePasswordTwoFactorUi for JsOnePasswordTwoFactorUi {
     }
 }
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// The JavaScript object implementing the single sign-on prompts.
     #[wasm_bindgen(js_name = OnePasswordSsoUi, typescript_type = "OnePasswordSsoUi")]
