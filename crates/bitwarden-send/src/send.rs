@@ -1104,8 +1104,8 @@ pub(crate) mod tests {
                     item_id: TEST_ITEM_ID
                         .parse()
                         .expect("TEST_ITEM_ID should be a valid CipherId"),
-                    creation_date: Default::default(),
-                    revision_date: Default::default(),
+                    creation_date: Some(DateTime::<Utc>::default()),
+                    revision_date: Some(DateTime::<Utc>::default()),
                     folder_name: None,
                     collection_names: None,
                     organization_name: None,
@@ -1208,8 +1208,8 @@ pub(crate) mod tests {
             item.metadata,
             SendItemMetadata {
                 item_id: TEST_ITEM_ID.parse().unwrap(),
-                creation_date: Default::default(),
-                revision_date: Default::default(),
+                creation_date: Some(DateTime::<Utc>::default()),
+                revision_date: Some(DateTime::<Utc>::default()),
                 folder_name: None,
                 collection_names: None,
                 organization_name: None,
@@ -1582,8 +1582,8 @@ pub(crate) mod tests {
                 data: TEST_VECTOR_ITEM_SEND_DATA.to_string(),
                 metadata: SendItemMetadata {
                     item_id: TEST_ITEM_ID.parse().unwrap(),
-                    creation_date: Default::default(),
-                    revision_date: Default::default(),
+                    creation_date: Some(DateTime::<Utc>::default()),
+                    revision_date: Some(DateTime::<Utc>::default()),
                     folder_name: None,
                     collection_names: None,
                     organization_name: None,

@@ -104,7 +104,8 @@ pub struct SendAccessItemMetadataResponse {
     pub folder_name: Option<String>,
     /// The encrypted names of the collections the vault item being sent belongs to
     pub collection_names: Option<Vec<String>>,
-    /// The encrypted name of the organization the vault item being sent belongs to
+    /// The name of the organization the vault item being sent belongs to. This is stored
+    /// unencrypted unlike other metadata.
     pub organization_name: Option<String>,
     /// The date the vault item being sent was created
     pub creation_date: Option<DateTime<Utc>>,
@@ -346,7 +347,7 @@ impl SendAccessKey {
                                     .collect()
                             })
                             .transpose()?,
-                        organization_name: self.decrypt_optional(d.metadata.organization_name)?,
+                        organization_name: d.metadata.organization_name,
                         creation_date: d.metadata.creation_date,
                         revision_date: d.metadata.revision_date,
                     },
