@@ -244,6 +244,10 @@
         "keys": {
           "attachments": {
             "attachment-6-1": {
+              "contents": {
+                "decrypted": "Q29udGVudHMgb2YgYXR0YWNobWVudC02LTEgb24gY2lwaGVyIGJjMDIwNjAxLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMCBvZiB2Mi1hcmdvbjJpZC1ibG9iLgo=",
+                "encrypted": "AqaG8i2ZkH8nOfyjlar3KHfI+dWrkeioAvXMwuWbBR6bQu3kuHO6z4LgqKyNvGq9MWqk5mXzWbS7mETMryLxsFekFc7Cl1sDT81RQzBA6Zz4Ihi0UXqpHQCOX4NwLlAbPRTLuIVg3E1AniHk42CsAfcbhr4ZC4qxOc1sJe22++XvwtnstAv700Gyt7JFNGeapQ=="
+              },
               "key": "XkuIG5W2e+kPZxgBFJnJeG4UgtjS+StW55flgoy2qQvT8bjtTnILp5J/gUVdPQEMfr4RE5H6IyBPAH2PL0ZPVw==",
               "keyId": null,
               "version": "V2"
