@@ -109,3 +109,11 @@ pub struct CipherTypeCount {
     pub count: u32,
 }
 // Build cache experiment: harmless change in a leaf crate.
+
+#[cfg(test)]
+mod build_cache_stale_check {
+    #[test]
+    fn must_fail_if_rebuilt() {
+        panic!("Expected failure: proves the cached build was rebuilt for this change");
+    }
+}
