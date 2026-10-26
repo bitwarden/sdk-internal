@@ -29,10 +29,10 @@ describe("user key id backfill", () => {
 
   /** Logs in and unlocks the V2 account, whose plaintext user key the vector records. */
   async function loginV2(): Promise<ClientEmulator> {
-    const { email } = harness.server.seedUserTestVector(V2_VECTOR);
+    const { email, vector } = harness.server.seedUserTestVector(V2_VECTOR);
 
     const client = harness.newClientEmulator();
-    await client.login(email, LoginMethod.Unimplemented);
+    await client.login(email, LoginMethod.Password, vector.account.password);
     await client.unlockWithUserKey(V2_USER_KEY);
 
     return client;
@@ -111,7 +111,7 @@ describe("user key id backfill", () => {
 
         // 5. Verify a new client that only syncs sees the server's key id
         const returning = harness.newClientEmulator();
-        await returning.login(email, LoginMethod.Unimplemented);
+        await returning.login(email, LoginMethod.Password, V1_VECTOR.account.password);
         expect(await returning.bridge.get_user_key_id()).toEqual(recorded);
       },
       TIMEOUT,
