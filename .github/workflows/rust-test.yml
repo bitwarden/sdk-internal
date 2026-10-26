@@ -52,9 +52,49 @@ jobs:
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          cache-targets: "false"
+
+      - name: Restore build output
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target
+            !target/**/*.profraw
+          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ github.sha }}
+          restore-keys: |
+            build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-
+
+      - name: Mark changed files
+        shell: bash
+        run: ./scripts/ci-mark-changed-files.sh
+
+      - name: Build tests
+        id: build
+        run: cargo test --workspace --all-features --no-run --timings
+
+      - name: Record build commit
+        shell: bash
+        run: ./scripts/ci-record-build-commit.sh
 
       - name: Test
         run: cargo test --workspace --all-features
+
+      - name: Upload build timings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cargo-timings-${{ matrix.os }}
+          path: target/cargo-timings/cargo-timing.html
+
+      - name: Save build output
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target
+            !target/**/*.profraw
+          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ github.sha }}
 
   test-wasm:
     name: WASM
@@ -112,6 +152,23 @@ jobs:
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          cache-targets: "false"
+
+      - name: Restore build output
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target
+            !target/**/*.profraw
+            .bin
+          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ github.sha }}
+          restore-keys: |
+            build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-
+
+      - name: Mark changed files
+        shell: bash
+        run: ./scripts/ci-mark-changed-files.sh
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
@@ -119,8 +176,27 @@ jobs:
       - name: Check cargo-binstall is not configured
         run: ./scripts/check-no-binstall.sh
 
+      # --no-clean keeps the restored build output. Coverage data from earlier runs is deleted
+      # first so it can't be merged into this run's report.
       - name: Generate coverage
-        run: cargo bin cargo-llvm-cov --all-features --lcov --output-path lcov.info --ignore-filename-regex "crates/bitwarden-api-"
+        id: build
+        run: |
+          find target -name '*.profraw' -delete 2>/dev/null || true
+          cargo bin cargo-llvm-cov --no-clean --all-features --lcov --output-path lcov.info --ignore-filename-regex "crates/bitwarden-api-"
+
+      - name: Record build commit
+        shell: bash
+        run: ./scripts/ci-record-build-commit.sh
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+
+      - name: Save build output
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target
+            !target/**/*.profraw
+            .bin
+          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ github.sha }}
