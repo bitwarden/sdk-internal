@@ -42,6 +42,7 @@ bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden
 crates/bitwarden-access-token/** @bitwarden/team-pam-dev
 crates/bitwarden-access-token-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev
+crates/bitwarden-autotype/** @bitwarden/team-desktop-native-dev
 crates/bitwarden-collections/** @bitwarden/team-admin-console-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-crypto-cipher-suite/** @bitwarden/team-key-management-dev

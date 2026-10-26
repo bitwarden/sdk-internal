@@ -9,6 +9,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Debug info is not needed to run tests in CI and makes building the test binaries much slower,
+  # especially on Windows. The test profile inherits this setting from the dev profile.
+  CARGO_PROFILE_DEV_DEBUG: "0"
 
 permissions:
   contents: read

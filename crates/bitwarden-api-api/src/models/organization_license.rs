@@ -299,6 +299,12 @@ pub struct OrganizationLicense {
     )]
     pub use_pam: Option<bool>,
     #[serde(
+        rename = "pamSeats",
+        alias = "PamSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pam_seats: Option<i32>,
+    #[serde(
         rename = "hash",
         alias = "Hash",
         skip_serializing_if = "Option::is_none"
@@ -369,6 +375,7 @@ impl OrganizationLicense {
             use_my_items: None,
             use_invite_links: None,
             use_pam: None,
+            pam_seats: None,
             hash: None,
             signature: None,
             token: None,
