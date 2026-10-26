@@ -2,11 +2,130 @@
 
 Bitwarden PAM access connector.
 
-This crate provides the `bwac` binary, which rotates PAM-managed credentials in external target
-systems. For each rotation job it resolves the target's credentials, rotates the password in the
-target system, verifies the change and, when requested, terminates the account's active sessions.
-Two integrations are provided: operator-supplied scripts (including PowerShell) and Microsoft Entra
-ID.
+This crate provides the `bwac` binary. It polls the Bitwarden server for claimable rotation jobs and
+runs each one: resolve credentials, generate a password, rotate it in the target system, verify,
+write the re-encrypted vault cipher, optionally terminate sessions, and report the outcome.
+
+## Usage
+
+| Command                    | Description                                            |
+| -------------------------- | ------------------------------------------------------ |
+| `bwac run`                 | Start the connector poll loop                          |
+| `bwac run --config <PATH>` | Use this configuration file, also set by `BWAC_CONFIG` |
+| `bwac --version`           | Print the version                                      |
+| `bwac --help`              | Print help; `bwac run --help` for the run options      |
+
+Connector settings live in the [configuration file](#configuration-file), not in command-line flags.
+
+### Environment variables
+
+| Variable            | Purpose                                                  |
+| ------------------- | -------------------------------------------------------- |
+| `BWAC_TOKEN`        | Access connector token (required)                        |
+| `BWAC_CONFIG`       | Path to the TOML configuration file, same as `--config`  |
+| `BWAC_API_URL`      | Bitwarden API server URL, overrides the config file      |
+| `BWAC_IDENTITY_URL` | Bitwarden identity server URL, overrides the config file |
+| `RUST_LOG`          | Log filter directives, default `info`                    |
+
+### Token security
+
+The token contains the org-key encryption key, so it is only read from `BWAC_TOKEN`, never from a
+flag, since argv is visible in `ps` and `/proc/<pid>/cmdline`. The connector removes it from its
+environment after reading it, so custom scripts and other child processes do not inherit it.
+
+### Configuration file
+
+Pass the file with `--config <PATH>` or `BWAC_CONFIG`. Unknown keys are a startup error, and so is a
+`token` key; see [Token security](#token-security).
+
+Server URLs resolve in this order, highest first. If none is set, startup fails with an error naming
+all three.
+
+1. `BWAC_API_URL` / `BWAC_IDENTITY_URL` environment variables
+2. `[environment].api` / `[environment].identity` in the config file
+3. Derived from `[environment].base` as `{base}/api` / `{base}/identity`
+
+#### Example configuration file
+
+```toml
+# All fields are optional; omitted fields fall back to built-in defaults.
+
+poll_interval      = 15   # seconds; minimum 15
+heartbeat_interval = 30   # seconds; must be < 120
+offline_grace      = 60   # seconds
+max_retry_attempts = 5    # total attempts per retryable step
+retry_base_delay   = 1    # seconds (exponential backoff base)
+script_timeout     = 60   # seconds
+
+# script_root = "/opt/scripts"   # uncomment to restrict custom script paths
+
+# PowerShell host, used for any script the connector launches through PowerShell.
+powershell_execution_policy = "Bypass"   # set "AllSigned" if you sign your scripts
+# powershell_path = "C:\\Program Files\\PowerShell\\7\\pwsh.exe"   # else discovered on PATH
+
+entra_verify_probe = false   # set true only with MFA exemption for the service principal
+
+[environment]
+# Supply a base URL and let the connector derive /api and /identity automatically:
+base     = "https://bitwarden.example.com"
+# Or override individual URLs (takes precedence over base-derived values):
+# api      = "https://api.bitwarden.com"
+# identity = "https://identity.bitwarden.com"
+```
+
+Per-target credential overrides go in the `[targets]` section; see
+[Per-target overrides](#per-target-overrides-targets).
+
+### Logging
+
+Log output is written to stderr. The log level is controlled by the `RUST_LOG` environment variable
+(same syntax as `tracing-subscriber`'s `EnvFilter`):
+
+```sh
+RUST_LOG=debug bwac run --config /etc/bwac/config.toml
+RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwac/config.toml
+```
+
+#### Operator-visible events at `info` / `warn` / `error`
+
+| Level   | Event                                                | Key fields                                                                                       |
+| ------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `info`  | Access connector starting                            | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs`, `configured_targets` |
+| `info`  | Session authenticated                                | `retry`                                                                                          |
+| `info`  | Shutdown signal received                             |                                                                                                  |
+| `info`  | Rotation job claimed                                 | `job_id`, `target_system_name`                                                                   |
+| `info`  | Starting rotation execution                          | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                                        |
+| `info`  | Pre-flight cipher check passed                       | `attempt_id`                                                                                     |
+| `info`  | Step 1: credentials resolved                         | `attempt_id`                                                                                     |
+| `info`  | Step 2: password generated                           | `attempt_id`                                                                                     |
+| `info`  | Step 3: target rotate succeeded                      | `attempt_id`, `kind`                                                                             |
+| `info`  | Step 4: verify succeeded                             | `attempt_id`                                                                                     |
+| `info`  | Step 5: cipher written                               | `attempt_id`, `cipher_id`                                                                        |
+| `info`  | Step 6: session termination succeeded                | `attempt_id`                                                                                     |
+| `info`  | Step 7: rotation succeeded and reported              | `attempt_id`, `termination`                                                                      |
+| `info`  | Access connector shut down cleanly                   |                                                                                                  |
+| `warn`  | Session renewal failed (transient / protocol)        | `retry`, `sleep_ms`                                                                              |
+| `warn`  | Session entered Revoked phase                        |                                                                                                  |
+| `warn`  | Rotation failed (any step)                           | `attempt_id`, `failure_code`, `sync_state`, `detail`                                             |
+| `warn`  | Step 6: session termination aborted / failed         | `attempt_id`, `abort_reason`                                                                     |
+| `warn`  | Transient poll error / backoff                       |                                                                                                  |
+| `warn`  | Success report rejected/unknown by server            | `attempt_id`                                                                                     |
+| `error` | Access connector credential refused                  |                                                                                                  |
+| `error` | Access connector could not authenticate at startup   |                                                                                                  |
+| `error` | Access connector not eligible for rotation endpoints |                                                                                                  |
+
+`RUST_LOG=debug` adds: poll ticks (with claimable job count), heartbeat ticks, claim-race losses
+(409 per job), cipher fetches and reported attempts.
+
+### Exit codes
+
+| Code | Meaning                                                                                                                     |
+| ---- | --------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Clean shutdown (SIGTERM or Ctrl-C)                                                                                          |
+| `1`  | Startup error: invalid configuration, token or arguments, I/O error, or parse failure                                       |
+| `2`  | Credential refused. Check `BWAC_TOKEN`; if current, get a new token from an admin and restart                               |
+| `3`  | Not eligible. Check the connector isn't revoked or disabled, the license is active and the organization's plan includes PAM |
+| `4`  | Startup authentication failed transiently. Check connectivity and the identity URL, then restart                            |
 
 ## Credential resolution
 

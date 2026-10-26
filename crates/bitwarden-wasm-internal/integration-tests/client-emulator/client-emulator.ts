@@ -12,9 +12,7 @@ import type { ServerEmulator } from "../server-emulator/server-emulator";
 import { API_URL } from "../server-emulator/urls";
 import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
 
-import { LocalState, SETTINGS } from "./local-state";
-
-import { makePasswordManagerClient } from "../tests/utils";
+import { LocalState } from "./local-state";
 
 export class ClientEmulator {
   readonly local = new LocalState();
@@ -29,7 +27,7 @@ export class ClientEmulator {
   }
 
   /**
-   * Simulates a sync from server to client
+   * Simulates a sync from server to client, handled by the current client, locked or not.
    */
   async sync(email: string): Promise<void> {
     const user = this.server.getUser(email);
@@ -50,8 +48,9 @@ export class ClientEmulator {
 
     const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
-    const locked = makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
-    await locked.crypto_sync_handler().on_sync({
+    // A login syncs before there is any client, so start from a locked one.
+    this.client ??= this.local.locked();
+    await this.client.crypto_sync_handler().on_sync({
       accountCryptographicState: accountKeys.toAccountCryptographicState(),
       userDecryption: {
         masterPasswordUnlock:

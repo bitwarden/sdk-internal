@@ -25,7 +25,7 @@ pub(crate) enum Track {
 pub(crate) enum Duration {
     /// From span creation until drop.
     Actual,
-    /// From span creation until drop, but at least [`MIN_MESSAGE_DURATION_MS`] so near-instant
+    /// From span creation until drop, but at least 1 ms so near-instant
     /// messages stay visible.
     AtLeastMessage,
 }
@@ -38,10 +38,6 @@ pub(crate) struct Entry {
     pub(crate) properties: Vec<(&'static str, String)>,
 }
 
-/// Minimum drawn duration of a single sent or received message.
-#[cfg_attr(not(all(feature = "wasm", target_arch = "wasm32")), allow(dead_code))]
-const MIN_MESSAGE_DURATION_MS: f64 = 1.0;
-
 #[cfg(all(feature = "wasm", target_arch = "wasm32"))]
 pub(crate) use wasm::span;
 
@@ -50,11 +46,14 @@ pub(crate) use wasm::span;
 mod wasm {
     use wasm_bindgen::prelude::*;
 
-    use super::{Duration, Entry, MIN_MESSAGE_DURATION_MS, Track};
+    use super::{Duration, Entry, Track};
 
     // Chrome DevTools extensibility API: entries with this metadata get a custom track.
     const DATA_TYPE: &str = "track-entry";
     const TRACK_GROUP: &str = "IPC";
+
+    /// Minimum drawn duration of a single sent or received message.
+    const MIN_MESSAGE_DURATION_MS: f64 = 1.0;
 
     #[wasm_bindgen]
     extern "C" {
