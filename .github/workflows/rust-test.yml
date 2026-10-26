@@ -56,6 +56,11 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-features
 
+      # Runs the #[ignore]d pwsh script-launcher tests. Serial because parallel hosts die together
+      # on CI runners.
+      - name: Test (integration, requires pwsh)
+        run: cargo test -p bitwarden-access-connector --all-features -- --ignored --test-threads=1
+
   test-wasm:
     name: WASM
     runs-on: ubuntu-24.04
