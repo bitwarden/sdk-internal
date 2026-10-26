@@ -26,6 +26,14 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationSubscriptionsApi: Send + Sync {
+    /// PUT /organizations/{organizationId}/billing/subscription/privileged-controls
+    /// Sets the organization's Privileged Controls seat total and autoscale limit.
+    async fn change_privileged_controls_seats<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        privileged_controls_seats_request: models::PrivilegedControlsSeatsRequest,
+    ) -> Result<(), Error>;
+
     /// GET /organizations/{organizationId}/billing/subscription/preview
     /// Previews the organization's upcoming subscription renewal.
     async fn get_organization_subscription_preview<'a>(
@@ -39,6 +47,14 @@ pub trait OrganizationSubscriptionsApi: Send + Sync {
         &self,
         organization_id: uuid::Uuid,
         preview_organization_plan_change_request: models::PreviewOrganizationPlanChangeRequest,
+    ) -> Result<models::InvoicePreview, Error>;
+
+    /// POST /organizations/{organizationId}/billing/subscription/restart/preview
+    /// Previews the cost of restarting the organization's canceled subscription.
+    async fn preview_organization_restart<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        preview_organization_restart_request: models::PreviewOrganizationRestartRequest,
     ) -> Result<models::InvoicePreview, Error>;
 
     /// POST /organizations/billing/subscription/purchase/preview
@@ -62,6 +78,30 @@ impl OrganizationSubscriptionsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationSubscriptionsApi for OrganizationSubscriptionsApiClient {
+    /// Sets the organization's Privileged Controls seat total and autoscale limit.
+    async fn change_privileged_controls_seats<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        privileged_controls_seats_request: models::PrivilegedControlsSeatsRequest,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/billing/subscription/privileged-controls",
+            local_var_configuration.base_path,
+            organizationId = organization_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&privileged_controls_seats_request);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     /// Previews the organization's upcoming subscription renewal.
     async fn get_organization_subscription_preview<'a>(
         &self,
@@ -105,6 +145,30 @@ impl OrganizationSubscriptionsApi for OrganizationSubscriptionsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&preview_organization_plan_change_request);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    /// Previews the cost of restarting the organization's canceled subscription.
+    async fn preview_organization_restart<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        preview_organization_restart_request: models::PreviewOrganizationRestartRequest,
+    ) -> Result<models::InvoicePreview, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/billing/subscription/restart/preview",
+            local_var_configuration.base_path,
+            organizationId = organization_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&preview_organization_restart_request);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }

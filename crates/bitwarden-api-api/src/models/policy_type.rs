@@ -37,6 +37,7 @@ pub enum PolicyType {
     OrganizationUserNotification,
     SendControls,
     FillAssist,
+    AutotypeGaPolicy,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -68,6 +69,7 @@ impl PolicyType {
             Self::OrganizationUserNotification => 20,
             Self::SendControls => 21,
             Self::FillAssist => 22,
+            Self::AutotypeGaPolicy => 23,
             Self::__Unknown(v) => *v,
         }
     }
@@ -97,6 +99,7 @@ impl PolicyType {
             20 => Self::OrganizationUserNotification,
             21 => Self::SendControls,
             22 => Self::FillAssist,
+            23 => Self::AutotypeGaPolicy,
             v => Self::__Unknown(v),
         }
     }

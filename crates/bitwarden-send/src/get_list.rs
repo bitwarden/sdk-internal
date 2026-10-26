@@ -3,8 +3,6 @@ use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{Send, SendId, SendView, error::ItemNotFoundError, send_client::SendClient};
 
@@ -41,7 +39,7 @@ async fn list_sends(
     Ok(views)
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Get all sends from state and decrypt them to a list of [SendView].
     pub async fn list(&self) -> Result<Vec<SendView>, GetSendError> {

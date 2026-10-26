@@ -6,8 +6,6 @@ use bitwarden_crypto::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::VaultParseError;
 
@@ -18,7 +16,7 @@ pub(crate) const MAX_PASSWORD_HISTORY_ENTRIES: usize = 5;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct PasswordHistory {
     password: EncString,
     last_used_date: DateTime<Utc>,
@@ -28,7 +26,7 @@ pub struct PasswordHistory {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct PasswordHistoryView {
     pub password: String,
     pub last_used_date: DateTime<Utc>,

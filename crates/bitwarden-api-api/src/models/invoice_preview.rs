@@ -22,6 +22,12 @@ pub struct InvoicePreview {
         skip_serializing_if = "Option::is_none"
     )]
     pub secrets_manager: Option<Box<models::SecretsManagerInvoiceItems>>,
+    #[serde(
+        rename = "privilegedControls",
+        alias = "PrivilegedControls",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub privileged_controls: Option<Box<models::PrivilegedControlsInvoiceItems>>,
     #[serde(rename = "cadence", alias = "Cadence")]
     pub cadence: models::PlanCadenceType,
     #[serde(rename = "planTier", alias = "PlanTier")]
@@ -64,6 +70,7 @@ impl InvoicePreview {
         InvoicePreview {
             password_manager: Box::new(password_manager),
             secrets_manager: None,
+            privileged_controls: None,
             cadence,
             plan_tier,
             discounts: None,

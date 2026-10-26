@@ -92,7 +92,8 @@ pub trait OrganizationUsersApi: Send + Sync {
     /// PUT /organizations/{orgId}/users/enable-pam
     async fn bulk_enable_pam<'a>(
         &self,
-        org_id: uuid::Uuid,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
     ) -> Result<(), Error>;
 
@@ -479,7 +480,8 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
 
     async fn bulk_enable_pam<'a>(
         &self,
-        org_id: uuid::Uuid,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
@@ -489,11 +491,15 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/users/enable-pam",
             local_var_configuration.base_path,
-            orgId = org_id
+            orgId = crate::apis::urlencode(org_id)
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = organization {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("organization", &serde_json::to_value(param_value)?)]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 

@@ -13,42 +13,35 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 /// RegisterAccessConnectorRequestModel : Registers a new access connector (spec
-/// `ConnectorRegistration`).
+/// `ConnectorRegistration`). The organization key arrives wrapped client-side in
 /// Bit.Services.Pam.AccessConnector.Api.Models.Request.RegisterAccessConnectorRequestModel.
 /// EncryptedPayload and
-/// Bit.Services.Pam.AccessConnector.Api.Models.Request.RegisterAccessConnectorRequestModel.Key
-/// carry the organization key wrapped client-side, so the server holds ciphertext only and never
-/// sees the plaintext key.
-/// Bit.Services.Pam.AccessConnector.Api.Models.Request.RegisterAccessConnectorRequestModel.Name is
-/// a plaintext display label.
+/// Bit.Services.Pam.AccessConnector.Api.Models.Request.RegisterAccessConnectorRequestModel.Key, so
+/// the server never sees it in plaintext.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RegisterAccessConnectorRequestModel {
-    /// The access connector's plaintext display label, shown wherever access connectors are listed
-    /// and             managed.
+    /// The access connector's display label, sent in plaintext.
     #[serde(rename = "name", alias = "Name")]
     pub name: String,
     /// The organization key, wrapped client-side with the encryption-key half of the access
-    /// connector's credential. Stored verbatim and handed back on every token response so the
-    /// access connector can unwrap it locally; the server only ever holds the ciphertext.
+    /// connector's credential. Returned on every token response so the access connector can unwrap
+    /// it locally.
     #[serde(rename = "encryptedPayload", alias = "EncryptedPayload")]
     pub encrypted_payload: String,
     /// The key protecting
     /// Bit.Services.Pam.AccessConnector.Api.Models.Request.RegisterAccessConnectorRequestModel.
-    /// EncryptedPayload, itself uploaded wrapped -- opaque ciphertext the server stores but can
-    /// never use, recoverable only client-side.
+    /// EncryptedPayload, wrapped with the organization key.
     #[serde(rename = "key", alias = "Key")]
     pub key: String,
 }
 
 impl RegisterAccessConnectorRequestModel {
-    /// Registers a new access connector (spec `ConnectorRegistration`).
+    /// Registers a new access connector (spec `ConnectorRegistration`). The organization key
+    /// arrives wrapped client-side in
     /// Bit.Services.Pam.AccessConnector.Api.Models.Request.RegisterAccessConnectorRequestModel.
     /// EncryptedPayload and
-    /// Bit.Services.Pam.AccessConnector.Api.Models.Request.RegisterAccessConnectorRequestModel.Key
-    /// carry the organization key wrapped client-side, so the server holds ciphertext only and
-    /// never sees the plaintext key.
-    /// Bit.Services.Pam.AccessConnector.Api.Models.Request.RegisterAccessConnectorRequestModel.Name
-    /// is a plaintext display label.
+    /// Bit.Services.Pam.AccessConnector.Api.Models.Request.RegisterAccessConnectorRequestModel.Key,
+    /// so the server never sees it in plaintext.
     pub fn new(
         name: String,
         encrypted_payload: String,
