@@ -87,9 +87,12 @@ describe("emergency access", () => {
         await grantee.unlock(users.get(vector.granteeVectorName).account.password);
         const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
-        await granteeClient.takeover(id, NEW_PASSWORD, seeded.grantor.email);
-
+        // A grantor device logged in before the takeover, while the old password still authenticates.
         const oldGrantorPassword = users.get(vector.grantorVectorName).account.password;
+        const stale = harness.newClientEmulator();
+        await stale.login(seeded.grantor.email, LoginMethod.Password, oldGrantorPassword);
+
+        await granteeClient.takeover(id, NEW_PASSWORD, seeded.grantor.email);
 
         // Authenticate: the identity server must refuse the old grantor password at login.
         // The identity server compares the posted hash with the stored authentication hash.
@@ -100,9 +103,8 @@ describe("emergency access", () => {
         ).rejects.toThrow("Invalid username or password provided.");
 
         // Unlock: the old grantor password must not decrypt the new unlock data.
-        // LoginMethod.Unimplemented skips authentication. So this check tests unlock alone.
-        const stale = harness.newClientEmulator();
-        await stale.login(seeded.grantor.email, LoginMethod.Unimplemented);
+        // The device syncs the new unlock data down without logging in again.
+        await stale.sync(seeded.grantor.email);
         await expect(stale.unlock(oldGrantorPassword)).rejects.toBeDefined();
 
         // The new password must pass both authentication and unlock.
