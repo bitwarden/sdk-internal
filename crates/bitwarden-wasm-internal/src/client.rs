@@ -24,10 +24,10 @@ export type BitwardenClient = PasswordManagerClient;
 "#;
 
 /// The main entry point for the Bitwarden SDK in WebAssembly environments
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 pub struct PasswordManagerClient(pub(crate) InnerPasswordManagerClient);
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     ///
@@ -108,6 +108,11 @@ impl PasswordManagerClient {
     /// User crypto management related operations.
     pub fn user_crypto_management(&self) -> UserCryptoManagementClient {
         self.0.0.user_crypto_management()
+    }
+
+    /// Unlock related operations.
+    pub fn unlock(&self) -> UnlockClient {
+        self.0.unlock()
     }
 
     /// Vault item related operations.

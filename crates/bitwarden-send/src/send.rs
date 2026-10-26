@@ -17,9 +17,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
-use zeroize::Zeroizing;
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
+use zeroize::Zeroizing;
 
 use crate::{SendParseError, access::SEND_KEY_LEN, error::SendItemDeserializationFailureError};
 pub const SEND_ITERATIONS: u32 = 100_000;
@@ -36,7 +36,7 @@ pub struct EmptyEmailListError;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendFile {
     /// The file's ID
     pub id: Option<String>,
@@ -52,7 +52,7 @@ pub struct SendFile {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendFileView {
     /// The file's ID
     pub id: Option<String>,
@@ -68,7 +68,7 @@ pub struct SendFileView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendText {
     pub text: Option<EncString>,
     pub hidden: bool,
@@ -78,7 +78,7 @@ pub struct SendText {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendItemView {
     /// The item content of the send
     pub data: CipherView,
@@ -91,7 +91,7 @@ pub struct SendItemView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendItem {
     pub encryption_version: SendEncryptionType,
     /// Opaque sealed cipher blob, see [`CipherView::seal_blob_for_item_sends`].
@@ -105,7 +105,7 @@ pub struct SendItem {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendItemMetadataView {
     /// Id of the vault item being sent
     pub item_id: CipherId,
@@ -116,16 +116,16 @@ pub struct SendItemMetadataView {
     /// The name of the organization the vault item being sent belongs to
     pub organization_name: Option<String>,
     /// The date the vault item being sent was created
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Option<DateTime<Utc>>,
     /// The date the vault item being sent was last edited
-    pub revision_date: DateTime<Utc>,
+    pub revision_date: Option<DateTime<Utc>>,
 }
 
 /// Encrypted metadata of an Item Send
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendItemMetadata {
     /// Id of the vault item being sent
     pub item_id: CipherId,
@@ -136,16 +136,16 @@ pub struct SendItemMetadata {
     /// The name of the organization the vault item being sent belongs to
     pub organization_name: Option<String>,
     /// The date the vault item being sent was created
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Option<DateTime<Utc>>,
     /// The date the vault item being sent was last edited
-    pub revision_date: DateTime<Utc>,
+    pub revision_date: Option<DateTime<Utc>>,
 }
 
 /// View model for decrypted SendText
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendTextView {
     /// The text content of the send
     pub text: Option<String>,
@@ -157,7 +157,7 @@ pub struct SendTextView {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum SendType {
     /// Text-based send
     Text = 0,
@@ -171,7 +171,7 @@ pub enum SendType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum AuthType {
     /// Email-based OTP authentication
     Email = 0,
@@ -187,7 +187,7 @@ pub enum AuthType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum SendEncryptionType {
     /// V1 encryption (field by field)
     V1 = 1,
@@ -198,7 +198,7 @@ pub enum SendEncryptionType {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum SendAuthType {
     /// No authentication required
     None,
@@ -286,7 +286,7 @@ impl SendAuthType {
 
 /// View model for decrypted Send type
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum SendViewType {
     /// File-based send
     File(SendFileView),
@@ -353,7 +353,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Send {
     pub id: Option<SendId>,
     pub access_id: Option<String>,
@@ -424,7 +424,7 @@ impl From<Send> for SendWithIdRequestModel {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendView {
     pub id: Option<SendId>,
     pub access_id: Option<String>,
@@ -467,7 +467,7 @@ pub struct SendView {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendListView {
     pub id: Option<SendId>,
     pub access_id: Option<String>,
@@ -581,8 +581,12 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendItemView> for SendItem {
         let mut data = CipherView::unseal_blob_for_item_sends(&self.data, ctx, key)?;
         // The blob holds no id or dates; restore them from the metadata.
         data.id = Some(self.metadata.item_id);
-        data.creation_date = self.metadata.creation_date;
-        data.revision_date = self.metadata.revision_date;
+        if let Some(creation_date) = self.metadata.creation_date {
+            data.creation_date = creation_date;
+        }
+        if let Some(revision_date) = self.metadata.revision_date {
+            data.revision_date = revision_date;
+        }
         Ok(SendItemView {
             data,
             metadata: self.metadata.clone().decrypt(ctx, key)?,
@@ -963,8 +967,16 @@ impl TryFrom<SendDataModel> for SendItem {
             data: sealed,
             metadata: SendItemMetadata {
                 item_id: CipherId::new(data.metadata.item_id),
-                creation_date: data.metadata.creation_date.parse()?,
-                revision_date: data.metadata.revision_date.parse()?,
+                creation_date: data
+                    .metadata
+                    .creation_date
+                    .map(|cd| cd.parse())
+                    .transpose()?,
+                revision_date: data
+                    .metadata
+                    .revision_date
+                    .map(|rd| rd.parse())
+                    .transpose()?,
                 folder_name: EncString::try_from_optional(data.metadata.folder_name)?,
                 collection_names: data
                     .metadata
@@ -985,8 +997,8 @@ impl From<SendItem> for SendDataModel {
             data: Some(item.data),
             metadata: Box::new(SendItemMetadataModel {
                 item_id: item.metadata.item_id.into(),
-                creation_date: item.metadata.creation_date.to_rfc3339(),
-                revision_date: item.metadata.revision_date.to_rfc3339(),
+                creation_date: item.metadata.creation_date.map(|cd| cd.to_rfc3339()),
+                revision_date: item.metadata.revision_date.map(|rd| rd.to_rfc3339()),
                 folder_name: item.metadata.folder_name.map(|f| f.to_string()),
                 collection_names: item
                     .metadata
@@ -1134,8 +1146,8 @@ pub(crate) mod tests {
             data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
             metadata: Box::new(SendItemMetadataModel {
                 item_id: TEST_ITEM_ID.parse().unwrap(),
-                creation_date: "1970-01-01T00:00:00Z".to_string(),
-                revision_date: "1970-01-01T00:00:00Z".to_string(),
+                creation_date: Some("1970-01-01T00:00:00Z".to_string()),
+                revision_date: Some("1970-01-01T00:00:00Z".to_string()),
                 folder_name: None,
                 collection_names: None,
                 organization_name: None,

@@ -39,6 +39,7 @@ performance-tracing = []
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-autotype = { workspace = true, features = ["wasm"] }
 bitwarden-commercial-vault = { workspace = true, optional = true, features = [
     "wasm",
 ] }
@@ -57,6 +58,7 @@ bitwarden-member-administration = { workspace = true, features = ["wasm"] }
 # See [package.metadata.cargo-udeps.ignore] above for more.
 bitwarden-organization-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-organization-invite-link = { workspace = true, features = ["wasm"] }
+bitwarden-organizations = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-policies = { workspace = true, features = ["wasm"] }
 bitwarden-random = { workspace = true, features = ["wasm"] }

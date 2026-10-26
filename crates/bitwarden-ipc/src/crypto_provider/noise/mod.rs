@@ -67,6 +67,8 @@
 
 // Ref: http://noiseprotocol.org/noise.html#message-format
 const NOISE_MAX_MESSAGE_LEN: usize = 65535;
+/// Authentication tag that both supported transport ciphers append to every message.
+const NOISE_TAG_LEN: usize = 16;
 
 pub mod crypto_provider;
 pub(super) mod handshake;

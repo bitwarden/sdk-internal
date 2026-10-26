@@ -13,8 +13,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 use zeroize::Zeroizing;
 
@@ -36,7 +34,7 @@ pub(crate) const SEND_KEY_LEN: usize = 16;
 /// using the key derived from the URL fragment.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessResponse {
     /// The send access ID
     pub id: Option<String>,
@@ -60,7 +58,7 @@ pub struct SendAccessResponse {
 /// Encrypted text content of a text send.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessTextResponse {
     /// Encrypted text content
     pub text: Option<String>,
@@ -71,7 +69,7 @@ pub struct SendAccessTextResponse {
 /// Encrypted file metadata of a file send.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessFileResponse {
     /// The file ID
     pub id: Option<String>,
@@ -86,7 +84,7 @@ pub struct SendAccessFileResponse {
 /// Encrypted item metadata of an item send.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessItemResponse {
     /// The version of encryption used to encrypt the item data
     pub encryption_version: Option<SendEncryptionType>,
@@ -98,7 +96,7 @@ pub struct SendAccessItemResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessItemMetadataResponse {
     /// Id of the vault item being sent
     pub item_id: CipherId,
@@ -109,15 +107,15 @@ pub struct SendAccessItemMetadataResponse {
     /// The encrypted name of the organization the vault item being sent belongs to
     pub organization_name: Option<String>,
     /// The date the vault item being sent was created
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Option<DateTime<Utc>>,
     /// The date the vault item being sent was last edited
-    pub revision_date: DateTime<Utc>,
+    pub revision_date: Option<DateTime<Utc>>,
 }
 
 /// File download URL data returned from a send file access call.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendFileDownloadData {
     /// The file ID
     pub id: Option<String>,
@@ -141,7 +139,7 @@ pub struct SendFileDownloadData {
 /// dumping whatever the server returned), which a total enum could not represent.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessView {
     /// The send access ID
     pub id: Option<String>,
@@ -166,7 +164,7 @@ pub struct SendAccessView {
 /// Decrypted text content of a text send.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessTextView {
     /// The decrypted text content
     pub text: Option<String>,
@@ -177,7 +175,7 @@ pub struct SendAccessTextView {
 /// Decrypted file metadata of a file send.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessFileView {
     /// The file ID
     pub id: Option<String>,
@@ -192,7 +190,7 @@ pub struct SendAccessFileView {
 /// Decrypted item metadata of an item send.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAccessItemView {
     /// The decrypted Cipher data
     pub data: Option<CipherView>,
@@ -327,8 +325,12 @@ impl SendAccessKey {
                 let mut cipher_view = CipherView::unseal_blob_for_item_sends(&data, &mut ctx, key)?;
                 // The blob holds no id or dates; restore them from the metadata.
                 cipher_view.id = Some(d.metadata.item_id);
-                cipher_view.creation_date = d.metadata.creation_date;
-                cipher_view.revision_date = d.metadata.revision_date;
+                if let Some(creation_date) = d.metadata.creation_date {
+                    cipher_view.creation_date = creation_date;
+                }
+                if let Some(revision_date) = d.metadata.revision_date {
+                    cipher_view.revision_date = revision_date;
+                }
                 Some(SendAccessItemView {
                     data: Some(cipher_view),
                     metadata: SendItemMetadataView {
@@ -394,9 +396,12 @@ impl SendAccessKey {
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum AccessSendError {
+    /// The send does not exist, has expired, or has been deleted (the server answered 404).
+    #[error("The send was not found")]
+    NotFound,
     /// An API or network error occurred.
     #[error(transparent)]
-    Api(#[from] ApiError),
+    Api(ApiError),
     /// The response body could not be parsed into a [`SendAccessResponse`] — either a
     /// required field was missing, the send type was an unrecognized value, or a date
     /// field was malformed.
@@ -408,14 +413,42 @@ pub enum AccessSendError {
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum GetFileDownloadDataError {
+    /// The send or its file does not exist, has expired, or has been deleted (the server
+    /// answered 404).
+    #[error("The send file was not found")]
+    NotFound,
     /// An API or network error occurred.
     #[error(transparent)]
-    Api(#[from] ApiError),
+    Api(ApiError),
+}
+
+fn is_not_found(error: &ApiError) -> bool {
+    matches!(error, ApiError::Response(r) if r.status == reqwest::StatusCode::NOT_FOUND)
+}
+
+impl From<ApiError> for AccessSendError {
+    fn from(error: ApiError) -> Self {
+        if is_not_found(&error) {
+            Self::NotFound
+        } else {
+            Self::Api(error)
+        }
+    }
+}
+
+impl From<ApiError> for GetFileDownloadDataError {
+    fn from(error: ApiError) -> Self {
+        if is_not_found(&error) {
+            Self::NotFound
+        } else {
+            Self::Api(error)
+        }
+    }
 }
 
 // ===== HTTP request functions =====
 
-async fn access_send(
+pub(crate) async fn access_send(
     api_client: &ApiClient,
     access_token: &str,
 ) -> Result<SendAccessResponse, AccessSendError> {
@@ -426,7 +459,7 @@ async fn access_send(
     Ok(resp.try_into()?)
 }
 
-async fn get_file_download_data(
+pub(crate) async fn get_file_download_data(
     api_client: &ApiClient,
     file_id: &str,
     access_token: &str,
@@ -469,8 +502,16 @@ impl TryFrom<models::SendAccessResponseModel> for SendAccessResponse {
                             folder_name: dat.metadata.folder_name,
                             collection_names: dat.metadata.collection_names,
                             organization_name: dat.metadata.organization_name,
-                            creation_date: dat.metadata.creation_date.parse()?,
-                            revision_date: dat.metadata.revision_date.parse()?,
+                            creation_date: dat
+                                .metadata
+                                .creation_date
+                                .map(|cd| cd.parse())
+                                .transpose()?,
+                            revision_date: dat
+                                .metadata
+                                .revision_date
+                                .map(|rd| rd.parse())
+                                .transpose()?,
                         },
                     })
                 })
@@ -492,11 +533,17 @@ impl From<models::SendFileDownloadDataResponseModel> for SendFileDownloadData {
 
 // ===== SendClient methods =====
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+// wasm_bindgen generates glue that calls the deprecated methods below, which would otherwise
+// warn.
+#[allow(deprecated)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Accesses a send, authenticated with a send access token.
     /// The returned [SendAccessResponse] contains encrypted fields that must be decrypted
     /// client-side using the key derived from the URL fragment.
+    #[deprecated(
+        note = "use `SendReceiveClient::access_send` instead; a `SendClient` is tied to the signed-in instance"
+    )]
     pub async fn access_send(
         &self,
         access_token: String,
@@ -506,6 +553,9 @@ impl SendClient {
     }
 
     /// Gets file download data for a file send, authenticated with a send access token.
+    #[deprecated(
+        note = "use `SendReceiveClient::get_file_download_data` instead; a `SendClient` is tied to the signed-in instance"
+    )]
     pub async fn get_file_download_data(
         &self,
         access_token: String,
@@ -521,6 +571,9 @@ impl SendClient {
     /// fragment (16 bytes when decoded) — the same form [`SendAccessKey::from_url_b64`] accepts
     ///
     /// This is a temporary function to support the transition to fully using the SDK for Send logic
+    #[deprecated(
+        note = "use `SendReceiveClient::decrypt_send_access` instead; a `SendClient` is tied to the signed-in instance"
+    )]
     pub fn decrypt_send_access(
         key_b64: String,
         response: SendAccessResponse,
@@ -531,6 +584,7 @@ impl SendClient {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use bitwarden_api_api::{
         apis::ApiClient,
@@ -654,6 +708,48 @@ mod tests {
         assert!(matches!(result.unwrap_err(), AccessSendError::Api(_)));
     }
 
+    #[tokio::test]
+    async fn test_access_send_404_is_not_found() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_access_using_auth()
+                .returning(|_token| Err(not_found_response()))
+                .once();
+        });
+
+        let result = access_send(&api_client, ACCESS_TOKEN).await;
+
+        assert!(matches!(result.unwrap_err(), AccessSendError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn test_access_send_other_status_stays_api_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_access_using_auth()
+                .returning(|_token| {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
+                            status: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                            message: "boom".to_string(),
+                        },
+                    ))
+                })
+                .once();
+        });
+
+        let result = access_send(&api_client, ACCESS_TOKEN).await;
+
+        assert!(matches!(result.unwrap_err(), AccessSendError::Api(_)));
+    }
+
+    fn not_found_response() -> bitwarden_api_api::ApiError {
+        bitwarden_api_api::ApiError::Response(bitwarden_api_api::ResponseContent {
+            status: reqwest::StatusCode::NOT_FOUND,
+            message: "Not Found".to_string(),
+        })
+    }
+
     // ===== get_file_download_data =====
 
     #[tokio::test]
@@ -699,6 +795,23 @@ mod tests {
         assert!(matches!(
             result.unwrap_err(),
             GetFileDownloadDataError::Api(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_get_file_download_data_404_is_not_found() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_get_send_file_download_data_using_auth()
+                .returning(|_file_id, _token| Err(not_found_response()))
+                .once();
+        });
+
+        let result = get_file_download_data(&api_client, FILE_ID, ACCESS_TOKEN).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            GetFileDownloadDataError::NotFound
         ));
     }
 

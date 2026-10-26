@@ -1,3 +1,5 @@
+import type { DecryptCipherResult } from "@bitwarden/sdk-internal";
+
 import type { SeedAccount } from "../server-emulator/server-emulator";
 
 import type { ClientEmulator } from "./client-emulator";
@@ -19,21 +21,7 @@ export async function validateVault(
   const sdk = client.getPasswordManagerClient();
 
   // 1. Compare the vault items, which have to decrypt before they can be compared at all
-  const { successes: ciphers, failures } = await sdk.vault().ciphers().get_all();
-  if (failures.length > 0) {
-    const ids = failures.map((cipher) => String(cipher.id)).join(", ");
-    throw new Error(`${failures.length} cipher(s) failed to decrypt: ${ids}`);
-  }
-
-  for (const cipher of ciphers) {
-    const id = String(cipher.id);
-    const recorded = (seed.vault?.ciphers ?? []).find((item) => item.id === id)?.decrypted;
-    if (recorded === undefined) {
-      throw new Error(`local state holds cipher ${id}, which the vector does not record`);
-    }
-
-    expectPlaintextEqual(cipher, recorded, `cipher ${id}`, ignore);
-  }
+  validateCiphers(await sdk.vault().ciphers().get_all(), seed, ignore);
 
   // 2. Compare the folders
   const folders = await sdk.vault().folders().list();
@@ -45,6 +33,31 @@ export async function validateVault(
     }
 
     expectPlaintextEqual(folder, recorded, `folder ${id}`, ignore);
+  }
+}
+
+/**
+ * Compares decrypted ciphers to the plaintext `seed` records. Throws on a cipher that failed to
+ * decrypt, or one the vector does not record.
+ */
+export function validateCiphers(
+  result: DecryptCipherResult,
+  seed: SeedAccount,
+  ignore: readonly string[] = IGNORED_FIELDS,
+): void {
+  if (result.failures.length > 0) {
+    const ids = result.failures.map((cipher) => String(cipher.id)).join(", ");
+    throw new Error(`${result.failures.length} cipher(s) failed to decrypt: ${ids}`);
+  }
+
+  for (const cipher of result.successes) {
+    const id = String(cipher.id);
+    const recorded = (seed.vault?.ciphers ?? []).find((item) => item.id === id)?.decrypted;
+    if (recorded === undefined) {
+      throw new Error(`decrypted cipher ${id}, which the vector does not record`);
+    }
+
+    expectPlaintextEqual(cipher, recorded, `cipher ${id}`, ignore);
   }
 }
 

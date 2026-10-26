@@ -103,7 +103,9 @@ impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
             Api::OrganizationUserNotification => PolicyType::OrganizationUserNotification,
             Api::SendControls => PolicyType::SendControls,
             Api::FillAssist => PolicyType::FillAssist,
-            Api::__Unknown(value) => return Err(PolicyParseError::UnknownPolicyType(value)),
+            // Catch-all so that the build doesn't break every time a new policy is added on the
+            // server. This happens fairly regularly so it's worth trading off exhaustiveness.
+            unknown => return Err(PolicyParseError::UnknownPolicyType(unknown.as_i64())),
         })
     }
 }

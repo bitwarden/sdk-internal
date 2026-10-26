@@ -14,50 +14,42 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessRuleRequestModel {
-    /// The rule's display name, shown wherever rules are listed and managed. Required; up to 256
-    /// characters.
     #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    /// Optional free-text describing the rule's intent. Has no effect on evaluation; surfaced to
-    /// admins only.
+    /// Free text describing the rule's intent; has no effect on evaluation.
     #[serde(
         rename = "description",
         alias = "Description",
         skip_serializing_if = "Option::is_none"
     )]
     pub description: Option<String>,
-    /// When false, the rule is inactive and does not gate access for the collections it governs.
-    /// Defaults to true so a request that omits the field creates an active rule.
+    /// When false, the rule does not gate access to its collections. Defaults to true when
+    /// omitted.
     #[serde(
         rename = "enabled",
         alias = "Enabled",
         skip_serializing_if = "Option::is_none"
     )]
     pub enabled: Option<bool>,
-    /// The conditions that decide how access is granted under this rule — for example requiring
-    /// human approval, or restricting to certain source IPs. Sent as a JSON array of condition
-    /// objects and stored verbatim. Required — a null or omitted value is rejected; an empty array
-    /// means the rule imposes no conditions, so requests under it resolve automatically.
+    /// A JSON array of condition objects, such as human approval or a source IP restriction,
+    /// stored verbatim. An empty array means requests under the rule resolve automatically.
     #[serde(rename = "conditions", alias = "Conditions")]
     pub conditions: Option<serde_json::Value>,
-    /// When true, the rule enforces a per-cipher singleton (at most one active lease per cipher
-    /// across all users).
+    /// When true, at most one active lease per cipher across all users.
     #[serde(
         rename = "singleActiveLease",
         alias = "SingleActiveLease",
         skip_serializing_if = "Option::is_none"
     )]
     pub single_active_lease: Option<bool>,
-    /// Default lease duration in seconds, used to pre-fill a request opened under this rule. Null
-    /// means the backend default applies.
+    /// Pre-fills the duration of a request under this rule. Null means the global default.
     #[serde(
         rename = "defaultLeaseDurationSeconds",
         alias = "DefaultLeaseDurationSeconds",
         skip_serializing_if = "Option::is_none"
     )]
     pub default_lease_duration_seconds: Option<i32>,
-    /// Hard ceiling on the duration of any single lease granted under this rule, in seconds. Null
-    /// means no per-rule cap.
+    /// Ceiling on any single lease under this rule. Null means no per-rule cap.
     #[serde(
         rename = "maxLeaseDurationSeconds",
         alias = "MaxLeaseDurationSeconds",
@@ -81,8 +73,8 @@ pub struct AccessRuleRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub max_extension_duration_seconds: Option<i32>,
-    /// The complete set of collections this rule governs. The rule's associations are replaced to
-    /// match exactly this set; an empty array clears all associations.
+    /// The complete set of collections this rule governs, replacing its current ones. An empty
+    /// array clears them.
     #[serde(rename = "collections", alias = "Collections")]
     pub collections: Vec<uuid::Uuid>,
 }

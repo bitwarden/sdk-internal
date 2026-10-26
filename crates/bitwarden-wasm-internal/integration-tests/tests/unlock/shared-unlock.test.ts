@@ -49,6 +49,7 @@ type FollowerName = "browser" | "cli";
  */
 function makeDriver(clientName: ClientName, initialKey: SymmetricKey | undefined): MockDriver {
   let key = initialKey;
+  let lastManualLock: number | undefined;
   const suppressions: number[] = [];
 
   // Settled by the first `on_peer_state` call; later reports are ignored.
@@ -74,6 +75,10 @@ function makeDriver(clientName: ClientName, initialKey: SymmetricKey | undefined
       on_peer_state: async (_user_id, lock_state) => {
         reportPeerState(lock_state);
       },
+      set_last_manual_lock: async (_user_id, locked_at) => {
+        lastManualLock = locked_at;
+      },
+      get_last_manual_lock: async () => lastManualLock,
     },
     getUserKey: () => key,
     suppressions,

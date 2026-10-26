@@ -34,25 +34,29 @@ pub struct SendItemMetadataModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub organization_name: Option<String>,
-    #[serde(rename = "creationDate", alias = "CreationDate")]
-    pub creation_date: String,
-    #[serde(rename = "revisionDate", alias = "RevisionDate")]
-    pub revision_date: String,
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub creation_date: Option<String>,
+    #[serde(
+        rename = "revisionDate",
+        alias = "RevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub revision_date: Option<String>,
 }
 
 impl SendItemMetadataModel {
-    pub fn new(
-        item_id: uuid::Uuid,
-        creation_date: String,
-        revision_date: String,
-    ) -> SendItemMetadataModel {
+    pub fn new(item_id: uuid::Uuid) -> SendItemMetadataModel {
         SendItemMetadataModel {
             item_id,
             folder_name: None,
             collection_names: None,
             organization_name: None,
-            creation_date,
-            revision_date,
+            creation_date: None,
+            revision_date: None,
         }
     }
 }

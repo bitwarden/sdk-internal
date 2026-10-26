@@ -277,7 +277,16 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             "Shared unlock device event reported by this client"
         );
 
-        self.record_local_state(user_id, lock_state);
+        let changed_at = self.record_local_state(user_id, lock_state);
+
+        // Persisted, so the lock survives a reload that happens before it reached any peer.
+        if let DeviceEvent::ManualLock { .. } = event {
+            self.0
+                .driver
+                .set_last_manual_lock(user_id, changed_at)
+                .await;
+        }
+
         self.sync_user(user_id).await;
         Ok(())
     }
@@ -288,8 +297,19 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
         user_id: UserId,
         remote: TimestampedLockState,
     ) -> Result<(), ()> {
-        if !remote.supersedes(self.recorded_state(user_id).as_ref()) {
+        if !remote.supersedes(self.restored_state(user_id).await.as_ref()) {
             return Ok(());
+        }
+
+        // Persisted before the driver is called, because a client may reload inside `lock_user`
+        // and lose anything recorded after it. E.g. the desktop locks at T2, the browser applies
+        // it and reloads: the browser must come back as "locked at T2", not adopt the web vault's
+        // older unlock at T1.
+        if let LockState::Locked = remote.lock_state {
+            self.0
+                .driver
+                .set_last_manual_lock(user_id, remote.changed_at)
+                .await;
         }
 
         // Compared against what this peer *advertises*, not against what it has recorded, so the
@@ -298,7 +318,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
         // an incoming `Locked` "differ" from an unobserved user and re-lock an
         // already-locked device on every restart — which a client that restarts on lock
         // turns into an endless restart loop.
-        let differs = remote.lock_state != self.advertised_state(user_id).lock_state;
+        let differs = remote.lock_state != self.advertised_state(user_id).await.lock_state;
         if differs {
             tracing::debug!(
                 %user_id,
@@ -306,6 +326,8 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
                 changed_at = remote.changed_at,
                 "Applying a peer's lock state through the driver"
             );
+
+            self.relay_user_state(user_id, &remote).await;
 
             match &remote.lock_state {
                 LockState::Locked => self
@@ -340,6 +362,22 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
         }
     }
 
+    /// Sends a state to every peer this peer syncs with, without recording it. Used to pass a
+    /// peer's lock on before this device has applied it.
+    async fn relay_user_state(&self, user_id: UserId, state: &TimestampedLockState) {
+        for target in self.sync_targets().await {
+            if !self.may_sync_user_to(user_id, &target).await {
+                continue;
+            }
+
+            let message = SharedUnlockSync {
+                user_id,
+                state: state.clone(),
+            };
+            self.send_message(message, target.endpoint.clone()).await;
+        }
+    }
+
     /// Sends this peer's state for every logged-in user to one specific peer.
     async fn sync_all_users_to(&self, target: &SyncTarget) {
         for user_id in self.0.driver.list_users().await {
@@ -354,7 +392,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
 
         let message = SharedUnlockSync {
             user_id,
-            state: self.advertised_state(user_id),
+            state: self.advertised_state(user_id).await,
         };
         self.send_message(message, target.endpoint.clone()).await;
     }
@@ -464,9 +502,41 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             .cloned()
     }
 
-    /// The state to advertise for a user: the recorded one, or a presence marker.
-    fn advertised_state(&self, user_id: UserId) -> TimestampedLockState {
-        self.recorded_state(user_id).unwrap_or_default()
+    /// The recorded state, or — when nothing is recorded, as after a process reload — the
+    /// persisted last manual lock, which is then recorded.
+    ///
+    /// Without this, a lock made just before a reload is forgotten, and the reloaded peer adopts
+    /// the older unlock its peers still hold. E.g. unlocked at T, locked at T+1, reloaded: the
+    /// peer must come back as "locked at T+1", not "locked at 0".
+    async fn restored_state(&self, user_id: UserId) -> Option<TimestampedLockState> {
+        if let Some(recorded) = self.recorded_state(user_id) {
+            return Some(recorded);
+        }
+
+        let changed_at = self.0.driver.get_last_manual_lock(user_id).await?;
+        let restored = TimestampedLockState {
+            lock_state: LockState::Locked,
+            changed_at,
+        };
+
+        // A state recorded while the driver was awaited is at least as fresh; keep it.
+        let mut states = self
+            .0
+            .states
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        Some(states.entry(user_id).or_insert(restored).clone())
+    }
+
+    /// The state to advertise for a user: 1. the active state, 2. the last lock persisted to disk,
+    /// or 3. a default null value.
+    async fn advertised_state(&self, user_id: UserId) -> TimestampedLockState {
+        self.restored_state(user_id)
+            .await
+            .unwrap_or(TimestampedLockState {
+                lock_state: LockState::Locked,
+                changed_at: 0,
+            })
     }
 
     /// Records a state reported by a peer, if it still supersedes what is recorded.
@@ -482,8 +552,8 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
         }
     }
 
-    /// Records a change made on this device.
-    fn record_local_state(&self, user_id: UserId, lock_state: LockState) {
+    /// Records a change made on this device, returning the date it was recorded at.
+    fn record_local_state(&self, user_id: UserId, lock_state: LockState) -> u64 {
         let mut states = self
             .0
             .states
@@ -502,5 +572,6 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
                 changed_at,
             },
         );
+        changed_at
     }
 }

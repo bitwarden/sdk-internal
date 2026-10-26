@@ -25,6 +25,7 @@ wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-core/wasm",
     "bitwarden-encoding/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-state/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -40,6 +41,7 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-logging = { workspace = true }
 bitwarden-ssh = { workspace = true }
 bitwarden-state = { workspace = true }
@@ -54,6 +56,7 @@ reqwest = { workspace = true, features = ["stream", "multipart"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_repr = { workspace = true }
+serde_with = { version = ">=3.8, <4", default-features = false, features = ["macros"] }
 sha1 = { workspace = true }
 sha2 = { workspace = true }
 subtle = { workspace = true }
