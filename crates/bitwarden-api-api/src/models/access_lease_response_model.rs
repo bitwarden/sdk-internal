@@ -12,11 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessLeaseResponseModel : An access lease as its requester sees it, with
+/// AccessLeaseResponseModel : An access lease, with
 /// Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.Status derived against the read
-/// clock. Fields without a backing store in v1
-/// (Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.RuleId,
-/// Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.RevocationReason) are null.
+/// clock.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessLeaseResponseModel {
     #[serde(
@@ -25,45 +23,40 @@ pub struct AccessLeaseResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    /// The lease's unique identifier.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    /// The request this lease was born from.
     #[serde(
         rename = "requestId",
         alias = "RequestId",
         skip_serializing_if = "Option::is_none"
     )]
     pub request_id: Option<uuid::Uuid>,
-    /// The cipher the lease grants access to.
     #[serde(
         rename = "cipherId",
         alias = "CipherId",
         skip_serializing_if = "Option::is_none"
     )]
     pub cipher_id: Option<uuid::Uuid>,
-    /// The collection the cipher belongs to.
+    /// The collection through which the lease was granted.
     #[serde(
         rename = "collectionId",
         alias = "CollectionId",
         skip_serializing_if = "Option::is_none"
     )]
     pub collection_id: Option<uuid::Uuid>,
-    /// The access rule that gated the cipher at grant time. Not tracked in v1.
+    /// Always null; leases do not record their rule.
     #[serde(
         rename = "ruleId",
         alias = "RuleId",
         skip_serializing_if = "Option::is_none"
     )]
     pub rule_id: Option<String>,
-    /// The organization that owns the cipher.
     #[serde(
         rename = "organizationId",
         alias = "OrganizationId",
         skip_serializing_if = "Option::is_none"
     )]
     pub organization_id: Option<uuid::Uuid>,
-    /// The user the lease was granted to (the original requester).
     #[serde(
         rename = "requesterId",
         alias = "RequesterId",
@@ -76,36 +69,33 @@ pub struct AccessLeaseResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub status: Option<models::AccessLeaseStatus>,
-    /// When the lease's access window opens (UTC).
     #[serde(
         rename = "notBefore",
         alias = "NotBefore",
         skip_serializing_if = "Option::is_none"
     )]
     pub not_before: Option<String>,
-    /// When the lease's access window closes (UTC).
     #[serde(
         rename = "notAfter",
         alias = "NotAfter",
         skip_serializing_if = "Option::is_none"
     )]
     pub not_after: Option<String>,
-    /// When the lease was revoked early (UTC); null unless it was revoked before expiry.
+    /// When the lease was revoked or cancelled early; otherwise null.
     #[serde(
         rename = "revokedAt",
         alias = "RevokedAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub revoked_at: Option<String>,
-    /// The user who revoked the lease; null unless it was revoked early.
+    /// Who revoked or cancelled the lease early; otherwise null.
     #[serde(
         rename = "revokedByUserId",
         alias = "RevokedByUserId",
         skip_serializing_if = "Option::is_none"
     )]
     pub revoked_by_user_id: Option<uuid::Uuid>,
-    /// The reason captured on early revocation. Recorded on the audit decision, not surfaced here
-    /// in v1.
+    /// Always null; the reason is recorded as a decision on the originating request.
     #[serde(
         rename = "revocationReason",
         alias = "RevocationReason",
@@ -115,11 +105,8 @@ pub struct AccessLeaseResponseModel {
 }
 
 impl AccessLeaseResponseModel {
-    /// An access lease as its requester sees it, with
-    /// Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.Status derived against the
-    /// read clock. Fields without a backing store in v1
-    /// (Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.RuleId,
-    /// Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.RevocationReason) are null.
+    /// An access lease, with Bit.Services.Pam.Api.Models.Response.AccessLeaseResponseModel.Status
+    /// derived against the read clock.
     pub fn new() -> AccessLeaseResponseModel {
         AccessLeaseResponseModel {
             object: None,

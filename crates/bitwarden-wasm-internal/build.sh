@@ -71,30 +71,32 @@ build_wasm() {
 }
 
 build_wasm "${SIMD_CPU}" ./target
-build_wasm "${MVP_CPU}" "${MVP_TARGET_DIR}"
 
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundler --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER} ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target nodejs --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER}/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
-rm -rf "${MVP_BINDGEN_DIR}"
-cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundler --out-dir "${MVP_BINDGEN_DIR}" ${MVP_TARGET_DIR}/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
-
-# The wasm2js fallback is loaded through the glue generated for the SIMD build
-if ! cmp -s "${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.js" "crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.js"; then
-  echo "error: MVP and SIMD builds produced different wasm-bindgen glue" >&2
-  exit 1
-fi
-
 # Format TypeScript definition files only (skip generated .wasm.js files)
 npx prettier --write "./crates/bitwarden-wasm-internal/${NPM_FOLDER}/**/*.ts"
 
-# Optimize size
-wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm
-wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm
+# Optimize size, then build the MVP binary and transpile it to JS. Debug builds skip this to save
+# build time, and write a stub instead so bundlers importing the fallback still resolve it.
+if [ -z "$RELEASE_FLAG" ]; then
+  echo 'throw new Error("wasm2js fallback is not built in debug mode, use build.sh -r");' > ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
+else
+  wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm
+  wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm
 
-# Transpile the MVP build to JS
-wasm-opt -Os ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm -o ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm
-wasm2js -Os ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
-if [ -n "$RELEASE_FLAG" ]; then
+  build_wasm "${MVP_CPU}" "${MVP_TARGET_DIR}"
+  rm -rf "${MVP_BINDGEN_DIR}"
+  cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundler --out-dir "${MVP_BINDGEN_DIR}" ${MVP_TARGET_DIR}/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
+
+  # The wasm2js fallback is loaded through the glue generated for the SIMD build
+  if ! cmp -s "${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.js" "crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.js"; then
+    echo "error: MVP and SIMD builds produced different wasm-bindgen glue" >&2
+    exit 1
+  fi
+
+  wasm-opt -Os ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm -o ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm
+  wasm2js -Os ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
   npx terser ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
 fi
 

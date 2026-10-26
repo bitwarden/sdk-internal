@@ -14,6 +14,8 @@ pub enum ImportError {
     #[error("The KeePass database could not be read; it may be corrupted or unsupported")]
     KdbxCorruptOrUnsupported,
 
+    #[error("The 1Password email address is not valid")]
+    OnePasswordInvalidEmail,
     #[error("The 1Password sign-in address is not valid")]
     OnePasswordInvalidSignInAddress,
     #[error("The 1Password Secret Key is not valid")]
@@ -24,6 +26,10 @@ pub enum ImportError {
     OnePasswordTwoFactorRequired,
     #[error("The 1Password two-factor code was rejected or not entered")]
     OnePasswordTwoFactorFailed,
+    #[error("The 1Password sign-in was canceled")]
+    OnePasswordCanceled,
+    #[error("The new 1Password device was denied on another device")]
+    OnePasswordDenied,
     #[error("This 1Password account uses a sign-in method the importer does not support: {0}")]
     OnePasswordUnsupported(String),
     #[error("Could not reach 1Password: {0}")]

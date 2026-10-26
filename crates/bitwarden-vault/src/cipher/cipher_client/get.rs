@@ -3,12 +3,10 @@ use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::CiphersClient;
 use crate::{
-    Cipher, CipherView, ItemNotFoundError,
+    Cipher, CipherId, CipherView, ItemNotFoundError,
     cipher::cipher::{DecryptCipherListResult, DecryptCipherResult, StrictDecrypt},
 };
 
@@ -27,10 +25,9 @@ pub enum GetCipherError {
 async fn get_cipher(
     store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Cipher>,
-    id: &str,
+    id: CipherId,
     use_strict_decryption: bool,
 ) -> Result<CipherView, GetCipherError> {
-    let id = id.parse().map_err(|_| ItemNotFoundError)?;
     let cipher = repository.get(id).await?.ok_or(ItemNotFoundError)?;
 
     Ok(if use_strict_decryption {
@@ -85,7 +82,7 @@ async fn get_all_ciphers(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Get all ciphers from state and decrypt them to [crate::CipherListView], returning both
     /// successes and failures. This method will not fail when some ciphers fail to decrypt,
@@ -118,7 +115,7 @@ impl CiphersClient {
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
-    pub async fn get(&self, cipher_id: &str) -> Result<CipherView, GetCipherError> {
+    pub async fn get(&self, cipher_id: CipherId) -> Result<CipherView, GetCipherError> {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 

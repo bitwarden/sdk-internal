@@ -7,11 +7,9 @@ use crate::MAX_REQUEST_ACCESS_WINDOW_SECONDS;
 
 /// Maximum length of an access rule's `name` field, matching the server's constraint.
 const MAX_NAME_LENGTH: usize = 256;
-/// Maximum number of conditions allowed on a single access rule.
 const MAX_CONDITIONS: usize = 10;
 
-/// Errors returned when a locally-constructed [`AccessRuleAddEditRequest`] fails validation
-/// before being sent to the server.
+/// Errors from validating an [`AccessRuleAddEditRequest`] before it is sent to the server.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum AccessRuleValidationError {
     /// `name` was empty (after trimming whitespace) or exceeded 256 characters.
@@ -34,7 +32,7 @@ pub enum AccessRuleValidationError {
     /// More than 10 conditions were provided.
     #[error("A rule may have at most {MAX_CONDITIONS} conditions")]
     TooManyConditions,
-    /// An `ip_allowlist` condition contained a CIDR range that failed to parse.
+    /// An `ip_allowlist` condition contained an invalid CIDR range.
     #[error("Invalid CIDR range: {0}")]
     InvalidCidr(String),
     /// An `ip_allowlist` condition was provided without any CIDR ranges.
@@ -42,9 +40,8 @@ pub enum AccessRuleValidationError {
     EmptyCidrList,
 }
 
-/// Validates a request before it is sent to the server. Unknown condition kinds are skipped -
-/// the server is the source of truth for validating condition kinds this SDK version doesn't
-/// model.
+/// Validates a request before it is sent to the server. Unknown condition kinds are left to the
+/// server.
 pub fn validate_request(
     request: &AccessRuleAddEditRequest,
 ) -> Result<(), AccessRuleValidationError> {
@@ -112,19 +109,9 @@ pub fn validate_request(
     Ok(())
 }
 
-/// Returns `true` when `value` is a CIDR range in canonical form: `address/prefix` where the
-/// address parses strictly (RFC dotted-quad IPv4 / RFC 4291 IPv6, no leading-zero octets, hex
-/// octets, partial addresses, or zone IDs), the prefix is a plain decimal integer in range, and
-/// no host bits are set (e.g. `10.0.0.0/8` is valid, `10.0.0.1/8` is not).
-///
-/// This is deliberately stricter than the server, which currently stores conditions verbatim, and
-/// stricter than .NET 10's `IPNetwork.TryParse`, which silently truncates host bits and interprets
-/// leading-zero octets as octal. Rejecting ambiguous input here avoids a client/server
-/// disagreement about which network a rule matches.
-///
-/// IPv4-mapped IPv6 addresses (e.g. `::ffff:10.0.0.0/104`) are also rejected as ambiguous:
-/// client and server may disagree about whether such a range overlaps the equivalent native IPv4
-/// CIDR. Use the native IPv4 form (e.g. `10.0.0.0/8`) instead.
+/// Returns `true` for a canonical CIDR range such as `10.0.0.0/8`, with no host bits set.
+/// Ambiguous forms (leading-zero or hex octets, IPv4-mapped IPv6) are rejected so client and
+/// server agree on which network a rule matches.
 #[bitwarden_ffi::wasm_export]
 pub fn is_valid_cidr(value: &str) -> bool {
     let Some((addr, prefix)) = value.split_once('/') else {
@@ -140,23 +127,16 @@ pub fn is_valid_cidr(value: &str) -> bool {
     match addr.parse::<IpAddr>() {
         Ok(IpAddr::V4(ip)) => prefix <= 32 && no_host_bits(u32::from(ip).into(), prefix, 32),
         Ok(IpAddr::V6(ip)) => {
-            // Reject IPv4-mapped IPv6 addresses (::ffff:a.b.c.d). Use to_ipv4_mapped() rather
-            // than to_ipv4() because to_ipv4() also matches the deprecated IPv4-compatible range
-            // (::a.b.c.d), which would wrongly reject ::/0 and ::1.
+            // Reject IPv4-mapped addresses (::ffff:a.b.c.d). `to_ipv4()` would also match the
+            // IPv4-compatible range (::a.b.c.d) and wrongly reject ::/0 and ::1.
             ip.to_ipv4_mapped().is_none() && prefix <= 128 && no_host_bits(ip.into(), prefix, 128)
         }
         Err(_) => false,
     }
 }
 
-/// Returns true when the low `width - prefix` host bits of `addr` are all zero.
-///
-/// # Preconditions
-///
-/// Callers **must** ensure `prefix <= width`. The `host_bits == 0` branch is not merely an
-/// optimisation: it is load-bearing for panic-safety. When `prefix == width`, `host_bits` is `0`
-/// and we return early, avoiding the expression `u128::MAX >> 128`, which would panic due to
-/// Rust's overflow checks on shift amounts.
+/// Returns true when the low `width - prefix` host bits of `addr` are all zero. Requires
+/// `prefix <= width`; the `host_bits == 0` check also avoids `u128::MAX >> 128`, which panics.
 fn no_host_bits(addr: u128, prefix: u8, width: u8) -> bool {
     debug_assert!(prefix <= width);
     let host_bits = width - prefix;
@@ -321,8 +301,6 @@ mod tests {
         assert_eq!(validate_request(&request), Ok(()));
     }
 
-    // --- Edge cases for is_valid_cidr ---
-
     #[test]
     fn zero_zero_zero_zero_slash_zero_is_valid() {
         assert!(is_valid_cidr("0.0.0.0/0"));
@@ -335,7 +313,6 @@ mod tests {
 
     #[test]
     fn ipv4_nonzero_host_with_slash_zero_is_invalid() {
-        // 10.0.0.0/0 has host bits set because the entire address must be zero for /0
         assert!(!is_valid_cidr("10.0.0.0/0"));
     }
 
@@ -389,8 +366,6 @@ mod tests {
         assert!(!is_valid_cidr("2001:db8::/300"));
     }
 
-    // --- Signed/non-digit prefix characters ---
-
     #[test]
     fn signed_positive_prefix_is_invalid() {
         assert!(!is_valid_cidr("10.0.0.0/+8"));
@@ -401,14 +376,11 @@ mod tests {
         assert!(!is_valid_cidr("10.0.0.0/-8"));
     }
 
-    // --- Leading zero in prefix (unambiguous decimal — matches .NET behaviour) ---
-
     #[test]
     fn prefix_with_leading_zero_is_valid() {
+        // A leading zero in the prefix is unambiguous decimal, as .NET also reads it.
         assert!(is_valid_cidr("10.0.0.0/08"));
     }
-
-    // --- Ambiguous / non-canonical address forms ---
 
     #[test]
     fn leading_zero_octet_is_invalid() {
@@ -432,28 +404,21 @@ mod tests {
         assert!(!is_valid_cidr("fe80::1%1/64"));
     }
 
-    // --- Change 1: IPv4-mapped IPv6 CIDRs are rejected ---
-
     #[test]
     fn ipv4_mapped_ipv6_is_invalid() {
-        // ::ffff:10.0.0.0/104 is the IPv4-mapped IPv6 form of 10.0.0.0/8; reject it as
-        // ambiguous so client and server always agree on which network a rule matches.
+        // The IPv4-mapped form of 10.0.0.0/8.
         assert!(!is_valid_cidr("::ffff:10.0.0.0/104"));
     }
 
     #[test]
     fn ipv6_loopback_is_not_treated_as_mapped() {
-        // ::1 has a small numeric value but is NOT an IPv4-mapped address; it must still be
-        // accepted. Regression guard for the to_ipv4_mapped() vs to_ipv4() distinction.
+        // `::1` is not IPv4-mapped, though `to_ipv4()` would treat it as IPv4-compatible.
         assert!(is_valid_cidr("::1/128"));
     }
 
-    // --- Change 2: name length is measured in UTF-16 code units ---
-
     #[test]
     fn name_with_supplementary_chars_measured_in_utf16() {
-        // U+1D538 MATHEMATICAL DOUBLE-STRUCK CAPITAL A encodes as a surrogate pair in UTF-16
-        // (2 code units). 128 such chars = 256 UTF-16 units → valid; 129 = 258 units → invalid.
+        // U+1D538 takes two UTF-16 code units, so 128 of them make 256 (valid) and 129 make 258.
         let base_char = '𝔸';
         let mut request = base_request();
 
@@ -466,8 +431,6 @@ mod tests {
             Err(AccessRuleValidationError::InvalidName)
         );
     }
-
-    // --- Change 4: lease durations must be positive when provided ---
 
     #[test]
     fn negative_default_lease_duration_is_invalid() {
@@ -574,7 +537,6 @@ mod tests {
 
     #[test]
     fn default_lease_duration_without_a_max_is_valid() {
-        // An absent max is "no cap" - it cannot be exceeded.
         let mut request = base_request();
         request.default_lease_duration_seconds = Some(7 * 86_400);
         request.max_lease_duration_seconds = None;

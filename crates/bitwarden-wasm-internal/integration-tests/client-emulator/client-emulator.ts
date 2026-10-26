@@ -50,7 +50,7 @@ export class ClientEmulator {
   }
 
   /**
-   * Simulates a sync from server to client
+   * Simulates a sync from server to client, handled by the current client, locked or not.
    */
   async sync(email: string): Promise<void> {
     const user = this.server.getUser(email);
@@ -71,8 +71,9 @@ export class ClientEmulator {
 
     const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
-    const locked = makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
-    await locked.crypto_sync_handler().on_sync({
+    // A login syncs before there is any client, so start from a locked one.
+    this.client ??= this.local.locked();
+    await this.client.crypto_sync_handler().on_sync({
       accountCryptographicState: accountKeys.toAccountCryptographicState(),
       userDecryption: {
         masterPasswordUnlock:
