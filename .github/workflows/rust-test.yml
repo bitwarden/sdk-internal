@@ -27,14 +27,21 @@ jobs:
         run: exit 0
 
   test:
-    name: ${{ matrix.os }} / default
+    name: ${{ matrix.os }} / ${{ matrix.scope }}
     runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
     strategy:
+      fail-fast: false
       matrix:
         os:
           - ubuntu-24.04
           - macOS-14
           - windows-2022
+        scope:
+          - default
+        include:
+          - os: windows-2022
+            scope: windows-specific
+            packages: -p bw -p bitwarden-access-connector
 
     steps:
       - name: Checkout
@@ -61,9 +68,9 @@ jobs:
           path: |
             target
             !target/**/*.profraw
-          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ github.sha }}
+          key: build-${{ runner.os }}-${{ github.job }}${{ matrix.packages && '-scoped' || '' }}-${{ hashFiles('rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
-            build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-
+            build-${{ runner.os }}-${{ github.job }}${{ matrix.packages && '-scoped' || '' }}-${{ hashFiles('rust-toolchain.toml') }}-
 
       - name: Mark changed files
         shell: bash
@@ -71,20 +78,20 @@ jobs:
 
       - name: Build tests
         id: build
-        run: cargo test --workspace --all-features --no-run --timings
+        run: cargo test ${{ matrix.packages || '--workspace' }} --all-features --no-run --timings
 
       - name: Record build commit
         shell: bash
         run: ./scripts/ci-record-build-commit.sh
 
       - name: Test
-        run: cargo test --workspace --all-features
+        run: cargo test ${{ matrix.packages || '--workspace' }} --all-features
 
       - name: Upload build timings
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cargo-timings-${{ matrix.os }}
+          name: cargo-timings-${{ matrix.os }}-${{ matrix.scope }}
           path: target/cargo-timings/cargo-timing.html
 
       - name: Save build output
@@ -94,7 +101,7 @@ jobs:
           path: |
             target
             !target/**/*.profraw
-          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ github.sha }}
+          key: build-${{ runner.os }}-${{ github.job }}${{ matrix.packages && '-scoped' || '' }}-${{ hashFiles('rust-toolchain.toml') }}-${{ github.sha }}
 
   test-wasm:
     name: WASM
