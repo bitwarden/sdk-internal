@@ -9,13 +9,14 @@ Noise-encrypted channels for use between the two desktop processes.
 
 ## Channels
 
-| Request                                             | Direction       | Payload                 | Response                         |
-| --------------------------------------------------- | --------------- | ----------------------- | -------------------------------- |
-| `AutotypeSetEnabledRequest`                         | renderer → main | `enabled: bool`         | `{ success: bool }`              |
-| `AutotypeSetKeyboardShortcutRequest`                | renderer → main | `shortcut: Vec<String>` | `{ success: bool }`              |
-| `AutotypeListRunningAppsRequest`                    | renderer → main | _(none)_                | `{ apps: AutotypeRunningApp[] }` |
-| `AutotypeSetConfirmationEnabledFromRendererRequest` | renderer → main | `enabled: bool`         | `{ success: bool }`              |
-| `AutotypeSetConfirmationEnabledFromMainRequest`     | main → renderer | `enabled: bool`         | `{ success: bool }`              |
+| Request                                             | Direction       | Payload                                            | Response                                         |
+| --------------------------------------------------- | --------------- | -------------------------------------------------- | ------------------------------------------------ |
+| `AutotypeSetEnabledRequest`                         | renderer → main | `enabled: bool`                                    | `{ success: bool }`                              |
+| `AutotypeSetKeyboardShortcutRequest`                | renderer → main | `shortcut: Vec<String>`                            | `{ success: bool }`                              |
+| `AutotypeListRunningAppsRequest`                    | renderer → main | _(none)_                                           | `{ apps: AutotypeRunningApp[] }`                 |
+| `AutotypeSetConfirmationEnabledFromRendererRequest` | renderer → main | `enabled: bool`                                    | `{ success: bool }`                              |
+| `AutotypeSetConfirmationEnabledFromMainRequest`     | main → renderer | `enabled: bool`                                    | `{ success: bool }`                              |
+| `AutotypeExecuteRequest`                            | main → renderer | `app: AutotypeRunningApp`, `metadata: AppMetadata` | `{ matched?: { metadata, username, password } }` |
 
 Each process registers the handlers for the requests it receives, backed by its own driver:
 

@@ -1,4 +1,6 @@
 import {
+  AppMetadata,
+  AutotypeExecuteMatch,
   AutotypeMainDriver,
   AutotypeRenderDriver,
   AutotypeRunningApp,
@@ -89,29 +91,43 @@ export function makeMockAutotypeMainDriver(
  */
 export interface MockAutotypeRenderDriverOptions {
   setConfirmationEnabledFromMain: (enabled: boolean) => Promise<boolean>;
+  // Typed loosely so a test can return a malformed match, which is exactly what the SDK's
+  // deserialization is being asked to survive.
+  executeAutotype: (app: AutotypeRunningApp, metadata: AppMetadata) => Promise<unknown>;
 }
 
 /** Recorded calls per main → renderer channel. */
 export interface MockAutotypeRenderDriverCalls {
   confirmationEnabledFromMainCalls: boolean[];
+  executeAutotypeCalls: { app: AutotypeRunningApp; metadata: AppMetadata }[];
 }
 
 /**
  * In-memory implementation of the `AutotypeRenderDriver` JS interface. Records what it was asked
- * to do, and reports whether it applied the change.
+ * to do, and returns what the per-channel behavior gives it. By default it applies every change
+ * and finds no match.
  */
 export function makeMockAutotypeRenderDriver(
   options: Partial<MockAutotypeRenderDriverOptions> = {},
 ): AutotypeRenderDriver & MockAutotypeRenderDriverCalls {
-  const { setConfirmationEnabledFromMain = async () => true } = options;
+  const {
+    setConfirmationEnabledFromMain = async () => true,
+    executeAutotype = async () => undefined,
+  } = options;
 
   const confirmationEnabledFromMainCalls: boolean[] = [];
+  const executeAutotypeCalls: { app: AutotypeRunningApp; metadata: AppMetadata }[] = [];
 
   return {
     confirmationEnabledFromMainCalls,
+    executeAutotypeCalls,
     set_autotype_confirmation_enabled_from_main: async (enabled: boolean) => {
       confirmationEnabledFromMainCalls.push(enabled);
       return setConfirmationEnabledFromMain(enabled);
+    },
+    execute_autotype: async (app: AutotypeRunningApp, metadata: AppMetadata) => {
+      executeAutotypeCalls.push({ app, metadata });
+      return (await executeAutotype(app, metadata)) as AutotypeExecuteMatch | undefined;
     },
   };
 }

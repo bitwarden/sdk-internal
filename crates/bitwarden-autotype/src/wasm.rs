@@ -84,6 +84,14 @@ export interface AutotypeRenderDriver {
      * change to the setting.
      */
     set_autotype_confirmation_enabled_from_main(enabled: boolean): Promise<boolean>;
+
+    /**
+     * Find the credentials to autotype into the focused app, as requested
+     * by the main process when the user presses the autotype shortcut.
+     * Returns the matching vault item's username and password with the
+     * `metadata` it was given, or `undefined` if nothing matches.
+     */
+    execute_autotype(app: AutotypeRunningApp, metadata: AppMetadata): Promise<AutotypeExecuteMatch | undefined>;
 }
 "#;
 
@@ -133,6 +141,16 @@ extern "C" {
         this: &RawJsAutotypeRenderDriver,
         enabled: bool,
     ) -> Result<JsValue, JsValue>;
+
+    /// Find the credentials to autotype into the focused app, as requested by the main process.
+    /// The driver returns an `AutotypeExecuteMatch` or `undefined`, received here as a raw
+    /// `JsValue` so `JsAutotypeRenderDriver::execute_autotype` can reject a malformed match.
+    #[wasm_bindgen(method, catch)]
+    async fn execute_autotype(
+        this: &RawJsAutotypeRenderDriver,
+        app: AutotypeRunningApp,
+        metadata: AppMetadata,
+    ) -> Result<JsValue, JsValue>;
 }
 
 /// A running application.
@@ -143,6 +161,41 @@ pub struct AutotypeRunningApp {
     pub name: String,
     /// Path to the app's executable.
     pub path: String,
+}
+
+/// Identifies the app Autotype was triggered for, so main can confirm the focused app hasn't
+/// changed before typing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
+pub struct AppMetadata {
+    /// The app's unique ID.
+    pub id: u32,
+    /// The app's process ID.
+    pub pid: u32,
+}
+
+/// The credentials the render process found for an [`AutotypeExecuteRequest`].
+///
+/// `Debug` is implemented by hand so the username and password never reach logs.
+#[derive(Clone, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
+pub struct AutotypeExecuteMatch {
+    /// The [`AppMetadata`] from the request, so main can confirm the focused app hasn't changed.
+    pub metadata: AppMetadata,
+    /// The matching vault item's username.
+    pub username: String,
+    /// The matching vault item's password.
+    pub password: String,
+}
+
+impl std::fmt::Debug for AutotypeExecuteMatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AutotypeExecuteMatch")
+            .field("metadata", &self.metadata)
+            .field("username", &"[REDACTED]")
+            .field("password", &"[REDACTED]")
+            .finish()
+    }
 }
 
 /// Wraps the JavaScript driver in a [`ThreadBoundRunner`] so it can be used from the `Send`
@@ -327,6 +380,51 @@ impl JsAutotypeRenderDriver {
                     "Autotype renderer runner failed to set the confirmation enabled state"
                 );
                 false
+            })
+    }
+
+    /// Finds the credentials to autotype into the focused app, as requested by the main process.
+    /// Returns `None` if nothing matches, or if the driver fails or returns a malformed match.
+    async fn execute_autotype(
+        &self,
+        app: AutotypeRunningApp,
+        metadata: AppMetadata,
+    ) -> Option<AutotypeExecuteMatch> {
+        self.runner
+            .run_in_thread(move |driver| async move {
+                let value = match driver.execute_autotype(app, metadata).await {
+                    Ok(value) => value,
+                    Err(error) => {
+                        tracing::error!(
+                            ?error,
+                            "Autotype renderer driver failed to execute autotype"
+                        );
+                        return None;
+                    }
+                };
+
+                // `undefined` (or `null`) is the normal reply when no vault item matches.
+                if value.is_undefined() || value.is_null() {
+                    return None;
+                }
+
+                // The deserialization error isn't logged, because it can quote the value it
+                // failed on, which may hold the credentials.
+                match serde_wasm_bindgen::from_value(value) {
+                    Ok(matched) => Some(matched),
+                    Err(_) => {
+                        tracing::warn!("Autotype renderer driver returned a malformed match");
+                        None
+                    }
+                }
+            })
+            .await
+            .unwrap_or_else(|error| {
+                tracing::error!(
+                    ?error,
+                    "Autotype renderer runner failed to execute autotype"
+                );
+                None
             })
     }
 }
@@ -625,6 +723,69 @@ impl RpcHandler for AutotypeSetConfirmationEnabledFromMainHandler {
     }
 }
 
+/// A request from the main process, sent when the user presses the Autotype shortcut, asking the
+/// render process for the credentials to autotype into the focused app.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutotypeExecuteRequest {
+    /// The focused app.
+    pub app: AutotypeRunningApp,
+    /// The focused app's metadata, returned with a match so main can confirm the focused app
+    /// hasn't changed.
+    pub metadata: AppMetadata,
+}
+
+/// A response to an [`AutotypeExecuteRequest`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
+pub struct AutotypeExecuteResponse {
+    /// The matching credentials, or `None` if no vault item matched.
+    #[tsify(optional)]
+    pub matched: Option<AutotypeExecuteMatch>,
+}
+
+impl RpcRequest for AutotypeExecuteRequest {
+    type Response = AutotypeExecuteResponse;
+
+    const NAME: &str = "AutotypeExecuteRequest";
+}
+
+/// An [`RpcHandler`] that finds the credentials to autotype through a
+/// [`RawJsAutotypeRenderDriver`].
+///
+/// Only requests from the desktop main process are answered; any other source (including
+/// native-messaging peers that main forwards to the renderer) gets no match without the driver
+/// being called, so it can't request credentials. See [`from_source`].
+struct AutotypeExecuteHandler {
+    driver: JsAutotypeRenderDriver,
+}
+
+impl AutotypeExecuteHandler {
+    fn new(driver: JsAutotypeRenderDriver) -> Self {
+        Self { driver }
+    }
+}
+
+impl RpcHandler for AutotypeExecuteHandler {
+    type Request = AutotypeExecuteRequest;
+
+    async fn handle(
+        &self,
+        request: Self::Request,
+        info: RpcRequestInfo,
+    ) -> AutotypeExecuteResponse {
+        if !from_source(&info, Source::DesktopMain, Self::Request::NAME) {
+            return AutotypeExecuteResponse { matched: None };
+        }
+
+        AutotypeExecuteResponse {
+            matched: self
+                .driver
+                .execute_autotype(request.app, request.metadata)
+                .await,
+        }
+    }
+}
+
 /// This registers the Autotype handlers so the client responds to Autotype requests through
 /// the `RawJsAutotypeMainDriver`. Call this on the desktop main process's IPC client.
 #[bitwarden_ffi::wasm_export(js_name = registerAutotypeMainHandlers)]
@@ -676,8 +837,14 @@ pub async fn register_autotype_render_handlers(
     ipc_client
         .client
         .register_rpc_handler(AutotypeSetConfirmationEnabledFromMainHandler::new(
-            JsAutotypeRenderDriver::new(runner),
+            JsAutotypeRenderDriver::new(runner.clone()),
         ))
+        .await;
+    ipc_client
+        .client
+        .register_rpc_handler(AutotypeExecuteHandler::new(JsAutotypeRenderDriver::new(
+            runner,
+        )))
         .await;
 }
 
@@ -786,6 +953,36 @@ pub async fn autotype_request_set_confirmation_enabled_from_main(
         .client
         .request(
             AutotypeSetConfirmationEnabledFromMainRequest { enabled },
+            Endpoint::DesktopRenderer,
+            abort_signal.map(|signal| signal.to_cancellation_token()),
+        )
+        .await
+}
+
+/// Sends an `AutotypeExecuteRequest` to the desktop render process, asking for the credentials to
+/// autotype into the focused app. The response's `matched` is empty when no vault item matches.
+///
+/// Before typing, check that `matched.metadata` still matches the focused app. If it doesn't, the
+/// user has switched apps, and nothing should be typed.
+///
+/// The render process must have called `registerAutotypeRenderHandlers` first. Otherwise the
+/// request fails (for example, with a "no handler found" error) or waits until `abort_signal`
+/// fires.
+///
+/// There is no built-in timeout, so always pass `abort_signal` (for example
+/// `AbortSignal.timeout(ms)`). Without one, the request never settles if the renderer doesn't
+/// respond.
+#[bitwarden_ffi::wasm_export(js_name = autotypeRequestExecute)]
+pub async fn autotype_request_execute(
+    ipc_client: &JsIpcClient,
+    app: AutotypeRunningApp,
+    metadata: AppMetadata,
+    abort_signal: Option<AbortSignal>,
+) -> Result<AutotypeExecuteResponse, RequestError> {
+    ipc_client
+        .client
+        .request(
+            AutotypeExecuteRequest { app, metadata },
             Endpoint::DesktopRenderer,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
