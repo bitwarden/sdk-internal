@@ -4,46 +4,37 @@
 # Cargo decides whether a workspace crate is up to date by comparing the modification times of its
 # source files with those of its build output. A fresh checkout gives every file the current time,
 # which makes every workspace crate look changed. This script sets all tracked files to a fixed old
-# time, then marks as new only the files that differ from the commit the cached build was made
-# from (stored in `target/.build-cache-sha` by `ci-record-build-commit.sh`).
+# time, then marks as new only the files whose content differs from when the cached build was made.
+# The content at build time is the list of file hashes written by `ci-record-build-inputs.sh`.
 #
-# If the cached commit can't be determined or fetched, every file is marked as new, so Cargo
-# rebuilds all workspace crates. That is slower but never stale.
+# If there is no list, every file keeps its checkout time, so Cargo rebuilds all workspace crates.
+# That is slower but never stale.
 set -euo pipefail
 
-STAMP_FILE="target/.build-cache-sha"
+INPUTS_FILE="target/.build-cache-inputs"
 
-mark_all_new() {
-  echo "Marking all files as changed: $1"
-  git ls-files -z | xargs -0 touch
-}
-
-if [ ! -f "$STAMP_FILE" ]; then
-  echo "No cached build commit found, nothing to adjust."
+if [ ! -f "$INPUTS_FILE" ]; then
+  echo "No record of the cached build's inputs, building all workspace crates."
   exit 0
 fi
 
-base=$(cat "$STAMP_FILE")
-if ! [[ "$base" =~ ^[0-9a-f]{40}$ ]]; then
-  mark_all_new "invalid cached build commit '$base'"
-  exit 0
-fi
+current=$(mktemp)
+changed=$(mktemp)
+# shellcheck source=scripts/ci-build-inputs.sh
+. "$(dirname "$0")/ci-build-inputs.sh"
+list_build_inputs > "$current"
 
-if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-  if ! git fetch --quiet --no-tags --depth=1 origin "$base"; then
-    mark_all_new "could not fetch cached build commit $base"
-    exit 0
-  fi
-fi
+# Lines are "<blob hash>\t<path>". A file is changed if it is new or its content differs from the
+# recorded list.
+awk -F'\t' 'NR == FNR { recorded[$2] = $1; next } recorded[$2] != $1 { print $2 }' \
+  "$INPUTS_FILE" "$current" > "$changed"
 
 git ls-files -z | xargs -0 touch -t 200001010000
 
-changed=$(mktemp)
-git diff --name-only -z --diff-filter=d "$base" HEAD > "$changed"
-count=$(tr -cd '\0' < "$changed" | wc -c | tr -d ' ')
-echo "Cached build is from $base. Files changed since then: $count"
+count=$(wc -l < "$changed" | tr -d ' ')
+echo "Files changed since the cached build: $count"
 if [ "$count" -gt 0 ]; then
-  xargs -0 touch < "$changed"
-  tr '\0' '\n' < "$changed" | head -50
+  tr '\n' '\0' < "$changed" | xargs -0 touch
+  head -50 "$changed"
 fi
-rm -f "$changed"
+rm -f "$current" "$changed"

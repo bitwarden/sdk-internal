@@ -73,9 +73,9 @@ jobs:
         id: build
         run: cargo test --workspace --all-features --no-run --timings
 
-      - name: Record build commit
+      - name: Record build inputs
         shell: bash
-        run: ./scripts/ci-record-build-commit.sh
+        run: ./scripts/ci-record-build-inputs.sh
 
       - name: Test
         run: cargo test --workspace --all-features
@@ -184,9 +184,9 @@ jobs:
           find target -name '*.profraw' -delete 2>/dev/null || true
           cargo bin cargo-llvm-cov --no-clean --all-features --lcov --output-path lcov.info --ignore-filename-regex "crates/bitwarden-api-"
 
-      - name: Record build commit
+      - name: Record build inputs
         shell: bash
-        run: ./scripts/ci-record-build-commit.sh
+        run: ./scripts/ci-record-build-inputs.sh
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
