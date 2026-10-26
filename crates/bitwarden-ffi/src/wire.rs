@@ -95,6 +95,9 @@ crate::impl_wire_object!(
     JsValue,
 );
 
+// JavaScript built-ins an import returns as a handle.
+crate::impl_wire_object!(js_sys::Array);
+
 /// `Vec<T>` crosses as a vector of `T`'s wire type, so `Vec<u8>` stays `Vec<u8>` and reaches
 /// JavaScript as a `Uint8Array`, while `Vec<CipherView>` becomes `Vec<Ts<CipherView>>`.
 ///

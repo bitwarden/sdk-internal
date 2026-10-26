@@ -49,6 +49,9 @@ mod wrapped {
     extern "C" {
         #[wasm_bindgen(catch, js_namespace = JSON)]
         pub fn stringify(value: Point) -> Result<JsValue, JsValue>;
+
+        #[wasm_bindgen(catch, js_namespace = JSON)]
+        pub fn parse(text: &str) -> Result<Point, JsValue>;
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -56,5 +59,14 @@ mod wrapped {
     fn converts_the_argument_before_calling_javascript() {
         let json = stringify(Point { x: 1, y: 2 }).unwrap();
         assert_eq!(json.as_string().as_deref(), Some(r#"{"x":1,"y":2}"#));
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn converts_the_return_value_after_calling_javascript() {
+        let point = parse(r#"{"x":1,"y":2}"#).unwrap();
+        assert_eq!((point.x, point.y), (1, 2));
+
+        assert!(parse(r#"{"x":"one"}"#).is_err());
     }
 }

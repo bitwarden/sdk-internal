@@ -996,6 +996,7 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-error",
  "bitwarden-ffi-macro",
+ "js-sys",
  "serde",
  "serde_json",
  "thiserror",

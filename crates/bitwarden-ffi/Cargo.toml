@@ -20,6 +20,7 @@ keywords.workspace = true
 wasm = [
     "bitwarden-error/wasm",
     "dep:bitwarden-error",
+    "dep:js-sys",
     "dep:serde",
     "dep:thiserror",
     "dep:tsify",
@@ -29,6 +30,7 @@ wasm = [
 [dependencies]
 bitwarden-error = { workspace = true, optional = true }
 bitwarden-ffi-macro = { workspace = true }
+js-sys = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 tsify = { workspace = true, optional = true }

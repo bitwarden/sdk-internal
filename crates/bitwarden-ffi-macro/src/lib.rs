@@ -114,7 +114,8 @@ pub fn wasm_object(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// A `catch` import takes Rust types for its by-value parameters. The import itself is renamed to
 /// a hidden `__wasm_raw_*` function taking each parameter's `<T as ToWasm>::Wire`, and a wrapper
 /// with the declared signature converts the arguments and calls it; a failed conversion is the
-/// wrapper's `Err`. Return types are left as written. An import without `catch` has nowhere to
+/// wrapper's `Err`. An `Ok` type other than `()` or `JsValue` is received as its
+/// `<T as FromWasm>::Wire` and converted the same way. An import without `catch` has nowhere to
 /// report a failed conversion, so it, and any getter, setter, constructor, or variadic import, is
 /// passed through unchanged.
 ///

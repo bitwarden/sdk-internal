@@ -7,7 +7,7 @@ use syn::{
 
 use crate::{
     attrs::{self, Args},
-    wire::{crosses_bare, split_result, to_wire_type},
+    wire::{crosses_bare, from_wire_type, returns_bare, split_result, to_wire_type},
 };
 
 /// `wasm_bindgen` arguments under which renaming an import would change what it binds to, so an
@@ -134,9 +134,12 @@ fn wrap_import(function: &mut ForeignItemFn) -> syn::Result<Option<TokenStream>>
     let syn::ReturnType::Type(_, ret) = &function.sig.output else {
         return Ok(None);
     };
-    if split_result(ret).is_none() {
+    let Some((ok, err)) = split_result(ret) else {
         return Ok(None);
-    }
+    };
+    let convert_ok = !returns_bare(ok);
+    let (ok, err) = (ok.clone(), err.clone());
+    let output = function.sig.output.clone();
     if !function.sig.generics.params.is_empty() {
         return Ok(None);
     }
@@ -194,8 +197,12 @@ fn wrap_import(function: &mut ForeignItemFn) -> syn::Result<Option<TokenStream>>
     }
 
     // Nothing to convert, so the import already has the signature a wrapper would give it.
-    if conversions.is_empty() {
+    if conversions.is_empty() && !convert_ok {
         return Ok(None);
+    }
+    if convert_ok {
+        let wire = from_wire_type(&ok);
+        function.sig.output = syn::parse_quote!(-> Result<#wire, #err>);
     }
 
     let name = function.sig.ident.clone();
@@ -222,40 +229,58 @@ fn wrap_import(function: &mut ForeignItemFn) -> syn::Result<Option<TokenStream>>
     let is_async = function.sig.asyncness.is_some();
     let async_tok = is_async.then(|| quote!(async));
     let await_tok = is_async.then(|| quote!(.await));
-    let output = &function.sig.output;
+    let body = |call: TokenStream| {
+        if convert_ok {
+            quote! {
+                let wire = #call #await_tok?;
+                let value = <#ok as ::bitwarden_ffi::FromWasm>::from_wire(wire)
+                    .map_err(::bitwarden_ffi::import_conversion_error)?;
+                Ok(value)
+            }
+        } else {
+            quote!(#call #await_tok)
+        }
+    };
 
     Ok(Some(match callee {
         Callee::Method { self_ty, by_ref } => {
             let receiver = if by_ref { quote!(&self) } else { quote!(self) };
+            let body = body(quote!(self.#raw(#(#call_args),*)));
             quote! {
                 impl #self_ty {
                     #(#docs)*
                     #(#fn_cfgs)*
                     #vis #async_tok fn #name(#receiver, #(#params),*) #output {
                         #(#conversions)*
-                        self.#raw(#(#call_args),*)#await_tok
+                        #body
                     }
                 }
             }
         }
-        Callee::Static(class) => quote! {
-            impl #class {
+        Callee::Static(class) => {
+            let body = body(quote!(Self::#raw(#(#call_args),*)));
+            quote! {
+                impl #class {
+                    #(#docs)*
+                    #(#fn_cfgs)*
+                    #vis #async_tok fn #name(#(#params),*) #output {
+                        #(#conversions)*
+                        #body
+                    }
+                }
+            }
+        }
+        Callee::Free => {
+            let body = body(quote!(#raw(#(#call_args),*)));
+            quote! {
                 #(#docs)*
                 #(#fn_cfgs)*
                 #vis #async_tok fn #name(#(#params),*) #output {
                     #(#conversions)*
-                    Self::#raw(#(#call_args),*)#await_tok
+                    #body
                 }
             }
-        },
-        Callee::Free => quote! {
-            #(#docs)*
-            #(#fn_cfgs)*
-            #vis #async_tok fn #name(#(#params),*) #output {
-                #(#conversions)*
-                #raw(#(#call_args),*)#await_tok
-            }
-        },
+        }
     }))
 }
 
@@ -380,6 +405,36 @@ mod tests {
         );
         assert!(out.contains("<UserIdas::bitwarden_ffi::ToWasm>::to_wire(user_id).map_err(::bitwarden_ffi::import_conversion_error)?;"), "{out}");
         assert!(out.contains("self.__wasm_raw_lock(user_id).await"), "{out}");
+    }
+
+    #[test]
+    fn wraps_a_catch_method_that_converts_its_return_value() {
+        let out = expand(
+            TokenStream::new(),
+            quote! {
+                extern "C" {
+                    pub type Driver;
+
+                    #[wasm_bindgen(method, catch)]
+                    pub async fn resolve(this: &Driver) -> Result<Resolution, JsValue>;
+                }
+            },
+        );
+
+        assert!(!out.contains("compile_error!"), "{out}");
+        assert!(
+            out.contains("fn__wasm_raw_resolve(this:&Driver)->Result<<Resolutionas::bitwarden_ffi::FromWasm>::Wire,JsValue>"),
+            "{out}"
+        );
+        assert!(
+            out.contains("pubasyncfnresolve(&self,)->Result<Resolution,JsValue>"),
+            "{out}"
+        );
+        assert!(
+            out.contains("letwire=self.__wasm_raw_resolve().await?;"),
+            "{out}"
+        );
+        assert!(out.contains("<Resolutionas::bitwarden_ffi::FromWasm>::from_wire(wire).map_err(::bitwarden_ffi::import_conversion_error)?;"), "{out}");
     }
 
     #[test]

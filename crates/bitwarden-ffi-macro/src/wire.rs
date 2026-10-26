@@ -26,6 +26,22 @@ pub(crate) fn crosses_bare(ty: &Type) -> bool {
     matches!(ty, Type::Reference(_))
 }
 
+/// Whether a `catch` import's `Ok` type is `()` or `JsValue`, which need no wrapper to convert.
+pub(crate) fn returns_bare(ty: &Type) -> bool {
+    match ty {
+        Type::Tuple(tuple) => tuple.elems.is_empty(),
+        Type::Path(path) => {
+            path.qself.is_none()
+                && path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|segment| segment.ident == "JsValue")
+        }
+        _ => false,
+    }
+}
+
 /// `Result<R, E>` -> `(R, E)`.
 pub(crate) fn split_result(ty: &Type) -> Option<(&Type, &Type)> {
     let Type::Path(path) = ty else { return None };
