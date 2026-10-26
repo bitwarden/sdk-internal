@@ -23,7 +23,7 @@ export enum LoginMethod {
   Password = "password",
 
   /** Skips authentication entirely, for accounts for that real login is not implemented. Note this only works when using the emulator */
-  ForceLogin = "force-login",
+  Unimplemented = "unimplemented",
 }
 
 /** The device a test logs in from. Identity records it; nothing here depends on the values. */
@@ -112,7 +112,7 @@ export class ClientEmulator {
    * Logs an account in and syncs it down. Leaves the client locked.
    *
    * {@link LoginMethod.Password} authenticates against the identity emulator first and so needs
-   * the account's password; {@link LoginMethod.ForceLogin} goes straight to the sync.
+   * the account's password; {@link LoginMethod.Unimplemented} goes straight to the sync.
    */
   async login(email: string, method: LoginMethod, password?: string): Promise<void> {
     if (method === LoginMethod.Password) {

@@ -100,9 +100,9 @@ describe("emergency access", () => {
         ).rejects.toThrow("Invalid username or password provided.");
 
         // Unlock: the old grantor password must not decrypt the new unlock data.
-        // ForceLogin skips authentication. So this check tests unlock alone.
+        // LoginMethod.Unimplemented skips authentication. So this check tests unlock alone.
         const stale = harness.newClientEmulator();
-        await stale.login(seeded.grantor.email, LoginMethod.ForceLogin);
+        await stale.login(seeded.grantor.email, LoginMethod.Unimplemented);
         await expect(stale.unlock(oldGrantorPassword)).rejects.toBeDefined();
 
         // The new password must pass both authentication and unlock.

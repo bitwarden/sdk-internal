@@ -32,7 +32,7 @@ describe("user key id backfill", () => {
     const { email } = harness.server.seedUserTestVector(V2_VECTOR);
 
     const client = harness.newClientEmulator();
-    await client.login(email, LoginMethod.ForceLogin);
+    await client.login(email, LoginMethod.Unimplemented);
     await client.unlockWithUserKey(V2_USER_KEY);
 
     return client;
@@ -111,7 +111,7 @@ describe("user key id backfill", () => {
 
         // 5. Verify a new client that only syncs sees the server's key id
         const returning = harness.newClientEmulator();
-        await returning.login(email, LoginMethod.ForceLogin);
+        await returning.login(email, LoginMethod.Unimplemented);
         expect(await returning.bridge.get_user_key_id()).toEqual(recorded);
       },
       TIMEOUT,
