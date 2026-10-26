@@ -108,3 +108,4 @@ pub struct CipherTypeCount {
     pub r#type: VaultCipherType,
     pub count: u32,
 }
+// Build cache experiment: harmless change in a leaf crate.
