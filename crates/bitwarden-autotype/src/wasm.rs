@@ -3,10 +3,10 @@
 //!
 //! There is one driver interface per desktop process, each implemented by the user of this
 //! crate (for example, within the Bitwarden desktop app):
-//! - `AutotypeDriver` handles requests in the main process, registered with
-//!   `registerAutotypeHandlers`.
-//! - `AutotypeRendererDriver` handles requests in the render process, registered with
-//!   `registerAutotypeRendererHandlers`.
+//! - `AutotypeMainDriver` handles requests in the main process, registered with
+//!   `registerAutotypeMainHandlers`.
+//! - `AutotypeRenderDriver` handles requests in the render process, registered with
+//!   `registerAutotypeRenderHandlers`.
 
 use bitwarden_ipc::{
     Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest, RpcRequestInfo, Source,
@@ -23,7 +23,7 @@ use wasm_bindgen_futures::js_sys;
 
 #[wasm_bindgen(typescript_custom_section)]
 /// `TS_AUTOTYPE_TYPES` defines the TypeScript types for bindgen.
-/// The AutotypeDriver and AutotypeRendererDriver interfaces are TS interfaces that will be
+/// The AutotypeMainDriver and AutotypeRenderDriver interfaces are TS interfaces that will be
 /// implemented by the user of this crate (e.g. in the Bitwarden desktop app).
 const TS_AUTOTYPE_TYPES: &'static str = r#"
 /**
@@ -32,7 +32,7 @@ const TS_AUTOTYPE_TYPES: &'static str = r#"
  * Implement each method as an `async` function. A method that throws synchronously or returns
  * a non-Promise value leaves the request without a response.
  */
-export interface AutotypeDriver {
+export interface AutotypeMainDriver {
     /**
      * Enable or disable autotype. Returns if setting
      * the enabled state was successful or not.
@@ -72,7 +72,7 @@ export interface AutotypeDriver {
  * Implement each method as an `async` function. A method that throws synchronously or returns
  * a non-Promise value leaves the request without a response.
  */
-export interface AutotypeRendererDriver {
+export interface AutotypeRenderDriver {
     /**
      * Set whether the Autotype confirmation dialog should be shown, as
      * requested by the main process. Returns if changing the setting
@@ -90,13 +90,13 @@ export interface AutotypeRendererDriver {
 #[wasm_bindgen]
 extern "C" {
     /// JavaScript implementation of the various Autotype operations.
-    #[wasm_bindgen(js_name = AutotypeDriver, typescript_type = "AutotypeDriver")]
-    pub type RawJsAutotypeDriver;
+    #[wasm_bindgen(js_name = AutotypeMainDriver, typescript_type = "AutotypeMainDriver")]
+    pub type RawJsAutotypeMainDriver;
 
     /// Enable or disable autotype. Returns if setting the enabled state was successful or not.
     #[wasm_bindgen(method, catch)]
     async fn set_autotype_enabled(
-        this: &RawJsAutotypeDriver,
+        this: &RawJsAutotypeMainDriver,
         enabled: bool,
     ) -> Result<JsValue, JsValue>;
 
@@ -104,33 +104,33 @@ extern "C" {
     /// representing if setting the shortcut was successful or not.
     #[wasm_bindgen(method, catch)]
     async fn set_autotype_keyboard_shortcut(
-        this: &RawJsAutotypeDriver,
+        this: &RawJsAutotypeMainDriver,
         shortcut: Vec<String>,
     ) -> Result<JsValue, JsValue>;
 
     /// List the applications currently running. The driver returns an `AutotypeRunningApp[]`,
-    /// received here as a raw `JsValue` so `JsAutotypeDriver::list_running_apps` can skip
+    /// received here as a raw `JsValue` so `JsAutotypeMainDriver::list_running_apps` can skip
     /// entries that don't match `AutotypeRunningApp`.
     #[wasm_bindgen(method, catch)]
-    async fn list_running_apps(this: &RawJsAutotypeDriver) -> Result<JsValue, JsValue>;
+    async fn list_running_apps(this: &RawJsAutotypeMainDriver) -> Result<JsValue, JsValue>;
 
     /// Set whether the Autotype confirmation dialog should be shown, as requested by the render
     /// process. Returns a boolean representing if changing the setting was successful or not.
     #[wasm_bindgen(method, catch)]
     async fn set_autotype_confirmation_enabled_from_renderer(
-        this: &RawJsAutotypeDriver,
+        this: &RawJsAutotypeMainDriver,
         enabled: bool,
     ) -> Result<JsValue, JsValue>;
 
     /// JavaScript implementation of the Autotype operations applied in the render process.
-    #[wasm_bindgen(js_name = AutotypeRendererDriver, typescript_type = "AutotypeRendererDriver")]
-    pub type RawJsAutotypeRendererDriver;
+    #[wasm_bindgen(js_name = AutotypeRenderDriver, typescript_type = "AutotypeRenderDriver")]
+    pub type RawJsAutotypeRenderDriver;
 
     /// Set whether the Autotype confirmation dialog should be shown, as requested by the main
     /// process. Returns a boolean representing if changing the setting was successful or not.
     #[wasm_bindgen(method, catch)]
     async fn set_autotype_confirmation_enabled_from_main(
-        this: &RawJsAutotypeRendererDriver,
+        this: &RawJsAutotypeRenderDriver,
         enabled: bool,
     ) -> Result<JsValue, JsValue>;
 }
@@ -147,12 +147,12 @@ pub struct AutotypeRunningApp {
 
 /// Wraps the JavaScript driver in a [`ThreadBoundRunner`] so it can be used from the `Send`
 /// futures an [`RpcHandler`] is required to return.
-struct JsAutotypeDriver {
-    runner: ThreadBoundRunner<RawJsAutotypeDriver>,
+struct JsAutotypeMainDriver {
+    runner: ThreadBoundRunner<RawJsAutotypeMainDriver>,
 }
 
-impl JsAutotypeDriver {
-    fn new(runner: ThreadBoundRunner<RawJsAutotypeDriver>) -> Self {
+impl JsAutotypeMainDriver {
+    fn new(runner: ThreadBoundRunner<RawJsAutotypeMainDriver>) -> Self {
         Self { runner }
     }
 
@@ -286,12 +286,12 @@ impl JsAutotypeDriver {
 
 /// Wraps the JavaScript renderer driver in a [`ThreadBoundRunner`] so it can be used from the
 /// `Send` futures an [`RpcHandler`] is required to return.
-struct JsAutotypeRendererDriver {
-    runner: ThreadBoundRunner<RawJsAutotypeRendererDriver>,
+struct JsAutotypeRenderDriver {
+    runner: ThreadBoundRunner<RawJsAutotypeRenderDriver>,
 }
 
-impl JsAutotypeRendererDriver {
-    fn new(runner: ThreadBoundRunner<RawJsAutotypeRendererDriver>) -> Self {
+impl JsAutotypeRenderDriver {
+    fn new(runner: ThreadBoundRunner<RawJsAutotypeRenderDriver>) -> Self {
         Self { runner }
     }
 
@@ -370,16 +370,16 @@ impl RpcRequest for AutotypeSetEnabledRequest {
     const NAME: &str = "AutotypeSetEnabledRequest";
 }
 
-/// An [`RpcHandler`] that applies the requested state through a [`RawJsAutotypeDriver`].
+/// An [`RpcHandler`] that applies the requested state through a [`RawJsAutotypeMainDriver`].
 ///
 /// Only requests from the desktop renderer are applied; any other source is refused with
 /// `success: false` before the driver is called. See [`from_source`].
 struct AutotypeSetEnabledHandler {
-    driver: JsAutotypeDriver,
+    driver: JsAutotypeMainDriver,
 }
 
 impl AutotypeSetEnabledHandler {
-    fn new(driver: JsAutotypeDriver) -> Self {
+    fn new(driver: JsAutotypeMainDriver) -> Self {
         Self { driver }
     }
 }
@@ -423,16 +423,16 @@ impl RpcRequest for AutotypeSetKeyboardShortcutRequest {
     const NAME: &str = "AutotypeSetKeyboardShortcutRequest";
 }
 
-/// An [`RpcHandler`] that applies the requested shortcut through a [`RawJsAutotypeDriver`].
+/// An [`RpcHandler`] that applies the requested shortcut through a [`RawJsAutotypeMainDriver`].
 ///
 /// Only requests from the desktop renderer are applied; any other source is refused with
 /// `success: false` before the shortcut reaches the driver. See [`from_source`].
 struct AutotypeSetKeyboardShortcutHandler {
-    driver: JsAutotypeDriver,
+    driver: JsAutotypeMainDriver,
 }
 
 impl AutotypeSetKeyboardShortcutHandler {
-    fn new(driver: JsAutotypeDriver) -> Self {
+    fn new(driver: JsAutotypeMainDriver) -> Self {
         Self { driver }
     }
 }
@@ -476,16 +476,16 @@ impl RpcRequest for AutotypeListRunningAppsRequest {
     const NAME: &str = "AutotypeListRunningAppsRequest";
 }
 
-/// An [`RpcHandler`] that lists running applications through a [`RawJsAutotypeDriver`].
+/// An [`RpcHandler`] that lists running applications through a [`RawJsAutotypeMainDriver`].
 ///
 /// Only requests from the desktop renderer are answered; any other source gets an empty list
 /// without the driver being asked to enumerate anything. See [`from_source`].
 struct AutotypeListRunningAppsHandler {
-    driver: JsAutotypeDriver,
+    driver: JsAutotypeMainDriver,
 }
 
 impl AutotypeListRunningAppsHandler {
-    fn new(driver: JsAutotypeDriver) -> Self {
+    fn new(driver: JsAutotypeMainDriver) -> Self {
         Self { driver }
     }
 }
@@ -531,16 +531,16 @@ impl RpcRequest for AutotypeSetConfirmationEnabledFromRendererRequest {
 }
 
 /// An [`RpcHandler`] that applies the requested confirmation dialog setting through a
-/// [`RawJsAutotypeDriver`].
+/// [`RawJsAutotypeMainDriver`].
 ///
 /// Only requests from the desktop renderer are applied; any other source is refused with
 /// `success: false` before the driver is called. See [`from_source`].
 struct AutotypeSetConfirmationEnabledFromRendererHandler {
-    driver: JsAutotypeDriver,
+    driver: JsAutotypeMainDriver,
 }
 
 impl AutotypeSetConfirmationEnabledFromRendererHandler {
-    fn new(driver: JsAutotypeDriver) -> Self {
+    fn new(driver: JsAutotypeMainDriver) -> Self {
         Self { driver }
     }
 }
@@ -589,17 +589,17 @@ impl RpcRequest for AutotypeSetConfirmationEnabledFromMainRequest {
 }
 
 /// An [`RpcHandler`] that applies the requested confirmation dialog setting through a
-/// [`RawJsAutotypeRendererDriver`].
+/// [`RawJsAutotypeRenderDriver`].
 ///
 /// Only requests from the desktop main process are applied; any other source (including
 /// native-messaging peers that main forwards to the renderer) is refused with `success: false`
 /// before the driver is called. See [`from_source`].
 struct AutotypeSetConfirmationEnabledFromMainHandler {
-    driver: JsAutotypeRendererDriver,
+    driver: JsAutotypeRenderDriver,
 }
 
 impl AutotypeSetConfirmationEnabledFromMainHandler {
-    fn new(driver: JsAutotypeRendererDriver) -> Self {
+    fn new(driver: JsAutotypeRenderDriver) -> Self {
         Self { driver }
     }
 }
@@ -626,54 +626,57 @@ impl RpcHandler for AutotypeSetConfirmationEnabledFromMainHandler {
 }
 
 /// This registers the Autotype handlers so the client responds to Autotype requests through
-/// the `RawJsAutotypeDriver`. Call this on the desktop main process's IPC client.
-#[bitwarden_ffi::wasm_export(js_name = registerAutotypeHandlers)]
-pub async fn register_autotype_handlers(ipc_client: &JsIpcClient, driver: RawJsAutotypeDriver) {
+/// the `RawJsAutotypeMainDriver`. Call this on the desktop main process's IPC client.
+#[bitwarden_ffi::wasm_export(js_name = registerAutotypeMainHandlers)]
+pub async fn register_autotype_main_handlers(
+    ipc_client: &JsIpcClient,
+    driver: RawJsAutotypeMainDriver,
+) {
     let runner = ThreadBoundRunner::new(driver);
 
     ipc_client
         .client
-        .register_rpc_handler(AutotypeSetEnabledHandler::new(JsAutotypeDriver::new(
+        .register_rpc_handler(AutotypeSetEnabledHandler::new(JsAutotypeMainDriver::new(
             runner.clone(),
         )))
         .await;
     ipc_client
         .client
         .register_rpc_handler(AutotypeSetKeyboardShortcutHandler::new(
-            JsAutotypeDriver::new(runner.clone()),
+            JsAutotypeMainDriver::new(runner.clone()),
         ))
         .await;
     ipc_client
         .client
-        .register_rpc_handler(AutotypeListRunningAppsHandler::new(JsAutotypeDriver::new(
-            runner.clone(),
-        )))
+        .register_rpc_handler(AutotypeListRunningAppsHandler::new(
+            JsAutotypeMainDriver::new(runner.clone()),
+        ))
         .await;
     ipc_client
         .client
         .register_rpc_handler(AutotypeSetConfirmationEnabledFromRendererHandler::new(
-            JsAutotypeDriver::new(runner),
+            JsAutotypeMainDriver::new(runner),
         ))
         .await;
 }
 
 /// This registers the Autotype handlers so the client responds to Autotype requests from the
-/// main process through the `RawJsAutotypeRendererDriver`. Call this on the desktop render
+/// main process through the `RawJsAutotypeRenderDriver`. Call this on the desktop render
 /// process's IPC client.
 ///
 /// After registering, send the current confirmation setting to main with
 /// `autotypeRequestSetConfirmationEnabledFromRenderer`, so main starts with the right value.
-#[bitwarden_ffi::wasm_export(js_name = registerAutotypeRendererHandlers)]
-pub async fn register_autotype_renderer_handlers(
+#[bitwarden_ffi::wasm_export(js_name = registerAutotypeRenderHandlers)]
+pub async fn register_autotype_render_handlers(
     ipc_client: &JsIpcClient,
-    driver: RawJsAutotypeRendererDriver,
+    driver: RawJsAutotypeRenderDriver,
 ) {
     let runner = ThreadBoundRunner::new(driver);
 
     ipc_client
         .client
         .register_rpc_handler(AutotypeSetConfirmationEnabledFromMainHandler::new(
-            JsAutotypeRendererDriver::new(runner),
+            JsAutotypeRenderDriver::new(runner),
         ))
         .await;
 }
@@ -766,7 +769,7 @@ pub async fn autotype_request_set_confirmation_enabled_from_renderer(
 /// Sends an `AutotypeSetConfirmationEnabledFromMainRequest` to the desktop render process and
 /// reports whether the requested confirmation dialog setting was applied.
 ///
-/// The render process must have called `registerAutotypeRendererHandlers` first. Otherwise the
+/// The render process must have called `registerAutotypeRenderHandlers` first. Otherwise the
 /// request fails (for example, with a "no handler found" error) or waits until `abort_signal`
 /// fires.
 ///

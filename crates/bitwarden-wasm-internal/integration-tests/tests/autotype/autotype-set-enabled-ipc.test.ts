@@ -1,10 +1,10 @@
 import { Source, autotypeRequestSetEnabled } from "@bitwarden/sdk-internal";
 
-import { makeMockAutotypeDriver, setupClientPair } from "./autotype-test-utils";
+import { makeMockAutotypeMainDriver, setupClientPair } from "./autotype-test-utils";
 
 describe("autotype set-enabled ipc", () => {
   it("reports success when autotype is enabled on the main process", async () => {
-    const driver = makeMockAutotypeDriver();
+    const driver = makeMockAutotypeMainDriver();
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestSetEnabled(renderer, true);
@@ -16,7 +16,7 @@ describe("autotype set-enabled ipc", () => {
   // A successful disable reports `true` — the boolean is whether the change was applied,
   // not the state autotype ended up in.
   it("reports success when autotype is disabled on the main process", async () => {
-    const driver = makeMockAutotypeDriver();
+    const driver = makeMockAutotypeMainDriver();
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestSetEnabled(renderer, false);
@@ -28,7 +28,7 @@ describe("autotype set-enabled ipc", () => {
   // The driver reports failure when it cannot apply the change — a `globalShortcut.register()`
   // that returns false, for instance.
   it("reports failure when the driver cannot apply the change", async () => {
-    const driver = makeMockAutotypeDriver({ setEnabled: async () => false });
+    const driver = makeMockAutotypeMainDriver({ setEnabled: async () => false });
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestSetEnabled(renderer, true);
@@ -38,7 +38,7 @@ describe("autotype set-enabled ipc", () => {
   });
 
   it("reports failure when the driver throws", async () => {
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       setEnabled: async () => {
         throw new Error("globalShortcut unavailable");
       },
@@ -56,7 +56,7 @@ describe("autotype set-enabled ipc", () => {
   it("keeps concurrent toggles matched to their own requests", async () => {
     // Succeed on enable and fail on disable, purely so each response is distinguishable —
     // a crossed correlation would surface as a mismatched ordering below.
-    const driver = makeMockAutotypeDriver({ setEnabled: async (enabled) => enabled });
+    const driver = makeMockAutotypeMainDriver({ setEnabled: async (enabled) => enabled });
     const { renderer } = await setupClientPair(driver);
 
     const responses = await Promise.all([
@@ -74,7 +74,7 @@ describe("autotype set-enabled ipc", () => {
     ["the browser extension", { BrowserBackground: { id: { Id: 1 } } }],
     ["the CLI", { Cli: { id: { Id: 1 } } }],
   ])("refuses a toggle sent by %s without calling the driver", async (_label, source) => {
-    const driver = makeMockAutotypeDriver();
+    const driver = makeMockAutotypeMainDriver();
     const { renderer: peer } = await setupClientPair(driver, source);
 
     await expect(autotypeRequestSetEnabled(peer, true)).resolves.toEqual({ success: false });

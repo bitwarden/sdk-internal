@@ -5,7 +5,7 @@ import {
   autotypeRequestSetEnabled,
 } from "@bitwarden/sdk-internal";
 
-import { makeMockAutotypeDriver, setupClientPair } from "./autotype-test-utils";
+import { makeMockAutotypeMainDriver, setupClientPair } from "./autotype-test-utils";
 
 const RUNNING_APPS: AutotypeRunningApp[] = [
   { name: "Google Chrome", path: "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe" },
@@ -14,7 +14,7 @@ const RUNNING_APPS: AutotypeRunningApp[] = [
 
 describe("autotype list-running-apps ipc", () => {
   it("round-trips the list the main process reports", async () => {
-    const driver = makeMockAutotypeDriver({ listRunningApps: async () => RUNNING_APPS });
+    const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => RUNNING_APPS });
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestListRunningApps(renderer);
@@ -26,7 +26,7 @@ describe("autotype list-running-apps ipc", () => {
   });
 
   it("round-trips an empty list", async () => {
-    const driver = makeMockAutotypeDriver({ listRunningApps: async () => [] });
+    const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => [] });
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestListRunningApps(renderer);
@@ -36,7 +36,7 @@ describe("autotype list-running-apps ipc", () => {
   });
 
   it("reports an empty list when the driver throws", async () => {
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       listRunningApps: async () => {
         throw new Error("autotype is not supported on this platform");
       },
@@ -52,7 +52,7 @@ describe("autotype list-running-apps ipc", () => {
   // and nothing else. Truncation beats emptiness for what this feeds: a picker missing one obscure
   // process is still usable, one missing every process is not.
   it("skips entries it cannot read and keeps the rest", async () => {
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       listRunningApps: async () => [{ name: "Notepad" }, ...RUNNING_APPS],
     });
     const { renderer } = await setupClientPair(driver);
@@ -66,7 +66,7 @@ describe("autotype list-running-apps ipc", () => {
     ["is missing a field", [{ name: "Notepad" }]],
     ["has a non-string field", [{ name: "Notepad", path: 42 }]],
   ])("reports an empty list when the only entry %s", async (_label, payload) => {
-    const driver = makeMockAutotypeDriver({ listRunningApps: async () => payload });
+    const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => payload });
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestListRunningApps(renderer);
@@ -80,7 +80,7 @@ describe("autotype list-running-apps ipc", () => {
     ["the payload is null", null],
     ["the payload is undefined", undefined],
   ])("reports an empty list when %s", async (_label, payload) => {
-    const driver = makeMockAutotypeDriver({ listRunningApps: async () => payload });
+    const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => payload });
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestListRunningApps(renderer);
@@ -94,7 +94,7 @@ describe("autotype list-running-apps ipc", () => {
     // only discriminator available, which makes this an ordering assertion rather than a
     // correlation one — those two channels cover correlation through this same code path.
     let call = 0;
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       listRunningApps: async () => [{ name: `App ${++call}`, path: `app-${call}.exe` }],
     });
     const { renderer } = await setupClientPair(driver);
@@ -115,7 +115,7 @@ describe("autotype list-running-apps ipc", () => {
       releaseList = resolve;
     });
 
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       // Stays pending until the test releases it, so the list request is guaranteed to still be
       // in flight below.
       listRunningApps: () => listGate,
@@ -146,7 +146,7 @@ describe("autotype list-running-apps ipc", () => {
     ["the browser extension", { BrowserBackground: { id: { Id: 1 } } }],
     ["the CLI", { Cli: { id: { Id: 1 } } }],
   ])("refuses a list request sent by %s without calling the driver", async (_label, source) => {
-    const driver = makeMockAutotypeDriver({ listRunningApps: async () => RUNNING_APPS });
+    const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => RUNNING_APPS });
     const { renderer: peer } = await setupClientPair(driver, source);
 
     await expect(autotypeRequestListRunningApps(peer)).resolves.toEqual({ apps: [] });

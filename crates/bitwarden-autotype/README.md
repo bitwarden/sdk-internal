@@ -19,10 +19,10 @@ Noise-encrypted channels for use between the two desktop processes.
 
 Each process registers the handlers for the requests it receives, backed by its own driver:
 
-- **Main** implements `AutotypeDriver` and calls `registerAutotypeHandlers`. These handlers only
-  accept requests from the desktop renderer.
-- **Renderer** implements `AutotypeRendererDriver` and calls `registerAutotypeRendererHandlers`.
-  These handlers only accept requests from the desktop main process.
+- **Main** implements `AutotypeMainDriver` and calls `registerAutotypeMainHandlers`. These handlers
+  only accept requests from the desktop renderer.
+- **Renderer** implements `AutotypeRenderDriver` and calls `registerAutotypeRenderHandlers`. These
+  handlers only accept requests from the desktop main process.
 
 ## Tests
 

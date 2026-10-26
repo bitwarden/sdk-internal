@@ -4,14 +4,14 @@ import {
   autotypeRequestSetKeyboardShortcut,
 } from "@bitwarden/sdk-internal";
 
-import { makeMockAutotypeDriver, setupClientPair } from "./autotype-test-utils";
+import { makeMockAutotypeMainDriver, setupClientPair } from "./autotype-test-utils";
 
 /** The desktop app's default combination, in the wire shape: modifiers first, base key last. */
 const DEFAULT_SHORTCUT = ["Control", "Alt", "B"];
 
 describe("autotype set-keyboard-shortcut ipc", () => {
   it("reports success when the shortcut is applied on the main process", async () => {
-    const driver = makeMockAutotypeDriver();
+    const driver = makeMockAutotypeMainDriver();
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestSetKeyboardShortcut(renderer, DEFAULT_SHORTCUT);
@@ -23,7 +23,7 @@ describe("autotype set-keyboard-shortcut ipc", () => {
   // The driver reports failure when it cannot apply the shortcut — a combination another
   // application already owns, or one it rejects as malformed.
   it("reports failure when the driver cannot apply the shortcut", async () => {
-    const driver = makeMockAutotypeDriver({ setKeyboardShortcut: async () => false });
+    const driver = makeMockAutotypeMainDriver({ setKeyboardShortcut: async () => false });
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestSetKeyboardShortcut(renderer, ["Alt", "Q"]);
@@ -33,7 +33,7 @@ describe("autotype set-keyboard-shortcut ipc", () => {
   });
 
   it("reports failure when the driver throws", async () => {
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       setKeyboardShortcut: async () => {
         throw new Error("globalShortcut unavailable");
       },
@@ -56,7 +56,7 @@ describe("autotype set-keyboard-shortcut ipc", () => {
     ["a shortcut with no base key", ["Control", "Alt"]],
     ["a shortcut with an unrecognized key", ["Meta", "BANANA"]],
   ])("forwards %s unchanged", async (_label, shortcut) => {
-    const driver = makeMockAutotypeDriver({ setKeyboardShortcut: async () => false });
+    const driver = makeMockAutotypeMainDriver({ setKeyboardShortcut: async () => false });
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestSetKeyboardShortcut(renderer, shortcut);
@@ -68,7 +68,7 @@ describe("autotype set-keyboard-shortcut ipc", () => {
   it("keeps concurrent shortcut changes matched to their own requests", async () => {
     // Succeed only on three-key combinations, purely so each response is distinguishable —
     // a crossed correlation would surface as a mismatched ordering below.
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       setKeyboardShortcut: async (shortcut) => shortcut.length === 3,
     });
     const { renderer } = await setupClientPair(driver);
@@ -93,7 +93,7 @@ describe("autotype set-keyboard-shortcut ipc", () => {
       releaseShortcut = resolve;
     });
 
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       // Stays pending until the test releases it, so the shortcut request is guaranteed to
       // still be in flight below.
       setKeyboardShortcut: () => shortcutGate,
@@ -124,7 +124,7 @@ describe("autotype set-keyboard-shortcut ipc", () => {
     ["the browser extension", { BrowserBackground: { id: { Id: 1 } } }],
     ["the CLI", { Cli: { id: { Id: 1 } } }],
   ])("refuses a shortcut sent by %s without calling the driver", async (_label, source) => {
-    const driver = makeMockAutotypeDriver();
+    const driver = makeMockAutotypeMainDriver();
     const { renderer: peer } = await setupClientPair(driver, source);
 
     await expect(autotypeRequestSetKeyboardShortcut(peer, DEFAULT_SHORTCUT)).resolves.toEqual({

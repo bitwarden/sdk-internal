@@ -4,11 +4,11 @@ import {
   autotypeRequestSetEnabled,
 } from "@bitwarden/sdk-internal";
 
-import { makeMockAutotypeDriver, setupClientPair } from "./autotype-test-utils";
+import { makeMockAutotypeMainDriver, setupClientPair } from "./autotype-test-utils";
 
 describe("autotype set-confirmation-enabled-from-renderer ipc", () => {
   it("reports success when the confirmation dialog is enabled on the main process", async () => {
-    const driver = makeMockAutotypeDriver();
+    const driver = makeMockAutotypeMainDriver();
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestSetConfirmationEnabledFromRenderer(renderer, true);
@@ -20,7 +20,7 @@ describe("autotype set-confirmation-enabled-from-renderer ipc", () => {
   // A successful disable reports `true` — the boolean is whether the change was applied,
   // not the state the setting ended up in.
   it("reports success when the confirmation dialog is disabled on the main process", async () => {
-    const driver = makeMockAutotypeDriver();
+    const driver = makeMockAutotypeMainDriver();
     const { renderer } = await setupClientPair(driver);
 
     const response = await autotypeRequestSetConfirmationEnabledFromRenderer(renderer, false);
@@ -30,7 +30,7 @@ describe("autotype set-confirmation-enabled-from-renderer ipc", () => {
   });
 
   it("reports failure when the driver cannot apply the change", async () => {
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       setConfirmationEnabledFromRenderer: async () => false,
     });
     const { renderer } = await setupClientPair(driver);
@@ -42,7 +42,7 @@ describe("autotype set-confirmation-enabled-from-renderer ipc", () => {
   });
 
   it("reports failure when the driver throws", async () => {
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       setConfirmationEnabledFromRenderer: async () => {
         throw new Error("settings unavailable");
       },
@@ -64,7 +64,7 @@ describe("autotype set-confirmation-enabled-from-renderer ipc", () => {
   it("keeps concurrent changes matched to their own requests", async () => {
     // Succeed on enable and fail on disable, purely so each response is distinguishable —
     // a crossed correlation would surface as a mismatched ordering below.
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       setConfirmationEnabledFromRenderer: async (enabled) => enabled,
     });
     const { renderer } = await setupClientPair(driver);
@@ -84,7 +84,7 @@ describe("autotype set-confirmation-enabled-from-renderer ipc", () => {
       releaseConfirmation = resolve;
     });
 
-    const driver = makeMockAutotypeDriver({
+    const driver = makeMockAutotypeMainDriver({
       // Stays pending until the test releases it, so the confirmation request is guaranteed to
       // still be in flight below.
       setConfirmationEnabledFromRenderer: () => confirmationGate,
@@ -114,7 +114,7 @@ describe("autotype set-confirmation-enabled-from-renderer ipc", () => {
     ["the browser extension", { BrowserBackground: { id: { Id: 1 } } }],
     ["the CLI", { Cli: { id: { Id: 1 } } }],
   ])("refuses a change sent by %s without calling the driver", async (_label, source) => {
-    const driver = makeMockAutotypeDriver();
+    const driver = makeMockAutotypeMainDriver();
     const { renderer: peer } = await setupClientPair(driver, source);
 
     await expect(autotypeRequestSetConfirmationEnabledFromRenderer(peer, true)).resolves.toEqual({

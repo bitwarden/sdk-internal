@@ -1,12 +1,12 @@
 import {
-  AutotypeDriver,
-  AutotypeRendererDriver,
+  AutotypeMainDriver,
+  AutotypeRenderDriver,
   AutotypeRunningApp,
   IpcClient,
   Source,
   init_sdk,
-  registerAutotypeHandlers,
-  registerAutotypeRendererHandlers,
+  registerAutotypeMainHandlers,
+  registerAutotypeRenderHandlers,
 } from "@bitwarden/sdk-internal";
 
 import { makeMockTransportPair } from "../utils";
@@ -15,7 +15,7 @@ import { makeMockTransportPair } from "../utils";
  * Per-channel behavior for the mock driver. Each channel is varied independently so a test can
  * make one of them fail without disturbing the other.
  */
-export interface MockAutotypeDriverOptions {
+export interface MockAutotypeMainDriverOptions {
   setEnabled: (enabled: boolean) => Promise<boolean>;
   setKeyboardShortcut: (shortcut: string[]) => Promise<boolean>;
   // Typed loosely so a test can return a malformed payload, which is exactly what the SDK's
@@ -28,7 +28,7 @@ export interface MockAutotypeDriverOptions {
  * Recorded calls per channel. `list_running_apps` takes no arguments, so a count is all there is
  * to record for it.
  */
-export interface MockAutotypeDriverCalls {
+export interface MockAutotypeMainDriverCalls {
   enabledCalls: boolean[];
   shortcutCalls: string[][];
   listRunningAppsCalls: number;
@@ -36,13 +36,13 @@ export interface MockAutotypeDriverCalls {
 }
 
 /**
- * In-memory implementation of the `AutotypeDriver` JS interface. Records what it was asked to do
+ * In-memory implementation of the `AutotypeMainDriver` JS interface. Records what it was asked to do
  * per channel, and reports whether it applied the change — which the tests vary independently of
  * the request, to cover a driver that fails.
  */
-export function makeMockAutotypeDriver(
-  options: Partial<MockAutotypeDriverOptions> = {},
-): AutotypeDriver & MockAutotypeDriverCalls {
+export function makeMockAutotypeMainDriver(
+  options: Partial<MockAutotypeMainDriverOptions> = {},
+): AutotypeMainDriver & MockAutotypeMainDriverCalls {
   const {
     setEnabled = async () => true,
     setKeyboardShortcut = async () => true,
@@ -87,22 +87,22 @@ export function makeMockAutotypeDriver(
  * Behavior for the mock renderer driver, the render process's side of the main → renderer
  * channels.
  */
-export interface MockAutotypeRendererDriverOptions {
+export interface MockAutotypeRenderDriverOptions {
   setConfirmationEnabledFromMain: (enabled: boolean) => Promise<boolean>;
 }
 
 /** Recorded calls per main → renderer channel. */
-export interface MockAutotypeRendererDriverCalls {
+export interface MockAutotypeRenderDriverCalls {
   confirmationEnabledFromMainCalls: boolean[];
 }
 
 /**
- * In-memory implementation of the `AutotypeRendererDriver` JS interface. Records what it was asked
+ * In-memory implementation of the `AutotypeRenderDriver` JS interface. Records what it was asked
  * to do, and reports whether it applied the change.
  */
-export function makeMockAutotypeRendererDriver(
-  options: Partial<MockAutotypeRendererDriverOptions> = {},
-): AutotypeRendererDriver & MockAutotypeRendererDriverCalls {
+export function makeMockAutotypeRenderDriver(
+  options: Partial<MockAutotypeRenderDriverOptions> = {},
+): AutotypeRenderDriver & MockAutotypeRenderDriverCalls {
   const { setConfirmationEnabledFromMain = async () => true } = options;
 
   const confirmationEnabledFromMainCalls: boolean[] = [];
@@ -128,7 +128,7 @@ export function makeMockAutotypeRendererDriver(
  * extension or CLI over native messaging.
  */
 export async function setupClientPair(
-  driver: AutotypeDriver = makeMockAutotypeDriver(),
+  driver: AutotypeMainDriver = makeMockAutotypeMainDriver(),
   rendererSource: Source = "DesktopRenderer",
 ) {
   init_sdk();
@@ -140,7 +140,7 @@ export async function setupClientPair(
   await main.start();
   await renderer.start();
 
-  await registerAutotypeHandlers(main, driver);
+  await registerAutotypeMainHandlers(main, driver);
 
   return { main, renderer };
 }
@@ -154,7 +154,7 @@ export async function setupClientPair(
  * main forwards to the renderer under their original source, such as the browser extension or CLI.
  */
 export async function setupRendererHandlerPair(
-  driver: AutotypeRendererDriver = makeMockAutotypeRendererDriver(),
+  driver: AutotypeRenderDriver = makeMockAutotypeRenderDriver(),
   mainSource: Source = "DesktopMain",
 ) {
   init_sdk();
@@ -166,7 +166,7 @@ export async function setupRendererHandlerPair(
   await main.start();
   await renderer.start();
 
-  await registerAutotypeRendererHandlers(renderer, driver);
+  await registerAutotypeRenderHandlers(renderer, driver);
 
   return { main, renderer };
 }
