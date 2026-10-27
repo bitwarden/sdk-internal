@@ -1,11 +1,14 @@
-//! Trust proofs: how the caller knows that a public key belongs to the intended recipient.
+//! Trust proofs: how the caller knows that a key belongs to the intended recipient.
 //!
-//! Sharing a key to a public key hands the key to whoever holds the matching private key. A key
-//! that the server supplies can be swapped by the server, so every shared key is made with a proof
-//! that the caller trusts the recipient's public key.
+//! Org Membership V1 encapsulates a shared key to the recipient's public encryption key, so whoever
+//! holds the matching private key gets the shared key. A public key that the server supplies can be
+//! swapped by the server, so the caller must trust the public key before the key is shared. In V1,
+//! the trust is manual, through a trusted thumbprint of the public key. In some cases the trust is
+//! cryptographic, because the caller holds the matching private key.
 //!
-//! V1 values carry no sender authentication, so the proof protects the sender only. V2 adds
-//! proofs that verify the recipient's identity, such as identity claims and signatures.
+//! Org Membership V2 seals keys between identities. The sender and the recipient each hold a
+//! signing key, so each side can verify the identity of the other without a manually trusted
+//! thumbprint.
 
 use bitwarden_crypto::{
     CoseKeyThumbprint, CoseKeyThumbprintExt, KeySlotIds, KeyStoreContext, PublicKey,
@@ -25,8 +28,7 @@ pub enum TrustProof<Ids: KeySlotIds> {
     TestStub(Result<(), TrustProofError>),
 }
 
-/// The kinds of cryptographic proof. V2 adds signed identity claims, which bind the public key to
-/// the identity of the recipient.
+/// The kinds of cryptographic proof.
 pub enum CryptographicProof<Ids: KeySlotIds> {
     /// The caller holds the matching private key in the key store context, for example the
     /// user's own key pair, or the organization's key pair held by an admin.
