@@ -1,5 +1,6 @@
 import { EmergencyAccessStatus, EmergencyAccessType } from "@bitwarden/sdk-internal";
 
+import { LoginMethod } from "../../client-emulator/client-emulator";
 import { validateCiphers, validateVault } from "../../client-emulator/validate";
 import {
   EmergencyAccessStatus as ServerStatus,
@@ -51,7 +52,11 @@ describe("emergency access", () => {
         const id = asEmergencyAccessId(seeded.id);
 
         const grantee = harness.newClientEmulator();
-        await grantee.login(seeded.grantee.email);
+        await grantee.login(
+          seeded.grantee.email,
+          LoginMethod.Password,
+          users.get(vector.granteeVectorName).account.password,
+        );
         await grantee.unlock(users.get(vector.granteeVectorName).account.password);
         const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
@@ -74,22 +79,39 @@ describe("emergency access", () => {
         const id = asEmergencyAccessId(seeded.id);
 
         const grantee = harness.newClientEmulator();
-        await grantee.login(seeded.grantee.email);
+        await grantee.login(
+          seeded.grantee.email,
+          LoginMethod.Password,
+          users.get(vector.granteeVectorName).account.password,
+        );
         await grantee.unlock(users.get(vector.granteeVectorName).account.password);
         const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
+        // A grantor device logged in before the takeover, while the old password still authenticates.
+        const oldGrantorPassword = users.get(vector.grantorVectorName).account.password;
+        const stale = harness.newClientEmulator();
+        await stale.login(seeded.grantor.email, LoginMethod.Password, oldGrantorPassword);
+
         await granteeClient.takeover(id, NEW_PASSWORD, seeded.grantor.email);
 
-        // The old password no longer unlocks: the server now serves the unlock data the grantee set.
-        const stale = harness.newClientEmulator();
-        await stale.login(seeded.grantor.email);
+        // Authenticate: the identity server must refuse the old grantor password at login.
+        // The identity server compares the posted hash with the stored authentication hash.
+        // If the takeover does not replace the stored hash, this login succeeds, and the test fails.
+        const refused = harness.newClientEmulator();
         await expect(
-          stale.unlock(users.get(vector.grantorVectorName).account.password),
-        ).rejects.toBeDefined();
+          refused.login(seeded.grantor.email, LoginMethod.Password, oldGrantorPassword),
+        ).rejects.toThrow("Invalid username or password provided.");
 
-        // The new one unlocks to the same user key, so the vault decrypts unchanged.
+        // Unlock: the old grantor password must not decrypt the new unlock data.
+        // The device syncs the new unlock data down without logging in again.
+        await stale.sync(seeded.grantor.email);
+        await expect(stale.unlock(oldGrantorPassword)).rejects.toBeDefined();
+
+        // The new password must pass both authentication and unlock.
+        // If the takeover does not replace the stored hash, identity refuses this login with invalid_grant.
+        // The new, grantee-set password unwraps the same user key, so the vault decrypts unchanged.
         const client = harness.newClientEmulator();
-        await client.login(seeded.grantor.email);
+        await client.login(seeded.grantor.email, LoginMethod.Password, NEW_PASSWORD);
         await client.unlock(NEW_PASSWORD);
         await validateVault(client, seeded.grantor.seed, []);
       },
@@ -108,12 +130,20 @@ describe("emergency access", () => {
         const grantee = harness.server.seedUserTestVector(granteeVector);
 
         const grantorEmulator = harness.newClientEmulator();
-        await grantorEmulator.login(grantor.email);
+        await grantorEmulator.login(
+          grantor.email,
+          LoginMethod.Password,
+          grantorVector.account.password,
+        );
         await grantorEmulator.unlock(grantorVector.account.password);
         const grantorClient = grantorEmulator.getPasswordManagerClient().emergency_access();
 
         const granteeEmulator = harness.newClientEmulator();
-        await granteeEmulator.login(grantee.email);
+        await granteeEmulator.login(
+          grantee.email,
+          LoginMethod.Password,
+          granteeVector.account.password,
+        );
         await granteeEmulator.unlock(granteeVector.account.password);
         const granteeClient = granteeEmulator.getPasswordManagerClient().emergency_access();
 
@@ -173,12 +203,20 @@ describe("emergency access", () => {
         const id = asEmergencyAccessId(seeded.id);
 
         const grantor = harness.newClientEmulator();
-        await grantor.login(seeded.grantor.email);
+        await grantor.login(
+          seeded.grantor.email,
+          LoginMethod.Password,
+          users.get(vector.grantorVectorName).account.password,
+        );
         await grantor.unlock(users.get(vector.grantorVectorName).account.password);
         const grantorClient = grantor.getPasswordManagerClient().emergency_access();
 
         const grantee = harness.newClientEmulator();
-        await grantee.login(seeded.grantee.email);
+        await grantee.login(
+          seeded.grantee.email,
+          LoginMethod.Password,
+          users.get(vector.granteeVectorName).account.password,
+        );
         await grantee.unlock(users.get(vector.granteeVectorName).account.password);
         const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
@@ -202,12 +240,20 @@ describe("emergency access", () => {
         const id = asEmergencyAccessId(seeded.id);
 
         const grantor = harness.newClientEmulator();
-        await grantor.login(seeded.grantor.email);
+        await grantor.login(
+          seeded.grantor.email,
+          LoginMethod.Password,
+          users.get(vector.grantorVectorName).account.password,
+        );
         await grantor.unlock(users.get(vector.grantorVectorName).account.password);
         const grantorClient = grantor.getPasswordManagerClient().emergency_access();
 
         const grantee = harness.newClientEmulator();
-        await grantee.login(seeded.grantee.email);
+        await grantee.login(
+          seeded.grantee.email,
+          LoginMethod.Password,
+          users.get(vector.granteeVectorName).account.password,
+        );
         await grantee.unlock(users.get(vector.granteeVectorName).account.password);
         const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
@@ -232,12 +278,20 @@ describe("emergency access", () => {
         const id = asEmergencyAccessId(seeded.id);
 
         const grantor = harness.newClientEmulator();
-        await grantor.login(seeded.grantor.email);
+        await grantor.login(
+          seeded.grantor.email,
+          LoginMethod.Password,
+          users.get(vector.grantorVectorName).account.password,
+        );
         await grantor.unlock(users.get(vector.grantorVectorName).account.password);
         const grantorClient = grantor.getPasswordManagerClient().emergency_access();
 
         const grantee = harness.newClientEmulator();
-        await grantee.login(seeded.grantee.email);
+        await grantee.login(
+          seeded.grantee.email,
+          LoginMethod.Password,
+          users.get(vector.granteeVectorName).account.password,
+        );
         await grantee.unlock(users.get(vector.granteeVectorName).account.password);
         const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
@@ -261,7 +315,11 @@ describe("emergency access", () => {
         const id = asEmergencyAccessId(seeded.id);
 
         const grantor = harness.newClientEmulator();
-        await grantor.login(seeded.grantor.email);
+        await grantor.login(
+          seeded.grantor.email,
+          LoginMethod.Password,
+          users.get(vector.grantorVectorName).account.password,
+        );
         await grantor.unlock(users.get(vector.grantorVectorName).account.password);
         const grantorClient = grantor.getPasswordManagerClient().emergency_access();
 
@@ -282,7 +340,11 @@ describe("emergency access", () => {
         const id = asEmergencyAccessId(seeded.id);
 
         const grantee = harness.newClientEmulator();
-        await grantee.login(seeded.grantee.email);
+        await grantee.login(
+          seeded.grantee.email,
+          LoginMethod.Password,
+          users.get(vector.granteeVectorName).account.password,
+        );
         await grantee.unlock(users.get(vector.granteeVectorName).account.password);
         const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 
@@ -310,7 +372,11 @@ describe("emergency access", () => {
         const id = asEmergencyAccessId(seeded.id);
 
         const grantee = harness.newClientEmulator();
-        await grantee.login(seeded.grantee.email);
+        await grantee.login(
+          seeded.grantee.email,
+          LoginMethod.Password,
+          users.get(vector.granteeVectorName).account.password,
+        );
         await grantee.unlock(users.get(vector.granteeVectorName).account.password);
         const granteeClient = grantee.getPasswordManagerClient().emergency_access();
 

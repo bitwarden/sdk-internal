@@ -377,6 +377,9 @@ export class EmergencyAccessServer {
     const grantor = this.requireUser(grant.grantorId);
     grantor.masterPasswordUnlock = MasterPasswordUnlockDataModel.toStored(unlockData);
     grantor.kdf = grantor.masterPasswordUnlock.kdf;
+    // The grantee sets a new password, so the stored authentication hash must change too.
+    // The identity server compares a login against this hash.
+    grantor.masterPasswordAuthenticationHash = authenticationData.masterPasswordAuthenticationHash;
     this.db.revisions.next();
 
     return {};
