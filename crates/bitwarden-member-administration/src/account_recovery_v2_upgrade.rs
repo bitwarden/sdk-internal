@@ -49,7 +49,6 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{EncString, KeyId, KeyStoreContext, PublicKey};
-use bitwarden_error::bitwarden_error;
 use bitwarden_organization_crypto::{
     account_recovery::{AccountRecovery, AccountRecoveryMakeAfterV2UpgradeError},
     organization_private_key::OrganizationPrivateKey,
@@ -58,13 +57,10 @@ use bitwarden_organizations::OrganizationUserType;
 use thiserror::Error;
 use tracing::warn;
 use uuid::Uuid;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::OrganizationUsersManagementClient;
 
 /// Errors returned when upgrading members' account recovery keys.
-#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum AccountRecoveryV2UpgradeError {
     /// The request failed as a whole.
@@ -248,10 +244,7 @@ impl OrganizationUsersManagementClient {
             })
             .collect())
     }
-}
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl OrganizationUsersManagementClient {
     /// Re-encapsulates the account recovery keys of members who have upgraded to a V2 user key.
     ///
     /// A membership whose account recovery key or upgrade token is malformed or fails to decrypt
