@@ -19,7 +19,7 @@ describe("autotype set-confirmation-enabled-from-main ipc", () => {
     const response = await autotypeRequestSetConfirmationEnabledFromMain(main, true);
 
     expect(response.success).toBe(true);
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([true]);
+    expect(driver.confirmationEnabledCalls).toEqual([true]);
   });
 
   // A successful disable reports `true` — the boolean is whether the change was applied,
@@ -31,24 +31,24 @@ describe("autotype set-confirmation-enabled-from-main ipc", () => {
     const response = await autotypeRequestSetConfirmationEnabledFromMain(main, false);
 
     expect(response.success).toBe(true);
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([false]);
+    expect(driver.confirmationEnabledCalls).toEqual([false]);
   });
 
   it("reports failure when the driver cannot apply the change", async () => {
     const driver = makeMockAutotypeRenderDriver({
-      setConfirmationEnabledFromMain: async () => false,
+      setConfirmationEnabled: async () => false,
     });
     const { main } = await setupRendererHandlerPair(driver);
 
     const response = await autotypeRequestSetConfirmationEnabledFromMain(main, true);
 
     expect(response.success).toBe(false);
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([true]);
+    expect(driver.confirmationEnabledCalls).toEqual([true]);
   });
 
   it("reports failure when the driver throws", async () => {
     const driver = makeMockAutotypeRenderDriver({
-      setConfirmationEnabledFromMain: async () => {
+      setConfirmationEnabled: async () => {
         throw new Error("settings unavailable");
       },
     });
@@ -63,14 +63,14 @@ describe("autotype set-confirmation-enabled-from-main ipc", () => {
       success: false,
     });
 
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([true, false]);
+    expect(driver.confirmationEnabledCalls).toEqual([true, false]);
   });
 
   it("keeps concurrent changes matched to their own requests", async () => {
     // Succeed on enable and fail on disable, purely so each response is distinguishable —
     // a crossed correlation would surface as a mismatched ordering below.
     const driver = makeMockAutotypeRenderDriver({
-      setConfirmationEnabledFromMain: async (enabled) => enabled,
+      setConfirmationEnabled: async (enabled) => enabled,
     });
     const { main } = await setupRendererHandlerPair(driver);
 
@@ -103,8 +103,8 @@ describe("autotype set-confirmation-enabled-from-main ipc", () => {
 
     expect(fromMain).toEqual({ success: true });
     expect(fromRenderer).toEqual({ success: true });
-    expect(rendererDriver.confirmationEnabledFromMainCalls).toEqual([true]);
-    expect(mainDriver.confirmationEnabledFromRendererCalls).toEqual([true, false]);
+    expect(rendererDriver.confirmationEnabledCalls).toEqual([true]);
+    expect(mainDriver.confirmationEnabledCalls).toEqual([true, false]);
   });
 
   // Main forwards native-messaging traffic to the renderer under its original source, labeled
@@ -124,6 +124,6 @@ describe("autotype set-confirmation-enabled-from-main ipc", () => {
       success: false,
     });
 
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([]);
+    expect(driver.confirmationEnabledCalls).toEqual([]);
   });
 });

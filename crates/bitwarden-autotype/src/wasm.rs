@@ -53,17 +53,11 @@ export interface AutotypeMainDriver {
     list_running_apps(): Promise<AutotypeRunningApp[]>;
 
     /**
-     * Set whether the Autotype confirmation dialog should be shown, as
-     * requested by the render process. Returns if changing the setting
-     * was successful or not.
-     *
-     * The render process owns this setting, so this is its current value:
-     * apply it, and don't send it back. Main's copy should only change
-     * through this method. To change the setting from main, call
-     * `autotypeRequestSetConfirmationEnabledFromMain`, and the renderer
-     * sends the final value back here.
+     * Set whether the Autotype confirmation dialog should be shown.
+     * Returns a boolean representing if setting the shortcut was
+     * successful or not.
      */
-    set_autotype_confirmation_enabled_from_renderer(enabled: boolean): Promise<boolean>;
+    set_autotype_confirmation_enabled(enabled: boolean): Promise<boolean>;
 }
 
 /**
@@ -74,16 +68,11 @@ export interface AutotypeMainDriver {
  */
 export interface AutotypeRenderDriver {
     /**
-     * Set whether the Autotype confirmation dialog should be shown, as
-     * requested by the main process. Returns if changing the setting
-     * was successful or not.
-     *
-     * The render process owns this setting, so this is a request to change
-     * it: store the value, then send it to main with
-     * `autotypeRequestSetConfirmationEnabledFromRenderer`, as for any other
-     * change to the setting.
+     * Set whether the Autotype confirmation dialog should be shown.
+     * Returns a boolean representing if setting the shortcut was
+     * successful or not.
      */
-    set_autotype_confirmation_enabled_from_main(enabled: boolean): Promise<boolean>;
+    set_autotype_confirmation_enabled(enabled: boolean): Promise<boolean>;
 }
 "#;
 
@@ -117,7 +106,7 @@ extern "C" {
     /// Set whether the Autotype confirmation dialog should be shown, as requested by the render
     /// process. Returns a boolean representing if changing the setting was successful or not.
     #[wasm_bindgen(method, catch)]
-    async fn set_autotype_confirmation_enabled_from_renderer(
+    async fn set_autotype_confirmation_enabled(
         this: &RawJsAutotypeMainDriver,
         enabled: bool,
     ) -> Result<JsValue, JsValue>;
@@ -129,7 +118,7 @@ extern "C" {
     /// Set whether the Autotype confirmation dialog should be shown, as requested by the main
     /// process. Returns a boolean representing if changing the setting was successful or not.
     #[wasm_bindgen(method, catch)]
-    async fn set_autotype_confirmation_enabled_from_main(
+    async fn set_autotype_confirmation_enabled(
         this: &RawJsAutotypeRenderDriver,
         enabled: bool,
     ) -> Result<JsValue, JsValue>;
@@ -251,13 +240,10 @@ impl JsAutotypeMainDriver {
 
     /// Sets whether the Autotype confirmation dialog should be shown, as requested by the render
     /// process. Returns if changing the setting was successful or not.
-    async fn set_autotype_confirmation_enabled_from_renderer(&self, enabled: bool) -> bool {
+    async fn set_autotype_confirmation_enabled(&self, enabled: bool) -> bool {
         self.runner
             .run_in_thread(move |driver| async move {
-                match driver
-                    .set_autotype_confirmation_enabled_from_renderer(enabled)
-                    .await
-                {
+                match driver.set_autotype_confirmation_enabled(enabled).await {
                     Ok(value) => value.as_bool().unwrap_or_else(|| {
                         tracing::error!(
                             "Autotype driver returned a non-boolean set-confirmation-enabled result"
@@ -297,13 +283,10 @@ impl JsAutotypeRenderDriver {
 
     /// Sets whether the Autotype confirmation dialog should be shown, as requested by the main
     /// process. Returns if changing the setting was successful or not.
-    async fn set_autotype_confirmation_enabled_from_main(&self, enabled: bool) -> bool {
+    async fn set_autotype_confirmation_enabled(&self, enabled: bool) -> bool {
         self.runner
             .run_in_thread(move |driver| async move {
-                match driver
-                    .set_autotype_confirmation_enabled_from_main(enabled)
-                    .await
-                {
+                match driver.set_autotype_confirmation_enabled(enabled).await {
                     Ok(value) => value.as_bool().unwrap_or_else(|| {
                         tracing::error!(
                             "Autotype renderer driver returned a non-boolean \
@@ -560,7 +543,7 @@ impl RpcHandler for AutotypeSetConfirmationEnabledFromRendererHandler {
         AutotypeSetConfirmationEnabledFromRendererResponse {
             success: self
                 .driver
-                .set_autotype_confirmation_enabled_from_renderer(request.enabled)
+                .set_autotype_confirmation_enabled(request.enabled)
                 .await,
         }
     }
@@ -619,7 +602,7 @@ impl RpcHandler for AutotypeSetConfirmationEnabledFromMainHandler {
         AutotypeSetConfirmationEnabledFromMainResponse {
             success: self
                 .driver
-                .set_autotype_confirmation_enabled_from_main(request.enabled)
+                .set_autotype_confirmation_enabled(request.enabled)
                 .await,
         }
     }

@@ -21,7 +21,7 @@ export interface MockAutotypeMainDriverOptions {
   // Typed loosely so a test can return a malformed payload, which is exactly what the SDK's
   // deserialization is being asked to survive.
   listRunningApps: () => Promise<unknown>;
-  setConfirmationEnabledFromRenderer: (enabled: boolean) => Promise<boolean>;
+  setConfirmationEnabled: (enabled: boolean) => Promise<boolean>;
 }
 
 /**
@@ -32,7 +32,7 @@ export interface MockAutotypeMainDriverCalls {
   enabledCalls: boolean[];
   shortcutCalls: string[][];
   listRunningAppsCalls: number;
-  confirmationEnabledFromRendererCalls: boolean[];
+  confirmationEnabledCalls: boolean[];
 }
 
 /**
@@ -47,12 +47,12 @@ export function makeMockAutotypeMainDriver(
     setEnabled = async () => true,
     setKeyboardShortcut = async () => true,
     listRunningApps = async () => [],
-    setConfirmationEnabledFromRenderer = async () => true,
+    setConfirmationEnabled = async () => true,
   } = options;
 
   const enabledCalls: boolean[] = [];
   const shortcutCalls: string[][] = [];
-  const confirmationEnabledFromRendererCalls: boolean[] = [];
+  const confirmationEnabledCalls: boolean[] = [];
   // A counter rather than an array, so it needs a getter — a plain number property would be
   // snapshotted at construction and never update.
   let listRunningAppsCalls = 0;
@@ -60,7 +60,7 @@ export function makeMockAutotypeMainDriver(
   return {
     enabledCalls,
     shortcutCalls,
-    confirmationEnabledFromRendererCalls,
+    confirmationEnabledCalls,
     get listRunningAppsCalls() {
       return listRunningAppsCalls;
     },
@@ -76,9 +76,9 @@ export function makeMockAutotypeMainDriver(
       listRunningAppsCalls += 1;
       return (await listRunningApps()) as AutotypeRunningApp[];
     },
-    set_autotype_confirmation_enabled_from_renderer: async (enabled: boolean) => {
-      confirmationEnabledFromRendererCalls.push(enabled);
-      return setConfirmationEnabledFromRenderer(enabled);
+    set_autotype_confirmation_enabled: async (enabled: boolean) => {
+      confirmationEnabledCalls.push(enabled);
+      return setConfirmationEnabled(enabled);
     },
   };
 }
@@ -88,12 +88,12 @@ export function makeMockAutotypeMainDriver(
  * channels.
  */
 export interface MockAutotypeRenderDriverOptions {
-  setConfirmationEnabledFromMain: (enabled: boolean) => Promise<boolean>;
+  setConfirmationEnabled: (enabled: boolean) => Promise<boolean>;
 }
 
 /** Recorded calls per main → renderer channel. */
 export interface MockAutotypeRenderDriverCalls {
-  confirmationEnabledFromMainCalls: boolean[];
+  confirmationEnabledCalls: boolean[];
 }
 
 /**
@@ -103,15 +103,15 @@ export interface MockAutotypeRenderDriverCalls {
 export function makeMockAutotypeRenderDriver(
   options: Partial<MockAutotypeRenderDriverOptions> = {},
 ): AutotypeRenderDriver & MockAutotypeRenderDriverCalls {
-  const { setConfirmationEnabledFromMain = async () => true } = options;
+  const { setConfirmationEnabled = async () => true } = options;
 
-  const confirmationEnabledFromMainCalls: boolean[] = [];
+  const confirmationEnabledCalls: boolean[] = [];
 
   return {
-    confirmationEnabledFromMainCalls,
-    set_autotype_confirmation_enabled_from_main: async (enabled: boolean) => {
-      confirmationEnabledFromMainCalls.push(enabled);
-      return setConfirmationEnabledFromMain(enabled);
+    confirmationEnabledCalls,
+    set_autotype_confirmation_enabled: async (enabled: boolean) => {
+      confirmationEnabledCalls.push(enabled);
+      return setConfirmationEnabled(enabled);
     },
   };
 }
