@@ -76,11 +76,17 @@ impl<Ids: KeySlotIds> OrganizationPrivateKey<Ids> {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{KeyStore, SpkiPublicKeyBytes, SymmetricKeyAlgorithm::Aes256CbcHmac};
+    use bitwarden_crypto::{
+        KeyStore, PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes,
+        SymmetricKeyAlgorithm::Aes256CbcHmac,
+    };
     use bitwarden_encoding::B64;
 
     use super::*;
-    use crate::test_support::{TestIds, TestSymmKey, load_v1_test_vectors};
+    use crate::test_support::{
+        TEST_VECTOR_V1_WRAPPED_PRIVATE_KEY, TestIds, TestSymmKey, load_v1_test_vectors,
+        unwrap_v1_organization_private_key,
+    };
 
     /// The public key of the pinned organization private key, as base64 SPKI.
     const TEST_VECTOR_ORGANIZATION_PUBLIC_KEY: &str = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoNoakr8gAXszoM1FQ1kz3rCXbd/ROcb8JQveiAmYuSCvA3Wx8zLqmYo0Jq6C3gPGxCHLVI4pYA6Pt0M59AlvK4jOiGwSPh1Wt6M+HlGUuBkW3Q3fJ0OwwKDT0WwzuZlmateoxg1Jq91jaVevc7bfsJMD8YFIY/c5nWTWIs5HG/v8ZwQMrdqAO/f7O3SJ4SvetkZqQynbTAL7AfPSVhIQt85mxyvkcAsqnwnmqjmlZsSXas2Ghp9v/5Y1eyLEgNUHyFghrNqbm99LTWnwgUVPhx8ALPkI2H8r4MMEPidZ1vEFURpL513nvFYTqfe2Vzg6JUXNu0w8ikFZh/6CNeXLTQIDAQAB";
@@ -124,6 +130,119 @@ mod tests {
             result,
             Err(OrganizationPublicKeyError::MissingPrivateKey)
         ));
+    }
+
+    #[test]
+    fn test_unwrapping_a_wrapped_value_that_is_not_a_private_key_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        load_v1_test_vectors(&mut ctx);
+        let symmetric_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        let wrapped_symmetric_key = ctx
+            .wrap_symmetric_key(TestSymmKey::Organization, symmetric_key)
+            .unwrap();
+
+        let result = OrganizationPrivateKey::unwrap_with_organization_key(
+            TestSymmKey::Organization,
+            &wrapped_symmetric_key,
+            &mut ctx,
+        );
+
+        assert!(matches!(
+            result,
+            Err(OrganizationPrivateKeyUnwrapError::UnwrapFailed)
+        ));
+    }
+
+    #[test]
+    fn test_unwrapping_with_a_missing_organization_key_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let wrapped_private_key: EncString = TEST_VECTOR_V1_WRAPPED_PRIVATE_KEY.parse().unwrap();
+
+        let result = OrganizationPrivateKey::unwrap_with_organization_key(
+            TestSymmKey::Organization,
+            &wrapped_private_key,
+            &mut ctx,
+        );
+
+        assert!(matches!(
+            result,
+            Err(OrganizationPrivateKeyUnwrapError::UnwrapFailed)
+        ));
+    }
+
+    #[test]
+    fn test_trust_proof_verifies_the_organization_public_key() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
+        let organization_public_key = organization_private_key.public_key(&ctx).unwrap();
+
+        let result = organization_private_key
+            .trust_proof()
+            .verify(&organization_public_key, &ctx);
+
+        assert!(matches!(result, Ok(())));
+    }
+
+    #[test]
+    fn test_decapsulating_a_key_encapsulated_to_the_organization_public_key_opens_the_key() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
+        let symmetric_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        let encapsulated_key = UnsignedSharedKey::encapsulate(
+            symmetric_key,
+            &organization_private_key.public_key(&ctx).unwrap(),
+            &ctx,
+        )
+        .unwrap();
+
+        let decapsulated_key = organization_private_key
+            .decapsulate_key(&encapsulated_key, &mut ctx)
+            .unwrap();
+
+        ctx.assert_symmetric_keys_equal(symmetric_key, decapsulated_key);
+    }
+
+    #[test]
+    fn test_decapsulating_a_key_encapsulated_to_another_public_key_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
+        let other_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let symmetric_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        let encapsulated_key = UnsignedSharedKey::encapsulate(
+            symmetric_key,
+            &ctx.get_public_key(other_private_key).unwrap(),
+            &ctx,
+        )
+        .unwrap();
+
+        let result = organization_private_key.decapsulate_key(&encapsulated_key, &mut ctx);
+
+        assert!(matches!(result, Err(CryptoError::KeyDecrypt)));
+    }
+
+    #[test]
+    fn test_decapsulating_in_another_context_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
+        let symmetric_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        let encapsulated_key = UnsignedSharedKey::encapsulate(
+            symmetric_key,
+            &organization_private_key.public_key(&ctx).unwrap(),
+            &ctx,
+        )
+        .unwrap();
+        let other_key_store = KeyStore::<TestIds>::default();
+        let mut other_ctx = other_key_store.context_mut();
+
+        let result = organization_private_key.decapsulate_key(&encapsulated_key, &mut other_ctx);
+
+        assert!(matches!(result, Err(CryptoError::MissingKeyId(_))));
     }
 
     #[test]

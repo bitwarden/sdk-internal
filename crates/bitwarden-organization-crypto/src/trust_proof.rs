@@ -18,6 +18,11 @@ pub enum TrustProof<Ids: KeySlotIds> {
     ManuallyTrusted(CoseKeyThumbprint),
     /// A cryptographic proof that the public key belongs to the recipient.
     CryptographicallyTrusted(CryptographicProof<Ids>),
+    /// Verifies with a fixed result, so that the tests of callers do not repeat the key setup of
+    /// each proof.
+    #[cfg(test)]
+    #[expect(private_interfaces)]
+    TestStub(Result<(), TrustProofError>),
 }
 
 /// The kinds of cryptographic proof. V2 adds signed identity claims, which bind the public key to
@@ -29,6 +34,7 @@ pub enum CryptographicProof<Ids: KeySlotIds> {
 }
 
 /// The ways a public key can fail its trust proof.
+#[derive(Clone, Copy)]
 pub(crate) enum TrustProofError {
     ThumbprintMismatch,
     MissingOwnPrivateKey,
@@ -58,6 +64,87 @@ impl<Ids: KeySlotIds> TrustProof<Ids> {
                 }
                 Ok(())
             }
+            #[cfg(test)]
+            Self::TestStub(result) => *result,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm};
+
+    use super::*;
+    use crate::test_support::TestIds;
+
+    #[test]
+    fn test_manually_trusted_thumbprint_of_the_public_key_verifies() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let public_key = ctx.get_public_key(private_key).unwrap();
+        let trust_proof = TrustProof::ManuallyTrusted(public_key.thumbprint().unwrap());
+
+        let result = trust_proof.verify(&public_key, &ctx);
+
+        assert!(matches!(result, Ok(())));
+    }
+
+    #[test]
+    fn test_manually_trusted_thumbprint_of_another_public_key_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let other_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let other_public_key = ctx.get_public_key(other_private_key).unwrap();
+        let trust_proof = TrustProof::ManuallyTrusted(other_public_key.thumbprint().unwrap());
+
+        let result = trust_proof.verify(&ctx.get_public_key(private_key).unwrap(), &ctx);
+
+        assert!(matches!(result, Err(TrustProofError::ThumbprintMismatch)));
+    }
+
+    #[test]
+    fn test_own_private_key_of_the_public_key_verifies() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let trust_proof =
+            TrustProof::CryptographicallyTrusted(CryptographicProof::OwnPrivateKey(private_key));
+
+        let result = trust_proof.verify(&ctx.get_public_key(private_key).unwrap(), &ctx);
+
+        assert!(matches!(result, Ok(())));
+    }
+
+    #[test]
+    fn test_own_private_key_missing_from_the_context_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let public_key = ctx.get_public_key(private_key).unwrap();
+        let trust_proof =
+            TrustProof::CryptographicallyTrusted(CryptographicProof::OwnPrivateKey(private_key));
+        let other_key_store = KeyStore::<TestIds>::default();
+        let other_ctx = other_key_store.context();
+
+        let result = trust_proof.verify(&public_key, &other_ctx);
+
+        assert!(matches!(result, Err(TrustProofError::MissingOwnPrivateKey)));
+    }
+
+    #[test]
+    fn test_own_private_key_of_another_key_pair_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let other_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let trust_proof = TrustProof::CryptographicallyTrusted(CryptographicProof::OwnPrivateKey(
+            other_private_key,
+        ));
+
+        let result = trust_proof.verify(&ctx.get_public_key(private_key).unwrap(), &ctx);
+
+        assert!(matches!(result, Err(TrustProofError::OwnPublicKeyMismatch)));
     }
 }

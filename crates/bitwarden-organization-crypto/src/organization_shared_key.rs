@@ -33,7 +33,7 @@ pub enum OrganizationSharedKeyParseError {
 }
 
 /// Errors that can occur when making an organization shared key with a trust proof.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum OrganizationSharedKeyMakeError {
     /// The server supplied a public key other than the trusted one.
     #[error("The member's public key does not match the trusted thumbprint")]
@@ -158,17 +158,14 @@ impl From<&OrganizationSharedKey> for String {
 #[cfg(test)]
 mod tests {
     use bitwarden_crypto::{
-        CoseKeyThumbprintExt, EncString, KeyStore, PublicKeyEncryptionAlgorithm,
-        SymmetricCryptoKey, SymmetricKeyAlgorithm::Aes256CbcHmac,
+        EncString, KeyStore, PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
+        SymmetricKeyAlgorithm::Aes256CbcHmac,
     };
 
     use super::*;
-    use crate::{
-        test_support::{
-            TEST_VECTOR_V1_MEMBER_USER_KEY, TEST_VECTOR_V1_ORG_KEY, TestIds, TestPrivateKey,
-            add_symmetric_key,
-        },
-        trust_proof::CryptographicProof,
+    use crate::test_support::{
+        TEST_VECTOR_V1_MEMBER_USER_KEY, TEST_VECTOR_V1_ORG_KEY, TestIds, TestPrivateKey,
+        add_symmetric_key,
     };
 
     /// The member private key, wrapped with [`TEST_VECTOR_V1_MEMBER_USER_KEY`].
@@ -185,32 +182,8 @@ mod tests {
             .unwrap()
     }
 
-    fn own_private_key_proof(private_key: TestPrivateKey) -> TrustProof<TestIds> {
-        TrustProof::CryptographicallyTrusted(CryptographicProof::OwnPrivateKey(private_key))
-    }
-
     #[test]
-    fn test_organization_shared_key_with_the_trusted_thumbprint_unseals_to_the_organization_key() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_key = ctx.make_symmetric_key(Aes256CbcHmac);
-        let member_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let member_public_key = ctx.get_public_key(member_private_key).unwrap();
-
-        let shared_key = OrganizationSharedKey::make(
-            organization_key,
-            &member_public_key,
-            &TrustProof::ManuallyTrusted(member_public_key.thumbprint().unwrap()),
-            &ctx,
-        )
-        .unwrap();
-        let unsealed = shared_key.unseal(member_private_key, &mut ctx).unwrap();
-
-        ctx.assert_symmetric_keys_equal(organization_key, unsealed);
-    }
-
-    #[test]
-    fn test_organization_shared_key_for_own_private_key_unseals_to_the_organization_key() {
+    fn test_organization_shared_key_unseals_to_the_organization_key() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
         let organization_key = ctx.make_symmetric_key(Aes256CbcHmac);
@@ -220,7 +193,7 @@ mod tests {
         let shared_key = OrganizationSharedKey::make(
             organization_key,
             &own_public_key,
-            &own_private_key_proof(own_private_key),
+            &TrustProof::TestStub(Ok(())),
             &ctx,
         )
         .unwrap();
@@ -255,7 +228,7 @@ mod tests {
         let shared_key = OrganizationSharedKey::make(
             organization_key,
             &own_public_key,
-            &own_private_key_proof(own_private_key),
+            &TrustProof::TestStub(Ok(())),
             &ctx,
         )
         .unwrap();
@@ -277,76 +250,36 @@ mod tests {
     }
 
     #[test]
-    fn test_making_for_a_public_key_with_another_thumbprint_fails() {
+    fn test_making_with_a_failed_trust_proof_fails_with_the_matching_error() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
         let organization_key = ctx.make_symmetric_key(Aes256CbcHmac);
         let member_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let trusted_thumbprint = ctx
-            .get_public_key(member_private_key)
-            .unwrap()
-            .thumbprint()
-            .unwrap();
-        let other_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let other_public_key = ctx.get_public_key(other_private_key).unwrap();
+        let member_public_key = ctx.get_public_key(member_private_key).unwrap();
 
-        let result = OrganizationSharedKey::make(
-            organization_key,
-            &other_public_key,
-            &TrustProof::ManuallyTrusted(trusted_thumbprint),
-            &ctx,
-        );
+        for (trust_proof_error, expected_error) in [
+            (
+                TrustProofError::ThumbprintMismatch,
+                OrganizationSharedKeyMakeError::ThumbprintMismatch,
+            ),
+            (
+                TrustProofError::MissingOwnPrivateKey,
+                OrganizationSharedKeyMakeError::MissingOwnPrivateKey,
+            ),
+            (
+                TrustProofError::OwnPublicKeyMismatch,
+                OrganizationSharedKeyMakeError::OwnPublicKeyMismatch,
+            ),
+        ] {
+            let result = OrganizationSharedKey::make(
+                organization_key,
+                &member_public_key,
+                &TrustProof::TestStub(Err(trust_proof_error)),
+                &ctx,
+            );
 
-        assert!(matches!(
-            result,
-            Err(OrganizationSharedKeyMakeError::ThumbprintMismatch)
-        ));
-    }
-
-    #[test]
-    fn test_making_with_a_missing_own_private_key_fails() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_key = ctx.make_symmetric_key(Aes256CbcHmac);
-        let other_key_store = KeyStore::<TestIds>::default();
-        let mut other_ctx = other_key_store.context_mut();
-        let missing_private_key =
-            other_ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let missing_public_key = other_ctx.get_public_key(missing_private_key).unwrap();
-
-        let result = OrganizationSharedKey::make(
-            organization_key,
-            &missing_public_key,
-            &own_private_key_proof(missing_private_key),
-            &ctx,
-        );
-
-        assert!(matches!(
-            result,
-            Err(OrganizationSharedKeyMakeError::MissingOwnPrivateKey)
-        ));
-    }
-
-    #[test]
-    fn test_making_for_a_public_key_of_another_key_pair_fails() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_key = ctx.make_symmetric_key(Aes256CbcHmac);
-        let own_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let other_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let other_public_key = ctx.get_public_key(other_private_key).unwrap();
-
-        let result = OrganizationSharedKey::make(
-            organization_key,
-            &other_public_key,
-            &own_private_key_proof(own_private_key),
-            &ctx,
-        );
-
-        assert!(matches!(
-            result,
-            Err(OrganizationSharedKeyMakeError::OwnPublicKeyMismatch)
-        ));
+            assert_eq!(result.err(), Some(expected_error));
+        }
     }
 
     #[test]
@@ -362,7 +295,7 @@ mod tests {
         let result = OrganizationSharedKey::make(
             missing_organization_key,
             &own_public_key,
-            &own_private_key_proof(own_private_key),
+            &TrustProof::TestStub(Ok(())),
             &ctx,
         );
 

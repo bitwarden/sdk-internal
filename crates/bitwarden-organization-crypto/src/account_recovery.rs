@@ -36,7 +36,7 @@ pub enum AccountRecoveryParseError {
 }
 
 /// Errors that can occur when making an account recovery with a trust proof.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum AccountRecoveryMakeError {
     /// The server supplied a public key other than the trusted one.
     #[error("The organization's public key does not match the trusted thumbprint")]
@@ -161,17 +161,13 @@ impl From<&AccountRecovery> for String {
 #[cfg(test)]
 mod tests {
     use bitwarden_crypto::{
-        CoseKeyThumbprintExt, KeyStore, PublicKeyEncryptionAlgorithm,
-        SymmetricKeyAlgorithm::Aes256CbcHmac,
+        KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm::Aes256CbcHmac,
     };
 
     use super::*;
-    use crate::{
-        test_support::{
-            TEST_VECTOR_V1_MEMBER_USER_KEY, TestIds, add_symmetric_key,
-            unwrap_v1_organization_private_key,
-        },
-        trust_proof::CryptographicProof,
+    use crate::test_support::{
+        TEST_VECTOR_V1_MEMBER_USER_KEY, TestIds, add_symmetric_key,
+        unwrap_v1_organization_private_key,
     };
 
     /// [`TEST_VECTOR_V1_MEMBER_USER_KEY`] encapsulated to the pinned organization public key.
@@ -187,29 +183,7 @@ mod tests {
         let account_recovery = AccountRecovery::make(
             member_user_key,
             &organization_private_key.public_key(&ctx).unwrap(),
-            &organization_private_key.trust_proof(),
-            &ctx,
-        )
-        .unwrap();
-        let unsealed = account_recovery
-            .unseal_member_user_key(&organization_private_key, &mut ctx)
-            .unwrap();
-
-        ctx.assert_symmetric_keys_equal(member_user_key, unsealed);
-    }
-
-    #[test]
-    fn test_account_recovery_with_the_trusted_thumbprint_unseals_to_the_member_user_key() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
-        let organization_public_key = organization_private_key.public_key(&ctx).unwrap();
-        let member_user_key = ctx.make_symmetric_key(Aes256CbcHmac);
-
-        let account_recovery = AccountRecovery::make(
-            member_user_key,
-            &organization_public_key,
-            &TrustProof::ManuallyTrusted(organization_public_key.thumbprint().unwrap()),
+            &TrustProof::TestStub(Ok(())),
             &ctx,
         )
         .unwrap();
@@ -249,7 +223,7 @@ mod tests {
         let account_recovery = AccountRecovery::make(
             member_user_key,
             &organization_private_key.public_key(&ctx).unwrap(),
-            &organization_private_key.trust_proof(),
+            &TrustProof::TestStub(Ok(())),
             &ctx,
         )
         .unwrap();
@@ -270,79 +244,36 @@ mod tests {
     }
 
     #[test]
-    fn test_making_for_a_public_key_with_another_thumbprint_fails() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
-        let trusted_thumbprint = organization_private_key
-            .public_key(&ctx)
-            .unwrap()
-            .thumbprint()
-            .unwrap();
-        let other_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let other_public_key = ctx.get_public_key(other_private_key).unwrap();
-        let member_user_key = ctx.make_symmetric_key(Aes256CbcHmac);
-
-        let result = AccountRecovery::make(
-            member_user_key,
-            &other_public_key,
-            &TrustProof::ManuallyTrusted(trusted_thumbprint),
-            &ctx,
-        );
-
-        assert!(matches!(
-            result,
-            Err(AccountRecoveryMakeError::ThumbprintMismatch)
-        ));
-    }
-
-    #[test]
-    fn test_making_with_a_missing_own_private_key_fails() {
+    fn test_making_with_a_failed_trust_proof_fails_with_the_matching_error() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
         let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
         let organization_public_key = organization_private_key.public_key(&ctx).unwrap();
         let member_user_key = ctx.make_symmetric_key(Aes256CbcHmac);
-        let other_key_store = KeyStore::<TestIds>::default();
-        let mut other_ctx = other_key_store.context_mut();
-        let missing_private_key =
-            other_ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
-        let result = AccountRecovery::make(
-            member_user_key,
-            &organization_public_key,
-            &TrustProof::CryptographicallyTrusted(CryptographicProof::OwnPrivateKey(
-                missing_private_key,
-            )),
-            &ctx,
-        );
+        for (trust_proof_error, expected_error) in [
+            (
+                TrustProofError::ThumbprintMismatch,
+                AccountRecoveryMakeError::ThumbprintMismatch,
+            ),
+            (
+                TrustProofError::MissingOwnPrivateKey,
+                AccountRecoveryMakeError::MissingOwnPrivateKey,
+            ),
+            (
+                TrustProofError::OwnPublicKeyMismatch,
+                AccountRecoveryMakeError::OwnPublicKeyMismatch,
+            ),
+        ] {
+            let result = AccountRecovery::make(
+                member_user_key,
+                &organization_public_key,
+                &TrustProof::TestStub(Err(trust_proof_error)),
+                &ctx,
+            );
 
-        assert!(matches!(
-            result,
-            Err(AccountRecoveryMakeError::MissingOwnPrivateKey)
-        ));
-    }
-
-    #[test]
-    fn test_making_for_a_public_key_of_another_key_pair_fails() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
-        let other_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let other_public_key = ctx.get_public_key(other_private_key).unwrap();
-        let member_user_key = ctx.make_symmetric_key(Aes256CbcHmac);
-
-        let result = AccountRecovery::make(
-            member_user_key,
-            &other_public_key,
-            &organization_private_key.trust_proof(),
-            &ctx,
-        );
-
-        assert!(matches!(
-            result,
-            Err(AccountRecoveryMakeError::OwnPublicKeyMismatch)
-        ));
+            assert_eq!(result.err(), Some(expected_error));
+        }
     }
 
     #[test]
@@ -357,7 +288,7 @@ mod tests {
         let result = AccountRecovery::make(
             missing_member_user_key,
             &organization_private_key.public_key(&ctx).unwrap(),
-            &organization_private_key.trust_proof(),
+            &TrustProof::TestStub(Ok(())),
             &ctx,
         );
 
