@@ -17,8 +17,11 @@ use bitwarden_core::{
     },
     require,
 };
-use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, SpkiPublicKeyBytes, UnsignedSharedKey};
+use bitwarden_crypto::{
+    CoseKeyThumbprintExt, Kdf, KeyStoreContext, PublicKey, SpkiPublicKeyBytes, UnsignedSharedKey,
+};
 use bitwarden_encoding::B64;
+use bitwarden_organization_crypto::{account_recovery::AccountRecovery, trust_proof::TrustProof};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, debug_span, error, info};
 
@@ -276,11 +279,18 @@ fn reencrypt_organization_memberships(
             let _span =
                 debug_span!("reencrypt_organization_key", organization = ?org_membership.organization_id)
                     .entered();
-            // Share the key to the organization. Note: No sender authentication
-            // and the passed in public-key must be verified/trusted.
-            match UnsignedSharedKey::encapsulate(new_user_key_id, &org_membership.public_key, ctx) {
-                Ok(reencrypted_key) => Ok(OrganizationUserAccountRecoveryRequestModel {
-                    reset_password_key: Some(reencrypted_key.to_string()),
+            // The rotation context passes only memberships whose public key the user confirmed.
+            let Ok(trusted_thumbprint) = org_membership.public_key.thumbprint() else {
+                return Err(ReencryptError::KeySharingError);
+            };
+            match AccountRecovery::make(
+                new_user_key_id,
+                &org_membership.public_key,
+                &TrustProof::ManuallyTrusted(trusted_thumbprint),
+                ctx,
+            ) {
+                Ok(account_recovery) => Ok(OrganizationUserAccountRecoveryRequestModel {
+                    reset_password_key: Some(String::from(&account_recovery)),
                     organization_id: org_membership.organization_id,
                 }),
                 Err(_) => Err(ReencryptError::KeySharingError),
