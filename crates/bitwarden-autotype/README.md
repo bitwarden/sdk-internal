@@ -9,19 +9,19 @@ Noise-encrypted channels for use between the two desktop processes.
 
 ## Channels
 
-| Request                                             | Direction       | Payload                 | Response                         |
-| --------------------------------------------------- | --------------- | ----------------------- | -------------------------------- |
-| `AutotypeSetEnabledRequest`                         | renderer → main | `enabled: bool`         | `{ success: bool }`              |
-| `AutotypeSetKeyboardShortcutRequest`                | renderer → main | `shortcut: Vec<String>` | `{ success: bool }`              |
-| `AutotypeListRunningAppsRequest`                    | renderer → main | _(none)_                | `{ apps: AutotypeRunningApp[] }` |
-| `AutotypeSetConfirmationEnabledFromRendererRequest` | renderer → main | `enabled: bool`         | `{ success: bool }`              |
-| `AutotypeSetConfirmationEnabledFromMainRequest`     | main → renderer | `enabled: bool`         | `{ success: bool }`              |
+| Request                                           | Direction     | Payload                 | Response                         |
+| ------------------------------------------------- | ------------- | ----------------------- | -------------------------------- |
+| `AutotypeSetEnabledRequest`                       | render → main | `enabled: bool`         | `{ success: bool }`              |
+| `AutotypeSetKeyboardShortcutRequest`              | render → main | `shortcut: Vec<String>` | `{ success: bool }`              |
+| `AutotypeListRunningAppsRequest`                  | render → main | _(none)_                | `{ apps: AutotypeRunningApp[] }` |
+| `AutotypeSetConfirmationEnabledFromRenderRequest` | render → main | `enabled: bool`         | `{ success: bool }`              |
+| `AutotypeSetConfirmationEnabledFromMainRequest`   | main → render | `enabled: bool`         | `{ success: bool }`              |
 
 Each process registers the handlers for the requests it receives, backed by its own driver:
 
 - **Main** implements `AutotypeMainDriver` and calls `registerAutotypeMainHandlers`. These handlers
-  only accept requests from the desktop renderer.
-- **Renderer** implements `AutotypeRenderDriver` and calls `registerAutotypeRenderHandlers`. These
+  only accept requests from the desktop render process.
+- **Render** implements `AutotypeRenderDriver` and calls `registerAutotypeRenderHandlers`. These
   handlers only accept requests from the desktop main process.
 
 ## Tests

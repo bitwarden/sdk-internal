@@ -84,14 +84,14 @@ export function makeMockAutotypeMainDriver(
 }
 
 /**
- * Behavior for the mock renderer driver, the render process's side of the main → renderer
+ * Behavior for the mock render driver, the render process's side of the main → render
  * channels.
  */
 export interface MockAutotypeRenderDriverOptions {
   setConfirmationEnabled: (enabled: boolean) => Promise<boolean>;
 }
 
-/** Recorded calls per main → renderer channel. */
+/** Recorded calls per main → render channel. */
 export interface MockAutotypeRenderDriverCalls {
   confirmationEnabledCalls: boolean[];
 }
@@ -118,55 +118,56 @@ export function makeMockAutotypeRenderDriver(
 
 /**
  * Builds the desktop pairing the real app uses: a main-process client that owns the global
- * shortcut and a renderer-process client that drives it, over paired in-memory transports.
+ * shortcut and a render-process client that drives it, over paired in-memory transports.
  *
- * Only `main` registers handlers, matching the renderer → main channels — the renderer sends, main
- * applies. See `setupRendererHandlerPair` for the main → renderer channels.
+ * Only `main` registers handlers, matching the render → main channels — the render process sends,
+ * main applies. See `setupRenderHandlerPair` for the main → render channels.
  *
- * `rendererSource` is the source main sees on the sending side's messages. It defaults to the real
- * renderer; pass another source to stand in for a different peer of main, such as the browser
- * extension or CLI over native messaging.
+ * `renderSource` is the source main sees on the sending side's messages. It defaults to the real
+ * render process; pass another source to stand in for a different peer of main, such as the
+ * browser extension or CLI over native messaging.
  */
 export async function setupClientPair(
   driver: AutotypeMainDriver = makeMockAutotypeMainDriver(),
-  rendererSource: Source = "DesktopRenderer",
+  renderSource: Source = "DesktopRenderer",
 ) {
   init_sdk();
 
-  const [mainBackend, rendererBackend] = makeMockTransportPair("DesktopMain", rendererSource);
+  const [mainBackend, renderBackend] = makeMockTransportPair("DesktopMain", renderSource);
   const main = IpcClient.newWithSdkInMemorySessions(mainBackend);
-  const renderer = IpcClient.newWithSdkInMemorySessions(rendererBackend);
+  const render = IpcClient.newWithSdkInMemorySessions(renderBackend);
 
   await main.start();
-  await renderer.start();
+  await render.start();
 
   await registerAutotypeMainHandlers(main, driver);
 
-  return { main, renderer };
+  return { main, render };
 }
 
 /**
- * The mirror of `setupClientPair` for the main → renderer channels: only `renderer` registers
- * handlers, so main sends and the renderer applies.
+ * The mirror of `setupClientPair` for the main → render channels: only `render` registers
+ * handlers, so main sends and the render process applies.
  *
- * `mainSource` is the source the renderer sees on the sending side's messages. It defaults to the
- * real main process; pass another source to stand in for a native-messaging peer whose messages
- * main forwards to the renderer under their original source, such as the browser extension or CLI.
+ * `mainSource` is the source the render process sees on the sending side's messages. It defaults
+ * to the real main process; pass another source to stand in for a native-messaging peer whose
+ * messages main forwards to the render process under their original source, such as the browser
+ * extension or CLI.
  */
-export async function setupRendererHandlerPair(
+export async function setupRenderHandlerPair(
   driver: AutotypeRenderDriver = makeMockAutotypeRenderDriver(),
   mainSource: Source = "DesktopMain",
 ) {
   init_sdk();
 
-  const [mainBackend, rendererBackend] = makeMockTransportPair(mainSource, "DesktopRenderer");
+  const [mainBackend, renderBackend] = makeMockTransportPair(mainSource, "DesktopRenderer");
   const main = IpcClient.newWithSdkInMemorySessions(mainBackend);
-  const renderer = IpcClient.newWithSdkInMemorySessions(rendererBackend);
+  const render = IpcClient.newWithSdkInMemorySessions(renderBackend);
 
   await main.start();
-  await renderer.start();
+  await render.start();
 
-  await registerAutotypeRenderHandlers(renderer, driver);
+  await registerAutotypeRenderHandlers(render, driver);
 
-  return { main, renderer };
+  return { main, render };
 }

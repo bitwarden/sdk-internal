@@ -12,9 +12,9 @@ const DEFAULT_SHORTCUT = ["Control", "Alt", "B"];
 describe("autotype set-keyboard-shortcut ipc", () => {
   it("reports success when the shortcut is applied on the main process", async () => {
     const driver = makeMockAutotypeMainDriver();
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
-    const response = await autotypeRequestSetKeyboardShortcut(renderer, DEFAULT_SHORTCUT);
+    const response = await autotypeRequestSetKeyboardShortcut(render, DEFAULT_SHORTCUT);
 
     expect(response.success).toBe(true);
     expect(driver.shortcutCalls).toEqual([DEFAULT_SHORTCUT]);
@@ -24,9 +24,9 @@ describe("autotype set-keyboard-shortcut ipc", () => {
   // application already owns, or one it rejects as malformed.
   it("reports failure when the driver cannot apply the shortcut", async () => {
     const driver = makeMockAutotypeMainDriver({ setKeyboardShortcut: async () => false });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
-    const response = await autotypeRequestSetKeyboardShortcut(renderer, ["Alt", "Q"]);
+    const response = await autotypeRequestSetKeyboardShortcut(render, ["Alt", "Q"]);
 
     expect(response.success).toBe(false);
     expect(driver.shortcutCalls).toEqual([["Alt", "Q"]]);
@@ -38,11 +38,11 @@ describe("autotype set-keyboard-shortcut ipc", () => {
         throw new Error("globalShortcut unavailable");
       },
     });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
     // A throwing driver is never reported as successful, and the request resolves rather
     // than rejecting.
-    await expect(autotypeRequestSetKeyboardShortcut(renderer, DEFAULT_SHORTCUT)).resolves.toEqual({
+    await expect(autotypeRequestSetKeyboardShortcut(render, DEFAULT_SHORTCUT)).resolves.toEqual({
       success: false,
     });
 
@@ -57,9 +57,9 @@ describe("autotype set-keyboard-shortcut ipc", () => {
     ["a shortcut with an unrecognized key", ["Meta", "BANANA"]],
   ])("forwards %s unchanged", async (_label, shortcut) => {
     const driver = makeMockAutotypeMainDriver({ setKeyboardShortcut: async () => false });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
-    const response = await autotypeRequestSetKeyboardShortcut(renderer, shortcut);
+    const response = await autotypeRequestSetKeyboardShortcut(render, shortcut);
 
     expect(response.success).toBe(false);
     expect(driver.shortcutCalls).toEqual([shortcut]);
@@ -71,12 +71,12 @@ describe("autotype set-keyboard-shortcut ipc", () => {
     const driver = makeMockAutotypeMainDriver({
       setKeyboardShortcut: async (shortcut) => shortcut.length === 3,
     });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
     const responses = await Promise.all([
-      autotypeRequestSetKeyboardShortcut(renderer, DEFAULT_SHORTCUT),
-      autotypeRequestSetKeyboardShortcut(renderer, ["Alt", "Q"]),
-      autotypeRequestSetKeyboardShortcut(renderer, ["Control", "Super", "A"]),
+      autotypeRequestSetKeyboardShortcut(render, DEFAULT_SHORTCUT),
+      autotypeRequestSetKeyboardShortcut(render, ["Alt", "Q"]),
+      autotypeRequestSetKeyboardShortcut(render, ["Control", "Super", "A"]),
     ]);
 
     expect(responses.map((r) => r.success)).toEqual([true, false, true]);
@@ -98,19 +98,19 @@ describe("autotype set-keyboard-shortcut ipc", () => {
       // still be in flight below.
       setKeyboardShortcut: () => shortcutGate,
     });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
     // Capture the shortcut request's settled state without awaiting it, so that if the
     // set-enabled request below were to settle it early, it surfaces as a failed assertion
     // rather than an unhandled rejection.
-    const shortcut = autotypeRequestSetKeyboardShortcut(renderer, DEFAULT_SHORTCUT).then(
+    const shortcut = autotypeRequestSetKeyboardShortcut(render, DEFAULT_SHORTCUT).then(
       (ok) => ({ ok }),
       (err) => ({ err: String(err) }),
     );
 
     // Both channels share one single-threaded runner backing the same driver instance, so a
     // pending call on one must not stall the other.
-    await expect(autotypeRequestSetEnabled(renderer, true)).resolves.toEqual({ success: true });
+    await expect(autotypeRequestSetEnabled(render, true)).resolves.toEqual({ success: true });
 
     releaseShortcut(true);
 
@@ -125,7 +125,7 @@ describe("autotype set-keyboard-shortcut ipc", () => {
     ["the CLI", { Cli: { id: { Id: 1 } } }],
   ])("refuses a shortcut sent by %s without calling the driver", async (_label, source) => {
     const driver = makeMockAutotypeMainDriver();
-    const { renderer: peer } = await setupClientPair(driver, source);
+    const { render: peer } = await setupClientPair(driver, source);
 
     await expect(autotypeRequestSetKeyboardShortcut(peer, DEFAULT_SHORTCUT)).resolves.toEqual({
       success: false,

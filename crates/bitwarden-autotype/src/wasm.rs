@@ -270,7 +270,7 @@ impl JsAutotypeMainDriver {
     }
 }
 
-/// Wraps the JavaScript renderer driver in a [`ThreadBoundRunner`] so it can be used from the
+/// Wraps the JavaScript render driver in a [`ThreadBoundRunner`] so it can be used from the
 /// `Send` futures an [`RpcHandler`] is required to return.
 struct JsAutotypeRenderDriver {
     runner: ThreadBoundRunner<RawJsAutotypeRenderDriver>,
@@ -289,7 +289,7 @@ impl JsAutotypeRenderDriver {
                 match driver.set_autotype_confirmation_enabled(enabled).await {
                     Ok(value) => value.as_bool().unwrap_or_else(|| {
                         tracing::error!(
-                            "Autotype renderer driver returned a non-boolean \
+                            "Autotype render driver returned a non-boolean \
                              set-confirmation-enabled result"
                         );
                         false
@@ -297,7 +297,7 @@ impl JsAutotypeRenderDriver {
                     Err(error) => {
                         tracing::error!(
                             ?error,
-                            "Autotype renderer driver failed to set the confirmation enabled state"
+                            "Autotype render driver failed to set the confirmation enabled state"
                         );
                         false
                     }
@@ -307,7 +307,7 @@ impl JsAutotypeRenderDriver {
             .unwrap_or_else(|error| {
                 tracing::error!(
                     ?error,
-                    "Autotype renderer runner failed to set the confirmation enabled state"
+                    "Autotype render runner failed to set the confirmation enabled state"
                 );
                 false
             })
@@ -355,7 +355,7 @@ impl RpcRequest for AutotypeSetEnabledRequest {
 
 /// An [`RpcHandler`] that applies the requested state through a [`RawJsAutotypeMainDriver`].
 ///
-/// Only requests from the desktop renderer are applied; any other source is refused with
+/// Only requests from the desktop render process are applied; any other source is refused with
 /// `success: false` before the driver is called. See [`from_source`].
 struct AutotypeSetEnabledHandler {
     driver: JsAutotypeMainDriver,
@@ -408,7 +408,7 @@ impl RpcRequest for AutotypeSetKeyboardShortcutRequest {
 
 /// An [`RpcHandler`] that applies the requested shortcut through a [`RawJsAutotypeMainDriver`].
 ///
-/// Only requests from the desktop renderer are applied; any other source is refused with
+/// Only requests from the desktop render process are applied; any other source is refused with
 /// `success: false` before the shortcut reaches the driver. See [`from_source`].
 struct AutotypeSetKeyboardShortcutHandler {
     driver: JsAutotypeMainDriver,
@@ -461,7 +461,7 @@ impl RpcRequest for AutotypeListRunningAppsRequest {
 
 /// An [`RpcHandler`] that lists running applications through a [`RawJsAutotypeMainDriver`].
 ///
-/// Only requests from the desktop renderer are answered; any other source gets an empty list
+/// Only requests from the desktop render process are answered; any other source gets an empty list
 /// without the driver being asked to enumerate anything. See [`from_source`].
 struct AutotypeListRunningAppsHandler {
     driver: JsAutotypeMainDriver,
@@ -494,53 +494,53 @@ impl RpcHandler for AutotypeListRunningAppsHandler {
 /// A request from the render process asking the main process to change whether the Autotype
 /// confirmation dialog should be shown.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AutotypeSetConfirmationEnabledFromRendererRequest {
+pub struct AutotypeSetConfirmationEnabledFromRenderRequest {
     /// Whether the Autotype confirmation dialog should be shown.
     pub enabled: bool,
 }
 
-/// A response to an [`AutotypeSetConfirmationEnabledFromRendererRequest`].
+/// A response to an [`AutotypeSetConfirmationEnabledFromRenderRequest`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[bitwarden_ffi::wasm_record]
-pub struct AutotypeSetConfirmationEnabledFromRendererResponse {
+pub struct AutotypeSetConfirmationEnabledFromRenderResponse {
     /// Whether the requested change to the confirmation dialog setting was applied.
     pub success: bool,
 }
 
-impl RpcRequest for AutotypeSetConfirmationEnabledFromRendererRequest {
-    type Response = AutotypeSetConfirmationEnabledFromRendererResponse;
+impl RpcRequest for AutotypeSetConfirmationEnabledFromRenderRequest {
+    type Response = AutotypeSetConfirmationEnabledFromRenderResponse;
 
-    const NAME: &str = "AutotypeSetConfirmationEnabledFromRendererRequest";
+    const NAME: &str = "AutotypeSetConfirmationEnabledFromRenderRequest";
 }
 
 /// An [`RpcHandler`] that applies the requested confirmation dialog setting through a
 /// [`RawJsAutotypeMainDriver`].
 ///
-/// Only requests from the desktop renderer are applied; any other source is refused with
+/// Only requests from the desktop render process are applied; any other source is refused with
 /// `success: false` before the driver is called. See [`from_source`].
-struct AutotypeSetConfirmationEnabledFromRendererHandler {
+struct AutotypeSetConfirmationEnabledFromRenderHandler {
     driver: JsAutotypeMainDriver,
 }
 
-impl AutotypeSetConfirmationEnabledFromRendererHandler {
+impl AutotypeSetConfirmationEnabledFromRenderHandler {
     fn new(driver: JsAutotypeMainDriver) -> Self {
         Self { driver }
     }
 }
 
-impl RpcHandler for AutotypeSetConfirmationEnabledFromRendererHandler {
-    type Request = AutotypeSetConfirmationEnabledFromRendererRequest;
+impl RpcHandler for AutotypeSetConfirmationEnabledFromRenderHandler {
+    type Request = AutotypeSetConfirmationEnabledFromRenderRequest;
 
     async fn handle(
         &self,
         request: Self::Request,
         info: RpcRequestInfo,
-    ) -> AutotypeSetConfirmationEnabledFromRendererResponse {
+    ) -> AutotypeSetConfirmationEnabledFromRenderResponse {
         if !from_source(&info, Source::DesktopRenderer, Self::Request::NAME) {
-            return AutotypeSetConfirmationEnabledFromRendererResponse { success: false };
+            return AutotypeSetConfirmationEnabledFromRenderResponse { success: false };
         }
 
-        AutotypeSetConfirmationEnabledFromRendererResponse {
+        AutotypeSetConfirmationEnabledFromRenderResponse {
             success: self
                 .driver
                 .set_autotype_confirmation_enabled(request.enabled)
@@ -575,8 +575,8 @@ impl RpcRequest for AutotypeSetConfirmationEnabledFromMainRequest {
 /// [`RawJsAutotypeRenderDriver`].
 ///
 /// Only requests from the desktop main process are applied; any other source (including
-/// native-messaging peers that main forwards to the renderer) is refused with `success: false`
-/// before the driver is called. See [`from_source`].
+/// native-messaging peers that main forwards to the render process) is refused with
+/// `success: false` before the driver is called. See [`from_source`].
 struct AutotypeSetConfirmationEnabledFromMainHandler {
     driver: JsAutotypeRenderDriver,
 }
@@ -637,7 +637,7 @@ pub async fn register_autotype_main_handlers(
         .await;
     ipc_client
         .client
-        .register_rpc_handler(AutotypeSetConfirmationEnabledFromRendererHandler::new(
+        .register_rpc_handler(AutotypeSetConfirmationEnabledFromRenderHandler::new(
             JsAutotypeMainDriver::new(runner),
         ))
         .await;
@@ -648,7 +648,7 @@ pub async fn register_autotype_main_handlers(
 /// process's IPC client.
 ///
 /// After registering, send the current confirmation setting to main with
-/// `autotypeRequestSetConfirmationEnabledFromRenderer`, so main starts with the right value.
+/// `autotypeRequestSetConfirmationEnabledFromRender`, so main starts with the right value.
 #[bitwarden_ffi::wasm_export(js_name = registerAutotypeRenderHandlers)]
 pub async fn register_autotype_render_handlers(
     ipc_client: &JsIpcClient,
@@ -668,7 +668,7 @@ pub async fn register_autotype_render_handlers(
 /// requested change was successful.
 ///
 /// There is no built-in timeout, so always pass `abort_signal` (for example
-/// `AbortSignal.timeout(ms)`). Without one, the request never settles if main doesn't respond.
+/// `AbortSignal.timeout(ms)`). Without one, the request never completes if main doesn't respond.
 #[bitwarden_ffi::wasm_export(js_name = autotypeRequestSetEnabled)]
 pub async fn autotype_request_set_enabled(
     ipc_client: &JsIpcClient,
@@ -689,7 +689,7 @@ pub async fn autotype_request_set_enabled(
 /// the requested shortcut was applied.
 ///
 /// There is no built-in timeout, so always pass `abort_signal` (for example
-/// `AbortSignal.timeout(ms)`). Without one, the request never settles if main doesn't respond.
+/// `AbortSignal.timeout(ms)`). Without one, the request never completes if main doesn't respond.
 #[bitwarden_ffi::wasm_export(js_name = autotypeRequestSetKeyboardShortcut)]
 pub async fn autotype_request_set_keyboard_shortcut(
     ipc_client: &JsIpcClient,
@@ -712,7 +712,7 @@ pub async fn autotype_request_set_keyboard_shortcut(
 /// didn't have the matching data needed for use with Autotype.
 ///
 /// There is no built-in timeout, so always pass `abort_signal` (for example
-/// `AbortSignal.timeout(ms)`). Without one, the request never settles if main doesn't respond.
+/// `AbortSignal.timeout(ms)`). Without one, the request never completes if main doesn't respond.
 #[bitwarden_ffi::wasm_export(js_name = autotypeRequestListRunningApps)]
 pub async fn autotype_request_list_running_apps(
     ipc_client: &JsIpcClient,
@@ -728,21 +728,21 @@ pub async fn autotype_request_list_running_apps(
         .await
 }
 
-/// Sends an `AutotypeSetConfirmationEnabledFromRendererRequest` to the desktop main process and
+/// Sends an `AutotypeSetConfirmationEnabledFromRenderRequest` to the desktop main process and
 /// reports whether the requested confirmation dialog setting was applied.
 ///
 /// There is no built-in timeout, so always pass `abort_signal` (for example
-/// `AbortSignal.timeout(ms)`). Without one, the request never settles if main doesn't respond.
-#[bitwarden_ffi::wasm_export(js_name = autotypeRequestSetConfirmationEnabledFromRenderer)]
-pub async fn autotype_request_set_confirmation_enabled_from_renderer(
+/// `AbortSignal.timeout(ms)`). Without one, the request never completes if main doesn't respond.
+#[bitwarden_ffi::wasm_export(js_name = autotypeRequestSetConfirmationEnabledFromRender)]
+pub async fn autotype_request_set_confirmation_enabled_from_render(
     ipc_client: &JsIpcClient,
     enabled: bool,
     abort_signal: Option<AbortSignal>,
-) -> Result<AutotypeSetConfirmationEnabledFromRendererResponse, RequestError> {
+) -> Result<AutotypeSetConfirmationEnabledFromRenderResponse, RequestError> {
     ipc_client
         .client
         .request(
-            AutotypeSetConfirmationEnabledFromRendererRequest { enabled },
+            AutotypeSetConfirmationEnabledFromRenderRequest { enabled },
             Endpoint::DesktopMain,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
@@ -757,8 +757,8 @@ pub async fn autotype_request_set_confirmation_enabled_from_renderer(
 /// fires.
 ///
 /// There is no built-in timeout, so always pass `abort_signal` (for example
-/// `AbortSignal.timeout(ms)`). Without one, the request never settles if the renderer doesn't
-/// respond.
+/// `AbortSignal.timeout(ms)`). Without one, the request never completes if the render process
+/// doesn't respond.
 #[bitwarden_ffi::wasm_export(js_name = autotypeRequestSetConfirmationEnabledFromMain)]
 pub async fn autotype_request_set_confirmation_enabled_from_main(
     ipc_client: &JsIpcClient,

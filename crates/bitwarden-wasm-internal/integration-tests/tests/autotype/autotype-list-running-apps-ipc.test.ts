@@ -15,9 +15,9 @@ const RUNNING_APPS: AutotypeRunningApp[] = [
 describe("autotype list-running-apps ipc", () => {
   it("round-trips the list the main process reports", async () => {
     const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => RUNNING_APPS });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
-    const response = await autotypeRequestListRunningApps(renderer);
+    const response = await autotypeRequestListRunningApps(render);
 
     // Compared by value, not identity — these crossed a serialize/encrypt/decrypt/deserialize
     // round trip, so this also pins that neither field is dropped or reordered.
@@ -27,9 +27,9 @@ describe("autotype list-running-apps ipc", () => {
 
   it("round-trips an empty list", async () => {
     const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => [] });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
-    const response = await autotypeRequestListRunningApps(renderer);
+    const response = await autotypeRequestListRunningApps(render);
 
     expect(response.apps).toEqual([]);
     expect(driver.listRunningAppsCalls).toBe(1);
@@ -41,11 +41,11 @@ describe("autotype list-running-apps ipc", () => {
         throw new Error("autotype is not supported on this platform");
       },
     });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
     // The request resolves rather than rejecting — an unavailable driver must not surface as a
-    // rejected promise in the renderer.
-    await expect(autotypeRequestListRunningApps(renderer)).resolves.toEqual({ apps: [] });
+    // rejected promise in the render process.
+    await expect(autotypeRequestListRunningApps(render)).resolves.toEqual({ apps: [] });
   });
 
   // Entries are deserialized one at a time, so an unreadable process costs the caller that entry
@@ -55,9 +55,9 @@ describe("autotype list-running-apps ipc", () => {
     const driver = makeMockAutotypeMainDriver({
       listRunningApps: async () => [{ name: "Notepad" }, ...RUNNING_APPS],
     });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
-    const response = await autotypeRequestListRunningApps(renderer);
+    const response = await autotypeRequestListRunningApps(render);
 
     expect(response.apps).toEqual(RUNNING_APPS);
   });
@@ -67,9 +67,9 @@ describe("autotype list-running-apps ipc", () => {
     ["has a non-string field", [{ name: "Notepad", path: 42 }]],
   ])("reports an empty list when the only entry %s", async (_label, payload) => {
     const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => payload });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
-    const response = await autotypeRequestListRunningApps(renderer);
+    const response = await autotypeRequestListRunningApps(render);
 
     expect(response.apps).toEqual([]);
   });
@@ -81,9 +81,9 @@ describe("autotype list-running-apps ipc", () => {
     ["the payload is undefined", undefined],
   ])("reports an empty list when %s", async (_label, payload) => {
     const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => payload });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
-    const response = await autotypeRequestListRunningApps(renderer);
+    const response = await autotypeRequestListRunningApps(render);
 
     expect(response.apps).toEqual([]);
   });
@@ -97,12 +97,12 @@ describe("autotype list-running-apps ipc", () => {
     const driver = makeMockAutotypeMainDriver({
       listRunningApps: async () => [{ name: `App ${++call}`, path: `app-${call}.exe` }],
     });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
     const responses = await Promise.all([
-      autotypeRequestListRunningApps(renderer),
-      autotypeRequestListRunningApps(renderer),
-      autotypeRequestListRunningApps(renderer),
+      autotypeRequestListRunningApps(render),
+      autotypeRequestListRunningApps(render),
+      autotypeRequestListRunningApps(render),
     ]);
 
     expect(responses.map((r) => r.apps[0].name)).toEqual(["App 1", "App 2", "App 3"]);
@@ -120,19 +120,19 @@ describe("autotype list-running-apps ipc", () => {
       // in flight below.
       listRunningApps: () => listGate,
     });
-    const { renderer } = await setupClientPair(driver);
+    const { render } = await setupClientPair(driver);
 
     // Capture the list request's settled state without awaiting it, so that if the set-enabled
     // request below were to settle it early, it surfaces as a failed assertion rather than an
     // unhandled rejection.
-    const list = autotypeRequestListRunningApps(renderer).then(
+    const list = autotypeRequestListRunningApps(render).then(
       (ok) => ({ ok }),
       (err) => ({ err: String(err) }),
     );
 
     // All three channels share one single-threaded runner backing the same driver instance, so a
     // pending call on one must not stall the others.
-    await expect(autotypeRequestSetEnabled(renderer, true)).resolves.toEqual({ success: true });
+    await expect(autotypeRequestSetEnabled(render, true)).resolves.toEqual({ success: true });
 
     releaseList(RUNNING_APPS);
 
@@ -147,7 +147,7 @@ describe("autotype list-running-apps ipc", () => {
     ["the CLI", { Cli: { id: { Id: 1 } } }],
   ])("refuses a list request sent by %s without calling the driver", async (_label, source) => {
     const driver = makeMockAutotypeMainDriver({ listRunningApps: async () => RUNNING_APPS });
-    const { renderer: peer } = await setupClientPair(driver, source);
+    const { render: peer } = await setupClientPair(driver, source);
 
     await expect(autotypeRequestListRunningApps(peer)).resolves.toEqual({ apps: [] });
 
