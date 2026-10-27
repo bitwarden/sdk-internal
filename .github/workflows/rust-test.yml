@@ -86,7 +86,7 @@ jobs:
 
       - name: Mark changed files
         shell: bash
-        run: ./scripts/ci-mark-changed-files.sh
+        run: ./scripts/ci-build-cache.sh mark
 
       - name: Build tests
         id: build
@@ -94,7 +94,7 @@ jobs:
 
       - name: Record build inputs
         shell: bash
-        run: ./scripts/ci-record-build-inputs.sh
+        run: ./scripts/ci-build-cache.sh record
 
       - name: Test
         run: cargo test --workspace --all-features
@@ -201,7 +201,7 @@ jobs:
 
       - name: Mark changed files
         shell: bash
-        run: ./scripts/ci-mark-changed-files.sh
+        run: ./scripts/ci-build-cache.sh mark
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
@@ -226,7 +226,7 @@ jobs:
 
       - name: Record build inputs
         shell: bash
-        run: ./scripts/ci-record-build-inputs.sh
+        run: ./scripts/ci-build-cache.sh record
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
