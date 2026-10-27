@@ -161,31 +161,26 @@ impl From<&OrganizationSharedKey> for String {
 mod tests {
     use bitwarden_crypto::{
         CoseKeyThumbprintExt, EncString, KeyStore, PublicKeyEncryptionAlgorithm,
-        SymmetricCryptoKey, SymmetricKeyAlgorithm::Aes256CbcHmac, key_slot_ids,
+        SymmetricCryptoKey, SymmetricKeyAlgorithm::Aes256CbcHmac,
     };
-    use bitwarden_encoding::B64;
 
     use super::*;
-    use crate::trust_proof::CryptographicProof;
+    use crate::{
+        test_support::{
+            TEST_VECTOR_V1_MEMBER_USER_KEY, TEST_VECTOR_V1_ORG_KEY, TestIds, TestPrivateKey,
+            add_symmetric_key,
+        },
+        trust_proof::CryptographicProof,
+    };
 
-    const TEST_VECTOR_ORG_KEY: &str =
-        "KGP9Nc2/91w+42Z9VzY0m7h18avuZcq4ICM8Rhdc3BD92LbWS2TQkVBzavvUM684WKXiC22NJi2EwaiDW4YTAA==";
-    const TEST_VECTOR_MEMBER_USER_KEY: &str =
-        "fyH9aTPp220BPFLasxV7e6Adbt20lJ/BFA2w/JddEVsuHn1oDjKKE8YT8u9L5RMiZuD39Ya//b78HoA1LJv/5w==";
-    /// The member private key, wrapped with [`TEST_VECTOR_MEMBER_USER_KEY`].
+    /// The member private key, wrapped with [`TEST_VECTOR_V1_MEMBER_USER_KEY`].
     const TEST_VECTOR_MEMBER_WRAPPED_PRIVATE_KEY: &str = "2.Fk2Qw03uGzzqZ64D3yKYEw==|VFfJlJ9/bMF9usPNP1Czzpc57hS/mVublKvpUsgxbWohkunlBxz1lVwOknAxtVprt9a4W9rKFjT+xDY1ImpQijt+MgGRAsXqURlGWY2W7CUs7tN9f5M598R5SXopVXhIYv8uVvMPv7zMEa6sl2p0XvMNkjn/02h2UHm1R9Wpnvb8MeGkXVBwGVfP53FaBR8iHsDQu7pR6MP8nYqRUg9+ORbqId453BpUycJt6TD59JEEUOG90T57UQRWIBOPmjtN8eF/EaVMK9fzYwCbKqa187x7B7BCuqKXSzjfFdSt+xNLmZMPRRB1DZB9NvabsQF87175wsnHOFqrcTXhAORvVpse1EpVSWR+u8K3p9chqjzlGCthb72OEET1hV1MSYWv1osDnqhNl981zz9oDToRk3ZEhktZyA7Uox9g2Abuf3xVpkCCO/bb3rcpTmmhk5BP3npfluUyEbpCRNcyi1kYpAF6vtY+UYaAv4XB25Dcp5td/c2yrlIUJeM17GFCm/TQGU7kMo7S3CFcM9nmFFG60aM8eQiwF1HQZV9cMPLNiNFwDFdmUcv+m/eZ/4ZZM8WJv4raevjoFUPgb8saqOSLKYGisjGoyJ7Z9T1eZisyALEfgIVbsJrINWjjW1pVxDNMiatn8ZDA4S90rUYl2eejNie+2e+41KAYl3JSZlkqr636A2gkLzToufXpX+n655hz9yNMhv5TnfenzTaMDg1XCETqiixKQBxV8m4VsJbGBIzNVzghoJUuf8xZ90FmhWeH6z8It6f/uVwlnBLG1m690AWJXVtMmEejrwJAcmJKYntFHtZI54SUJfXyW33vaQ7tQbQ699BqU9nGQcTnDbTmdA2iyDLuJ2n06B8PYK4odSfCQJrOWHsdZpRd7P1lDp7ksxejqafJJfXsD0BvoUbw8CGe5eGotGlyv85poSduLeURqyai6y4eW0UClXJJiaUXMlXNbzrTCSeWb6aWJTxQfW/fQ0QNjIqDOB5B4xByh/mzESOiyTEnNV61Ln2HOGlpfkhARLpgGdotYvZtFQRrApqvWwRtIerP2gZfpubAN29J5lW2DHAkd6fvEFokjQ4wofqymwNxVVd5WBjueQ1RbFdo1LMIiKApEMTpQ5E4eipmtDc6foFJo26FIuXvHduKOBZm0rYfd8Iw5EgQMXyKaUE1KxU9HHdR4BFzT9JEacNPkdF96DSbV/l6lVADDc0xfRe7AAXAmPxRlHDMw4HGlTbOXlhNZQtkX7mUMyVheRudwsmOvH/BvbJajn1E+xYy4r1GdTbvJRvzAjhK1Xdniq4bAD1brVPdnkk7yhTEHT1GnGEMn3kPtBhuBIKhNSwYZdG88NcwDzwDhrssU77jSIB72RjtOpO4nlMnqmjGpwFakJmLgaonYgIArIBqaJQ7Kt/JfIUGiARkO6IVF3WF8cL5/GUI7KpyZATbBIX4bfuJXBlmEPBneKduLCt+svBW1XVctOwArsYfypCsQojmMRNQkHC8EgCumQxc8Wutl7jXh8OwIXDHZjQ6UJw8XK2vmuS6oBRQg9SwzeQlIbsz1sQRpuAx/IY7TwTZOOi0bp5KdnZzSCx6SbUP7ZDdbGQb4ZH3GCXkOgvK0MsH5GEUjnEa8afSJGh/hEulDEsFE5g=|HA79iaX6imq4ipukZLyw6Nd1PhIT7/pCInWPmgr4YKA=";
-    /// [`TEST_VECTOR_ORG_KEY`] encapsulated to the pinned member public key.
+    /// [`TEST_VECTOR_V1_ORG_KEY`] encapsulated to the pinned member public key.
     const TEST_VECTOR_ORGANIZATION_SHARED_KEY: &str = "4.HtHhO4krfvZnoJRJFkXpf9BLLyrOO0ovfxTsmt0GNKkT7clpMVNR0W7B8VOEiautOVW6zAMDVzO2ZlFhrVR6kt5ATXL1KCqjipHBI2u/6Ww3Dh2jlUZuRTFcbZ4bYN3sOVQPkdwFaM1H++SzauUWP7pmzSc+u4sQIUKAB/KJ5OSkKn3tFYZuwUycB+wgcA4Ew8qU3c46lCbKqXY8dI3Z1ttvC5vO81cM4pryNGoHnaI7ONeEIuGIA5py8/WP58R6mQhyQWwC2uq77caFRX8GLGJd3c3yYfH1em5NvF8BZzZ1TZ/Nd+6fS4T8awUjs4IxkxJw6eU6Wn8+y4tUM9gAxw==";
-
-    fn add_symmetric_key(key: &str, ctx: &mut KeyStoreContext<'_, TestIds>) -> TestSymmKey {
-        ctx.add_local_symmetric_key(
-            SymmetricCryptoKey::try_from(B64::try_from(key).unwrap()).unwrap(),
-        )
-    }
 
     /// Unwraps the member private key with the member user key.
     fn load_member_private_key(ctx: &mut KeyStoreContext<'_, TestIds>) -> TestPrivateKey {
-        let member_user_key = add_symmetric_key(TEST_VECTOR_MEMBER_USER_KEY, ctx);
+        let member_user_key = add_symmetric_key(TEST_VECTOR_V1_MEMBER_USER_KEY, ctx);
         let wrapped_private_key: EncString =
             TEST_VECTOR_MEMBER_WRAPPED_PRIVATE_KEY.parse().unwrap();
         ctx.unwrap_private_key(member_user_key, &wrapped_private_key)
@@ -434,13 +429,13 @@ mod tests {
             .wrap_private_key(member_user_key, member_private_key)
             .unwrap();
         let member_public_key = ctx.get_public_key(member_private_key).unwrap();
-        let organization_key = add_symmetric_key(TEST_VECTOR_ORG_KEY, &mut ctx);
+        let organization_key = add_symmetric_key(TEST_VECTOR_V1_ORG_KEY, &mut ctx);
 
         let shared_key =
             OrganizationSharedKey::make_untrusted(organization_key, &member_public_key, &ctx)
                 .unwrap();
 
-        println!("const TEST_VECTOR_MEMBER_USER_KEY: &str = \"{member_user_key_b64}\";");
+        println!("const TEST_VECTOR_V1_MEMBER_USER_KEY: &str = \"{member_user_key_b64}\";");
         println!(
             "const TEST_VECTOR_MEMBER_WRAPPED_PRIVATE_KEY: &str = \"{}\";",
             wrapped_member_private_key.to_string()
@@ -456,36 +451,12 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
         let member_private_key = load_member_private_key(&mut ctx);
-        let organization_key = add_symmetric_key(TEST_VECTOR_ORG_KEY, &mut ctx);
+        let organization_key = add_symmetric_key(TEST_VECTOR_V1_ORG_KEY, &mut ctx);
 
         let shared_key: OrganizationSharedKey =
             TEST_VECTOR_ORGANIZATION_SHARED_KEY.parse().unwrap();
         let unsealed = shared_key.unseal(member_private_key, &mut ctx).unwrap();
 
         ctx.assert_symmetric_keys_equal(organization_key, unsealed);
-    }
-    key_slot_ids! {
-        #[symmetric]
-        pub enum TestSymmKey {
-            Organization,
-            #[local]
-            Local(LocalId),
-        }
-
-        #[private]
-        pub enum TestPrivateKey {
-            Organization,
-            #[local]
-            Local(LocalId),
-        }
-
-        #[signing]
-        pub enum TestSigningKey {
-            Organization,
-            #[local]
-            Local(LocalId),
-        }
-
-        pub TestIds => TestSymmKey, TestPrivateKey, TestSigningKey;
     }
 }
