@@ -36,20 +36,22 @@ instead.
              └──────────────── sync / unlock / lock / restart ◄──── Database (seeded from test-vectors/)
 ```
 
-| Path                              | Role                                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------------------ |
-| `test-harness.ts`                 | `testHarness()` → `{ server, newClientEmulator(), restore() }`; installs the fetch hook    |
-| `server-emulator/server-emulator` | `seedUserTestVector`, `seedOrganization`, `seedEmergencyAccessTestVector`, `getUser`, `db` |
-| `server-emulator/api-server.ts`   | Route model (`/sync`, kdf, rotation, ciphers, folders…) with real server rules (409, 400)  |
-| `server-emulator/dto.ts`          | Server wire DTOs + converters (`SyncResponse.forUser`, `CipherRequest.toCipher`…)          |
-| `server-emulator/http-mock.ts`    | Fetch hook; records `requests`, `unmatched`, `bodyFor`, `called`                           |
-| `client-emulator/`                | `ClientEmulator` (`login`, `sync`, `unlock`, `unlockWith`, `lock`, `restart`, `reinit`)    |
-| `client-emulator/validate.ts`     | `validateVault(client, seed, ignore)`, `validateCiphers`, `expectPlaintextEqual`           |
-| `vectors/test-vectors.ts`         | `testVectors.users` / `.emergencyAccess` selectors; `.each`, `.eachUnlockMethod`           |
-| `/test-vectors/**.json` (repo)    | Committed accounts: keys, unlock methods, encrypted + decrypted vault                      |
-| `tests/utils.ts`                  | `makeStateBridge`, `rejection`, IPC transport/biometrics mocks                             |
-| `tests/type-assertion-helpers.ts` | `asUserId`, `asEncString`, `asKeyId`… — branded-type casts                                 |
-| `perf/*.perf.ts`                  | Benchmarks (`npm run perf`), not tests                                                     |
+| Path                                             | Role                                                                                                                                |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `test-harness.ts`                                | `testHarness()` → `{ server, newClientEmulator(), restore() }`; installs the fetch hook                                             |
+| `server-emulator/server-emulator.ts`             | `seedUserTestVector`, `seedOrganization`, `seedEmergencyAccessTestVector`, `getUser`, `db`                                          |
+| `server-emulator/api-server.ts`                  | Route model (`/sync`, kdf, rotation, ciphers, folders…) with real server rules (409, 400)                                           |
+| `server-emulator/*-server.ts`                    | One service per file (`api`, `emergency-access`, `identity`, `key-connector`); `routes()` bound to its origin in `installFetchHook` |
+| `server-emulator/dto.ts`                         | Server wire DTOs + converters (`SyncResponse.forUser`, `CipherRequest.toCipher`…)                                                   |
+| `server-emulator/http-mock.ts`                   | Fetch hook; records `requests`, `unmatched`, `bodyFor`, `called`                                                                    |
+| `client-emulator/client-emulator.ts`             | `ClientEmulator` (`login`, `sync`, `unlock`, `unlockWith`, `lock`, `restart`, `reinit`)                                             |
+| `client-emulator/local-state.ts`                 | `LocalState`: state bridge + repositories; `locked()`, `unlock(method)`, `clearEphemeral`                                           |
+| `client-emulator/validate.ts`                    | `validateVault(client, seed, ignore)`, `validateCiphers`, `expectPlaintextEqual`                                                    |
+| `vectors/test-vectors.ts`                        | `testVectors.users` / `.emergencyAccess` selectors; `.each`, `.eachUnlockMethod`                                                    |
+| `test-vectors/**.json` (repo root, not this dir) | Committed accounts: keys, unlock methods, encrypted + decrypted vault                                                               |
+| `tests/utils.ts`                                 | `makeStateBridge`, `rejection`, IPC transport/biometrics mocks                                                                      |
+| `tests/type-assertion-helpers.ts`                | `asUserId`, `asEncString`, `asKeyId`… — branded-type casts                                                                          |
+| `perf/*.perf.ts`                                 | Benchmarks (`npm run perf`), not tests                                                                                              |
 
 Pick vectors by reading each JSON's `description` and `unlockMethods`.
 
@@ -101,10 +103,13 @@ describe("feature", () => {
 ### Rules
 
 - **Raw route mocks are discouraged.** Don't call `installHttpMock({ [ROUTE]: … })` from a test, and
-  don't hand-build initialized clients from fixtures (`make*Client`). Any existing test that calls
-  `installHttpMock` or `make*Client` is legacy; don't copy it. Missing route → model it in
-  `ApiServer` (or the right service) like the real server, refusals included. Missing state → add a
-  seeding helper to the emulator.
+  don't hand-build initialized clients from fixtures (`make*Client`). A test that imports
+  `testHarness` follows the pattern. One that imports `installHttpMock`, or a `make*Client` helper
+  from `tests/utils.ts`, predates the harness; don't copy it. Reference:
+  `tests/user-crypto-management/change-kdf.test.ts`, `rotate-user-keys.test.ts`, and
+  `tests/emergency-access/emergency-access.test.ts` for multi-party flows. Missing route → model it
+  in `ApiServer` (or the right service) like the real server, refusals included. Missing state → add
+  a seeding helper to the emulator.
 - **Never mutate crypto state directly via the state bridge.** Crypto state reaches the client only
   via `sync()` → crypto sync handler → state bridge. The password is the only secret a test
   supplies.
