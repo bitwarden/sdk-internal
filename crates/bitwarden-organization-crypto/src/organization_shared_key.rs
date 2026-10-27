@@ -16,8 +16,6 @@
 //! with themselves (creating an organization, or self-confirming through an invite link). Some V1
 //! flows have no way to verify the public key, and use [`OrganizationSharedKey::make_untrusted`].
 //! V2 has no untrusted variant.
-//!
-//! Until identities exist, [`PublicKey`] stands in for the member's identity.
 
 use std::str::FromStr;
 

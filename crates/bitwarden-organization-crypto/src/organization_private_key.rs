@@ -1,11 +1,8 @@
 //! The organization's key pair, held in a key store context.
 //!
-//! The organization's private key is stored wrapped with the organization key. Unwrapping it
-//! gives a handle that encapsulates keys to the organization, and opens keys that were
-//! encapsulated to it.
-//!
-//! The organization's identity replaces this type. It adds the organization's signing key,
-//! and is shaped like the user's account cryptographic state.
+//! The organization's private key is stored wrapped with the organization key.
+//! [`OrganizationPrivateKey`] unwraps it into the key store context, to encapsulate keys to the
+//! organization and to open keys that were encapsulated to it.
 
 use bitwarden_crypto::{
     CryptoError, EncString, KeySlotIds, KeyStoreContext, PublicKey, UnsignedSharedKey,
@@ -26,7 +23,7 @@ pub enum OrganizationPrivateKeyUnwrapError {
 /// Errors that can occur when deriving the organization's public key.
 #[derive(Debug, Error)]
 pub enum OrganizationPublicKeyError {
-    /// The handle is used with a key store context other than the one it was unwrapped into.
+    /// The private key is used with a key store context other than the one it was unwrapped into.
     #[error("The organization's private key does not exist in the key store context")]
     MissingPrivateKey,
 }
