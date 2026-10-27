@@ -100,6 +100,16 @@ pub enum AcceptInviteLinkError {
     /// The user belongs to another organization whose Single Organization policy forbids joining.
     #[error("A Single Organization policy prevents joining")]
     SingleOrganizationPolicy,
+    /// The user belongs to another organization whose Automatic User Confirmation policy forbids
+    /// membership in other organizations.
+    #[error("Another organization's Automatic User Confirmation policy prevents joining")]
+    AutoConfirmPolicyViolationOtherOrg,
+    /// The organization's Automatic User Confirmation policy requires the user to leave all other
+    /// organizations first.
+    #[error(
+        "The organization's Automatic User Confirmation policy requires leaving all other organizations"
+    )]
+    AutoConfirmPolicyViolationTargetOrg,
     /// The organization requires two-step login, which the user has not enabled.
     #[error("Two-step login is required to join the organization")]
     TwoFactorRequiredForMembership,
@@ -155,6 +165,8 @@ impl AcceptInviteLinkError {
             "reset_password_key_required" => Self::ResetPasswordKeyRequired,
             "member_of_another_organization" => Self::MemberOfAnotherOrganization,
             "single_organization_policy" => Self::SingleOrganizationPolicy,
+            "auto_confirm_policy_violation_other_org" => Self::AutoConfirmPolicyViolationOtherOrg,
+            "auto_confirm_policy_violation_target_org" => Self::AutoConfirmPolicyViolationTargetOrg,
             "two_factor_required_for_membership" => Self::TwoFactorRequiredForMembership,
             "only_one_free_organization_admin_allowed" => Self::OnlyOneFreeOrganizationAdminAllowed,
             code => {
@@ -193,6 +205,8 @@ mod tests {
             ("resetPasswordKey", "reset_password_key_required"),
             ("organizationId", "member_of_another_organization"),
             ("organizationId", "single_organization_policy"),
+            ("organizationId", "auto_confirm_policy_violation_other_org"),
+            ("organizationId", "auto_confirm_policy_violation_target_org"),
             ("organizationId", "two_factor_required_for_membership"),
             ("organizationId", "only_one_free_organization_admin_allowed"),
         ];
