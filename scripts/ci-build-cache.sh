@@ -18,13 +18,26 @@ INPUTS_FILE="target/.build-cache-inputs"
 
 # Prints "<hash>\t<path>" for every tracked file that exists in the working tree. The hash is of
 # the working-tree content (not the index), so local modifications made before the build count.
+# Paths are read NUL-separated so they are never quoted or split. `git hash-object --stdin-paths`
+# reads one path per line, so a path containing a newline can't be listed: fail in that case.
 list_build_inputs() {
   local paths
   paths=$(mktemp)
-  git -c core.quotePath=false ls-files --cached --exclude-standard \
-    | grep -vxF -f <(git -c core.quotePath=false ls-files --deleted) > "$paths" || true
-  # shellcheck disable=SC2094 # both commands only read the file
-  git hash-object --stdin-paths < "$paths" | paste - "$paths"
+  git ls-files -z --cached | while IFS= read -r -d '' path; do
+    if [ -e "$path" ] || [ -L "$path" ]; then
+      printf '%s\0' "$path"
+    fi
+  done > "$paths"
+  if [ "$(tr -cd '\n' < "$paths" | wc -c)" -gt 0 ]; then
+    echo "A tracked path contains a newline, can't record build inputs." >&2
+    rm -f "$paths"
+    return 1
+  fi
+  # Checked explicitly: callers run this in an `if`, where `set -e` does not apply.
+  if ! tr '\0' '\n' < "$paths" | git hash-object --stdin-paths | paste - <(tr '\0' '\n' < "$paths"); then
+    rm -f "$paths"
+    return 1
+  fi
   rm -f "$paths"
 }
 
@@ -40,24 +53,35 @@ mark() {
     return
   fi
 
-  local current changed count
+  local recorded current changed count
+  recorded=$(mktemp)
   current=$(mktemp)
   changed=$(mktemp)
-  list_build_inputs > "$current"
+  # The record only describes the restored build output. Remove it, so a cache saved later without
+  # a fresh record makes the next run rebuild everything instead of trusting an old record.
+  mv "$INPUTS_FILE" "$recorded"
 
-  # A file is changed if it is new or its content differs from the recorded list.
-  awk -F'\t' 'NR == FNR { recorded[$2] = $1; next } recorded[$2] != $1 { print $2 }' \
-    "$INPUTS_FILE" "$current" > "$changed"
+  if ! list_build_inputs > "$current"; then
+    echo "Building all workspace crates."
+    rm -f "$recorded" "$current" "$changed"
+    return
+  fi
 
-  git ls-files -z | xargs -0 touch -t 200001010000
+  # A file is changed if it is new or its content differs from the recorded list. The hash is
+  # everything before the first tab, the path everything after it.
+  awk 'NR == FNR { i = index($0, "\t"); recorded[substr($0, i + 1)] = substr($0, 1, i - 1); next }
+    { i = index($0, "\t"); path = substr($0, i + 1); if (recorded[path] != substr($0, 1, i - 1)) print path }' \
+    "$recorded" "$current" > "$changed"
+
+  git ls-files -z | xargs -0 touch -h -c -t 200001010000 --
 
   count=$(wc -l < "$changed" | tr -d ' ')
   echo "Files changed since the cached build: $count"
   if [ "$count" -gt 0 ]; then
-    tr '\n' '\0' < "$changed" | xargs -0 touch
+    tr '\n' '\0' < "$changed" | xargs -0 touch -h -c --
     head -50 "$changed"
   fi
-  rm -f "$current" "$changed"
+  rm -f "$recorded" "$current" "$changed"
 }
 
 case "${1:-}" in

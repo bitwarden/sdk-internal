@@ -24,7 +24,7 @@ while IFS= read -r file; do
   [ -f "$file" ] || continue
   size=$(wc -c < "$file" | tr -d ' ')
   while IFS= read -r -d '' candidate; do
-    if cmp -s "$file" "$candidate"; then
+    if cmp -s -- "$file" "$candidate"; then
       echo "$candidate"
     fi
   done < <(find "$target_dir/debug/deps" -maxdepth 1 -type f -size "${size}c" -print0)
@@ -36,7 +36,7 @@ removed=0
 for dir in "$target_dir/debug/deps" "$target_dir/debug/examples"; do
   [ -d "$dir" ] || continue
   while IFS= read -r -d '' file; do
-    if ! grep -qxF "$file" "$keep"; then
+    if ! grep -qxF -e "$file" "$keep"; then
       rm -f "$file"
       removed=$((removed + 1))
     fi

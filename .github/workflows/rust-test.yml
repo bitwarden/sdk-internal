@@ -217,7 +217,8 @@ jobs:
       - name: Generate coverage
         id: build
         run: |
-          eval "$(cargo bin cargo-llvm-cov show-env --sh)"
+          env_sh=$(cargo bin cargo-llvm-cov show-env --sh)
+          eval "$env_sh"
           cargo bin cargo-llvm-cov clean --profraw-only
           cargo test --workspace --all-features --tests --no-run --message-format=json-render-diagnostics > "$RUNNER_TEMP/coverage-build.json"
           ./scripts/ci-remove-stale-executables.sh "$RUNNER_TEMP/coverage-build.json"
