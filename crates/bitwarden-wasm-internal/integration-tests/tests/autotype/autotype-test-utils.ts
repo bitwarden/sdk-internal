@@ -1,6 +1,6 @@
 import {
   AppMetadata,
-  AutotypeExecuteMatch,
+  AutotypeCredentials,
   AutotypeMainDriver,
   AutotypeRenderDriver,
   AutotypeRunningApp,
@@ -91,15 +91,15 @@ export function makeMockAutotypeMainDriver(
  */
 export interface MockAutotypeRenderDriverOptions {
   setConfirmationEnabled: (enabled: boolean) => Promise<boolean>;
-  // Typed loosely so a test can return a malformed match, which is exactly what the SDK's
+  // Typed loosely so a test can return malformed credentials, which is exactly what the SDK's
   // deserialization is being asked to survive.
-  executeAutotype: (app: AutotypeRunningApp, metadata: AppMetadata) => Promise<unknown>;
+  getCredentials: (app: AutotypeRunningApp, metadata: AppMetadata) => Promise<unknown>;
 }
 
 /** Recorded calls per main → render channel. */
 export interface MockAutotypeRenderDriverCalls {
   confirmationEnabledCalls: boolean[];
-  executeAutotypeCalls: { app: AutotypeRunningApp; metadata: AppMetadata }[];
+  getCredentialsCalls: { app: AutotypeRunningApp; metadata: AppMetadata }[];
 }
 
 /**
@@ -110,24 +110,22 @@ export interface MockAutotypeRenderDriverCalls {
 export function makeMockAutotypeRenderDriver(
   options: Partial<MockAutotypeRenderDriverOptions> = {},
 ): AutotypeRenderDriver & MockAutotypeRenderDriverCalls {
-  const {
-    setConfirmationEnabled = async () => true,
-    executeAutotype = async () => undefined,
-  } = options;
+  const { setConfirmationEnabled = async () => true, getCredentials = async () => undefined } =
+    options;
 
   const confirmationEnabledCalls: boolean[] = [];
-  const executeAutotypeCalls: { app: AutotypeRunningApp; metadata: AppMetadata }[] = [];
+  const getCredentialsCalls: { app: AutotypeRunningApp; metadata: AppMetadata }[] = [];
 
   return {
     confirmationEnabledCalls,
-    executeAutotypeCalls,
+    getCredentialsCalls,
     set_autotype_confirmation_enabled: async (enabled: boolean) => {
       confirmationEnabledCalls.push(enabled);
       return setConfirmationEnabled(enabled);
     },
-    execute_autotype: async (app: AutotypeRunningApp, metadata: AppMetadata) => {
-      executeAutotypeCalls.push({ app, metadata });
-      return (await executeAutotype(app, metadata)) as AutotypeExecuteMatch | undefined;
+    get_autotype_credentials: async (app: AutotypeRunningApp, metadata: AppMetadata) => {
+      getCredentialsCalls.push({ app, metadata });
+      return (await getCredentials(app, metadata)) as AutotypeCredentials | undefined;
     },
   };
 }

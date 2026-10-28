@@ -2,7 +2,7 @@ import {
   AppMetadata,
   AutotypeRunningApp,
   Source,
-  autotypeRequestExecute,
+  autotypeRequestGetCredentials,
 } from "@bitwarden/sdk-internal";
 
 import { makeMockAutotypeRenderDriver, setupRenderHandlerPair } from "./autotype-test-utils";
@@ -10,10 +10,10 @@ import { makeMockAutotypeRenderDriver, setupRenderHandlerPair } from "./autotype
 const APP: AutotypeRunningApp = { name: "Example", path: "/Applications/Example.app" };
 const METADATA: AppMetadata = { id: 7, pid: 4242 };
 
-describe("autotype execute ipc", () => {
+describe("autotype get credentials ipc", () => {
   it("returns the matching credentials with the request's metadata", async () => {
     const driver = makeMockAutotypeRenderDriver({
-      executeAutotype: async (_app, metadata) => ({
+      getCredentials: async (_app, metadata) => ({
         metadata,
         username: "user@example.com",
         password: "correct-horse",
@@ -21,14 +21,14 @@ describe("autotype execute ipc", () => {
     });
     const { main } = await setupRenderHandlerPair(driver);
 
-    const response = await autotypeRequestExecute(main, APP, METADATA);
+    const response = await autotypeRequestGetCredentials(main, APP, METADATA);
 
-    expect(response.matched).toEqual({
+    expect(response.credentials).toEqual({
       metadata: METADATA,
       username: "user@example.com",
       password: "correct-horse",
     });
-    expect(driver.executeAutotypeCalls).toEqual([{ app: APP, metadata: METADATA }]);
+    expect(driver.getCredentialsCalls).toEqual([{ app: APP, metadata: METADATA }]);
   });
 
   // No match is a normal reply, not an error.
@@ -36,18 +36,18 @@ describe("autotype execute ipc", () => {
     ["undefined", undefined],
     ["null", null],
   ])("reports no match when the driver returns %s", async (_label, result) => {
-    const driver = makeMockAutotypeRenderDriver({ executeAutotype: async () => result });
+    const driver = makeMockAutotypeRenderDriver({ getCredentials: async () => result });
     const { main } = await setupRenderHandlerPair(driver);
 
-    await expect(autotypeRequestExecute(main, APP, METADATA)).resolves.toEqual({
-      matched: undefined,
+    await expect(autotypeRequestGetCredentials(main, APP, METADATA)).resolves.toEqual({
+      credentials: undefined,
     });
-    expect(driver.executeAutotypeCalls).toHaveLength(1);
+    expect(driver.getCredentialsCalls).toHaveLength(1);
   });
 
   it("reports no match when the driver throws", async () => {
     const driver = makeMockAutotypeRenderDriver({
-      executeAutotype: async () => {
+      getCredentials: async () => {
         throw new Error("vault locked");
       },
     });
@@ -55,8 +55,8 @@ describe("autotype execute ipc", () => {
 
     // A throwing driver never produces credentials, and the request resolves rather than
     // rejecting.
-    await expect(autotypeRequestExecute(main, APP, METADATA)).resolves.toEqual({
-      matched: undefined,
+    await expect(autotypeRequestGetCredentials(main, APP, METADATA)).resolves.toEqual({
+      credentials: undefined,
     });
   });
 
@@ -68,11 +68,11 @@ describe("autotype execute ipc", () => {
       { metadata: { id: "7", pid: 4242 }, username: "user@example.com", password: "correct-horse" },
     ],
   ])("reports no match when the driver returns %s", async (_label, result) => {
-    const driver = makeMockAutotypeRenderDriver({ executeAutotype: async () => result });
+    const driver = makeMockAutotypeRenderDriver({ getCredentials: async () => result });
     const { main } = await setupRenderHandlerPair(driver);
 
-    await expect(autotypeRequestExecute(main, APP, METADATA)).resolves.toEqual({
-      matched: undefined,
+    await expect(autotypeRequestGetCredentials(main, APP, METADATA)).resolves.toEqual({
+      credentials: undefined,
     });
   });
 
@@ -80,7 +80,7 @@ describe("autotype execute ipc", () => {
     // Each reply is derived from its request's metadata, so a crossed correlation would surface as
     // a mismatched ordering below.
     const driver = makeMockAutotypeRenderDriver({
-      executeAutotype: async (_app, metadata) => ({
+      getCredentials: async (_app, metadata) => ({
         metadata,
         username: `user-${metadata.id}`,
         password: `password-${metadata.id}`,
@@ -89,15 +89,15 @@ describe("autotype execute ipc", () => {
     const { main } = await setupRenderHandlerPair(driver);
 
     const responses = await Promise.all(
-      [1, 2, 3].map((id) => autotypeRequestExecute(main, APP, { id, pid: 100 + id })),
+      [1, 2, 3].map((id) => autotypeRequestGetCredentials(main, APP, { id, pid: 100 + id })),
     );
 
-    expect(responses.map((r) => r.matched?.metadata)).toEqual([
+    expect(responses.map((r) => r.credentials?.metadata)).toEqual([
       { id: 1, pid: 101 },
       { id: 2, pid: 102 },
       { id: 3, pid: 103 },
     ]);
-    expect(responses.map((r) => r.matched?.username)).toEqual(["user-1", "user-2", "user-3"]);
+    expect(responses.map((r) => r.credentials?.username)).toEqual(["user-1", "user-2", "user-3"]);
   });
 
   // Main forwards native-messaging traffic to the render process under its original source,
@@ -107,7 +107,7 @@ describe("autotype execute ipc", () => {
     ["the CLI", { Cli: { id: { Id: 1 } } }],
   ])("refuses a request sent by %s without calling the driver", async (_label, source) => {
     const driver = makeMockAutotypeRenderDriver({
-      executeAutotype: async (_app, metadata) => ({
+      getCredentials: async (_app, metadata) => ({
         metadata,
         username: "user@example.com",
         password: "correct-horse",
@@ -115,9 +115,9 @@ describe("autotype execute ipc", () => {
     });
     const { main: peer } = await setupRenderHandlerPair(driver, source);
 
-    await expect(autotypeRequestExecute(peer, APP, METADATA)).resolves.toEqual({
-      matched: undefined,
+    await expect(autotypeRequestGetCredentials(peer, APP, METADATA)).resolves.toEqual({
+      credentials: undefined,
     });
-    expect(driver.executeAutotypeCalls).toEqual([]);
+    expect(driver.getCredentialsCalls).toEqual([]);
   });
 });
