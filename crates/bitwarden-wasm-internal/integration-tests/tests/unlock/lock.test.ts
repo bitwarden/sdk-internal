@@ -1,3 +1,4 @@
+import { LoginMethod } from "../../client-emulator/client-emulator";
 import { validateVault } from "../../client-emulator/validate";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { testVectors } from "../../vectors/test-vectors";
@@ -26,7 +27,7 @@ describe("lock", () => {
     async () => {
       const seeded = harness.server.seedUserTestVector(VECTOR);
       const client = harness.newClientEmulator();
-      await client.login(seeded.email);
+      await client.login(seeded.email, LoginMethod.Password, VECTOR.account.password);
       await client.unlock(VECTOR.account.password);
 
       const sdk = client.getPasswordManagerClient();
@@ -60,7 +61,7 @@ describe("lock", () => {
     async () => {
       const seeded = harness.server.seedUserTestVector(VECTOR);
       const client = harness.newClientEmulator();
-      await client.login(seeded.email);
+      await client.login(seeded.email, LoginMethod.Password, VECTOR.account.password);
       await client.unlock(VECTOR.account.password);
 
       const sdk = client.getPasswordManagerClient();
@@ -83,7 +84,7 @@ describe("lock", () => {
     async () => {
       const seeded = harness.server.seedUserTestVector(VECTOR);
       const client = harness.newClientEmulator();
-      await client.login(seeded.email);
+      await client.login(seeded.email, LoginMethod.Password, VECTOR.account.password);
       await client.unlock(VECTOR.account.password);
       await client.getPasswordManagerClient().unlock().lock();
 
