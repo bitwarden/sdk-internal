@@ -12,8 +12,6 @@ use bitwarden_pam_sealed::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::error::RotationError;
 use crate::{AccessConnectorId, RotationAttemptId, RotationConfigId, RotationJobId};
@@ -21,7 +19,7 @@ use crate::{AccessConnectorId, RotationAttemptId, RotationConfigId, RotationJobI
 /// Lifecycle state of an access connector. Removing a connector for good is a delete, not a
 /// status.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessConnectorStatus {
     /// The connector may authenticate and claim rotation jobs.
@@ -46,7 +44,7 @@ impl From<ApiAccessConnectorStatus> for AccessConnectorStatus {
 
 /// How a target system's credential is rotated.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum TargetSystemMethod {
     /// A connector writes the new secret directly into the target system.
@@ -84,7 +82,7 @@ impl TryFrom<TargetSystemMethod> for ApiTargetSystemMethod {
 /// [`Automatic`](TargetSystemMethod::Automatic) systems; a manual rotation has no integration.
 /// Lives only in the sealed blob.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum TargetSystemKind {
     /// Entra ID / Azure AD service-account password rotation.
@@ -127,7 +125,7 @@ impl TryFrom<TargetSystemKind> for SealedTargetSystemKind {
 
 /// Lifecycle state of a target system.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum TargetSystemStatus {
     /// The target system accepts rotation jobs.
@@ -159,7 +157,7 @@ impl From<ApiTargetSystemStatus> for TargetSystemStatus {
 
 /// What triggered a rotation job.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum RotationSource {
     /// The cron schedule fired.
@@ -185,7 +183,7 @@ impl From<ApiRotationSource> for RotationSource {
 
 /// Overall status of a rotation job.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum RotationJobStatus {
     /// Queued and waiting for a connector to claim it.
@@ -217,7 +215,7 @@ impl From<ApiRotationJobStatus> for RotationJobStatus {
 
 /// Per-attempt outcome within a rotation job.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum RotationAttemptStatus {
     /// The connector is actively running this attempt.
@@ -247,7 +245,7 @@ impl From<ApiRotationAttemptStatus> for RotationAttemptStatus {
 
 /// Whether a failed rotation attempt left the target system's credential changed.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum RotationSyncState {
     /// The target's credential is unchanged, so the vault still matches it.
@@ -287,7 +285,7 @@ impl TryFrom<RotationSyncState> for ApiRotationSyncState {
 
 /// Whether the connector terminated the account's active sessions after rotating.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum SessionTerminationOutcome {
     /// Session termination was not requested for this config.
@@ -327,7 +325,7 @@ impl TryFrom<SessionTerminationOutcome> for ApiSessionTerminationOutcome {
 /// Why a rotation attempt failed, as the connector reports it. On the wire it is a snake_case
 /// token, which the server stores as the start of [`RotationAttempt::failure_reason`].
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum RotationFailureCode {
     /// No active session at the start of execution (terminal session state).
@@ -409,7 +407,7 @@ impl RotationFailureCode {
 /// systems it is guidance for the operator that nothing enforces.
 /// Lives only in the sealed blob.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct PasswordPolicy {
     /// Minimum length of a generated credential.
@@ -463,7 +461,7 @@ impl From<PasswordPolicy> for SealedPasswordPolicy {
 
 /// One connector's execution of the rotation sequence for a job.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct RotationAttempt {
     /// The attempt's unique identifier.
@@ -530,7 +528,7 @@ fn failure_code_from_reason(reason: &str) -> RotationFailureCode {
 /// One dispatch of the rotation workflow for a config. Each claim records an attempt, so a retried
 /// or released job carries several.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct RotationJob {
     /// The job's unique identifier.
