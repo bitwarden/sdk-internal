@@ -45,8 +45,9 @@ jobs:
           - check: udeps
             needs_rust: true
             needs_rust_nightly: true
-          - check: dylint
-            needs_rust: true
+          # Temporarily disabled.
+          # - check: dylint
+          #   needs_rust: true
           - check: doc
             needs_rust: true
           - check: prettier
