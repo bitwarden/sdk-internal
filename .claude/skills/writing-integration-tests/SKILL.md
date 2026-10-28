@@ -44,7 +44,7 @@ instead.
 | `server-emulator/*-server.ts`                    | One service per file (`api`, `emergency-access`, `identity`, `key-connector`); `routes()` bound to its origin in `installFetchHook` |
 | `server-emulator/dto.ts`                         | Server wire DTOs + converters (`SyncResponse.forUser`, `CipherRequest.toCipher`…)                                                   |
 | `server-emulator/http-mock.ts`                   | Fetch hook; records `requests`, `unmatched`, `bodyFor`, `called`                                                                    |
-| `client-emulator/client-emulator.ts`             | `ClientEmulator` (`login`, `sync`, `unlock`, `unlockWith`, `lock`, `restart`, `reinit`)                                             |
+| `client-emulator/client-emulator.ts`             | `ClientEmulator` (`login(email, LoginMethod, password?)`, `sync`, `unlock`, `unlockWith`, `lock`, `restart`, `reinit`)              |
 | `client-emulator/local-state.ts`                 | `LocalState`: state bridge + repositories; `locked()`, `unlock(method)`, `clearEphemeral`                                           |
 | `client-emulator/validate.ts`                    | `validateVault(client, seed, ignore)`, `validateCiphers`, `expectPlaintextEqual`                                                    |
 | `vectors/test-vectors.ts`                        | `testVectors.users` / `.emergencyAccess` selectors; `.each`, `.eachUnlockMethod`                                                    |
@@ -58,6 +58,7 @@ Pick vectors by reading each JSON's `description` and `unlockMethods`.
 ### Template
 
 ```ts
+import { LoginMethod } from "../../client-emulator/client-emulator";
 import { validateVault } from "../../client-emulator/validate";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { testVectors } from "../../vectors/test-vectors";
@@ -78,7 +79,7 @@ describe("feature", () => {
     async (vector) => {
       const seeded = harness.server.seedUserTestVector(vector);
       const client = harness.newClientEmulator();
-      await client.login(seeded.email);
+      await client.login(seeded.email, LoginMethod.Password, vector.account.password);
       await client.unlock(vector.account.password);
 
       // 1. Act through the SDK
@@ -91,7 +92,7 @@ describe("feature", () => {
 
       // 3. Verify server state: a fresh client logs in and decrypts
       const relogin = harness.newClientEmulator();
-      await relogin.login(seeded.email);
+      await relogin.login(seeded.email, LoginMethod.Password, vector.account.password);
       await relogin.unlock(vector.account.password);
       await validateVault(relogin, seeded.seed);
     },
@@ -125,7 +126,8 @@ describe("feature", () => {
   was written; extend (`[...IGNORED_FIELDS, "key"]`) only for fields the operation legitimately
   changes.
 - **Run over all vectors** with `.each` / `.eachUnlockMethod`; narrow with `.withMasterPassword()`
-  and `.except(name)`. Document why a vector is excluded.
+  and `.except(name)`. Document why a vector is excluded. TDE and key-connector accounts log in with
+  `LoginMethod.Unimplemented`; password login isn't implemented for them.
 - **Vectors are permanent.** Never edit or regenerate a committed vector to make a test pass — that
   is a backward-compat break. `unlock/test-vector-stability.test.ts` pins the set; adding a vector
   means updating that list.
