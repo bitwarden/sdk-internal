@@ -344,7 +344,8 @@ mod tests {
     }
 
     /// Together, the vectors cover both wrapping key algorithms and both encodings of the sealed
-    /// key: a COSE key (XChaCha20-Poly1305) and a legacy 64-byte key (AES-256-CBC-HMAC).
+    /// key: a COSE-encoded key (XChaCha20-Poly1305) and an AES-256-CBC-HMAC key, which uses the
+    /// legacy (non-COSE) encoding.
     const TEST_VECTORS: [TestVector; 2] = [
         TestVector {
             name: "XAES256_GCM",
@@ -404,10 +405,13 @@ mod tests {
         let mut ctx = key_store.context_mut();
 
         for (wrapping_key_algorithm, cose_algorithm) in wrapping_key_algorithms() {
-            // A COSE key and a legacy 64-byte key are sealed with different content formats.
+            // AES-256-CBC-HMAC keys use the legacy (non-COSE) encoding, so they are sealed with a
+            // different content format than the COSE-encoded key types.
             for key_to_seal_algorithm in [
-                SymmetricKeyAlgorithm::XChaCha20Poly1305,
                 SymmetricKeyAlgorithm::Aes256CbcHmac,
+                SymmetricKeyAlgorithm::XChaCha20Poly1305,
+                SymmetricKeyAlgorithm::Aes256Gcm,
+                SymmetricKeyAlgorithm::XAes256Gcm,
             ] {
                 let key_to_seal = ctx.make_symmetric_key(key_to_seal_algorithm);
                 let wrapping_key = ctx.make_symmetric_key(wrapping_key_algorithm);
