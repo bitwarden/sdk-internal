@@ -29,3 +29,7 @@ Membership version. V1 encapsulates a key to a public key without sender authent
 
 Some V1 flows cannot verify the public key. These flows use `make_untrusted`, which V2 does not
 have.
+
+A V1 to V2 upgrade of a member's user key leaves the account recovery of the V1 user key in place.
+An admin replaces it with `AccountRecovery::make_after_v2_upgrade`, which accepts only a V2 user key
+with the key id that the server reported.

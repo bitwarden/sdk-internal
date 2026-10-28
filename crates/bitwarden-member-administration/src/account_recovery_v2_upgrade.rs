@@ -25,6 +25,8 @@
 //! 3. compares the key id of that user key with the one the server reported,
 //! 4. encapsulates the V2 user key to the organization.
 //!
+//! Steps 3 and 4 are [`AccountRecovery::make_after_v2_upgrade`].
+//!
 //! The server reports the user key id and can name any key. It holds none of the member's user
 //! keys, so step 3 takes the key id of the user key the client recovered and compares it against
 //! the reported one. A mismatch means the membership names a user key the upgrade token does not
@@ -49,7 +51,8 @@ use bitwarden_core::{
 use bitwarden_crypto::{EncString, KeyId, KeyStoreContext, PublicKey};
 use bitwarden_error::bitwarden_error;
 use bitwarden_organization_crypto::{
-    account_recovery::AccountRecovery, organization_private_key::OrganizationPrivateKey,
+    account_recovery::{AccountRecovery, AccountRecoveryMakeAfterV2UpgradeError},
+    organization_private_key::OrganizationPrivateKey,
 };
 use bitwarden_organizations::OrganizationUserType;
 use thiserror::Error;
@@ -109,17 +112,12 @@ enum PendingMembershipError {
     /// key, holds a wrapped user key in no known format, or was tampered with.
     #[error("The upgrade token could not be unwrapped with the member's V1 user key")]
     UpgradeTokenUnwrapFailed,
-    /// The upgrade token carries a V2 user key other than the member's current one, so it cannot
-    /// recover the member's vault.
-    #[error("The upgrade token's user key id does not match the reported key id")]
-    UserKeyIdMismatch,
     /// The server reported a key id in no format this client knows.
     #[error("The membership's user key id is malformed")]
     MalformedUserKeyId,
-    /// The organization's public key could not protect the V2 user key. This points to a local key
-    /// store problem, not to the membership's data.
-    #[error("The member's user key could not be encapsulated to the organization")]
-    EncapsulationFailed,
+    /// The V2 user key could not be made into an account recovery key.
+    #[error(transparent)]
+    MakeAfterV2UpgradeFailed(AccountRecoveryMakeAfterV2UpgradeError),
 }
 
 /// Whether the account's role lets it read the organization's private key and set members'
@@ -204,7 +202,9 @@ impl OrganizationUsersManagementClient {
                         | PendingMembershipError::MalformedAccountRecoveryKey
                         | PendingMembershipError::AccountRecoveryKeyDecapsulationFailed
                         | PendingMembershipError::UpgradeTokenUnwrapFailed
-                        | PendingMembershipError::UserKeyIdMismatch),
+                        | PendingMembershipError::MakeAfterV2UpgradeFailed(
+                            AccountRecoveryMakeAfterV2UpgradeError::UserKeyIdMismatch,
+                        )),
                     ) => {
                         // Left pending, the membership would fail the same way on every run,
                         // because a retry reads the same keys.
@@ -217,12 +217,17 @@ impl OrganizationUsersManagementClient {
                     }
                     Err(
                         e @ (PendingMembershipError::MalformedUserKeyId
-                        | PendingMembershipError::EncapsulationFailed),
+                        | PendingMembershipError::MakeAfterV2UpgradeFailed(
+                            AccountRecoveryMakeAfterV2UpgradeError::MissingMemberUserKey
+                            | AccountRecoveryMakeAfterV2UpgradeError::MemberUserKeyNotV2
+                            | AccountRecoveryMakeAfterV2UpgradeError::Make(_),
+                        )),
                     ) => {
                         // A malformed key id is not unenrolled: unenrolling also sends the key id,
-                        // and one malformed entry fails the whole request. A failed encapsulation
-                        // is not unenrolled either: it happens in this client, not in the
-                        // membership's keys, so a later run can succeed.
+                        // and one malformed entry fails the whole request. The other errors are not
+                        // unenrolled either: the upgrade token already yielded a V2 user key, so
+                        // they happen in this client, not in the membership's keys, and a later run
+                        // can succeed.
                         warn!(
                             %organization_id,
                             %organization_user_id,
@@ -346,17 +351,14 @@ fn account_recovery_key(
 
     // The key id is sent back to the server as it reported it, so the server's check against the
     // member's user row cannot detect a token carrying a different key.
-    if ctx.get_symmetric_key_id(v2_user_key) != Some(user_key_id) {
-        return Err(PendingMembershipError::UserKeyIdMismatch);
-    }
-
-    let account_recovery = AccountRecovery::make(
+    let account_recovery = AccountRecovery::make_after_v2_upgrade(
         v2_user_key,
+        user_key_id,
+        organization_private_key,
         organization_public_key,
-        &organization_private_key.trust_proof(),
         ctx,
     )
-    .map_err(|_| PendingMembershipError::EncapsulationFailed)?;
+    .map_err(PendingMembershipError::MakeAfterV2UpgradeFailed)?;
 
     Ok(String::from(&account_recovery))
 }
@@ -1032,7 +1034,9 @@ mod tests {
 
         assert!(matches!(
             organization.account_recovery_key(&membership),
-            Err(PendingMembershipError::UserKeyIdMismatch)
+            Err(PendingMembershipError::MakeAfterV2UpgradeFailed(
+                AccountRecoveryMakeAfterV2UpgradeError::UserKeyIdMismatch
+            ))
         ));
     }
 
