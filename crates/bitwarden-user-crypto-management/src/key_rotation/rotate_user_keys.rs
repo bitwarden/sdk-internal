@@ -1,11 +1,15 @@
 //! Client implementation for rotating user keys without a password change.
 use bitwarden_api_api::models::RotateUserKeysRequestModel;
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+use bitwarden_core::key_management::crypto::ReinitUserCryptoRequest;
 use bitwarden_core::key_management::{
     KeySlotIds, V2UpgradeToken, account_cryptographic_state::WrappedAccountCryptographicState,
 };
 use bitwarden_crypto::{KeyConnectorKey, KeyStore, PublicKey, SymmetricCryptoKey};
 use serde::{Deserialize, Serialize};
 use tracing::info;
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+use tracing::warn;
 
 use crate::{
     UserCryptoManagementClient,
@@ -90,7 +94,7 @@ impl UserCryptoManagementClient {
                 None
             };
 
-        internal_rotate_user_keys(
+        let upgrade = internal_rotate_user_keys(
             key_store,
             api_client,
             &self.client.km_state_bridge(),
@@ -99,8 +103,46 @@ impl UserCryptoManagementClient {
             wrapped_account_cryptographic_state,
             sync,
         )
-        .await
+        .await?;
+
+        if let Some(upgrade) = upgrade {
+            self.apply_v2_upgrade(upgrade).await;
+        }
+
+        Ok(())
     }
+}
+
+impl UserCryptoManagementClient {
+    /// Moves this unlocked client from the V1 user key to the V2 key it just rotated to. Without
+    /// this the SDK keeps the V1 key in memory until the next sync, while state already holds V2.
+    #[cfg(any(feature = "uniffi", feature = "wasm"))]
+    async fn apply_v2_upgrade(&self, upgrade: V2Upgrade) {
+        let result = self
+            .client
+            .crypto()
+            .reinit_user_crypto(ReinitUserCryptoRequest {
+                account_cryptographic_state: upgrade.account_cryptographic_state,
+                upgrade_token: upgrade.upgrade_token,
+            })
+            .await;
+
+        // The server already rotated, so failing the call would make the client retry a
+        // rotation that cannot be repeated. The next sync re-initializes the client.
+        if let Err(e) = result {
+            warn!(error = ?e, "Failed to apply the V2 upgrade to the rotating client");
+        }
+    }
+
+    #[cfg(not(any(feature = "uniffi", feature = "wasm")))]
+    async fn apply_v2_upgrade(&self, _upgrade: V2Upgrade) {}
+}
+
+/// What a V1 to V2 rotation hands the rotating client to re-initialize itself from.
+#[cfg_attr(not(any(feature = "uniffi", feature = "wasm")), allow(dead_code))]
+struct V2Upgrade {
+    account_cryptographic_state: WrappedAccountCryptographicState,
+    upgrade_token: V2UpgradeToken,
 }
 
 /// Data that needs to be written to local state after the key rotation
@@ -120,7 +162,7 @@ async fn internal_rotate_user_keys(
     request: RotateUserKeysRequest,
     wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     sync: SyncedAccountData,
-) -> Result<(), RotateUserKeysError> {
+) -> Result<Option<V2Upgrade>, RotateUserKeysError> {
     // Fail early if any cipher has old attachments that would become irrecoverable
     check_for_old_attachments(&sync.ciphers)?;
 
@@ -250,20 +292,25 @@ async fn internal_rotate_user_keys(
         .map_err(|_| RotateUserKeysError::Api)?;
     info!("Successfully rotated user account keys and data");
 
-    if let Some(upgrade_token) = state_bridge_update.upgrade_token.as_ref() {
-        info!("Writing new cryptographic data to state");
-        state_bridge
-            .set_account_cryptographic_state(&state_bridge_update.account_cryptographic_state)
-            .await;
-        state_bridge.set_v2_upgrade_token(upgrade_token).await;
-        state_bridge
-            .set_user_key(&state_bridge_update.user_key)
-            .await;
-        // Important: A full sync MUST be triggered after the key rotation to make sure all unlock
-        // methods are accurate
-    }
+    let Some(upgrade_token) = state_bridge_update.upgrade_token else {
+        return Ok(None);
+    };
 
-    Ok(())
+    info!("Writing new cryptographic data to state");
+    state_bridge
+        .set_account_cryptographic_state(&state_bridge_update.account_cryptographic_state)
+        .await;
+    state_bridge.set_v2_upgrade_token(&upgrade_token).await;
+    state_bridge
+        .set_user_key(&state_bridge_update.user_key)
+        .await;
+    // Important: A full sync MUST be triggered after the key rotation to make sure all unlock
+    // methods are accurate
+
+    Ok(Some(V2Upgrade {
+        account_cryptographic_state: state_bridge_update.account_cryptographic_state,
+        upgrade_token,
+    }))
 }
 
 #[cfg(test)]

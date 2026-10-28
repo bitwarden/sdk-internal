@@ -3,6 +3,7 @@
 
 import type {
   InitUserCryptoMethod,
+  LoginRequest,
   PasswordManagerClient,
   WasmStateBridge,
 } from "@bitwarden/sdk-internal";
@@ -14,7 +15,27 @@ import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
 
 import { LocalState, SETTINGS } from "./local-state";
 
-import { makePasswordManagerClient } from "../tests/utils";
+import { makePasswordManagerClient, makeStateBridge } from "../tests/utils";
+
+/** How a client gets to the point where it may sync an account down. */
+export enum LoginMethod {
+  /** Prelogin, then the password grant — what a real password client does. */
+  Password = "password",
+
+  /** Skips authentication entirely, for accounts for that real login is not implemented. Note this only works when using the emulator */
+  Unimplemented = "unimplemented",
+}
+
+/** The device a test logs in from. Identity records it; nothing here depends on the values. */
+const LOGIN_REQUEST: LoginRequest = {
+  clientId: "web",
+  device: {
+    deviceType: "SDK",
+    deviceIdentifier: "integration-test-device",
+    deviceName: "Integration Tests",
+    devicePushToken: undefined,
+  },
+};
 
 export class ClientEmulator {
   readonly local = new LocalState();
@@ -29,7 +50,7 @@ export class ClientEmulator {
   }
 
   /**
-   * Simulates a sync from server to client
+   * Simulates a sync from server to client, handled by the current client, locked or not.
    */
   async sync(email: string): Promise<void> {
     const user = this.server.getUser(email);
@@ -50,8 +71,9 @@ export class ClientEmulator {
 
     const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
-    const locked = makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
-    await locked.crypto_sync_handler().on_sync({
+    // A login syncs before there is any client, so start from a locked one.
+    this.client ??= this.local.locked();
+    await this.client.crypto_sync_handler().on_sync({
       accountCryptographicState: accountKeys.toAccountCryptographicState(),
       userDecryption: {
         masterPasswordUnlock:
@@ -86,9 +108,40 @@ export class ClientEmulator {
     await this.local.seedVault(this.server.api.vaultFor(user));
   }
 
-  /** Syncs a seeded account down — what a login does. Leaves the client locked. */
-  async login(email: string): Promise<void> {
+  /**
+   * Logs an account in and syncs it down. Leaves the client locked.
+   *
+   * {@link LoginMethod.Password} authenticates against the identity emulator first and so needs
+   * the account's password; {@link LoginMethod.Unimplemented} goes straight to the sync.
+   */
+  async login(email: string, method: LoginMethod, password?: string): Promise<void> {
+    if (method === LoginMethod.Password) {
+      if (password === undefined) {
+        throw new Error(`a password login for ${email} needs a password`);
+      }
+
+      await this.authenticate(email, password);
+    }
+
     await this.sync(email);
+  }
+
+  /**
+   * Prelogin, then the password grant.
+   *
+   * The login client is unauthenticated and carries no account, so it runs on a bridge of its own
+   * rather than this client's state.
+   */
+  private async authenticate(email: string, password: string): Promise<void> {
+    const loginClient = makePasswordManagerClient(makeStateBridge(), SETTINGS).auth().login();
+
+    const preloginResponse = await loginClient.get_password_prelogin(email);
+    await loginClient.login_via_password({
+      loginRequest: LOGIN_REQUEST,
+      email,
+      password,
+      preloginResponse,
+    });
   }
 
   /**
@@ -97,14 +150,29 @@ export class ClientEmulator {
    * The password is the caller's to supply — it is the one thing neither emulator holds.
    */
   async unlock(password: string): Promise<void> {
+    this.client = await this.local.unlock(await this.masterPasswordUnlock(password));
+  }
+
+  /**
+   * Unlocks the client this emulator already holds with the master password, keeping the instance.
+   *
+   * This is the unlock that follows `PasswordManagerClient.unlock().lock()`, which locks a client in
+   * place where {@link lock} replaces it.
+   */
+  async unlockInPlace(password: string): Promise<void> {
+    await this.local.unlock(
+      await this.masterPasswordUnlock(password),
+      this.getPasswordManagerClient(),
+    );
+  }
+
+  private async masterPasswordUnlock(password: string): Promise<InitUserCryptoMethod> {
     const unlockData = await this.local.bridge.get_masterpassword_unlock_data();
     if (unlockData === null) {
       throw new Error("local state holds no master-password unlock data; sync one down first");
     }
 
-    this.client = await this.local.unlock({
-      masterPasswordUnlock: { password, master_password_unlock: unlockData },
-    });
+    return { masterPasswordUnlock: { password, master_password_unlock: unlockData } };
   }
 
   /** Brings a client up with an unlock method the test supplies rather than the account's own. */

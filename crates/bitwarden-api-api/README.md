@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`4aa2373be206cc2949f928de69648f467ed4f811`](https://github.com/bitwarden/server/commit/4aa2373be206cc2949f928de69648f467ed4f811)
+  [`61341c89372031a166feac87e3b58f5191e3547c`](https://github.com/bitwarden/server/commit/61341c89372031a166feac87e3b58f5191e3547c)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -343,8 +343,10 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationSponsorshipsApi_                | [**resend_sponsorship_offer**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_resend_sponsorship_offer)                                           | **POST** /organization/sponsorship/{organizationId}/families-for-enterprise/resend                       |
 | _OrganizationSponsorshipsApi_                | [**revoke_sponsorship**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_revoke_sponsorship)                                                       | **DELETE** /organization/sponsorship/{organizationId}                                                    |
 | _OrganizationSponsorshipsApi_                | [**sync**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_sync)                                                                                   | **POST** /organization/sponsorship/sync                                                                  |
+| _OrganizationSubscriptionsApi_               | [**change_privileged_controls_seats**](docs/OrganizationSubscriptionsApi.md#change_privileged_controls_seats)                                                    | **PUT** /organizations/{organizationId}/billing/subscription/privileged-controls                         |
 | _OrganizationSubscriptionsApi_               | [**get_organization_subscription_preview**](docs/OrganizationSubscriptionsApi.md#get_organization_subscription_preview)                                          | **GET** /organizations/{organizationId}/billing/subscription/preview                                     |
 | _OrganizationSubscriptionsApi_               | [**preview_organization_plan_change**](docs/OrganizationSubscriptionsApi.md#preview_organization_plan_change)                                                    | **POST** /organizations/{organizationId}/billing/subscription/plan-change/preview                        |
+| _OrganizationSubscriptionsApi_               | [**preview_organization_restart**](docs/OrganizationSubscriptionsApi.md#preview_organization_restart)                                                            | **POST** /organizations/{organizationId}/billing/subscription/restart/preview                            |
 | _OrganizationSubscriptionsApi_               | [**preview_organization_subscription_purchase**](docs/OrganizationSubscriptionsApi.md#preview_organization_subscription_purchase)                                | **POST** /organizations/billing/subscription/purchase/preview                                            |
 | _OrganizationUsersApi_                       | [**accept**](docs/OrganizationUsersApi.md#organization_users_accept)                                                                                             | **POST** /organizations/{orgId}/users/{organizationUserId}/accept                                        |
 | _OrganizationUsersApi_                       | [**accept_init**](docs/OrganizationUsersApi.md#organization_users_accept_init)                                                                                   | **POST** /organizations/{orgId}/users/{organizationUserId}/accept-init                                   |
@@ -353,7 +355,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationUsersApi_                       | [**bulk_automatically_confirm_organization_users**](docs/OrganizationUsersApi.md#organization_users_bulk_automatically_confirm_organization_users)               | **POST** /organizations/{orgId}/users/bulk-auto-confirm                                                  |
 | _OrganizationUsersApi_                       | [**bulk_confirm**](docs/OrganizationUsersApi.md#organization_users_bulk_confirm)                                                                                 | **POST** /organizations/{orgId}/users/confirm                                                            |
 | _OrganizationUsersApi_                       | [**bulk_delete_account**](docs/OrganizationUsersApi.md#organization_users_bulk_delete_account)                                                                   | **DELETE** /organizations/{orgId}/users/delete-account                                                   |
-| _OrganizationUsersApi_                       | [**bulk_enable_pam**](docs/OrganizationUsersApi.md#organization_users_bulk_enable_pam)                                                                           | **PUT** /organizations/{orgId}/users/enable-pam                                                          | Grants PAM access to the specified members. A plain field write: PAM has no seats, so there is no autoscale or billing step. Members who already have access are skipped.                                                                                                                                                                                                                                                                                                                                                             |
+| _OrganizationUsersApi_                       | [**bulk_enable_pam**](docs/OrganizationUsersApi.md#organization_users_bulk_enable_pam)                                                                           | **PUT** /organizations/{orgId}/users/enable-pam                                                          | Grants PAM access to the specified members. See Bit.Core.AdminConsole.OrganizationFeatures.OrganizationUsers.BulkEnablePam.IBulkEnablePamCommand.                                                                                                                                                                                                                                                                                                                                                                                     |
 | _OrganizationUsersApi_                       | [**bulk_enable_secrets_manager**](docs/OrganizationUsersApi.md#organization_users_bulk_enable_secrets_manager)                                                   | **PUT** /organizations/{orgId}/users/enable-secrets-manager                                              |
 | _OrganizationUsersApi_                       | [**bulk_reinvite**](docs/OrganizationUsersApi.md#organization_users_bulk_reinvite)                                                                               | **POST** /organizations/{orgId}/users/reinvite                                                           |
 | _OrganizationUsersApi_                       | [**bulk_remove**](docs/OrganizationUsersApi.md#organization_users_bulk_remove)                                                                                   | **DELETE** /organizations/{orgId}/users                                                                  |
@@ -1014,6 +1016,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PreValidateSponsorshipResponseModel](docs/PreValidateSponsorshipResponseModel.md)
 - [PremiumCloudHostedSubscriptionRequest](docs/PremiumCloudHostedSubscriptionRequest.md)
 - [PreviewOrganizationPlanChangeRequest](docs/PreviewOrganizationPlanChangeRequest.md)
+- [PreviewOrganizationRestartRequest](docs/PreviewOrganizationRestartRequest.md)
 - [PreviewOrganizationSubscriptionPlanChangeTaxRequest](docs/PreviewOrganizationSubscriptionPlanChangeTaxRequest.md)
 - [PreviewOrganizationSubscriptionPurchaseRequest](docs/PreviewOrganizationSubscriptionPurchaseRequest.md)
 - [PreviewOrganizationSubscriptionPurchaseTaxRequest](docs/PreviewOrganizationSubscriptionPurchaseTaxRequest.md)
@@ -1023,6 +1026,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [Priority](docs/Priority.md)
 - [PrivateKeysResponseModel](docs/PrivateKeysResponseModel.md)
 - [PrivilegedControlsInvoiceItems](docs/PrivilegedControlsInvoiceItems.md)
+- [PrivilegedControlsPlanFeaturesResponseModel](docs/PrivilegedControlsPlanFeaturesResponseModel.md)
+- [PrivilegedControlsSeatsRequest](docs/PrivilegedControlsSeatsRequest.md)
 - [ProductTierType](docs/ProductTierType.md)
 - [ProfileOrganizationResponseModel](docs/ProfileOrganizationResponseModel.md)
 - [ProfileOrganizationResponseModelListResponseModel](docs/ProfileOrganizationResponseModelListResponseModel.md)
@@ -1096,7 +1101,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [RevokeAccessTokensRequest](docs/RevokeAccessTokensRequest.md)
 - [RotateUserAccountKeysAndDataRequestModel](docs/RotateUserAccountKeysAndDataRequestModel.md)
 - [RotateUserKeysRequestModel](docs/RotateUserKeysRequestModel.md)
-- [RotationCipherResponseModel](docs/RotationCipherResponseModel.md)
 - [RotationClaimResponseModel](docs/RotationClaimResponseModel.md)
 - [RuleBypassableCiphersResponseModel](docs/RuleBypassableCiphersResponseModel.md)
 - [Saml2BindingType](docs/Saml2BindingType.md)
@@ -1176,7 +1180,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [StorageRequestModel](docs/StorageRequestModel.md)
 - [StorageUpdateRequest](docs/StorageUpdateRequest.md)
 - [StringAuthenticationExtensionsPrfValuesKeyValuePair](docs/StringAuthenticationExtensionsPrfValuesKeyValuePair.md)
-- [SubmitCipherUpdateRequestModel](docs/SubmitCipherUpdateRequestModel.md)
 - [SubscriptionCancellationRequestModel](docs/SubscriptionCancellationRequestModel.md)
 - [SubscriptionPreview](docs/SubscriptionPreview.md)
 - [SubscriptionResponseModel](docs/SubscriptionResponseModel.md)

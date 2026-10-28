@@ -1,0 +1,104 @@
+name: Build access connector
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "bitwarden_license/bitwarden-access-connector/**"
+      - ".github/workflows/build-access-connector.yml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "bitwarden_license/bitwarden-access-connector/**"
+      - ".github/workflows/build-access-connector.yml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build bwac - ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            binary: bwac
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            binary: bwac
+          - os: macos-14
+            target: aarch64-apple-darwin
+            binary: bwac
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            binary: bwac.exe
+            rustflags: "-C target-feature=+crt-static"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: access-connector-${{ matrix.target }}
+
+      - name: Build
+        run: cargo build -p bitwarden-access-connector --release --locked --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: "-D warnings ${{ matrix.rustflags }}"
+
+      - name: Smoke test binary
+        env:
+          BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
+        run: |
+          "${BINARY}" --version
+          "${BINARY}" run --help
+
+      # actions/upload-artifact drops file permissions, so the binary would come back
+      # without its executable bit. Archive it first to keep the download runnable as-is.
+      - name: Package binary
+        env:
+          RELEASE_DIR: target/${{ matrix.target }}/release
+          ARCHIVE: bwac-${{ matrix.target }}.tar.gz
+        run: tar -czf "${ARCHIVE}" -C "${RELEASE_DIR}" "${{ matrix.binary }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bwac-${{ matrix.target }}
+          path: bwac-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  ci-pass:
+    name: Check if build passed
+    runs-on: ubuntu-24.04
+    needs: build
+    if: always()
+    steps:
+      - name: Verify all builds passed
+        if: ${{ needs.build.result != 'success' }}
+        run: exit 1
