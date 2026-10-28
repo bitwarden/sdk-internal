@@ -41,6 +41,7 @@ use crate::{
         helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
         set_contained_key_id,
     },
+    slow_crypto_span::{SlowCryptoOp, measure},
 };
 
 /// 16 is the RECOMMENDED salt size for all applications:
@@ -579,12 +580,14 @@ fn derive_argon2_key(
     use argon2::*;
 
     let mut hash = [0u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE];
-    Argon2::new(
+    let argon = Argon2::new(
         Algorithm::Argon2id,
         Version::V0x13,
         argon2_settings.try_into()?,
-    )
-    .hash_password_into(password.as_bytes(), &argon2_settings.salt, &mut hash)
+    );
+    measure(SlowCryptoOp::Argon2id, || {
+        argon.hash_password_into(password.as_bytes(), &argon2_settings.salt, &mut hash)
+    })
     .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
     Ok(hash)
@@ -594,11 +597,13 @@ fn derive_pbkdf2_key(
     pbkdf2_settings: &Pbkdf2RawSettings,
     password: &str,
 ) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
-    Ok(crate::util::pbkdf2(
-        password.as_bytes(),
-        &pbkdf2_settings.salt,
-        pbkdf2_settings.iterations,
-    ))
+    Ok(measure(SlowCryptoOp::Pbkdf2, || {
+        crate::util::pbkdf2(
+            password.as_bytes(),
+            &pbkdf2_settings.salt,
+            pbkdf2_settings.iterations,
+        )
+    }))
 }
 
 /// Errors that can occur when sealing or unsealing a key with the `PasswordProtectedKeyEnvelope`.
