@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_core::{Client, FromClient};
+use tokio::sync::oneshot;
 use tracing::{Instrument, info_span};
 
 use crate::{
@@ -26,14 +27,21 @@ impl FromClient for EncryptedMigratorClient {
 
 #[bitwarden_ffi::wasm_export]
 impl EncryptedMigratorClient {
-    /// Starts the background migrations and returns without waiting for them.
+    /// Runs the background migrations in a spawned task and resolves when they finish.
     ///
-    /// A failed migration does not stop the others, and runs again on the next call.
-    pub fn run_background_migrations(&self) {
+    /// The run continues when the caller drops the returned future. The caller must not start a new
+    /// run before the previous one resolves, because two runs can send the same changes to the
+    /// server. A failed migration does not stop the others, and runs again on the next call.
+    pub async fn run_background_migrations(&self) {
+        let (finished_sender, finished_receiver) = oneshot::channel::<()>();
         let migrations = Arc::clone(&self.migrations);
         bitwarden_threading::spawn(async move {
+            // Dropped when the task ends, also when a migration panics.
+            let _finished_sender = finished_sender;
             run_migrations(&migrations, MigrationStage::Background).await;
         });
+        // The sender never sends, so the receiver resolves with an error once the task drops it.
+        let _ = finished_receiver.await;
     }
 }
 
@@ -77,11 +85,10 @@ mod tests {
         })
         .await;
 
-        run_migrations(
-            &client.encrypted_migrator().migrations,
-            MigrationStage::Background,
-        )
-        .await;
+        client
+            .encrypted_migrator()
+            .run_background_migrations()
+            .await;
     }
 
     /// The API mock fails any request, so a foreground run that ran a background migration fails.
