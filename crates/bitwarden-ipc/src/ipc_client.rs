@@ -28,6 +28,7 @@ use crate::{
         response_message::OutgoingRpcResponseMessage,
     },
     serde_utils,
+    timeline::{self, Duration, Entry, Track},
     traits::{BroadcastResolution, CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
@@ -162,6 +163,11 @@ where
                                 let Some(message) = inner.reassembler.process(message) else {
                                     continue;
                                 };
+                                let _span = timeline::span(
+                                    Track::Received,
+                                    Duration::AtLeastMessage,
+                                    || message_entry(&message.topic, &message.payload, "Source", &message.source),
+                                );
                                 if message.topic.as_deref() == Some(RPC_REQUEST_PAYLOAD_TYPE_NAME) {
                                     handle_rpc_request(&inner, message);
                                 } else if client_tx.send(message).is_err() {
@@ -277,6 +283,22 @@ where
     }
 }
 
+/// Timeline entry for a single message, named after its topic.
+fn message_entry(
+    topic: &Option<String>,
+    payload: &[u8],
+    peer_label: &'static str,
+    peer: &impl std::fmt::Debug,
+) -> Entry {
+    Entry {
+        name: topic.clone().unwrap_or_else(|| "message".to_owned()),
+        properties: vec![
+            (peer_label, format!("{peer:?}")),
+            ("Bytes", payload.len().to_string()),
+        ],
+    }
+}
+
 /// The outcome of [`send_message`].
 struct SendOutcome {
     result: Result<(), SendError>,
@@ -296,6 +318,15 @@ where
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
+    let _span = timeline::span(Track::Sent, Duration::AtLeastMessage, || {
+        message_entry(
+            &message.topic,
+            &message.payload,
+            "Destination",
+            &message.destination,
+        )
+    });
+
     let fragments = match Fragments::split(message, inner.crypto.max_payload_len()) {
         Ok(fragments) => fragments,
         Err(e) => {
@@ -406,6 +437,10 @@ fn handle_rpc_request<Crypto, Com, Ses>(
             let request = RpcRequestPayload::from_slice(payload).map_err(
                 |e: serde_utils::DeserializeError| HandleError::Deserialize(e.to_string()),
             )?;
+            let _span = timeline::span(Track::Handlers, Duration::Actual, || Entry {
+                name: request.request_type().to_owned(),
+                properties: vec![("Source", format!("{source:?}"))],
+            });
 
             let info = RpcRequestInfo {
                 source: source.clone(),

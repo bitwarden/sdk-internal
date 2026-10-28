@@ -16,6 +16,7 @@ use crate::{
         response_message::IncomingRpcResponseMessage,
     },
     serde_utils,
+    timeline::{self, Duration, Entry, Track},
 };
 
 /// Extension trait providing generic convenience methods on any [`IpcClient`].
@@ -118,6 +119,11 @@ pub trait IpcClientExt: IpcClient {
         Request::Response: Send,
     {
         async move {
+            let _span = timeline::span(Track::Requests, Duration::Actual, || Entry {
+                name: Request::NAME.to_owned(),
+                properties: vec![("Destination", format!("{destination:?}"))],
+            });
+
             let request_payload = RpcRequestMessage::new(request);
 
             // Each request gets its own response topic, subscribed to before sending, and the
