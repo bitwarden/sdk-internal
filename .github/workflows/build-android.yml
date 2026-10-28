@@ -46,7 +46,7 @@ jobs:
           persist-credentials: false
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
 
@@ -77,7 +77,6 @@ jobs:
     name: Combine
     runs-on: ubuntu-24.04
     needs: build
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     outputs:
       sdk-package-id: ${{ steps.publish.outputs.sdk-package-id }}
       sdk-version: ${{ steps.publish.outputs.sdk-version }}
@@ -103,7 +102,7 @@ jobs:
           persist-credentials: false
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
 
@@ -142,8 +141,10 @@ jobs:
         run: |
           ./gradlew build --warning-mode all --stacktrace
 
+      # Fork PRs get a read-only token, so they build and test the package without publishing it.
       - name: Publish
         id: publish
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: ./gradlew sdk:publish
         working-directory: crates/bitwarden-uniffi/kotlin
         env:

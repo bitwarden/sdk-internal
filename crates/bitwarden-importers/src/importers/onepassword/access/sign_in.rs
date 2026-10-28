@@ -13,12 +13,9 @@ const MAX_SUBDOMAIN_LENGTH: usize = 63;
 /// belongs to exactly one of them. Enterprise accounts sit on their own domain instead.
 ///
 /// See <https://support.1password.com/regions/>.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum SignInDomain {
     /// `1password.com`, the default. Data hosted in the United States.
     Global,
@@ -47,13 +44,9 @@ impl SignInDomain {
 /// An individual account uses `my`; a team or business account uses its own name. The domain is a
 /// closed set, so only the subdomain needs checking. The access client normalizes and validates the
 /// record before using it because foreign bindings construct records directly.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct SignInAddress {
     /// The account-specific DNS label, such as `my`.
     pub subdomain: String,

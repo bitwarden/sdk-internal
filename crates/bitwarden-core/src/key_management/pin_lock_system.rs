@@ -268,6 +268,26 @@ impl PinLockSystem<'_> {
             return;
         };
 
+        // Re-sealing runs a full KDF. Clients that re-initialize crypto for an already unlocked
+        // session (e.g. a browser popup) would pay it on every initialization, so keep an existing
+        // envelope that already holds the current user key.
+        if let Some(existing_envelope) = self
+            .client
+            .km_state_bridge()
+            .get_ephemeral_pin_envelope()
+            .await
+        {
+            let user_key_id = self
+                .key_store()
+                .context()
+                .get_symmetric_key_id(SymmetricKeySlotId::User);
+            if user_key_id.is_some()
+                && existing_envelope.contained_key_id().ok().flatten() == user_key_id
+            {
+                return;
+            }
+        }
+
         // Make the fresh PIN envelope
         let Ok(pin_envelope) = (|| -> Result<PasswordProtectedKeyEnvelope, ()> {
             let mut ctx = self.key_store().context_mut();
@@ -782,6 +802,67 @@ mod tests {
             .expect("on_unlock should restore the ephemeral envelope");
         assert_envelope_wraps_user_key(&client, &rebuilt, "1234", &user_key_id);
         assert_eq!(system.get_pin_status().await, PinUnlockStatus::Available);
+        assert!(system.unlock("1234").await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn on_unlock_keeps_ephemeral_envelope_for_current_user_key() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+        let before = client
+            .km_state_bridge()
+            .get_ephemeral_pin_envelope()
+            .await
+            .expect("set_pin stores an ephemeral envelope");
+
+        system.on_unlock().await;
+
+        let after = client
+            .km_state_bridge()
+            .get_ephemeral_pin_envelope()
+            .await
+            .expect("the ephemeral envelope is kept");
+        assert_eq!(Vec::<u8>::from(&before), Vec::<u8>::from(&after));
+        assert!(system.unlock("1234").await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn on_unlock_rebuilds_ephemeral_envelope_for_other_user_key() {
+        let client = client_with_user_key();
+        let user_key_id = user_key_id(&client);
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+
+        let other_client = client_with_user_key();
+        PinLockSystem::with_client(&other_client)
+            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+        let foreign_envelope = other_client
+            .km_state_bridge()
+            .get_ephemeral_pin_envelope()
+            .await
+            .expect("set_pin stores an ephemeral envelope");
+        client
+            .km_state_bridge()
+            .set_ephemeral_pin_envelope(&foreign_envelope)
+            .await;
+
+        system.on_unlock().await;
+
+        let rebuilt = client
+            .km_state_bridge()
+            .get_ephemeral_pin_envelope()
+            .await
+            .expect("on_unlock should restore the ephemeral envelope");
+        assert_envelope_wraps_user_key(&client, &rebuilt, "1234", &user_key_id);
         assert!(system.unlock("1234").await.is_ok());
     }
 

@@ -19,6 +19,7 @@ keywords.workspace = true
 uniffi = ["dep:uniffi", "bitwarden-core/uniffi"]
 wasm = [
     "bitwarden-collections/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-vault/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -31,6 +32,7 @@ bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-ssh = { workspace = true }
 bitwarden-vault = { workspace = true }
