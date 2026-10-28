@@ -8,14 +8,6 @@ on:
       - "rc"
       - "hotfix-rc"
   workflow_dispatch:
-  workflow_call:
-    secrets:
-      AZURE_SUBSCRIPTION_ID:
-        required: true
-      AZURE_TENANT_ID:
-        required: true
-      AZURE_CLIENT_ID:
-        required: true
 
 permissions: {}
 
@@ -45,12 +37,11 @@ jobs:
     steps:
       - name: Checkout repo (PR)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
-          allow-unsafe-pr-checkout: true
 
       - name: Checkout repo (Push or manual run)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,7 +50,7 @@ jobs:
           persist-credentials: false
 
       - name: Set version (PR)
-        if: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         env:
           PR_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
         run: |
@@ -83,8 +74,7 @@ jobs:
         with:
           node-version: 22
           registry-url: "https://npm.pkg.github.com"
-          cache: ${{ github.event_name != 'pull_request_target' && 'npm' || '' }}
-          package-manager-cache: ${{ github.event_name != 'pull_request_target' }}
+          cache: "npm"
 
       - name: Install dependencies
         run: npm i -g binaryen
@@ -108,7 +98,6 @@ jobs:
           components: rust-src
 
       - name: Cache cargo registry
-        if: github.event_name != 'pull_request_target'
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: wasm-cargo-cache
@@ -132,12 +121,11 @@ jobs:
     steps:
       - name: Checkout repo (PR)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
-          allow-unsafe-pr-checkout: true
 
       - name: Checkout repo (Push or manual run)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -149,8 +137,7 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-          cache: ${{ github.event_name != 'pull_request_target' && 'npm' || '' }}
-          package-manager-cache: ${{ github.event_name != 'pull_request_target' }}
+          cache: "npm"
           cache-dependency-path: crates/bitwarden-wasm-internal/integration-tests/package-lock.json
 
       - name: Download SDK artifact
@@ -186,9 +173,7 @@ jobs:
 
   trigger-breaking-change-check:
     name: Trigger client breaking change checks
-    if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      github.event_name == 'pull_request_target'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     needs: build
     permissions:
       contents: read
