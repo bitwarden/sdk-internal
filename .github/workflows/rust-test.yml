@@ -55,6 +55,21 @@ jobs:
         with:
           toolchain: stable
 
+      # The generated API crates are large and only map requests and responses. Optimizing them
+      # makes them the slowest crates to compile, while tests run no faster. Only CI skips it, so
+      # local builds keep the dev profile from Cargo.toml.
+      - name: Skip optimizing the generated API crates
+        shell: bash
+        run: |
+          cat >> .cargo/config.toml <<'EOF'
+
+          [profile.dev.package.bitwarden-api-api]
+          opt-level = 0
+
+          [profile.dev.package.bitwarden-api-identity]
+          opt-level = 0
+          EOF
+
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
