@@ -1,0 +1,103 @@
+#Requires -Version 5.1
+<#
+    Launcher for bwac, written by Install-AccessConnector.ps1.
+
+    Sets the env file's variables on this process only, for the connector to inherit. A
+    machine-level variable would put the token in a registry key any user can read, and
+    PowerShell cannot assign $env:85808642_... by name at all.
+
+    Captures the connector's stderr, which a scheduled task discards, to a log that rolls at
+    10 MB. stdout stays inherited, as the connector writes nothing there, so no second pipe can
+    fill up and block it.
+
+    The connector's exit code is passed through, so the task's LastTaskResult is the
+    connector's own: 0 clean shutdown, 1 startup error, 2 credential refused, 3 not
+    eligible for the rotation endpoints.
+#>
+param(
+    [Parameter(Mandatory = $true)][string] $Exe,
+    [Parameter(Mandatory = $true)][string] $Config,
+    [Parameter(Mandatory = $true)][string] $EnvFile,
+    [Parameter(Mandatory = $true)][string] $LogFile
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$MaxLogBytes = 10485760
+$encoding = New-Object Text.UTF8Encoding($false)
+$writer = $null
+$written = 0L
+
+function Open-Log {
+    param([switch] $Roll)
+    if ($script:writer) { $script:writer.Flush(); $script:writer.Dispose(); $script:writer = $null }
+    if ($Roll -and (Test-Path -LiteralPath $LogFile)) {
+        Move-Item -LiteralPath $LogFile -Destination "$LogFile.1" -Force
+    }
+    $dir = Split-Path -Parent $LogFile
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $script:writer = New-Object IO.StreamWriter($LogFile, $true, $script:encoding)
+    $script:writer.AutoFlush = $true
+    $script:written = (Get-Item -LiteralPath $LogFile).Length
+}
+
+function Write-AccessConnectorLog {
+    param([string] $Line)
+    $script:writer.WriteLine($Line)
+    $script:written += $Line.Length + 2
+    if ($script:written -gt $script:MaxLogBytes) { Open-Log -Roll }
+}
+
+Open-Log
+if ($written -gt $MaxLogBytes) { Open-Log -Roll }
+
+$exitCode = 1
+try {
+    # NAME=VALUE, one per line; '#' comments and blanks skipped. One layer of matching
+    # quotes is stripped, the way systemd's EnvironmentFile does it. Continuations are
+    # not supported; keep each variable on one line.
+    $loaded = 0
+    foreach ($line in Get-Content -LiteralPath $EnvFile -Encoding UTF8) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed -or $trimmed.StartsWith('#')) { continue }
+        $eq = $trimmed.IndexOf('=')
+        if ($eq -lt 1) { continue }
+        $name = $trimmed.Substring(0, $eq).Trim()
+        $value = $trimmed.Substring($eq + 1)
+        if ($value.Length -ge 2 -and
+            (($value[0] -eq '"' -and $value[$value.Length - 1] -eq '"') -or
+             ($value[0] -eq "'" -and $value[$value.Length - 1] -eq "'"))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+        $loaded++
+    }
+
+    Write-AccessConnectorLog ('--- {0} starting {1} ({2} variables loaded) ---' -f
+        (Get-Date -Format 'o'), $Exe, $loaded)
+
+    $psi = New-Object Diagnostics.ProcessStartInfo
+    $psi.FileName = $Exe
+    $psi.Arguments = ('run --config "{0}"' -f $Config)
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $psi.WorkingDirectory = Split-Path -Parent $Config
+
+    $proc = New-Object Diagnostics.Process
+    $proc.StartInfo = $psi
+    [void] $proc.Start()
+
+    while (-not $proc.StandardError.EndOfStream) { Write-AccessConnectorLog $proc.StandardError.ReadLine() }
+    $proc.WaitForExit()
+    $exitCode = $proc.ExitCode
+    Write-AccessConnectorLog ('--- {0} exited with {1} ---' -f (Get-Date -Format 'o'), $exitCode)
+} catch {
+    if ($writer) { Write-AccessConnectorLog ('--- launcher error: {0} ---' -f $_.Exception.Message) }
+    throw
+} finally {
+    if ($writer) { $writer.Flush(); $writer.Dispose() }
+}
+
+exit $exitCode
