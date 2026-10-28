@@ -943,7 +943,8 @@ pub(crate) mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
-                http_authentication_enabled: None,
+                // The blob always stores this setting, so it decrypts as `Some(false)`.
+                http_authentication_enabled: Some(false),
                 fido2_credentials: None,
             }),
             identity: None,
