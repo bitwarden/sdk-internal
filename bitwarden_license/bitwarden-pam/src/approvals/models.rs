@@ -2,15 +2,13 @@ use bitwarden_api_api::models::{
     AccessDecisionRequestModel, AccessDecisionVerdict as ApiAccessDecisionVerdict,
 };
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::error::ApprovalError;
 use crate::AccessDecisionVerdict;
 
 /// An approver's decision on a pending access request.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessDecisionRequest {
     /// The verdict to record; [`AccessDecisionVerdict::Unknown`] cannot be submitted.
