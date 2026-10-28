@@ -1,58 +1,58 @@
 import {
   Source,
   autotypeRequestSetConfirmationEnabledFromMain,
-  autotypeRequestSetConfirmationEnabledFromRenderer,
+  autotypeRequestSetConfirmationEnabledFromRender,
   registerAutotypeMainHandlers,
 } from "@bitwarden/sdk-internal";
 
 import {
   makeMockAutotypeMainDriver,
   makeMockAutotypeRenderDriver,
-  setupRendererHandlerPair,
+  setupRenderHandlerPair,
 } from "./autotype-test-utils";
 
 describe("autotype set-confirmation-enabled-from-main ipc", () => {
   it("reports success when the confirmation dialog is enabled on the render process", async () => {
     const driver = makeMockAutotypeRenderDriver();
-    const { main } = await setupRendererHandlerPair(driver);
+    const { main } = await setupRenderHandlerPair(driver);
 
     const response = await autotypeRequestSetConfirmationEnabledFromMain(main, true);
 
     expect(response.success).toBe(true);
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([true]);
+    expect(driver.confirmationEnabledCalls).toEqual([true]);
   });
 
   // A successful disable reports `true` — the boolean is whether the change was applied,
   // not the state the setting ended up in.
   it("reports success when the confirmation dialog is disabled on the render process", async () => {
     const driver = makeMockAutotypeRenderDriver();
-    const { main } = await setupRendererHandlerPair(driver);
+    const { main } = await setupRenderHandlerPair(driver);
 
     const response = await autotypeRequestSetConfirmationEnabledFromMain(main, false);
 
     expect(response.success).toBe(true);
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([false]);
+    expect(driver.confirmationEnabledCalls).toEqual([false]);
   });
 
   it("reports failure when the driver cannot apply the change", async () => {
     const driver = makeMockAutotypeRenderDriver({
-      setConfirmationEnabledFromMain: async () => false,
+      setConfirmationEnabled: async () => false,
     });
-    const { main } = await setupRendererHandlerPair(driver);
+    const { main } = await setupRenderHandlerPair(driver);
 
     const response = await autotypeRequestSetConfirmationEnabledFromMain(main, true);
 
     expect(response.success).toBe(false);
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([true]);
+    expect(driver.confirmationEnabledCalls).toEqual([true]);
   });
 
   it("reports failure when the driver throws", async () => {
     const driver = makeMockAutotypeRenderDriver({
-      setConfirmationEnabledFromMain: async () => {
+      setConfirmationEnabled: async () => {
         throw new Error("settings unavailable");
       },
     });
-    const { main } = await setupRendererHandlerPair(driver);
+    const { main } = await setupRenderHandlerPair(driver);
 
     // A throwing driver is never reported as successful, in either direction, and the
     // request resolves rather than rejecting.
@@ -63,16 +63,16 @@ describe("autotype set-confirmation-enabled-from-main ipc", () => {
       success: false,
     });
 
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([true, false]);
+    expect(driver.confirmationEnabledCalls).toEqual([true, false]);
   });
 
   it("keeps concurrent changes matched to their own requests", async () => {
     // Succeed on enable and fail on disable, purely so each response is distinguishable —
     // a crossed correlation would surface as a mismatched ordering below.
     const driver = makeMockAutotypeRenderDriver({
-      setConfirmationEnabledFromMain: async (enabled) => enabled,
+      setConfirmationEnabled: async (enabled) => enabled,
     });
-    const { main } = await setupRendererHandlerPair(driver);
+    const { main } = await setupRenderHandlerPair(driver);
 
     const responses = await Promise.all([
       autotypeRequestSetConfirmationEnabledFromMain(main, true),
@@ -85,29 +85,29 @@ describe("autotype set-confirmation-enabled-from-main ipc", () => {
 
   // In the real app both processes register their handlers on the same pair, so each side
   // both sends and applies. Each request must reach only the driver on the other side.
-  it("runs alongside the renderer → main channel on the same client pair", async () => {
-    const rendererDriver = makeMockAutotypeRenderDriver();
+  it("runs alongside the render → main channel on the same client pair", async () => {
+    const renderDriver = makeMockAutotypeRenderDriver();
     const mainDriver = makeMockAutotypeMainDriver();
-    const { main, renderer } = await setupRendererHandlerPair(rendererDriver);
+    const { main, render } = await setupRenderHandlerPair(renderDriver);
     await registerAutotypeMainHandlers(main, mainDriver);
 
     // Establish the Noise session before sending concurrently. If both sides send their first
     // message at the same moment, each starts its own handshake and they end up with mismatched
     // sessions — a limitation of `bitwarden-ipc`'s handshake, not of these channels.
-    await autotypeRequestSetConfirmationEnabledFromRenderer(renderer, true);
+    await autotypeRequestSetConfirmationEnabledFromRender(render, true);
 
-    const [fromMain, fromRenderer] = await Promise.all([
+    const [fromMain, fromRender] = await Promise.all([
       autotypeRequestSetConfirmationEnabledFromMain(main, true),
-      autotypeRequestSetConfirmationEnabledFromRenderer(renderer, false),
+      autotypeRequestSetConfirmationEnabledFromRender(render, false),
     ]);
 
     expect(fromMain).toEqual({ success: true });
-    expect(fromRenderer).toEqual({ success: true });
-    expect(rendererDriver.confirmationEnabledFromMainCalls).toEqual([true]);
-    expect(mainDriver.confirmationEnabledFromRendererCalls).toEqual([true, false]);
+    expect(fromRender).toEqual({ success: true });
+    expect(renderDriver.confirmationEnabledCalls).toEqual([true]);
+    expect(mainDriver.confirmationEnabledCalls).toEqual([true, false]);
   });
 
-  // Main forwards native-messaging traffic to the renderer under its original source, labeled
+  // Main forwards native-messaging traffic to the render process under its original source, labeled
   // the way desktop's `sourceFor()` labels it. Only main itself may change the setting, in
   // either direction.
   it.each<[string, Source]>([
@@ -115,7 +115,7 @@ describe("autotype set-confirmation-enabled-from-main ipc", () => {
     ["the CLI", { Cli: { id: { Id: 1 } } }],
   ])("refuses a change sent by %s without calling the driver", async (_label, source) => {
     const driver = makeMockAutotypeRenderDriver();
-    const { main: peer } = await setupRendererHandlerPair(driver, source);
+    const { main: peer } = await setupRenderHandlerPair(driver, source);
 
     await expect(autotypeRequestSetConfirmationEnabledFromMain(peer, true)).resolves.toEqual({
       success: false,
@@ -124,6 +124,6 @@ describe("autotype set-confirmation-enabled-from-main ipc", () => {
       success: false,
     });
 
-    expect(driver.confirmationEnabledFromMainCalls).toEqual([]);
+    expect(driver.confirmationEnabledCalls).toEqual([]);
   });
 });
