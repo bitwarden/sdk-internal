@@ -26,7 +26,7 @@ const PBKDF2_MIN_ITERATIONS = 600_000;
 const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
 import { Database } from "./database";
 import {
-  AccountKeysResponse,
+  KeysResponse,
   type CipherCreateRequest,
   CipherRequest,
   CipherResponse,
@@ -54,7 +54,7 @@ export class ApiServer {
         json: SyncResponse.forUser(user, this.vaultFor(user)),
       })),
       "GET /accounts/keys": authenticatedRoute(this.db, (user) => ({
-        json: AccountKeysResponse.fromUser(user),
+        json: KeysResponse.fromUser(user),
       })),
 
       "POST /accounts/kdf": authenticatedRoute(this.db, (user, request) =>
@@ -157,6 +157,16 @@ export class ApiServer {
     if (posted.masterPasswordHash === "") {
       return error(HTTP_BAD_REQUEST, "master password hash required");
     }
+
+    // Proof of possession: the posted hash is under the old KDF, as is the stored one until the
+    // assignment below. Accounts seeded without a hash skip the check.
+    if (
+      user.masterPasswordAuthenticationHash !== null &&
+      posted.masterPasswordHash !== user.masterPasswordAuthenticationHash
+    ) {
+      return error(HTTP_BAD_REQUEST, "invalid master password hash");
+    }
+
     if (user.masterPasswordUnlock === null) {
       return error(HTTP_BAD_REQUEST, "account has no master password");
     }
@@ -168,6 +178,8 @@ export class ApiServer {
 
     user.masterPasswordUnlock = MasterPasswordUnlockDataModel.toStored(posted.unlockData);
     user.kdf = user.masterPasswordUnlock.kdf;
+    user.masterPasswordAuthenticationHash =
+      posted.authenticationData.masterPasswordAuthenticationHash;
     this.db.revisions.next();
     return {};
   }

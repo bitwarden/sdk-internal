@@ -96,6 +96,11 @@ impl Client {
         self.0.user_crypto_management()
     }
 
+    /// Unlock related operations.
+    pub fn unlock(&self) -> bitwarden_unlock::UnlockClient {
+        self.0.unlock()
+    }
+
     /// Key management operations that run on every sync.
     pub fn crypto_sync_handler(&self) -> bitwarden_crypto_sync_handler::CryptoSyncHandlerClient {
         self.0.crypto_sync_handler()

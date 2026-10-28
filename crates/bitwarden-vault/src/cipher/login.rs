@@ -12,10 +12,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, PasswordHistoryView, VaultParseError, cipher::cipher::CopyableCipherFields};
@@ -25,7 +21,7 @@ use crate::{Cipher, PasswordHistoryView, VaultParseError, cipher::cipher::Copyab
 #[repr(u8)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum UriMatchType {
     Domain = 0,
     Host = 1,
@@ -35,21 +31,23 @@ pub enum UriMatchType {
     Never = 5,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct LoginUri {
     pub uri: Option<EncString>,
     pub r#match: Option<UriMatchType>,
     pub uri_checksum: Option<EncString>,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct LoginUriView {
     pub uri: Option<String>,
     pub r#match: Option<UriMatchType>,
@@ -84,11 +82,12 @@ impl LoginUriView {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2Credential {
     pub credential_id: EncString,
     pub key_type: EncString,
@@ -105,10 +104,11 @@ pub struct Fido2Credential {
     pub creation_date: DateTime<Utc>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2CredentialListView {
     pub credential_id: String,
     pub rp_id: String,
@@ -118,11 +118,12 @@ pub struct Fido2CredentialListView {
     pub counter: String,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2CredentialView {
     pub credential_id: String,
     pub key_type: String,
@@ -144,10 +145,11 @@ pub struct Fido2CredentialView {
 
 // This is mostly a copy of the Fido2CredentialView, but with the key exposed
 // Only meant to be used internally and not exposed to the outside world
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2CredentialFullView {
     pub credential_id: String,
     pub key_type: String,
@@ -167,11 +169,12 @@ pub struct Fido2CredentialFullView {
 // This is mostly a copy of the Fido2CredentialView, meant to be exposed to the clients
 // to let them select where to store the new credential. Note that it doesn't contain
 // the encrypted key as that is only filled when the cipher is selected
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2CredentialNewView {
     pub credential_id: String,
     pub key_type: String,
@@ -311,11 +314,12 @@ impl From<&Fido2CredentialView> for Fido2CredentialListView {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Login {
     pub username: Option<EncString>,
     pub password: Option<EncString>,
@@ -328,11 +332,12 @@ pub struct Login {
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct LoginView {
     pub username: Option<String>,
     pub password: Option<String>,
@@ -399,11 +404,12 @@ impl LoginView {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct LoginListView {
     pub fido2_credentials: Option<Vec<Fido2CredentialListView>>,
     pub has_fido2: bool,

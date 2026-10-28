@@ -81,11 +81,7 @@ impl KdfDerivedKeyMaterial {
                 // Argon2 is using some stack memory that is not zeroed. Eventually some function
                 // will overwrite the stack, but we use this trick to force the used
                 // stack to be zeroed.
-                #[inline(never)]
-                fn clear_stack() {
-                    std::hint::black_box([0u8; 4096]);
-                }
-                clear_stack();
+                crate::util::clear_stack();
 
                 Ok(KdfDerivedKeyMaterial(hash))
             }

@@ -16,6 +16,7 @@ import type {
   Passport,
   SecureNote,
   SshKey,
+  UnsignedSharedKey,
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
 
@@ -30,14 +31,17 @@ import {
   asString,
 } from "../tests/type-assertion-helpers";
 
-import type { StoredMasterPasswordUnlock, UserEntity } from "./entities";
+import type { EmergencyAccessEntity, StoredMasterPasswordUnlock, UserEntity } from "./entities";
+
+/** How long an issued access token stays valid, as the identity service reports it. */
+const TOKEN_LIFETIME_SECONDS = 3600;
 
 /** The server's numeric `KdfType`. */
 export const KdfType = { pbkdf2Sha256: 0, argon2id: 1 } as const;
 export type KdfTypeValue = (typeof KdfType)[keyof typeof KdfType];
 
-function optionalString(value: { toString(): string } | undefined): string | null {
-  return value === undefined ? null : String(value);
+function optionalString(value: { toString(): string } | null | undefined): string | null {
+  return value === null || value === undefined ? null : String(value);
 }
 
 function optionalEnc(value: string | null | undefined) {
@@ -296,6 +300,9 @@ export class AccountKeysResponse {
 
     if (user.verifyingKey === null) {
       throw new Error(`V2 account ${user.email} has no verifying key`);
+    }
+    if (user.securityVersion === undefined) {
+      throw new Error(`V2 account ${user.email} has no security version`);
     }
 
     return AccountKeysResponse.fromAccountKeysResponse({
@@ -590,6 +597,72 @@ export class MasterPasswordUnlockResponse {
   }
 }
 
+/** `PasswordPreloginRequestModel` — the body of `POST /accounts/prelogin/password`. */
+export class PasswordPreloginRequest {
+  email!: string;
+}
+
+/** `PasswordPreloginResponseModel`. */
+export class PasswordPreloginResponse {
+  // PM-28143: legacy flat KDF fields, removed with the cleanup
+  kdf?: KdfTypeValue;
+  kdfIterations?: number;
+  kdfMemory?: number;
+  kdfParallelism?: number;
+
+  kdfSettings?: KdfModel;
+  salt?: string;
+
+  /** The server echoes the request email as salt until PM-28143. */
+  static fromUser(user: UserEntity, email: string): PasswordPreloginResponse {
+    const kdfSettings = KdfModel.fromKdf(user.kdf);
+
+    return {
+      kdf: kdfSettings.kdfType,
+      kdfIterations: kdfSettings.iterations,
+      kdfMemory: kdfSettings.memory,
+      kdfParallelism: kdfSettings.parallelism,
+      kdfSettings,
+      salt: email,
+    };
+  }
+}
+
+/** `LoginSuccessResponseModel`. The access token is the user id, as other services expect. */
+export class TokenResponse {
+  access_token!: string;
+  expires_in!: number;
+  token_type!: string;
+  scope!: string;
+  Key?: string;
+  PrivateKey?: string;
+  AccountKeys?: AccountKeysResponse;
+  UserDecryptionOptions!: { MasterPasswordUnlock?: MasterPasswordUnlockResponse };
+
+  static forUser(user: UserEntity): TokenResponse {
+    const unlock = user.masterPasswordUnlock;
+
+    return {
+      access_token: user.userId,
+      expires_in: TOKEN_LIFETIME_SECONDS,
+      token_type: "Bearer",
+      scope: "api offline_access",
+      Key: unlock?.masterKeyWrappedUserKey,
+      PrivateKey: AccountKeysResponse.wrappedPrivateKeyOf(user),
+      AccountKeys: AccountKeysResponse.fromUser(user),
+      UserDecryptionOptions: {
+        MasterPasswordUnlock: unlock ? MasterPasswordUnlockResponse.fromStored(unlock) : undefined,
+      },
+    };
+  }
+}
+
+/** OAuth2 error, as the token endpoint answers. */
+export class OAuth2ErrorResponse {
+  error!: string;
+  error_description!: string;
+}
+
 /** `V2UpgradeTokenResponseModel`. */
 export class V2UpgradeTokenResponse {
   wrappedUserKey1!: string;
@@ -624,6 +697,27 @@ export class UserDecryptionResponse {
             },
           }),
       userKeyId: user.userKeyId ?? undefined,
+    };
+  }
+}
+
+export class KeysResponse {
+  object!: "keys";
+  key!: string | null;
+  publicKey!: string;
+  privateKey!: string;
+  accountKeys!: AccountKeysResponse;
+
+  static fromUser(user: UserEntity): KeysResponse {
+    return {
+      object: "keys",
+      key:
+        user.masterPasswordUnlock === null
+          ? null
+          : String(user.masterPasswordUnlock.masterKeyWrappedUserKey),
+      publicKey: user.publicKey,
+      privateKey: AccountKeysResponse.wrappedPrivateKeyOf(user),
+      accountKeys: AccountKeysResponse.fromUser(user),
     };
   }
 }
@@ -685,4 +779,159 @@ export class SyncResponse {
 export class ErrorResponse {
   message!: string;
   validationErrors?: Record<string, string[]>;
+}
+
+/** The server's numeric `EmergencyAccessType`. */
+export const EmergencyAccessType = { view: 0, takeover: 1 } as const;
+export type EmergencyAccessTypeValue =
+  (typeof EmergencyAccessType)[keyof typeof EmergencyAccessType];
+
+/** The server's numeric `EmergencyAccessStatusType`. */
+export const EmergencyAccessStatus = {
+  invited: 0,
+  accepted: 1,
+  confirmed: 2,
+  recoveryInitiated: 3,
+  recoveryApproved: 4,
+} as const;
+export type EmergencyAccessStatusValue =
+  (typeof EmergencyAccessStatus)[keyof typeof EmergencyAccessStatus];
+
+/** `ListResponseModel<T>`. */
+export class ListResponse<T> {
+  object!: "list";
+  data!: T[];
+  continuationToken!: null;
+
+  static of<T>(data: T[]): ListResponse<T> {
+    return { object: "list", data, continuationToken: null };
+  }
+}
+
+/** `EmergencyAccessGranteeDetailsResponseModel` — what the grantor sees of a grantee. */
+export class EmergencyAccessGranteeDetailsResponse {
+  object!: "emergencyAccessGranteeDetails";
+  id!: string;
+  status!: number;
+  type!: number;
+  waitTimeDays!: number;
+  granteeId!: string | null;
+  name!: string | null;
+  email!: string;
+  avatarColor!: string | null;
+
+  /** Before the invite is accepted there is no grantee account, only the address invited. */
+  static fromEntity(
+    entity: EmergencyAccessEntity,
+    grantee: UserEntity | undefined,
+  ): EmergencyAccessGranteeDetailsResponse {
+    return {
+      object: "emergencyAccessGranteeDetails",
+      id: entity.id,
+      status: entity.status,
+      type: entity.type,
+      waitTimeDays: entity.waitTimeDays,
+      granteeId: entity.granteeId,
+      name: null,
+      email: grantee?.email ?? entity.email,
+      avatarColor: null,
+    };
+  }
+}
+
+/** `EmergencyAccessGrantorDetailsResponseModel` — what the grantee sees of a grantor. */
+export class EmergencyAccessGrantorDetailsResponse {
+  object!: "emergencyAccessGrantorDetails";
+  id!: string;
+  status!: number;
+  type!: number;
+  waitTimeDays!: number;
+  grantorId!: string;
+  name!: string | null;
+  email!: string;
+  avatarColor!: string | null;
+
+  static fromEntity(
+    entity: EmergencyAccessEntity,
+    grantor: UserEntity,
+  ): EmergencyAccessGrantorDetailsResponse {
+    return {
+      object: "emergencyAccessGrantorDetails",
+      id: entity.id,
+      status: entity.status,
+      type: entity.type,
+      waitTimeDays: entity.waitTimeDays,
+      grantorId: entity.grantorId,
+      name: null,
+      email: grantor.email,
+      avatarColor: null,
+    };
+  }
+}
+
+/** `EmergencyAccessInviteRequestModel`. */
+export class EmergencyAccessInviteRequest {
+  email!: string;
+  type!: EmergencyAccessTypeValue;
+  waitTimeDays!: number;
+}
+
+/** `EmergencyAccessUpdateRequestModel`. */
+export class EmergencyAccessUpdateRequest {
+  type!: EmergencyAccessTypeValue;
+  waitTimeDays!: number;
+  keyEncrypted?: string | null;
+}
+
+/** `OrganizationUserAcceptRequestModel`, which the accept route reuses. */
+export class EmergencyAccessAcceptRequest {
+  token!: string;
+}
+
+/** `OrganizationUserConfirmRequestModel`, which the confirm route reuses. */
+export class EmergencyAccessConfirmRequest {
+  key!: UnsignedSharedKey;
+}
+
+/** `EmergencyAccessViewResponseModel`. */
+export class EmergencyAccessViewResponse {
+  object!: "emergencyAccessView";
+  keyEncrypted!: string;
+  ciphers!: CipherResponse[];
+}
+
+/** `EmergencyAccessTakeoverResponseModel`. */
+export class EmergencyAccessTakeoverResponse {
+  object!: "emergencyAccessTakeover";
+  keyEncrypted!: string;
+  kdf!: KdfTypeValue;
+  kdfIterations!: number;
+  kdfMemory?: number;
+  kdfParallelism?: number;
+  salt!: string;
+
+  static from(
+    keyEncrypted: string,
+    unlock: StoredMasterPasswordUnlock,
+  ): EmergencyAccessTakeoverResponse {
+    const kdf = KdfModel.fromKdf(unlock.kdf);
+
+    return {
+      object: "emergencyAccessTakeover",
+      keyEncrypted,
+      kdf: kdf.kdfType,
+      kdfIterations: kdf.iterations,
+      kdfMemory: kdf.memory,
+      kdfParallelism: kdf.parallelism,
+      salt: unlock.salt,
+    };
+  }
+}
+
+/** `EmergencyAccessPasswordRequestModel`. */
+export class EmergencyAccessPasswordRequest {
+  newMasterPasswordHash?: string | null;
+  key?: string | null;
+  unlockData?: MasterPasswordUnlockDataModel | null;
+  authenticationData?: MasterPasswordAuthenticationDataModel | null;
 }

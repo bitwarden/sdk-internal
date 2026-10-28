@@ -3,8 +3,9 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     RpcHandler,
+    broadcast::{BroadcastGroup, EndpointSendResult},
     endpoint::Endpoint,
-    error::{RequestError, SubscribeError},
+    error::{BroadcastError, RequestError, SubscribeError},
     ipc_client::IpcClientTypedSubscription,
     ipc_client_trait::IpcClient,
     message::{OutgoingMessage, PayloadTypeName, TypedOutgoingMessage},
@@ -15,6 +16,7 @@ use crate::{
         response_message::IncomingRpcResponseMessage,
     },
     serde_utils,
+    timeline::{self, Duration, Entry, Track},
 };
 
 /// Extension trait providing generic convenience methods on any [`IpcClient`].
@@ -59,6 +61,27 @@ pub trait IpcClientExt: IpcClient {
         }
     }
 
+    /// Send a message with a payload of any serializable type to every member of `group`. See
+    /// [`IpcClient::broadcast`] for how the group is resolved and how failures are reported.
+    fn broadcast_typed<Payload>(
+        &self,
+        payload: Payload,
+        group: BroadcastGroup,
+    ) -> impl std::future::Future<Output = Result<Vec<EndpointSendResult>, BroadcastError>> + Send
+    where
+        Payload: Serialize + PayloadTypeName + Send,
+    {
+        async move {
+            let payload =
+                serde_utils::to_vec(&payload).map_err(|e: serde_utils::SerializeError| {
+                    BroadcastError::Serialization(e.to_string())
+                })?;
+
+            self.broadcast(group, payload, Some(Payload::PAYLOAD_TYPE_NAME.to_owned()))
+                .await
+        }
+    }
+
     /// Create a subscription to receive messages that can be deserialized into the provided
     /// payload type.
     fn subscribe_typed<Payload>(
@@ -80,6 +103,11 @@ pub trait IpcClientExt: IpcClient {
     /// Send a request to the specified destination and wait for a response.
     /// The destination must have a registered RPC handler for the request type, otherwise
     /// an error will be returned by the remote endpoint.
+    ///
+    /// The response is accepted only from `destination`, as identified by the source the
+    /// transport reports for each incoming message (the SDK trusts the transport, and any relay
+    /// in between, to label sources correctly). A response from any other source is ignored, so a
+    /// caller that needs a bound on the wait should pass a `cancellation_token`.
     fn request<Request>(
         &self,
         request: Request,
@@ -91,12 +119,17 @@ pub trait IpcClientExt: IpcClient {
         Request::Response: Send,
     {
         async move {
+            let _span = timeline::span(Track::Requests, Duration::Actual, || Entry {
+                name: Request::NAME.to_owned(),
+                properties: vec![("Destination", format!("{destination:?}"))],
+            });
+
             let request_payload = RpcRequestMessage::new(request);
 
-            // Each request gets its own response topic, subscribed to before sending. The handler
-            // publishes its reply there, so this subscription receives exactly one message: the
-            // response to this request. A deserialization failure is therefore unambiguously a
-            // malformed response to this request.
+            // Each request gets its own response topic, subscribed to before sending, and the
+            // handler publishes its reply there. The subscription receives every message on that
+            // topic; the loop below accepts only the one from the destination. A deserialization
+            // failure of that message is therefore a malformed response to this request.
             let mut response_subscription = self
                 .subscribe(Some(request_payload.response_topic.clone()))
                 .await?;
@@ -107,16 +140,31 @@ pub trait IpcClientExt: IpcClient {
                 .map_err(|e| RequestError::Rpc(RpcError::RequestSerialization(e.to_string())))?;
             let message = OutgoingMessage {
                 payload,
-                destination,
+                destination: destination.clone(),
                 topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
             };
 
             self.send(message).await.map_err(RequestError::from)?;
 
-            let received = response_subscription
-                .receive(cancellation_token)
-                .await
-                .map_err(|e| RequestError::Receive(e.into()))?;
+            // Only the endpoint the request was sent to may answer it. A message on the response
+            // topic from any other source is skipped without failing the request, so another peer
+            // cannot forge the response or end the wait by posting on the response topic.
+            let received = loop {
+                let received = response_subscription
+                    .receive(cancellation_token.clone())
+                    .await
+                    .map_err(|e| RequestError::Receive(e.into()))?;
+
+                if received.source.to_endpoint() == destination {
+                    break received;
+                }
+
+                tracing::warn!(
+                    source = ?received.source,
+                    ?destination,
+                    "Ignoring RPC response from a source other than the request destination"
+                );
+            };
 
             let response: IncomingRpcResponseMessage<Request::Response> =
                 serde_utils::from_slice(&received.payload).map_err(|e| {

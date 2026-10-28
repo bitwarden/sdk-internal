@@ -42,6 +42,8 @@ pub enum PushType {
     PolicyChanged,
     AutoConfirm,
     PremiumStatusChanged,
+    RefreshApproverInbox,
+    RefreshAccessRequest,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -78,6 +80,8 @@ impl PushType {
             Self::PolicyChanged => 25,
             Self::AutoConfirm => 26,
             Self::PremiumStatusChanged => 27,
+            Self::RefreshApproverInbox => 28,
+            Self::RefreshAccessRequest => 29,
             Self::__Unknown(v) => *v,
         }
     }
@@ -112,6 +116,8 @@ impl PushType {
             25 => Self::PolicyChanged,
             26 => Self::AutoConfirm,
             27 => Self::PremiumStatusChanged,
+            28 => Self::RefreshApproverInbox,
+            29 => Self::RefreshAccessRequest,
             v => Self::__Unknown(v),
         }
     }

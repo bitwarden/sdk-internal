@@ -6,6 +6,7 @@ src/apis/account_billing_v_next_api.rs
 src/apis/accounts_api.rs
 src/apis/accounts_billing_api.rs
 src/apis/accounts_key_management_api.rs
+src/apis/audit_api.rs
 src/apis/auth_requests_api.rs
 src/apis/cipher_lease_api.rs
 src/apis/ciphers_api.rs
@@ -38,6 +39,7 @@ src/apis/organization_reports_api.rs
 src/apis/organization_sponsorships_api.rs
 src/apis/organization_subscriptions_api.rs
 src/apis/organization_users_api.rs
+src/apis/organization_users_keys_api.rs
 src/apis/organizations_api.rs
 src/apis/pam_access_connector_rotation_attempts_api.rs
 src/apis/pam_access_connector_rotation_configs_api.rs
@@ -82,6 +84,10 @@ src/apis/web_authn_api.rs
 src/lib.rs
 src/models/accept_organization_invite_link_request_model.rs
 src/models/access_approval_mode.rs
+src/models/access_audit_event_response_model.rs
+src/models/access_audit_event_response_model_list_response_model.rs
+src/models/access_audit_item_response_model.rs
+src/models/access_audit_item_response_model_list_response_model.rs
 src/models/access_decider_kind.rs
 src/models/access_decision_request_model.rs
 src/models/access_decision_verdict.rs
@@ -350,6 +356,7 @@ src/models/organization_domain_response_model_list_response_model.rs
 src/models/organization_domain_sso_details_request_model.rs
 src/models/organization_integration_configuration_request_model.rs
 src/models/organization_integration_configuration_response_model.rs
+src/models/organization_integration_o_auth_redirect_response_model.rs
 src/models/organization_integration_request_model.rs
 src/models/organization_integration_response_model.rs
 src/models/organization_integration_status.rs
@@ -404,6 +411,8 @@ src/models/organization_user_details_response_model.rs
 src/models/organization_user_invite_request_model.rs
 src/models/organization_user_pending_auto_confirm_response_model.rs
 src/models/organization_user_pending_auto_confirm_response_model_list_response_model.rs
+src/models/organization_user_pending_v2_upgrade_response_model.rs
+src/models/organization_user_pending_v2_upgrade_response_model_list_response_model.rs
 src/models/organization_user_public_key_response_model.rs
 src/models/organization_user_public_key_response_model_list_response_model.rs
 src/models/organization_user_reset_password_details_response_model.rs
@@ -419,14 +428,14 @@ src/models/organization_user_user_details_response_model.rs
 src/models/organization_user_user_details_response_model_list_response_model.rs
 src/models/organization_user_user_mini_details_response_model.rs
 src/models/organization_user_user_mini_details_response_model_list_response_model.rs
+src/models/organization_user_v2_upgrade_request_model.rs
+src/models/organization_user_v2_upgrades_request_model.rs
 src/models/organization_verify_delete_recover_request_model.rs
 src/models/other_device_keys_update_request_model.rs
 src/models/pam_access_connector_detail_response_model.rs
 src/models/pam_access_connector_response_model.rs
 src/models/pam_access_connector_response_model_list_response_model.rs
 src/models/pam_access_connector_status.rs
-src/models/pam_password_policy_request_model.rs
-src/models/pam_password_policy_response_model.rs
 src/models/pam_rotation_attempt_response_model.rs
 src/models/pam_rotation_attempt_status.rs
 src/models/pam_rotation_config_detail_response_model.rs
@@ -437,7 +446,6 @@ src/models/pam_rotation_job_status.rs
 src/models/pam_rotation_source.rs
 src/models/pam_rotation_sync_state.rs
 src/models/pam_session_termination_outcome.rs
-src/models/pam_target_system_kind.rs
 src/models/pam_target_system_method.rs
 src/models/pam_target_system_response_model.rs
 src/models/pam_target_system_response_model_list_response_model.rs
@@ -480,6 +488,8 @@ src/models/potential_grantee_response_model.rs
 src/models/potential_grantee_response_model_list_response_model.rs
 src/models/pre_validate_sponsorship_response_model.rs
 src/models/premium_cloud_hosted_subscription_request.rs
+src/models/preview_organization_plan_change_request.rs
+src/models/preview_organization_restart_request.rs
 src/models/preview_organization_subscription_plan_change_tax_request.rs
 src/models/preview_organization_subscription_purchase_request.rs
 src/models/preview_organization_subscription_purchase_tax_request.rs
@@ -488,6 +498,9 @@ src/models/preview_premium_subscription_purchase_tax_request.rs
 src/models/preview_premium_upgrade_proration_request.rs
 src/models/priority.rs
 src/models/private_keys_response_model.rs
+src/models/privileged_controls_invoice_items.rs
+src/models/privileged_controls_plan_features_response_model.rs
+src/models/privileged_controls_seats_request.rs
 src/models/product_tier_type.rs
 src/models/profile_organization_response_model.rs
 src/models/profile_organization_response_model_list_response_model.rs
@@ -561,7 +574,6 @@ src/models/revocation_reason.rs
 src/models/revoke_access_tokens_request.rs
 src/models/rotate_user_account_keys_and_data_request_model.rs
 src/models/rotate_user_keys_request_model.rs
-src/models/rotation_cipher_response_model.rs
 src/models/rotation_claim_response_model.rs
 src/models/rule_bypassable_ciphers_response_model.rs
 src/models/saml2_binding_type.rs
@@ -641,7 +653,6 @@ src/models/storage.rs
 src/models/storage_request_model.rs
 src/models/storage_update_request.rs
 src/models/string_authentication_extensions_prf_values_key_value_pair.rs
-src/models/submit_cipher_update_request_model.rs
 src/models/subscription_cancellation_request_model.rs
 src/models/subscription_preview.rs
 src/models/subscription_response_model.rs

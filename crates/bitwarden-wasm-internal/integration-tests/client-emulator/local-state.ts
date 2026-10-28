@@ -3,6 +3,7 @@ import type {
   ClientSettings,
   Folder,
   InitUserCryptoMethod,
+  InitUserCryptoRequest,
   PasswordManagerClient,
   Policy,
   Repository,
@@ -69,6 +70,8 @@ export interface LocalIdentity {
   email: string;
 }
 
+type ClearMode = "ProcessReload" | "Restart";
+
 export class LocalState {
   readonly bridge = makeStateBridge();
   readonly ciphers = new TestRepository<Cipher>();
@@ -118,9 +121,17 @@ export class LocalState {
    *
    * This is what separates "the app is locked" from "the app was closed", and therefore what
    * separates a PIN unlock before the first unlock from one after it.
+   *
+   * - `ProcessReload` keeps the ephemeral PIN envelope, so an AfterFirstUnlock PIN still unlocks.
+   * - `Restart` drops it too, so an AfterFirstUnlock PIN needs another unlock method first.
    */
-  async clearEphemeral(): Promise<void> {
+  async clearEphemeral(mode: ClearMode): Promise<void> {
     await this.bridge.clear_user_key();
+
+    if (mode === "ProcessReload") {
+      return;
+    }
+
     await this.bridge.clear_ephemeral_pin_envelope();
   }
 
@@ -140,6 +151,7 @@ export class LocalState {
       organization_shared_key: null,
       send: null,
       policy: this.policies,
+      organization: null,
     });
 
     return client;
@@ -150,8 +162,15 @@ export class LocalState {
    *
    * The KDF settings, cryptographic state and upgrade token are read back out of the bridge, which
    * is where the crypto sync handler put them. Nothing is passed in behind the SDK's back.
+   *
+   * `client` defaults to a fresh locked one, unlocked through `initialize_user_crypto`. Passing a
+   * client that was locked in place unlocks that same instance again through `UnlockClient.unlock`,
+   * as a long-lived app does.
    */
-  async unlock(method: InitUserCryptoMethod): Promise<PasswordManagerClient> {
+  async unlock(
+    method: InitUserCryptoMethod,
+    client?: PasswordManagerClient,
+  ): Promise<PasswordManagerClient> {
     const { userId, email } = this.account;
 
     const accountCryptographicState = await this.bridge.get_account_cryptographic_state();
@@ -162,16 +181,21 @@ export class LocalState {
 
     const upgradeToken = await this.bridge.get_v2_upgrade_token();
 
-    const client = this.locked();
-
-    await client.crypto().initialize_user_crypto({
+    const request: InitUserCryptoRequest = {
       userId: asUserId(userId),
       email,
       kdfParams,
       accountCryptographicState,
       method,
       upgradeToken: upgradeToken ?? undefined,
-    });
+    };
+
+    if (client === undefined) {
+      client = this.locked();
+      await client.crypto().initialize_user_crypto(request);
+    } else {
+      await client.unlock().unlock({ legacy: request });
+    }
 
     const sealedOrganizationKeys = Object.entries(this.organizationKeys);
     if (sealedOrganizationKeys.length > 0) {

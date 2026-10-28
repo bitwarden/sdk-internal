@@ -113,3 +113,34 @@ async fn restart_leader_keeps_follower_unlocked() {
     );
     assert_no_lock(&simple.topology, user.id, GRACE, restarted_at);
 }
+
+/// A follower that restarts before its manual lock reached the leader still locks the leader,
+/// rather than relearning the older unlock from it
+///
+/// ```text
+/// follower UNLOCKED --lock--> LOCKED --restart--> LOCKED
+///     x  lock sync lost
+/// leader UNLOCKED --> LOCKED
+/// ```
+#[tokio::test]
+async fn restart_before_lock_sync_keeps_lock() {
+    let user = test_user(TestUserId::A);
+    let simple = SimpleTopology::make(harness::FAST_DELAYS).await;
+
+    // 1. Unlock the follower; all devices must become unlocked.
+    simple.follower.manual_unlock(user.id, &user.key).await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &simple.topology, &user).await;
+
+    // 2. Cut the leader off, so the follower's lock never reaches it.
+    simple.leader.disconnect();
+    simple.follower.manual_lock(user.id).await;
+
+    // 3. Restart the follower, then restore the link. The leader still advertises the older unlock;
+    //    the follower must remember its lock and win with it rather than adopt the unlock.
+    simple.follower.process_reload().await;
+    simple.leader.reconnect();
+
+    wait_for_devices_reaching_state(TargetLockState::Locked, &simple.topology, &user).await;
+    bitwarden_threading::time::sleep(GRACE).await;
+    assert_user_state(TargetLockState::Locked, &simple.topology, &user);
+}

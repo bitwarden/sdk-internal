@@ -296,6 +296,15 @@ pub struct Organization {
         skip_serializing_if = "Option::is_none"
     )]
     pub private_key: Option<String>,
+    /// A hex-encoded key id of the organization's current symmetric organization key.  Each
+    /// organization key has a unique key id. It is not set for existing organizations until a
+    /// client reports it.
+    #[serde(
+        rename = "organizationKeyId",
+        alias = "OrganizationKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub organization_key_id: Option<String>,
     /// A JSON blob of the organization's two-factor authentication provider configurations. Use
     /// M:Bit.Core.AdminConsole.Entities.Organization.GetTwoFactorProviders and
     /// M:Bit.Core.AdminConsole.Entities.Organization.SetTwoFactorProviders(System.Collections.
@@ -394,7 +403,8 @@ pub struct Organization {
     pub max_autoscale_sm_service_accounts: Option<i32>,
     /// The number of Privileged Access Management seats included in the organization's
     /// subscription. NULL if the organization does not have access to Privileged Access
-    /// Management.
+    /// Management. Also NULL on a self-hosted instance whose license predates the seat count. A
+    /// NULL value is treated as no seat limit until a license carrying the count is applied.
     #[serde(
         rename = "pamSeats",
         alias = "PamSeats",
@@ -409,6 +419,14 @@ pub struct Organization {
         skip_serializing_if = "Option::is_none"
     )]
     pub max_autoscale_pam_seats: Option<i32>,
+    /// The minimum number of Privileged Access Management seats the organization's subscription
+    /// must retain. NULL if the organization has never purchased Privileged Access Management.
+    #[serde(
+        rename = "pamSeatMinimum",
+        alias = "PamSeatMinimum",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pam_seat_minimum: Option<i32>,
     /// If set to true, only owners, admins, and some custom users can create and delete
     /// collections. If set to false, any organization member can create a collection, and any
     /// member can delete a collection that they have Can Manage permissions for.
@@ -574,6 +592,7 @@ impl Organization {
             license_key: None,
             public_key: None,
             private_key: None,
+            organization_key_id: None,
             two_factor_providers: None,
             expiration_date: None,
             creation_date: None,
@@ -588,6 +607,7 @@ impl Organization {
             max_autoscale_sm_service_accounts: None,
             pam_seats: None,
             max_autoscale_pam_seats: None,
+            pam_seat_minimum: None,
             limit_collection_creation: None,
             limit_collection_deletion: None,
             allow_admin_access_to_all_collection_items: None,

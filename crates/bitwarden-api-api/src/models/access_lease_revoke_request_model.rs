@@ -15,8 +15,7 @@ use crate::models;
 /// AccessLeaseRevokeRequestModel : A request to revoke an active lease early.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessLeaseRevokeRequestModel {
-    /// A note explaining the revocation. Recorded on the audit trail; not surfaced on the lease
-    /// itself.
+    /// Recorded on the audit trail; not surfaced on the lease itself.
     #[serde(
         rename = "reason",
         alias = "Reason",

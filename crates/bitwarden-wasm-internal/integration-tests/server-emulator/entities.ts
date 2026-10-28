@@ -4,9 +4,12 @@ import type {
   Folder,
   Kdf,
   KeyId,
+  UnsignedSharedKey,
   V2UpgradeToken,
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
+
+import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
 
 /** Master-password unlock data as the server holds it. */
 export interface StoredMasterPasswordUnlock {
@@ -17,14 +20,18 @@ export interface StoredMasterPasswordUnlock {
   containedKeyId?: string;
 }
 
+/** An account's id, so it cannot be swapped for another id. */
+export type AccountId = string & { readonly __brand: "AccountId" };
+
 /** An account as the server holds it. */
 export interface UserEntity {
-  userId: string;
+  userId: AccountId;
   email: string;
   accountCryptographicState: WrappedAccountCryptographicState;
   publicKey: string;
   verifyingKey: string | null;
-  securityVersion: number;
+  /** Absent for a V1 account, which has no security state. */
+  securityVersion?: number;
   /**
    * The account's KDF settings, held separately from {@link masterPasswordUnlock} because an account
    * with none — key connector, trusted device — still has them and still needs them to initialize.
@@ -39,6 +46,11 @@ export interface UserEntity {
   userKeyId?: KeyId;
   /** `null` for an account with no master password. */
   masterPasswordUnlock: StoredMasterPasswordUnlock | null;
+  /**
+   * The master password authentication hash the identity service expects, or `null` for an account
+   * with no master password.
+   */
+  masterPasswordAuthenticationHash: string | null;
   /** Set while a V1 to V2 upgrade is outstanding; served in the account's decryption options. */
   upgradeToken?: V2UpgradeToken;
   /** Organization keys sealed to this account, keyed by organization id. */
@@ -78,8 +90,25 @@ export interface OrganizationMember {
 export interface OrganizationEntity {
   organizationId: string;
   name: string;
-  publicKey: string;
-  wrappedPrivateKey: string;
+  publicKey?: string;
+  wrappedPrivateKey?: string;
   organizationKeyId: string | null;
   members: OrganizationMember[];
+}
+
+/** An emergency access grant, as the server holds it. */
+export interface EmergencyAccessEntity {
+  id: string;
+  grantorId: AccountId;
+  /** `null` until the invited account accepts. */
+  granteeId: AccountId | null;
+  /** The address the grantor invited. */
+  email: string;
+  type: EmergencyAccessTypeValue;
+  status: EmergencyAccessStatusValue;
+  waitTimeDays: number;
+  /** The grantor's user key sealed to the grantee, `null` until the grantor confirms. */
+  keyEncrypted: UnsignedSharedKey | null;
+  /** The token the invite email carries, which the grantee accepts with. */
+  inviteToken: string;
 }

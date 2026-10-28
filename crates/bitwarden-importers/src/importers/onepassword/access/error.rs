@@ -15,6 +15,11 @@ pub enum OnePasswordError {
     #[error("invalid credentials")]
     BadCredentials,
 
+    /// The server refused the email as malformed. An email with no account is not refused, it
+    /// fails later as `BadCredentials`.
+    #[error("invalid email")]
+    InvalidEmail,
+
     /// The sign-in subdomain is not a valid DNS label.
     #[error("invalid sign-in address: {0}")]
     InvalidSignInAddress(String),
@@ -34,6 +39,14 @@ pub enum OnePasswordError {
     /// A submitted two-factor code was rejected.
     #[error("two-factor authentication failed")]
     TwoFactorFailed,
+
+    /// The user canceled the SSO login or the device enrollment.
+    #[error("canceled")]
+    Canceled,
+
+    /// The enrolled device denied the new device.
+    #[error("denied")]
+    Denied,
 
     /// Decryption of a server payload failed.
     #[error("decryption failed")]

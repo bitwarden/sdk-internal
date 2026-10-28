@@ -4,3 +4,4 @@ exclude:
     - crates/bitwarden-importers/src/importers/onepassword/access/fixtures
     # A #[cfg(test)] module that replays the captured account, so it holds its credentials.
     - crates/bitwarden-importers/src/importers/onepassword/access/replay.rs
+    - test-vectors
