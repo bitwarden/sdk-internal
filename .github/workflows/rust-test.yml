@@ -57,9 +57,10 @@ jobs:
         run: cargo test --workspace --all-features
 
       # Runs the #[ignore]d pwsh script-launcher tests. Serial because parallel hosts die together
-      # on CI runners.
+      # on CI runners. The features must match the step above so this reuses its build. Only
+      # tests/scripting_integration.rs runs here, so #[ignore]d pwsh tests belong in that file.
       - name: Test (integration, requires pwsh)
-        run: cargo test -p bitwarden-access-connector --all-features -- --ignored --test-threads=1
+        run: cargo test --workspace --all-features --test scripting_integration -- --ignored --test-threads=1
 
   test-wasm:
     name: WASM
