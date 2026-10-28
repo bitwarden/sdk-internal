@@ -90,9 +90,12 @@ The `CompositeEncryptable` impl on `EncryptMode<CipherView>` seals the blob or e
 under an explicit wrapping key, so key rotation can encrypt under the new key's `Local` slot rather
 than the view's `User` / `Organization` slot.
 
-Some fields exist only in the blob format. `LoginView.http_authentication_enabled` is stored in the
-blob as a `bool`, with an unset value stored as `false`; legacy encryption drops it, and legacy
-decryption returns `None`.
+`LoginView.http_authentication_enabled` is stored in both formats. The blob stores it as a `bool`,
+with an unset value stored as `false`. The legacy format stores it unencrypted on `Login`, like
+`autofill_on_page_load`, and keeps an unset value unset. Re-encrypting a legacy cipher in the blob
+format carries it into the blob through the decrypted view. `CipherLoginModel` has no property for
+it until the server adds one and the API bindings are regenerated, so it does not yet reach the
+server for legacy ciphers.
 
 ## Wrapper types
 
