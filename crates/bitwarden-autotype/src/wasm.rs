@@ -53,9 +53,11 @@ export interface AutotypeMainDriver {
     list_running_apps(): Promise<AutotypeRunningApp[]>;
 
     /**
-     * Set whether the Autotype confirmation dialog should be shown.
-     * Returns a boolean representing if setting the shortcut was
-     * successful or not.
+     * Set whether the Autotype confirmation dialog should be shown, as
+     * requested by the render process. Returns a boolean representing if
+     * changing the setting was successful or not.
+     *
+     * The render process owns this setting.
      */
     set_autotype_confirmation_enabled(enabled: boolean): Promise<boolean>;
 }
@@ -68,9 +70,11 @@ export interface AutotypeMainDriver {
  */
 export interface AutotypeRenderDriver {
     /**
-     * Set whether the Autotype confirmation dialog should be shown.
-     * Returns a boolean representing if setting the shortcut was
-     * successful or not.
+     * Set whether the Autotype confirmation dialog should be shown, as
+     * requested by the main process. Returns a boolean representing if
+     * changing the setting was successful or not.
+     *
+     * The render process owns this setting.
      */
     set_autotype_confirmation_enabled(enabled: boolean): Promise<boolean>;
 }
