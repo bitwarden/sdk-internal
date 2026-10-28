@@ -25,12 +25,14 @@ const MIN_POLL_INTERVAL_SECS: u64 = 15;
 const MAX_HEARTBEAT_INTERVAL_SECS: u64 = 120;
 
 /// The `[environment]` TOML section. Each URL resolves from its env var, then its field here, then
-/// `base`; with none of them, startup fails.
+/// `base`. With no `base`, an unset URL fails startup unless neither URL is set, which defaults to
+/// US cloud.
 #[derive(Debug, Default, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct EnvironmentConfig {
-    /// Self-hosted base URL (e.g. `https://bitwarden.example.com`) from which `api` and `identity`
-    /// derive. Trailing slashes are stripped.
+    /// Base URL from which `api` and `identity` derive: a self-hosted URL (e.g.
+    /// `https://bitwarden.example.com`, trailing slashes stripped) or a Bitwarden cloud host
+    /// (`bitwarden.com`, `vault.bitwarden.eu`, ...), which maps to that cloud's URLs.
     base: Option<String>,
     /// Bitwarden API server URL. Overrides a `base`-derived value.
     api: Option<String>,
@@ -38,14 +40,46 @@ struct EnvironmentConfig {
     identity: Option<String>,
 }
 
-impl EnvironmentConfig {
-    /// The explicit URL, else `base` plus `/{suffix}`.
-    fn resolve(&self, explicit: Option<&str>, suffix: &str) -> Option<String> {
-        explicit.map(str::to_owned).or_else(|| {
-            self.base
-                .as_deref()
-                .map(|b| format!("{}/{suffix}", b.trim_end_matches('/')))
-        })
+/// Where the Bitwarden server is.
+enum Environment {
+    Us,
+    Eu,
+    SelfHosted { api: String, identity: String },
+}
+
+impl Environment {
+    /// A cloud host picks its region; anything else is self-hosted, with `/api` and `/identity`
+    /// under `base`. Hosts match exactly, never by suffix: a suffix match would let
+    /// `bitwarden.com.evil.example` route the connector's credentials to an attacker's server.
+    fn from_base(base: &str) -> Self {
+        let url = url::Url::parse(base).ok();
+        match url.as_ref().and_then(url::Url::host_str) {
+            Some("bitwarden.com" | "vault.bitwarden.com") => Self::Us,
+            Some("bitwarden.eu" | "vault.bitwarden.eu") => Self::Eu,
+            _ => {
+                let base = base.trim_end_matches('/');
+                Self::SelfHosted {
+                    api: format!("{base}/api"),
+                    identity: format!("{base}/identity"),
+                }
+            }
+        }
+    }
+
+    fn api_url(&self) -> &str {
+        match self {
+            Self::Us => "https://api.bitwarden.com",
+            Self::Eu => "https://api.bitwarden.eu",
+            Self::SelfHosted { api, .. } => api,
+        }
+    }
+
+    fn identity_url(&self) -> &str {
+        match self {
+            Self::Us => "https://identity.bitwarden.com",
+            Self::Eu => "https://identity.bitwarden.eu",
+            Self::SelfHosted { identity, .. } => identity,
+        }
     }
 }
 
@@ -144,7 +178,7 @@ fn parse_token(raw: Option<String>) -> Result<AccessToken, AccessConnectorError>
         .map_err(|e| AccessConnectorError::InvalidToken(format!("{e}")))
 }
 
-/// Error for a URL (`api` or `identity`) that no layer supplied.
+/// Error for a service URL that no layer supplied.
 fn missing_url(name: &str) -> AccessConnectorError {
     AccessConnectorError::InvalidConfig(format!(
         "{name} URL must be supplied via the BWAC_{}_URL environment variable, \
@@ -201,20 +235,32 @@ impl Config {
         )
     }
 
-    /// Resolve URLs (env, then `[environment]`) and validate `file` into a [`Config`].
+    /// Resolve URLs (env, then `[environment]`, then `base`) and validate `file` into a
+    /// [`Config`]. With no URL source at all, both URLs default to US cloud.
     fn build(
         token: AccessToken,
         file: FileConfig,
         env_api: Option<String>,
         env_identity: Option<String>,
     ) -> Result<Self, AccessConnectorError> {
-        let env = &file.environment;
-        let api_url = env_api
-            .or_else(|| env.resolve(env.api.as_deref(), "api"))
-            .ok_or_else(|| missing_url("api"))?;
-        let identity_url = env_identity
-            .or_else(|| env.resolve(env.identity.as_deref(), "identity"))
-            .ok_or_else(|| missing_url("identity"))?;
+        let api = env_api.or(file.environment.api.clone());
+        let identity = env_identity.or(file.environment.identity.clone());
+        // Without a base, a lone api or identity URL must not pair with US cloud for the other.
+        if file.environment.base.is_none() {
+            match (&api, &identity) {
+                (Some(_), None) => return Err(missing_url("identity")),
+                (None, Some(_)) => return Err(missing_url("api")),
+                _ => {}
+            }
+        }
+        let server = file
+            .environment
+            .base
+            .as_deref()
+            .map(Environment::from_base)
+            .unwrap_or(Environment::Us);
+        let api_url = api.unwrap_or_else(|| server.api_url().to_owned());
+        let identity_url = identity.unwrap_or_else(|| server.identity_url().to_owned());
 
         if file.poll_interval < MIN_POLL_INTERVAL_SECS {
             return Err(AccessConnectorError::InvalidConfig(format!(
@@ -347,8 +393,93 @@ identity = "https://identity.example.com"
         let env = |v: &str| Some(v.to_string());
 
         // (label, toml, env api, env identity, expected api, expected identity)
+        let us_api = Environment::Us.api_url();
+        let us_id = Environment::Us.identity_url();
+        let eu_api = Environment::Eu.api_url();
+        let eu_id = Environment::Eu.identity_url();
         let rows = [
             ("env only", "", env(ENV_API), env(ENV_ID), ENV_API, ENV_ID),
+            ("nothing configured", "", None, None, us_api, us_id),
+            (
+                "no environment section",
+                "poll_interval = 15\n",
+                None,
+                None,
+                us_api,
+                us_id,
+            ),
+            (
+                "us cloud base",
+                "[environment]\nbase = \"https://bitwarden.com\"\n",
+                None,
+                None,
+                us_api,
+                us_id,
+            ),
+            (
+                "us vault base with trailing slash",
+                "[environment]\nbase = \"https://vault.bitwarden.com/\"\n",
+                None,
+                None,
+                us_api,
+                us_id,
+            ),
+            (
+                "scheme-less cloud host is self-hosted",
+                "[environment]\nbase = \"bitwarden.eu\"\n",
+                None,
+                None,
+                "bitwarden.eu/api",
+                "bitwarden.eu/identity",
+            ),
+            (
+                "eu base with port",
+                "[environment]\nbase = \"https://bitwarden.eu:8443\"\n",
+                None,
+                None,
+                eu_api,
+                eu_id,
+            ),
+            (
+                "cloud host as subdomain of attacker derives paths",
+                "[environment]\nbase = \"https://bitwarden.com.evil.example\"\n",
+                None,
+                None,
+                "https://bitwarden.com.evil.example/api",
+                "https://bitwarden.com.evil.example/identity",
+            ),
+            (
+                "eu base mixed case",
+                "[environment]\nbase = \"https://VAULT.Bitwarden.EU\"\n",
+                None,
+                None,
+                eu_api,
+                eu_id,
+            ),
+            (
+                "eu base with explicit api",
+                "[environment]\nbase = \"https://bitwarden.eu\"\napi = \"https://custom-api.example.com\"\n",
+                None,
+                None,
+                "https://custom-api.example.com",
+                eu_id,
+            ),
+            (
+                "cloud base with env api",
+                "[environment]\nbase = \"https://bitwarden.eu\"\n",
+                env(ENV_API),
+                None,
+                ENV_API,
+                eu_id,
+            ),
+            (
+                "cloud lookalike derives paths",
+                "[environment]\nbase = \"https://notbitwarden.com\"\n",
+                None,
+                None,
+                "https://notbitwarden.com/api",
+                "https://notbitwarden.com/identity",
+            ),
             (
                 "env over file",
                 URLS,
@@ -408,7 +539,7 @@ identity = "https://identity.example.com"
     #[test]
     fn missing_urls() {
         // (label, toml, substrings the error must contain)
-        let rows: [(&str, &str, &[&str]); 3] = [
+        let rows: [(&str, &str, &[&str]); 2] = [
             (
                 "missing api",
                 "[environment]\nidentity = \"https://identity.example.com\"\n",
@@ -418,11 +549,6 @@ identity = "https://identity.example.com"
                 "missing identity",
                 "[environment]\napi = \"https://api.example.com\"\n",
                 &["identity URL"],
-            ),
-            (
-                "no environment section",
-                "poll_interval = 15\n",
-                &["BWAC_API_URL", "[environment]"],
             ),
         ];
         for (label, toml, expected) in rows {
@@ -434,6 +560,12 @@ identity = "https://identity.example.com"
                 );
             }
         }
+
+        // A lone env API URL must not pair with US cloud for identity.
+        let env_api = Some("https://api.env.example.com".to_string());
+        let msg =
+            invalid_config_message(Config::build(token(), file(""), env_api, None).unwrap_err());
+        assert!(msg.contains("identity URL"), "env api only: {msg:?}");
     }
 
     #[test]
