@@ -19,6 +19,7 @@ pub(crate) enum SlowCryptoOp {
     RsaEncrypt,
     RsaDecrypt,
     MlDsaKeyGeneration,
+    MlDsaExpandSeed,
     MlDsaSign,
     MlDsaVerify,
 }
@@ -49,7 +50,12 @@ impl SlowCryptoSpan {
     }
 }
 
-// Implemented on every target so call sites can end a span early with `drop(span)`.
+/// Measures `op` for exactly as long as `f` runs.
+pub(crate) fn measure<T>(op: SlowCryptoOp, f: impl FnOnce() -> T) -> T {
+    let _span = SlowCryptoSpan::start(op);
+    f()
+}
+
 impl Drop for SlowCryptoSpan {
     fn drop(&mut self) {
         #[cfg(all(feature = "wasm", target_arch = "wasm32"))]
@@ -74,6 +80,14 @@ mod timeline {
     const TRACK_GROUP: &str = "Crypto";
     const TRACK: &str = "Slow Crypto";
 
+    /// Recorded duration of every RSA decrypt, in milliseconds.
+    ///
+    /// The `rsa` crate's decryption is not constant time (RUSTSEC-2023-0071), so recording the
+    /// measured duration would publish a timing side channel on the private key. The timeline only
+    /// needs to show that a decrypt happened. Roughly one RSA-2048 OAEP decrypt in WASM (V8, Apple
+    /// M-series, `opt-level = "z"`: ~2.7 ms).
+    const RSA_DECRYPT_DURATION_MS: f64 = 3.0;
+
     #[wasm_bindgen]
     extern "C" {
         #[wasm_bindgen(catch, js_namespace = performance, js_name = now)]
@@ -87,11 +101,11 @@ mod timeline {
         performance_now().ok()
     }
 
-    /// Records `op` from `start` until now, e.g. `performance.measure("Argon2id", { start, end,
-    /// detail: { devtools: { dataType: "track-entry", trackGroup: "Crypto", track: "Slow Crypto" }
-    /// } })`.
+    /// Records `op` from `start` until now (or for a fixed duration, see [`end`]), e.g.
+    /// `performance.measure("Argon2id", { start, end, detail: { devtools: { dataType:
+    /// "track-entry", trackGroup: "Crypto", track: "Slow Crypto" } } })`.
     pub(super) fn measure(op: SlowCryptoOp, start: f64) {
-        let Some(end) = now() else {
+        let Some(end) = end(op, start) else {
             return;
         };
 
@@ -111,6 +125,14 @@ mod timeline {
         let _ = performance_measure(name(op), &options);
     }
 
+    /// End of the recorded entry. Fixed for operations whose real duration leaks secrets.
+    fn end(op: SlowCryptoOp, start: f64) -> Option<f64> {
+        match op {
+            SlowCryptoOp::RsaDecrypt => Some(start + RSA_DECRYPT_DURATION_MS),
+            _ => now(),
+        }
+    }
+
     fn name(op: SlowCryptoOp) -> &'static str {
         match op {
             SlowCryptoOp::Pbkdf2 => "PBKDF2",
@@ -119,6 +141,7 @@ mod timeline {
             SlowCryptoOp::RsaEncrypt => "RSA encrypt",
             SlowCryptoOp::RsaDecrypt => "RSA decrypt",
             SlowCryptoOp::MlDsaKeyGeneration => "ML-DSA key generation",
+            SlowCryptoOp::MlDsaExpandSeed => "ML-DSA expand seed",
             SlowCryptoOp::MlDsaSign => "ML-DSA sign",
             SlowCryptoOp::MlDsaVerify => "ML-DSA verify",
         }
@@ -141,5 +164,10 @@ mod tests {
     fn span_outside_wasm_is_a_no_op() {
         let span = SlowCryptoSpan::start(SlowCryptoOp::Argon2id);
         drop(span);
+    }
+
+    #[test]
+    fn measure_returns_closure_result() {
+        assert_eq!(measure(SlowCryptoOp::Pbkdf2, || 42), 42);
     }
 }

@@ -22,7 +22,7 @@ use crate::{
     cose::{CoseKeyThumbprintExt, CoseSerializable},
     error::{EncodingError, Result},
     keys::KeyId,
-    slow_crypto_span::{SlowCryptoOp, SlowCryptoSpan},
+    slow_crypto_span::{SlowCryptoOp, SlowCryptoSpan, measure},
 };
 
 pub(crate) const ML_DSA_SEED_SIZE: usize = 32;
@@ -92,9 +92,9 @@ impl SigningKey {
                 let mut seed = Box::pin(Array::from([0u8; 32]));
                 bitwarden_random::rng().fill_bytes(&mut seed);
 
-                let span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaKeyGeneration);
-                let kp = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
-                drop(span);
+                let kp = measure(SlowCryptoOp::MlDsaKeyGeneration, || {
+                    ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed)
+                });
                 SigningKey {
                     id: KeyId::make(),
                     inner: RawSigningKey::MlDsa44 {
@@ -205,9 +205,9 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 RegisteredLabel::Assigned(KeyType::AKP),
             ) => {
                 let seed = mldsa_seed(&cose_key)?;
-                let span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaKeyGeneration);
-                let kp = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
-                drop(span);
+                let kp = measure(SlowCryptoOp::MlDsaExpandSeed, || {
+                    ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed)
+                });
                 Ok(SigningKey {
                     id: key_id(&cose_key)?,
                     inner: RawSigningKey::MlDsa44 {

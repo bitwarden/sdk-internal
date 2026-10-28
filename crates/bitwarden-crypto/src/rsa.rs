@@ -8,7 +8,7 @@ use sha1::Sha1;
 use crate::{
     CryptoError, EncString, SymmetricCryptoKey,
     error::{Result, RsaError, UnsupportedOperationError},
-    slow_crypto_span::{SlowCryptoOp, SlowCryptoSpan},
+    slow_crypto_span::{SlowCryptoOp, SlowCryptoSpan, measure},
 };
 
 /// RSA Key Pair
@@ -26,9 +26,9 @@ pub struct RsaKeyPair {
 pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
     let mut rng = bitwarden_random::rng();
     let bits = 2048;
-    let span = SlowCryptoSpan::start(SlowCryptoOp::RsaKeyGeneration);
-    let priv_key = RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
-    drop(span);
+    let priv_key = measure(SlowCryptoOp::RsaKeyGeneration, || {
+        RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key")
+    });
     let pub_key = RsaPublicKey::from(&priv_key);
 
     let spki = pub_key
