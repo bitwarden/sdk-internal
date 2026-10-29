@@ -19,7 +19,7 @@
 
 use std::str::FromStr;
 
-use bitwarden_crypto::{KeySlotIds, KeyStoreContext, PublicKey, UnsignedSharedKey};
+use bitwarden_crypto::{CryptoError, KeySlotIds, KeyStoreContext, PublicKey, UnsignedSharedKey};
 use thiserror::Error;
 
 use crate::trust_proof::{TrustProof, TrustProofError};
@@ -72,6 +72,9 @@ pub enum OrganizationSharedKeyUnsealError {
     /// corrupt. V1 cannot tell these apart.
     #[error("The organization shared key could not be decapsulated with the member's private key")]
     DecapsulationFailed,
+    /// The member's private key is not in the key store context.
+    #[error("The member's private key does not exist in the key store context")]
+    PrivateKeyNotInContext,
 }
 
 /// The organization key, shared with one member.
@@ -130,7 +133,12 @@ impl OrganizationSharedKey {
 
         encapsulated_key
             .decapsulate(own_private_key, ctx)
-            .map_err(|_| OrganizationSharedKeyUnsealError::DecapsulationFailed)
+            .map_err(|error| match error {
+                CryptoError::MissingKeyId(_) => {
+                    OrganizationSharedKeyUnsealError::PrivateKeyNotInContext
+                }
+                _ => OrganizationSharedKeyUnsealError::DecapsulationFailed,
+            })
     }
 }
 
@@ -338,6 +346,27 @@ mod tests {
         assert!(matches!(
             result,
             Err(OrganizationSharedKeyUnsealError::DecapsulationFailed)
+        ));
+    }
+
+    #[test]
+    fn test_unsealing_with_a_private_key_from_another_context_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let organization_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        let member_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let member_public_key = ctx.get_public_key(member_private_key).unwrap();
+        let shared_key =
+            OrganizationSharedKey::make_untrusted(organization_key, &member_public_key, &ctx)
+                .unwrap();
+        let other_key_store = KeyStore::<TestIds>::default();
+        let mut other_ctx = other_key_store.context_mut();
+
+        let result = shared_key.unseal(member_private_key, &mut other_ctx);
+
+        assert!(matches!(
+            result,
+            Err(OrganizationSharedKeyUnsealError::PrivateKeyNotInContext)
         ));
     }
 

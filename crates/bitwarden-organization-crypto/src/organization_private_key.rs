@@ -23,7 +23,7 @@ pub enum OrganizationPrivateKeyUnwrapError {
 /// Errors that can occur when deriving the organization's public key.
 #[derive(Debug, Error)]
 pub enum OrganizationPublicKeyError {
-    /// The private key is used with a key store context other than the one it was unwrapped into.
+    /// The private key of [`OrganizationPrivateKey`] is not in the key store context.
     #[error("The organization's private key does not exist in the key store context")]
     MissingPrivateKey,
 }
