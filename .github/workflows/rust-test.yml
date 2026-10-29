@@ -35,10 +35,14 @@ jobs:
     runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
     strategy:
       matrix:
-        os:
-          - ubuntu-24.04
-          - macOS-14
-          - windows-2022
+        include:
+          - os: ubuntu-24.04
+          # The binding crates only have platform-independent native tests, which run on Linux.
+          # The iOS, Android and WASM targets they exist for are built in their own workflows.
+          - os: macOS-14
+            exclude: --exclude bitwarden-uniffi --exclude uniffi-bindgen --exclude bitwarden-wasm-internal --exclude wasm-bindgen-cli-runner
+          - os: windows-2022
+            exclude: --exclude bitwarden-uniffi --exclude uniffi-bindgen --exclude bitwarden-wasm-internal --exclude wasm-bindgen-cli-runner
 
     steps:
       - name: Checkout
@@ -50,6 +54,21 @@ jobs:
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
+
+      # The generated API crates are large and only map requests and responses. Optimizing them
+      # makes them the slowest crates to compile, while tests run no faster. Only CI skips it, so
+      # local builds keep the dev profile from Cargo.toml.
+      - name: Skip optimizing the generated API crates
+        shell: bash
+        run: |
+          cat >> .cargo/config.toml <<'EOF'
+
+          [profile.dev.package.bitwarden-api-api]
+          opt-level = 0
+
+          [profile.dev.package.bitwarden-api-identity]
+          opt-level = 0
+          EOF
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
@@ -93,20 +112,20 @@ jobs:
 
       - name: Build tests
         id: build
-        run: cargo test --workspace --all-features --no-run
+        run: cargo test --workspace --all-features --no-run ${{ matrix.exclude }}
 
       - name: Record build inputs
         shell: bash
         run: ./scripts/ci-build-cache.sh record
 
       - name: Test
-        run: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features ${{ matrix.exclude }}
 
       # Runs the #[ignore]d pwsh script-launcher tests. Serial because parallel hosts die together
-      # on CI runners. The features must match the step above so this reuses its build. Only
+      # on CI runners. The packages and features must match the step above so this reuses its build. Only
       # tests/scripting_integration.rs runs here, so #[ignore]d pwsh tests belong in that file.
       - name: Test (integration, requires pwsh)
-        run: cargo test --workspace --all-features --test scripting_integration -- --ignored --test-threads=1
+        run: cargo test --workspace --all-features ${{ matrix.exclude }} --test scripting_integration -- --ignored --test-threads=1
 
       - name: Save build output
         if: always() && steps.build.outcome == 'success'
