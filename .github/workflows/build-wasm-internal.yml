@@ -8,6 +8,11 @@ on:
       - "rc"
       - "hotfix-rc"
   workflow_dispatch:
+    inputs:
+      skip_wasm2js:
+        description: "Build like a pull request, without the wasm2js fallback"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -142,11 +147,15 @@ jobs:
         working-directory: .
         run: ./scripts/ci-build-cache.sh mark
 
+      # Pull requests skip the slow wasm2js fallback: their artifacts are only used for the type
+      # check in clients and the integration tests, which don't load it.
       - name: Build
         id: build
+        env:
+          SKIP_WASM2JS_FLAG: ${{ (github.event_name == 'pull_request' || inputs.skip_wasm2js) && '-s' || '' }}
         run: |
           echo "CPUs: $(nproc)"
-          ./build.sh -r -p ${{ matrix.license_type.build_flags }}
+          ./build.sh -r -p ${SKIP_WASM2JS_FLAG} ${{ matrix.license_type.build_flags }}
 
       - name: Record build inputs
         working-directory: .

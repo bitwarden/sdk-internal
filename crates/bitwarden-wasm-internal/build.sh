@@ -20,6 +20,9 @@ BUILD_FOLDER="debug"
 DEBUG_CAPABILITIES_FEATURE=""
 # Builds the wasm2js fallback in the background, alongside the SIMD build. Only affects release builds.
 PARALLEL=""
+# Writes the debug stub instead of the wasm2js fallback, for pull request builds where nothing loads
+# the fallback. The MVP binary is still built, to check that it gets the same wasm-bindgen glue.
+SKIP_WASM2JS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +39,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     -p)
       PARALLEL="1"
+      ;;
+    -s)
+      SKIP_WASM2JS="1"
       ;;
   esac
   shift
@@ -75,12 +81,18 @@ build_wasm() {
   RUSTFLAGS="${cpu} --cfg getrandom_backend=\"wasm_js\" ${NO_COMMERCIAL_CFG}" RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown --target-dir "${target_dir}" ${RELEASE_FLAG} ${ENABLE_LICENSE_FEATURE} ${DEBUG_CAPABILITIES_FEATURE}
 }
 
+WASM2JS_STUB='throw new Error("The wasm2js fallback is not included in this build, build with build.sh -r");'
+
 # Builds the MVP binary, then optimizes it for size and transpiles it to JS. The SIMD build doesn't
 # depend on any of this, so it can run at the same time.
 build_wasm2js() {
   build_wasm "${MVP_CPU}" "${MVP_TARGET_DIR}"
   rm -rf "${MVP_BINDGEN_DIR}"
   cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundler --out-dir "${MVP_BINDGEN_DIR}" ${MVP_TARGET_DIR}/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
+  if [ -n "$SKIP_WASM2JS" ]; then
+    echo "${WASM2JS_STUB}" > ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm.js
+    return
+  fi
   wasm-opt -Os ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm -o ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm
   wasm2js -Os ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm -o ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm.js
   npx terser ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm.js -o ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm.js
@@ -104,7 +116,7 @@ npx prettier --write "./crates/bitwarden-wasm-internal/${NPM_FOLDER}/**/*.ts"
 # Optimize size, then build the MVP binary and transpile it to JS. Debug builds skip this to save
 # build time, and write a stub instead so bundlers importing the fallback still resolve it.
 if [ -z "$RELEASE_FLAG" ]; then
-  echo 'throw new Error("wasm2js fallback is not built in debug mode, use build.sh -r");' > ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
+  echo "${WASM2JS_STUB}" > ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
 else
   # The bundler and nodejs targets usually get the same .wasm file, which only needs optimizing once
   if cmp -s ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm; then
