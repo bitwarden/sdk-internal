@@ -82,8 +82,14 @@ npx prettier --write "./crates/bitwarden-wasm-internal/${NPM_FOLDER}/**/*.ts"
 if [ -z "$RELEASE_FLAG" ]; then
   echo 'throw new Error("wasm2js fallback is not built in debug mode, use build.sh -r");' > ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
 else
-  wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm
-  wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm
+  # The bundler and nodejs targets usually get the same .wasm file, which only needs optimizing once
+  if cmp -s ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm; then
+    wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm
+    cp ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm
+  else
+    wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm
+    wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm
+  fi
 
   build_wasm "${MVP_CPU}" "${MVP_TARGET_DIR}"
   rm -rf "${MVP_BINDGEN_DIR}"
