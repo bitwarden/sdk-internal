@@ -11,13 +11,13 @@ use tokio::select;
 
 use crate::{
     IpcClient, IpcClientExt, RequestError, RpcHandler, RpcRequestInfo, TypedReceiveError,
-    crypto_provider::noise::crypto_provider::HANDSHAKE_TIMEOUT_SECS, endpoint::Endpoint,
-    rpc::request::RpcRequest,
+    endpoint::Endpoint, rpc::request::RpcRequest,
 };
 
 /// Upper bound for a single discover attempt in [`wait_for_peer`], so a lost message cannot stall
-/// the wait. Longer than the handshake timeout, so a handshake finishes or fails on its own first.
-const ATTEMPT_TIMEOUT: Duration = Duration::from_secs(HANDSHAKE_TIMEOUT_SECS + 1);
+/// the wait. Must stay longer than the Noise handshake timeout (2s), so a handshake finishes or
+/// fails on its own first.
+const ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
 /// Pause between failed discover attempts in [`wait_for_peer`].
 const RETRY_DELAY: Duration = Duration::from_millis(250);
 

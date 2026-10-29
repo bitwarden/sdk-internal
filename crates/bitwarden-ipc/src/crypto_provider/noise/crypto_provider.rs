@@ -189,7 +189,7 @@ fn handshake_entry(role: &str, peer: &crate::endpoint::Endpoint) -> Entry {
 const REHANDSHAKE_INTERVAL_SECS: u64 = 300;
 
 /// Timeout for waiting for a handshake response from the remote peer.
-pub(crate) const HANDSHAKE_TIMEOUT_SECS: u64 = 2;
+const HANDSHAKE_TIMEOUT_SECS: u64 = 2;
 
 /// Session state for the Noise crypto provider.
 #[derive(Debug, Clone, Serialize, Deserialize)]
