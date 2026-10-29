@@ -15,10 +15,8 @@
 
 use std::str::FromStr;
 
-use bitwarden_encoding::FromStrVisitor;
+use bitwarden_encoding::{B64, FromStrVisitor};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     CryptoError, EncString, KeySlotIds, KeyStoreContext,
@@ -137,11 +135,17 @@ impl FromStr for LegacyCompatSymmetricKeyEnvelope {
     }
 }
 
-impl From<LegacyCompatSymmetricKeyEnvelope> for String {
-    fn from(val: LegacyCompatSymmetricKeyEnvelope) -> Self {
-        match val {
-            LegacyCompatSymmetricKeyEnvelope::EncString(enc_string) => enc_string.to_string(),
-            LegacyCompatSymmetricKeyEnvelope::SymmetricKeyEnvelope(envelope) => envelope.into(),
+// `Display` is not implemented, matching [`EncString`]: `Debug` prints the decoded value,
+// `ToString` the serialized form.
+#[allow(clippy::to_string_trait_impl)]
+impl ToString for LegacyCompatSymmetricKeyEnvelope {
+    fn to_string(&self) -> String {
+        match self {
+            Self::EncString(enc_string) => enc_string.to_string(),
+            Self::SymmetricKeyEnvelope(envelope) => {
+                let serialized: Vec<u8> = envelope.into();
+                B64::from(serialized).to_string()
+            }
         }
     }
 }
@@ -173,28 +177,10 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type LegacyCompatSymmetricKeyEnvelope = Tagged<string, "LegacyCompatSymmetricKeyEnvelope">;
 "#;
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for LegacyCompatSymmetricKeyEnvelope {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for LegacyCompatSymmetricKeyEnvelope {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-        let string = unsafe { String::from_abi(abi) };
-        LegacyCompatSymmetricKeyEnvelope::from_str(&string).unwrap_throw()
-    }
-}
+bitwarden_ffi::impl_wire_string!(LegacyCompatSymmetricKeyEnvelope);
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_encoding::B64;
-
     use super::*;
     use crate::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
@@ -452,7 +438,7 @@ mod tests {
         for wrapped in [enc_string, envelope] {
             let is_enc_string = matches!(wrapped, LegacyCompatSymmetricKeyEnvelope::EncString(_));
 
-            let string: String = wrapped.into();
+            let string = wrapped.to_string();
             let parsed = LegacyCompatSymmetricKeyEnvelope::from_str(&string).unwrap();
 
             assert_eq!(
@@ -492,7 +478,7 @@ mod tests {
 
         // Malformed EncStrings parse laxly, round-trip unchanged, and fail on unseal.
         let unparseable = LegacyCompatSymmetricKeyEnvelope::from_str("9.garbage").unwrap();
-        assert_eq!(String::from(unparseable.clone()), "9.garbage");
+        assert_eq!(unparseable.to_string(), "9.garbage");
         assert!(
             unparseable
                 .unseal(wrapping_key, NAMESPACE, &mut ctx)
