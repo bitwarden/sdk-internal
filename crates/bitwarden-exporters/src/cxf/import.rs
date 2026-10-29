@@ -2,9 +2,9 @@ use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
     CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential, EditableField,
-    EditableFieldString, EditableFieldValue, IdentityDocumentCredential, Item, NoteCredential,
-    PasskeyCredential, PassportCredential, PersonNameCredential, SshKeyCredential, TotpCredential,
-    WifiCredential,
+    EditableFieldString, EditableFieldValue, GeneratedPasswordCredential,
+    IdentityDocumentCredential, Item, NoteCredential, PasskeyCredential, PassportCredential,
+    PersonNameCredential, SshKeyCredential, TotpCredential, WifiCredential,
 };
 
 use crate::{
@@ -169,13 +169,25 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     };
 
     // Login credentials
-    if !grouped.basic_auth.is_empty() || !grouped.passkey.is_empty() || !grouped.totp.is_empty() {
+    if !grouped.basic_auth.is_empty()
+        || !grouped.passkey.is_empty()
+        || !grouped.totp.is_empty()
+        || !grouped.generated_password.is_empty()
+    {
         let basic_auth = grouped.basic_auth.first();
         let passkey = grouped.passkey.first();
         let totp = grouped.totp.first();
+        let generated_password = grouped.generated_password.first();
 
-        let login = to_login(creation_date, basic_auth, passkey, totp, scope);
-        add_item(CipherType::Login(Box::new(login)), vec![], None);
+        let (login, fields) = to_login(
+            creation_date,
+            basic_auth,
+            passkey,
+            totp,
+            generated_password,
+            scope,
+        );
+        add_item(CipherType::Login(Box::new(login)), fields, None);
     }
 
     // Credit Card credentials
@@ -334,6 +346,11 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
         basic_auth: extract_credential!(basic_auth, Credential::BasicAuth, BasicAuthCredential),
         credit_card: extract_credential!(credit_card, Credential::CreditCard, CreditCardCredential),
         custom_fields: extract_credential!(custom_fields, Credential::CustomFields, CustomFields),
+        generated_password: extract_credential!(
+            generated_password,
+            Credential::GeneratedPassword,
+            GeneratedPasswordCredential
+        ),
         passkey: extract_credential!(passkey, Credential::Passkey, PasskeyCredential),
         ssh: extract_credential!(ssh, Credential::SshKey, SshKeyCredential),
         totp: extract_credential!(totp, Credential::Totp, TotpCredential),
@@ -362,6 +379,7 @@ struct GroupedCredentials {
     credit_card: Vec<CreditCardCredential>,
     custom_fields: Vec<CustomFieldsCredential>,
     drivers_license: Vec<DriversLicenseCredential>,
+    generated_password: Vec<GeneratedPasswordCredential>,
     identity_document: Vec<IdentityDocumentCredential>,
     note: Vec<NoteCredential>,
     passkey: Vec<PasskeyCredential>,
@@ -790,6 +808,253 @@ mod tests {
         let otpauth = login.totp.as_ref().unwrap();
         assert!(otpauth.starts_with("otpauth://totp/Service:totpuser?secret="));
         assert!(otpauth.contains("&issuer=Service"));
+    }
+
+    // Generated password tests
+
+    fn generated_password_item(credentials: Vec<Credential>) -> Item {
+        Item {
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "Generated Password".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials,
+            tags: None,
+            extensions: None,
+            scope: None,
+        }
+    }
+
+    fn generated_password(password: &str) -> Credential {
+        Credential::GeneratedPassword(Box::new(GeneratedPasswordCredential {
+            password: password.to_string(),
+        }))
+    }
+
+    fn expect_login(cipher: &ImportingCipher) -> &crate::Login {
+        match &cipher.r#type {
+            CipherType::Login(login) => login,
+            _ => panic!("Expected Login cipher for generated password"),
+        }
+    }
+
+    #[test]
+    fn test_generated_password_only() {
+        let item = generated_password_item(vec![generated_password("fake-generated-pw")]);
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.name, "Generated Password");
+        assert_eq!(cipher.notes, None);
+        assert_eq!(cipher.fields, vec![]);
+
+        let login = expect_login(cipher);
+        assert_eq!(login.password, Some("fake-generated-pw".to_string()));
+        assert_eq!(login.username, None);
+        assert_eq!(login.login_uris, vec![]);
+        assert_eq!(login.totp, None);
+        assert!(login.fido2_credentials.is_none());
+    }
+
+    #[test]
+    fn test_generated_password_with_note() {
+        let item = generated_password_item(vec![
+            generated_password("fake-generated-pw"),
+            Credential::Note(Box::new(NoteCredential {
+                content: "This note should be added to the login cipher."
+                    .to_string()
+                    .into(),
+            })),
+        ]);
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // Login with note content, not an extra SecureNote
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(
+            cipher.notes,
+            Some("This note should be added to the login cipher.".to_string())
+        );
+
+        let login = expect_login(cipher);
+        assert_eq!(login.password, Some("fake-generated-pw".to_string()));
+    }
+
+    #[test]
+    fn test_generated_password_with_basic_auth_same_password() {
+        let item = generated_password_item(vec![
+            Credential::BasicAuth(Box::new(BasicAuthCredential {
+                username: Some("fake-user".to_string().into()),
+                password: Some("fake-shared-pw".to_string().into()),
+            })),
+            generated_password("fake-shared-pw"),
+        ]);
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        // Identical passwords should not produce a duplicate custom field
+        assert_eq!(cipher.fields, vec![]);
+
+        let login = expect_login(cipher);
+        assert_eq!(login.username, Some("fake-user".to_string()));
+        assert_eq!(login.password, Some("fake-shared-pw".to_string()));
+    }
+
+    #[test]
+    fn test_generated_password_with_basic_auth_different_password() {
+        use bitwarden_vault::FieldType;
+
+        let item = generated_password_item(vec![
+            Credential::BasicAuth(Box::new(BasicAuthCredential {
+                username: Some("fake-user".to_string().into()),
+                password: Some("fake-basic-pw".to_string().into()),
+            })),
+            generated_password("fake-generated-pw"),
+        ]);
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        // Basic auth password wins, generated password is preserved as a hidden field
+        let login = expect_login(cipher);
+        assert_eq!(login.username, Some("fake-user".to_string()));
+        assert_eq!(login.password, Some("fake-basic-pw".to_string()));
+
+        assert_eq!(
+            cipher.fields,
+            vec![Field {
+                name: Some("Generated Password".to_string()),
+                value: Some("fake-generated-pw".to_string()),
+                r#type: FieldType::Hidden as u8,
+                linked_id: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn test_generated_password_with_custom_fields() {
+        let item = generated_password_item(vec![
+            generated_password("fake-generated-pw"),
+            Credential::CustomFields(Box::new(CustomFieldsCredential {
+                id: None,
+                label: None,
+                fields: vec![EditableFieldValue::String(EditableField {
+                    id: None,
+                    label: Some("Hint".to_string()),
+                    value: EditableFieldString("fake-hint".to_string()).into(),
+                    extensions: None,
+                })],
+                extensions: vec![],
+            })),
+        ]);
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // Custom fields merged into the Login cipher
+        let cipher = ciphers.first().unwrap();
+
+        let login = expect_login(cipher);
+        assert_eq!(login.password, Some("fake-generated-pw".to_string()));
+
+        assert_eq!(cipher.fields.len(), 1);
+        assert_eq!(cipher.fields[0].name, Some("Hint".to_string()));
+        assert_eq!(cipher.fields[0].value, Some("fake-hint".to_string()));
+    }
+
+    #[test]
+    fn test_generated_password_with_totp() {
+        use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
+
+        let item = generated_password_item(vec![
+            generated_password("fake-generated-pw"),
+            Credential::Totp(Box::new(TotpCredential {
+                secret: "totpkey".as_bytes().to_vec().into(),
+                period: 30,
+                digits: 6,
+                username: Some("totpuser".to_string()),
+                algorithm: OTPHashAlgorithm::Sha1,
+                issuer: Some("Service".to_string()),
+            })),
+        ]);
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.fields, vec![]);
+
+        let login = expect_login(cipher);
+        assert_eq!(login.password, Some("fake-generated-pw".to_string()));
+        assert!(
+            login
+                .totp
+                .as_ref()
+                .unwrap()
+                .starts_with("otpauth://totp/Service:totpuser?secret=")
+        );
+    }
+
+    #[test]
+    fn test_generated_password_empty() {
+        let item = generated_password_item(vec![generated_password("")]);
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // The item is kept, titled, as a Login without a password
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.name, "Generated Password");
+        assert_eq!(cipher.fields, vec![]);
+
+        let login = expect_login(cipher);
+        assert_eq!(login.password, None);
+        assert_eq!(login.username, None);
+        assert_eq!(login.login_uris, vec![]);
+        assert_eq!(login.totp, None);
+        assert!(login.fido2_credentials.is_none());
+    }
+
+    #[test]
+    fn test_generated_password_with_passkey() {
+        let item = generated_password_item(vec![
+            generated_password("fake-generated-pw"),
+            Credential::Passkey(Box::new(PasskeyCredential {
+                credential_id: B64Url::try_from("6NiHiekW4ZY8vYHa-ucbvA").unwrap(),
+                rp_id: "example.com".to_string(),
+                username: "fake-user".to_string(),
+                user_display_name: "Fake User".to_string(),
+                user_handle: B64Url::try_from("YWxleCBtdWxsZXI").unwrap(),
+                key: B64Url::try_from("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl")
+                    .unwrap(),
+                fido2_extensions: None,
+            })),
+        ]);
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.fields, vec![]);
+
+        // The password comes from the generated password; username and URI fall back to the
+        // passkey.
+        let login = expect_login(cipher);
+        assert_eq!(login.password, Some("fake-generated-pw".to_string()));
+        assert_eq!(login.username, Some("fake-user".to_string()));
+        assert_eq!(login.login_uris.len(), 1);
+        assert_eq!(
+            login.login_uris[0].uri,
+            Some("https://example.com".to_string())
+        );
+
+        let passkey = login.fido2_credentials.as_ref().unwrap().first().unwrap();
+        assert_eq!(passkey.credential_id, "b64.6NiHiekW4ZY8vYHa-ucbvA");
+        assert_eq!(passkey.rp_id, "example.com");
     }
 
     // Note integration tests
