@@ -40,16 +40,19 @@ jobs:
             needs_rust_nightly: true
           - check: clippy
             needs_rust: true
+            build_cache: true
           - check: sort
             needs_rust: true
           - check: udeps
             needs_rust: true
             needs_rust_nightly: true
+            build_cache: true
           # Temporarily disabled.
           # - check: dylint
           #   needs_rust: true
           - check: doc
             needs_rust: true
+            build_cache: true
           - check: prettier
             needs_node: true
           - check: dep-ownership
@@ -97,6 +100,43 @@ jobs:
       - name: Cache cargo registry
         if: matrix.needs_rust
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          # The build output cache below restores target/ for the checks that compile the
+          # workspace. The other checks compile nothing.
+          cache-targets: false
+
+      # Each check that compiles the workspace keeps its own build output cache, because clippy,
+      # rustdoc and the nightly compiler used by udeps produce different output. See rust-test.yml
+      # for how the cache is keyed and reused.
+      - name: Get build cache period
+        if: matrix.build_cache
+        id: build-cache
+        shell: bash
+        run: |
+          year=$(date -u +%Y)
+          month=$((10#$(date -u +%m)))
+          if [ "$month" -eq 1 ]; then
+            previous=$(printf '%d-12' $((year - 1)))
+          else
+            previous=$(printf '%d-%02d' "$year" $((month - 1)))
+          fi
+          printf 'period=%d-%02d\nprevious=%s\n' "$year" "$month" "$previous" >> "$GITHUB_OUTPUT"
+
+      - name: Restore build output
+        if: matrix.build_cache
+        id: restore-build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target
+          key: build-${{ runner.os }}-lint-${{ matrix.check }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-${{ github.sha }}
+          restore-keys: |
+            build-${{ runner.os }}-lint-${{ matrix.check }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-
+            ${{ github.event_name == 'pull_request' && format('build-{0}-lint-{1}-{2}-{3}-', runner.os, matrix.check, hashFiles('rust-toolchain.toml'), steps.build-cache.outputs.previous) || '' }}
+
+      - name: Mark changed files
+        if: matrix.build_cache
+        shell: bash
+        run: ./scripts/ci-build-cache.sh mark
 
       # Cache cargo-run-bin's built tools (.bin) separately from rust-cache. The
       # tools depend only on their pinned versions (Cargo.toml) and the toolchain,
@@ -156,3 +196,16 @@ jobs:
       - name: Run lint --only ${{ matrix.check }}
         if: matrix.check != 'clippy'
         run: ./scripts/lint.sh --only ${{ matrix.check }}
+
+      - name: Record build inputs
+        if: matrix.build_cache
+        id: record-build
+        shell: bash
+        run: ./scripts/ci-build-cache.sh record
+
+      - name: Save build output
+        if: always() && steps.record-build.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target
+          key: ${{ steps.restore-build.outputs.cache-primary-key }}
