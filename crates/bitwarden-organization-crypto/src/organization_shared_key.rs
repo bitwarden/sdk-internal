@@ -27,7 +27,7 @@ use crate::trust_proof::{TrustProof, TrustProofError};
 /// Errors that can occur when parsing an organization shared key.
 #[derive(Debug, Error)]
 pub enum OrganizationSharedKeyParseError {
-    /// The value stored for the membership is in no known organization shared key format.
+    /// The value stored for the membership is not in a known organization shared key format.
     #[error("The organization shared key is malformed")]
     Malformed,
 }
@@ -35,26 +35,24 @@ pub enum OrganizationSharedKeyParseError {
 /// Errors that can occur when making an organization shared key with a trust proof.
 #[derive(Debug, Error, PartialEq)]
 pub enum OrganizationSharedKeyMakeError {
-    /// The server supplied a public key other than the trusted one.
-    #[error("The member's public key does not match the trusted thumbprint")]
-    ThumbprintMismatch,
-    /// The private key of the proof is not in the key store context.
-    #[error("The own private key does not exist in the key store context")]
-    MissingOwnPrivateKey,
-    /// The public key does not belong to the key pair of the proof.
-    #[error("The member's public key does not match the own private key")]
-    OwnPublicKeyMismatch,
+    /// The private key of
+    /// [`CryptographicProof::OwnPrivateKey`](crate::trust_proof::CryptographicProof::OwnPrivateKey)
+    /// is not in the key store context.
+    #[error("The private key of the trust proof is not in the key store context")]
+    PrivateKeyNotInContext,
     /// The organization key is not in the key store context.
     #[error("The organization key could not be encapsulated to the member's public key")]
     EncapsulationFailed,
+    /// The public key did not pass the trust proof.
+    #[error("The member's public key could not be trusted")]
+    UntrustedPublicKey,
 }
 
 impl From<TrustProofError> for OrganizationSharedKeyMakeError {
     fn from(error: TrustProofError) -> Self {
         match error {
-            TrustProofError::ThumbprintMismatch => Self::ThumbprintMismatch,
-            TrustProofError::MissingOwnPrivateKey => Self::MissingOwnPrivateKey,
-            TrustProofError::OwnPublicKeyMismatch => Self::OwnPublicKeyMismatch,
+            TrustProofError::PrivateKeyNotInContext => Self::PrivateKeyNotInContext,
+            TrustProofError::UntrustedPublicKey => Self::UntrustedPublicKey,
         }
     }
 }
@@ -72,7 +70,7 @@ pub enum OrganizationSharedKeyMakeUntrustedError {
 pub enum OrganizationSharedKeyUnsealError {
     /// The organization shared key was made for a different key pair, or the stored value is
     /// corrupt. V1 cannot tell these apart.
-    #[error("The organization shared key could not be decapsulated with the own private key")]
+    #[error("The organization shared key could not be decapsulated with the member's private key")]
     DecapsulationFailed,
 }
 
@@ -80,9 +78,9 @@ pub enum OrganizationSharedKeyUnsealError {
 pub enum OrganizationSharedKey {
     /// The organization key encapsulated to the member's public key.
     ///
-    /// Encapsulation authenticates no sender. Anyone who knows the member's public key can make
-    /// one, and a swapped public key hands the organization key to whoever holds the matching
-    /// private key.
+    /// Encapsulation does not authenticate the sender. Anyone who knows the member's public key can
+    /// make one, and a swapped public key hands the organization key to whoever holds the
+    /// matching private key.
     V1(UnsignedSharedKey),
 }
 
@@ -259,16 +257,12 @@ mod tests {
 
         for (trust_proof_error, expected_error) in [
             (
-                TrustProofError::ThumbprintMismatch,
-                OrganizationSharedKeyMakeError::ThumbprintMismatch,
+                TrustProofError::PrivateKeyNotInContext,
+                OrganizationSharedKeyMakeError::PrivateKeyNotInContext,
             ),
             (
-                TrustProofError::MissingOwnPrivateKey,
-                OrganizationSharedKeyMakeError::MissingOwnPrivateKey,
-            ),
-            (
-                TrustProofError::OwnPublicKeyMismatch,
-                OrganizationSharedKeyMakeError::OwnPublicKeyMismatch,
+                TrustProofError::UntrustedPublicKey,
+                OrganizationSharedKeyMakeError::UntrustedPublicKey,
             ),
         ] {
             let result = OrganizationSharedKey::make(

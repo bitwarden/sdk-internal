@@ -21,10 +21,13 @@ fn main() {
     let member_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
     // 1. The owner creates the organization key.
-    let org_key = ExampleSymmetricKey::Organization(org_id);
-    let local_org_key = ctx.make_symmetric_key(Aes256CbcHmac);
-    ctx.persist_symmetric_key(local_org_key, org_key)
-        .expect("switching key ids should work");
+    let org_key = {
+        let org_key = ExampleSymmetricKey::Organization(org_id);
+        let local_org_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_org_key, org_key)
+            .expect("switching key ids should work");
+        org_key
+    };
 
     // 2. The owner shares the organization key with their own key pair. The owner holds the
     // matching private key, which proves that the public key is theirs.

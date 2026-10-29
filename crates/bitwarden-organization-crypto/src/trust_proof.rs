@@ -16,8 +16,8 @@ use bitwarden_crypto::{
 
 /// The proof that the caller trusts the recipient's public key.
 pub enum TrustProof<Ids: KeySlotIds> {
-    /// The thumbprint of a public key that a person verified, or that reached the caller over a
-    /// channel the server does not control, such as an invite link.
+    /// The thumbprint of a public key that the caller trusts, for example after a person compared
+    /// the fingerprint.
     ManuallyTrusted(CoseKeyThumbprint),
     /// A cryptographic proof that the public key belongs to the recipient.
     CryptographicallyTrusted(CryptographicProof<Ids>),
@@ -38,15 +38,17 @@ pub enum CryptographicProof<Ids: KeySlotIds> {
 /// The ways a public key can fail its trust proof.
 #[derive(Clone, Copy)]
 pub(crate) enum TrustProofError {
-    ThumbprintMismatch,
-    MissingOwnPrivateKey,
-    OwnPublicKeyMismatch,
+    /// The private key of [`CryptographicProof::OwnPrivateKey`] is not in the key store context.
+    PrivateKeyNotInContext,
+    /// The public key does not match the trusted thumbprint, or does not belong to the key pair
+    /// of the proof.
+    UntrustedPublicKey,
 }
 
 impl<Ids: KeySlotIds> TrustProof<Ids> {
     /// Verifies that `public_key` satisfies the proof.
     ///
-    /// A public key without a thumbprint cannot match a trusted thumbprint, so it is a mismatch.
+    /// A public key without a thumbprint cannot match a trusted thumbprint, so it is untrusted.
     pub(crate) fn verify(
         &self,
         public_key: &PublicKey,
@@ -55,14 +57,14 @@ impl<Ids: KeySlotIds> TrustProof<Ids> {
         match self {
             Self::ManuallyTrusted(trusted_thumbprint) => match public_key.thumbprint() {
                 Ok(thumbprint) if &thumbprint == trusted_thumbprint => Ok(()),
-                _ => Err(TrustProofError::ThumbprintMismatch),
+                _ => Err(TrustProofError::UntrustedPublicKey),
             },
             Self::CryptographicallyTrusted(CryptographicProof::OwnPrivateKey(private_key)) => {
                 let own_public_key = ctx
                     .get_public_key(*private_key)
-                    .map_err(|_| TrustProofError::MissingOwnPrivateKey)?;
+                    .map_err(|_| TrustProofError::PrivateKeyNotInContext)?;
                 if &own_public_key != public_key {
-                    return Err(TrustProofError::OwnPublicKeyMismatch);
+                    return Err(TrustProofError::UntrustedPublicKey);
                 }
                 Ok(())
             }
@@ -103,7 +105,7 @@ mod tests {
 
         let result = trust_proof.verify(&ctx.get_public_key(private_key).unwrap(), &ctx);
 
-        assert!(matches!(result, Err(TrustProofError::ThumbprintMismatch)));
+        assert!(matches!(result, Err(TrustProofError::UntrustedPublicKey)));
     }
 
     #[test]
@@ -132,7 +134,10 @@ mod tests {
 
         let result = trust_proof.verify(&public_key, &other_ctx);
 
-        assert!(matches!(result, Err(TrustProofError::MissingOwnPrivateKey)));
+        assert!(matches!(
+            result,
+            Err(TrustProofError::PrivateKeyNotInContext)
+        ));
     }
 
     #[test]
@@ -147,6 +152,6 @@ mod tests {
 
         let result = trust_proof.verify(&ctx.get_public_key(private_key).unwrap(), &ctx);
 
-        assert!(matches!(result, Err(TrustProofError::OwnPublicKeyMismatch)));
+        assert!(matches!(result, Err(TrustProofError::UntrustedPublicKey)));
     }
 }

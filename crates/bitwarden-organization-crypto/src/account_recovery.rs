@@ -35,7 +35,7 @@ use crate::{
 /// Errors that can occur when parsing an account recovery.
 #[derive(Debug, Error)]
 pub enum AccountRecoveryParseError {
-    /// The value stored for the member is in no known account recovery format.
+    /// The value stored for the member is not in a known account recovery format.
     #[error("The account recovery key is malformed")]
     Malformed,
 }
@@ -61,26 +61,24 @@ pub enum AccountRecoveryMakeAfterV2UpgradeError {
 /// Errors that can occur when making an account recovery with a trust proof.
 #[derive(Debug, Error, PartialEq)]
 pub enum AccountRecoveryMakeError {
-    /// The server supplied a public key other than the trusted one.
-    #[error("The organization's public key does not match the trusted thumbprint")]
-    ThumbprintMismatch,
-    /// The private key of the proof is not in the key store context.
-    #[error("The own private key does not exist in the key store context")]
-    MissingOwnPrivateKey,
-    /// The public key does not belong to the key pair of the proof.
-    #[error("The organization's public key does not match the own private key")]
-    OwnPublicKeyMismatch,
+    /// The private key of
+    /// [`CryptographicProof::OwnPrivateKey`](crate::trust_proof::CryptographicProof::OwnPrivateKey)
+    /// is not in the key store context.
+    #[error("The private key of the trust proof is not in the key store context")]
+    PrivateKeyNotInContext,
     /// The member's user key is not in the key store context.
     #[error("The member's user key could not be encapsulated to the organization's public key")]
     EncapsulationFailed,
+    /// The public key did not pass the trust proof.
+    #[error("The organization's public key could not be trusted")]
+    UntrustedPublicKey,
 }
 
 impl From<TrustProofError> for AccountRecoveryMakeError {
     fn from(error: TrustProofError) -> Self {
         match error {
-            TrustProofError::ThumbprintMismatch => Self::ThumbprintMismatch,
-            TrustProofError::MissingOwnPrivateKey => Self::MissingOwnPrivateKey,
-            TrustProofError::OwnPublicKeyMismatch => Self::OwnPublicKeyMismatch,
+            TrustProofError::PrivateKeyNotInContext => Self::PrivateKeyNotInContext,
+            TrustProofError::UntrustedPublicKey => Self::UntrustedPublicKey,
         }
     }
 }
@@ -108,8 +106,8 @@ pub enum AccountRecoveryUnsealError {
 pub enum AccountRecovery {
     /// The member's user key encapsulated to the organization's public key.
     ///
-    /// Encapsulation authenticates no sender. A swapped public key hands the member's user key to
-    /// whoever holds the matching private key.
+    /// Encapsulation does not authenticate the sender. A swapped public key hands the member's user
+    /// key to whoever holds the matching private key.
     V1(UnsignedSharedKey),
 }
 
@@ -310,16 +308,12 @@ mod tests {
 
         for (trust_proof_error, expected_error) in [
             (
-                TrustProofError::ThumbprintMismatch,
-                AccountRecoveryMakeError::ThumbprintMismatch,
+                TrustProofError::PrivateKeyNotInContext,
+                AccountRecoveryMakeError::PrivateKeyNotInContext,
             ),
             (
-                TrustProofError::MissingOwnPrivateKey,
-                AccountRecoveryMakeError::MissingOwnPrivateKey,
-            ),
-            (
-                TrustProofError::OwnPublicKeyMismatch,
-                AccountRecoveryMakeError::OwnPublicKeyMismatch,
+                TrustProofError::UntrustedPublicKey,
+                AccountRecoveryMakeError::UntrustedPublicKey,
             ),
         ] {
             let result = AccountRecovery::make(

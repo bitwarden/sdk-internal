@@ -8,14 +8,6 @@ on:
       - "rc"
       - "hotfix-rc"
   workflow_dispatch:
-  workflow_call:
-    secrets:
-      AZURE_SUBSCRIPTION_ID:
-        required: true
-      AZURE_TENANT_ID:
-        required: true
-      AZURE_CLIENT_ID:
-        required: true
 
 permissions: {}
 
@@ -45,7 +37,7 @@ jobs:
     steps:
       - name: Checkout repo (PR)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -58,7 +50,7 @@ jobs:
           persist-credentials: false
 
       - name: Set version (PR)
-        if: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         env:
           PR_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
         run: |
@@ -129,7 +121,7 @@ jobs:
     steps:
       - name: Checkout repo (PR)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -181,9 +173,7 @@ jobs:
 
   trigger-breaking-change-check:
     name: Trigger client breaking change checks
-    if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      github.event_name == 'pull_request_target'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     needs: build
     permissions:
       contents: read
