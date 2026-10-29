@@ -23,7 +23,7 @@ use std::{
 
 use bitwarden_ipc::{
     Endpoint, IpcClient, IpcClientExt, IpcClientTypedSubscription, PayloadTypeName, RpcHandler,
-    RpcRequest, RpcRequestInfo, Source, SubscribeError, TypedReceiveError,
+    RpcRequest, RpcRequestInfo, Source, SubscribeError, TypedReceiveError, discover::wait_for_peer,
 };
 use bitwarden_threading::{
     cancellation_token::CancellationToken,
@@ -46,6 +46,9 @@ const FLUSH_INTERVAL: Duration = Duration::from_millis(250);
 
 /// How long an aggregated read waits for the collector when the caller gives no cancellation token.
 const DEFAULT_READ_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// How long a forwarder waits for its collector to answer discover before it keeps events local.
+const COLLECTOR_WAIT: Duration = Duration::from_secs(30);
 
 /// Events sent from a forwarder to its collector.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -269,8 +272,10 @@ static FORWARDER: OnceLock<IpcForwardSink> = OnceLock::new();
 /// Make this context a forwarder: send captured events to the collector at `destination`, except
 /// events from the IPC stack itself, which stay in the local buffer.
 ///
-/// Events captured before this call are sent first. Only the first call has effect. No-op if the
-/// Flight Recorder is disabled.
+/// Forwarding starts once the collector answers a discover request, so events are not lost to a
+/// collector that has not started yet. Until then, and if it does not answer within
+/// [`COLLECTOR_WAIT`], events stay in the local buffer. Events captured before forwarding starts
+/// are sent first. Only the first call has effect. No-op if the Flight Recorder is disabled.
 pub fn enable_flight_recorder_forwarding(client: Arc<dyn IpcClient>, destination: Endpoint) {
     let Some(buffer) = get_flight_recorder_buffer() else {
         return;
@@ -281,12 +286,24 @@ pub fn enable_flight_recorder_forwarding(client: Arc<dyn IpcClient>, destination
         return;
     }
 
-    // Swap before draining so no event lands in the local buffer after the drain.
-    set_flight_recorder_sink(Arc::new(sink.clone()));
-    for event in buffer.take_all() {
-        sink.enqueue(event);
-    }
-    sink.schedule_flush();
+    spawn(async move {
+        let state = &sink.0;
+        let ready = without_flight_recorder(timeout(
+            COLLECTOR_WAIT,
+            wait_for_peer(state.client.as_ref(), state.destination.clone(), None),
+        ))
+        .await;
+        if !matches!(ready, Ok(Ok(_))) {
+            return;
+        }
+
+        // Swap before draining so no event lands in the local buffer after the drain.
+        set_flight_recorder_sink(Arc::new(sink.clone()));
+        for event in buffer.take_all() {
+            sink.enqueue(event);
+        }
+        sink.schedule_flush();
+    });
 }
 
 static COLLECTING: AtomicBool = AtomicBool::new(false);
