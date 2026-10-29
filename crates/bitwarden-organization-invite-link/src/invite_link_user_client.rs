@@ -163,11 +163,10 @@ impl InviteLinkUserClient {
                             &ctx,
                         )
                         .map_err(|error| match error {
-                            AccountRecoveryMakeError::ThumbprintMismatch => {
+                            AccountRecoveryMakeError::UntrustedPublicKey => {
                                 AcceptInviteLinkError::RecoveryKeyMismatch
                             }
-                            error @ (AccountRecoveryMakeError::MissingOwnPrivateKey
-                            | AccountRecoveryMakeError::OwnPublicKeyMismatch
+                            error @ (AccountRecoveryMakeError::PrivateKeyNotInContext
                             | AccountRecoveryMakeError::EncapsulationFailed) => error.into(),
                         })?;
                         Ok(String::from(&account_recovery))
