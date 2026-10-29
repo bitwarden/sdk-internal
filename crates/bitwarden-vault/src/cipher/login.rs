@@ -328,6 +328,10 @@ pub struct Login {
     pub uris: Option<Vec<LoginUri>>,
     pub totp: Option<EncString>,
     pub autofill_on_page_load: Option<bool>,
+    /// Whether the login's credentials may answer HTTP authentication challenges. Stored
+    /// unencrypted, like `autofill_on_page_load`.
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    pub http_authentication_enabled: Option<bool>,
 
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
@@ -346,8 +350,9 @@ pub struct LoginView {
     pub uris: Option<Vec<LoginUriView>>,
     pub totp: Option<String>,
     pub autofill_on_page_load: Option<bool>,
-    /// Whether the login's credentials may answer HTTP authentication challenges. Only stored for
-    /// blob-encrypted ciphers; `None` for ciphers in the legacy field-level format.
+    /// Whether the login's credentials may answer HTTP authentication challenges. Sealed in the
+    /// blob for blob-encrypted ciphers, and stored unencrypted on [`Login`] for ciphers in the
+    /// legacy field-level format.
     #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub http_authentication_enabled: Option<bool>,
 
@@ -453,6 +458,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Login> for LoginView {
                 .filter(|s| !s.is_empty())
                 .encrypt(ctx, key)?,
             autofill_on_page_load: self.autofill_on_page_load,
+            http_authentication_enabled: self.http_authentication_enabled,
             fido2_credentials: self
                 .fido2_credentials
                 .as_ref()
@@ -495,7 +501,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for Login {
             uris: self.uris.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.decrypt(ctx, key).ok().flatten(),
             autofill_on_page_load: self.autofill_on_page_load,
-            http_authentication_enabled: None,
+            http_authentication_enabled: self.http_authentication_enabled,
             fido2_credentials: self
                 .fido2_credentials
                 .as_ref()
@@ -536,7 +542,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for StrictDecrypt<&L
             uris: self.0.uris.decrypt(ctx, key)?,
             totp: self.0.totp.decrypt(ctx, key)?,
             autofill_on_page_load: self.0.autofill_on_page_load,
-            http_authentication_enabled: None,
+            http_authentication_enabled: self.0.http_authentication_enabled,
             fido2_credentials: self
                 .0
                 .fido2_credentials
@@ -626,6 +632,9 @@ impl TryFrom<CipherLoginModel> for Login {
                 .transpose()?,
             totp: EncString::try_from_optional(login.totp)?,
             autofill_on_page_load: login.autofill_on_page_load,
+            // `CipherLoginModel` has no HTTP authentication property until the server adds one and
+            // the API bindings are regenerated.
+            http_authentication_enabled: None,
             fido2_credentials: login
                 .fido2_credentials
                 .map(|v| v.into_iter().map(|c| c.try_into()).collect())
@@ -737,6 +746,8 @@ impl From<Fido2Credential> for bitwarden_api_api::models::CipherFido2CredentialM
     }
 }
 
+/// Drops `http_authentication_enabled`: `CipherLoginModel` has no HTTP authentication property
+/// until the server adds one and the API bindings are regenerated.
 impl From<Login> for bitwarden_api_api::models::CipherLoginModel {
     fn from(login: Login) -> Self {
         bitwarden_api_api::models::CipherLoginModel {
@@ -845,6 +856,7 @@ mod tests {
             uris: None,
             totp: None,
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             fido2_credentials: None,
         };
 
@@ -861,6 +873,7 @@ mod tests {
             uris: None,
             totp: None,
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             fido2_credentials: None,
         };
 
@@ -877,6 +890,7 @@ mod tests {
             uris: None,
             totp: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             fido2_credentials: None,
         };
 

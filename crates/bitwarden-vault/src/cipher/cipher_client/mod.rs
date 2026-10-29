@@ -379,6 +379,7 @@ mod tests {
                 uris:None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             identity: None,
@@ -495,7 +496,7 @@ mod tests {
                 login: Some(Login{
                     username: Some("2.ouEYEk+SViUtqncesfe9Ag==|iXzEJq1zBeNdDbumFO1dUA==|RqMoo9soSwz/yB99g6YPqk8+ASWRcSdXsKjbwWzyy9U=".parse().unwrap()),
                     password: Some("2.6yXnOz31o20Z2kiYDnXueA==|rBxTb6NK9lkbfdhrArmacw==|ogZir8Z8nLgiqlaLjHH+8qweAtItS4P2iPv1TELo5a0=".parse().unwrap()),
-                    password_revision_date: None, uris:None, totp: None, autofill_on_page_load: None, fido2_credentials: None }),
+                    password_revision_date: None, uris:None, totp: None, autofill_on_page_load: None, http_authentication_enabled: None, fido2_credentials: None }),
                 identity: None,
                 card: None,
                 secure_note: None,

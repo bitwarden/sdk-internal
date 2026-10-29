@@ -156,6 +156,7 @@ mod tests {
                 password_revision_date: None,
                 uris: None, totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             identity: Default::default(),

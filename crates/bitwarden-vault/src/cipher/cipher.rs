@@ -2718,6 +2718,7 @@ mod tests {
                 uris: None,
                 totp: Some("2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap()),
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: Some(vec![generate_fido2(&mut key_store.context(), SymmetricKeySlotId::User)]),
             }),
             identity: None,
@@ -4934,18 +4935,67 @@ mod tests {
             );
         }
 
-        /// The legacy field-level format does not store the HTTP authentication setting, so it
-        /// never reaches the server outside a sealed blob.
+        /// The legacy field-level format stores the HTTP authentication setting unencrypted on the
+        /// login, and both the lenient and strict decryption paths restore it.
         #[test]
-        fn legacy_variant_drops_http_authentication_enabled() {
+        fn legacy_variant_round_trips_http_authentication_enabled() {
             let key_store = make_key_store();
 
             let cipher: Cipher = key_store
                 .encrypt(EncryptMode::Legacy(with_http_authentication(Some(true))))
                 .unwrap();
+
+            assert_eq!(
+                cipher.login.as_ref().unwrap().http_authentication_enabled,
+                Some(true)
+            );
+
+            let lenient: CipherView = key_store.decrypt(&cipher).unwrap();
+            assert_eq!(
+                lenient.login.unwrap().http_authentication_enabled,
+                Some(true)
+            );
+
+            let strict: CipherView = key_store.decrypt(&StrictDecrypt(cipher)).unwrap();
+            assert_eq!(
+                strict.login.unwrap().http_authentication_enabled,
+                Some(true)
+            );
+        }
+
+        /// The legacy format keeps an unset HTTP authentication setting unset, unlike the blob.
+        #[test]
+        fn legacy_variant_keeps_missing_http_authentication_enabled_unset() {
+            let key_store = make_key_store();
+
+            let cipher: Cipher = key_store
+                .encrypt(EncryptMode::Legacy(with_http_authentication(None)))
+                .unwrap();
             let restored: CipherView = key_store.decrypt(&cipher).unwrap();
 
             assert_eq!(restored.login.unwrap().http_authentication_enabled, None);
+        }
+
+        /// A legacy cipher re-encrypted in the blob format carries its HTTP authentication setting
+        /// into the blob, through the decrypted view.
+        #[test]
+        fn legacy_http_authentication_enabled_survives_conversion_to_blob() {
+            let key_store = make_key_store();
+
+            let legacy_cipher: Cipher = key_store
+                .encrypt(EncryptMode::Legacy(with_http_authentication(Some(true))))
+                .unwrap();
+            let legacy_view: CipherView = key_store.decrypt(&legacy_cipher).unwrap();
+
+            let blob_cipher: Cipher = key_store.encrypt(EncryptMode::Blob(legacy_view)).unwrap();
+            assert!(try_parse_blob(&blob_cipher).is_some());
+            assert!(blob_cipher.login.is_none());
+
+            let restored: CipherView = key_store.decrypt(&blob_cipher).unwrap();
+            assert_eq!(
+                restored.login.unwrap().http_authentication_enabled,
+                Some(true)
+            );
         }
 
         /// `key_identifier` must delegate to the inner view so `encrypt_list`
