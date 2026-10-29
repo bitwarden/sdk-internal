@@ -203,10 +203,13 @@ jobs:
       - name: Setup gradle
         uses: gradle/actions/setup-gradle@f29f5a9d7b09a7c6b29859002d29d24e1674c884 # v5.0.1
 
+      # The Gradle build cache lets tasks whose inputs are unchanged, such as compiling and linting
+      # the generated bindings when the SDK's API is the same, reuse the output of an earlier run.
+      # setup-gradle above saves and restores it as part of the Gradle user home.
       - name: Test build demo app
         working-directory: crates/bitwarden-uniffi/kotlin
         run: |
-          ./gradlew build --warning-mode all --stacktrace
+          ./gradlew build --build-cache --warning-mode all --stacktrace
 
       # Fork PRs get a read-only token, so they build and test the package without publishing it.
       - name: Publish
