@@ -20,6 +20,7 @@ use crate::{
     cose::{CoseKeyThumbprintExt, CoseSerializable, thumbprint_from_required_params},
     error::{EncodingError, SignatureError},
     keys::KeyId,
+    slow_crypto_span::{SlowCryptoOp, SlowCryptoSpan},
 };
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
@@ -73,6 +74,7 @@ impl VerifyingKey {
                     .map_err(|_| SignatureError::InvalidSignature.into())
             }
             RawVerifyingKey::MlDsa44(key) => {
+                let _span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaVerify);
                 let sig = ml_dsa::Signature::<MlDsa44>::try_from(signature)
                     .map_err(|_| SignatureError::InvalidSignature)?;
                 key.verify(data, &sig)
