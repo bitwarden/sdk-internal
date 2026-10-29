@@ -19,7 +19,7 @@
 
 use std::str::FromStr;
 
-use bitwarden_crypto::{KeySlotIds, KeyStoreContext, PublicKey, UnsignedSharedKey};
+use bitwarden_crypto::{CryptoError, KeySlotIds, KeyStoreContext, PublicKey, UnsignedSharedKey};
 use thiserror::Error;
 
 use crate::{
@@ -77,6 +77,9 @@ pub enum AccountRecoveryUnsealError {
         "The account recovery key could not be decapsulated with the organization's private key"
     )]
     DecapsulationFailed,
+    /// The private key of [`OrganizationPrivateKey`] is not in the key store context.
+    #[error("The organization's private key does not exist in the key store context")]
+    PrivateKeyNotInContext,
 }
 
 /// A member's user key, held by the organization so that admins can recover the account.
@@ -133,7 +136,10 @@ impl AccountRecovery {
 
         organization_private_key
             .decapsulate_key(encapsulated_key, ctx)
-            .map_err(|_| AccountRecoveryUnsealError::DecapsulationFailed)
+            .map_err(|error| match error {
+                CryptoError::MissingKeyId(_) => AccountRecoveryUnsealError::PrivateKeyNotInContext,
+                _ => AccountRecoveryUnsealError::DecapsulationFailed,
+            })
     }
 }
 
@@ -330,6 +336,30 @@ mod tests {
         assert!(matches!(
             result,
             Err(AccountRecoveryUnsealError::DecapsulationFailed)
+        ));
+    }
+
+    #[test]
+    fn test_unsealing_with_a_private_key_from_another_context_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
+        let member_user_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        let account_recovery = AccountRecovery::make_untrusted(
+            member_user_key,
+            &organization_private_key.public_key(&ctx).unwrap(),
+            &ctx,
+        )
+        .unwrap();
+        let other_key_store = KeyStore::<TestIds>::default();
+        let mut other_ctx = other_key_store.context_mut();
+
+        let result =
+            account_recovery.unseal_member_user_key(&organization_private_key, &mut other_ctx);
+
+        assert!(matches!(
+            result,
+            Err(AccountRecoveryUnsealError::PrivateKeyNotInContext)
         ));
     }
 
