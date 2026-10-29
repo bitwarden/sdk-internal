@@ -100,11 +100,11 @@ impl LegacyCompatSymmetricKeyEnvelope {
 
     /// Get the key ID of the key this was sealed with. Always present for the
     /// [`SymmetricKeyEnvelope`] variant; for the [`EncString`] variant, see
-    /// [`EncString::encrypted_by_key_id`].
+    /// [`EncString::key_id`].
     pub fn encrypted_by_key_id(&self) -> Result<Option<KeyId>, SymmetricKeyEnvelopeError> {
         match self {
             Self::SymmetricKeyEnvelope(envelope) => envelope.encrypted_by_key_id().map(Some),
-            Self::EncString(enc_string) => Ok(enc_string.encrypted_by_key_id()),
+            Self::EncString(enc_string) => Ok(enc_string.key_id()),
         }
     }
 }
