@@ -53,12 +53,15 @@ jobs:
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
 
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
       # that changed and the crates that depend on them. Runs on main start a new cache every month
       # so build output of old dependency versions doesn't accumulate. Pull requests fall back to
       # the previous month's cache until main has built the new one. Without any match, the run
-      # uses the dependencies restored by rust-cache above.
+      # builds everything, using the crate downloads restored by rust-cache above.
       - name: Get build cache period
         id: build-cache
         shell: bash
@@ -167,12 +170,15 @@ jobs:
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
 
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
       # that changed and the crates that depend on them. Runs on main start a new cache every month
       # so build output of old dependency versions doesn't accumulate. Pull requests fall back to
       # the previous month's cache until main has built the new one. Without any match, the run
-      # uses the dependencies restored by rust-cache above.
+      # builds everything, using the crate downloads restored by rust-cache above.
       - name: Get build cache period
         id: build-cache
         shell: bash
