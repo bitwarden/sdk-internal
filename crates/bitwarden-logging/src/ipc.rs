@@ -273,8 +273,8 @@ static FORWARDER: OnceLock<IpcForwardSink> = OnceLock::new();
 /// events from the IPC stack itself, which stay in the local buffer.
 ///
 /// Forwarding starts once the collector answers a discover request, so events are not lost to a
-/// collector that has not started yet. Until then, and if it does not answer within
-/// [`COLLECTOR_WAIT`], events stay in the local buffer. Events captured before forwarding starts
+/// collector that has not started yet. Until then, and if it does not answer within 30 seconds,
+/// events stay in the local buffer. Events captured before forwarding starts
 /// are sent first. Only the first call has effect. No-op if the Flight Recorder is disabled.
 pub fn enable_flight_recorder_forwarding(client: Arc<dyn IpcClient>, destination: Endpoint) {
     let Some(buffer) = get_flight_recorder_buffer() else {
