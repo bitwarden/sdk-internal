@@ -144,7 +144,9 @@ jobs:
 
       - name: Build
         id: build
-        run: ./build.sh -r ${{ matrix.license_type.build_flags }}
+        run: |
+          echo "CPUs: $(nproc)"
+          ./build.sh -r -p ${{ matrix.license_type.build_flags }}
 
       - name: Record build inputs
         working-directory: .
