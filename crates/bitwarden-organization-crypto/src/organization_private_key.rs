@@ -207,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decapsulating_fails_for_a_key_encapsulated_to_another_public_key() {
+    fn test_decapsulating_with_a_non_matching_private_key_fails() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
         let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
