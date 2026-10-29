@@ -138,6 +138,17 @@ jobs:
         shell: bash
         run: ./scripts/ci-build-cache.sh mark
 
+      # cargo-udeps builds with -Zbinary-dep-depinfo, so Cargo also compares the modification times
+      # of the toolchain's standard library files with the build output. The toolchain is installed
+      # fresh on every run, which would make every crate look changed. The toolchain version is part
+      # of the build cache key, so the cached output always comes from these same files.
+      - name: Mark toolchain files as unchanged
+        if: matrix.check == 'udeps'
+        shell: bash
+        env:
+          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
+        run: find "$(rustc "+${RUST_NIGHTLY_TOOLCHAIN}" --print sysroot)" -exec touch -h -c -t 200001010000 -- {} +
+
       # Cache cargo-run-bin's built tools (.bin) separately from rust-cache. The
       # tools depend only on their pinned versions (Cargo.toml) and the toolchain,
       # not on Cargo.lock, so this key avoids rust-cache's lockfile rotation. Keyed
