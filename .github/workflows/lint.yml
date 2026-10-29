@@ -120,8 +120,12 @@ jobs:
         if: matrix.needs_rust
         run: ./scripts/check-no-binstall.sh
 
+      # This step is the clippy check: it runs the same command as `lint.sh --only clippy`, which is
+      # skipped below. `shell: bash` sets pipefail, so clippy findings fail the step.
       - name: Run clippy with SARIF output
         if: matrix.check == 'clippy'
+        id: clippy
+        shell: bash
         # Pass `-D warnings` to clippy directly rather than via RUSTFLAGS so the
         # deny level applies only to the linted crates, not to the from-source
         # builds of clippy-sarif/sarif-fmt that `cargo bin` triggers in this step
@@ -130,7 +134,7 @@ jobs:
           cargo bin clippy-sarif | tee clippy_result.sarif | cargo bin sarif-fmt
 
       - name: Upload clippy results to GitHub
-        if: matrix.check == 'clippy'
+        if: always() && matrix.check == 'clippy' && hashFiles('clippy_result.sarif') != ''
         uses: github/codeql-action/upload-sarif@6bc82e05fd0ea64601dd4b465378bbcf57de0314 # v4.32.1
         with:
           sarif_file: clippy_result.sarif
@@ -150,4 +154,5 @@ jobs:
         run: npm ci
 
       - name: Run lint --only ${{ matrix.check }}
+        if: matrix.check != 'clippy'
         run: ./scripts/lint.sh --only ${{ matrix.check }}
