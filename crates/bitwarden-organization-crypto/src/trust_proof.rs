@@ -16,8 +16,8 @@ use bitwarden_crypto::{
 
 /// The proof that the caller trusts the recipient's public key.
 pub enum TrustProof<Ids: KeySlotIds> {
-    /// The thumbprint of a public key that a person verified, or that reached the caller over a
-    /// channel the server does not control, such as an invite link.
+    /// The thumbprint of a public key that the caller trusts, for example after a person compared
+    /// the fingerprint.
     ManuallyTrusted(CoseKeyThumbprint),
     /// A cryptographic proof that the public key belongs to the recipient.
     CryptographicallyTrusted(CryptographicProof<Ids>),
