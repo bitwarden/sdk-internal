@@ -56,6 +56,10 @@ impl From<KeyEncryptionKeyError> for SymmetricKeyEnvelopeError {
 
 /// A symmetric key protected by a [`KeyEncryptionKey`]: an XAES-256-GCM or AES-256-CBC-HMAC
 /// wrapping key.
+///
+/// To migrate a key stored as an [`EncString`](crate::EncString), see
+/// [`LegacyCompatSymmetricKeyEnvelope`](crate::compat::LegacyCompatSymmetricKeyEnvelope) and its
+/// migration example.
 #[derive(Clone)]
 pub struct SymmetricKeyEnvelope {
     cose_encrypt0: coset::CoseEncrypt0,
@@ -147,6 +151,13 @@ impl SymmetricKeyEnvelope {
     pub fn contained_key_id(&self) -> Result<Option<KeyId>, SymmetricKeyEnvelopeError> {
         extract_key_id(&self.cose_encrypt0.protected.header)
             .map_err(|_| SymmetricKeyEnvelopeError::Parsing("Invalid contained key id".to_string()))
+    }
+
+    /// Get the key ID of the key this envelope was sealed with. Always present in a well-formed
+    /// envelope.
+    pub fn encrypted_by_key_id(&self) -> Result<KeyId, SymmetricKeyEnvelopeError> {
+        KeyId::try_from(self.cose_encrypt0.protected.header.key_id.as_slice())
+            .map_err(|_| SymmetricKeyEnvelopeError::Parsing("Invalid sealing key id".to_string()))
     }
 }
 
@@ -461,6 +472,11 @@ mod tests {
             assert_eq!(
                 envelope.cose_encrypt0.protected.header.key_id,
                 wrapping_key_id.as_slice(),
+                "{wrapping_key_algorithm:?}"
+            );
+            assert_eq!(
+                envelope.encrypted_by_key_id().unwrap(),
+                wrapping_key_id,
                 "{wrapping_key_algorithm:?}"
             );
         }
