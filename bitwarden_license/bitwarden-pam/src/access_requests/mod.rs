@@ -13,8 +13,8 @@ pub use error::AccessRequestError;
 pub use models::{
     AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
     AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView,
-    AccessRequestResultView, AccessRequestStatus, AccessRequestSummaryView, AccessRequestView,
-    CipherAccessStateView,
+    AccessRequestResultView, AccessRequestRevokeRequest, AccessRequestStatus,
+    AccessRequestSummaryView, AccessRequestView, CipherAccessStateView,
 };
 pub use validate::{
     AccessRequestWindowError, DEFAULT_REQUEST_ACCESS_DURATION_SECONDS,
