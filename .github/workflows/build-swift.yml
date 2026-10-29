@@ -54,12 +54,44 @@ jobs:
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: sdk-swift-cargo
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
 
       - name: Rustup target
         run: |
           rustup target install aarch64-apple-ios-sim
           rustup target install aarch64-apple-ios
           rustup target install x86_64-apple-ios
+
+      # The build output cache also holds the workspace crates, so a run only recompiles the crates
+      # that changed and the crates that depend on them. See rust-test.yml for how the cache is
+      # keyed and shared between main and pull requests.
+      - name: Get build cache period
+        id: build-cache
+        shell: bash
+        run: |
+          year=$(date -u +%Y)
+          month=$((10#$(date -u +%m)))
+          if [ "$month" -eq 1 ]; then
+            previous=$(printf '%d-12' $((year - 1)))
+          else
+            previous=$(printf '%d-%02d' "$year" $((month - 1)))
+          fi
+          printf 'period=%d-%02d\nprevious=%s\n' "$year" "$month" "$previous" >> "$GITHUB_OUTPUT"
+
+      - name: Restore build output
+        id: restore-build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target
+          key: build-swift-all-targets-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-${{ github.sha }}
+          restore-keys: |
+            build-swift-all-targets-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-
+            ${{ github.event_name == 'pull_request' && format('build-swift-all-targets-{0}-{1}-', hashFiles('rust-toolchain.toml'), steps.build-cache.outputs.previous) || '' }}
+
+      - name: Mark changed files
+        shell: bash
+        run: ./scripts/ci-build-cache.sh mark
 
       - name: Build
         shell: bash
@@ -70,6 +102,17 @@ jobs:
 
           # SHA Short
           echo "short-sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Record build inputs
+        shell: bash
+        run: ./scripts/ci-build-cache.sh record
+
+      - name: Save build output
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target
+          key: ${{ steps.restore-build.outputs.cache-primary-key }}
 
       - name: Test build demo app
         working-directory: crates/bitwarden-uniffi/swift/iOS
