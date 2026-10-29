@@ -46,7 +46,7 @@ use bitwarden_api_api::{
 };
 use bitwarden_core::{
     ApiError, MissingFieldError, OrganizationId,
-    key_management::{KeySlotIds, SymmetricKeySlotId, V2UpgradeToken},
+    key_management::{KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId, V2UpgradeToken},
     require,
 };
 use bitwarden_crypto::{EncString, KeyId, KeyStoreContext, PublicKey};
@@ -84,6 +84,13 @@ pub enum AccountRecoveryV2UpgradeError {
     /// wrapped with an organization key other than the one this client holds.
     #[error("The organization's private key could not be unwrapped with the organization key")]
     OrganizationPrivateKeyUnwrapFailed,
+    /// The unwrapped private key could not be stored in the key store.
+    #[error("The organization's private key could not be stored in the key store")]
+    OrganizationPrivateKeyStoreFailed,
+    /// The organization's private key was removed from the key store during the upgrade, for
+    /// example because the account was locked.
+    #[error("The organization's private key does not exist in the key store")]
+    OrganizationPrivateKeyNotInKeyStore,
 }
 
 /// Errors that stop one pending membership from being upgraded. They do not fail the
@@ -171,33 +178,53 @@ impl OrganizationUsersManagementClient {
         )))
     }
 
+    /// Returns the organization's private key from the key store. When the key store does not
+    /// hold it, downloads the wrapped private key, then unwraps and persists it into the key store.
+    async fn get_or_download_organization_private_key(
+        &self,
+        organization_id: OrganizationId,
+    ) -> Result<OrganizationPrivateKey<KeySlotIds>, AccountRecoveryV2UpgradeError> {
+        let private_key_id = PrivateKeySlotId::Organization(organization_id);
+        if let Some(private_key) =
+            OrganizationPrivateKey::from_context(private_key_id, &self.key_store.context())
+        {
+            return Ok(private_key);
+        }
+
+        let wrapped_private_key = self
+            .download_wrapped_organization_private_key(organization_id)
+            .await?;
+        let mut ctx = self.key_store.context_mut();
+        let local_private_key_id = ctx
+            .unwrap_private_key(
+                SymmetricKeySlotId::Organization(organization_id),
+                &wrapped_private_key,
+            )
+            .map_err(|_| AccountRecoveryV2UpgradeError::OrganizationPrivateKeyUnwrapFailed)?;
+        ctx.persist_private_key(local_private_key_id, private_key_id)
+            .map_err(|_| AccountRecoveryV2UpgradeError::OrganizationPrivateKeyStoreFailed)?;
+        OrganizationPrivateKey::from_context(private_key_id, &ctx)
+            .ok_or(AccountRecoveryV2UpgradeError::OrganizationPrivateKeyNotInKeyStore)
+    }
+
     /// Builds the request entries for one page of pending memberships.
     fn upgrade_requests(
         &self,
         organization_id: OrganizationId,
-        wrapped_private_key: &EncString,
+        organization_private_key: &OrganizationPrivateKey<KeySlotIds>,
         pending: &[OrganizationUserPendingV2UpgradeResponseModel],
     ) -> Result<Vec<OrganizationUserV2UpgradeRequestModel>, AccountRecoveryV2UpgradeError> {
-        // Unwrapped once per page: the key store has no persistent slot for the organization's
-        // private key, so it lives in this context, and a context must not be held across an
-        // await.
         let mut ctx = self.key_store.context();
-        let organization_private_key = OrganizationPrivateKey::unwrap_with_organization_key(
-            SymmetricKeySlotId::Organization(organization_id),
-            wrapped_private_key,
-            &mut ctx,
-        )
-        .map_err(|_| AccountRecoveryV2UpgradeError::OrganizationPrivateKeyUnwrapFailed)?;
         let organization_public_key = organization_private_key
             .public_key(&ctx)
-            .map_err(|_| AccountRecoveryV2UpgradeError::OrganizationPrivateKeyUnwrapFailed)?;
+            .map_err(|_| AccountRecoveryV2UpgradeError::OrganizationPrivateKeyNotInKeyStore)?;
 
         Ok(pending
             .iter()
             .filter_map(|membership| {
                 let organization_user_id = membership.organization_user_id;
                 let account_recovery_key = match make_new_account_recovery_key(
-                    &organization_private_key,
+                    organization_private_key,
                     &organization_public_key,
                     membership,
                     &mut ctx,
@@ -254,16 +281,24 @@ impl OrganizationUsersManagementClient {
             .collect())
     }
 
-    /// Sends the upgrades of one page of pending memberships. Sends nothing when every membership
-    /// is left pending.
+    /// Sends the upgrades of one page of pending memberships. Reads the organization's private key
+    /// only when the page has pending memberships, and sends nothing when every membership is left
+    /// pending.
     async fn upgrade_page(
         &self,
         api: &dyn OrganizationUsersKeysApi,
         organization_id: OrganizationId,
-        wrapped_private_key: &EncString,
         pending: &[OrganizationUserPendingV2UpgradeResponseModel],
     ) -> Result<(), AccountRecoveryV2UpgradeError> {
-        let upgrades = self.upgrade_requests(organization_id, wrapped_private_key, pending)?;
+        if pending.is_empty() {
+            return Ok(());
+        }
+
+        let organization_private_key = self
+            .get_or_download_organization_private_key(organization_id)
+            .await?;
+        let upgrades =
+            self.upgrade_requests(organization_id, &organization_private_key, pending)?;
         if upgrades.is_empty() {
             return Ok(());
         }
@@ -277,18 +312,19 @@ impl OrganizationUsersManagementClient {
     }
 }
 
-/// Reads one page of pending memberships and the continuation token of the next page.
+/// One page of pending memberships.
+struct PendingPage {
+    pending: Vec<OrganizationUserPendingV2UpgradeResponseModel>,
+    /// The continuation token of the next page, or `None` on the last page.
+    next: Option<Uuid>,
+}
+
+/// Reads one page of pending memberships.
 async fn fetch_pending(
     api: &dyn OrganizationUsersKeysApi,
     organization_id: OrganizationId,
     continuation_token: Option<Uuid>,
-) -> Result<
-    (
-        Vec<OrganizationUserPendingV2UpgradeResponseModel>,
-        Option<Uuid>,
-    ),
-    AccountRecoveryV2UpgradeError,
-> {
+) -> Result<PendingPage, AccountRecoveryV2UpgradeError> {
     let page = api
         .get_pending_v2_upgrades(organization_id.into(), continuation_token)
         .await?;
@@ -298,7 +334,10 @@ async fn fetch_pending(
         .transpose()
         .map_err(|_| AccountRecoveryV2UpgradeError::MalformedContinuationToken)?;
 
-    Ok((page.data.unwrap_or_default(), next))
+    Ok(PendingPage {
+        pending: page.data.unwrap_or_default(),
+        next,
+    })
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -328,23 +367,11 @@ impl OrganizationUsersManagementClient {
             .api_client
             .organization_users_keys_api();
         let mut continuation_token = None;
-        // Read on the first page that has pending memberships, so most runs skip the request.
-        let mut wrapped_private_key = None;
 
         loop {
-            let (pending, next) = fetch_pending(api, organization_id, continuation_token).await?;
-
-            if !pending.is_empty() {
-                let wrapped_private_key = match &wrapped_private_key {
-                    Some(key) => key,
-                    None => wrapped_private_key.insert(
-                        self.download_wrapped_organization_private_key(organization_id)
-                            .await?,
-                    ),
-                };
-                self.upgrade_page(api, organization_id, wrapped_private_key, &pending)
-                    .await?;
-            }
+            let PendingPage { pending, next } =
+                fetch_pending(api, organization_id, continuation_token).await?;
+            self.upgrade_page(api, organization_id, &pending).await?;
 
             let Some(next) = next else {
                 return Ok(());
@@ -687,6 +714,62 @@ mod tests {
         let organization = TestOrganization::new().with_api(|mock| expect_pending(mock, vec![]));
 
         organization.upgrade().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_downloaded_organization_private_key_is_persisted_in_the_key_store() {
+        let fixture = TestOrganization::new();
+        let (membership, _) = fixture.pending_membership();
+
+        let (organization, _) = upgrade_single_page(fixture, vec![membership]).await;
+
+        let ctx = organization.client.key_store.context();
+        assert!(
+            OrganizationPrivateKey::from_context(
+                PrivateKeySlotId::Organization(organization.organization_id),
+                &ctx,
+            )
+            .is_some()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_organization_private_key_in_the_key_store_is_not_downloaded() {
+        let posted: PostedPages = Arc::default();
+        let fixture = TestOrganization::new();
+        let (membership, expected_v2_user_key) = fixture.pending_membership();
+        {
+            let mut ctx = fixture.client.key_store.context_mut();
+            let private_key_id = ctx
+                .unwrap_private_key(
+                    SymmetricKeySlotId::Organization(fixture.organization_id),
+                    &fixture.wrapped_private_key.parse().unwrap(),
+                )
+                .unwrap();
+            ctx.persist_private_key(
+                private_key_id,
+                PrivateKeySlotId::Organization(fixture.organization_id),
+            )
+            .unwrap();
+        }
+        let organization = fixture.with_api(|mock| {
+            expect_pending(mock, vec![membership.clone()]);
+            expect_posts(mock, posted.clone());
+        });
+
+        organization.upgrade().await.unwrap();
+
+        let posted = posted.lock().unwrap().clone();
+        let [page] = posted.as_slice() else {
+            panic!("exactly one page is posted, got {}", posted.len());
+        };
+        let [upgrade] = page.as_slice() else {
+            panic!("exactly one upgrade is posted, got {}", page.len());
+        };
+        assert_eq!(
+            organization.decapsulate(upgrade.account_recovery_key.as_ref().unwrap()),
+            expected_v2_user_key
+        );
     }
 
     #[tokio::test]
