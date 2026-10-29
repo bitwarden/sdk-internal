@@ -97,6 +97,13 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rust-src
 
+      # The standard library is built from the rust-src sources (build-std). A fresh install gives
+      # them the current time, which makes Cargo rebuild the standard library and every crate that
+      # depends on it. The toolchain version is part of the build cache key, so the sources always
+      # match the cached build output.
+      - name: Reset standard library source times
+        run: find "$(rustc --print sysroot)/lib/rustlib/src/rust/library" -exec touch -h -c -t 200001010000 -- {} +
+
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
