@@ -70,3 +70,35 @@ pub fn free_function(value: i32) -> i32 {
 fn exports_a_free_function() {
     assert_eq!(free_function(1), 1);
 }
+
+// --- Test: parameter attributes compile with and without the wasm feature ---
+
+#[wasm_object]
+pub struct ParamTarget;
+
+#[wasm_export]
+impl ParamTarget {
+    pub fn plain(#[wasm_bindgen(unchecked_param_type = "Digit")] value: i32) -> i32 {
+        value
+    }
+
+    pub fn under_cfg_attr(
+        #[cfg_attr(feature = "wasm", wasm_bindgen(unchecked_param_type = "Digit"))] value: i32,
+    ) -> i32 {
+        value
+    }
+}
+
+#[wasm_export]
+pub fn free_function_with_param_attribute(
+    #[wasm_bindgen(unchecked_param_type = "Digit")] value: i32,
+) -> i32 {
+    value
+}
+
+#[test]
+fn keeps_methods_with_parameter_attributes_callable() {
+    assert_eq!(ParamTarget::plain(1), 1);
+    assert_eq!(ParamTarget::under_cfg_attr(2), 2);
+    assert_eq!(free_function_with_param_attribute(3), 3);
+}

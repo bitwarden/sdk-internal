@@ -16,6 +16,7 @@
 use proc_macro::TokenStream;
 
 mod attrs;
+mod params;
 mod wasm_export;
 mod wasm_import;
 mod wasm_object;
@@ -34,6 +35,15 @@ mod wasm_record;
 /// marked `#[deprecated]` so it shows struck through in IDE autocomplete. Takes an optional
 /// `note = "..."` for that deprecation. The JS name is unaffected: the original name is declared as
 /// the method's `js_name`, unless it already declares one.
+///
+/// # Parameter attributes
+///
+/// A parameter takes `#[wasm_bindgen(..)]` arguments such as `unchecked_param_type`, written
+/// plainly or as `#[cfg_attr(feature = "wasm", wasm_bindgen(..))]`. An item with one is emitted
+/// twice, with the attributes under the `wasm` feature and without them otherwise, since rustc
+/// accepts neither spelling in both builds. A `LargeVec<T>` parameter declares `T[]` unless it
+/// declares a type itself. `T` is named by its last path segment, which is right for a
+/// `#[wasm_record]` type unless it is renamed for JavaScript; declare the type explicitly then.
 ///
 /// # Example
 ///

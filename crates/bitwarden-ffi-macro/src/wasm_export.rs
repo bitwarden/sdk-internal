@@ -1,11 +1,11 @@
 use proc_macro2::TokenStream;
-use quote::quote;
 use syn::{Attribute, ImplItem, ItemFn, ItemImpl, Signature, Visibility, parse2, spanned::Spanned};
 
-use crate::attrs;
+use crate::{attrs, params};
 
 /// Applies `#[wasm_bindgen]` to an impl block or a free function, forwarding this macro's
-/// arguments to it, and rewrites the methods marked `#[wasm_only]`.
+/// arguments to it, rewrites the methods marked `#[wasm_only]`, and makes parameter attributes work
+/// with and without the `wasm` feature.
 pub(crate) fn wasm_export(attr: TokenStream, item: TokenStream) -> TokenStream {
     match parse2::<ItemImpl>(item.clone()) {
         Ok(impl_block) => wasm_export_impl(attr, impl_block),
@@ -54,6 +54,10 @@ fn wasm_export_impl(attr: TokenStream, mut impl_block: ItemImpl) -> TokenStream 
             .to_compile_error();
         }
 
+        if let Err(err) = params::infer_param_types(&mut method.sig) {
+            return err.to_compile_error();
+        }
+
         if let Some(name) = renamed {
             // A constructor is named by wasm_bindgen itself, which rejects a `js_name` on one.
             let named = method
@@ -71,10 +75,7 @@ fn wasm_export_impl(attr: TokenStream, mut impl_block: ItemImpl) -> TokenStream 
     }
 
     let bindgen = attrs::wasm_bindgen_attr(&forwarded);
-    quote! {
-        #bindgen
-        #impl_block
-    }
+    params::per_feature_impl(bindgen, impl_block)
 }
 
 /// `#[wasm_export]` on a free function, which carries a single `#[wasm_bindgen(..)]`.
@@ -101,11 +102,12 @@ fn wasm_export_fn(attr: TokenStream, mut function: ItemFn) -> TokenStream {
         }
     }
 
-    let bindgen = attrs::wasm_bindgen_attr(&forwarded);
-    quote! {
-        #bindgen
-        #function
+    if let Err(err) = params::infer_param_types(&mut function.sig) {
+        return err.to_compile_error();
     }
+
+    let bindgen = attrs::wasm_bindgen_attr(&forwarded);
+    params::per_feature_fn(bindgen, function)
 }
 
 /// Rejects a generic item, which wasm_bindgen cannot export, and a leftover `#[wasm_bindgen]`.
@@ -176,6 +178,8 @@ fn wasm_only_note(attr: &Attribute) -> syn::Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use quote::quote;
+
     use super::*;
 
     /// Expansion with the whitespace `TokenStream::to_string` inserts between tokens removed, so
