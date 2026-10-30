@@ -16,7 +16,7 @@ use tracing::warn;
 
 use crate::{
     Client,
-    key_management::{KeySlotIds, PinLength, SymmetricKeySlotId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
 };
 
 /// Pin unlock can be configured to use one of two modes. Before-first-unlock and
@@ -115,6 +115,12 @@ fn classify_encrypted_pin(
     }
 }
 
+/// Number of characters in `pin`, stored unencrypted so a lock screen can read it while locked,
+/// e.g. to try the PIN as soon as that many characters are typed.
+fn pin_length(pin: &str) -> u32 {
+    pin.chars().count() as u32
+}
+
 /// Provides PIN-based unlock functionality. This includes enrolling into PIN-based unlock,
 /// unlocking using the PIN and handling necessary operations (PIN envelope refreshing when
 /// transitioning to after-first-unlock mode).
@@ -186,7 +192,7 @@ impl PinLockSystem<'_> {
         // PINs set before their length was stored get it on their next unlock.
         self.client
             .km_state_bridge()
-            .set_pin_length(&PinLength::of(pin))
+            .set_pin_length(&pin_length(pin))
             .await;
 
         Ok(())
@@ -357,7 +363,7 @@ impl PinLockSystem<'_> {
             .await;
         self.client
             .km_state_bridge()
-            .set_pin_length(&PinLength::of(&pin))
+            .set_pin_length(&pin_length(&pin))
             .await;
         self.client
             .km_state_bridge()
@@ -391,11 +397,7 @@ impl PinLockSystem<'_> {
     /// Returns the number of characters in the PIN, readable while locked. `None` when no PIN is
     /// set, or for a PIN set before its length was stored that hasn't unlocked since.
     pub async fn get_pin_length(&self) -> Option<u32> {
-        self.client
-            .km_state_bridge()
-            .get_pin_length()
-            .await
-            .map(|length| length.0)
+        self.client.km_state_bridge().get_pin_length().await
     }
 
     /// Returns the lock type for the currently configured PIN.
@@ -1148,6 +1150,12 @@ mod tests {
             assert_eq!(system.get_pin_lock_type().await, Some(lock_type));
             assert!(system.unlock(pin).await.is_ok());
         }
+    }
+
+    #[test]
+    fn pin_length_counts_characters_not_bytes() {
+        assert_eq!(pin_length("1234"), 4);
+        assert_eq!(pin_length("ü1"), 2);
     }
 
     /// Legacy compat encryption gives V1 PINs a key id. It is the algorithm, not a missing key id,

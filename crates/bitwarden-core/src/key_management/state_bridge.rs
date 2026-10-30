@@ -16,7 +16,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     Client,
     key_management::{
-        MasterPasswordUnlockData, PinLength, V2EncryptedMigrationsGracePeriodStart, V2UpgradeToken,
+        MasterPasswordUnlockData, V2EncryptedMigrationsGracePeriodStart, V2UpgradeToken,
         WebAuthnPrfUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
@@ -148,7 +148,7 @@ bitwarden_state_bridge_macro::state_bridge! {
     persistent_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
     ephemeral_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
     encrypted_pin: EncString as ts "EncString",
-    pin_length: PinLength as ts "number",
+    pin_length: u32 as ts "number",
     v2_upgrade_token: V2UpgradeToken as ts "V2UpgradeToken",
     account_cryptographic_state: WrappedAccountCryptographicState as ts "WrappedAccountCryptographicState",
     masterpassword_unlock_data: MasterPasswordUnlockData as ts "MasterPasswordUnlockData",
