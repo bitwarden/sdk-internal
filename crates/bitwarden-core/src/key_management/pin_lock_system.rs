@@ -167,29 +167,25 @@ impl PinLockSystem<'_> {
             .await
             .ok_or(UnlockError::NoPinSet)?;
 
-        {
-            // Unseal to key ctx
-            let mut ctx = self.key_store().context_mut();
-            let key_slot = pin_envelope
-                .unseal(
-                    pin,
-                    PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
-                    &mut ctx,
-                )
-                .map_err(|e| match e {
-                    bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeError::WrongPassword => {
-                        UnlockError::PinWrong
-                    }
-                    _ => UnlockError::InternalError,
-                })?;
+        // Unseal to key ctx
+        let mut ctx = self.key_store().context_mut();
+        let key_slot = pin_envelope
+            .unseal(
+                pin,
+                PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+                &mut ctx,
+            )
+            .map_err(|e| match e {
+                bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeError::WrongPassword => {
+                    UnlockError::PinWrong
+                }
+                _ => UnlockError::InternalError,
+            })?;
 
-            // The key is currently in the local ctx and would be dropped when ctx goes out of
-            // scope. Persist it to the keystore
-            ctx.persist_symmetric_key(key_slot, SymmetricKeySlotId::User)
-                .map_err(|_| UnlockError::InternalError)?;
-        }
-
-        Ok(())
+        // The key is currently in the local ctx and would be dropped when ctx goes out of scope.
+        // Persist it to the keystore
+        ctx.persist_symmetric_key(key_slot, SymmetricKeySlotId::User)
+            .map_err(|_| UnlockError::InternalError)
     }
 
     /// Brings the PIN enrollment in line with the current user key.
