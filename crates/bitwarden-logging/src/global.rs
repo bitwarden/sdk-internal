@@ -2,10 +2,16 @@
 
 use std::sync::{Arc, OnceLock};
 
-use crate::{CircularBuffer, FlightRecorderConfig, FlightRecorderEvent, FlightRecorderLayer};
+use crate::{
+    CircularBuffer, FlightRecorderConfig, FlightRecorderEvent, FlightRecorderLayer,
+    FlightRecorderSink, sink::SinkSlot, suppress::is_suppressed,
+};
 
 /// Global Flight Recorder buffer, initialized during `init_sdk()`.
 static FLIGHT_RECORDER_BUFFER: OnceLock<Arc<CircularBuffer<FlightRecorderEvent>>> = OnceLock::new();
+
+/// Active sink of the global Flight Recorder, shared with its layer.
+static FLIGHT_RECORDER_SINK: OnceLock<SinkSlot> = OnceLock::new();
 
 /// Configured level floor for the global Flight Recorder, initialized during
 /// `init_sdk()`. Mirrors [`FlightRecorderLayer`]'s level so that direct writes
@@ -26,11 +32,20 @@ pub fn init_flight_recorder(config: FlightRecorderConfig) -> FlightRecorderLayer
     let _ = FLIGHT_RECORDER_LEVEL.set(config.level);
     let layer = FlightRecorderLayer::new(config);
     let _ = FLIGHT_RECORDER_BUFFER.set(layer.buffer());
+    let _ = FLIGHT_RECORDER_SINK.set(layer.sink());
     layer
 }
 
-/// Write a single externally-sourced event (e.g. from TypeScript) directly into
-/// the global buffer, honoring the configured level floor.
+/// Replace the global Flight Recorder's active sink. Events already in the local buffer stay
+/// there. No-op if [`init_flight_recorder`] has not been called.
+pub fn set_flight_recorder_sink(sink: Arc<dyn FlightRecorderSink>) {
+    if let Some(slot) = FLIGHT_RECORDER_SINK.get() {
+        slot.set(sink);
+    }
+}
+
+/// Write a single externally-sourced event (e.g. from TypeScript) into the global
+/// Flight Recorder's active sink, honoring the configured level floor.
 ///
 /// This mirrors [`FlightRecorderLayer`]'s filter so that events routed around
 /// the tracing pipeline are subject to the same level check. Events more verbose
@@ -43,8 +58,11 @@ pub fn write_flight_recorder(event: FlightRecorderEvent, level: tracing::Level) 
     {
         return;
     }
-    if let Some(buffer) = get_flight_recorder_buffer() {
-        buffer.push(event);
+    if is_suppressed() {
+        return;
+    }
+    if let Some(slot) = FLIGHT_RECORDER_SINK.get() {
+        slot.push(event);
     }
 }
 
@@ -103,6 +121,7 @@ mod tests {
             target: "test::module".to_string(),
             message: marker.to_string(),
             fields: std::collections::HashMap::new(),
+            process: None,
         }
     }
 
