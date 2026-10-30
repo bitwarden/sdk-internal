@@ -15,25 +15,24 @@ use uuid::Uuid;
 
 use crate::InviteLinkError;
 
-/// An organization invite link as persisted by the server.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[bitwarden_ffi::wasm_record]
-#[serde(rename_all = "camelCase")]
-pub struct OrganizationInviteLink {
+/// An organization invite link as persisted by the server. Internal only: clients receive an
+/// [`OrganizationInviteLinkView`], built via [`OrganizationInviteLink::into_view`].
+#[derive(Debug, Clone)]
+pub(crate) struct OrganizationInviteLink {
     /// Unique identifier of the invite link.
-    pub id: Uuid,
+    pub(crate) id: Uuid,
     /// The invite code invitees present when accepting or confirming the invite.
-    pub code: Uuid,
+    pub(crate) code: Uuid,
     /// The organization this invite link belongs to.
-    pub organization_id: OrganizationId,
+    pub(crate) organization_id: OrganizationId,
     /// Email domains permitted to redeem this invite link.
-    pub allowed_domains: Vec<String>,
+    pub(crate) allowed_domains: Vec<String>,
     /// The sealed cryptographic invite carried in the invite link.
-    pub invite: Invite,
+    pub(crate) invite: Invite,
     /// Whether invitees can self-confirm using this invite link.
-    pub supports_confirmation: bool,
+    pub(crate) supports_confirmation: bool,
     /// When the invite link was created.
-    pub creation_date: DateTime<Utc>,
+    pub(crate) creation_date: DateTime<Utc>,
 }
 
 impl TryFrom<OrganizationInviteLinkResponseModel> for OrganizationInviteLink {
@@ -56,7 +55,7 @@ impl TryFrom<OrganizationInviteLinkResponseModel> for OrganizationInviteLink {
 
 impl OrganizationInviteLink {
     /// Converts the invite link to a view model with URL for display.
-    pub fn to_view(
+    pub(crate) fn into_view(
         self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<OrganizationInviteLinkView, InviteLinkError> {

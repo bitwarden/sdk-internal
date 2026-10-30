@@ -1,5 +1,7 @@
 import {
   ClientSettings,
+  InviteSecret,
+  OrganizationInviteLinkView,
   PasswordManagerClient,
   isAcceptInviteLinkError,
 } from "@bitwarden/sdk-internal";
@@ -26,7 +28,6 @@ import {
   legacyError,
   validationProblem,
 } from "./invite-link-server";
-import { fromUuid } from "../type-assertion-helpers";
 
 // Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
 // SDK's request URLs parseable and makes an unmocked route fail loudly rather than escape to
@@ -39,6 +40,13 @@ const SETTINGS: ClientSettings = {
 const COLLECTION_NAME = "My Items";
 /** A base64url-encoded, 32-byte invite secret. */
 const SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+/** Extracts the invite secret from a link's `#/join/{org}/{code}?key={secret}` URL fragment. */
+function secretFrom(link: OrganizationInviteLinkView): InviteSecret {
+  const secret = link.urlFragment.split("?key=")[1];
+  expect(secret).toMatch(SECRET_PATTERN);
+  return secret as unknown as InviteSecret;
+}
 
 describe("invite link client", () => {
   // Unlocking runs 600k PBKDF2 iterations, so both clients are built once. They hold no per-test
@@ -57,13 +65,14 @@ describe("invite link client", () => {
     mock.restore();
   });
 
-  describe("create_invite_link", () => {
+  describe("create", () => {
     it("posts a new invite and returns the persisted link", async () => {
       mock = installHttpMock(inviteLinkRoutes());
 
       const link = await admin
         .invite_link()
-        .create_invite_link(TEST_ORGANIZATION_ID, ["example.com", "test.com"], true);
+        .admin()
+        .create(TEST_ORGANIZATION_ID, ["example.com", "test.com"], true);
 
       expect(mock.routes()).toEqual([ROUTES.privateKey, ROUTES.create]);
 
@@ -85,35 +94,34 @@ describe("invite link client", () => {
       ]);
 
       expect(link.id).toBe(LINK_ID);
-      expect(link.code).toBe(LINK_CODE);
       expect(link.organizationId).toBe(TEST_ORGANIZATION_ID);
       expect(link.allowedDomains).toEqual(["example.com", "test.com"]);
       expect(link.supportsConfirmation).toBe(true);
       expect(new Date(link.creationDate).toISOString()).toBe(new Date(CREATION_DATE).toISOString());
-      // An invite crosses the boundary as a tagged string, not as a serialized struct.
-      expect(typeof link.invite).toBe("string");
-      expect(link.invite).toBe(posted.invite);
+      // The invite itself never crosses the boundary; the client only gets the link to share.
+      expect(link).not.toHaveProperty("invite");
+      expect(link.urlFragment).toBe(
+        `#/join/${TEST_ORGANIZATION_ID}/${LINK_CODE}?key=${secretFrom(link)}`,
+      );
     });
 
     it("never sends the invite secret to the server", async () => {
       mock = installHttpMock(inviteLinkRoutes());
-      const inviteLink = admin.invite_link();
 
-      const link = await inviteLink.create_invite_link(TEST_ORGANIZATION_ID, [], true);
-      const secret = inviteLink.get_invite_secret(TEST_ORGANIZATION_ID, link.invite);
+      const link = await admin.invite_link().admin().create(TEST_ORGANIZATION_ID, ["a.com"], true);
+      const secret = secretFrom(link);
 
-      expect(secret).toMatch(SECRET_PATTERN);
       for (const request of mock.requests) {
         expect(request.body).not.toContain(secret);
       }
     });
   });
 
-  describe("refresh_invite_link", () => {
+  describe("refresh", () => {
     it("posts a new invite to the refresh endpoint", async () => {
       mock = installHttpMock(inviteLinkRoutes());
 
-      const link = await admin.invite_link().refresh_invite_link(TEST_ORGANIZATION_ID, true);
+      const link = await admin.invite_link().admin().refresh(TEST_ORGANIZATION_ID, true);
 
       expect(mock.routes()).toEqual([ROUTES.privateKey, ROUTES.refresh]);
       // Refreshing must not fall through to the create endpoint.
@@ -122,33 +130,32 @@ describe("invite link client", () => {
       const posted = mock.bodyFor(ROUTES.refresh);
       expect(Object.keys(posted).sort()).toEqual(["invite", "supportsConfirmation"]);
       expect(posted.supportsConfirmation).toBe(true);
-      expect(link.invite).toBe(posted.invite);
+      expect(link.supportsConfirmation).toBe(true);
     });
 
     it("replaces the invite and its secret", async () => {
       mock = installHttpMock(inviteLinkRoutes());
-      const inviteLink = admin.invite_link();
+      const inviteLinkAdmin = admin.invite_link().admin();
 
-      const created = await inviteLink.create_invite_link(TEST_ORGANIZATION_ID, [], true);
-      const refreshed = await inviteLink.refresh_invite_link(TEST_ORGANIZATION_ID, true);
+      const created = await inviteLinkAdmin.create(TEST_ORGANIZATION_ID, ["a.com"], true);
+      const refreshed = await inviteLinkAdmin.refresh(TEST_ORGANIZATION_ID, true);
 
-      expect(refreshed.invite).not.toBe(created.invite);
-      expect(inviteLink.get_invite_secret(TEST_ORGANIZATION_ID, refreshed.invite)).not.toBe(
-        inviteLink.get_invite_secret(TEST_ORGANIZATION_ID, created.invite),
-      );
+      expect(mock.bodyFor(ROUTES.refresh).invite).not.toBe(mock.bodyFor(ROUTES.create).invite);
+      expect(secretFrom(refreshed)).not.toBe(secretFrom(created));
     });
   });
 
-  describe("set_invite_confirmation", () => {
+  describe("update_confirmation", () => {
     it("strips the organization-key envelope when disabling confirmation", async () => {
       mock = installHttpMock(inviteLinkRoutes());
 
       const link = await admin
         .invite_link()
-        .set_invite_confirmation(TEST_ORGANIZATION_ID, TEST_INVITE, false);
+        .admin()
+        .update_confirmation(TEST_ORGANIZATION_ID, false);
 
-      // No key material is fetched — the invite carries everything needed.
-      expect(mock.routes()).toEqual([ROUTES.supportConfirm]);
+      // The existing invite is fetched from the server; no other key material is needed.
+      expect(mock.routes()).toEqual([ROUTES.get, ROUTES.supportConfirm]);
 
       const posted = mock.bodyFor(ROUTES.supportConfirm);
       expect(Object.keys(posted).sort()).toEqual(["invite", "supportsConfirmation"]);
@@ -168,15 +175,17 @@ describe("invite link client", () => {
       }
 
       expect(link.supportsConfirmation).toBe(false);
-      expect(link.invite).toBe(posted.invite);
     });
 
     it("re-seals the organization key when enabling confirmation", async () => {
-      mock = installHttpMock(inviteLinkRoutes());
+      mock = installHttpMock(
+        inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION as unknown as string }),
+      );
 
       const link = await admin
         .invite_link()
-        .set_invite_confirmation(TEST_ORGANIZATION_ID, TEST_INVITE_NO_CONFIRMATION, true);
+        .admin()
+        .update_confirmation(TEST_ORGANIZATION_ID, true);
 
       const posted = mock.bodyFor(ROUTES.supportConfirm);
       expect(posted.supportsConfirmation).toBe(true);
@@ -193,73 +202,69 @@ describe("invite link client", () => {
 
     it("preserves the invite secret so distributed links keep working", async () => {
       mock = installHttpMock(inviteLinkRoutes());
-      const inviteLink = admin.invite_link();
 
-      const link = await inviteLink.set_invite_confirmation(
-        TEST_ORGANIZATION_ID,
-        TEST_INVITE,
-        false,
-      );
+      const link = await admin
+        .invite_link()
+        .admin()
+        .update_confirmation(TEST_ORGANIZATION_ID, false);
 
-      expect(inviteLink.get_invite_secret(TEST_ORGANIZATION_ID, link.invite)).toEqual(
-        TEST_INVITE_SECRET,
-      );
+      expect(secretFrom(link)).toEqual(TEST_INVITE_SECRET);
       for (const request of mock.requests) {
         expect(request.body).not.toContain(TEST_INVITE_SECRET);
       }
     });
 
+    it("recovers the same secret from an invite with confirmation disabled", async () => {
+      mock = installHttpMock(
+        inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION as unknown as string }),
+      );
+
+      const link = await admin
+        .invite_link()
+        .admin()
+        .update_confirmation(TEST_ORGANIZATION_ID, false);
+
+      expect(secretFrom(link)).toEqual(TEST_INVITE_SECRET);
+    });
+
     it("lets an invitee redeem a link whose confirmation was turned off after creation", async () => {
-      // Whatever the admin posts to support-confirm is what the server hands back to the invitee.
-      let persisted: string | undefined;
+      // The server starts with `TEST_INVITE`; whatever the admin posts to support-confirm then
+      // replaces it, and is what the server hands back to the invitee.
+      let persisted = TEST_INVITE as unknown as string;
       mock = installHttpMock(
         inviteLinkRoutes({
           onCreate: (invite) => {
             persisted = invite;
           },
-          invite: () => persisted!,
+          invite: () => persisted,
         }),
       );
 
       const link = await admin
         .invite_link()
-        .set_invite_confirmation(TEST_ORGANIZATION_ID, TEST_INVITE, false);
-      expect(persisted).toBe(link.invite);
+        .admin()
+        .update_confirmation(TEST_ORGANIZATION_ID, false);
+      expect(persisted).toBe(mock.bodyFor(ROUTES.supportConfirm).invite);
 
       await invitee
         .invite_link()
+        .user()
         .accept_and_optionally_confirm(
           TEST_ORGANIZATION_ID,
-          fromUuid(link.code),
-          TEST_INVITE_SECRET,
+          LINK_CODE,
+          secretFrom(link),
           COLLECTION_NAME,
           false,
         );
 
       // Confirmation was stripped, so the invitee can only accept.
-      expect(mock.routes()).toEqual([ROUTES.supportConfirm, ROUTES.getInvite, ROUTES.accept]);
+      expect(mock.routes()).toEqual([
+        ROUTES.get,
+        ROUTES.supportConfirm,
+        ROUTES.getInvite,
+        ROUTES.accept,
+      ]);
       expect(mock.called(ROUTES.confirm)).toBe(false);
-    });
-  });
-
-  describe("get_invite_secret", () => {
-    it("recovers the invite secret from an invite passed as a parameter", () => {
-      mock = installHttpMock(inviteLinkRoutes());
-
-      const secret = admin.invite_link().get_invite_secret(TEST_ORGANIZATION_ID, TEST_INVITE);
-
-      expect(secret).toEqual(TEST_INVITE_SECRET);
-      expect(mock.requests).toEqual([]);
-    });
-
-    it("recovers the same secret from an invite with confirmation disabled", () => {
-      mock = installHttpMock(inviteLinkRoutes());
-
-      const secret = admin
-        .invite_link()
-        .get_invite_secret(TEST_ORGANIZATION_ID, TEST_INVITE_NO_CONFIRMATION);
-
-      expect(secret).toEqual(TEST_INVITE_SECRET);
     });
   });
 
@@ -269,6 +274,7 @@ describe("invite link client", () => {
 
       await invitee
         .invite_link()
+        .user()
         .accept_and_optionally_confirm(
           TEST_ORGANIZATION_ID,
           LINK_CODE,
@@ -304,6 +310,7 @@ describe("invite link client", () => {
 
       await invitee
         .invite_link()
+        .user()
         .accept_and_optionally_confirm(
           TEST_ORGANIZATION_ID,
           LINK_CODE,
@@ -327,6 +334,7 @@ describe("invite link client", () => {
 
       await invitee
         .invite_link()
+        .user()
         .accept_and_optionally_confirm(
           TEST_ORGANIZATION_ID,
           LINK_CODE,
@@ -353,6 +361,7 @@ describe("invite link client", () => {
 
       await invitee
         .invite_link()
+        .user()
         .accept_and_optionally_confirm(
           TEST_ORGANIZATION_ID,
           LINK_CODE,
@@ -373,6 +382,7 @@ describe("invite link client", () => {
       const accept = () =>
         invitee
           .invite_link()
+          .user()
           .accept_and_optionally_confirm(
             TEST_ORGANIZATION_ID,
             LINK_CODE,
@@ -468,22 +478,21 @@ describe("invite link client", () => {
       }),
     );
 
-    const adminInviteLink = admin.invite_link();
-    const link = await adminInviteLink.create_invite_link(
-      TEST_ORGANIZATION_ID,
-      ["example.com"],
-      true,
-    );
-    const secret = adminInviteLink.get_invite_secret(TEST_ORGANIZATION_ID, link.invite);
+    const link = await admin
+      .invite_link()
+      .admin()
+      .create(TEST_ORGANIZATION_ID, ["example.com"], true);
+    const secret = secretFrom(link);
 
-    expect(persisted).toBe(link.invite);
+    expect(persisted).toBe(mock.bodyFor(ROUTES.create).invite);
 
     // The invitee holds no organization key; everything they send is derived from the secret.
     await invitee
       .invite_link()
+      .user()
       .accept_and_optionally_confirm(
         TEST_ORGANIZATION_ID,
-        fromUuid(link.code),
+        LINK_CODE,
         secret,
         COLLECTION_NAME,
         true,
@@ -498,7 +507,7 @@ describe("invite link client", () => {
     ]);
 
     const confirmed = mock.bodyFor(ROUTES.confirm);
-    expect(confirmed.code).toBe(link.code);
+    expect(confirmed.code).toBe(LINK_CODE);
     expect(confirmed.organizationId).toBe(link.organizationId);
     expect(typeof confirmed.orgUserKey).toBe("string");
     expect(typeof confirmed.resetPasswordKey).toBe("string");

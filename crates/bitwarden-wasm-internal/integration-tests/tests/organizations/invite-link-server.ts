@@ -1,4 +1,4 @@
-// Happy-path stand-ins for the eight endpoints `InviteLinkClient` calls.
+// Happy-path stand-ins for the nine endpoints `InviteLinkClient` calls.
 
 import { MockReply, Routes } from "../../server-emulator/http-mock";
 import {
@@ -14,6 +14,7 @@ const ORG = TEST_ORGANIZATION_ID as unknown as string;
 export const ROUTES = {
   privateKey: `GET /organizations/${ORG}/private-key`,
   publicKey: `GET /organizations/${ORG}/public-key`,
+  get: `GET /organizations/${ORG}/invite-link`,
   create: `POST /organizations/${ORG}/invite-link`,
   refresh: `POST /organizations/${ORG}/invite-link/refresh`,
   supportConfirm: `PUT /organizations/${ORG}/invite-link/support-confirm`,
@@ -52,8 +53,9 @@ export function legacyError(status: number, message: string): MockReply {
 
 export interface InviteLinkServerOptions {
   /**
-   * The invite `get_invite` serves to a redeeming invitee. Defaults to {@link TEST_INVITE}.
-   * Resolved per request, so it can be a thunk returning an invite created earlier in the test.
+   * The invite the server holds: served by `get_invite` to a redeeming invitee and by `get` to an
+   * admin. Defaults to {@link TEST_INVITE}. Resolved per request, so it can be a thunk returning
+   * an invite created earlier in the test.
    */
   invite?: string | (() => string);
   /** The organization public key, i.e. the account-recovery key an invitee enrolls into. */
@@ -79,24 +81,30 @@ export function inviteLinkRoutes(options: InviteLinkServerOptions = {}): Routes 
   };
   const publicKey = options.publicKey ?? TEST_ORG_PUBLIC_KEY;
 
+  const linkJson = (posted: {
+    invite: string;
+    supportsConfirmation: boolean;
+    allowedDomains?: string[];
+  }) => ({
+    json: {
+      object: "organizationInviteLink",
+      id: LINK_ID,
+      code: LINK_CODE,
+      organizationId: ORG,
+      allowedDomains: posted.allowedDomains ?? [],
+      invite: posted.invite,
+      supportsConfirmation: posted.supportsConfirmation,
+      creationDate: CREATION_DATE,
+    },
+  });
+
   const link = (posted: {
     invite: string;
     supportsConfirmation: boolean;
     allowedDomains?: string[];
   }) => {
     options.onCreate?.(posted.invite);
-    return {
-      json: {
-        object: "organizationInviteLink",
-        id: LINK_ID,
-        code: LINK_CODE,
-        organizationId: ORG,
-        allowedDomains: posted.allowedDomains ?? [],
-        invite: posted.invite,
-        supportsConfirmation: posted.supportsConfirmation,
-        creationDate: CREATION_DATE,
-      },
-    };
+    return linkJson(posted);
   };
 
   return {
@@ -104,6 +112,7 @@ export function inviteLinkRoutes(options: InviteLinkServerOptions = {}): Routes 
       json: { object: "organizationPrivateKey", privateKey: TEST_ORG_WRAPPED_PRIVATE_KEY },
     }),
     [ROUTES.publicKey]: () => ({ json: { object: "organizationPublicKey", publicKey } }),
+    [ROUTES.get]: () => linkJson({ invite: invite(), supportsConfirmation: true }),
     [ROUTES.create]: (request) => link(request.json()),
     [ROUTES.refresh]: (request) => link(request.json()),
     [ROUTES.supportConfirm]: (request) => link(request.json()),
