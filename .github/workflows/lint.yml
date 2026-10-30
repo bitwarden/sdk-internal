@@ -40,16 +40,19 @@ jobs:
             needs_rust_nightly: true
           - check: clippy
             needs_rust: true
+            build_cache: true
           - check: sort
             needs_rust: true
           - check: udeps
             needs_rust: true
             needs_rust_nightly: true
+            build_cache: true
           # Temporarily disabled.
           # - check: dylint
           #   needs_rust: true
           - check: doc
             needs_rust: true
+            build_cache: true
           - check: prettier
             needs_node: true
           - check: dep-ownership
@@ -97,6 +100,22 @@ jobs:
       - name: Cache cargo registry
         if: matrix.needs_rust
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          # The build output cache below restores target/ for the checks that compile the
+          # workspace. The other checks compile nothing.
+          cache-targets: false
+
+      # Each check that compiles the workspace keeps its own build output cache, because clippy,
+      # rustdoc and the nightly compiler used by udeps produce different output. cargo-udeps builds
+      # with -Zbinary-dep-depinfo, so Cargo also compares the times of the nightly toolchain's
+      # files, which a fresh install makes new.
+      - name: Cache build output
+        if: matrix.build_cache
+        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
+        with:
+          key: lint-${{ matrix.check }}
+          toolchain: ${{ matrix.check == 'udeps' && steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN || '' }}
+          reset_sysroot_mtimes: ${{ matrix.check == 'udeps' }}
 
       # Cache cargo-run-bin's built tools (.bin) separately from rust-cache. The
       # tools depend only on their pinned versions (Cargo.toml) and the toolchain,
@@ -120,8 +139,12 @@ jobs:
         if: matrix.needs_rust
         run: ./scripts/check-no-binstall.sh
 
+      # This step is the clippy check: it runs the same command as `lint.sh --only clippy`, which is
+      # skipped below. `shell: bash` sets pipefail, so clippy findings fail the step.
       - name: Run clippy with SARIF output
         if: matrix.check == 'clippy'
+        id: clippy
+        shell: bash
         # Pass `-D warnings` to clippy directly rather than via RUSTFLAGS so the
         # deny level applies only to the linted crates, not to the from-source
         # builds of clippy-sarif/sarif-fmt that `cargo bin` triggers in this step
@@ -130,7 +153,7 @@ jobs:
           cargo bin clippy-sarif | tee clippy_result.sarif | cargo bin sarif-fmt
 
       - name: Upload clippy results to GitHub
-        if: matrix.check == 'clippy'
+        if: always() && matrix.check == 'clippy' && hashFiles('clippy_result.sarif') != ''
         uses: github/codeql-action/upload-sarif@6bc82e05fd0ea64601dd4b465378bbcf57de0314 # v4.32.1
         with:
           sarif_file: clippy_result.sarif
@@ -150,4 +173,5 @@ jobs:
         run: npm ci
 
       - name: Run lint --only ${{ matrix.check }}
+        if: matrix.check != 'clippy'
         run: ./scripts/lint.sh --only ${{ matrix.check }}

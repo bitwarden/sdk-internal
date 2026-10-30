@@ -54,12 +54,22 @@ jobs:
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: sdk-swift-cargo
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
 
       - name: Rustup target
         run: |
           rustup target install aarch64-apple-ios-sim
           rustup target install aarch64-apple-ios
           rustup target install x86_64-apple-ios
+
+      # The build output cache also holds the workspace crates, so a run only recompiles the crates
+      # that changed and the crates that depend on them. Without any match, the run builds
+      # everything, using the crate downloads restored by rust-cache above.
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
+        with:
+          key: swift
 
       - name: Build
         shell: bash

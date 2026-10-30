@@ -54,6 +54,40 @@ jobs:
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: ${{ matrix.settings.target }}-cargo
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
+
+      # Cache cargo-run-bin's built tools (.bin), so cross isn't compiled on every run. The tools
+      # depend only on their pinned versions (Cargo.toml) and the toolchain. There are no restore
+      # keys: cargo-run-bin stores cross under its version only, not its git rev, so an older cache
+      # would keep an old cross after the rev in Cargo.toml changes.
+      - name: Cache cargo-run-bin tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .bin
+          key: cargo-bin-${{ runner.os }}-cross-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
+
+      # cross builds inside this image, which provides the NDK and linker. Cargo's fingerprints don't
+      # cover them, so the build output cache is keyed on the image digest: a new image starts a new
+      # cache instead of reusing output built with the old one.
+      - name: Pull cross image
+        id: cross-image
+        env:
+          TARGET: ${{ matrix.settings.target }}
+        run: |
+          image="ghcr.io/cross-rs/${TARGET}:main"
+          docker pull --quiet "$image"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image")
+          echo "Using $digest"
+          echo "digest=${digest##*@sha256:}" >> "$GITHUB_OUTPUT"
+
+      # The build output cache also holds the workspace crates, so a run only recompiles the crates
+      # that changed and the crates that depend on them. Without any match, the run builds
+      # everything, using the crate downloads restored by rust-cache above.
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
+        with:
+          key: ${{ github.job }}-${{ matrix.settings.target }}-${{ steps.cross-image.outputs.digest }}
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
@@ -62,6 +96,7 @@ jobs:
         run: ./scripts/check-no-binstall.sh
 
       - name: Build
+        id: build
         env:
           TARGET: ${{ matrix.settings.target }}
         run: cargo bin cross build -p bitwarden-uniffi --release --target=${{ matrix.settings.target }}
@@ -136,10 +171,13 @@ jobs:
       - name: Setup gradle
         uses: gradle/actions/setup-gradle@f29f5a9d7b09a7c6b29859002d29d24e1674c884 # v5.0.1
 
+      # The Gradle build cache lets tasks whose inputs are unchanged, such as compiling and linting
+      # the generated bindings when the SDK's API is the same, reuse the output of an earlier run.
+      # setup-gradle above saves and restores it as part of the Gradle user home.
       - name: Test build demo app
         working-directory: crates/bitwarden-uniffi/kotlin
         run: |
-          ./gradlew build --warning-mode all --stacktrace
+          ./gradlew build --build-cache --warning-mode all --stacktrace
 
       # Fork PRs get a read-only token, so they build and test the package without publishing it.
       - name: Publish
