@@ -1580,6 +1580,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ffi",
  "bitwarden-threading",
+ "futures",
  "indexed-db",
  "js-sys",
  "rusqlite",
