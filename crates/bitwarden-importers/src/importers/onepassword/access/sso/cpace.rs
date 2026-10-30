@@ -238,6 +238,88 @@ fn decrypt_credentials(
     serde_json::from_slice(&credentials).map_err(|_| OnePasswordError::Parse)
 }
 
+/// The JSON of the first message an enrolled device that shows `verification_code` sends, for the
+/// enrollment of `username` at `sign_in_address`. The mirror image of the new device's side, so
+/// tests can play the enrolled device for any address.
+#[cfg(test)]
+pub(super) fn enrolled_device_msg_a(
+    username: &str,
+    sign_in_address: &str,
+    enrollment_uuid: &str,
+    verification_code: &str,
+    ya_secret: &[u8; 64],
+    salt: &[u8],
+    session_id: &[u8],
+) -> Vec<u8> {
+    // The hashes only read the associated data, so the point is a placeholder.
+    let placeholder = MsgA {
+        ya: RistrettoPoint::identity(),
+        ad: Ad {
+            version: 1,
+            salt: salt.to_vec(),
+            session_id: session_id.to_vec(),
+        },
+        original_message: Vec::new(),
+    };
+    let passcode_hash = calculate_passcode_hash(verification_code, salt);
+    let first_hash = calculate_first_hash(username, sign_in_address, enrollment_uuid, &placeholder);
+    let second_hash = calculate_second_hash(&first_hash, passcode_hash.as_slice(), &placeholder);
+    let generator = RistrettoPoint::from_uniform_bytes(&second_hash);
+
+    serde_json::to_vec(&json!({
+        "ya": BASE64URL_NOPAD.encode(&multiply_by_client_scalar(&generator, ya_secret)),
+        "ad": {
+            "version": 1,
+            "salt": BASE64URL_NOPAD.encode(salt),
+            "session_id": session_id,
+        },
+    }))
+    .expect("the message serializes")
+}
+
+/// What the enrolled device shares once it has seen `msg_b`: the credentials, encrypted under the
+/// key both sides derive.
+#[cfg(test)]
+pub(super) fn share_credentials(
+    ya_secret: &[u8; 64],
+    msga_json: &[u8],
+    msg_b: &[u8],
+    credentials: &[u8],
+    iv: &[u8],
+) -> Result<EncryptedEnvelope, OnePasswordError> {
+    let auth_b = enrolled_device_auth_b(ya_secret, &parse_msg_a(msga_json)?, msg_b)?;
+    let exchange_key = derive_exchange_key(auth_b.as_slice());
+
+    AesKey::new(TRANSPORT_KEY_ID, exchange_key.to_vec()).encrypt_with_aad(
+        credentials,
+        iv,
+        CREDENTIAL_BUNDLE_AAD,
+    )
+}
+
+/// The `tagb` an enrolled device holding `ya_secret` expects in answer to `msg_b`.
+#[cfg(test)]
+pub(super) fn expected_tag_b(
+    ya_secret: &[u8; 64],
+    msga_json: &[u8],
+    msg_b: &[u8],
+) -> Result<[u8; 64], OnePasswordError> {
+    let auth_b = enrolled_device_auth_b(ya_secret, &parse_msg_a(msga_json)?, msg_b)?;
+    Ok(calculate_tag_b(auth_b.as_slice(), msg_b))
+}
+
+/// `authB` as the enrolled device computes it, from its own secret and the new device's `msg_b`.
+#[cfg(test)]
+fn enrolled_device_auth_b(
+    ya_secret: &[u8; 64],
+    msg_a: &MsgA,
+    msg_b: &[u8],
+) -> Result<Zeroizing<[u8; 64]>, OnePasswordError> {
+    let ya_scalar = Scalar::from_bytes_mod_order_wide(ya_secret);
+    let auth_a = (decompress_point(msg_b)? * ya_scalar).compress().to_bytes();
+    Ok(calculate_auth_b_hash(&auth_a, msg_a, msg_b))
+}
+
 fn sha512(data: &[u8]) -> [u8; 64] {
     Sha512::digest(data).into()
 }
@@ -695,6 +777,47 @@ mod tests {
         assert_eq!(*bundle.auk.k, "WyICHHlP5lPigZUGZYoivbJMqgHjSti86UKwdjCryYM");
     }
 
+    /// The enrolled device's first message is the one of the vectors, when it is told the same.
+    #[test]
+    fn the_enrolled_device_sends_the_first_message_of_the_vectors() {
+        let vectors = vectors().cpace;
+        let vector_msg_a = msg_a();
+
+        let json = enrolled_device_msg_a(
+            &vectors.username,
+            &vectors.sign_in_address,
+            &vectors.enrollment_uuid,
+            &vectors.verification_code,
+            &hex_array(&vectors.ya_secret),
+            &vector_msg_a.ad.salt,
+            &vector_msg_a.ad.session_id,
+        );
+
+        let sent = parse_msg_a(&json).expect("parses");
+        assert_eq!(sent.ya.compress(), vector_msg_a.ya.compress());
+        assert_eq!(sent.ad.salt, vector_msg_a.ad.salt);
+        assert_eq!(sent.ad.session_id, vector_msg_a.ad.session_id);
+    }
+
+    /// The enrolled device's side reaches the exchange key of the vectors, from its own secret.
+    #[test]
+    fn the_enrolled_device_shares_credentials_the_exchange_key_opens() {
+        let vectors = vectors().cpace;
+
+        let shared = share_credentials(
+            &hex_array(&vectors.ya_secret),
+            vectors.msga_json.as_bytes(),
+            &hex(&vectors.msgb),
+            vectors.credential_bundle_json.as_bytes(),
+            &[7; 12],
+        )
+        .expect("shares");
+
+        let bundle =
+            decrypt_credentials(&shared, &hex(&vectors.exchange_key)).expect("the key opens it");
+        assert_eq!(*bundle.srpx, "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8");
+    }
+
     #[test]
     fn decrypting_credentials_fails_with_another_key() {
         let vectors = vectors().cpace;
@@ -739,6 +862,20 @@ mod tests {
         let generator = RistrettoPoint::from_uniform_bytes(&hex_array(&vectors.second_hash));
 
         assert_eq!((generator * ya_scalar).compress(), msg_a().ya.compress());
+    }
+
+    #[test]
+    fn enrolled_device_expects_the_tag_b_of_the_vectors() {
+        let vectors = vectors().cpace;
+
+        let tag_b = expected_tag_b(
+            &hex_array(&vectors.ya_secret),
+            vectors.msga_json.as_bytes(),
+            &hex(&vectors.msgb),
+        )
+        .expect("a valid msgb");
+
+        assert_eq!(HEXLOWER.encode(&tag_b), vectors.tag_b);
     }
 
     #[test]
