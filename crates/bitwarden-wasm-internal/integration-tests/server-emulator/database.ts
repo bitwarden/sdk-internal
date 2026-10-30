@@ -115,4 +115,5 @@ export class Database {
   readonly emergencyAccess = new Table<EmergencyAccessEntity>(
     new SequentialUuidGenerator("emergency-access"),
   );
+  readonly sessions = new Table<string>(new SequentialUuidGenerator("sessions"));
 }

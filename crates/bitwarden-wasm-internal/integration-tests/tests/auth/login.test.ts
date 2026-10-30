@@ -9,6 +9,8 @@ import type { LoginClient, LoginRequest } from "@bitwarden/sdk-internal";
 /** A real KDF derivation per login, and one of the accounts uses argon2id. */
 const TIMEOUT = 120_000;
 
+const HTTP_OK = 200;
+
 const LOGIN_REQUEST: LoginRequest = {
   clientId: "web",
   device: {
@@ -61,9 +63,14 @@ describe("login via password", () => {
       });
 
       // The account is now reachable with the issued token, and the unlock data it came back with
-      // is the account's own.
+      // is the account's own. The token is opaque, so the assertion is that it authenticates the
+      // account rather than that it holds any particular value.
       const authenticated = response.Authenticated;
-      expect(authenticated.accessToken).toEqual(vector.account.userId);
+      const synced = await fetch(`${SETTINGS.apiUrl}/sync`, {
+        headers: { Authorization: `Bearer ${authenticated.accessToken}` },
+      });
+      expect(synced.status).toBe(HTTP_OK);
+      expect((await synced.json()).profile.id).toEqual(vector.account.userId);
 
       const unlock = authenticated.userDecryptionOptions.masterPasswordUnlock;
       expect(unlock?.kdf).toEqual(vector.account.kdf);
