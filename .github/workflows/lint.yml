@@ -109,9 +109,9 @@ jobs:
       # rustdoc and the nightly compiler used by udeps produce different output. cargo-udeps builds
       # with -Zbinary-dep-depinfo, so Cargo also compares the times of the nightly toolchain's
       # files, which a fresh install makes new.
-      - name: Restore build output
+      - name: Cache build output
         if: matrix.build_cache
-        uses: bitwarden/gh-actions/cargo-build-cache/restore@cargo-build-cache
+        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
         with:
           key: lint-${{ matrix.check }}
           toolchain: ${{ matrix.check == 'udeps' && steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN || '' }}
@@ -175,7 +175,3 @@ jobs:
       - name: Run lint --only ${{ matrix.check }}
         if: matrix.check != 'clippy'
         run: ./scripts/lint.sh --only ${{ matrix.check }}
-
-      - name: Save build output
-        if: matrix.build_cache
-        uses: bitwarden/gh-actions/cargo-build-cache/save@cargo-build-cache

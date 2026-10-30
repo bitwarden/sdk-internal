@@ -113,8 +113,8 @@ jobs:
       # that changed and the crates that depend on them. Each license has its own cache, because
       # the features differ. The standard library is built from the rust-src sources (build-std),
       # which a fresh toolchain install gives the current time.
-      - name: Restore build output
-        uses: bitwarden/gh-actions/cargo-build-cache/restore@cargo-build-cache
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
         with:
           key: wasm-${{ matrix.license_type.artifact_name }}
           reset_sysroot_mtimes: true
@@ -128,10 +128,6 @@ jobs:
         run: |
           echo "CPUs: $(nproc)"
           ./build.sh -r -p ${SKIP_WASM2JS_FLAG} ${{ matrix.license_type.build_flags }}
-
-      - name: Save build output
-        if: always() && steps.build.outcome == 'success'
-        uses: bitwarden/gh-actions/cargo-build-cache/save@cargo-build-cache
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

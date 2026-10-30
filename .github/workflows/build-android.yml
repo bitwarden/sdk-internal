@@ -84,8 +84,8 @@ jobs:
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
       # that changed and the crates that depend on them. Without any match, the run builds
       # everything, using the crate downloads restored by rust-cache above.
-      - name: Restore build output
-        uses: bitwarden/gh-actions/cargo-build-cache/restore@cargo-build-cache
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
         with:
           key: ${{ github.job }}-${{ matrix.settings.target }}-${{ steps.cross-image.outputs.digest }}
 
@@ -107,10 +107,6 @@ jobs:
           name: android-${{ matrix.settings.target }}
           path: ./target/${{ matrix.settings.target }}/release/libbitwarden_uniffi.so
           if-no-files-found: error
-
-      - name: Save build output
-        if: always() && steps.build.outcome == 'success'
-        uses: bitwarden/gh-actions/cargo-build-cache/save@cargo-build-cache
 
   combine:
     name: Combine

@@ -79,8 +79,8 @@ jobs:
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
       # that changed and the crates that depend on them. Without any match, the run builds
       # everything, using the crate downloads restored by rust-cache above.
-      - name: Restore build output
-        uses: bitwarden/gh-actions/cargo-build-cache/restore@cargo-build-cache
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
         with:
           key: ${{ github.job }}
           path: "!target/**/*.profraw"
@@ -97,10 +97,6 @@ jobs:
       # tests/scripting_integration.rs runs here, so #[ignore]d pwsh tests belong in that file.
       - name: Test (integration, requires pwsh)
         run: cargo test --workspace --all-features ${{ matrix.exclude }} --test scripting_integration -- --ignored --test-threads=1
-
-      - name: Save build output
-        if: always() && steps.build.outcome == 'success'
-        uses: bitwarden/gh-actions/cargo-build-cache/save@cargo-build-cache
 
   test-wasm:
     name: WASM
@@ -162,8 +158,8 @@ jobs:
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
       # that changed and the crates that depend on them. Without any match, the run builds
       # everything, using the crate downloads restored by rust-cache above.
-      - name: Restore build output
-        uses: bitwarden/gh-actions/cargo-build-cache/restore@cargo-build-cache
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
         with:
           key: ${{ github.job }}
           path: |
@@ -194,7 +190,3 @@ jobs:
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
-
-      - name: Save build output
-        if: always() && steps.build.outcome == 'success'
-        uses: bitwarden/gh-actions/cargo-build-cache/save@cargo-build-cache
