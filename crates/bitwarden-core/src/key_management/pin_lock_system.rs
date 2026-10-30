@@ -255,18 +255,6 @@ impl PinLockSystem<'_> {
             return;
         }
 
-        // A browser extension's background unlocks along with each open popup. Concurrent
-        // migrations race on the PIN state, and each envelope reseal runs a full KDF, so only the
-        // background does them.
-        if !self
-            .client
-            .internal
-            .crypto_settings
-            .perform_local_unlock_migrations()
-        {
-            return;
-        }
-
         if let Err(e) = self.migrate_pin_envelope_if_needed().await {
             warn!("PIN migration failed: {e:?}, unenrolling PIN");
             self.unset_pin().await;
@@ -562,26 +550,7 @@ mod tests {
     }
 
     fn client_with_user_key() -> Client {
-        client_with_user_key_in(Migrations::Perform)
-    }
-
-    /// Whether a test client runs local unlock migrations.
-    #[derive(Clone, Copy)]
-    enum Migrations {
-        Perform,
-        Disabled,
-    }
-
-    fn client_in(migrations: Migrations) -> Client {
         let client = Client::new(None);
-        if let Migrations::Disabled = migrations {
-            client.crypto().disable_local_unlock_migrations();
-        }
-        client
-    }
-
-    fn client_with_user_key_in(migrations: Migrations) -> Client {
-        let client = client_in(migrations);
         client
             .km_state_bridge()
             .register_bridge(Box::new(InMemoryStateBridge::default()));
@@ -960,11 +929,7 @@ mod tests {
     /// of a prior V1 PIN enrollment: a V1 key sealed in a PIN envelope, an encrypted PIN under that
     /// V1 key, and a V2 upgrade token tying the two.
     fn fresh_v1_state_with_v2_user_key(pin: &str) -> (Client, V1State) {
-        fresh_v1_state_with_v2_user_key_in(pin, Migrations::Perform)
-    }
-
-    fn fresh_v1_state_with_v2_user_key_in(pin: &str, migrations: Migrations) -> (Client, V1State) {
-        let client = client_in(migrations);
+        let client = Client::new(None);
         client
             .km_state_bridge()
             .register_bridge(Box::new(InMemoryStateBridge::default()));
@@ -1319,57 +1284,5 @@ mod tests {
         system.on_unlock().await;
 
         assert_pin_fully_unenrolled(&client).await;
-    }
-
-    // ------------------------------------------------------------------------------------
-    // Local unlock migrations disabled
-    //
-    // A browser extension's popup leaves PIN migration and the ephemeral envelope to its
-    // background, which unlocks at the same time.
-    // ------------------------------------------------------------------------------------
-
-    #[tokio::test]
-    async fn on_unlock_without_migrations_leaves_v1_pin() {
-        let pin = "1234";
-        let (client, state) = fresh_v1_state_with_v2_user_key_in(pin, Migrations::Disabled);
-        store_v1_pin(&client, &state, &PinLockType::BeforeFirstUnlock).await;
-        client
-            .km_state_bridge()
-            .set_v2_upgrade_token(&state.token)
-            .await;
-
-        PinLockSystem::with_client(&client).on_unlock().await;
-
-        let bridge = client.km_state_bridge();
-        let persistent = bridge
-            .get_persistent_pin_envelope()
-            .await
-            .expect("the V1 envelope stays");
-        assert_pin_envelopes_equal(&persistent, &state.envelope);
-        assert!(bridge.get_ephemeral_pin_envelope().await.is_none());
-    }
-
-    #[tokio::test]
-    async fn on_unlock_without_migrations_keeps_ephemeral_envelope_missing() {
-        let client = client_with_user_key_in(Migrations::Disabled);
-        let system = PinLockSystem::with_client(&client);
-        system
-            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
-            .await
-            .expect("set_pin succeeds");
-        client
-            .km_state_bridge()
-            .clear_ephemeral_pin_envelope()
-            .await;
-
-        system.on_unlock().await;
-
-        assert!(
-            client
-                .km_state_bridge()
-                .get_ephemeral_pin_envelope()
-                .await
-                .is_none()
-        );
     }
 }
