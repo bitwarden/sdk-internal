@@ -64,6 +64,15 @@ impl PinSettingsClient {
             .await
     }
 
+    /// Returns the number of characters in the PIN, readable while locked, e.g. so the lock screen
+    /// can try the PIN as soon as it is fully typed. `None` when no PIN is set, or for a PIN set
+    /// before its length was stored that hasn't unlocked since.
+    pub async fn get_pin_length(&self) -> Option<u32> {
+        PinLockSystem::with_client(&self.client)
+            .get_pin_length()
+            .await
+    }
+
     /// Validates whether `pin` matches the currently configured unlock PIN.
     pub async fn validate_pin(&self, pin: String) -> bool {
         PinLockSystem::with_client(&self.client)

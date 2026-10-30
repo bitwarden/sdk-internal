@@ -8,7 +8,7 @@
 //! with an unlock.
 
 use bitwarden_crypto::{
-    Decryptable, KeyId, KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm,
+    Decryptable, EncString, KeyId, KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace},
 };
 use serde::{Deserialize, Serialize};
@@ -113,6 +113,12 @@ fn classify_encrypted_pin(
         None if pin_is_v1 => PinMigrationAction::UpToDate,
         _ => PinMigrationAction::Failed(MigrationFailed::UnrecoverablePinKey),
     }
+}
+
+/// Number of characters in `pin`, stored unencrypted so a lock screen can read it while locked,
+/// e.g. to try the PIN as soon as that many characters are typed.
+fn pin_length(pin: &str) -> u32 {
+    pin.chars().count() as u32
 }
 
 /// Provides PIN-based unlock functionality. This includes enrolling into PIN-based unlock,
@@ -268,6 +274,8 @@ impl PinLockSystem<'_> {
             return;
         };
 
+        self.backfill_pin_length(&encrypted_pin).await;
+
         // Re-sealing runs a full KDF. Clients that re-initialize crypto for an already unlocked
         // session (e.g. a browser popup) would pay it on every initialization, so keep an existing
         // envelope that already holds the current user key.
@@ -313,6 +321,30 @@ impl PinLockSystem<'_> {
             .await;
     }
 
+    /// Stores the length of a PIN set before lengths were stored.
+    ///
+    /// Decrypting the encrypted PIN needs the user key, so this runs on unlock.
+    async fn backfill_pin_length(&self, encrypted_pin: &EncString) {
+        if self.get_pin_length().await.is_some() {
+            return;
+        }
+
+        // Statement scoped, so the key context is dropped before the await below.
+        let pin: Result<String, _> = encrypted_pin.decrypt(
+            &mut self.key_store().context_mut(),
+            SymmetricKeySlotId::User,
+        );
+        let Ok(pin) = pin else {
+            warn!("Failed to decrypt PIN to store its length");
+            return;
+        };
+
+        self.client
+            .km_state_bridge()
+            .set_pin_length(&pin_length(&pin))
+            .await;
+    }
+
     /// Sets the PIN and stores the generated envelope according to the lock type.
     pub async fn set_pin(&self, pin: String, lock_type: PinLockType) -> Result<(), ()> {
         // Clear the existing configuration
@@ -325,6 +357,7 @@ impl PinLockSystem<'_> {
             .clear_ephemeral_pin_envelope()
             .await;
         self.client.km_state_bridge().clear_encrypted_pin().await;
+        self.client.km_state_bridge().clear_pin_length().await;
 
         let pin_envelope: PasswordProtectedKeyEnvelope = PasswordProtectedKeyEnvelope::seal(
             SymmetricKeySlotId::User,
@@ -343,6 +376,10 @@ impl PinLockSystem<'_> {
         self.client
             .km_state_bridge()
             .set_encrypted_pin(&encrypted_pin)
+            .await;
+        self.client
+            .km_state_bridge()
+            .set_pin_length(&pin_length(&pin))
             .await;
         self.client
             .km_state_bridge()
@@ -370,6 +407,13 @@ impl PinLockSystem<'_> {
             .clear_ephemeral_pin_envelope()
             .await;
         self.client.km_state_bridge().clear_encrypted_pin().await;
+        self.client.km_state_bridge().clear_pin_length().await;
+    }
+
+    /// Returns the number of characters in the PIN, readable while locked. `None` when no PIN is
+    /// set, or for a PIN set before its length was stored that hasn't unlocked since.
+    pub async fn get_pin_length(&self) -> Option<u32> {
+        self.client.km_state_bridge().get_pin_length().await
     }
 
     /// Returns the lock type for the currently configured PIN.
@@ -1124,6 +1168,12 @@ mod tests {
         }
     }
 
+    #[test]
+    fn pin_length_counts_characters_not_bytes() {
+        assert_eq!(pin_length("1234"), 4);
+        assert_eq!(pin_length("ü1"), 2);
+    }
+
     /// Legacy compat encryption gives V1 PINs a key id. It is the algorithm, not a missing key id,
     /// that marks a PIN as V1.
     #[test]
@@ -1284,5 +1334,51 @@ mod tests {
         system.on_unlock().await;
 
         assert_pin_fully_unenrolled(&client).await;
+    }
+
+    // ------------------------------------------------------------------------------------
+    // PIN length
+    // ------------------------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn set_pin_stores_its_length() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+
+        system
+            .set_pin("123456".into(), PinLockType::AfterFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+
+        assert_eq!(system.get_pin_length().await, Some(6));
+    }
+
+    #[tokio::test]
+    async fn unset_pin_clears_its_length() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+
+        system.unset_pin().await;
+
+        assert_eq!(system.get_pin_length().await, None);
+    }
+
+    #[tokio::test]
+    async fn on_unlock_stores_the_length_of_a_pin_set_before_lengths_were() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("12345".into(), PinLockType::BeforeFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+        client.km_state_bridge().clear_pin_length().await;
+
+        system.on_unlock().await;
+
+        assert_eq!(system.get_pin_length().await, Some(5));
     }
 }
