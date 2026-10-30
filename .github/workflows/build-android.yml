@@ -82,34 +82,12 @@ jobs:
           echo "digest=${digest##*@sha256:}" >> "$GITHUB_OUTPUT"
 
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
-      # that changed and the crates that depend on them. Runs on main start a new cache every month
-      # so build output of old dependency versions doesn't accumulate. Pull requests fall back to
-      # the previous month's cache until main has built the new one. Without any match, the run
-      # builds everything, using the crate downloads restored by rust-cache above.
-      - name: Get build cache period
-        id: build-cache
-        run: |
-          year=$(date -u +%Y)
-          month=$((10#$(date -u +%m)))
-          if [ "$month" -eq 1 ]; then
-            previous=$(printf '%d-12' $((year - 1)))
-          else
-            previous=$(printf '%d-%02d' "$year" $((month - 1)))
-          fi
-          printf 'period=%d-%02d\nprevious=%s\n' "$year" "$month" "$previous" >> "$GITHUB_OUTPUT"
-
+      # that changed and the crates that depend on them. Without any match, the run builds
+      # everything, using the crate downloads restored by rust-cache above.
       - name: Restore build output
-        id: restore-build
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: bitwarden/gh-actions/cargo-build-cache/restore@cargo-build-cache
         with:
-          path: target
-          key: build-${{ runner.os }}-${{ github.job }}-${{ matrix.settings.target }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.cross-image.outputs.digest }}-${{ steps.build-cache.outputs.period }}-${{ github.sha }}
-          restore-keys: |
-            build-${{ runner.os }}-${{ github.job }}-${{ matrix.settings.target }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.cross-image.outputs.digest }}-${{ steps.build-cache.outputs.period }}-
-            ${{ github.event_name == 'pull_request' && format('build-{0}-{1}-{2}-{3}-{4}-{5}-', runner.os, github.job, matrix.settings.target, hashFiles('rust-toolchain.toml'), steps.cross-image.outputs.digest, steps.build-cache.outputs.previous) || '' }}
-
-      - name: Mark changed files
-        run: ./scripts/ci-build-cache.sh mark
+          key: ${{ github.job }}-${{ matrix.settings.target }}-${{ steps.cross-image.outputs.digest }}
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
@@ -123,9 +101,6 @@ jobs:
           TARGET: ${{ matrix.settings.target }}
         run: cargo bin cross build -p bitwarden-uniffi --release --target=${{ matrix.settings.target }}
 
-      - name: Record build inputs
-        run: ./scripts/ci-build-cache.sh record
-
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -135,10 +110,7 @@ jobs:
 
       - name: Save build output
         if: always() && steps.build.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: target
-          key: ${{ steps.restore-build.outputs.cache-primary-key }}
+        uses: bitwarden/gh-actions/cargo-build-cache/save@cargo-build-cache
 
   combine:
     name: Combine

@@ -77,46 +77,17 @@ jobs:
           cache-targets: false
 
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
-      # that changed and the crates that depend on them. Runs on main start a new cache every month
-      # so build output of old dependency versions doesn't accumulate. Pull requests fall back to
-      # the previous month's cache until main has built the new one. Without any match, the run
-      # builds everything, using the crate downloads restored by rust-cache above.
-      - name: Get build cache period
-        id: build-cache
-        shell: bash
-        run: |
-          year=$(date -u +%Y)
-          month=$((10#$(date -u +%m)))
-          if [ "$month" -eq 1 ]; then
-            previous=$(printf '%d-12' $((year - 1)))
-          else
-            previous=$(printf '%d-%02d' "$year" $((month - 1)))
-          fi
-          printf 'period=%d-%02d\nprevious=%s\n' "$year" "$month" "$previous" >> "$GITHUB_OUTPUT"
-
+      # that changed and the crates that depend on them. Without any match, the run builds
+      # everything, using the crate downloads restored by rust-cache above.
       - name: Restore build output
-        id: restore-build
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: bitwarden/gh-actions/cargo-build-cache/restore@cargo-build-cache
         with:
-          path: |
-            target
-            !target/**/*.profraw
-          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-${{ github.sha }}
-          restore-keys: |
-            build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-
-            ${{ github.event_name == 'pull_request' && format('build-{0}-{1}-{2}-{3}-', runner.os, github.job, hashFiles('rust-toolchain.toml'), steps.build-cache.outputs.previous) || '' }}
-
-      - name: Mark changed files
-        shell: bash
-        run: ./scripts/ci-build-cache.sh mark
+          key: ${{ github.job }}
+          path: "!target/**/*.profraw"
 
       - name: Build tests
         id: build
         run: cargo test --workspace --all-features --no-run ${{ matrix.exclude }}
-
-      - name: Record build inputs
-        shell: bash
-        run: ./scripts/ci-build-cache.sh record
 
       - name: Test
         run: cargo test --workspace --all-features ${{ matrix.exclude }}
@@ -129,12 +100,7 @@ jobs:
 
       - name: Save build output
         if: always() && steps.build.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            target
-            !target/**/*.profraw
-          key: ${{ steps.restore-build.outputs.cache-primary-key }}
+        uses: bitwarden/gh-actions/cargo-build-cache/save@cargo-build-cache
 
   test-wasm:
     name: WASM
@@ -194,39 +160,15 @@ jobs:
           cache-targets: false
 
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
-      # that changed and the crates that depend on them. Runs on main start a new cache every month
-      # so build output of old dependency versions doesn't accumulate. Pull requests fall back to
-      # the previous month's cache until main has built the new one. Without any match, the run
-      # builds everything, using the crate downloads restored by rust-cache above.
-      - name: Get build cache period
-        id: build-cache
-        shell: bash
-        run: |
-          year=$(date -u +%Y)
-          month=$((10#$(date -u +%m)))
-          if [ "$month" -eq 1 ]; then
-            previous=$(printf '%d-12' $((year - 1)))
-          else
-            previous=$(printf '%d-%02d' "$year" $((month - 1)))
-          fi
-          printf 'period=%d-%02d\nprevious=%s\n' "$year" "$month" "$previous" >> "$GITHUB_OUTPUT"
-
+      # that changed and the crates that depend on them. Without any match, the run builds
+      # everything, using the crate downloads restored by rust-cache above.
       - name: Restore build output
-        id: restore-build
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: bitwarden/gh-actions/cargo-build-cache/restore@cargo-build-cache
         with:
+          key: ${{ github.job }}
           path: |
-            target
             !target/**/*.profraw
             .bin
-          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-${{ github.sha }}
-          restore-keys: |
-            build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-
-            ${{ github.event_name == 'pull_request' && format('build-{0}-{1}-{2}-{3}-', runner.os, github.job, hashFiles('rust-toolchain.toml'), steps.build-cache.outputs.previous) || '' }}
-
-      - name: Mark changed files
-        shell: bash
-        run: ./scripts/ci-build-cache.sh mark
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
@@ -250,19 +192,9 @@ jobs:
           cargo test --workspace --all-features --tests
           cargo bin cargo-llvm-cov report --lcov --output-path lcov.info --ignore-filename-regex "crates/bitwarden-api-|crates/[^/]+-macro/"
 
-      - name: Record build inputs
-        shell: bash
-        run: ./scripts/ci-build-cache.sh record
-
       - name: Upload to codecov.io
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
 
       - name: Save build output
         if: always() && steps.build.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            target
-            !target/**/*.profraw
-            .bin
-          key: ${{ steps.restore-build.outputs.cache-primary-key }}
+        uses: bitwarden/gh-actions/cargo-build-cache/save@cargo-build-cache

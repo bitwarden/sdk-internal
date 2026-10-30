@@ -106,48 +106,16 @@ jobs:
           cache-targets: false
 
       # Each check that compiles the workspace keeps its own build output cache, because clippy,
-      # rustdoc and the nightly compiler used by udeps produce different output. See rust-test.yml
-      # for how the cache is keyed and reused.
-      - name: Get build cache period
-        if: matrix.build_cache
-        id: build-cache
-        shell: bash
-        run: |
-          year=$(date -u +%Y)
-          month=$((10#$(date -u +%m)))
-          if [ "$month" -eq 1 ]; then
-            previous=$(printf '%d-12' $((year - 1)))
-          else
-            previous=$(printf '%d-%02d' "$year" $((month - 1)))
-          fi
-          printf 'period=%d-%02d\nprevious=%s\n' "$year" "$month" "$previous" >> "$GITHUB_OUTPUT"
-
+      # rustdoc and the nightly compiler used by udeps produce different output. cargo-udeps builds
+      # with -Zbinary-dep-depinfo, so Cargo also compares the times of the nightly toolchain's
+      # files, which a fresh install makes new.
       - name: Restore build output
         if: matrix.build_cache
-        id: restore-build
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: bitwarden/gh-actions/cargo-build-cache/restore@cargo-build-cache
         with:
-          path: target
-          key: build-${{ runner.os }}-lint-${{ matrix.check }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-${{ github.sha }}
-          restore-keys: |
-            build-${{ runner.os }}-lint-${{ matrix.check }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-
-            ${{ github.event_name == 'pull_request' && format('build-{0}-lint-{1}-{2}-{3}-', runner.os, matrix.check, hashFiles('rust-toolchain.toml'), steps.build-cache.outputs.previous) || '' }}
-
-      - name: Mark changed files
-        if: matrix.build_cache
-        shell: bash
-        run: ./scripts/ci-build-cache.sh mark
-
-      # cargo-udeps builds with -Zbinary-dep-depinfo, so Cargo also compares the modification times
-      # of the toolchain's standard library files with the build output. The toolchain is installed
-      # fresh on every run, which would make every crate look changed. The toolchain version is part
-      # of the build cache key, so the cached output always comes from these same files.
-      - name: Mark toolchain files as unchanged
-        if: matrix.check == 'udeps'
-        shell: bash
-        env:
-          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
-        run: find "$(rustc "+${RUST_NIGHTLY_TOOLCHAIN}" --print sysroot)" -exec touch -h -c -t 200001010000 -- {} +
+          key: lint-${{ matrix.check }}
+          toolchain: ${{ matrix.check == 'udeps' && steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN || '' }}
+          reset_sysroot_mtimes: ${{ matrix.check == 'udeps' }}
 
       # Cache cargo-run-bin's built tools (.bin) separately from rust-cache. The
       # tools depend only on their pinned versions (Cargo.toml) and the toolchain,
@@ -208,15 +176,6 @@ jobs:
         if: matrix.check != 'clippy'
         run: ./scripts/lint.sh --only ${{ matrix.check }}
 
-      - name: Record build inputs
-        if: matrix.build_cache
-        id: record-build
-        shell: bash
-        run: ./scripts/ci-build-cache.sh record
-
       - name: Save build output
-        if: always() && steps.record-build.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: target
-          key: ${{ steps.restore-build.outputs.cache-primary-key }}
+        if: matrix.build_cache
+        uses: bitwarden/gh-actions/cargo-build-cache/save@cargo-build-cache
