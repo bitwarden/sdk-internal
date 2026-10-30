@@ -311,6 +311,23 @@ impl CryptoClient {
     }
 }
 
+#[cfg(feature = "internal")]
+#[bitwarden_ffi::wasm_export]
+impl CryptoClient {
+    /// Stops unlock from running local state migrations: the V1 to V2 PIN migration and the
+    /// ephemeral PIN envelope reseal.
+    ///
+    /// For applications running several clients for one user at once, e.g. a browser extension's
+    /// popups next to its background. Concurrent migrations race on the same state, so all but one
+    /// client should call this.
+    pub fn disable_local_unlock_migrations(&self) {
+        self.client
+            .internal
+            .crypto_settings
+            .disable_local_unlock_migrations();
+    }
+}
+
 impl Client {
     /// Access to crypto functionality.
     pub fn crypto(&self) -> CryptoClient {
