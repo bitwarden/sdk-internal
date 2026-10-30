@@ -72,6 +72,15 @@ export interface LocalIdentity {
 
 type ClearMode = "ProcessReload" | "Restart";
 
+/** Whether clients on this state run local unlock migrations, such as the PIN migration. */
+export enum UnlockMigrations {
+  /** The default, as a single-client app or a browser extension's background does. */
+  Perform = "perform",
+
+  /** As a browser extension's popup does, leaving them to its background. */
+  Disabled = "disabled",
+}
+
 export class LocalState {
   readonly bridge = makeStateBridge();
   readonly ciphers = new TestRepository<Cipher>();
@@ -80,6 +89,9 @@ export class LocalState {
 
   /** Organization keys sealed to this account, keyed by organization id. */
   organizationKeys: Record<string, string> = {};
+
+  /** Applies to clients built after it is set. */
+  unlockMigrations = UnlockMigrations.Perform;
 
   private identity: LocalIdentity | undefined;
 
@@ -143,6 +155,10 @@ export class LocalState {
    */
   locked(): PasswordManagerClient {
     const client = makePasswordManagerClient(this.bridge, SETTINGS, this.account.userId);
+
+    if (this.unlockMigrations === UnlockMigrations.Disabled) {
+      client.crypto().disable_local_unlock_migrations();
+    }
 
     client.platform().state().register_client_managed_repositories({
       cipher: this.ciphers,

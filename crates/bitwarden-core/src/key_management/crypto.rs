@@ -919,7 +919,18 @@ async fn initialize_user_local_data_key(client: &Client) -> Result<(), Encryptio
 /// can use the session.
 async fn on_unlock_handler(client: &Client) -> Result<(), EncryptionSettingsError> {
     initialize_user_local_data_key(client).await?;
-    PinLockSystem::on_unlock(&PinLockSystem::with_client(client)).await;
+
+    // A browser extension's background unlocks along with each open popup. Concurrent PIN
+    // migrations race on the PIN state, and each envelope reseal runs a full KDF, so only one
+    // client runs them.
+    if client
+        .internal
+        .crypto_settings
+        .perform_local_unlock_migrations()
+    {
+        PinLockSystem::on_unlock(&PinLockSystem::with_client(client)).await;
+    }
+
     Ok(())
 }
 
@@ -1540,6 +1551,57 @@ mod tests {
         };
 
         assert_eq!(client1_key, client2_key);
+    }
+
+    /// A client with an AfterFirstUnlock PIN whose ephemeral envelope was dropped, as reopening
+    /// the app does.
+    async fn client_with_dropped_pin_envelope() -> Client {
+        use crate::key_management::pin_lock_system::PinLockType;
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+        PinLockSystem::with_client(&client)
+            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+        client
+            .km_state_bridge()
+            .clear_ephemeral_pin_envelope()
+            .await;
+        client
+    }
+
+    #[tokio::test]
+    async fn test_on_unlock_handler_reseals_pin_envelope() {
+        let client = client_with_dropped_pin_envelope().await;
+
+        on_unlock_handler(&client).await.unwrap();
+
+        assert!(
+            client
+                .km_state_bridge()
+                .get_ephemeral_pin_envelope()
+                .await
+                .is_some()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_on_unlock_handler_without_migrations_leaves_pin_envelope() {
+        let client = client_with_dropped_pin_envelope().await;
+        client.crypto().disable_local_unlock_migrations();
+
+        on_unlock_handler(&client).await.unwrap();
+
+        assert!(
+            client
+                .km_state_bridge()
+                .get_ephemeral_pin_envelope()
+                .await
+                .is_none()
+        );
     }
 
     #[tokio::test]
