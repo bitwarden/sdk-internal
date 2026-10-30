@@ -977,12 +977,14 @@ name = "bitwarden-ffi"
 version = "4.0.0"
 dependencies = [
  "bitwarden-ffi-macro",
+ "futures",
  "serde",
  "serde_json",
  "thiserror",
  "trybuild",
  "tsify",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

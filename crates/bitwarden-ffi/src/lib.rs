@@ -1,13 +1,18 @@
 //! Utilities for FFI bindings (WASM, UniFFI).
 //!
 //! Re-exports proc macros from `bitwarden-ffi-macro`, plus the wire traits. [`FromWasm`] and
-//! [`ToWasm`] explain how a type crosses the wasm ABI.
+//! [`ToWasm`] explain how a type crosses the wasm ABI. [`BwStream`] crosses into JavaScript as an
+//! `AsyncIterable`.
 
+#[cfg(feature = "wasm")]
+mod stream;
 #[cfg(feature = "wasm")]
 mod wire;
 mod wire_macros;
 
 pub use bitwarden_ffi_macro::{wasm_export, wasm_import, wasm_object, wasm_record};
+#[cfg(feature = "wasm")]
+pub use stream::BwStream;
 #[cfg(feature = "wasm")]
 pub use wire::{FromWasm, ToWasm, WireError};
 #[cfg(feature = "wasm")]
