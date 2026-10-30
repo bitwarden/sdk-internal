@@ -29,12 +29,11 @@ type Chunks = LocalBoxStream<'static, Result<Vec<JsValue>, JsValue>>;
 
 /// A stream of `T`, produced a chunk at a time, that JavaScript receives as an `AsyncIterable`.
 ///
-/// A `#[wasm_export]` method returns `BwStream<T>` and declares the TypeScript type with
-/// `#[wasm_bindgen(unchecked_return_type = "AsyncIterable<T>")]`. A stream of `Result<T, E>` items,
-/// built with [`BwStream::from_results`], yields `BwResult<T, E>` objects:
-/// `{ ok: true, value }` or `{ ok: false, error }`, declared as
-/// `"AsyncIterable<BwResult<T, E>>"`. `T` records what JavaScript receives; the items are
-/// converted when a chunk arrives.
+/// A `#[wasm_export]` method returns `BwStream<T>`, and the macro declares its TypeScript type as
+/// `AsyncIterable<T>`. A stream of `Result<T, E>` items, built with [`BwStream::from_results`],
+/// yields `BwResult<T, E>` objects: `{ ok: true, value }` or `{ ok: false, error }`, declared as
+/// `AsyncIterable<BwResult<T, E>>`. `T` records what JavaScript receives; the items are converted
+/// when a chunk arrives.
 ///
 /// Each chunk is converted into JavaScript values when it arrives and handed out one item per
 /// `next()`, so WASM memory holds at most one chunk. A `next()` with a converted item waiting
