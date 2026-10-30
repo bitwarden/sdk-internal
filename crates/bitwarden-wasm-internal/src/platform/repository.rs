@@ -29,13 +29,20 @@
  *     use the existing [Repository] trait.
  *   - It runs the calls in a thread-bound manner, so we can safely call the [WasmRepository]
  *     methods from any thread.
+ *   - Its [Repository::stream] calls the JavaScript `list()` once, keeps the items as
+ *     JavaScript values and converts them a chunk at a time, so the JavaScript interface needs
+ *     no paging method.
  * - The [create_wasm_repositories] macro, defines the [::wasm_bindgen] interface and implements
  *   the [WasmRepository] trait for you.
  */
 
+#[cfg(target_arch = "wasm32")]
+use std::sync::Arc;
 use std::{future::Future, marker::PhantomData, rc::Rc};
 
 use bitwarden_state::repository::{Repository, RepositoryError, RepositoryItem};
+#[cfg(target_arch = "wasm32")]
+use bitwarden_state::{JsChunks, repository::RepositoryStream};
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
@@ -76,6 +83,27 @@ impl<T: RepositoryItem, R: WasmRepository<T> + 'static> Repository<T>
     }
     async fn list(&self) -> Result<Vec<T>, RepositoryError> {
         run_convert(&self.0, |s| async move { s.list().await }).await
+    }
+    // `JsChunks` exists only on wasm32. Other targets never call into JavaScript, so the default
+    // `stream` serves them.
+    #[cfg(target_arch = "wasm32")]
+    fn stream(self: Arc<Self>, chunk_size: usize) -> RepositoryStream<T> {
+        let runner = self.0.clone();
+        JsChunks::stream_after(
+            async move {
+                runner
+                    .run_in_thread(|s| async move {
+                        let items = s
+                            .list()
+                            .await
+                            .map_err(|e| RepositoryError::Internal(format!("{e:?}")))?;
+                        JsChunks::from_array(items)
+                    })
+                    .await
+                    .map_err(|e| RepositoryError::Internal(e.to_string()))?
+            },
+            chunk_size,
+        )
     }
     async fn set(&self, key: T::Key, value: T) -> Result<(), RepositoryError> {
         let key = key.to_string();

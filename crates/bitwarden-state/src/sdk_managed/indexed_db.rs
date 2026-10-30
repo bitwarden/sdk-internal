@@ -8,7 +8,8 @@ use js_sys::JsString;
 use serde::{de::DeserializeOwned, ser::Serialize};
 
 use crate::{
-    repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations},
+    JsChunks,
+    repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations, RepositoryStream},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
@@ -214,5 +215,21 @@ impl Database for IndexedDbDatabase {
             .delete_database(&self.db_name)
             .await?;
         Ok(())
+    }
+
+    /// Reads every value in one request, as [`Self::list`] does, but keeps them as JavaScript
+    /// values and converts one chunk at a time.
+    fn stream<T: RepositoryItem>(&self, chunk_size: usize) -> RepositoryStream<T> {
+        let db = self.clone();
+        JsChunks::stream_after(
+            async move {
+                Ok(db
+                    .with_store::<T, _, _, _>(false, |store| async move {
+                        Ok(JsChunks::new(store.get_all(None).await?))
+                    })
+                    .await?)
+            },
+            chunk_size,
+        )
     }
 }

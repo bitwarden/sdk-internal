@@ -6,6 +6,11 @@ uniffi::setup_scaffolding!();
 /// This module provides a generic repository interface for storing and retrieving items.
 pub mod repository;
 
+#[cfg(target_arch = "wasm32")]
+mod js_chunks;
+#[cfg(target_arch = "wasm32")]
+pub use js_chunks::JsChunks;
+
 /// This module provides a registry for managing repositories of different types.
 pub mod registry;
 
