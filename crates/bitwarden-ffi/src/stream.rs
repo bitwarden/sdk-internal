@@ -7,13 +7,13 @@
 use std::{cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
 use futures::{Stream, StreamExt, stream::LocalBoxStream};
-use wasm_bindgen::{
-    JsValue, closure::Closure, convert::IntoWasmAbi, describe::WasmDescribe, prelude::wasm_bindgen,
-};
+use wasm_bindgen::{JsValue, closure::Closure, prelude::wasm_bindgen};
 use wasm_bindgen_futures::{
     JsFuture, future_to_promise,
     js_sys::{Object, Promise, Reflect, Symbol},
 };
+
+use crate::{Never, ToWasm, TsError, WireError};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
@@ -29,12 +29,11 @@ type Chunks = LocalBoxStream<'static, Result<Vec<JsValue>, JsValue>>;
 
 /// A stream of `T`, produced a chunk at a time, that JavaScript receives as an `AsyncIterable`.
 ///
-/// A `#[wasm_export]` method returns `BwStream<T>` and declares the TypeScript type with
-/// `#[wasm_bindgen(unchecked_return_type = "AsyncIterable<T>")]`. A stream of `Result<T, E>` items,
-/// built with [`BwStream::from_results`], yields `BwResult<T, E>` objects:
-/// `{ ok: true, value }` or `{ ok: false, error }`, declared as
-/// `"AsyncIterable<BwResult<T, E>>"`. `T` records what JavaScript receives; the items are
-/// converted when a chunk arrives.
+/// A `#[wasm_export]` method returns `BwStream<T>`, and the macro declares its TypeScript type as
+/// `AsyncIterable<T>`. A stream of `Result<T, E>` items, built with [`BwStream::from_results`],
+/// yields `BwResult<T, E>` objects: `{ ok: true, value }` or `{ ok: false, error }`, declared as
+/// `AsyncIterable<BwResult<T, E>>`. `T` records what JavaScript receives; the items are converted
+/// when a chunk arrives.
 ///
 /// Each chunk is converted into JavaScript values when it arrives and handed out one item per
 /// `next()`, so WASM memory holds at most one chunk. A `next()` with a converted item waiting
@@ -49,36 +48,48 @@ pub struct BwStream<T> {
     item: PhantomData<fn() -> T>,
 }
 
-impl<T: Into<JsValue> + 'static> BwStream<T> {
-    /// Wraps a stream of chunks, each item converted with `Into<JsValue>`. An empty chunk is
-    /// skipped, not the end of the stream. An `Err` ends the stream.
+impl<T: ToWasm<Wire: Into<JsValue>> + 'static> BwStream<T> {
+    /// Wraps a stream of chunks, each item converted with [`ToWasm`]. An empty chunk is skipped,
+    /// not the end of the stream. An `Err` ends the stream.
     pub fn new<F: Into<JsValue>>(chunks: impl Stream<Item = Result<Vec<T>, F>> + 'static) -> Self {
-        Self::from_converted(chunks, Into::into)
+        Self::from_converted(chunks, to_js)
     }
 }
 
-impl<T: Into<JsValue> + 'static, E: Into<JsValue> + 'static> BwStream<Result<T, E>> {
+impl<T, E> BwStream<Result<T, E>>
+where
+    T: ToWasm<Wire: Into<JsValue>> + 'static,
+    E: ToWasm<Wire: Into<JsValue>> + 'static,
+{
     /// Wraps a stream of chunks of results, each item converted to a `BwResult` object. An empty
     /// chunk is skipped, not the end of the stream. An `Err` chunk ends the stream; an `Err` item
     /// is handed out as `{ ok: false, error }` and the stream goes on.
     pub fn from_results<F: Into<JsValue>>(
         chunks: impl Stream<Item = Result<Vec<Result<T, E>>, F>> + 'static,
     ) -> Self {
-        Self::from_converted(chunks, |item| match item {
-            Ok(value) => object(&[("ok", &true.into()), ("value", &value.into())]),
-            Err(error) => object(&[("ok", &false.into()), ("error", &error.into())]),
+        Self::from_converted(chunks, |item| {
+            Ok(match item {
+                Ok(value) => object(&[("ok", &true.into()), ("value", &to_js(value)?)]),
+                Err(error) => object(&[("ok", &false.into()), ("error", &to_js(error)?)]),
+            })
         })
     }
 }
 
 impl<T> BwStream<T> {
+    /// An item that fails to convert ends the stream with the conversion error a `#[wasm_export]`
+    /// shim throws.
     fn from_converted<I: 'static, F: Into<JsValue>>(
         chunks: impl Stream<Item = Result<Vec<I>, F>> + 'static,
-        convert: fn(I) -> JsValue,
+        convert: fn(I) -> Result<JsValue, WireError>,
     ) -> Self {
         let chunks = chunks
             .map(move |chunk| match chunk {
-                Ok(items) => Ok(items.into_iter().map(convert).collect()),
+                Ok(items) => items
+                    .into_iter()
+                    .map(convert)
+                    .collect::<Result<_, _>>()
+                    .map_err(|err| TsError::<Never>::Conversion(err).into()),
                 Err(error) => Err(error.into()),
             })
             .boxed_local();
@@ -95,18 +106,18 @@ impl<T> From<BwStream<T>> for JsValue {
     }
 }
 
-impl<T> WasmDescribe for BwStream<T> {
-    fn describe() {
-        JsValue::describe();
+/// Crosses as a plain `JsValue`; `#[wasm_export]` declares the `AsyncIterable` type it carries.
+impl<T> ToWasm for BwStream<T> {
+    type Wire = JsValue;
+
+    fn to_wire(self) -> Result<Self::Wire, WireError> {
+        Ok(self.into())
     }
 }
 
-impl<T> IntoWasmAbi for BwStream<T> {
-    type Abi = <JsValue as IntoWasmAbi>::Abi;
-
-    fn into_abi(self) -> Self::Abi {
-        JsValue::from(self).into_abi()
-    }
+/// Converts `value` into the JavaScript value a `#[wasm_export]` shim would return for it.
+fn to_js<T: ToWasm<Wire: Into<JsValue>>>(value: T) -> Result<JsValue, WireError> {
+    Ok(value.to_wire()?.into())
 }
 
 /// What `next()` and `return()` share. Neither holds a borrow across an `.await`.

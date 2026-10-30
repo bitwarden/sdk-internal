@@ -1,0 +1,5 @@
+error: #[wasm_export] cannot infer the TypeScript type of `(u32, u32)`; declare it with #[wasm_bindgen(unchecked_return_type = "...")]
+ --> tests/compilation_tests/wasm_export_uninferable_stream.rs:9:38
+  |
+9 |     pub fn points(&self) -> BwStream<(u32, u32)> {
+  |                                      ^^^^^^^^^^
