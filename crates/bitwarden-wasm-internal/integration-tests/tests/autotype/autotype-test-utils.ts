@@ -1,5 +1,4 @@
 import {
-  AppMetadata,
   AutotypeCredentials,
   AutotypeDriver,
   AutotypeRenderDriver,
@@ -83,12 +82,12 @@ export function makeMockAutotypeDriver(
 export interface MockAutotypeRenderDriverOptions {
   // Typed loosely so a test can return malformed credentials, which is exactly what the SDK's
   // deserialization is being asked to survive.
-  getCredentials: (app: AutotypeRunningApp, metadata: AppMetadata) => Promise<unknown>;
+  getCredentials: (app: AutotypeRunningApp) => Promise<unknown>;
 }
 
 /** Recorded calls per main → render channel. */
 export interface MockAutotypeRenderDriverCalls {
-  getCredentialsCalls: { app: AutotypeRunningApp; metadata: AppMetadata }[];
+  getCredentialsCalls: AutotypeRunningApp[];
 }
 
 /**
@@ -100,13 +99,13 @@ export function makeMockAutotypeRenderDriver(
 ): AutotypeRenderDriver & MockAutotypeRenderDriverCalls {
   const { getCredentials = async () => undefined } = options;
 
-  const getCredentialsCalls: { app: AutotypeRunningApp; metadata: AppMetadata }[] = [];
+  const getCredentialsCalls: AutotypeRunningApp[] = [];
 
   return {
     getCredentialsCalls,
-    get_autotype_credentials: async (app: AutotypeRunningApp, metadata: AppMetadata) => {
-      getCredentialsCalls.push({ app, metadata });
-      return (await getCredentials(app, metadata)) as AutotypeCredentials | undefined;
+    get_autotype_credentials: async (app: AutotypeRunningApp) => {
+      getCredentialsCalls.push(app);
+      return (await getCredentials(app)) as AutotypeCredentials | undefined;
     },
   };
 }

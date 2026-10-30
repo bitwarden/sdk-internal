@@ -57,10 +57,10 @@ export interface AutotypeRenderDriver {
     /**
      * Find the credentials to autotype into the focused app, as requested
      * by the main process when the user presses the autotype shortcut.
-     * Returns the matching vault item's username and password with the
-     * `metadata` it was given, or `undefined` if nothing matches.
+     * Returns the matching vault item's username and password, or
+     * `undefined` if nothing matches.
      */
-    get_autotype_credentials(app: AutotypeRunningApp, metadata: AppMetadata): Promise<AutotypeCredentials | undefined>;
+    get_autotype_credentials(app: AutotypeRunningApp): Promise<AutotypeCredentials | undefined>;
 }
 "#;
 
@@ -103,7 +103,6 @@ extern "C" {
     async fn get_autotype_credentials(
         this: &RawJsAutotypeRenderDriver,
         app: AutotypeRunningApp,
-        metadata: AppMetadata,
     ) -> Result<JsValue, JsValue>;
 }
 
@@ -117,25 +116,12 @@ pub struct AutotypeRunningApp {
     pub path: String,
 }
 
-/// Identifies the app Autotype was triggered for, so main can confirm the focused app hasn't
-/// changed before typing.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[bitwarden_ffi::wasm_record]
-pub struct AppMetadata {
-    /// The app's unique ID.
-    pub id: u32,
-    /// The app's process ID.
-    pub pid: u32,
-}
-
 /// The credentials the render process found for an [`AutotypeGetCredentialsRequest`].
 ///
 /// `Debug` is implemented by hand so the username and password never reach logs.
 #[derive(Clone, Serialize, Deserialize)]
 #[bitwarden_ffi::wasm_record]
 pub struct AutotypeCredentials {
-    /// The [`AppMetadata`] from the request, so main can confirm the focused app hasn't changed.
-    pub metadata: AppMetadata,
     /// The matching vault item's username.
     pub username: String,
     /// The matching vault item's password.
@@ -145,7 +131,6 @@ pub struct AutotypeCredentials {
 impl std::fmt::Debug for AutotypeCredentials {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AutotypeCredentials")
-            .field("metadata", &self.metadata)
             .field("username", &"[REDACTED]")
             .field("password", &"[REDACTED]")
             .finish()
@@ -273,11 +258,10 @@ impl JsAutotypeRenderDriver {
     async fn get_autotype_credentials(
         &self,
         app: AutotypeRunningApp,
-        metadata: AppMetadata,
     ) -> Option<AutotypeCredentials> {
         self.runner
             .run_in_thread(move |driver| async move {
-                let value = match driver.get_autotype_credentials(app, metadata).await {
+                let value = match driver.get_autotype_credentials(app).await {
                     Ok(value) => value,
                     Err(error) => {
                         tracing::error!(
@@ -497,9 +481,6 @@ impl RpcHandler for AutotypeListRunningAppsHandler {
 pub struct AutotypeGetCredentialsRequest {
     /// The focused app.
     pub app: AutotypeRunningApp,
-    /// The focused app's metadata, returned with the credentials so main can confirm the focused
-    /// app hasn't changed.
-    pub metadata: AppMetadata,
 }
 
 /// A response to an [`AutotypeGetCredentialsRequest`].
@@ -546,10 +527,7 @@ impl RpcHandler for AutotypeGetCredentialsHandler {
         }
 
         AutotypeGetCredentialsResponse {
-            credentials: self
-                .driver
-                .get_autotype_credentials(request.app, request.metadata)
-                .await,
+            credentials: self.driver.get_autotype_credentials(request.app).await,
         }
     }
 }
@@ -666,8 +644,9 @@ pub async fn autotype_request_list_running_apps(
 /// credentials to autotype into the focused app. The response's `credentials` is empty when no
 /// vault item matches.
 ///
-/// Before typing, check that `credentials.metadata` still matches the focused app. If it doesn't,
-/// the user has switched apps, and nothing should be typed.
+/// The response doesn't identify the app it's for. Keep the focused app's identity from before
+/// sending the request, and confirm that app is still focused before typing. If it isn't, the user
+/// has switched apps, and nothing should be typed.
 ///
 /// The render process must have called `registerAutotypeRenderHandlers` first. Otherwise the
 /// request fails (for example, with a "no handler found" error) or waits until `abort_signal`
@@ -680,13 +659,12 @@ pub async fn autotype_request_list_running_apps(
 pub async fn autotype_request_get_credentials(
     ipc_client: &JsIpcClient,
     app: AutotypeRunningApp,
-    metadata: AppMetadata,
     abort_signal: Option<AbortSignal>,
 ) -> Result<AutotypeGetCredentialsResponse, RequestError> {
     ipc_client
         .client
         .request(
-            AutotypeGetCredentialsRequest { app, metadata },
+            AutotypeGetCredentialsRequest { app },
             Endpoint::DesktopRenderer,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )

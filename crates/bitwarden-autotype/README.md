@@ -9,12 +9,12 @@ Noise-encrypted channels for use between the two desktop processes.
 
 ## Channels
 
-| Request                              | Direction     | Payload                                            | Response                                             |
-| ------------------------------------ | ------------- | -------------------------------------------------- | ---------------------------------------------------- |
-| `AutotypeSetEnabledRequest`          | render → main | `enabled: bool`                                    | `{ success: bool }`                                  |
-| `AutotypeSetKeyboardShortcutRequest` | render → main | `shortcut: Vec<String>`                            | `{ success: bool }`                                  |
-| `AutotypeListRunningAppsRequest`     | render → main | _(none)_                                           | `{ apps: AutotypeRunningApp[] }`                     |
-| `AutotypeGetCredentialsRequest`      | main → render | `app: AutotypeRunningApp`, `metadata: AppMetadata` | `{ credentials?: { metadata, username, password } }` |
+| Request                              | Direction     | Payload                   | Response                                   |
+| ------------------------------------ | ------------- | ------------------------- | ------------------------------------------ |
+| `AutotypeSetEnabledRequest`          | render → main | `enabled: bool`           | `{ success: bool }`                        |
+| `AutotypeSetKeyboardShortcutRequest` | render → main | `shortcut: Vec<String>`   | `{ success: bool }`                        |
+| `AutotypeListRunningAppsRequest`     | render → main | _(none)_                  | `{ apps: AutotypeRunningApp[] }`           |
+| `AutotypeGetCredentialsRequest`      | main → render | `app: AutotypeRunningApp` | `{ credentials?: { username, password } }` |
 
 Each process registers the handlers for the requests it receives, backed by its own driver:
 
