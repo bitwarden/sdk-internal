@@ -16,7 +16,7 @@ use tracing::warn;
 
 use crate::{
     Client,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
+    key_management::{KeySlotIds, PinLength, SymmetricKeySlotId},
 };
 
 /// Pin unlock can be configured to use one of two modes. Before-first-unlock and
@@ -161,25 +161,35 @@ impl PinLockSystem<'_> {
             .await
             .ok_or(UnlockError::NoPinSet)?;
 
-        // Unseal to key ctx
-        let mut ctx = self.key_store().context_mut();
-        let key_slot = pin_envelope
-            .unseal(
-                pin,
-                PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
-                &mut ctx,
-            )
-            .map_err(|e| match e {
-                bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeError::WrongPassword => {
-                    UnlockError::PinWrong
-                }
-                _ => UnlockError::InternalError,
-            })?;
+        {
+            // Unseal to key ctx
+            let mut ctx = self.key_store().context_mut();
+            let key_slot = pin_envelope
+                .unseal(
+                    pin,
+                    PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+                    &mut ctx,
+                )
+                .map_err(|e| match e {
+                    bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeError::WrongPassword => {
+                        UnlockError::PinWrong
+                    }
+                    _ => UnlockError::InternalError,
+                })?;
 
-        // The key is currently in the local ctx and would be dropped when ctx goes out of scope.
-        // Persist it to the keystore
-        ctx.persist_symmetric_key(key_slot, SymmetricKeySlotId::User)
-            .map_err(|_| UnlockError::InternalError)
+            // The key is currently in the local ctx and would be dropped when ctx goes out of
+            // scope. Persist it to the keystore
+            ctx.persist_symmetric_key(key_slot, SymmetricKeySlotId::User)
+                .map_err(|_| UnlockError::InternalError)?;
+        }
+
+        // PINs set before their length was stored get it on their next unlock.
+        self.client
+            .km_state_bridge()
+            .set_pin_length(&PinLength::of(pin))
+            .await;
+
+        Ok(())
     }
 
     /// Brings the PIN enrollment in line with the current user key.
@@ -325,6 +335,7 @@ impl PinLockSystem<'_> {
             .clear_ephemeral_pin_envelope()
             .await;
         self.client.km_state_bridge().clear_encrypted_pin().await;
+        self.client.km_state_bridge().clear_pin_length().await;
 
         let pin_envelope: PasswordProtectedKeyEnvelope = PasswordProtectedKeyEnvelope::seal(
             SymmetricKeySlotId::User,
@@ -343,6 +354,10 @@ impl PinLockSystem<'_> {
         self.client
             .km_state_bridge()
             .set_encrypted_pin(&encrypted_pin)
+            .await;
+        self.client
+            .km_state_bridge()
+            .set_pin_length(&PinLength::of(&pin))
             .await;
         self.client
             .km_state_bridge()
@@ -370,6 +385,17 @@ impl PinLockSystem<'_> {
             .clear_ephemeral_pin_envelope()
             .await;
         self.client.km_state_bridge().clear_encrypted_pin().await;
+        self.client.km_state_bridge().clear_pin_length().await;
+    }
+
+    /// Returns the number of characters in the PIN, readable while locked. `None` when no PIN is
+    /// set, or for a PIN set before its length was stored that hasn't unlocked since.
+    pub async fn get_pin_length(&self) -> Option<u32> {
+        self.client
+            .km_state_bridge()
+            .get_pin_length()
+            .await
+            .map(|length| length.0)
     }
 
     /// Returns the lock type for the currently configured PIN.
@@ -1284,5 +1310,66 @@ mod tests {
         system.on_unlock().await;
 
         assert_pin_fully_unenrolled(&client).await;
+    }
+
+    // ------------------------------------------------------------------------------------
+    // PIN length
+    // ------------------------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn set_pin_stores_its_length() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+
+        system
+            .set_pin("123456".into(), PinLockType::AfterFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+
+        assert_eq!(system.get_pin_length().await, Some(6));
+    }
+
+    #[tokio::test]
+    async fn unset_pin_clears_its_length() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+
+        system.unset_pin().await;
+
+        assert_eq!(system.get_pin_length().await, None);
+    }
+
+    #[tokio::test]
+    async fn unlock_stores_the_length_of_a_pin_set_before_lengths_were() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("12345".into(), PinLockType::BeforeFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+        client.km_state_bridge().clear_pin_length().await;
+
+        assert!(system.unlock("12345").await.is_ok());
+
+        assert_eq!(system.get_pin_length().await, Some(5));
+    }
+
+    #[tokio::test]
+    async fn wrong_pin_leaves_the_length_unset() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("12345".into(), PinLockType::BeforeFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+        client.km_state_bridge().clear_pin_length().await;
+
+        let _ = system.unlock("123").await;
+
+        assert_eq!(system.get_pin_length().await, None);
     }
 }
