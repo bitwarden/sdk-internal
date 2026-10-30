@@ -19,11 +19,7 @@ use bitwarden_pam_sealed::{
 use bitwarden_vault::CipherId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 use uuid::Uuid;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     actions::{RotationConfigActions, rotation_config_actions},
@@ -181,7 +177,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, RotationConfigView> for Rotatio
 /// A managed credential: the link between a vault cipher and the target system its credential is
 /// rotated against, with its sealed fields unsealed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct RotationConfigView {
     /// The config's unique identifier.
@@ -223,7 +219,7 @@ pub struct RotationConfigView {
 
 /// Security-relevant fields of a rotation config; the server only stores them sealed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct RotationConfigSealedFields {
     /// The account within the target system, e.g. a username or UPN.
@@ -315,7 +311,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, RotationConfigDetailView>
 
 /// A config together with its rotation history.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct RotationConfigDetailView {
     /// The config itself.
@@ -326,7 +322,7 @@ pub struct RotationConfigDetailView {
 
 /// Request to create or update a rotation config.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct RotationConfigCreateRequest {
     /// The vault cipher whose credential this config will manage.
@@ -397,14 +393,14 @@ impl TryFrom<RotationConfigCreateRequest> for ValidatedRotationConfig {
 }
 
 /// Client for PAM managed-credential (rotation config) operations.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct RotationConfigsClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl RotationConfigsClient {
     /// Lists the organization's rotation configs.
     pub async fn list(
@@ -644,7 +640,7 @@ impl RotationConfigsClient {
     }
 
     /// Which actions a config offers, given the status of its target system. Exposed here because
-    /// a tsify struct crosses the WASM boundary as plain data, without
+    /// a `wasm_record` struct crosses the WASM boundary as plain data, without
     /// [`RotationConfigView::actions`].
     pub fn actions(
         &self,
@@ -877,7 +873,7 @@ mod tests {
             TargetSystemSealedV1 {
                 target_system_id: target_system_id().into(),
                 method: SealedTargetSystemMethod::Automatic,
-                kind: Some(SealedTargetSystemKind::Mssql),
+                kind: Some(SealedTargetSystemKind::CustomScript),
                 password_policy: SealedPasswordPolicy {
                     min_length: 14,
                     max_length: 20,
@@ -1626,7 +1622,7 @@ mod tests {
                             TargetSystemSealedV1 {
                                 target_system_id: target_system_id().into(),
                                 method: SealedTargetSystemMethod::Automatic,
-                                kind: Some(SealedTargetSystemKind::Mssql),
+                                kind: Some(SealedTargetSystemKind::CustomScript),
                                 password_policy: SealedPasswordPolicy {
                                     min_length: 14,
                                     max_length: 20,

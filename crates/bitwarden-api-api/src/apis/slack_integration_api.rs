@@ -27,10 +27,18 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SlackIntegrationApi: Send + Sync {
     /// GET /organizations/integrations/slack/create
-    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error>;
+    async fn create<'a>(
+        &self,
+        code: Option<&'a str>,
+        state: Option<&'a str>,
+        error: Option<&'a str>,
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/integrations/slack/redirect
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
+    async fn redirect<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<models::OrganizationIntegrationOAuthRedirectResponseModel, Error>;
 }
 
 pub struct SlackIntegrationApiClient {
@@ -46,7 +54,12 @@ impl SlackIntegrationApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SlackIntegrationApi for SlackIntegrationApiClient {
-    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error> {
+    async fn create<'a>(
+        &self,
+        code: Option<&'a str>,
+        state: Option<&'a str>,
+        error: Option<&'a str>,
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -66,12 +79,19 @@ impl SlackIntegrationApi for SlackIntegrationApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("state", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = error {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("error", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
+    async fn redirect<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<models::OrganizationIntegrationOAuthRedirectResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -86,6 +106,6 @@ impl SlackIntegrationApi for SlackIntegrationApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 }
