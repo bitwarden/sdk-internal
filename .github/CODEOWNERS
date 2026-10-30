@@ -66,6 +66,7 @@ crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
 crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
+crates/hibp-bulk/** @bitwarden/team-key-management-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
 # Integration tests and test vectors are shared between teams; only team folders have an owner.
