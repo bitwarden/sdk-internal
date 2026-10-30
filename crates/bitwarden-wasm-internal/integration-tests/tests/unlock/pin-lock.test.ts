@@ -1,5 +1,11 @@
 import { PasswordManagerClient, type WasmStateBridge } from "@bitwarden/sdk-internal";
-import { makeInitializedPasswordmanagerClient, makeStateBridge, TEST_PIN } from "../utils";
+import {
+  initializeUserCrypto,
+  makeInitializedPasswordmanagerClient,
+  makePasswordManagerClient,
+  makeStateBridge,
+  TEST_PIN,
+} from "../utils";
 
 describe("pin lock tests", () => {
   let client: PasswordManagerClient;
@@ -55,5 +61,37 @@ describe("pin lock tests", () => {
     expect(await stateBridge.get_encrypted_pin()).toBeNull();
     expect(await stateBridge.get_persistent_pin_envelope()).toBeNull();
     expect(await stateBridge.get_ephemeral_pin_envelope()).toBeNull();
+  });
+
+  it("stores the PIN length on set and clears it on unset", async () => {
+    const pinSettings = client.user_crypto_management().pin_settings();
+
+    await pinSettings.set_pin(TEST_PIN, "AfterFirstUnlock");
+
+    expect(await stateBridge.get_pin_length()).toBe(TEST_PIN.length);
+    expect(await pinSettings.get_pin_length()).toBe(TEST_PIN.length);
+
+    await pinSettings.unset_pin();
+
+    expect(await stateBridge.get_pin_length()).toBeNull();
+    expect(await pinSettings.get_pin_length()).toBeUndefined();
+  });
+
+  it("stores the length of a PIN set before lengths were, on unlock", async () => {
+    const bridge = makeStateBridge();
+    const setupClient = await makeInitializedPasswordmanagerClient(bridge);
+    await setupClient
+      .user_crypto_management()
+      .pin_settings()
+      .set_pin(TEST_PIN, "BeforeFirstUnlock");
+    // Emulates a PIN set before lengths were stored.
+    await bridge.clear_pin_length();
+
+    const unlockedClient = makePasswordManagerClient(bridge);
+    await initializeUserCrypto(unlockedClient, { pinState: { pin: TEST_PIN } });
+
+    expect(await unlockedClient.user_crypto_management().pin_settings().get_pin_length()).toBe(
+      TEST_PIN.length,
+    );
   });
 });

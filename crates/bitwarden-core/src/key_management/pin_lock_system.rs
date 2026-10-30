@@ -8,7 +8,7 @@
 //! with an unlock.
 
 use bitwarden_crypto::{
-    Decryptable, KeyId, KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm,
+    Decryptable, EncString, KeyId, KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace},
 };
 use serde::{Deserialize, Serialize};
@@ -189,12 +189,6 @@ impl PinLockSystem<'_> {
                 .map_err(|_| UnlockError::InternalError)?;
         }
 
-        // PINs set before their length was stored get it on their next unlock.
-        self.client
-            .km_state_bridge()
-            .set_pin_length(&pin_length(pin))
-            .await;
-
         Ok(())
     }
 
@@ -284,6 +278,8 @@ impl PinLockSystem<'_> {
             return;
         };
 
+        self.backfill_pin_length(&encrypted_pin).await;
+
         // Re-sealing runs a full KDF. Clients that re-initialize crypto for an already unlocked
         // session (e.g. a browser popup) would pay it on every initialization, so keep an existing
         // envelope that already holds the current user key.
@@ -326,6 +322,30 @@ impl PinLockSystem<'_> {
         self.client
             .km_state_bridge()
             .set_ephemeral_pin_envelope(&pin_envelope)
+            .await;
+    }
+
+    /// Stores the length of a PIN set before lengths were stored.
+    ///
+    /// Decrypting the encrypted PIN needs the user key, so this runs on unlock.
+    async fn backfill_pin_length(&self, encrypted_pin: &EncString) {
+        if self.get_pin_length().await.is_some() {
+            return;
+        }
+
+        // Statement scoped, so the key context is dropped before the await below.
+        let pin: Result<String, _> = encrypted_pin.decrypt(
+            &mut self.key_store().context_mut(),
+            SymmetricKeySlotId::User,
+        );
+        let Ok(pin) = pin else {
+            warn!("Failed to decrypt PIN to store its length");
+            return;
+        };
+
+        self.client
+            .km_state_bridge()
+            .set_pin_length(&pin_length(&pin))
             .await;
     }
 
@@ -1352,7 +1372,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unlock_stores_the_length_of_a_pin_set_before_lengths_were() {
+    async fn on_unlock_stores_the_length_of_a_pin_set_before_lengths_were() {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
@@ -1361,23 +1381,8 @@ mod tests {
             .expect("set_pin succeeds");
         client.km_state_bridge().clear_pin_length().await;
 
-        assert!(system.unlock("12345").await.is_ok());
+        system.on_unlock().await;
 
         assert_eq!(system.get_pin_length().await, Some(5));
-    }
-
-    #[tokio::test]
-    async fn wrong_pin_leaves_the_length_unset() {
-        let client = client_with_user_key();
-        let system = PinLockSystem::with_client(&client);
-        system
-            .set_pin("12345".into(), PinLockType::BeforeFirstUnlock)
-            .await
-            .expect("set_pin succeeds");
-        client.km_state_bridge().clear_pin_length().await;
-
-        let _ = system.unlock("123").await;
-
-        assert_eq!(system.get_pin_length().await, None);
     }
 }
