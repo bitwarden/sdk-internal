@@ -16,6 +16,7 @@
 use proc_macro::TokenStream;
 
 mod attrs;
+mod ts_type;
 mod wasm_export;
 mod wasm_import;
 mod wasm_object;
@@ -34,6 +35,18 @@ mod wasm_record;
 /// marked `#[deprecated]` so it shows struck through in IDE autocomplete. Takes an optional
 /// `note = "..."` for that deprecation. The JS name is unaffected: the original name is declared as
 /// the method's `js_name`, unless it already declares one.
+///
+/// # Stream return types
+///
+/// wasm_bindgen types a `BwStream<T>` as `any`, so a method returning one, directly or as the `Ok`
+/// of a `Result`, gets an `unchecked_return_type` inferred from its tokens: `AsyncIterable<T>`,
+/// with a `Result<T, E>` item as `BwResult<T, E>`. Inside it, `Box<T>` is `T`, `Vec<T>` is `T[]`
+/// (a typed array for numbers), `Option<T>` is `T | undefined`, and primitives map as in
+/// wasm_bindgen. Any other type is named by its last path segment, which is right for a
+/// `#[wasm_record]` or `#[wasm_object]` type unless it is renamed for JavaScript (`js_name`,
+/// `#[serde(rename)]`) or reached through a type alias; declare the type explicitly then. Tuples,
+/// references other than `&str`, `Self` and other generic types fail to compile and need an
+/// explicit attribute. An explicit `unchecked_return_type` always wins.
 ///
 /// # Example
 ///
