@@ -220,7 +220,8 @@ export class PublicKeyEncryptionKeyPairResponse {
   object!: "publicKeyEncryptionKeyPair";
   wrappedPrivateKey!: string;
   publicKey!: string;
-  signedPublicKey?: string;
+  /** A real server sends `null` where the emulator omits the field. */
+  signedPublicKey?: string | null;
 }
 
 export class SignatureKeyPairResponse {
@@ -240,8 +241,9 @@ export type AccountKeysBody = Omit<AccountKeysResponse, "toAccountCryptographicS
 export class AccountKeysResponse {
   object!: "privateKeys";
   publicKeyEncryptionKeyPair!: PublicKeyEncryptionKeyPairResponse;
-  signatureKeyPair?: SignatureKeyPairResponse;
-  securityState?: SecurityStateResponse;
+  // A V1 account has neither. A real server sends `null` for them, and the emulator omits them.
+  signatureKeyPair?: SignatureKeyPairResponse | null;
+  securityState?: SecurityStateResponse | null;
 
   /**
    * These keys as an instance, from the fields alone.
@@ -265,11 +267,11 @@ export class AccountKeysResponse {
   toAccountCryptographicState(): WrappedAccountCryptographicState {
     const { publicKeyEncryptionKeyPair: pair, signatureKeyPair, securityState } = this;
 
-    if (signatureKeyPair === undefined || securityState === undefined) {
+    if (!signatureKeyPair || !securityState) {
       return { V1: { private_key: asEncString(pair.wrappedPrivateKey) } };
     }
 
-    if (pair.signedPublicKey === undefined) {
+    if (!pair.signedPublicKey) {
       throw new Error("V2 account has no signed public key");
     }
 
@@ -638,7 +640,7 @@ export class MasterPasswordUnlockResponse {
   kdf!: KdfModel;
   masterKeyEncryptedUserKey!: string;
   salt!: string;
-  containedKeyId?: string;
+  containedKeyId?: string | null;
 
   static fromStored(unlock: StoredMasterPasswordUnlock): MasterPasswordUnlockResponse {
     return {
@@ -728,9 +730,10 @@ export class V2UpgradeTokenResponse {
  * `webAuthnPrfOptions` is omitted until an account vector has any.
  */
 export class UserDecryptionResponse {
-  masterPasswordUnlock?: MasterPasswordUnlockResponse;
-  v2UpgradeToken?: V2UpgradeTokenResponse;
-  userKeyId?: string;
+  // A real server sends `null` for what an account lacks, where the emulator omits the field.
+  masterPasswordUnlock?: MasterPasswordUnlockResponse | null;
+  v2UpgradeToken?: V2UpgradeTokenResponse | null;
+  userKeyId?: string | null;
 
   static fromUser(user: UserEntity): UserDecryptionResponse {
     return {

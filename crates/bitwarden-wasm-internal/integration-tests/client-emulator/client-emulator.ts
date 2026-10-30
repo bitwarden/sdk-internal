@@ -89,8 +89,10 @@ export class ClientEmulator {
     this.local.organizationKeys = Object.fromEntries(
       synced.profile.organizations.map((organization) => [organization.id, organization.key]),
     );
-    const unlock = synced.userDecryption.masterPasswordUnlock;
-    const { v2UpgradeToken, userKeyId } = synced.userDecryption;
+    // A real server sends `null` for what the account lacks, where the emulator omits the field.
+    const unlock = synced.userDecryption.masterPasswordUnlock ?? undefined;
+    const v2UpgradeToken = synced.userDecryption.v2UpgradeToken ?? undefined;
+    const userKeyId = synced.userDecryption.userKeyId ?? undefined;
 
     const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
@@ -106,8 +108,7 @@ export class ClientEmulator {
                 masterKeyWrappedUserKey: asEncString(unlock.masterKeyEncryptedUserKey),
                 salt: unlock.salt,
                 kdf: toKdf(unlock.kdf),
-                containedKeyId:
-                  unlock.containedKeyId === undefined ? undefined : asKeyId(unlock.containedKeyId),
+                containedKeyId: unlock.containedKeyId ? asKeyId(unlock.containedKeyId) : undefined,
               },
         v2UpgradeToken:
           v2UpgradeToken === undefined
