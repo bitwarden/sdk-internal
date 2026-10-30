@@ -46,6 +46,11 @@ pub use cipher_client::{
     GetAssignedOrgCiphersAdminError, GetCipherError, GetOrganizationCiphersAdminError,
     MoveCipherError, RestoreCipherError, should_use_blob_encryption,
 };
+#[cfg(feature = "wasm")]
+pub use cipher_client::{
+    CipherAsyncDecryptStream, CipherDecryptStream, DecryptStreamError, RawJsAsyncCipherSource,
+    RawJsCipherSource,
+};
 pub use cipher_view_type::CipherViewType;
 pub use drivers_license::DriversLicenseView;
 #[cfg(feature = "wasm")]
