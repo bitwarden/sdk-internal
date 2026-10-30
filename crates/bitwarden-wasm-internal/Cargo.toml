@@ -67,6 +67,7 @@ bitwarden-server-communication-config = { workspace = true, features = ["wasm"] 
 bitwarden-shared-unlock = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
 bitwarden-state = { workspace = true, features = ["wasm"] }
+bitwarden-sync = { workspace = true }
 bitwarden-threading = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
@@ -85,6 +86,9 @@ tsify-macros = { workspace = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
+
+[dev-dependencies]
+wasm-bindgen-test = { workspace = true }
 
 [lints]
 workspace = true

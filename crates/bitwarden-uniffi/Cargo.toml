@@ -50,6 +50,7 @@ bitwarden-send = { workspace = true, features = ["uniffi"] }
 bitwarden-server-communication-config = { workspace = true, features = ["uniffi"] }
 bitwarden-ssh = { workspace = true, features = ["uniffi"] }
 bitwarden-state = { workspace = true, features = ["uniffi"] }
+bitwarden-sync = { workspace = true }
 bitwarden-uniffi-error = { workspace = true }
 bitwarden-unlock = { workspace = true, features = ["uniffi"] }
 bitwarden-user-crypto-management = { workspace = true, features = ["uniffi"] }
@@ -73,6 +74,9 @@ tracing-oslog = "0.3.0"
 
 [build-dependencies]
 uniffi = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt"] }
 
 [lints]
 workspace = true
