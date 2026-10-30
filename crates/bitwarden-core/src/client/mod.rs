@@ -39,8 +39,8 @@ pub use builder::ClientBuilder;
 pub(crate) use builder::build_default_headers;
 pub use client::Client;
 pub use client_settings::{
-    ClientName, ClientSettings, DeviceType, HostPlatformInfo, get_host_platform_info,
-    init_host_platform_info,
+    ClientContext, ClientName, ClientSettings, DeviceType, HostPlatformInfo,
+    get_host_platform_info, init_host_platform_info,
 };
 
 #[allow(missing_docs)]

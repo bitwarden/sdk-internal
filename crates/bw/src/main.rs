@@ -296,5 +296,6 @@ fn init_cli_platform_info() {
         device_identifier: None,
         bitwarden_client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
         bitwarden_package_type: Some("cli".to_string()),
+        context: bitwarden_core::ClientContext::Cli,
     });
 }

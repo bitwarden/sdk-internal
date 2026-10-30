@@ -4,12 +4,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Basic client behavior settings. These settings specify the various targets and behavior of the
-/// Bitwarden Client. They are optional and uneditable once the client is initialized.
+/// Bitwarden Client. They are uneditable once the client is initialized. All but `context` are
+/// optional.
 ///
 /// Defaults to
 ///
 /// ```
-/// # use bitwarden_core::{ClientSettings, DeviceType};
+/// # use bitwarden_core::{ClientContext, ClientSettings, DeviceType};
 /// let settings = ClientSettings {
 ///     identity_url: "https://identity.bitwarden.com".to_string(),
 ///     api_url: "https://api.bitwarden.com".to_string(),
@@ -18,45 +19,102 @@ use serde::{Deserialize, Serialize};
 ///     bitwarden_client_version: None,
 ///     bitwarden_package_type: None,
 ///     device_identifier: None,
+///     context: ClientContext::Cli,
 /// };
 /// let default = ClientSettings::default();
 /// ```
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
-#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[bitwarden_ffi::wasm_record]
 pub struct ClientSettings {
     /// The identity url of the targeted Bitwarden instance. Defaults to `https://identity.bitwarden.com`
+    #[serde(default = "default_identity_url")]
     pub identity_url: String,
     /// The api url of the targeted Bitwarden instance. Defaults to `https://api.bitwarden.com`
+    #[serde(default = "default_api_url")]
     pub api_url: String,
     /// The user_agent to sent to Bitwarden. Defaults to `Bitwarden Rust-SDK`
+    #[serde(default = "default_user_agent")]
     pub user_agent: String,
     /// Device type to send to Bitwarden. Defaults to SDK
+    #[serde(default = "default_device_type")]
     pub device_type: DeviceType,
 
     // TODO: PM-29939 - Remove optionality when all clients pass these values
     /// Device identifier to send to Bitwarden. Optional for now in transition period.
+    #[serde(default)]
     pub device_identifier: Option<String>,
     /// Bitwarden Client Version to send to Bitwarden. Optional for now in transition period.
+    #[serde(default)]
     pub bitwarden_client_version: Option<String>,
     /// Bitwarden Package Type to send to Bitwarden. We should evaluate this field to see if it
     /// should be optional later.
+    #[serde(default)]
     pub bitwarden_package_type: Option<String>,
+
+    /// Where in the application this client runs. Required: work that only one context of an
+    /// application should do, such as migrations, depends on it.
+    pub context: ClientContext,
 }
 
+fn default_identity_url() -> String {
+    "https://identity.bitwarden.com".into()
+}
+
+fn default_api_url() -> String {
+    "https://api.bitwarden.com".into()
+}
+
+fn default_user_agent() -> String {
+    "Bitwarden Rust-SDK".into()
+}
+
+fn default_device_type() -> DeviceType {
+    DeviceType::SDK
+}
+
+/// For Rust callers and tests. Bindings must pass `context`, which has no default.
 impl Default for ClientSettings {
     fn default() -> Self {
         Self {
-            identity_url: "https://identity.bitwarden.com".into(),
-            api_url: "https://api.bitwarden.com".into(),
-            user_agent: "Bitwarden Rust-SDK".into(),
-            device_type: DeviceType::SDK,
+            identity_url: default_identity_url(),
+            api_url: default_api_url(),
+            user_agent: default_user_agent(),
+            device_type: default_device_type(),
             device_identifier: None,
             bitwarden_client_version: None,
             bitwarden_package_type: None,
+            context: ClientContext::Cli,
         }
     }
+}
+
+/// Where in the application a client runs.
+///
+/// An application can run several clients for one user at once, e.g. a browser extension's
+/// background and each of its open popups. Work that must happen once per application, such as
+/// migrations, belongs to one of them.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, JsonSchema, PartialEq, Eq)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[bitwarden_ffi::wasm_record]
+pub enum ClientContext {
+    /// Browser extension background: the service worker, or the background page.
+    BrowserBackground,
+    /// Browser extension foreground: a popup, sidebar or extension page.
+    BrowserForeground,
+    /// Desktop app main process.
+    DesktopBackground,
+    /// Desktop app renderer.
+    DesktopForeground,
+    /// Web vault.
+    Web,
+    /// Command line interface.
+    Cli,
+    /// iOS app.
+    Ios,
+    /// Android app.
+    Android,
 }
 
 #[allow(non_camel_case_types, missing_docs)]
@@ -164,6 +222,7 @@ pub struct HostPlatformInfo {
     pub device_identifier: Option<String>,
     pub bitwarden_client_version: Option<String>,
     pub bitwarden_package_type: Option<String>,
+    pub context: ClientContext,
 }
 
 impl From<&ClientSettings> for HostPlatformInfo {
@@ -174,6 +233,7 @@ impl From<&ClientSettings> for HostPlatformInfo {
             device_identifier: settings.device_identifier.clone(),
             bitwarden_client_version: settings.bitwarden_client_version.clone(),
             bitwarden_package_type: settings.bitwarden_package_type.clone(),
+            context: settings.context,
         }
     }
 }
@@ -207,6 +267,7 @@ impl HostPlatformInfo {
             device_identifier: self.device_identifier.clone(),
             bitwarden_client_version: self.bitwarden_client_version.clone(),
             bitwarden_package_type: self.bitwarden_package_type.clone(),
+            context: self.context,
             api_url,
             identity_url,
         }
@@ -216,6 +277,24 @@ impl HostPlatformInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_without_context_are_rejected() {
+        let result = serde_json::from_str::<ClientSettings>("{}");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn settings_default_everything_but_context() {
+        let settings: ClientSettings =
+            serde_json::from_str(r#"{ "context": "BrowserForeground" }"#).unwrap();
+
+        assert_eq!(settings.context, ClientContext::BrowserForeground);
+        assert_eq!(settings.api_url, "https://api.bitwarden.com");
+        assert_eq!(settings.device_type, DeviceType::SDK);
+        assert_eq!(settings.device_identifier, None);
+    }
 
     // `OnceLock` is process-global. Any test in this binary that calls
     // `init_host_platform_info` may have run first, so we cannot assert what
@@ -229,6 +308,7 @@ mod tests {
             device_identifier: Some("dev-1".into()),
             bitwarden_client_version: Some("1.0.0".into()),
             bitwarden_package_type: Some("test".into()),
+            context: ClientContext::Cli,
         };
         init_host_platform_info(first);
 
@@ -242,6 +322,7 @@ mod tests {
             device_identifier: Some("dev-2".into()),
             bitwarden_client_version: Some("2.0.0".into()),
             bitwarden_package_type: Some("test".into()),
+            context: ClientContext::Cli,
         };
         init_host_platform_info(second);
 

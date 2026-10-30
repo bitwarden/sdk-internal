@@ -125,6 +125,7 @@ mod tests {
             device_identifier: None,
             bitwarden_client_version: None,
             bitwarden_package_type: None,
+            context: crate::ClientContext::Cli,
         }
     }
 

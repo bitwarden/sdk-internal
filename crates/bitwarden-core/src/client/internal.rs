@@ -13,8 +13,8 @@ use bitwarden_state::registry::StateRegistry;
 use tracing::{debug, info};
 
 use crate::{
-    DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
-    key_management::KeySlotIds,
+    ClientContext, DeviceType, UserId, auth::auth_tokens::TokenHandler,
+    error::UserIdAlreadySetError, key_management::KeySlotIds,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::{
@@ -134,9 +134,17 @@ pub struct InternalClient {
     /// channel. The host application owns this cell and pushes profiles into it. The SDK only
     /// reads. Shared with the host, so updates are observed without rebuilding the client.
     pub(crate) managed_profile: Arc<RwLock<Option<ManagementProfile>>>,
+
+    /// Where in the application this client runs.
+    pub(crate) context: ClientContext,
 }
 
 impl InternalClient {
+    /// Where in the application this client runs, as given in its [`crate::ClientSettings`].
+    pub fn client_context(&self) -> ClientContext {
+        self.context
+    }
+
     #[cfg(feature = "internal")]
     pub(crate) async fn get_login_method(&self) -> Option<UserLoginMethod> {
         self.state_registry

@@ -122,6 +122,7 @@ mod tests {
             device_identifier: None,
             bitwarden_client_version: None,
             bitwarden_package_type: None,
+            context: bitwarden_core::ClientContext::Cli,
         };
         let core_client = CoreClient::new(Some(settings));
         core_client.auth_new().send_access()

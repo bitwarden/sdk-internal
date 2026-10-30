@@ -180,6 +180,7 @@ impl ClientBuilder {
                 state_bridge: StateBridge::new(),
                 state_registry: Arc::new(state_registry),
                 managed_profile,
+                context: settings.context,
             }),
         };
 
