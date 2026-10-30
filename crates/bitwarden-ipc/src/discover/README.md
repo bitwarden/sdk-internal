@@ -51,6 +51,21 @@ println!("Remote version: {}", response.version);
 # }
 ```
 
+### Waiting for a peer
+
+`wait_for_peer` retries discover requests until the destination answers or the optional cancellation
+token is cancelled. Use it before sending to a peer that may not have started yet, since messages
+sent before then are lost:
+
+```rust,no_run
+# use bitwarden_ipc::{*, discover::*};
+# async fn test(ipc_client: impl IpcClient, destination_endpoint: Endpoint) -> Result<(), Box<dyn std::error::Error>> {
+let response = wait_for_peer(&ipc_client, destination_endpoint, None).await?;
+println!("Remote version: {}", response.version);
+# Ok(())
+# }
+```
+
 ### WASM
 
 In WASM contexts, two functions are exported:
