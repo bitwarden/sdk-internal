@@ -62,3 +62,21 @@ npm run perf -- memory             # memory, one process per harness file
 ```
 
 Compare builds by running the same harness with a different `PERF_LABEL` for each.
+
+## Iterator harnesses
+
+Compare listing the vault from state in one call (`list`) with `list_iterable`, which reads the
+cipher repository a chunk at a time and yields one result per cipher, and with decrypting a vault
+array the client passes in (`decrypt_list_with_failures`). The state is a client-managed repository
+in JavaScript, registered as a web client registers its own. They share their setup with the decrypt
+list harnesses.
+
+```sh
+npm run perf -- iterator.perf      # time per mode
+./perf/iterator-memory.sh          # WASM memory growth per mode, one process each
+PERF_STREAM_MODE=list-iterable npm run perf -- iterator-memory   # a single mode
+./perf/iterable-gc.sh              # whether iterables left early are reclaimed, with and without gc()
+```
+
+WASM memory never shrinks, so each memory run must be its own process. `npm run perf` runs the
+memory harnesses once, in their default modes.
