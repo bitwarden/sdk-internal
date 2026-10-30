@@ -1,8 +1,12 @@
 //! WASM bindings for the autotype IPC requests, exposed to the clients through
 //! `@bitwarden/sdk-internal`.
 //!
-//! The `AutotypeDriver` interface is implemented by the user of this crate (for
-//! example, within the Bitwarden desktop app).
+//! There is one driver interface per desktop process, each implemented by the user of this
+//! crate (for example, within the Bitwarden desktop app):
+//! - `AutotypeDriver` handles requests in the main process, registered with
+//!   `registerAutotypeHandlers`.
+//! - `AutotypeRenderDriver` handles requests in the render process, registered with
+//!   `registerAutotypeRenderHandlers`.
 
 use bitwarden_ipc::{
     Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest, RpcRequestInfo, Source,
@@ -19,8 +23,8 @@ use wasm_bindgen_futures::js_sys;
 
 #[wasm_bindgen(typescript_custom_section)]
 /// `TS_AUTOTYPE_TYPES` defines the TypeScript types for bindgen.
-/// The AutotypeDriver interface is a TS interface that will be implemented
-/// by the user of this crate (e.g. in the Bitwarden desktop app).
+/// The AutotypeDriver and AutotypeRenderDriver interfaces are TS interfaces that will be
+/// implemented by the user of this crate (e.g. in the Bitwarden desktop app).
 const TS_AUTOTYPE_TYPES: &'static str = r#"
 export interface AutotypeDriver {
     /**
@@ -41,6 +45,22 @@ export interface AutotypeDriver {
      * `AutotypeRunningApp` are skipped.
      */
     list_running_apps(): Promise<AutotypeRunningApp[]>;
+}
+
+/**
+ * Applies Autotype requests in the desktop render process.
+ *
+ * Implement each method as an `async` function. A method that throws synchronously or returns
+ * a non-Promise value leaves the request without a response.
+ */
+export interface AutotypeRenderDriver {
+    /**
+     * Find the credentials to autotype into the focused app, as requested
+     * by the main process when the user presses the autotype shortcut.
+     * Returns the matching vault item's username and password, or
+     * `undefined` if nothing matches.
+     */
+    get_autotype_credentials(app: AutotypeRunningApp): Promise<AutotypeCredentials | undefined>;
 }
 "#;
 
@@ -70,6 +90,20 @@ extern "C" {
     /// entries that don't match `AutotypeRunningApp`.
     #[wasm_bindgen(method, catch)]
     async fn list_running_apps(this: &RawJsAutotypeDriver) -> Result<JsValue, JsValue>;
+
+    /// JavaScript implementation of the Autotype operations applied in the render process.
+    #[wasm_bindgen(js_name = AutotypeRenderDriver, typescript_type = "AutotypeRenderDriver")]
+    pub type RawJsAutotypeRenderDriver;
+
+    /// Find the credentials to autotype into the focused app, as requested by the main process.
+    /// The driver returns an `AutotypeCredentials` or `undefined`, received here as a raw
+    /// `JsValue` so `JsAutotypeRenderDriver::get_autotype_credentials` can reject malformed
+    /// credentials.
+    #[wasm_bindgen(method, catch)]
+    async fn get_autotype_credentials(
+        this: &RawJsAutotypeRenderDriver,
+        app: AutotypeRunningApp,
+    ) -> Result<JsValue, JsValue>;
 }
 
 /// A running application.
@@ -80,6 +114,27 @@ pub struct AutotypeRunningApp {
     pub name: String,
     /// Path to the app's executable.
     pub path: String,
+}
+
+/// The credentials the render process found for an [`AutotypeGetCredentialsRequest`].
+///
+/// `Debug` is implemented by hand so the username and password never reach logs.
+#[derive(Clone, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
+pub struct AutotypeCredentials {
+    /// The matching vault item's username.
+    pub username: String,
+    /// The matching vault item's password.
+    pub password: String,
+}
+
+impl std::fmt::Debug for AutotypeCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AutotypeCredentials")
+            .field("username", &"[REDACTED]")
+            .field("password", &"[REDACTED]")
+            .finish()
+    }
 }
 
 /// Wraps the JavaScript driver in a [`ThreadBoundRunner`] so it can be used from the `Send`
@@ -187,18 +242,75 @@ impl JsAutotypeDriver {
     }
 }
 
-/// Determines if a request came from the desktop render process.
+/// Wraps the JavaScript render driver in a [`ThreadBoundRunner`] so it can be used from the
+/// `Send` futures an [`RpcHandler`] is required to return.
+struct JsAutotypeRenderDriver {
+    runner: ThreadBoundRunner<RawJsAutotypeRenderDriver>,
+}
+
+impl JsAutotypeRenderDriver {
+    fn new(runner: ThreadBoundRunner<RawJsAutotypeRenderDriver>) -> Self {
+        Self { runner }
+    }
+
+    /// Finds the credentials to autotype into the focused app, as requested by the main process.
+    /// Returns `None` if nothing matches, or if the driver fails or returns malformed credentials.
+    async fn get_autotype_credentials(
+        &self,
+        app: AutotypeRunningApp,
+    ) -> Option<AutotypeCredentials> {
+        self.runner
+            .run_in_thread(move |driver| async move {
+                let value = match driver.get_autotype_credentials(app).await {
+                    Ok(value) => value,
+                    Err(error) => {
+                        tracing::error!(
+                            ?error,
+                            "Autotype render driver failed to get autotype credentials"
+                        );
+                        return None;
+                    }
+                };
+
+                // `undefined` (or `null`) is the normal reply when no vault item matches.
+                if value.is_undefined() || value.is_null() {
+                    return None;
+                }
+
+                // The deserialization error isn't logged, because it can quote the value it
+                // failed on, which may hold the credentials.
+                match serde_wasm_bindgen::from_value(value) {
+                    Ok(credentials) => Some(credentials),
+                    Err(_) => {
+                        tracing::warn!("Autotype render driver returned malformed credentials");
+                        None
+                    }
+                }
+            })
+            .await
+            .unwrap_or_else(|error| {
+                tracing::error!(
+                    ?error,
+                    "Autotype render runner failed to get autotype credentials"
+                );
+                None
+            })
+    }
+}
+
+/// Determines if a request came from the `expected` source.
 ///
 /// A rejection is logged with the request's
-/// [`RpcRequest::NAME`] and the source it came from.
-fn from_renderer(info: &RpcRequestInfo, request: &str) -> bool {
-    let allowed = matches!(info.source, Source::DesktopRenderer);
+/// [`RpcRequest::NAME`], the source it came from, and the source that was expected.
+fn from_source(info: &RpcRequestInfo, expected: Source, request: &str) -> bool {
+    let allowed = info.source == expected;
 
     if !allowed {
         tracing::warn!(
             request,
             source = ?info.source,
-            "Autotype rejected a request from a non-renderer source"
+            ?expected,
+            "Autotype rejected a request from an unexpected source"
         );
     }
     allowed
@@ -228,7 +340,7 @@ impl RpcRequest for AutotypeSetEnabledRequest {
 /// An [`RpcHandler`] that applies the requested state through a [`RawJsAutotypeDriver`].
 ///
 /// Only requests from the desktop renderer are applied; any other source is refused with
-/// `success: false` before the driver is called. See [`from_renderer`].
+/// `success: false` before the driver is called. See [`from_source`].
 struct AutotypeSetEnabledHandler {
     driver: JsAutotypeDriver,
 }
@@ -247,7 +359,7 @@ impl RpcHandler for AutotypeSetEnabledHandler {
         request: Self::Request,
         info: RpcRequestInfo,
     ) -> AutotypeSetEnabledResponse {
-        if !from_renderer(&info, Self::Request::NAME) {
+        if !from_source(&info, Source::DesktopRenderer, Self::Request::NAME) {
             return AutotypeSetEnabledResponse { success: false };
         }
 
@@ -281,7 +393,7 @@ impl RpcRequest for AutotypeSetKeyboardShortcutRequest {
 /// An [`RpcHandler`] that applies the requested shortcut through a [`RawJsAutotypeDriver`].
 ///
 /// Only requests from the desktop renderer are applied; any other source is refused with
-/// `success: false` before the shortcut reaches the driver. See [`from_renderer`].
+/// `success: false` before the shortcut reaches the driver. See [`from_source`].
 struct AutotypeSetKeyboardShortcutHandler {
     driver: JsAutotypeDriver,
 }
@@ -300,7 +412,7 @@ impl RpcHandler for AutotypeSetKeyboardShortcutHandler {
         request: Self::Request,
         info: RpcRequestInfo,
     ) -> AutotypeSetKeyboardShortcutResponse {
-        if !from_renderer(&info, Self::Request::NAME) {
+        if !from_source(&info, Source::DesktopRenderer, Self::Request::NAME) {
             return AutotypeSetKeyboardShortcutResponse { success: false };
         }
 
@@ -334,7 +446,7 @@ impl RpcRequest for AutotypeListRunningAppsRequest {
 /// An [`RpcHandler`] that lists running applications through a [`RawJsAutotypeDriver`].
 ///
 /// Only requests from the desktop renderer are answered; any other source gets an empty list
-/// without the driver being asked to enumerate anything. See [`from_renderer`].
+/// without the driver being asked to enumerate anything. See [`from_source`].
 struct AutotypeListRunningAppsHandler {
     driver: JsAutotypeDriver,
 }
@@ -353,7 +465,7 @@ impl RpcHandler for AutotypeListRunningAppsHandler {
         _: Self::Request,
         info: RpcRequestInfo,
     ) -> AutotypeListRunningAppsResponse {
-        if !from_renderer(&info, Self::Request::NAME) {
+        if !from_source(&info, Source::DesktopRenderer, Self::Request::NAME) {
             return AutotypeListRunningAppsResponse { apps: Vec::new() };
         }
 
@@ -363,8 +475,65 @@ impl RpcHandler for AutotypeListRunningAppsHandler {
     }
 }
 
+/// A request from the main process, sent when the user presses the Autotype shortcut, asking the
+/// render process for the credentials to autotype into the focused app.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutotypeGetCredentialsRequest {
+    /// The focused app.
+    pub app: AutotypeRunningApp,
+}
+
+/// A response to an [`AutotypeGetCredentialsRequest`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
+pub struct AutotypeGetCredentialsResponse {
+    /// The matching credentials, or `None` if no vault item matched.
+    #[tsify(optional)]
+    pub credentials: Option<AutotypeCredentials>,
+}
+
+impl RpcRequest for AutotypeGetCredentialsRequest {
+    type Response = AutotypeGetCredentialsResponse;
+
+    const NAME: &str = "AutotypeGetCredentialsRequest";
+}
+
+/// An [`RpcHandler`] that finds the credentials to autotype through a
+/// [`RawJsAutotypeRenderDriver`].
+///
+/// Only requests from the desktop main process are answered; any other source (including
+/// native-messaging peers that main forwards to the render process) gets no match without the
+/// driver being called, so it can't request credentials. See [`from_source`].
+struct AutotypeGetCredentialsHandler {
+    driver: JsAutotypeRenderDriver,
+}
+
+impl AutotypeGetCredentialsHandler {
+    fn new(driver: JsAutotypeRenderDriver) -> Self {
+        Self { driver }
+    }
+}
+
+impl RpcHandler for AutotypeGetCredentialsHandler {
+    type Request = AutotypeGetCredentialsRequest;
+
+    async fn handle(
+        &self,
+        request: Self::Request,
+        info: RpcRequestInfo,
+    ) -> AutotypeGetCredentialsResponse {
+        if !from_source(&info, Source::DesktopMain, Self::Request::NAME) {
+            return AutotypeGetCredentialsResponse { credentials: None };
+        }
+
+        AutotypeGetCredentialsResponse {
+            credentials: self.driver.get_autotype_credentials(request.app).await,
+        }
+    }
+}
+
 /// This registers the Autotype handlers so the client responds to Autotype requests through
-/// the `RawJsAutotypeDriver`.
+/// the `RawJsAutotypeDriver`. Call this on the desktop main process's IPC client.
 #[bitwarden_ffi::wasm_export(js_name = registerAutotypeHandlers)]
 pub async fn register_autotype_handlers(ipc_client: &JsIpcClient, driver: RawJsAutotypeDriver) {
     let runner = ThreadBoundRunner::new(driver);
@@ -386,6 +555,24 @@ pub async fn register_autotype_handlers(ipc_client: &JsIpcClient, driver: RawJsA
         .register_rpc_handler(AutotypeListRunningAppsHandler::new(JsAutotypeDriver::new(
             runner,
         )))
+        .await;
+}
+
+/// This registers the Autotype handlers so the client responds to Autotype requests from the
+/// main process through the `RawJsAutotypeRenderDriver`. Call this on the desktop render
+/// process's IPC client.
+#[bitwarden_ffi::wasm_export(js_name = registerAutotypeRenderHandlers)]
+pub async fn register_autotype_render_handlers(
+    ipc_client: &JsIpcClient,
+    driver: RawJsAutotypeRenderDriver,
+) {
+    let runner = ThreadBoundRunner::new(driver);
+
+    ipc_client
+        .client
+        .register_rpc_handler(AutotypeGetCredentialsHandler::new(
+            JsAutotypeRenderDriver::new(runner),
+        ))
         .await;
 }
 
@@ -448,6 +635,37 @@ pub async fn autotype_request_list_running_apps(
         .request(
             AutotypeListRunningAppsRequest,
             Endpoint::DesktopMain,
+            abort_signal.map(|signal| signal.to_cancellation_token()),
+        )
+        .await
+}
+
+/// Sends an `AutotypeGetCredentialsRequest` to the desktop render process, asking for the
+/// credentials to autotype into the focused app. The response's `credentials` is empty when no
+/// vault item matches.
+///
+/// The response doesn't identify the app it's for. Keep the focused app's identity from before
+/// sending the request, and confirm that app is still focused before typing. If it isn't, the user
+/// has switched apps, and nothing should be typed.
+///
+/// The render process must have called `registerAutotypeRenderHandlers` first. Otherwise the
+/// request fails (for example, with a "no handler found" error) or waits until `abort_signal`
+/// fires.
+///
+/// There is no built-in timeout, so always pass `abort_signal` (for example
+/// `AbortSignal.timeout(ms)`). Without one, the request never completes if the render process
+/// doesn't respond.
+#[bitwarden_ffi::wasm_export(js_name = autotypeRequestGetCredentials)]
+pub async fn autotype_request_get_credentials(
+    ipc_client: &JsIpcClient,
+    app: AutotypeRunningApp,
+    abort_signal: Option<AbortSignal>,
+) -> Result<AutotypeGetCredentialsResponse, RequestError> {
+    ipc_client
+        .client
+        .request(
+            AutotypeGetCredentialsRequest { app },
+            Endpoint::DesktopRenderer,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
         .await
