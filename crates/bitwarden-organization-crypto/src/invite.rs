@@ -183,12 +183,6 @@ generate_versioned_sealable!(
     ]
 );
 
-#[cfg(feature = "wasm")]
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_INVITE: &'static str = r#"
-export type Invite = Tagged<string, "Invite">;
-"#;
-
 /// Cryptographic invite for an organization, built around an XAES-256-GCM invite key that acts as
 /// the hub tying everything together. See the module-level docs for the overall diagram.
 #[derive(Clone)]
@@ -217,8 +211,7 @@ pub struct Invite {
 ///
 /// [`Invite`] itself serializes as its [`String`] form, so this mirror struct carries the actual
 /// JSON field layout. Keeping the two apart means an invite is a single opaque string wherever it
-/// is embedded — on the wire, in storage, and across the WASM boundary, where it is typed as
-/// `Tagged<string, "Invite">`.
+/// is embedded — on the wire and in storage.
 #[derive(Serialize, Deserialize)]
 struct SerializedInvite {
     sealed_invite_data: DataEnvelope,
@@ -689,8 +682,7 @@ mod tests {
         assert_eq!(invite_secret, recovered);
 
         // The custom serde impls delegate to the string round-trip: an invite must serialize as a
-        // single string, not as a struct. Callers (notably the WASM bindings, which type an invite
-        // as `Tagged<string, "Invite">`) depend on this.
+        // single string, not as a struct, matching how the server API carries it.
         let json = serde_json::to_string(&invite).unwrap();
         assert_eq!(json, serde_json::to_string(&encoded).unwrap());
         let from_json: Invite = serde_json::from_str(&json).unwrap();

@@ -163,7 +163,7 @@ describe("invite link client", () => {
       // The envelope is nulled out rather than dropped, and the other four are untouched.
       const stripped = JSON.parse(posted.invite);
       expect(stripped.invite_key_sealed_organization_key).toBeNull();
-      const original = JSON.parse(TEST_INVITE as unknown as string);
+      const original = JSON.parse(TEST_INVITE);
       expect(original.invite_key_sealed_organization_key).not.toBeNull();
       for (const key of [
         "sealed_invite_data",
@@ -178,9 +178,7 @@ describe("invite link client", () => {
     });
 
     it("re-seals the organization key when enabling confirmation", async () => {
-      mock = installHttpMock(
-        inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION as unknown as string }),
-      );
+      mock = installHttpMock(inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION }));
 
       const link = await admin
         .invite_link()
@@ -192,7 +190,7 @@ describe("invite link client", () => {
       // A fresh envelope appears where the fixture had `null`; the invite key it wraps is
       // unchanged, so `organization_key_sealed_invite_key` must not be rotated.
       const resealed = JSON.parse(posted.invite);
-      const original = JSON.parse(TEST_INVITE_NO_CONFIRMATION as unknown as string);
+      const original = JSON.parse(TEST_INVITE_NO_CONFIRMATION);
       expect(resealed.invite_key_sealed_organization_key).toEqual(expect.any(String));
       expect(resealed.organization_key_sealed_invite_key).toBe(
         original.organization_key_sealed_invite_key,
@@ -215,9 +213,7 @@ describe("invite link client", () => {
     });
 
     it("recovers the same secret from an invite with confirmation disabled", async () => {
-      mock = installHttpMock(
-        inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION as unknown as string }),
-      );
+      mock = installHttpMock(inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION }));
 
       const link = await admin
         .invite_link()
@@ -230,7 +226,7 @@ describe("invite link client", () => {
     it("lets an invitee redeem a link whose confirmation was turned off after creation", async () => {
       // The server starts with `TEST_INVITE`; whatever the admin posts to support-confirm then
       // replaces it, and is what the server hands back to the invitee.
-      let persisted = TEST_INVITE as unknown as string;
+      let persisted = TEST_INVITE;
       mock = installHttpMock(
         inviteLinkRoutes({
           onCreate: (invite) => {
@@ -328,9 +324,7 @@ describe("invite link client", () => {
     });
 
     it("only accepts when the invite does not support confirmation", async () => {
-      mock = installHttpMock(
-        inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION as unknown as string }),
-      );
+      mock = installHttpMock(inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION }));
 
       await invitee
         .invite_link()
@@ -355,9 +349,7 @@ describe("invite link client", () => {
     });
 
     it("enrolls into account recovery while accepting without confirmation", async () => {
-      mock = installHttpMock(
-        inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION as unknown as string }),
-      );
+      mock = installHttpMock(inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION }));
 
       await invitee
         .invite_link()
@@ -419,7 +411,7 @@ describe("invite link client", () => {
 
       it("maps errors from the accept endpoint when the invite does not support confirmation", async () => {
         mock = installHttpMock({
-          ...inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION as unknown as string }),
+          ...inviteLinkRoutes({ invite: TEST_INVITE_NO_CONFIRMATION }),
           [ROUTES.accept]: () => validationProblem("code", "already_organization_member"),
         });
 

@@ -76,7 +76,7 @@ export interface InviteLinkServerOptions {
  */
 export function inviteLinkRoutes(options: InviteLinkServerOptions = {}): Routes {
   const invite = () => {
-    const configured = options.invite ?? (TEST_INVITE as unknown as string);
+    const configured = options.invite ?? TEST_INVITE;
     return typeof configured === "function" ? configured() : configured;
   };
   const publicKey = options.publicKey ?? TEST_ORG_PUBLIC_KEY;

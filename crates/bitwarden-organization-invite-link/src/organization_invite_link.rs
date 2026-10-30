@@ -84,7 +84,7 @@ impl OrganizationInviteLink {
 }
 
 /// An organization invite link with reconstructed URL for display by the client.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationInviteLinkView {
@@ -101,6 +101,20 @@ pub struct OrganizationInviteLinkView {
     /// The invite link URL fragment (to be appended on the web vault URL).
     /// Example format: #/join/{org_id}/{code}?key={key}
     pub url_fragment: String,
+}
+
+// Manually implemented so the invite secret carried in `url_fragment` is never printed.
+impl std::fmt::Debug for OrganizationInviteLinkView {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OrganizationInviteLinkView")
+            .field("id", &self.id)
+            .field("organization_id", &self.organization_id)
+            .field("allowed_domains", &self.allowed_domains)
+            .field("supports_confirmation", &self.supports_confirmation)
+            .field("creation_date", &self.creation_date)
+            .field("url_fragment", &"[REDACTED]")
+            .finish()
+    }
 }
 
 /// The status of an organization invite link, used to verify basic availability before an invitee
@@ -152,5 +166,28 @@ impl TryFrom<OrganizationInviteLinkStatusResponseModel> for OrganizationInviteLi
             supports_confirmation: response.supports_confirmation.unwrap_or(false),
             sso: response.sso.map(|sso| (*sso).into()),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn view_debug_redacts_url_fragment() {
+        let view = OrganizationInviteLinkView {
+            id: Uuid::new_v4(),
+            organization_id: OrganizationId::new_v4(),
+            allowed_domains: vec!["example.com".to_string()],
+            supports_confirmation: true,
+            creation_date: Utc::now(),
+            url_fragment: "#/join/org/code?key=super-secret".to_string(),
+        };
+
+        let debug = format!("{view:?}");
+
+        assert!(!debug.contains("super-secret"), "secret leaked: {debug}");
+        assert!(debug.contains("[REDACTED]"));
+        assert!(debug.contains("example.com"));
     }
 }
