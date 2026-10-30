@@ -4,10 +4,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use futures::StreamExt;
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
-    repository::{RepositoryItem, RepositoryMigrations},
+    repository::{RepositoryItem, RepositoryMigrations, RepositoryStream},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
@@ -153,6 +154,54 @@ impl Database for MemoryDatabase {
     async fn wipe(&self) -> Result<(), DatabaseError> {
         *self.0.lock().expect("Mutex is not poisoned") = None;
         Ok(())
+    }
+
+    /// Reads the keys when first polled, in key order, and deserializes each chunk as it is read.
+    /// An item removed in the meantime is skipped.
+    fn stream<T: RepositoryItem>(&self, chunk_size: usize) -> RepositoryStream<T> {
+        enum Cursor {
+            Start,
+            Keys(std::vec::IntoIter<String>),
+        }
+
+        let db = self.clone();
+        let chunk_size = chunk_size.max(1);
+        futures::stream::unfold(Some(Cursor::Start), move |cursor| {
+            let db = db.clone();
+            async move {
+                let mut keys = match cursor? {
+                    Cursor::Keys(keys) => keys,
+                    Cursor::Start => match db.with_store(|store| {
+                        let mut keys: Vec<String> = store
+                            .get(&TypeId::of::<T>())
+                            .map(|items| items.keys().cloned().collect())
+                            .unwrap_or_default();
+                        keys.sort();
+                        Ok(keys)
+                    }) {
+                        Ok(keys) => keys.into_iter(),
+                        Err(error) => return Some((Err(error.into()), None)),
+                    },
+                };
+                let chunk = db.with_store(|store| {
+                    let items = store.get(&TypeId::of::<T>());
+                    let mut chunk = Vec::with_capacity(chunk_size.min(keys.len()));
+                    while chunk.len() < chunk_size {
+                        let Some(key) = keys.next() else { break };
+                        if let Some(json) = items.and_then(|items| items.get(&key)) {
+                            chunk.push(serde_json::from_str(json)?);
+                        }
+                    }
+                    Ok(chunk)
+                });
+                match chunk {
+                    Ok(chunk) if chunk.is_empty() => None,
+                    Ok(chunk) => Some((Ok(chunk), Some(Cursor::Keys(keys)))),
+                    Err(error) => Some((Err(error.into()), None)),
+                }
+            }
+        })
+        .boxed()
     }
 }
 
@@ -318,5 +367,55 @@ mod tests {
             result,
             Err(DatabaseError::UnsupportedConfiguration(_))
         ));
+    }
+
+    async fn stream_a(db: &MemoryDatabase, chunk_size: usize) -> Vec<Vec<TypeA>> {
+        use futures::TryStreamExt;
+        db.stream::<TypeA>(chunk_size).try_collect().await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_memory_database_stream_in_key_order() {
+        let db = MemoryDatabase::new();
+        for key in ["c", "a", "e", "b", "d"] {
+            db.set(key, TypeA(key.to_string())).await.unwrap();
+        }
+        db.set("a", TypeB(1)).await.unwrap();
+
+        let chunks = stream_a(&db, 2).await;
+
+        let keys: Vec<Vec<&str>> = chunks
+            .iter()
+            .map(|chunk| chunk.iter().map(|item| item.0.as_str()).collect())
+            .collect();
+        assert_eq!(keys, vec![vec!["a", "b"], vec!["c", "d"], vec!["e"]]);
+    }
+
+    #[tokio::test]
+    async fn test_memory_database_stream_empty_and_oversized() {
+        let db = MemoryDatabase::new();
+        assert!(stream_a(&db, 2).await.is_empty());
+
+        db.set("a", TypeA("a".to_string())).await.unwrap();
+        db.set("b", TypeA("b".to_string())).await.unwrap();
+        assert_eq!(stream_a(&db, 10).await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_memory_database_stream_skips_items_removed_while_reading() {
+        use futures::StreamExt;
+
+        let db = MemoryDatabase::new();
+        for key in ["a", "b", "c"] {
+            db.set(key, TypeA(key.to_string())).await.unwrap();
+        }
+        let mut stream = db.stream::<TypeA>(1);
+
+        let first = stream.next().await.unwrap().unwrap();
+        db.remove::<TypeA>("b").await.unwrap();
+        let rest: Vec<_> = stream.map(Result::unwrap).collect().await;
+
+        assert_eq!(first, vec![TypeA("a".to_string())]);
+        assert_eq!(rest, vec![vec![TypeA("c".to_string())]]);
     }
 }

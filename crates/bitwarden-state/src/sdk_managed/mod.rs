@@ -6,7 +6,9 @@ use thiserror::Error;
 use crate::{
     persist::Persist,
     persisted_value::{PersistedValueError, PersistedValueItem, PersistedValueTrait},
-    repository::{Repository, RepositoryError, RepositoryItem, RepositoryMigrations},
+    repository::{
+        Repository, RepositoryError, RepositoryItem, RepositoryMigrations, RepositoryStream,
+    },
 };
 
 mod configuration;
@@ -77,6 +79,10 @@ pub trait Database {
 
     async fn list<T: RepositoryItem>(&self) -> Result<Vec<T>, DatabaseError>;
 
+    /// Every item of `T` in chunks of up to `chunk_size` (at least one), read lazily where the
+    /// backend allows. Backs [`Repository::stream`].
+    fn stream<T: RepositoryItem>(&self, chunk_size: usize) -> RepositoryStream<T>;
+
     async fn set<T: RepositoryItem>(&self, key: &str, value: T) -> Result<(), DatabaseError>;
 
     async fn set_bulk<T: RepositoryItem>(
@@ -139,6 +145,16 @@ impl Database for SystemDatabase {
             #[cfg(target_arch = "wasm32")]
             SystemDatabase::IndexedDb(db) => db.list().await,
             SystemDatabase::Memory(db) => db.list().await,
+        }
+    }
+
+    fn stream<T: RepositoryItem>(&self, chunk_size: usize) -> RepositoryStream<T> {
+        match self {
+            #[cfg(not(target_arch = "wasm32"))]
+            SystemDatabase::Sqlite(db) => db.stream(chunk_size),
+            #[cfg(target_arch = "wasm32")]
+            SystemDatabase::IndexedDb(db) => db.stream(chunk_size),
+            SystemDatabase::Memory(db) => db.stream(chunk_size),
         }
     }
 
@@ -221,6 +237,9 @@ impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
     async fn list(&self) -> Result<Vec<V>, RepositoryError> {
         let values = self.database.list::<V>().await?;
         Ok(values)
+    }
+    fn stream(self: Arc<Self>, chunk_size: usize) -> RepositoryStream<V> {
+        self.database.stream::<V>(chunk_size)
     }
     async fn set(&self, key: V::Key, value: V) -> Result<(), RepositoryError> {
         let key = key.to_string();
