@@ -2,6 +2,9 @@
 
 import type { ClientSettings, LoginRequest } from "@bitwarden/sdk-internal";
 
+import type { SeederSettings } from "./accounts";
+import { liveSecret } from "./state";
+
 /** The server URL. Its presence is what puts the harness in live mode. */
 const SERVER_URL = "BW_LIVE_SERVER_URL";
 /**
@@ -13,8 +16,12 @@ const SERVER_URL = "BW_LIVE_SERVER_URL";
  */
 const API_URL = "BW_LIVE_API_URL";
 const IDENTITY_URL = "BW_LIVE_IDENTITY_URL";
-const EMAIL = "BW_LIVE_EMAIL";
-const PASSWORD = "BW_LIVE_PASSWORD";
+/** The server's seeder API, for a server that mails the email-verification token. */
+const SEEDER_URL = "BW_LIVE_SEEDER_URL";
+const SEEDER_USERNAME = "BW_LIVE_SEEDER_USERNAME";
+const SEEDER_PASSWORD = "BW_LIVE_SEEDER_PASSWORD";
+const EMAIL_DOMAIN = "BW_LIVE_EMAIL_DOMAIN";
+const DEFAULT_EMAIL_DOMAIN = "example.com";
 const DEVICE_IDENTIFIER = "BW_LIVE_DEVICE_IDENTIFIER";
 const DEFAULT_DEVICE_IDENTIFIER = "sdk-internal-integration-tests";
 const CLIENT_VERSION = "BW_LIVE_CLIENT_VERSION";
@@ -22,9 +29,11 @@ const DEFAULT_CLIENT_VERSION = "2026.9.0";
 
 export interface LiveConfig {
   settings: ClientSettings;
-  email: string;
-  password: string;
   loginRequest: LoginRequest;
+  emailDomain: string;
+  seeder?: SeederSettings;
+  /** The secret test-account passwords derive from. */
+  secret: string;
 }
 
 /**
@@ -50,8 +59,6 @@ export function requireLiveConfig(): LiveConfig {
       deviceIdentifier,
       bitwardenClientVersion: process.env[CLIENT_VERSION] ?? DEFAULT_CLIENT_VERSION,
     },
-    email: required(EMAIL),
-    password: required(PASSWORD),
     loginRequest: {
       clientId: "web",
       device: {
@@ -61,19 +68,32 @@ export function requireLiveConfig(): LiveConfig {
         devicePushToken: undefined,
       },
     },
+    emailDomain: process.env[EMAIL_DOMAIN] || DEFAULT_EMAIL_DOMAIN,
+    seeder: seederSettings(),
+    secret: liveSecret(),
   };
 }
 
 export function describeLoginFailure(error: unknown): string {
   return [
     `live login failed: ${String(error)}`,
-    `check ${EMAIL} and ${PASSWORD};`,
-    "the account must have two-factor disabled, no captcha requirement, and new-device",
-    `verification already satisfied for device ${
-      process.env[DEVICE_IDENTIFIER] ?? DEFAULT_DEVICE_IDENTIFIER
-    }.`,
+    "a new account fails to log in when the server requires two-factor, a captcha, or new-device",
+    `verification for device ${process.env[DEVICE_IDENTIFIER] ?? DEFAULT_DEVICE_IDENTIFIER}.`,
     "The SDK reports all three as the same unknown error, so none can be told apart here.",
   ].join(" ");
+}
+
+function seederSettings(): SeederSettings | undefined {
+  const url = process.env[SEEDER_URL];
+  if (url === undefined || url === "") {
+    return undefined;
+  }
+
+  return {
+    url: trimTrailingSlash(url),
+    username: required(SEEDER_USERNAME),
+    password: required(SEEDER_PASSWORD),
+  };
 }
 
 function originOr(name: string, fallback: string): string {
@@ -85,7 +105,7 @@ function originOr(name: string, fallback: string): string {
 function required(name: string): string {
   const value = process.env[name];
   if (value === undefined || value === "") {
-    throw new Error(`${name} is not set; live mode needs ${SERVER_URL}, ${EMAIL} and ${PASSWORD}`);
+    throw new Error(`${name} is not set`);
   }
 
   return value;

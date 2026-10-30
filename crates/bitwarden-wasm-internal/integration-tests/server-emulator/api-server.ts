@@ -42,6 +42,7 @@ import {
   SyncResponse,
   UserKeyIdRequest,
   type ChangeKdfRequest,
+  type SecretVerificationRequest,
 } from "./dto";
 import type { CipherEntity, FolderEntity, UserEntity } from "./entities";
 import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_NOT_FOUND } from "./replies";
@@ -57,6 +58,9 @@ export class ApiServer {
       "GET /accounts/keys": authenticatedRoute(this.db, (user) => ({
         json: KeysResponse.fromUser(user),
       })),
+      "DELETE /accounts": authenticatedRoute(this.db, (user, request) =>
+        this.deleteAccount(user, request.json<SecretVerificationRequest>()),
+      ),
 
       "POST /accounts/kdf": authenticatedRoute(this.db, (user, request) =>
         this.changeKdf(user, request.json<ChangeKdfRequest>()),
@@ -174,6 +178,26 @@ export class ApiServer {
     const entity = this.db.ciphers.get(id);
 
     return entity !== undefined && this.canReach(user, entity) ? entity : undefined;
+  }
+
+  /**
+   * Deletes an account that proved possession of its master password, with its vault and sessions.
+   */
+  private deleteAccount(user: UserEntity, posted: SecretVerificationRequest): MockReply {
+    if (
+      !posted.masterPasswordHash ||
+      posted.masterPasswordHash !== user.masterPasswordAuthenticationHash
+    ) {
+      return error(HTTP_BAD_REQUEST, "invalid master password hash");
+    }
+
+    this.db.ciphers.removeWhere((cipher) => cipher.userId === user.userId);
+    this.db.folders.removeWhere((folder) => folder.userId === user.userId);
+    this.db.sessions.removeWhere((userId) => userId === user.userId);
+    this.db.users.remove(user.userId);
+    this.db.revisions.next();
+
+    return {};
   }
 
   private changeKdf(user: UserEntity, posted: ChangeKdfRequest): MockReply {

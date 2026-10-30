@@ -27,10 +27,7 @@ since it answers whatever it was written to answer. They are named `*.live.test.
 unless configured, and never run in CI.
 
 ```sh
-BW_LIVE_SERVER_URL=https://vault.example.com \
-BW_LIVE_EMAIL=someone@example.com \
-BW_LIVE_PASSWORD=... \
-npm run test:live
+BW_LIVE_SERVER_URL=https://vault.example.com npm run test:live
 ```
 
 `BW_LIVE_SERVER_URL` is expanded to `<url>/api` and `<url>/identity`, which is how a self-hosted
@@ -41,19 +38,35 @@ install is laid out. A deployment that gives each service its own origin needs t
 BW_LIVE_SERVER_URL=https://vault.usdev.bitwarden.pw \
 BW_LIVE_API_URL=https://api.usdev.bitwarden.pw \
 BW_LIVE_IDENTITY_URL=https://identity.usdev.bitwarden.pw \
-BW_LIVE_EMAIL=... BW_LIVE_PASSWORD=... npm run test:live
+npm run test:live
 ```
 
-Also optional: `BW_LIVE_DEVICE_IDENTIFIER`, which defaults to a fixed value so repeat runs look like
-one returning device rather than a new one each time — a new device is what triggers new-device
-verification — and `BW_LIVE_CLIENT_VERSION`, the version reported to the server, which a real server
-requires and the emulator does not ask for.
+### Test accounts
 
-The account needs to already exist, since the harness has no registration flow, and it needs
-two-factor disabled, no captcha requirement, and no organization memberships. **These tests write to
-the account**: they add a vault item if it has none, and they rotate its user key. Rotation is
-re-runnable, but note that it upgrades a V1 account to V2 on the first run and that cannot be
-undone.
+There are no long-lived test accounts. Each test creates the accounts it needs through registration,
+as a client does, and `harness.dispose()` deletes them when it ends, pass or fail. Tests can run in
+parallel without sharing an account, and a run leaves nothing behind. The same `harness.accounts`
+works on the emulator, which is how a default run covers it.
+
+Registration needs the email-verification token. A server with email verification off returns it.
+One with it on mails it, and the tests read it back through the server's seeder API, named by
+`BW_LIVE_SEEDER_URL`, `BW_LIVE_SEEDER_USERNAME` and `BW_LIVE_SEEDER_PASSWORD`.
+
+Passwords are derived from the address and a secret: `BW_LIVE_SECRET`, or one generated once per
+machine in `.live/` (gitignored). Every account created and deleted is recorded in
+`.live/ledger.jsonl`, so before each live run, accounts a crashed run left behind for over an hour
+are deleted.
+
+Also optional:
+
+- `BW_LIVE_EMAIL_DOMAIN`, the domain of test addresses, by default `example.com`, which never
+  delivers mail.
+- `BW_LIVE_DEVICE_IDENTIFIER`, which defaults to a fixed value so repeat runs look like one
+  returning device rather than a new one each time.
+- `BW_LIVE_CLIENT_VERSION`, the version reported to the server, which a real server requires and the
+  emulator does not ask for.
+
+A new account must be able to log in without two-factor, a captcha or new-device verification.
 
 ## Test vectors
 
