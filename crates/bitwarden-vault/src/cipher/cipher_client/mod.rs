@@ -29,6 +29,8 @@ pub use admin::{GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminErro
 pub use bulk_update_collections::BulkUpdateCollectionsCipherError;
 mod create;
 pub use create::{CipherCreateRequest, CreateCipherError};
+mod list_stream;
+pub use list_stream::{DecryptStreamError, DecryptedChunk};
 mod delete;
 pub use delete::DeleteCipherError;
 mod edit;
@@ -406,7 +408,7 @@ mod tests {
         cipher::blob::try_parse_blob,
     };
 
-    fn test_cipher() -> Cipher {
+    pub(super) fn test_cipher() -> Cipher {
         Cipher {
             partial_data: None,
             id: Some("358f2b2b-9326-4e5e-94a8-b18100bb0908".parse().unwrap()),
