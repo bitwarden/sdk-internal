@@ -214,7 +214,8 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     /// The same pitfalls as [Self::context] apply here, but with the added risk of accidentally
     /// modifying the global keys and leaving the store in an inconsistent state.
     /// If you still need to use it, make sure you read this documentation to understand how to use
-    /// it safely. </div>
+    /// it safely.
+    /// </div>
     ///
     /// Initiate an encryption/decryption context. This context will have MUTABLE access to the
     /// global keys, and will have its own local key stores with read/write access. This
