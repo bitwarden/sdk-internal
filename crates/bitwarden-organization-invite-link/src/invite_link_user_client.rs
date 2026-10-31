@@ -159,7 +159,7 @@ impl InviteLinkUserClient {
                         let account_recovery = AccountRecovery::make(
                             SymmetricKeySlotId::User,
                             &recovery_public_key,
-                            &TrustProof::ManuallyTrusted(bound_thumbprint),
+                            &TrustProof::ManuallyTrustedThumbprint(bound_thumbprint),
                             &ctx,
                         )
                         .map_err(|error| match error {

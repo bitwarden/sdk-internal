@@ -21,8 +21,9 @@ Membership version. V1 encapsulates a key to a public key without sender authent
 
 `make` shares a key only after the public key of the recipient passes a `TrustProof`:
 
-- `TrustProof::ManuallyTrusted`: the thumbprint of a public key that the caller trusts, for example
-  after a person compared the fingerprint.
+- `TrustProof::ManuallyTrustedFingerprint`: the fingerprint phrase of a public key that a person
+  compared, with the id of the key owner that the phrase is derived from.
+- `TrustProof::ManuallyTrustedThumbprint`: the thumbprint of a public key from a trusted source.
 - `TrustProof::CryptographicallyTrusted`: a cryptographic proof that the public key belongs to the
   recipient. The only proof now is the matching private key in the key store context, for example
   the own key pair of the user, or the organization key pair that an admin unwraps.
