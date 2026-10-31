@@ -39,7 +39,7 @@ jobs:
           - os: ubuntu-24.04
           # The binding crates only have platform-independent native tests, which run on Linux.
           # The iOS, Android and WASM targets they exist for are built in their own workflows.
-          - os: macOS-14
+          - os: macos-26
             exclude: --exclude bitwarden-uniffi --exclude uniffi-bindgen --exclude bitwarden-wasm-internal --exclude wasm-bindgen-cli-runner
           - os: windows-2022
             exclude: --exclude bitwarden-uniffi --exclude uniffi-bindgen --exclude bitwarden-wasm-internal --exclude wasm-bindgen-cli-runner

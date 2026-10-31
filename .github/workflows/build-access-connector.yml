@@ -42,7 +42,7 @@ jobs:
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             binary: bwac
-          - os: macos-14
+          - os: macos-26
             target: aarch64-apple-darwin
             binary: bwac
           - os: windows-2022
