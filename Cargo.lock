@@ -860,6 +860,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encrypted-migrator",
  "bitwarden-ffi",
  "bitwarden-sync",
  "serde",
@@ -921,15 +922,13 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
- "bitwarden-ffi",
  "bitwarden-member-administration",
  "bitwarden-organizations",
  "bitwarden-state",
  "bitwarden-test",
+ "bitwarden-threading",
  "tokio",
  "tracing",
- "wasm-bindgen",
- "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -1847,7 +1846,6 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-crypto-sync-handler",
  "bitwarden-emergency-access",
- "bitwarden-encrypted-migrator",
  "bitwarden-error",
  "bitwarden-ffi",
  "bitwarden-ipc",
