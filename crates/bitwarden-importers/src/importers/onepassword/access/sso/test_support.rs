@@ -12,6 +12,7 @@ use wiremock::{Mock, MockServer, Respond, ResponseTemplate, matchers};
 use super::{
     super::{rest::RestClient, wire::EncryptedEnvelope},
     Timing,
+    cpace::EnrollmentSession,
 };
 
 pub(super) const SIGN_IN_TOKEN: &str = "SIGN_IN_TOKEN";
@@ -48,6 +49,7 @@ pub(super) struct CpaceVectors {
     pub msgb: String,
     pub auth_a: String,
     pub auth_b: String,
+    pub tag_a: String,
     pub tag_b: String,
     pub exchange_key: String,
     pub credential_bundle_json: String,
@@ -85,6 +87,15 @@ pub(super) fn rest_client(server: &MockServer) -> RestClient {
         "op-user-agent",
     )
     .expect("valid headers")
+}
+
+pub(super) fn session(vectors: &CpaceVectors) -> EnrollmentSession<'_> {
+    EnrollmentSession {
+        username: &vectors.username,
+        sign_in_address: &vectors.sign_in_address,
+        sign_in_token: SIGN_IN_TOKEN,
+        enrollment_uuid: &vectors.enrollment_uuid,
+    }
 }
 
 pub(super) fn path(vectors: &CpaceVectors, method: &str) -> String {
@@ -134,7 +145,11 @@ async fn mock_empty_then_answer(server: &MockServer, path: String, answer: impl 
 /// credentials after one empty answer each.
 pub(super) async fn mock_enrolled_device(server: &MockServer, vectors: &CpaceVectors) {
     mock_msga(server, vectors).await;
+    mock_answers_to_msga(server, vectors).await;
+}
 
+/// All of [`mock_enrolled_device`] that comes after `msga`.
+pub(super) async fn mock_answers_to_msga(server: &MockServer, vectors: &CpaceVectors) {
     server
         .register(
             Mock::given(matchers::method("PUT"))
@@ -151,8 +166,9 @@ pub(super) async fn mock_enrolled_device(server: &MockServer, vectors: &CpaceVec
     mock_empty_then_answer(
         server,
         path(vectors, "cpace/taga"),
-        ResponseTemplate::new(200)
-            .set_body_json(json!({ "taga": BASE64URL_NOPAD.encode(&[7; 64]) })),
+        ResponseTemplate::new(200).set_body_json(json!({
+            "taga": BASE64URL_NOPAD.encode(&hex(&vectors.tag_a)),
+        })),
     )
     .await;
 

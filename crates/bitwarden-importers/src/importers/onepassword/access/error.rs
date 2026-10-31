@@ -48,6 +48,10 @@ pub enum OnePasswordError {
     #[error("denied")]
     Denied,
 
+    /// The user ran out of attempts at the verification code of a device enrollment.
+    #[error("too many wrong verification codes")]
+    VerificationCodeFailed,
+
     /// Decryption of a server payload failed.
     #[error("decryption failed")]
     Decryption,

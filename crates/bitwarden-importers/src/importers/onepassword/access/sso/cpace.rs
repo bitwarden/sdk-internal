@@ -41,7 +41,7 @@ const CREDENTIAL_BUNDLE_AAD: &[u8] = b"1P_SSO_CREDENTIAL_BUNDLE:ENROLL";
 
 /// The first CPace message, from the enrolled device.
 #[derive(Debug)]
-struct MsgA {
+pub(super) struct MsgA {
     /// The enrolled device's public point.
     ya: RistrettoPoint,
     ad: Ad,
@@ -174,10 +174,13 @@ fn write_leb128_prefixed(buffer: &mut Vec<u8>, data: &[u8]) {
     buffer.extend_from_slice(data);
 }
 
-/// Would check `taga`, which proves the enrolled device knows the verification code too.
-///
-/// Not implemented: the server is trusted to relay an honest device.
-fn verify_tag_a(_tag_a: &[u8]) {}
+/// Checks `taga`, the enrolled device's MAC of `msga` as received, under the same key as `tagb`. It
+/// only matches when both devices used the same verification code.
+fn verify_tag_a(tag_a: &[u8], auth_b: &[u8], msg_a: &MsgA) -> bool {
+    let mut mac = tag_mac(auth_b);
+    mac.update(&msg_a.original_message);
+    mac.verify_slice(tag_a).is_ok()
+}
 
 /// Calculates the shared secret `authB` and the `tagb` that proves knowing it.
 fn calculate_auth_b_tag_b(
@@ -206,13 +209,21 @@ fn calculate_auth_b_hash(auth_a: &[u8], msg_a: &MsgA, msg_b: &[u8]) -> Zeroizing
 
 /// The MAC of `msgb` under a key derived from `authB`.
 fn calculate_tag_b(auth_b: &[u8], msg_b: &[u8]) -> [u8; 64] {
+    let mut mac = tag_mac(auth_b);
+    mac.update(msg_b);
+    mac.finalize().into_bytes().into()
+}
+
+/// The MAC both tags are made with, keyed from `authB`.
+fn tag_mac(auth_b: &[u8]) -> Hmac<Sha512> {
     let mac_key = Zeroizing::new(<[u8; 64]>::from(
         Sha512::new()
             .chain_update(b"CPaceMac")
             .chain_update(auth_b)
             .finalize(),
     ));
-    hmac_sha512(mac_key.as_slice(), msg_b)
+    <Hmac<Sha512> as KeyInit>::new_from_slice(mac_key.as_slice())
+        .expect("HMAC accepts any key length")
 }
 
 /// Derives the key that encrypts the credential bundle in transit from `authB`.
@@ -249,33 +260,40 @@ fn hmac_sha384(key: &[u8], message: &[u8]) -> Zeroizing<[u8; 48]> {
     Zeroizing::new(mac.finalize().into_bytes().into())
 }
 
-fn hmac_sha512(key: &[u8], message: &[u8]) -> [u8; 64] {
-    let mut mac =
-        <Hmac<Sha512> as KeyInit>::new_from_slice(key).expect("HMAC accepts any key length");
-    mac.update(message);
-    mac.finalize().into_bytes().into()
+/// What identifies an enrollment to the server and binds an exchange to it.
+pub(super) struct EnrollmentSession<'a> {
+    pub username: &'a str,
+    pub sign_in_address: &'a str,
+    pub sign_in_token: &'a str,
+    pub enrollment_uuid: &'a str,
 }
 
-/// Runs the whole exchange over `rest` with a fresh random client secret and returns the
-/// credentials the enrolled device shared.
+/// How a CPace exchange that ran to the end turned out.
+pub(super) enum Exchange {
+    /// The enrolled device shared its credentials.
+    Shared(CredentialBundle),
+    /// The user typed another code than the enrolled device shows. That device goes on to show a
+    /// new one and to replace `msg_a`, the first message of this exchange, to start over.
+    WrongCode { msg_a: Vec<u8> },
+}
+
+/// Runs the whole exchange over `rest` with a fresh random client secret.
+///
+/// A retry after a wrong code passes the `msg_a` it waited for. Without one it is requested here.
 pub(super) async fn perform_cpace(
-    username: &str,
-    sign_in_address: &str,
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     verification_code: &str,
+    msg_a: Option<MsgA>,
     rest: &RestClient,
     timing: &Timing,
-) -> Result<CredentialBundle, OnePasswordError> {
+) -> Result<Exchange, OnePasswordError> {
     let mut client_secret = Zeroizing::new([0u8; 64]);
     bitwarden_random::rng().fill_bytes(&mut *client_secret);
 
     perform_cpace_with_client_secret(
-        username,
-        sign_in_address,
-        sign_in_token,
-        enrollment_uuid,
+        session,
         verification_code,
+        msg_a,
         &client_secret,
         rest,
         timing,
@@ -284,70 +302,82 @@ pub(super) async fn perform_cpace(
 }
 
 /// The CPace exchange with the client secret injected so the test vectors can pin it.
-#[allow(clippy::too_many_arguments)]
 async fn perform_cpace_with_client_secret(
-    username: &str,
-    sign_in_address: &str,
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     verification_code: &str,
+    msg_a: Option<MsgA>,
     client_secret: &[u8; 64],
     rest: &RestClient,
     timing: &Timing,
-) -> Result<CredentialBundle, OnePasswordError> {
-    let msg_a = request_msg_a(sign_in_token, enrollment_uuid, rest).await?;
+) -> Result<Exchange, OnePasswordError> {
+    let msg_a = match msg_a {
+        Some(msg_a) => msg_a,
+        None => request_msg_a(session, None, rest, timing).await?,
+    };
 
     let msg_b = calculate_msg_b(
-        username,
-        sign_in_address,
-        enrollment_uuid,
+        session.username,
+        session.sign_in_address,
+        session.enrollment_uuid,
         verification_code,
         &msg_a,
         client_secret,
     );
-    send_msg_b(&msg_b, sign_in_token, enrollment_uuid, rest).await?;
+    send_msg_b(&msg_b, session, rest).await?;
 
-    let tag_a = get_tag_a(sign_in_token, enrollment_uuid, rest, timing).await?;
-    verify_tag_a(&tag_a);
-
+    let tag_a = get_tag_a(session, rest, timing).await?;
     let (auth_b, tag_b) = calculate_auth_b_tag_b(client_secret, &msg_a, &msg_b);
-    send_tag_b(&tag_b, sign_in_token, enrollment_uuid, rest).await?;
 
-    let encrypted_credentials =
-        request_encrypted_credentials(sign_in_token, enrollment_uuid, rest, timing).await?;
+    // The enrolled device learns that the codes differ only from `tagb`, so it goes out either way.
+    send_tag_b(&tag_b, session, rest).await?;
+    if !verify_tag_a(&tag_a, auth_b.as_slice(), &msg_a) {
+        return Ok(Exchange::WrongCode {
+            msg_a: msg_a.original_message,
+        });
+    }
+
+    let encrypted_credentials = request_encrypted_credentials(session, rest, timing).await?;
     let exchange_key = derive_exchange_key(auth_b.as_slice());
 
-    decrypt_credentials(&encrypted_credentials, exchange_key.as_slice())
+    decrypt_credentials(&encrypted_credentials, exchange_key.as_slice()).map(Exchange::Shared)
 }
 
-/// Fetches and parses the enrolled device's first message.
-async fn request_msg_a(
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+/// Fetches and parses the enrolled device's first message, once the server has one other than
+/// `replaced`. It answers an empty 200 while it has none.
+pub(super) async fn request_msg_a(
+    session: &EnrollmentSession<'_>,
+    replaced: Option<&[u8]>,
     rest: &RestClient,
+    timing: &Timing,
 ) -> Result<MsgA, OnePasswordError> {
-    let response: wire::CpaceMsgA = rest
-        .post_json(
-            &cpace_endpoint(enrollment_uuid, "msga"),
-            sign_in_body(sign_in_token),
-        )
-        .await?;
+    let endpoint = cpace_endpoint(session.enrollment_uuid, "msga");
+    for _ in 0..timing.until_result_attempts {
+        let response: Option<wire::CpaceMsgA> = rest
+            .post_json_or_empty(&endpoint, sign_in_body(session.sign_in_token))
+            .await?;
+        if let Some(response) = response {
+            let msg_a = decode64_loose(&response.msga)?;
+            if replaced != Some(msg_a.as_slice()) {
+                return parse_msg_a(&msg_a);
+            }
+        }
+        time::sleep(timing.until_result_delay).await;
+    }
 
-    parse_msg_a(&decode64_loose(&response.msga)?)
+    Err(no_result(&endpoint))
 }
 
 /// Replies with `msgb` and expects the server to accept it.
 async fn send_msg_b(
     msg_b: &[u8],
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
 ) -> Result<(), OnePasswordError> {
     let response: SuccessStatus = rest
         .put_json(
-            &cpace_endpoint(enrollment_uuid, "msgb"),
+            &cpace_endpoint(session.enrollment_uuid, "msgb"),
             json!({
-                "signInToken": sign_in_token,
+                "signInToken": session.sign_in_token,
                 "msgb": BASE64URL_NOPAD.encode(msg_b),
             }),
         )
@@ -356,16 +386,15 @@ async fn send_msg_b(
     expect_success(&response, "exchange credentials")
 }
 
-/// Waits for the enrolled device's `taga`, which only `verify_tag_a` looks at.
+/// Waits for the enrolled device's `taga`.
 async fn get_tag_a(
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<Vec<u8>, OnePasswordError> {
     let result: wire::CpaceTagA = post_json_until_result(
-        &cpace_endpoint(enrollment_uuid, "taga"),
-        sign_in_body(sign_in_token),
+        &cpace_endpoint(session.enrollment_uuid, "taga"),
+        sign_in_body(session.sign_in_token),
         rest,
         timing,
     )
@@ -377,15 +406,14 @@ async fn get_tag_a(
 /// Replies with `tagb` and expects the server to accept it.
 async fn send_tag_b(
     tag_b: &[u8],
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
 ) -> Result<(), OnePasswordError> {
     let response: SuccessStatus = rest
         .put_json(
-            &cpace_endpoint(enrollment_uuid, "tagb"),
+            &cpace_endpoint(session.enrollment_uuid, "tagb"),
             json!({
-                "signInToken": sign_in_token,
+                "signInToken": session.sign_in_token,
                 "tagb": BASE64URL_NOPAD.encode(tag_b),
             }),
         )
@@ -397,14 +425,13 @@ async fn send_tag_b(
 /// Waits for the credential bundle, still encrypted for the exchange key and so invisible to the
 /// server that relays it.
 async fn request_encrypted_credentials(
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<EncryptedEnvelope, OnePasswordError> {
     let result: wire::SharedCredentials = post_json_until_result(
-        &enrollment_endpoint(enrollment_uuid, "share/credentials"),
-        sign_in_body(sign_in_token),
+        &enrollment_endpoint(session.enrollment_uuid, "share/credentials"),
+        sign_in_body(session.sign_in_token),
         rest,
         timing,
     )
@@ -428,9 +455,14 @@ async fn post_json_until_result<T: DeserializeOwned>(
         }
     }
 
-    Err(OnePasswordError::Internal(format!(
+    Err(no_result(endpoint))
+}
+
+/// The error of a polled endpoint that never answered with what the client waits for.
+fn no_result(endpoint: &str) -> OnePasswordError {
+    OnePasswordError::Internal(format!(
         "failed to get a response from the server (endpoint: {endpoint})"
-    )))
+    ))
 }
 
 /// The body every CPace request carries besides the messages themselves.
@@ -459,13 +491,14 @@ fn cpace_endpoint(enrollment_uuid: &str, method: &str) -> String {
 #[cfg(test)]
 mod tests {
     use data_encoding::HEXLOWER;
+    use serde::Deserialize;
     use serde_json::{Value, json};
     use wiremock::{Mock, MockServer, ResponseTemplate, matchers};
 
     use super::{
         super::test_support::{
-            CpaceVectors, SIGN_IN_TOKEN, hex, hex_array, mock_enrolled_device, mock_msga, path,
-            quick_timing, rest_client, vectors,
+            CpaceVectors, SIGN_IN_TOKEN, hex, hex_array, mock_answers_to_msga,
+            mock_enrolled_device, mock_msga, path, quick_timing, rest_client, session, vectors,
         },
         *,
     };
@@ -756,19 +789,231 @@ mod tests {
     async fn run_cpace(
         server: &MockServer,
         vectors: &CpaceVectors,
+        msg_a: Option<MsgA>,
         timing: &Timing,
-    ) -> Result<CredentialBundle, OnePasswordError> {
+    ) -> Result<Exchange, OnePasswordError> {
         perform_cpace_with_client_secret(
-            &vectors.username,
-            &vectors.sign_in_address,
-            SIGN_IN_TOKEN,
-            &vectors.enrollment_uuid,
+            &session(vectors),
             &vectors.verification_code,
+            msg_a,
             &hex_array(&vectors.client_secret),
             &rest_client(server),
             timing,
         )
         .await
+    }
+
+    fn shared(exchange: Result<Exchange, OnePasswordError>) -> CredentialBundle {
+        match exchange.expect("the exchange runs to the end") {
+            Exchange::Shared(bundle) => bundle,
+            Exchange::WrongCode { .. } => panic!("the codes are expected to match"),
+        }
+    }
+
+    /// Exchanges recorded from 1Password's own CPace, see `fixtures/sso-1password-exchanges.json`.
+    #[derive(Deserialize)]
+    struct RecordedExchanges {
+        username: String,
+        sign_in_address: String,
+        enrollment_uuid: String,
+        client_secret: String,
+        right_code: RecordedExchange,
+        wrong_code: RecordedExchange,
+    }
+
+    /// The messages of one exchange, base64url as sent.
+    #[derive(Deserialize)]
+    struct RecordedExchange {
+        verification_code: String,
+        msga: String,
+        msgb: String,
+        taga: String,
+        tagb: String,
+        encrypted_credentials: Option<EncryptedEnvelope>,
+    }
+
+    fn recorded_exchanges() -> RecordedExchanges {
+        serde_json::from_str(include_str!("../fixtures/sso-1password-exchanges.json"))
+            .expect("the exchanges parse")
+    }
+
+    fn base64url(s: &str) -> Vec<u8> {
+        BASE64URL_NOPAD
+            .decode(s.as_bytes())
+            .expect("valid base64url")
+    }
+
+    /// Plays the enrolled device of `exchange`: it sends the recorded `msga` and `taga`, expects
+    /// exactly the recorded `msgb` and `tagb`, and shares the recorded credentials, if any.
+    async fn mock_recorded_enrolled_device(
+        server: &MockServer,
+        exchanges: &RecordedExchanges,
+        exchange: &RecordedExchange,
+    ) {
+        let path = |method: &str| {
+            format!(
+                "/api/v3/device/enrollments/{}/{method}",
+                exchanges.enrollment_uuid
+            )
+        };
+        let sends = |method: &str, body: Value| {
+            Mock::given(matchers::method("POST"))
+                .and(matchers::path(path(method)))
+                .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        };
+        let expects = |method: &str, name: &str, value: &str| {
+            Mock::given(matchers::method("PUT"))
+                .and(matchers::path(path(method)))
+                .and(matchers::body_json(
+                    json!({ "signInToken": SIGN_IN_TOKEN, name: value }),
+                ))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success": 1})))
+                .expect(1)
+        };
+
+        server
+            .register(sends("cpace/msga", json!({ "msga": exchange.msga })))
+            .await;
+        server
+            .register(expects("cpace/msgb", "msgb", &exchange.msgb))
+            .await;
+        server
+            .register(sends("cpace/taga", json!({ "taga": exchange.taga })))
+            .await;
+        server
+            .register(expects("cpace/tagb", "tagb", &exchange.tagb))
+            .await;
+        server
+            .register(
+                sends(
+                    "share/credentials",
+                    json!({ "encCreds": exchange.encrypted_credentials }),
+                )
+                .expect(u64::from(exchange.encrypted_credentials.is_some())),
+            )
+            .await;
+    }
+
+    async fn run_recorded_exchange(
+        server: &MockServer,
+        exchanges: &RecordedExchanges,
+        exchange: &RecordedExchange,
+    ) -> Result<Exchange, OnePasswordError> {
+        perform_cpace_with_client_secret(
+            &EnrollmentSession {
+                username: &exchanges.username,
+                sign_in_address: &exchanges.sign_in_address,
+                sign_in_token: SIGN_IN_TOKEN,
+                enrollment_uuid: &exchanges.enrollment_uuid,
+            },
+            &exchange.verification_code,
+            None,
+            &hex_array(&exchanges.client_secret),
+            &rest_client(server),
+            &quick_timing(),
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn exchanges_the_credentials_with_1password() {
+        let exchanges = recorded_exchanges();
+        let server = MockServer::start().await;
+        mock_recorded_enrolled_device(&server, &exchanges, &exchanges.right_code).await;
+
+        let bundle =
+            shared(run_recorded_exchange(&server, &exchanges, &exchanges.right_code).await);
+
+        assert_eq!(*bundle.srpx, "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8");
+        assert_eq!(*bundle.auk.k, "WyICHHlP5lPigZUGZYoivbJMqgHjSti86UKwdjCryYM");
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn a_wrong_code_still_sends_tag_b_and_asks_for_no_credentials() {
+        let exchanges = recorded_exchanges();
+        let server = MockServer::start().await;
+        mock_recorded_enrolled_device(&server, &exchanges, &exchanges.wrong_code).await;
+
+        let exchange = run_recorded_exchange(&server, &exchanges, &exchanges.wrong_code)
+            .await
+            .expect("the exchange runs to the end");
+
+        let Exchange::WrongCode { msg_a } = exchange else {
+            panic!("the codes differ");
+        };
+        assert_eq!(msg_a, base64url(&exchanges.wrong_code.msga));
+        server.verify().await;
+    }
+
+    #[test]
+    fn verifies_only_the_tag_a_of_msg_a_under_the_shared_key() {
+        let exchanges = recorded_exchanges();
+        let right = &exchanges.right_code;
+        let msg_a = parse_msg_a(&base64url(&right.msga)).expect("valid msga");
+        let msg_b = base64url(&right.msgb);
+        let auth_a = calculate_auth_a_hash(&msg_a, &hex_array(&exchanges.client_secret));
+        let auth_b = calculate_auth_b_hash(auth_a.as_slice(), &msg_a, &msg_b);
+        let tag_a = base64url(&right.taga);
+        let mut flipped = tag_a.clone();
+        flipped[17] ^= 1;
+
+        assert!(verify_tag_a(&tag_a, auth_b.as_slice(), &msg_a));
+        assert!(!verify_tag_a(&flipped, auth_b.as_slice(), &msg_a));
+        assert!(!verify_tag_a(&tag_a[..32], auth_b.as_slice(), &msg_a));
+        assert!(!verify_tag_a(
+            &base64url(&right.tagb),
+            auth_b.as_slice(),
+            &msg_a
+        ));
+        assert!(!verify_tag_a(&tag_a, &[0; 64], &msg_a));
+    }
+
+    #[tokio::test]
+    async fn waits_for_a_msg_a_other_than_the_replaced_one() {
+        let vectors = vectors().cpace;
+        let replaced = edited_msg_a("/ad/version", Some(json!(2)));
+        let server = MockServer::start().await;
+        for answer in [
+            ResponseTemplate::new(200),
+            ResponseTemplate::new(200)
+                .set_body_json(json!({ "msga": BASE64URL_NOPAD.encode(&replaced) })),
+        ] {
+            server
+                .register(
+                    Mock::given(matchers::method("POST"))
+                        .and(matchers::path(path(&vectors, "cpace/msga")))
+                        .respond_with(answer)
+                        .up_to_n_times(1)
+                        .expect(1),
+                )
+                .await;
+        }
+        mock_msga(&server, &vectors).await;
+
+        let msg_a = request_msg_a(
+            &session(&vectors),
+            Some(&replaced),
+            &rest_client(&server),
+            &quick_timing(),
+        )
+        .await
+        .expect("a new msga");
+
+        assert_eq!(msg_a.original_message, vectors.msga_json.as_bytes());
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn an_exchange_starts_from_the_msg_a_it_is_given() {
+        let vectors = vectors().cpace;
+        let server = MockServer::start().await;
+        mock_answers_to_msga(&server, &vectors).await;
+
+        let bundle = shared(run_cpace(&server, &vectors, Some(msg_a()), &quick_timing()).await);
+
+        assert_eq!(*bundle.srpx, "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8");
+        server.verify().await;
     }
 
     #[tokio::test]
@@ -777,9 +1022,7 @@ mod tests {
         let server = MockServer::start().await;
         mock_enrolled_device(&server, &vectors).await;
 
-        let bundle = run_cpace(&server, &vectors, &quick_timing())
-            .await
-            .expect("the exchange succeeds");
+        let bundle = shared(run_cpace(&server, &vectors, None, &quick_timing()).await);
 
         assert_eq!(*bundle.srpx, "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8");
         assert_eq!(*bundle.auk.k, "WyICHHlP5lPigZUGZYoivbJMqgHjSti86UKwdjCryYM");
@@ -800,7 +1043,7 @@ mod tests {
             )
             .await;
 
-        let error = run_cpace(&server, &vectors, &quick_timing())
+        let error = run_cpace(&server, &vectors, None, &quick_timing())
             .await
             .err()
             .expect("the exchange fails");
@@ -824,7 +1067,7 @@ mod tests {
             )
             .await;
 
-        let error = run_cpace(&server, &vectors, &quick_timing())
+        let error = run_cpace(&server, &vectors, None, &quick_timing())
             .await
             .err()
             .expect("the exchange fails");
@@ -863,7 +1106,7 @@ mod tests {
             until_result_attempts: 3,
             ..quick_timing()
         };
-        let error = run_cpace(&server, &vectors, &timing)
+        let error = run_cpace(&server, &vectors, None, &timing)
             .await
             .err()
             .expect("the exchange fails");

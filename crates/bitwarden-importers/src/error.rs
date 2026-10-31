@@ -30,6 +30,8 @@ pub enum ImportError {
     OnePasswordCanceled,
     #[error("The new 1Password device was denied on another device")]
     OnePasswordDenied,
+    #[error("The 1Password verification code was wrong too many times")]
+    OnePasswordVerificationCodeFailed,
     #[error("This 1Password account uses a sign-in method the importer does not support: {0}")]
     OnePasswordUnsupported(String),
     #[error("Could not reach 1Password: {0}")]

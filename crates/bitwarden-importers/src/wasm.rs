@@ -64,11 +64,13 @@ export interface OnePasswordSsoEnrollment {
     updateStatus(status: OnePasswordSsoEnrollmentStatus, message: string): Promise<void>;
 
     /**
-     * Asks for the verification code the approving device shows.
+     * Asks for the verification code the approving device shows, for the given zero-based
+     * attempt. From the second attempt on, the previous code was wrong and the approving device
+     * shows a new one. The user gets three attempts.
      *
      * @returns the code, or undefined if the user declined to provide one.
      */
-    provideVerificationCode(): Promise<string | undefined>;
+    provideVerificationCode(attempt: number): Promise<string | undefined>;
 
     /** Closes the enrollment UI. */
     endEnrollment(result: OnePasswordSsoEnrollmentResult): Promise<void>;
@@ -157,6 +159,7 @@ extern "C" {
     #[wasm_bindgen(catch, method, structural, js_name = provideVerificationCode)]
     async fn provide_verification_code(
         this: &RawJsOnePasswordSsoEnrollment,
+        attempt: u32,
     ) -> Result<JsValue, JsValue>;
 
     #[wasm_bindgen(catch, method, structural, js_name = endEnrollment)]
@@ -244,12 +247,12 @@ impl OnePasswordSsoEnrollment for JsOnePasswordSsoEnrollment {
             .await;
     }
 
-    async fn provide_verification_code(&self) -> OnePasswordVerificationCodeResult {
+    async fn provide_verification_code(&self, attempt: u32) -> OnePasswordVerificationCodeResult {
         let code = self
             .0
-            .run_in_thread(|enrollment| async move {
+            .run_in_thread(move |enrollment| async move {
                 enrollment
-                    .provide_verification_code()
+                    .provide_verification_code(attempt)
                     .await
                     .ok()
                     .and_then(|code| code.as_string())
@@ -281,7 +284,7 @@ impl OnePasswordSsoEnrollment for CancelledEnrollment {
 
     async fn update_status(&self, _status: OnePasswordSsoEnrollmentStatus, _message: &str) {}
 
-    async fn provide_verification_code(&self) -> OnePasswordVerificationCodeResult {
+    async fn provide_verification_code(&self, _attempt: u32) -> OnePasswordVerificationCodeResult {
         OnePasswordVerificationCodeResult::Cancel
     }
 

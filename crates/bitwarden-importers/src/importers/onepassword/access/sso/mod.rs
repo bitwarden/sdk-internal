@@ -36,8 +36,8 @@ const DEVICE_NOT_ENROLLED: &str = "device_not_enrolled";
 
 /// The timing knobs of the SSO network flows, grouped so the tests can shrink them.
 pub(super) struct Timing {
-    /// Delay before retrying a request of `post_json_until_result`, which the server answered
-    /// with 200 and an empty body.
+    /// Delay before asking the server again for a CPace message or the shared credentials, which
+    /// it does not have yet.
     until_result_delay: Duration,
     /// Maximum number of attempts of such a request before it fails.
     until_result_attempts: u32,

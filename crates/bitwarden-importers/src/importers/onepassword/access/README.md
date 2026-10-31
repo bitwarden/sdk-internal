@@ -32,6 +32,12 @@ each one into a Bitwarden folder. 1P doesn't have folders, only tags.
 ## SSO
 
 - The crypto is pinned by the generated test vectors in `fixtures/sso-vectors.json`
+- `fixtures/sso-1password-exchanges.json` holds two exchanges recorded from 1Password's own CPace
+  WASM playing both devices, one with the right code and one with a wrong one
+- A wrong verification code shows in `taga`. Like 1Password's web client, the new device still sends
+  `tagb`, which tells the enrolled device to show a new code, and asks again once the new `msga`
+  says that code is showing. The third wrong code ends the import with
+  `OnePasswordVerificationCodeFailed`
 - Every import is a new device with a fresh uuid and nothing is kept between imports, so the user
   approves it on an enrolled device and types the verification code shown there. Then a CPace
   exchange (Ristretto255) hands over the credential bundle, the SRP x and the account unlock key
@@ -53,7 +59,6 @@ each one into a Bitwarden folder. 1P doesn't have folders, only tags.
 - The username goes on the wire raw, `v2/auth/methods` and `v3/auth/start` do not get the normalized
   one
 - `OnePasswordError::TwoFactorRequired` is never constructed
-- SSO: `taga` is not verified, so the server is trusted to relay an honest device
 - SSO: dropping the login future during an enrollment skips `end_enrollment` and the server side
   cancel; only `SsoEnrollmentContext::cancelled()` cleans up
 - SSO: no UniFFI bindings for the callbacks yet
