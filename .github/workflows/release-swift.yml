@@ -76,14 +76,13 @@ jobs:
           echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
 
       - name: Download BitwardenFFI artifact
-        uses: bitwarden/gh-actions/download-artifacts@main
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         id: download-artifact-ffi
         with:
-          workflow: build-swift.yml
-          workflow_conclusion: success
-          artifacts: "BitwardenFFI-${{ steps.version.outputs.version }}-${{ steps.get-sdk-internal-ref.outputs.short_sha }}.xcframework"
-          run_id: ${{ inputs.build-run-id }}
-          skip_unpack: true
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build-run-id }}
+          name: "BitwardenFFI-${{ steps.version.outputs.version }}-${{ steps.get-sdk-internal-ref.outputs.short_sha }}.xcframework"
+          skip-decompress: true
 
       - name: Calculate swift file checksum
         id: calculate-swift-checksum
@@ -137,13 +136,12 @@ jobs:
           git config --local user.name "$_BOT_NAME"
 
       - name: Download BitwardenSdk sources artifact
-        uses: bitwarden/gh-actions/download-artifacts@main
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         id: download-artifact
         with:
-          workflow: build-swift.yml
-          workflow_conclusion: success
-          artifacts: "BitwardenSdk-${{ steps.version.outputs.version }}-${{ steps.get-sdk-internal-ref.outputs.short_sha }}-sources"
-          run_id: ${{ inputs.build-run-id }}
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build-run-id }}
+          name: "BitwardenSdk-${{ steps.version.outputs.version }}-${{ steps.get-sdk-internal-ref.outputs.short_sha }}-sources"
           path: sdk/crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
 
       - name: Update files

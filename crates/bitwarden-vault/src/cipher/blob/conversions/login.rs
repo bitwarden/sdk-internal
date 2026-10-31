@@ -215,6 +215,7 @@ mod tests {
                 }]),
                 totp: Some("otpauth://totp/test?secret=JBSWY3DPEHPK3PXP".to_string()),
                 autofill_on_page_load: Some(true),
+                http_authentication_enabled: None,
                 fido2_credentials: Some(vec![fido2_view]),
             }),
             fields: Some(vec![FieldView {
