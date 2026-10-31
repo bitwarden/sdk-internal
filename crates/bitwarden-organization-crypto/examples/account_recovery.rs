@@ -43,7 +43,7 @@ fn main() {
     let account_recovery = AccountRecovery::make(
         member_user_key,
         &server_org_public_key,
-        &TrustProof::ManuallyTrusted(bound_thumbprint.clone()),
+        &TrustProof::ManuallyTrustedThumbprint(bound_thumbprint.clone()),
         &ctx,
     )
     .expect("enrolling into account recovery should work");
@@ -57,7 +57,7 @@ fn main() {
     let result = AccountRecovery::make(
         member_user_key,
         &swapped_public_key,
-        &TrustProof::ManuallyTrusted(bound_thumbprint),
+        &TrustProof::ManuallyTrustedThumbprint(bound_thumbprint),
         &ctx,
     );
     assert!(matches!(

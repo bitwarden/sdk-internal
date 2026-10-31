@@ -12,10 +12,10 @@
 //!   sender.
 //!
 //! [`OrganizationSharedKey::make`] takes the [`TrustProof`] for the member's public key: the
-//! fingerprint check of an admin, or the member's own private key when the member shares the key
-//! with themselves (creating an organization, or self-confirming through an invite link). Some V1
-//! flows have no way to verify the public key, and use [`OrganizationSharedKey::make_untrusted`].
-//! V2 has no untrusted variant.
+//! fingerprint phrase that an admin compared, or the member's own private key when the member
+//! shares the key with themselves (creating an organization, or self-confirming through an invite
+//! link). Some V1 flows have no way to verify the public key, and use
+//! [`OrganizationSharedKey::make_untrusted`]. V2 has no untrusted variant.
 
 use std::str::FromStr;
 

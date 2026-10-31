@@ -6,6 +6,10 @@ on:
     branches:
       - "main"
   pull_request:
+  # Builds the build output cache for the new month on main, so pull requests don't wait for the
+  # next merge to get a cache that is not shared with the previous month.
+  schedule:
+    - cron: "0 2 1 * *"
 
 env:
   CARGO_TERM_COLOR: always
@@ -31,10 +35,14 @@ jobs:
     runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
     strategy:
       matrix:
-        os:
-          - ubuntu-24.04
-          - macOS-14
-          - windows-2022
+        include:
+          - os: ubuntu-24.04
+          # The binding crates only have platform-independent native tests, which run on Linux.
+          # The iOS, Android and WASM targets they exist for are built in their own workflows.
+          - os: macOS-14
+            exclude: --exclude bitwarden-uniffi --exclude uniffi-bindgen --exclude bitwarden-wasm-internal --exclude wasm-bindgen-cli-runner
+          - os: windows-2022
+            exclude: --exclude bitwarden-uniffi --exclude uniffi-bindgen --exclude bitwarden-wasm-internal --exclude wasm-bindgen-cli-runner
 
     steps:
       - name: Checkout
@@ -42,24 +50,91 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Free disk space
-        uses: bitwarden/gh-actions/free-disk-space@main
-
       - name: Install rust
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
 
+      # The generated API crates are large and only map requests and responses. Optimizing them
+      # makes them the slowest crates to compile, while tests run no faster. Only CI skips it, so
+      # local builds keep the dev profile from Cargo.toml.
+      - name: Skip optimizing the generated API crates
+        shell: bash
+        run: |
+          cat >> .cargo/config.toml <<'EOF'
+
+          [profile.dev.package.bitwarden-api-api]
+          opt-level = 0
+
+          [profile.dev.package.bitwarden-api-identity]
+          opt-level = 0
+          EOF
+
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
+
+      # The build output cache also holds the workspace crates, so a run only recompiles the crates
+      # that changed and the crates that depend on them. Runs on main start a new cache every month
+      # so build output of old dependency versions doesn't accumulate. Pull requests fall back to
+      # the previous month's cache until main has built the new one. Without any match, the run
+      # builds everything, using the crate downloads restored by rust-cache above.
+      - name: Get build cache period
+        id: build-cache
+        shell: bash
+        run: |
+          year=$(date -u +%Y)
+          month=$((10#$(date -u +%m)))
+          if [ "$month" -eq 1 ]; then
+            previous=$(printf '%d-12' $((year - 1)))
+          else
+            previous=$(printf '%d-%02d' "$year" $((month - 1)))
+          fi
+          printf 'period=%d-%02d\nprevious=%s\n' "$year" "$month" "$previous" >> "$GITHUB_OUTPUT"
+
+      - name: Restore build output
+        id: restore-build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target
+            !target/**/*.profraw
+          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-${{ github.sha }}
+          restore-keys: |
+            build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-
+            ${{ github.event_name == 'pull_request' && format('build-{0}-{1}-{2}-{3}-', runner.os, github.job, hashFiles('rust-toolchain.toml'), steps.build-cache.outputs.previous) || '' }}
+
+      - name: Mark changed files
+        shell: bash
+        run: ./scripts/ci-build-cache.sh mark
+
+      - name: Build tests
+        id: build
+        run: cargo test --workspace --all-features --no-run ${{ matrix.exclude }}
+
+      - name: Record build inputs
+        shell: bash
+        run: ./scripts/ci-build-cache.sh record
 
       - name: Test
-        run: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features ${{ matrix.exclude }}
 
       # Runs the #[ignore]d pwsh script-launcher tests. Serial because parallel hosts die together
-      # on CI runners.
+      # on CI runners. The packages and features must match the step above so this reuses its build. Only
+      # tests/scripting_integration.rs runs here, so #[ignore]d pwsh tests belong in that file.
       - name: Test (integration, requires pwsh)
-        run: cargo test -p bitwarden-access-connector --all-features -- --ignored --test-threads=1
+        run: cargo test --workspace --all-features ${{ matrix.exclude }} --test scripting_integration -- --ignored --test-threads=1
+
+      - name: Save build output
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target
+            !target/**/*.profraw
+          key: ${{ steps.restore-build.outputs.cache-primary-key }}
 
   test-wasm:
     name: WASM
@@ -106,9 +181,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Free disk space
-        uses: bitwarden/gh-actions/free-disk-space@main
-
       - name: Install rust
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
@@ -117,6 +189,44 @@ jobs:
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
+
+      # The build output cache also holds the workspace crates, so a run only recompiles the crates
+      # that changed and the crates that depend on them. Runs on main start a new cache every month
+      # so build output of old dependency versions doesn't accumulate. Pull requests fall back to
+      # the previous month's cache until main has built the new one. Without any match, the run
+      # builds everything, using the crate downloads restored by rust-cache above.
+      - name: Get build cache period
+        id: build-cache
+        shell: bash
+        run: |
+          year=$(date -u +%Y)
+          month=$((10#$(date -u +%m)))
+          if [ "$month" -eq 1 ]; then
+            previous=$(printf '%d-12' $((year - 1)))
+          else
+            previous=$(printf '%d-%02d' "$year" $((month - 1)))
+          fi
+          printf 'period=%d-%02d\nprevious=%s\n' "$year" "$month" "$previous" >> "$GITHUB_OUTPUT"
+
+      - name: Restore build output
+        id: restore-build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target
+            !target/**/*.profraw
+            .bin
+          key: build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-${{ github.sha }}
+          restore-keys: |
+            build-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.build-cache.outputs.period }}-
+            ${{ github.event_name == 'pull_request' && format('build-{0}-{1}-{2}-{3}-', runner.os, github.job, hashFiles('rust-toolchain.toml'), steps.build-cache.outputs.previous) || '' }}
+
+      - name: Mark changed files
+        shell: bash
+        run: ./scripts/ci-build-cache.sh mark
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
@@ -124,8 +234,35 @@ jobs:
       - name: Check cargo-binstall is not configured
         run: ./scripts/check-no-binstall.sh
 
+      # Runs cargo directly in cargo-llvm-cov's show-env mode so the restored build output is kept.
+      # Coverage data and test binaries left over from earlier builds are removed first, so only
+      # this build ends up in the report. Runs the same targets as `cargo llvm-cov` (`--tests`).
+      # Proc-macro crates are left out of the report: their code runs inside the compiler, so it is
+      # only measured when the crates that use them are recompiled, which the cache usually avoids.
       - name: Generate coverage
-        run: cargo bin cargo-llvm-cov --all-features --lcov --output-path lcov.info --ignore-filename-regex "crates/bitwarden-api-"
+        id: build
+        run: |
+          env_sh=$(cargo bin cargo-llvm-cov show-env --sh)
+          eval "$env_sh"
+          cargo bin cargo-llvm-cov clean --profraw-only
+          cargo test --workspace --all-features --tests --no-run --message-format=json-render-diagnostics > "$RUNNER_TEMP/coverage-build.json"
+          ./scripts/ci-remove-stale-executables.sh "$RUNNER_TEMP/coverage-build.json"
+          cargo test --workspace --all-features --tests
+          cargo bin cargo-llvm-cov report --lcov --output-path lcov.info --ignore-filename-regex "crates/bitwarden-api-|crates/[^/]+-macro/"
+
+      - name: Record build inputs
+        shell: bash
+        run: ./scripts/ci-build-cache.sh record
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+
+      - name: Save build output
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target
+            !target/**/*.profraw
+            .bin
+          key: ${{ steps.restore-build.outputs.cache-primary-key }}

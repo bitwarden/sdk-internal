@@ -7,6 +7,13 @@ import type { ClientEmulator } from "./client-emulator";
 export const IGNORED_FIELDS = ["revisionDate", "creationDate"] as const;
 
 /**
+ * Fields where `false` means the same as an absent value. The blob format stores an unset
+ * `httpAuthenticationEnabled` as `false` while the legacy format leaves it unset, so a cipher that
+ * changes format (for example during key rotation) changes its representation, not its meaning.
+ */
+const FALSE_MEANS_ABSENT_FIELDS: readonly string[] = ["httpAuthenticationEnabled"];
+
+/**
  * Decrypts everything an unlocked client's repositories hold, comparing to the plaintext `seed`
  * records. Throws on the first difference.
  *
@@ -75,7 +82,8 @@ export function expectPlaintextEqual(
 }
 
 /**
- * Drops absent fields and `ignore`d keys at every depth.
+ * Drops absent fields, `ignore`d keys, and {@link FALSE_MEANS_ABSENT_FIELDS} set to `false` at
+ * every depth.
  *
  * serde_json converts a Rust `None` to `null` while serde_wasm_bindgen converts it to `undefined`,
  * so a raw comparison fails on every optional field while proving nothing.
@@ -100,9 +108,15 @@ function normalize(value: unknown, ignore: readonly string[]): unknown {
     }
 
     const entry = normalize((value as Record<string, unknown>)[key], ignore);
-    if (entry !== undefined) {
-      normalized[key] = entry;
+    if (entry === undefined) {
+      continue;
     }
+
+    if (entry === false && FALSE_MEANS_ABSENT_FIELDS.includes(key)) {
+      continue;
+    }
+
+    normalized[key] = entry;
   }
 
   return normalized;
