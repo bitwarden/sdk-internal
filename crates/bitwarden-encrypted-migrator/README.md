@@ -8,6 +8,9 @@ to the current format, so it needs the keys of the unlocked account. A migration
 - the account on the server,
 - the data of other accounts, for example the members of an organization that the user administers.
 
+Each migration checks whether the account needs it, right before the migration runs. Some migrations
+also need the master password. A run without the master password skips them.
+
 ## Blocking and background migrations
 
 This crate runs background migrations. Login, unlock, and sync do not wait for them. A migration
@@ -23,10 +26,10 @@ calls a slow server keeps the user on the lock screen.
 
 On WASM, the SDK schedules the migrations of each user:
 
-- 5 seconds after an explicit unlock or a sync, so that the sync data reaches state. Only the SDK
-  client that the user unlocks schedules the run. A client that is initialized from client-managed
-  state, for example a re-created client or the popup client next to the background client, and
-  `reinit_user_crypto` do not schedule a run,
+- 5 seconds after an explicit unlock or a sync, so that the data of the unlock or the sync reaches
+  state. Only the SDK client that the user unlocks schedules the run. A client that is initialized
+  from client-managed state, for example a re-created client or the popup client next to the
+  background client, and `reinit_user_crypto` do not schedule a run,
 - 24 hours after each run, while the account stays unlocked.
 
 Only one run of a user is in progress at a time. A failed migration runs again in the next run.

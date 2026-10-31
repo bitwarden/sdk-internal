@@ -32,6 +32,7 @@ bitwarden-organizations = { workspace = true }
 bitwarden-threading = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
+zeroize = { workspace = true }
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }

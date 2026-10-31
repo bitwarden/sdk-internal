@@ -3,6 +3,7 @@
 mod encrypted_migrator_client;
 mod migration;
 mod migrations;
+mod runner;
 mod scheduler;
 mod user_run_states;
 

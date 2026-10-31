@@ -12,25 +12,29 @@ use bitwarden_threading::cancellation_token::CancellationToken;
 use tokio::sync::oneshot;
 
 use crate::{
-    migration::{Migration, run_migrations},
+    migrations,
+    runner::{DynEncryptedMigration, run_migrations},
     user_run_states::UserRunStates,
 };
 
-/// Gives the sync data time to reach state before the run.
+/// Gives the data of the unlock or the sync time to reach state before the run.
 const TRIGGER_DELAY: Duration = Duration::from_secs(5);
+/// Runs the migrations again while the account stays unlocked, so that a failed migration does not
+/// wait for the next unlock or sync. An account can stay unlocked for days, for example with the
+/// "never lock" timeout.
 const RECURRING_DELAY: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// Global to the process, not per [`Client`], because the TypeScript clients replace the SDK client
 /// each time the account's keys change in their state.
 static SCHEDULER: LazyLock<Arc<Scheduler>> =
-    LazyLock::new(|| Arc::new(Scheduler::new(Migration::all)));
+    LazyLock::new(|| Arc::new(Scheduler::new(migrations::all)));
 
 /// Schedules the background migrations of the client's user on the process-wide scheduler.
 pub(crate) fn trigger(client: &Client) {
     SCHEDULER.trigger(client);
 }
 
-type MakeMigrations = dyn Fn(&Client) -> Vec<Migration> + Send + Sync;
+type MakeMigrations = dyn Fn(&Client) -> Vec<Box<dyn DynEncryptedMigration>> + Send + Sync;
 
 struct Scheduler {
     user_run_states: UserRunStates,
@@ -38,7 +42,9 @@ struct Scheduler {
 }
 
 impl Scheduler {
-    fn new(make_migrations: impl Fn(&Client) -> Vec<Migration> + Send + Sync + 'static) -> Self {
+    fn new(
+        make_migrations: impl Fn(&Client) -> Vec<Box<dyn DynEncryptedMigration>> + Send + Sync + 'static,
+    ) -> Self {
         Self {
             user_run_states: UserRunStates::default(),
             make_migrations: Box::new(make_migrations),
@@ -101,7 +107,7 @@ impl Scheduler {
         let migrations = (self.make_migrations)(client);
         bitwarden_threading::spawn(async move {
             let _finished_sender = finished_sender;
-            run_migrations(&migrations).await;
+            run_migrations(&migrations, None).await;
         });
         // The sender never sends, so the receiver resolves with an error once the task drops it.
         let _ = finished_receiver.await;
@@ -176,6 +182,10 @@ pub(crate) mod tests {
     use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
+    use crate::{
+        migration::MigrationNeed,
+        runner::tests::{FakeMigration, FakeRun},
+    };
 
     /// An unlocked client of a new user.
     pub(crate) async fn unlocked_client() -> (Client, UserId) {
@@ -210,11 +220,16 @@ pub(crate) mod tests {
     ) -> (Arc<Scheduler>, Arc<AtomicUsize>) {
         let runs = Arc::new(AtomicUsize::new(0));
         let runs_in_migration = Arc::clone(&runs);
-        let run: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
+        let run: FakeRun = Arc::new(move |_| {
             runs_in_migration.fetch_add(1, Ordering::SeqCst);
             on_run();
         });
-        let scheduler = Scheduler::new(move |_| vec![Migration::Fake(Arc::clone(&run))]);
+        let scheduler = Scheduler::new(move |_| {
+            vec![Box::new(FakeMigration {
+                need: MigrationNeed::Needed,
+                run: Arc::clone(&run),
+            })]
+        });
         (Arc::new(scheduler), runs)
     }
 

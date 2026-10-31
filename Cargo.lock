@@ -930,6 +930,7 @@ dependencies = [
  "bitwarden-threading",
  "tokio",
  "tracing",
+ "zeroize",
 ]
 
 [[package]]
