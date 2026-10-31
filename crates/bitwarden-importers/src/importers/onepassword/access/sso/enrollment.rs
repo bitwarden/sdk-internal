@@ -19,7 +19,7 @@ use super::{
         wire::{self, CredentialBundle},
     },
     Timing,
-    cpace::{EnrollmentSession, Exchange, perform_cpace},
+    cpace::{EnrollmentSession, Exchange, MsgA, perform_cpace, request_msg_a},
     ui::{
         EnrollmentStatus, SsoEnrollmentContext, SsoEnrollmentResult, SsoUi, VerificationCodeResult,
     },
@@ -163,8 +163,15 @@ async fn enroll(
         return Err(unknown_status(status));
     }
 
-    let mut replaced_msg_a = None;
+    let mut replaced_msg_a: Option<Vec<u8>> = None;
     for attempt in 0..MAX_CODE_ATTEMPTS {
+        // The enrolled device shows the new code before it sends the new `msga`, so waiting for
+        // that message keeps the user from entering the old code.
+        let msg_a = match &replaced_msg_a {
+            Some(replaced) => Some(wait_for_new_msg_a(replaced, &session, rest, timing).await?),
+            None => None,
+        };
+
         let verification_code = ask_for_code(attempt, &session, context, rest, timing).await?;
 
         context
@@ -173,15 +180,7 @@ async fn enroll(
                 "Exchanging credentials securely",
             )
             .await;
-        match perform_cpace(
-            &session,
-            &verification_code,
-            replaced_msg_a.as_deref(),
-            rest,
-            timing,
-        )
-        .await?
-        {
+        match perform_cpace(&session, &verification_code, msg_a, rest, timing).await? {
             Exchange::Shared(credential_bundle) => {
                 context
                     .update_status(EnrollmentStatus::Completing, "Completing enrollment")
@@ -193,6 +192,23 @@ async fn enroll(
     }
 
     Err(Stop::Failed(OnePasswordError::VerificationCodeFailed))
+}
+
+/// Waits for the `msga` that replaces `replaced`. Only the status tells a denial on the enrolled
+/// device from any other failure of the wait.
+async fn wait_for_new_msg_a(
+    replaced: &[u8],
+    session: &EnrollmentSession<'_>,
+    rest: &RestClient,
+    timing: &Timing,
+) -> Result<MsgA, Stop> {
+    match request_msg_a(session, Some(replaced), rest, timing).await {
+        Ok(msg_a) => Ok(msg_a),
+        Err(error) => match get_enrollment_status(session, rest).await {
+            Ok(ServerStatus::Denied) => Err(Stop::Denied),
+            _ => Err(error.into()),
+        },
+    }
 }
 
 /// Asks for the verification code the enrolled device shows. Polling on makes denying the request
@@ -329,7 +345,8 @@ mod tests {
     use super::{
         super::{
             test_support::{
-                CpaceVectors, SIGN_IN_TOKEN, mock_msga, path, quick_timing, rest_client, vectors,
+                CpaceVectors, SIGN_IN_TOKEN, mock_msga, path, quick_timing, rest_client, session,
+                vectors,
             },
             ui::SsoLoginResult,
         },
@@ -561,14 +578,9 @@ mod tests {
         assert!(matches!(result.err(), Some(OnePasswordError::Denied)));
     }
 
-    /// An enrolled device that refuses every code, for `rounds` exchanges. Each round has a
-    /// `msga` of its own, which the server only serves after the replaced one once more, and a
-    /// `taga` no client secret matches.
-    async fn mock_refusing_enrolled_device(
-        server: &MockServer,
-        vectors: &CpaceVectors,
-        rounds: u8,
-    ) {
+    /// The `msga` of `rounds` exchanges. Each round has one of its own, which the server only
+    /// serves after the replaced one once more.
+    async fn mock_replaced_msga(server: &MockServer, vectors: &CpaceVectors, rounds: u8) {
         let mut replaced = None;
         for round in 0..rounds {
             let mut msg_a: Value =
@@ -591,7 +603,14 @@ mod tests {
             }
             replaced = Some(msg_a);
         }
+    }
 
+    /// An enrolled device that refuses `rounds` codes, with a `taga` no client secret matches.
+    async fn mock_refusing_enrolled_device(
+        server: &MockServer,
+        vectors: &CpaceVectors,
+        rounds: u8,
+    ) {
         for (method, endpoint, answer) in [
             ("PUT", "cpace/msgb", json!({"success": 1})),
             (
@@ -618,6 +637,7 @@ mod tests {
         let server = MockServer::start().await;
         mock_start(&server, &vectors).await;
         mock_statuses(&server, &vectors, vec![reports("WAITING_FOR_CODE")]).await;
+        mock_replaced_msga(&server, &vectors, 3).await;
         mock_refusing_enrolled_device(&server, &vectors, 3).await;
         mock_cancel(&server, &vectors, 1).await;
         let (ui, script) =
@@ -654,6 +674,7 @@ mod tests {
         let server = MockServer::start().await;
         mock_start(&server, &vectors).await;
         mock_statuses(&server, &vectors, vec![reports("WAITING_FOR_CODE")]).await;
+        mock_replaced_msga(&server, &vectors, 2).await;
         mock_refusing_enrolled_device(&server, &vectors, 1).await;
         mock_cancel(&server, &vectors, 1).await;
         let (ui, script) = scripted_prompts([code("9999-ZZZZ"), Prompt::Cancel]);
@@ -676,6 +697,72 @@ mod tests {
                 Event::CodeAsked(1),
                 Event::Ended(SsoEnrollmentResult::Canceled),
             ]
+        );
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn no_new_code_is_asked_for_until_the_enrolled_device_replaces_msga() {
+        let vectors = vectors().cpace;
+        let server = MockServer::start().await;
+        mock_start(&server, &vectors).await;
+        mock_statuses(&server, &vectors, vec![reports("WAITING_FOR_CODE")]).await;
+        server
+            .register(
+                Mock::given(matchers::method("POST"))
+                    .and(matchers::path(path(&vectors, "cpace/msga")))
+                    .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                        "msga": BASE64.encode(vectors.msga_json.as_bytes()),
+                    }))),
+            )
+            .await;
+        mock_refusing_enrolled_device(&server, &vectors, 1).await;
+        mock_cancel(&server, &vectors, 1).await;
+        let (ui, script) = scripted(code("9999-ZZZZ"));
+
+        let error = run_enrollment(&server, &vectors, &ui, &quick_timing())
+            .await
+            .err()
+            .expect("the enrollment fails");
+
+        assert!(matches!(error, OnePasswordError::Internal(_)));
+        assert_eq!(
+            script.take_events(),
+            [
+                status(
+                    EnrollmentStatus::WaitingForApproval,
+                    "Waiting for approval from enrolled device..."
+                ),
+                Event::CodeAsked(0),
+                exchanging(),
+                Event::Ended(SsoEnrollmentResult::Failed),
+            ]
+        );
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn denying_the_request_while_waiting_for_a_new_msga_is_a_denial() {
+        let vectors = vectors().cpace;
+        let server = MockServer::start().await;
+        mock_start(&server, &vectors).await;
+        mock_statuses(
+            &server,
+            &vectors,
+            vec![reports("WAITING_FOR_CODE"), denial()],
+        )
+        .await;
+        mock_replaced_msga(&server, &vectors, 1).await;
+        mock_refusing_enrolled_device(&server, &vectors, 1).await;
+        mock_cancel(&server, &vectors, 0).await;
+        let (ui, script) = scripted(code("9999-ZZZZ"));
+
+        let result = run_enrollment(&server, &vectors, &ui, &quick_timing()).await;
+
+        assert_denied(result);
+        assert_eq!(
+            script.take_events().last(),
+            Some(&Event::Ended(SsoEnrollmentResult::Denied))
         );
         server.verify().await;
     }
@@ -802,16 +889,7 @@ mod tests {
                 .register(status_mock(&vectors).respond_with(response))
                 .await;
 
-            let status = get_enrollment_status(
-                &EnrollmentSession {
-                    username: &vectors.username,
-                    sign_in_address: &vectors.sign_in_address,
-                    sign_in_token: SIGN_IN_TOKEN,
-                    enrollment_uuid: &vectors.enrollment_uuid,
-                },
-                &rest_client(&server),
-            )
-            .await;
+            let status = get_enrollment_status(&session(&vectors), &rest_client(&server)).await;
 
             assert_eq!(status.ok() == Some(ServerStatus::Denied), denied);
         }

@@ -73,7 +73,7 @@ pub trait SsoEnrollmentContext: Send + Sync {
 
     /// Asks for the verification code the approving device shows, for the given zero-based
     /// attempt. From the second attempt on, the previous code was wrong and the approving device
-    /// is about to show a new one. The user gets three attempts.
+    /// shows a new one. The user gets three attempts.
     async fn provide_verification_code(&self, attempt: u32) -> VerificationCodeResult;
 
     /// Closes the enrollment UI. Called exactly once when the enrollment ends, unless the login is

@@ -41,7 +41,7 @@ const CREDENTIAL_BUNDLE_AAD: &[u8] = b"1P_SSO_CREDENTIAL_BUNDLE:ENROLL";
 
 /// The first CPace message, from the enrolled device.
 #[derive(Debug)]
-struct MsgA {
+pub(super) struct MsgA {
     /// The enrolled device's public point.
     ya: RistrettoPoint,
     ad: Ad,
@@ -279,12 +279,11 @@ pub(super) enum Exchange {
 
 /// Runs the whole exchange over `rest` with a fresh random client secret.
 ///
-/// A retry after a wrong code passes the first message of the failed exchange as `replaced_msg_a`,
-/// so the exchange waits for the enrolled device to send a new one.
+/// A retry after a wrong code passes the `msg_a` it waited for. Without one it is requested here.
 pub(super) async fn perform_cpace(
     session: &EnrollmentSession<'_>,
     verification_code: &str,
-    replaced_msg_a: Option<&[u8]>,
+    msg_a: Option<MsgA>,
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<Exchange, OnePasswordError> {
@@ -294,7 +293,7 @@ pub(super) async fn perform_cpace(
     perform_cpace_with_client_secret(
         session,
         verification_code,
-        replaced_msg_a,
+        msg_a,
         &client_secret,
         rest,
         timing,
@@ -306,12 +305,15 @@ pub(super) async fn perform_cpace(
 async fn perform_cpace_with_client_secret(
     session: &EnrollmentSession<'_>,
     verification_code: &str,
-    replaced_msg_a: Option<&[u8]>,
+    msg_a: Option<MsgA>,
     client_secret: &[u8; 64],
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<Exchange, OnePasswordError> {
-    let msg_a = request_msg_a(session, replaced_msg_a, rest, timing).await?;
+    let msg_a = match msg_a {
+        Some(msg_a) => msg_a,
+        None => request_msg_a(session, None, rest, timing).await?,
+    };
 
     let msg_b = calculate_msg_b(
         session.username,
@@ -342,7 +344,7 @@ async fn perform_cpace_with_client_secret(
 
 /// Fetches and parses the enrolled device's first message, once the server has one other than
 /// `replaced`. It answers an empty 200 while it has none.
-async fn request_msg_a(
+pub(super) async fn request_msg_a(
     session: &EnrollmentSession<'_>,
     replaced: Option<&[u8]>,
     rest: &RestClient,
@@ -495,8 +497,8 @@ mod tests {
 
     use super::{
         super::test_support::{
-            CpaceVectors, SIGN_IN_TOKEN, hex, hex_array, mock_enrolled_device, mock_msga, path,
-            quick_timing, rest_client, vectors,
+            CpaceVectors, SIGN_IN_TOKEN, hex, hex_array, mock_answers_to_msga,
+            mock_enrolled_device, mock_msga, path, quick_timing, rest_client, session, vectors,
         },
         *,
     };
@@ -787,18 +789,13 @@ mod tests {
     async fn run_cpace(
         server: &MockServer,
         vectors: &CpaceVectors,
-        replaced_msg_a: Option<&[u8]>,
+        msg_a: Option<MsgA>,
         timing: &Timing,
     ) -> Result<Exchange, OnePasswordError> {
         perform_cpace_with_client_secret(
-            &EnrollmentSession {
-                username: &vectors.username,
-                sign_in_address: &vectors.sign_in_address,
-                sign_in_token: SIGN_IN_TOKEN,
-                enrollment_uuid: &vectors.enrollment_uuid,
-            },
+            &session(vectors),
             &vectors.verification_code,
-            replaced_msg_a,
+            msg_a,
             &hex_array(&vectors.client_secret),
             &rest_client(server),
             timing,
@@ -992,9 +989,28 @@ mod tests {
                 )
                 .await;
         }
-        mock_enrolled_device(&server, &vectors).await;
+        mock_msga(&server, &vectors).await;
 
-        let bundle = shared(run_cpace(&server, &vectors, Some(&replaced), &quick_timing()).await);
+        let msg_a = request_msg_a(
+            &session(&vectors),
+            Some(&replaced),
+            &rest_client(&server),
+            &quick_timing(),
+        )
+        .await
+        .expect("a new msga");
+
+        assert_eq!(msg_a.original_message, vectors.msga_json.as_bytes());
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn an_exchange_starts_from_the_msg_a_it_is_given() {
+        let vectors = vectors().cpace;
+        let server = MockServer::start().await;
+        mock_answers_to_msga(&server, &vectors).await;
+
+        let bundle = shared(run_cpace(&server, &vectors, Some(msg_a()), &quick_timing()).await);
 
         assert_eq!(*bundle.srpx, "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8");
         server.verify().await;

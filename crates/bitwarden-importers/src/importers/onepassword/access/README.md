@@ -35,8 +35,9 @@ each one into a Bitwarden folder. 1P doesn't have folders, only tags.
 - `fixtures/sso-1password-exchanges.json` holds two exchanges recorded from 1Password's own CPace
   WASM playing both devices, one with the right code and one with a wrong one
 - A wrong verification code shows in `taga`. Like 1Password's web client, the new device still sends
-  `tagb`, which tells the enrolled device to show a new code, and asks again. The third wrong code
-  ends the import with `OnePasswordVerificationCodeFailed`
+  `tagb`, which tells the enrolled device to show a new code, and asks again once the new `msga`
+  says that code is showing. The third wrong code ends the import with
+  `OnePasswordVerificationCodeFailed`
 - Every import is a new device with a fresh uuid and nothing is kept between imports, so the user
   approves it on an enrolled device and types the verification code shown there. Then a CPace
   exchange (Ristretto255) hands over the credential bundle, the SRP x and the account unlock key
