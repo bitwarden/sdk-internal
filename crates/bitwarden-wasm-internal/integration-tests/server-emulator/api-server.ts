@@ -143,7 +143,7 @@ export class ApiServer {
     const organization =
       entity.organizationId === null ? undefined : this.db.organizations.get(entity.organizationId);
 
-    return organization?.members.some((member) => member.userId === user.userId) === true;
+    return organization !== undefined && this.isMember(user, organization.organizationId);
   }
 
   /** A cipher `user` can reach, or `undefined` — which a handler answers 404 for. */
@@ -441,10 +441,17 @@ export class ApiServer {
     return { json: FolderResponse.fromFolder(folder) };
   }
 
-  /** Whether `user` is a member of `organizationId`. */
+  /**
+   * Whether `user` is a confirmed member of `organizationId`. An accepted member holds no
+   * organization key yet, so the server does not hand it organization data.
+   */
   private isMember(user: UserEntity, organizationId: string): boolean {
     const organization = this.db.organizations.get(organizationId);
 
-    return organization?.members.some((member) => member.userId === user.userId) === true;
+    return (
+      organization?.members.some(
+        (member) => member.userId === user.userId && member.status === "confirmed",
+      ) === true
+    );
   }
 }

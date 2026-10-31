@@ -31,7 +31,12 @@ import {
   asString,
 } from "../tests/type-assertion-helpers";
 
-import type { EmergencyAccessEntity, StoredMasterPasswordUnlock, UserEntity } from "./entities";
+import type {
+  EmergencyAccessEntity,
+  OrganizationInviteLinkEntity,
+  StoredMasterPasswordUnlock,
+  UserEntity,
+} from "./entities";
 
 /** How long an issued access token stays valid, as the identity service reports it. */
 const TOKEN_LIFETIME_SECONDS = 3600;
@@ -934,4 +939,109 @@ export class EmergencyAccessPasswordRequest {
   key?: string | null;
   unlockData?: MasterPasswordUnlockDataModel | null;
   authenticationData?: MasterPasswordAuthenticationDataModel | null;
+}
+
+/** The RFC 7807 body the newer endpoints refuse with: machine-readable codes keyed by property. */
+export class ValidationProblemResponse {
+  type!: "validation_error";
+  title!: string;
+  status!: number;
+  errors!: Record<string, { type: string; detail: string }[]>;
+}
+
+/** `OrganizationInviteLinkResponseModel`. The revision date is stored but never served. */
+export class OrganizationInviteLinkResponse {
+  object!: "organizationInviteLink";
+  id!: string;
+  code!: string;
+  organizationId!: string;
+  allowedDomains!: string[];
+  invite!: string;
+  supportsConfirmation!: boolean;
+  creationDate!: string;
+
+  static fromEntity(entity: OrganizationInviteLinkEntity): OrganizationInviteLinkResponse {
+    return {
+      object: "organizationInviteLink",
+      id: entity.id,
+      code: entity.code,
+      organizationId: entity.organizationId,
+      allowedDomains: entity.allowedDomains,
+      invite: entity.invite,
+      supportsConfirmation: entity.supportsConfirmation,
+      creationDate: entity.creationDate,
+    };
+  }
+}
+
+/** `CreateOrganizationInviteLinkRequestModel`. */
+export class CreateOrganizationInviteLinkRequest {
+  allowedDomains!: string[];
+  invite!: string;
+  supportsConfirmation!: boolean;
+}
+
+/** `UpdateOrganizationInviteLinkRequestModel`: replaces the allowed domains. */
+export class UpdateOrganizationInviteLinkRequest {
+  allowedDomains!: string[];
+}
+
+/** The body of both `refresh` and `support-confirm`: a re-sealed invite and its flag. */
+export class OrganizationInviteRequest {
+  invite!: string;
+  supportsConfirmation!: boolean;
+}
+
+/** `OrganizationPrivateKeyResponseModel`: the private key wrapped by the organization key. */
+export class OrganizationPrivateKeyResponse {
+  object!: "organizationPrivateKey";
+  privateKey!: string | null;
+}
+
+/** `OrganizationPublicKeyResponseModel`. */
+export class OrganizationPublicKeyResponse {
+  object!: "organizationPublicKey";
+  publicKey!: string | null;
+}
+
+/** What every unauthenticated and invitee invite link request names: the organization and code. */
+export class InviteLinkCodeRequest {
+  organizationId!: string;
+  code!: string;
+}
+
+/** `ValidateOrganizationInviteLinkEmailDomainRequestModel`. */
+export class InviteLinkEmailDomainRequest extends InviteLinkCodeRequest {
+  email!: string;
+}
+
+/** `ValidateEmailDomainResponseModel`. */
+export class InviteLinkEmailDomainResponse {
+  isAllowed!: boolean;
+}
+
+/** `OrganizationInviteLinkStatusResponseModel`. The emulator models no SSO, so `sso` is `null`. */
+export class InviteLinkStatusResponse {
+  object!: "inviteLinkStatus";
+  organizationName!: string | null;
+  linksEnabled!: boolean;
+  seatsAvailable!: boolean;
+  supportsConfirmation!: boolean;
+  sso!: null;
+}
+
+/** What `POST /organizations/users/invite-link/invite` answers with: the sealed invite. */
+export class OrganizationInviteResponse {
+  invite!: string;
+}
+
+/** `AcceptOrganizationInviteLinkRequestModel`. */
+export class AcceptInviteLinkRequest extends InviteLinkCodeRequest {
+  resetPasswordKey?: string | null;
+}
+
+/** `ConfirmOrganizationInviteLinkRequestModel`: accepting and confirming in one step. */
+export class ConfirmInviteLinkRequest extends AcceptInviteLinkRequest {
+  orgUserKey!: string;
+  defaultUserCollectionName!: string;
 }
