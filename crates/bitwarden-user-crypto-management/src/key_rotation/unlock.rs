@@ -286,7 +286,7 @@ fn reencrypt_organization_memberships(
             match AccountRecovery::make(
                 new_user_key_id,
                 &org_membership.public_key,
-                &TrustProof::ManuallyTrusted(trusted_thumbprint),
+                &TrustProof::ManuallyTrustedThumbprint(trusted_thumbprint),
                 ctx,
             ) {
                 Ok(account_recovery) => Ok(OrganizationUserAccountRecoveryRequestModel {

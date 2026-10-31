@@ -3,8 +3,8 @@
 //! member's account by resetting the member's master password.
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm::Aes256CbcHmac,
-    key_slot_ids,
+    EncString, KeyStore, KeyStoreContext, PublicKey, PublicKeyEncryptionAlgorithm,
+    SymmetricKeyAlgorithm::Aes256CbcHmac, key_slot_ids,
 };
 use bitwarden_organization_crypto::{
     account_recovery::{AccountRecovery, AccountRecoveryMakeError},
@@ -18,16 +18,8 @@ fn main() {
     let mut ctx: KeyStoreContext<'_, ExampleIds> = key_store.context_mut();
     let org_id = uuid::Uuid::default();
 
-    // The organization key, and the organization key pair whose private key is wrapped with the
-    // organization key. The wrapped private key is shared with the server.
-    let org_key = ExampleSymmetricKey::Organization(org_id);
-    let local_org_key = ctx.make_symmetric_key(Aes256CbcHmac);
-    ctx.persist_symmetric_key(local_org_key, org_key)
-        .expect("switching key ids should work");
-    let local_org_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-    let wrapped_org_private_key = ctx
-        .wrap_private_key(org_key, local_org_private_key)
-        .expect("wrapping the private key with the org key should work");
+    let (org_key, wrapped_org_private_key, server_org_public_key) =
+        create_organization(org_id, &mut ctx);
 
     // The member's user key. In the SDK, it is in the key store after unlock.
     let member_user_key = ctx.make_symmetric_key(Aes256CbcHmac);
@@ -42,9 +34,6 @@ fn main() {
 
     // 2. The member enrolls into account recovery. The server supplies the organization public key.
     // The member trusts it only if it matches the thumbprint bound into the invite.
-    let server_org_public_key = ctx
-        .get_public_key(local_org_private_key)
-        .expect("getting the org public key should work");
     let invite_key = invite
         .unseal_invite_key_with_invite_secret(&invite_secret, &mut ctx)
         .expect("the member should recover the invite key from the invite secret");
@@ -54,7 +43,7 @@ fn main() {
     let account_recovery = AccountRecovery::make(
         member_user_key,
         &server_org_public_key,
-        &TrustProof::ManuallyTrusted(bound_thumbprint.clone()),
+        &TrustProof::ManuallyTrustedThumbprint(bound_thumbprint.clone()),
         &ctx,
     )
     .expect("enrolling into account recovery should work");
@@ -68,12 +57,12 @@ fn main() {
     let result = AccountRecovery::make(
         member_user_key,
         &swapped_public_key,
-        &TrustProof::ManuallyTrusted(bound_thumbprint),
+        &TrustProof::ManuallyTrustedThumbprint(bound_thumbprint),
         &ctx,
     );
     assert!(matches!(
         result,
-        Err(AccountRecoveryMakeError::ThumbprintMismatch)
+        Err(AccountRecoveryMakeError::UntrustedPublicKey)
     ));
 
     // 3. The account recovery is sent to the server as a string, the "reset password key" of the
@@ -101,6 +90,26 @@ fn main() {
     // password, and shares the wrapped user key with the server. The member logs in with the new
     // master password, which unwraps the user key and recovers the account. In the SDK,
     // `bitwarden-core` derives this master password unlock data.
+}
+
+/// Creates the organization key, and the organization key pair whose private key is wrapped with
+/// the organization key. The server stores the wrapped private key and supplies the public key.
+fn create_organization(
+    org_id: uuid::Uuid,
+    ctx: &mut KeyStoreContext<'_, ExampleIds>,
+) -> (ExampleSymmetricKey, EncString, PublicKey) {
+    let org_key = ExampleSymmetricKey::Organization(org_id);
+    let local_org_key = ctx.make_symmetric_key(Aes256CbcHmac);
+    ctx.persist_symmetric_key(local_org_key, org_key)
+        .expect("switching key ids should work");
+    let org_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+    let wrapped_org_private_key = ctx
+        .wrap_private_key(org_key, org_private_key)
+        .expect("wrapping the private key with the org key should work");
+    let org_public_key = ctx
+        .get_public_key(org_private_key)
+        .expect("getting the org public key should work");
+    (org_key, wrapped_org_private_key, org_public_key)
 }
 
 key_slot_ids! {

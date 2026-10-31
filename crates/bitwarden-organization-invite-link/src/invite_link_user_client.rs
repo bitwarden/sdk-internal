@@ -148,31 +148,31 @@ impl InviteLinkUserClient {
             // match the organization public-key thumbprint bound into the invite: a substituted
             // recovery key would not match, so the user key cannot be captured by an
             // attacker-supplied key.
-            let reset_password_key = match &recovery_public_key {
-                Some(recovery_public_key) => {
-                    let recovery_public_key =
-                        PublicKey::from_der(&SpkiPublicKeyBytes::from(recovery_public_key))?;
-                    let bound_thumbprint =
-                        invite.get_public_key_thumbprint(invite_key, &mut ctx)?;
-                    match AccountRecovery::make(
-                        SymmetricKeySlotId::User,
-                        &recovery_public_key,
-                        &TrustProof::ManuallyTrusted(bound_thumbprint),
-                        &ctx,
-                    ) {
-                        Ok(account_recovery) => Some(String::from(&account_recovery)),
-                        Err(AccountRecoveryMakeError::ThumbprintMismatch) => {
-                            return Err(AcceptInviteLinkError::RecoveryKeyMismatch);
-                        }
-                        Err(
-                            error @ (AccountRecoveryMakeError::MissingOwnPrivateKey
-                            | AccountRecoveryMakeError::OwnPublicKeyMismatch
-                            | AccountRecoveryMakeError::EncapsulationFailed),
-                        ) => return Err(error.into()),
-                    }
-                }
-                None => None,
-            };
+            let reset_password_key = recovery_public_key
+                .as_ref()
+                .map(
+                    |recovery_public_key| -> Result<String, AcceptInviteLinkError> {
+                        let recovery_public_key =
+                            PublicKey::from_der(&SpkiPublicKeyBytes::from(recovery_public_key))?;
+                        let bound_thumbprint =
+                            invite.get_public_key_thumbprint(invite_key, &mut ctx)?;
+                        let account_recovery = AccountRecovery::make(
+                            SymmetricKeySlotId::User,
+                            &recovery_public_key,
+                            &TrustProof::ManuallyTrustedThumbprint(bound_thumbprint),
+                            &ctx,
+                        )
+                        .map_err(|error| match error {
+                            AccountRecoveryMakeError::UntrustedPublicKey => {
+                                AcceptInviteLinkError::RecoveryKeyMismatch
+                            }
+                            error @ (AccountRecoveryMakeError::PrivateKeyNotInContext
+                            | AccountRecoveryMakeError::EncapsulationFailed) => error.into(),
+                        })?;
+                        Ok(String::from(&account_recovery))
+                    },
+                )
+                .transpose()?;
 
             if invite.supports_confirmation() {
                 // Self-confirm: recover the organization key and encapsulate it to the user.

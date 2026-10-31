@@ -2,18 +2,19 @@
 //! with their own key pair, and an admin confirming a member.
 
 use bitwarden_crypto::{
-    CoseKeyThumbprintExt, KeyStore, KeyStoreContext, PublicKeyEncryptionAlgorithm,
-    SymmetricKeyAlgorithm::Aes256CbcHmac, key_slot_ids,
+    KeyStore, KeyStoreContext, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm::Aes256CbcHmac,
+    fingerprint, key_slot_ids,
 };
 use bitwarden_organization_crypto::{
     organization_shared_key::OrganizationSharedKey,
-    trust_proof::{CryptographicProof, TrustProof},
+    trust_proof::{CryptographicProof, FingerprintPhrase, TrustProof},
 };
 
 fn main() {
     let key_store = KeyStore::<ExampleIds>::default();
     let mut ctx: KeyStoreContext<'_, ExampleIds> = key_store.context_mut();
     let org_id = uuid::Uuid::default();
+    let member_user_id = uuid::Uuid::new_v4();
 
     // The owner's and the member's account key pairs. In the SDK, they are in the key store after
     // unlock.
@@ -21,10 +22,13 @@ fn main() {
     let member_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
     // 1. The owner creates the organization key.
-    let org_key = ExampleSymmetricKey::Organization(org_id);
-    let local_org_key = ctx.make_symmetric_key(Aes256CbcHmac);
-    ctx.persist_symmetric_key(local_org_key, org_key)
-        .expect("switching key ids should work");
+    let org_key = {
+        let org_key = ExampleSymmetricKey::Organization(org_id);
+        let local_org_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_org_key, org_key)
+            .expect("switching key ids should work");
+        org_key
+    };
 
     // 2. The owner shares the organization key with their own key pair. The owner holds the
     // matching private key, which proves that the public key is theirs.
@@ -40,17 +44,25 @@ fn main() {
     .expect("sharing the org key with the owner should work");
 
     // 3. An admin confirms the member. The server supplies the member's public key, and the admin
-    // trusts it after comparing the member's fingerprint.
+    // trusts it after comparing the member's fingerprint phrase. The admin's client derives the
+    // phrase from the member's user id and the public key.
     let server_member_public_key = ctx
         .get_public_key(member_private_key)
         .expect("getting the member's public key should work");
-    let verified_member_thumbprint = server_member_public_key
-        .thumbprint()
-        .expect("computing the thumbprint should work");
+    let verified_member_phrase = fingerprint(
+        &member_user_id.to_string(),
+        &server_member_public_key
+            .to_der()
+            .expect("encoding the public key should work"),
+    )
+    .expect("deriving the fingerprint phrase should work");
     let member_shared_key = OrganizationSharedKey::make(
         org_key,
         &server_member_public_key,
-        &TrustProof::ManuallyTrusted(verified_member_thumbprint),
+        &TrustProof::ManuallyTrustedFingerprint(FingerprintPhrase {
+            fingerprint_material: member_user_id,
+            phrase: verified_member_phrase,
+        }),
         &ctx,
     )
     .expect("sharing the org key with the member should work");

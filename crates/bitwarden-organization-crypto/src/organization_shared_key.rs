@@ -12,14 +12,14 @@
 //!   sender.
 //!
 //! [`OrganizationSharedKey::make`] takes the [`TrustProof`] for the member's public key: the
-//! fingerprint check of an admin, or the member's own private key when the member shares the key
-//! with themselves (creating an organization, or self-confirming through an invite link). Some V1
-//! flows have no way to verify the public key, and use [`OrganizationSharedKey::make_untrusted`].
-//! V2 has no untrusted variant.
+//! fingerprint phrase that an admin compared, or the member's own private key when the member
+//! shares the key with themselves (creating an organization, or self-confirming through an invite
+//! link). Some V1 flows have no way to verify the public key, and use
+//! [`OrganizationSharedKey::make_untrusted`]. V2 has no untrusted variant.
 
 use std::str::FromStr;
 
-use bitwarden_crypto::{KeySlotIds, KeyStoreContext, PublicKey, UnsignedSharedKey};
+use bitwarden_crypto::{CryptoError, KeySlotIds, KeyStoreContext, PublicKey, UnsignedSharedKey};
 use thiserror::Error;
 
 use crate::trust_proof::{TrustProof, TrustProofError};
@@ -27,7 +27,7 @@ use crate::trust_proof::{TrustProof, TrustProofError};
 /// Errors that can occur when parsing an organization shared key.
 #[derive(Debug, Error)]
 pub enum OrganizationSharedKeyParseError {
-    /// The value stored for the membership is in no known organization shared key format.
+    /// The value stored for the membership is not in a known organization shared key format.
     #[error("The organization shared key is malformed")]
     Malformed,
 }
@@ -35,26 +35,24 @@ pub enum OrganizationSharedKeyParseError {
 /// Errors that can occur when making an organization shared key with a trust proof.
 #[derive(Debug, Error, PartialEq)]
 pub enum OrganizationSharedKeyMakeError {
-    /// The server supplied a public key other than the trusted one.
-    #[error("The member's public key does not match the trusted thumbprint")]
-    ThumbprintMismatch,
-    /// The private key of the proof is not in the key store context.
-    #[error("The own private key does not exist in the key store context")]
-    MissingOwnPrivateKey,
-    /// The public key does not belong to the key pair of the proof.
-    #[error("The member's public key does not match the own private key")]
-    OwnPublicKeyMismatch,
+    /// The private key of
+    /// [`CryptographicProof::OwnPrivateKey`](crate::trust_proof::CryptographicProof::OwnPrivateKey)
+    /// is not in the key store context.
+    #[error("The private key of the trust proof is not in the key store context")]
+    PrivateKeyNotInContext,
     /// The organization key is not in the key store context.
     #[error("The organization key could not be encapsulated to the member's public key")]
     EncapsulationFailed,
+    /// The public key did not pass the trust proof.
+    #[error("The member's public key could not be trusted")]
+    UntrustedPublicKey,
 }
 
 impl From<TrustProofError> for OrganizationSharedKeyMakeError {
     fn from(error: TrustProofError) -> Self {
         match error {
-            TrustProofError::ThumbprintMismatch => Self::ThumbprintMismatch,
-            TrustProofError::MissingOwnPrivateKey => Self::MissingOwnPrivateKey,
-            TrustProofError::OwnPublicKeyMismatch => Self::OwnPublicKeyMismatch,
+            TrustProofError::PrivateKeyNotInContext => Self::PrivateKeyNotInContext,
+            TrustProofError::UntrustedPublicKey => Self::UntrustedPublicKey,
         }
     }
 }
@@ -72,17 +70,20 @@ pub enum OrganizationSharedKeyMakeUntrustedError {
 pub enum OrganizationSharedKeyUnsealError {
     /// The organization shared key was made for a different key pair, or the stored value is
     /// corrupt. V1 cannot tell these apart.
-    #[error("The organization shared key could not be decapsulated with the own private key")]
+    #[error("The organization shared key could not be decapsulated with the member's private key")]
     DecapsulationFailed,
+    /// The member's private key is not in the key store context.
+    #[error("The member's private key does not exist in the key store context")]
+    PrivateKeyNotInContext,
 }
 
 /// The organization key, shared with one member.
 pub enum OrganizationSharedKey {
     /// The organization key encapsulated to the member's public key.
     ///
-    /// Encapsulation authenticates no sender. Anyone who knows the member's public key can make
-    /// one, and a swapped public key hands the organization key to whoever holds the matching
-    /// private key.
+    /// Encapsulation does not authenticate the sender. Anyone who knows the member's public key can
+    /// make one, and a swapped public key hands the organization key to whoever holds the
+    /// matching private key.
     V1(UnsignedSharedKey),
 }
 
@@ -132,7 +133,12 @@ impl OrganizationSharedKey {
 
         encapsulated_key
             .decapsulate(own_private_key, ctx)
-            .map_err(|_| OrganizationSharedKeyUnsealError::DecapsulationFailed)
+            .map_err(|error| match error {
+                CryptoError::MissingKeyId(_) => {
+                    OrganizationSharedKeyUnsealError::PrivateKeyNotInContext
+                }
+                _ => OrganizationSharedKeyUnsealError::DecapsulationFailed,
+            })
     }
 }
 
@@ -259,16 +265,12 @@ mod tests {
 
         for (trust_proof_error, expected_error) in [
             (
-                TrustProofError::ThumbprintMismatch,
-                OrganizationSharedKeyMakeError::ThumbprintMismatch,
+                TrustProofError::PrivateKeyNotInContext,
+                OrganizationSharedKeyMakeError::PrivateKeyNotInContext,
             ),
             (
-                TrustProofError::MissingOwnPrivateKey,
-                OrganizationSharedKeyMakeError::MissingOwnPrivateKey,
-            ),
-            (
-                TrustProofError::OwnPublicKeyMismatch,
-                OrganizationSharedKeyMakeError::OwnPublicKeyMismatch,
+                TrustProofError::UntrustedPublicKey,
+                OrganizationSharedKeyMakeError::UntrustedPublicKey,
             ),
         ] {
             let result = OrganizationSharedKey::make(
@@ -344,6 +346,27 @@ mod tests {
         assert!(matches!(
             result,
             Err(OrganizationSharedKeyUnsealError::DecapsulationFailed)
+        ));
+    }
+
+    #[test]
+    fn test_unsealing_with_a_private_key_from_another_context_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let organization_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        let member_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let member_public_key = ctx.get_public_key(member_private_key).unwrap();
+        let shared_key =
+            OrganizationSharedKey::make_untrusted(organization_key, &member_public_key, &ctx)
+                .unwrap();
+        let other_key_store = KeyStore::<TestIds>::default();
+        let mut other_ctx = other_key_store.context_mut();
+
+        let result = shared_key.unseal(member_private_key, &mut other_ctx);
+
+        assert!(matches!(
+            result,
+            Err(OrganizationSharedKeyUnsealError::PrivateKeyNotInContext)
         ));
     }
 

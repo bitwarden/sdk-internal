@@ -46,6 +46,9 @@ pub(crate) struct LoginDataV1 {
     pub uris: Vec<LoginUriDataV1>,
     pub totp: Option<String>,
     pub autofill_on_page_load: Option<bool>,
+    /// Defaults to `false` for blobs sealed before the setting existed.
+    #[serde(default)]
+    pub http_authentication_enabled: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fido2_credentials: Vec<Fido2CredentialDataV1>,
 }
@@ -259,6 +262,7 @@ mod tests {
                 }],
                 totp: Some("otpauth://totp/test?secret=JBSWY3DPEHPK3PXP".to_string()),
                 autofill_on_page_load: Some(true),
+                http_authentication_enabled: false,
                 fido2_credentials: vec![Fido2CredentialDataV1 {
                     credential_id: "credential-id-123".to_string(),
                     key_type: "public-key".to_string(),
@@ -535,5 +539,19 @@ mod tests {
             TEST_VECTOR_DRIVERS_LICENSE_ENVELOPE,
             test_blob_drivers_license(),
         );
+    }
+
+    #[test]
+    fn test_login_data_without_http_authentication_enabled_defaults_to_off() {
+        let login_data: LoginDataV1 = serde_json::from_value(serde_json::json!({
+            "username": "alice@example.com",
+            "password": null,
+            "passwordRevisionDate": null,
+            "totp": null,
+            "autofillOnPageLoad": null,
+        }))
+        .unwrap();
+
+        assert!(!login_data.http_authentication_enabled);
     }
 }

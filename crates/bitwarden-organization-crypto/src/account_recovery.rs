@@ -14,17 +14,12 @@
 //! flows have no way to verify the public key, and use [`AccountRecovery::make_untrusted`]. V2
 //! has no untrusted variant.
 //!
-//! A V1 to V2 upgrade of the member's user key leaves the account recovery of the V1 user key in
-//! place. An admin replaces it with [`AccountRecovery::make_after_v2_upgrade`].
-//!
 //! Until identities exist, [`PublicKey`] and [`OrganizationPrivateKey`] stand in for the
 //! organization's identity.
 
 use std::str::FromStr;
 
-use bitwarden_crypto::{
-    KeyId, KeySlotIds, KeyStoreContext, PublicKey, SymmetricKeyAlgorithm, UnsignedSharedKey,
-};
+use bitwarden_crypto::{CryptoError, KeySlotIds, KeyStoreContext, PublicKey, UnsignedSharedKey};
 use thiserror::Error;
 
 use crate::{
@@ -35,52 +30,32 @@ use crate::{
 /// Errors that can occur when parsing an account recovery.
 #[derive(Debug, Error)]
 pub enum AccountRecoveryParseError {
-    /// The value stored for the member is in no known account recovery format.
+    /// The value stored for the member is not in a known account recovery format.
     #[error("The account recovery key is malformed")]
     Malformed,
-}
-
-/// Errors that can occur when making an account recovery after a V1 to V2 upgrade of the member's
-/// user key.
-#[derive(Debug, Error, PartialEq)]
-pub enum AccountRecoveryMakeAfterV2UpgradeError {
-    /// The member's user key is not in the key store context.
-    #[error("The member's user key does not exist in the key store context")]
-    MissingMemberUserKey,
-    /// The member's user key is not a V2 user key.
-    #[error("The member's user key is not a V2 user key")]
-    MemberUserKeyNotV2,
-    /// The member's user key has a key id other than the expected one.
-    #[error("The member's user key id does not match the expected key id")]
-    UserKeyIdMismatch,
-    /// The account recovery could not be made with the organization's trust proof.
-    #[error(transparent)]
-    Make(#[from] AccountRecoveryMakeError),
 }
 
 /// Errors that can occur when making an account recovery with a trust proof.
 #[derive(Debug, Error, PartialEq)]
 pub enum AccountRecoveryMakeError {
-    /// The server supplied a public key other than the trusted one.
-    #[error("The organization's public key does not match the trusted thumbprint")]
-    ThumbprintMismatch,
-    /// The private key of the proof is not in the key store context.
-    #[error("The own private key does not exist in the key store context")]
-    MissingOwnPrivateKey,
-    /// The public key does not belong to the key pair of the proof.
-    #[error("The organization's public key does not match the own private key")]
-    OwnPublicKeyMismatch,
+    /// The private key of
+    /// [`CryptographicProof::OwnPrivateKey`](crate::trust_proof::CryptographicProof::OwnPrivateKey)
+    /// is not in the key store context.
+    #[error("The private key of the trust proof is not in the key store context")]
+    PrivateKeyNotInContext,
     /// The member's user key is not in the key store context.
     #[error("The member's user key could not be encapsulated to the organization's public key")]
     EncapsulationFailed,
+    /// The public key did not pass the trust proof.
+    #[error("The organization's public key could not be trusted")]
+    UntrustedPublicKey,
 }
 
 impl From<TrustProofError> for AccountRecoveryMakeError {
     fn from(error: TrustProofError) -> Self {
         match error {
-            TrustProofError::ThumbprintMismatch => Self::ThumbprintMismatch,
-            TrustProofError::MissingOwnPrivateKey => Self::MissingOwnPrivateKey,
-            TrustProofError::OwnPublicKeyMismatch => Self::OwnPublicKeyMismatch,
+            TrustProofError::PrivateKeyNotInContext => Self::PrivateKeyNotInContext,
+            TrustProofError::UntrustedPublicKey => Self::UntrustedPublicKey,
         }
     }
 }
@@ -102,14 +77,17 @@ pub enum AccountRecoveryUnsealError {
         "The account recovery key could not be decapsulated with the organization's private key"
     )]
     DecapsulationFailed,
+    /// The private key of [`OrganizationPrivateKey`] is not in the key store context.
+    #[error("The organization's private key does not exist in the key store context")]
+    PrivateKeyNotInContext,
 }
 
 /// A member's user key, held by the organization so that admins can recover the account.
 pub enum AccountRecovery {
     /// The member's user key encapsulated to the organization's public key.
     ///
-    /// Encapsulation authenticates no sender. A swapped public key hands the member's user key to
-    /// whoever holds the matching private key.
+    /// Encapsulation does not authenticate the sender. A swapped public key hands the member's user
+    /// key to whoever holds the matching private key.
     V1(UnsignedSharedKey),
 }
 
@@ -129,39 +107,6 @@ impl AccountRecovery {
                 .map_err(|_| AccountRecoveryMakeError::EncapsulationFailed)?;
 
         Ok(Self::V1(encapsulated_key))
-    }
-
-    /// Makes an account recovery of the member's V2 user key, after a V1 to V2 upgrade of that key.
-    ///
-    /// The server reports `expected_user_key_id` and can name any key, so the key id of
-    /// `v2_user_key` must match it. The organization's private key is the trust proof for
-    /// `organization_public_key`.
-    pub fn make_after_v2_upgrade<Ids: KeySlotIds>(
-        v2_user_key: Ids::Symmetric,
-        expected_user_key_id: KeyId,
-        organization_private_key: &OrganizationPrivateKey<Ids>,
-        organization_public_key: &PublicKey,
-        ctx: &KeyStoreContext<Ids>,
-    ) -> Result<Self, AccountRecoveryMakeAfterV2UpgradeError> {
-        if !ctx.has_symmetric_key(v2_user_key) {
-            return Err(AccountRecoveryMakeAfterV2UpgradeError::MissingMemberUserKey);
-        }
-        if !matches!(
-            ctx.get_symmetric_key_algorithm(v2_user_key),
-            Ok(SymmetricKeyAlgorithm::XAes256Gcm)
-        ) {
-            return Err(AccountRecoveryMakeAfterV2UpgradeError::MemberUserKeyNotV2);
-        }
-        if ctx.get_symmetric_key_id(v2_user_key) != Some(expected_user_key_id) {
-            return Err(AccountRecoveryMakeAfterV2UpgradeError::UserKeyIdMismatch);
-        }
-
-        Ok(Self::make(
-            v2_user_key,
-            organization_public_key,
-            &organization_private_key.trust_proof(),
-            ctx,
-        )?)
     }
 
     /// Makes a V1 account recovery of the member's user key, without verifying the
@@ -191,7 +136,10 @@ impl AccountRecovery {
 
         organization_private_key
             .decapsulate_key(encapsulated_key, ctx)
-            .map_err(|_| AccountRecoveryUnsealError::DecapsulationFailed)
+            .map_err(|error| match error {
+                CryptoError::MissingKeyId(_) => AccountRecoveryUnsealError::PrivateKeyNotInContext,
+                _ => AccountRecoveryUnsealError::DecapsulationFailed,
+            })
     }
 }
 
@@ -217,8 +165,7 @@ impl From<&AccountRecovery> for String {
 #[cfg(test)]
 mod tests {
     use bitwarden_crypto::{
-        KeyStore, PublicKeyEncryptionAlgorithm,
-        SymmetricKeyAlgorithm::{Aes256CbcHmac, XAes256Gcm},
+        KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm::Aes256CbcHmac,
     };
 
     use super::*;
@@ -310,16 +257,12 @@ mod tests {
 
         for (trust_proof_error, expected_error) in [
             (
-                TrustProofError::ThumbprintMismatch,
-                AccountRecoveryMakeError::ThumbprintMismatch,
+                TrustProofError::PrivateKeyNotInContext,
+                AccountRecoveryMakeError::PrivateKeyNotInContext,
             ),
             (
-                TrustProofError::MissingOwnPrivateKey,
-                AccountRecoveryMakeError::MissingOwnPrivateKey,
-            ),
-            (
-                TrustProofError::OwnPublicKeyMismatch,
-                AccountRecoveryMakeError::OwnPublicKeyMismatch,
+                TrustProofError::UntrustedPublicKey,
+                AccountRecoveryMakeError::UntrustedPublicKey,
             ),
         ] {
             let result = AccountRecovery::make(
@@ -378,125 +321,6 @@ mod tests {
     }
 
     #[test]
-    fn test_account_recovery_made_after_v2_upgrade_unseals_to_the_v2_user_key() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
-        let v2_user_key = ctx.make_symmetric_key(XAes256Gcm);
-        let v2_user_key_id = ctx.get_symmetric_key_id(v2_user_key).unwrap();
-
-        let account_recovery = AccountRecovery::make_after_v2_upgrade(
-            v2_user_key,
-            v2_user_key_id,
-            &organization_private_key,
-            &organization_private_key.public_key(&ctx).unwrap(),
-            &ctx,
-        )
-        .unwrap();
-        let unsealed = account_recovery
-            .unseal_member_user_key(&organization_private_key, &mut ctx)
-            .unwrap();
-
-        ctx.assert_symmetric_keys_equal(v2_user_key, unsealed);
-    }
-
-    #[test]
-    fn test_making_after_v2_upgrade_with_a_missing_member_user_key_fails() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
-        let other_key_store = KeyStore::<TestIds>::default();
-        let mut other_ctx = other_key_store.context_mut();
-        let missing_v2_user_key = other_ctx.make_symmetric_key(XAes256Gcm);
-        let missing_v2_user_key_id = other_ctx.get_symmetric_key_id(missing_v2_user_key).unwrap();
-
-        let result = AccountRecovery::make_after_v2_upgrade(
-            missing_v2_user_key,
-            missing_v2_user_key_id,
-            &organization_private_key,
-            &organization_private_key.public_key(&ctx).unwrap(),
-            &ctx,
-        );
-
-        assert_eq!(
-            result.err(),
-            Some(AccountRecoveryMakeAfterV2UpgradeError::MissingMemberUserKey)
-        );
-    }
-
-    #[test]
-    fn test_making_after_v2_upgrade_with_a_v1_user_key_fails() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
-        let v1_user_key = ctx.make_symmetric_key(Aes256CbcHmac);
-        let v2_user_key = ctx.make_symmetric_key(XAes256Gcm);
-        let v2_user_key_id = ctx.get_symmetric_key_id(v2_user_key).unwrap();
-
-        let result = AccountRecovery::make_after_v2_upgrade(
-            v1_user_key,
-            v2_user_key_id,
-            &organization_private_key,
-            &organization_private_key.public_key(&ctx).unwrap(),
-            &ctx,
-        );
-
-        assert_eq!(
-            result.err(),
-            Some(AccountRecoveryMakeAfterV2UpgradeError::MemberUserKeyNotV2)
-        );
-    }
-
-    #[test]
-    fn test_making_after_v2_upgrade_with_the_key_id_of_another_key_fails() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
-        let v2_user_key = ctx.make_symmetric_key(XAes256Gcm);
-        let other_v2_user_key = ctx.make_symmetric_key(XAes256Gcm);
-        let other_v2_user_key_id = ctx.get_symmetric_key_id(other_v2_user_key).unwrap();
-
-        let result = AccountRecovery::make_after_v2_upgrade(
-            v2_user_key,
-            other_v2_user_key_id,
-            &organization_private_key,
-            &organization_private_key.public_key(&ctx).unwrap(),
-            &ctx,
-        );
-
-        assert_eq!(
-            result.err(),
-            Some(AccountRecoveryMakeAfterV2UpgradeError::UserKeyIdMismatch)
-        );
-    }
-
-    #[test]
-    fn test_making_after_v2_upgrade_with_the_public_key_of_another_organization_fails() {
-        let key_store = KeyStore::<TestIds>::default();
-        let mut ctx = key_store.context_mut();
-        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
-        let other_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let other_public_key = ctx.get_public_key(other_private_key).unwrap();
-        let v2_user_key = ctx.make_symmetric_key(XAes256Gcm);
-        let v2_user_key_id = ctx.get_symmetric_key_id(v2_user_key).unwrap();
-
-        let result = AccountRecovery::make_after_v2_upgrade(
-            v2_user_key,
-            v2_user_key_id,
-            &organization_private_key,
-            &other_public_key,
-            &ctx,
-        );
-
-        assert_eq!(
-            result.err(),
-            Some(AccountRecoveryMakeAfterV2UpgradeError::Make(
-                AccountRecoveryMakeError::OwnPublicKeyMismatch
-            ))
-        );
-    }
-
-    #[test]
     fn test_unsealing_an_account_recovery_for_another_organization_fails() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
@@ -512,6 +336,30 @@ mod tests {
         assert!(matches!(
             result,
             Err(AccountRecoveryUnsealError::DecapsulationFailed)
+        ));
+    }
+
+    #[test]
+    fn test_unsealing_with_a_private_key_from_another_context_fails() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let organization_private_key = unwrap_v1_organization_private_key(&mut ctx);
+        let member_user_key = ctx.make_symmetric_key(Aes256CbcHmac);
+        let account_recovery = AccountRecovery::make_untrusted(
+            member_user_key,
+            &organization_private_key.public_key(&ctx).unwrap(),
+            &ctx,
+        )
+        .unwrap();
+        let other_key_store = KeyStore::<TestIds>::default();
+        let mut other_ctx = other_key_store.context_mut();
+
+        let result =
+            account_recovery.unseal_member_user_key(&organization_private_key, &mut other_ctx);
+
+        assert!(matches!(
+            result,
+            Err(AccountRecoveryUnsealError::PrivateKeyNotInContext)
         ));
     }
 

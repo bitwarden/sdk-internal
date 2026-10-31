@@ -97,6 +97,7 @@ mod tests {
                 }]),
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             id: Some("fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap()),
