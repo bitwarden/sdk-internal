@@ -324,7 +324,9 @@ impl CryptoSyncHandlerClient {
     /// Runs the key management sync work. Call this after each sync, once the user's cryptographic
     /// state has been applied.
     pub async fn on_sync(&self, data: CryptoSyncData) {
-        handle_crypto_sync(&self.client, &data).await
+        handle_crypto_sync(&self.client, &data).await;
+        #[cfg(feature = "wasm")]
+        bitwarden_encrypted_migrator::trigger_background_migrations(&self.client);
     }
 }
 

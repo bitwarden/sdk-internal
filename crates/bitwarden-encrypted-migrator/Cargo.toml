@@ -18,22 +18,19 @@ keywords.workspace = true
 default = []
 wasm = [
     "bitwarden-core/wasm",
-    "bitwarden-ffi/wasm",
     "bitwarden-member-administration/wasm",
     "bitwarden-organizations/wasm",
-    "dep:wasm-bindgen",
-    "dep:wasm-bindgen-futures",
+    "bitwarden-threading/wasm",
 ]
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]
-bitwarden-core = { workspace = true }
-bitwarden-ffi = { workspace = true }
+bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-member-administration = { workspace = true }
 bitwarden-organizations = { workspace = true }
+bitwarden-threading = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
-wasm-bindgen = { workspace = true, optional = true }
-wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
@@ -41,7 +38,7 @@ bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-test = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 
 [lints]
 workspace = true
