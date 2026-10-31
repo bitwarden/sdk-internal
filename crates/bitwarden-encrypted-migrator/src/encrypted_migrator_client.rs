@@ -1,57 +1,30 @@
-use std::sync::Arc;
-
 use bitwarden_core::{Client, FromClient};
-use tokio::sync::oneshot;
-use tracing::{Instrument, info_span};
 
-use crate::{
-    migration::{Migration, MigrationStage},
-    migrations::account_recovery_v2_upgrade::AccountRecoveryV2UpgradeMigration,
-};
+use crate::migration::{Migration, run_migrations};
 
 /// Runs the encrypted migrations of the account.
 #[bitwarden_ffi::wasm_object]
 pub struct EncryptedMigratorClient {
-    migrations: Arc<Vec<Migration>>,
+    migrations: Vec<Migration>,
 }
 
 impl FromClient for EncryptedMigratorClient {
     fn from_client(client: &Client) -> Self {
         Self {
-            migrations: Arc::new(vec![Migration::AccountRecoveryV2Upgrade(
-                AccountRecoveryV2UpgradeMigration::from_client(client),
-            )]),
+            migrations: Migration::all(client),
         }
     }
 }
 
 #[bitwarden_ffi::wasm_export]
 impl EncryptedMigratorClient {
-    /// Runs the background migrations in a spawned task and resolves when they finish.
+    /// Runs each migration once, in registration order. A failed migration does not stop the
+    /// others.
     ///
-    /// The run continues when the caller drops the returned future. The caller must not start a new
-    /// run before the previous one resolves, because two runs can send the same changes to the
-    /// server. A failed migration does not stop the others, and runs again on the next call.
-    pub async fn run_background_migrations(&self) {
-        let (finished_sender, finished_receiver) = oneshot::channel::<()>();
-        let migrations = Arc::clone(&self.migrations);
-        bitwarden_threading::spawn(async move {
-            // Dropped when the task ends, also when a migration panics.
-            let _finished_sender = finished_sender;
-            run_migrations(&migrations, MigrationStage::Background).await;
-        });
-        // The sender never sends, so the receiver resolves with an error once the task drops it.
-        let _ = finished_receiver.await;
-    }
-}
-
-/// Runs the migrations of `stage` one after another, in registration order.
-async fn run_migrations(migrations: &[Migration], stage: MigrationStage) {
-    for migration in migrations.iter().filter(|m| m.stage() == stage) {
-        migration
-            .run()
-            .instrument(info_span!("encrypted_migration", name = migration.name()))
-            .await;
+    /// Two runs at the same time can send the same changes to the server, so the caller must not
+    /// start a run before the previous run ends.
+    pub async fn run_migrations(&self) {
+        run_migrations(&self.migrations).await;
     }
 }
 
@@ -76,8 +49,9 @@ mod tests {
         client, expect_no_pending, organization,
     };
 
+    /// The mock checks that the migration sent its request once.
     #[tokio::test]
-    async fn test_background_run_runs_background_migrations() {
+    async fn test_run_migrations_runs_each_migration() {
         let owner = organization(OrganizationUserType::Owner);
         let owner_id = owner.details.id;
         let client = client(&[owner], &[owner_id], |mock| {
@@ -85,23 +59,6 @@ mod tests {
         })
         .await;
 
-        client
-            .encrypted_migrator()
-            .run_background_migrations()
-            .await;
-    }
-
-    /// The API mock fails any request, so a foreground run that ran a background migration fails.
-    #[tokio::test]
-    async fn test_foreground_run_skips_background_migrations() {
-        let owner = organization(OrganizationUserType::Owner);
-        let owner_id = owner.details.id;
-        let client = client(&[owner], &[owner_id], |_| {}).await;
-
-        run_migrations(
-            &client.encrypted_migrator().migrations,
-            MigrationStage::Foreground,
-        )
-        .await;
+        client.encrypted_migrator().run_migrations().await;
     }
 }

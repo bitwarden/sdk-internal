@@ -21,7 +21,6 @@ wasm = [
     "bitwarden-ffi/wasm",
     "bitwarden-member-administration/wasm",
     "bitwarden-organizations/wasm",
-    "bitwarden-threading/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
 ]
@@ -32,8 +31,6 @@ bitwarden-core = { workspace = true }
 bitwarden-ffi = { workspace = true }
 bitwarden-member-administration = { workspace = true }
 bitwarden-organizations = { workspace = true }
-bitwarden-threading = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
