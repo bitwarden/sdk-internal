@@ -260,6 +260,14 @@ fn hmac_sha384(key: &[u8], message: &[u8]) -> Zeroizing<[u8; 48]> {
     Zeroizing::new(mac.finalize().into_bytes().into())
 }
 
+/// What identifies an enrollment to the server and binds an exchange to it.
+pub(super) struct EnrollmentSession<'a> {
+    pub username: &'a str,
+    pub sign_in_address: &'a str,
+    pub sign_in_token: &'a str,
+    pub enrollment_uuid: &'a str,
+}
+
 /// How a CPace exchange that ran to the end turned out.
 pub(super) enum Exchange {
     /// The enrolled device shared its credentials.
@@ -273,12 +281,8 @@ pub(super) enum Exchange {
 ///
 /// A retry after a wrong code passes the first message of the failed exchange as `replaced_msg_a`,
 /// so the exchange waits for the enrolled device to send a new one.
-#[allow(clippy::too_many_arguments)]
 pub(super) async fn perform_cpace(
-    username: &str,
-    sign_in_address: &str,
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     verification_code: &str,
     replaced_msg_a: Option<&[u8]>,
     rest: &RestClient,
@@ -288,10 +292,7 @@ pub(super) async fn perform_cpace(
     bitwarden_random::rng().fill_bytes(&mut *client_secret);
 
     perform_cpace_with_client_secret(
-        username,
-        sign_in_address,
-        sign_in_token,
-        enrollment_uuid,
+        session,
         verification_code,
         replaced_msg_a,
         &client_secret,
@@ -302,43 +303,38 @@ pub(super) async fn perform_cpace(
 }
 
 /// The CPace exchange with the client secret injected so the test vectors can pin it.
-#[allow(clippy::too_many_arguments)]
 async fn perform_cpace_with_client_secret(
-    username: &str,
-    sign_in_address: &str,
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     verification_code: &str,
     replaced_msg_a: Option<&[u8]>,
     client_secret: &[u8; 64],
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<Exchange, OnePasswordError> {
-    let msg_a = request_msg_a(sign_in_token, enrollment_uuid, replaced_msg_a, rest, timing).await?;
+    let msg_a = request_msg_a(session, replaced_msg_a, rest, timing).await?;
 
     let msg_b = calculate_msg_b(
-        username,
-        sign_in_address,
-        enrollment_uuid,
+        session.username,
+        session.sign_in_address,
+        session.enrollment_uuid,
         verification_code,
         &msg_a,
         client_secret,
     );
-    send_msg_b(&msg_b, sign_in_token, enrollment_uuid, rest).await?;
+    send_msg_b(&msg_b, session, rest).await?;
 
-    let tag_a = get_tag_a(sign_in_token, enrollment_uuid, rest, timing).await?;
+    let tag_a = get_tag_a(session, rest, timing).await?;
     let (auth_b, tag_b) = calculate_auth_b_tag_b(client_secret, &msg_a, &msg_b);
 
     // The enrolled device learns that the codes differ only from `tagb`, so it goes out either way.
-    send_tag_b(&tag_b, sign_in_token, enrollment_uuid, rest).await?;
+    send_tag_b(&tag_b, session, rest).await?;
     if !verify_tag_a(&tag_a, auth_b.as_slice(), &msg_a) {
         return Ok(Exchange::WrongCode {
             msg_a: msg_a.original_message,
         });
     }
 
-    let encrypted_credentials =
-        request_encrypted_credentials(sign_in_token, enrollment_uuid, rest, timing).await?;
+    let encrypted_credentials = request_encrypted_credentials(session, rest, timing).await?;
     let exchange_key = derive_exchange_key(auth_b.as_slice());
 
     decrypt_credentials(&encrypted_credentials, exchange_key.as_slice()).map(Exchange::Shared)
@@ -347,16 +343,15 @@ async fn perform_cpace_with_client_secret(
 /// Fetches and parses the enrolled device's first message, once the server has one other than
 /// `replaced`. It answers an empty 200 while it has none.
 async fn request_msg_a(
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     replaced: Option<&[u8]>,
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<MsgA, OnePasswordError> {
-    let endpoint = cpace_endpoint(enrollment_uuid, "msga");
+    let endpoint = cpace_endpoint(session.enrollment_uuid, "msga");
     for _ in 0..timing.until_result_attempts {
         let response: Option<wire::CpaceMsgA> = rest
-            .post_json_or_empty(&endpoint, sign_in_body(sign_in_token))
+            .post_json_or_empty(&endpoint, sign_in_body(session.sign_in_token))
             .await?;
         if let Some(response) = response {
             let msg_a = decode64_loose(&response.msga)?;
@@ -373,15 +368,14 @@ async fn request_msg_a(
 /// Replies with `msgb` and expects the server to accept it.
 async fn send_msg_b(
     msg_b: &[u8],
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
 ) -> Result<(), OnePasswordError> {
     let response: SuccessStatus = rest
         .put_json(
-            &cpace_endpoint(enrollment_uuid, "msgb"),
+            &cpace_endpoint(session.enrollment_uuid, "msgb"),
             json!({
-                "signInToken": sign_in_token,
+                "signInToken": session.sign_in_token,
                 "msgb": BASE64URL_NOPAD.encode(msg_b),
             }),
         )
@@ -392,14 +386,13 @@ async fn send_msg_b(
 
 /// Waits for the enrolled device's `taga`.
 async fn get_tag_a(
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<Vec<u8>, OnePasswordError> {
     let result: wire::CpaceTagA = post_json_until_result(
-        &cpace_endpoint(enrollment_uuid, "taga"),
-        sign_in_body(sign_in_token),
+        &cpace_endpoint(session.enrollment_uuid, "taga"),
+        sign_in_body(session.sign_in_token),
         rest,
         timing,
     )
@@ -411,15 +404,14 @@ async fn get_tag_a(
 /// Replies with `tagb` and expects the server to accept it.
 async fn send_tag_b(
     tag_b: &[u8],
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
 ) -> Result<(), OnePasswordError> {
     let response: SuccessStatus = rest
         .put_json(
-            &cpace_endpoint(enrollment_uuid, "tagb"),
+            &cpace_endpoint(session.enrollment_uuid, "tagb"),
             json!({
-                "signInToken": sign_in_token,
+                "signInToken": session.sign_in_token,
                 "tagb": BASE64URL_NOPAD.encode(tag_b),
             }),
         )
@@ -431,14 +423,13 @@ async fn send_tag_b(
 /// Waits for the credential bundle, still encrypted for the exchange key and so invisible to the
 /// server that relays it.
 async fn request_encrypted_credentials(
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<EncryptedEnvelope, OnePasswordError> {
     let result: wire::SharedCredentials = post_json_until_result(
-        &enrollment_endpoint(enrollment_uuid, "share/credentials"),
-        sign_in_body(sign_in_token),
+        &enrollment_endpoint(session.enrollment_uuid, "share/credentials"),
+        sign_in_body(session.sign_in_token),
         rest,
         timing,
     )
@@ -800,10 +791,12 @@ mod tests {
         timing: &Timing,
     ) -> Result<Exchange, OnePasswordError> {
         perform_cpace_with_client_secret(
-            &vectors.username,
-            &vectors.sign_in_address,
-            SIGN_IN_TOKEN,
-            &vectors.enrollment_uuid,
+            &EnrollmentSession {
+                username: &vectors.username,
+                sign_in_address: &vectors.sign_in_address,
+                sign_in_token: SIGN_IN_TOKEN,
+                enrollment_uuid: &vectors.enrollment_uuid,
+            },
             &vectors.verification_code,
             replaced_msg_a,
             &hex_array(&vectors.client_secret),
@@ -910,10 +903,12 @@ mod tests {
         exchange: &RecordedExchange,
     ) -> Result<Exchange, OnePasswordError> {
         perform_cpace_with_client_secret(
-            &exchanges.username,
-            &exchanges.sign_in_address,
-            SIGN_IN_TOKEN,
-            &exchanges.enrollment_uuid,
+            &EnrollmentSession {
+                username: &exchanges.username,
+                sign_in_address: &exchanges.sign_in_address,
+                sign_in_token: SIGN_IN_TOKEN,
+                enrollment_uuid: &exchanges.enrollment_uuid,
+            },
             &exchange.verification_code,
             None,
             &hex_array(&exchanges.client_secret),

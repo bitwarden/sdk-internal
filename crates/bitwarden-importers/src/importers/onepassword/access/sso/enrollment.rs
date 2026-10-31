@@ -19,7 +19,7 @@ use super::{
         wire::{self, CredentialBundle},
     },
     Timing,
-    cpace::{Exchange, perform_cpace},
+    cpace::{EnrollmentSession, Exchange, perform_cpace},
     ui::{
         EnrollmentStatus, SsoEnrollmentContext, SsoEnrollmentResult, SsoUi, VerificationCodeResult,
     },
@@ -149,32 +149,23 @@ async fn enroll(
             "Waiting for approval from enrolled device...",
         )
         .await;
-    let enrollment_uuid = started.insert(start_enrollment(sign_in_token, rest).await?);
+    let session = EnrollmentSession {
+        username,
+        sign_in_address,
+        sign_in_token,
+        enrollment_uuid: started.insert(start_enrollment(sign_in_token, rest).await?),
+    };
 
     // The user has to press "Transfer key" on one of the enrolled devices.
-    let status = poll_status_until_done(
-        &[ServerStatus::SelectingVerifier],
-        sign_in_token,
-        enrollment_uuid,
-        rest,
-        timing,
-    )
-    .await?;
+    let status =
+        poll_status_until_done(&[ServerStatus::SelectingVerifier], &session, rest, timing).await?;
     if valid_status(status)? != ServerStatus::WaitingForCode {
         return Err(unknown_status(status));
     }
 
     let mut replaced_msg_a = None;
     for attempt in 0..MAX_CODE_ATTEMPTS {
-        let verification_code = ask_for_code(
-            attempt,
-            sign_in_token,
-            enrollment_uuid,
-            context,
-            rest,
-            timing,
-        )
-        .await?;
+        let verification_code = ask_for_code(attempt, &session, context, rest, timing).await?;
 
         context
             .update_status(
@@ -183,10 +174,7 @@ async fn enroll(
             )
             .await;
         match perform_cpace(
-            username,
-            sign_in_address,
-            sign_in_token,
-            enrollment_uuid,
+            &session,
             &verification_code,
             replaced_msg_a.as_deref(),
             rest,
@@ -211,8 +199,7 @@ async fn enroll(
 /// there noticed while the user types.
 async fn ask_for_code(
     attempt: u32,
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     context: &dyn SsoEnrollmentContext,
     rest: &RestClient,
     timing: &Timing,
@@ -226,8 +213,7 @@ async fn ask_for_code(
             ServerStatus::WaitingForCode,
             ServerStatus::PendingValidation,
         ],
-        sign_in_token,
-        enrollment_uuid,
+        session,
         rest,
         timing,
     ));
@@ -286,13 +272,12 @@ async fn cancel_enrollment(sign_in_token: &str, enrollment_uuid: &str, rest: &Re
 /// Polls the status until it is one not in `ignore`.
 async fn poll_status_until_done(
     ignore: &[ServerStatus],
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<ServerStatus, OnePasswordError> {
     for _ in 0..timing.enrollment_poll_attempts() {
-        let status = get_enrollment_status(sign_in_token, enrollment_uuid, rest).await?;
+        let status = get_enrollment_status(session, rest).await?;
         if !ignore.contains(&status) {
             return Ok(status);
         }
@@ -307,8 +292,7 @@ async fn poll_status_until_done(
 
 /// Reads the status of the enrollment.
 async fn get_enrollment_status(
-    sign_in_token: &str,
-    enrollment_uuid: &str,
+    session: &EnrollmentSession<'_>,
     rest: &RestClient,
 ) -> Result<ServerStatus, OnePasswordError> {
     // Denying the request makes the server answer 404, whatever the body.
@@ -316,8 +300,8 @@ async fn get_enrollment_status(
         .post_json_unless_status(
             "v3/device/enrollments/status",
             json!({
-                "signInToken": sign_in_token,
-                "enrollmentUuid": enrollment_uuid,
+                "signInToken": session.sign_in_token,
+                "enrollmentUuid": session.enrollment_uuid,
             }),
             StatusCode::NOT_FOUND,
         )
@@ -819,8 +803,12 @@ mod tests {
                 .await;
 
             let status = get_enrollment_status(
-                SIGN_IN_TOKEN,
-                &vectors.enrollment_uuid,
+                &EnrollmentSession {
+                    username: &vectors.username,
+                    sign_in_address: &vectors.sign_in_address,
+                    sign_in_token: SIGN_IN_TOKEN,
+                    enrollment_uuid: &vectors.enrollment_uuid,
+                },
                 &rest_client(&server),
             )
             .await;
