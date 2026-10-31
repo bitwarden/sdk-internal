@@ -95,6 +95,7 @@ key_slot_ids! {
 
     #[private]
     pub enum PrivateKeySlotId {
+        Organization(OrganizationId),
         UserPrivateKey,
         #[local]
         Local(LocalId),

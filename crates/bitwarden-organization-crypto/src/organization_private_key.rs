@@ -49,6 +49,13 @@ impl<Ids: KeySlotIds> OrganizationPrivateKey<Ids> {
         Ok(Self { private_key_id })
     }
 
+    /// The organization's private key under `private_key_id`, or `None` when the key store context
+    /// does not hold it.
+    pub fn from_context(private_key_id: Ids::Private, ctx: &KeyStoreContext<Ids>) -> Option<Self> {
+        ctx.has_private_key(private_key_id)
+            .then_some(Self { private_key_id })
+    }
+
     /// The organization's public key.
     pub fn public_key(
         &self,
@@ -84,8 +91,8 @@ mod tests {
 
     use super::*;
     use crate::test_support::{
-        TEST_VECTOR_V1_WRAPPED_PRIVATE_KEY, TestIds, TestSymmKey, load_v1_test_vectors,
-        unwrap_v1_organization_private_key,
+        TEST_VECTOR_V1_WRAPPED_PRIVATE_KEY, TestIds, TestPrivateKey, TestSymmKey,
+        load_v1_test_vectors, unwrap_v1_organization_private_key,
     };
 
     /// The public key of the pinned organization private key, as base64 SPKI.
@@ -152,6 +159,49 @@ mod tests {
             result,
             Err(OrganizationPrivateKeyUnwrapError::UnwrapFailed)
         ));
+    }
+
+    #[test]
+    fn test_persisted_private_key_is_the_organization_private_key() {
+        let key_store = KeyStore::<TestIds>::default();
+        {
+            let mut ctx = key_store.context_mut();
+            let wrapped_private_key = load_v1_test_vectors(&mut ctx);
+            let private_key_id = ctx
+                .unwrap_private_key(TestSymmKey::Organization, &wrapped_private_key)
+                .unwrap();
+            ctx.persist_private_key(private_key_id, TestPrivateKey::Organization)
+                .unwrap();
+        }
+        let ctx = key_store.context();
+
+        let organization_private_key =
+            OrganizationPrivateKey::from_context(TestPrivateKey::Organization, &ctx).unwrap();
+
+        let expected = SpkiPublicKeyBytes::from(
+            B64::try_from(TEST_VECTOR_ORGANIZATION_PUBLIC_KEY)
+                .unwrap()
+                .as_bytes()
+                .to_vec(),
+        );
+        assert_eq!(
+            organization_private_key
+                .public_key(&ctx)
+                .unwrap()
+                .to_der()
+                .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_private_key_missing_from_the_context_is_no_organization_private_key() {
+        let key_store = KeyStore::<TestIds>::default();
+        let ctx = key_store.context();
+
+        let result = OrganizationPrivateKey::from_context(TestPrivateKey::Organization, &ctx);
+
+        assert!(result.is_none());
     }
 
     #[test]
