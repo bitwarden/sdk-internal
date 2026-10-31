@@ -3,6 +3,8 @@
 Runs the encrypted migrations of an account. An encrypted migration changes keys or encrypted data
 to the current format, so it needs the keys of the unlocked account. A migration upgrades one of:
 
+- the local state of the user on this device, for example the PIN, biometric unlock, or the local
+  user data key,
 - the account on the server,
 - the data of other accounts, for example the members of an organization that the user administers.
 
