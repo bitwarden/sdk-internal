@@ -15,6 +15,8 @@ use bitwarden_core::{
     },
 };
 use bitwarden_crypto::KeyId;
+#[cfg(feature = "wasm")]
+use bitwarden_encrypted_migrator::EncryptedMigratorClientExt as _;
 use serde::{Deserialize, Serialize};
 #[cfg(any(feature = "uniffi", feature = "wasm"))]
 use tracing::debug;
@@ -326,7 +328,9 @@ impl CryptoSyncHandlerClient {
     pub async fn on_sync(&self, data: CryptoSyncData) {
         handle_crypto_sync(&self.client, &data).await;
         #[cfg(feature = "wasm")]
-        bitwarden_encrypted_migrator::trigger_background_migrations(&self.client);
+        self.client
+            .encrypted_migrator()
+            .trigger_background_migrations();
     }
 }
 

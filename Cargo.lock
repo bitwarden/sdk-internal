@@ -919,6 +919,7 @@ dependencies = [
 name = "bitwarden-encrypted-migrator"
 version = "4.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
