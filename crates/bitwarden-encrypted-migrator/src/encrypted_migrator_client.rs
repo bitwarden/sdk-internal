@@ -1,30 +1,50 @@
-use bitwarden_core::{Client, FromClient};
+use bitwarden_core::{
+    Client, FromClient,
+    key_management::{UnlockHandler, crypto::InitUserCryptoMethod},
+};
 
-use crate::migration::{Migration, run_migrations};
+use crate::scheduler;
 
-/// Runs the encrypted migrations of the account.
-#[bitwarden_ffi::wasm_object]
+/// Schedules the background encrypted migrations of the account.
 pub struct EncryptedMigratorClient {
-    migrations: Vec<Migration>,
+    // The whole client, because each run creates the migrations again from the client.
+    client: Client,
 }
 
 impl FromClient for EncryptedMigratorClient {
     fn from_client(client: &Client) -> Self {
         Self {
-            migrations: Migration::all(client),
+            client: client.clone(),
         }
     }
 }
 
-#[bitwarden_ffi::wasm_export]
 impl EncryptedMigratorClient {
-    /// Runs each migration once, in registration order. A failed migration does not stop the
-    /// others.
+    /// Schedules the background migrations of the client's user after a short delay, replacing a
+    /// scheduled run that has not started.
     ///
-    /// Two runs at the same time can send the same changes to the server, so the caller must not
-    /// start a run before the previous run ends.
-    pub async fn run_migrations(&self) {
-        run_migrations(&self.migrations).await;
+    /// Does not schedule a run while a run is in progress, for example when the server pushes a
+    /// sync to the client before the run ends.
+    pub fn trigger_background_migrations(&self) {
+        scheduler::trigger(&self.client);
+    }
+}
+
+/// Schedules the background migrations after an explicit unlock.
+///
+/// Only the SDK client that the user unlocks schedules the run. A client that is initialized from
+/// client-managed state, for example a re-created client or the popup client next to the background
+/// client, and `reinit_user_crypto` do not schedule a run.
+pub struct EncryptedMigratorUnlockHandler;
+
+impl UnlockHandler for EncryptedMigratorUnlockHandler {
+    fn on_unlock(&self, client: &Client, method: Option<&InitUserCryptoMethod>) {
+        match method {
+            #[cfg(feature = "wasm")]
+            Some(InitUserCryptoMethod::ClientManagedState {}) => {}
+            Some(_) => client.encrypted_migrator().trigger_background_migrations(),
+            None => {}
+        }
     }
 }
 
@@ -42,23 +62,40 @@ impl EncryptedMigratorClientExt for Client {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_organizations::OrganizationUserType;
-
     use super::*;
-    use crate::migrations::account_recovery_v2_upgrade::tests::{
-        client, expect_no_pending, organization,
-    };
+    use crate::scheduler::tests::{is_scheduled, unlocked_client};
 
-    /// The mock checks that the migration sent its request once.
-    #[tokio::test]
-    async fn test_run_migrations_runs_each_migration() {
-        let owner = organization(OrganizationUserType::Owner);
-        let owner_id = owner.details.id;
-        let client = client(&[owner], &[owner_id], |mock| {
-            expect_no_pending(mock, owner_id);
-        })
-        .await;
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn test_on_unlock_with_an_unlock_method_schedules_a_run() {
+        let (client, user_id) = unlocked_client().await;
 
-        client.encrypted_migrator().run_migrations().await;
+        EncryptedMigratorUnlockHandler.on_unlock(
+            &client,
+            Some(&InitUserCryptoMethod::DecryptedKey {
+                decrypted_user_key: String::new(),
+            }),
+        );
+
+        assert!(is_scheduled(user_id));
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn test_on_unlock_from_reinit_user_crypto_schedules_nothing() {
+        let (client, user_id) = unlocked_client().await;
+
+        EncryptedMigratorUnlockHandler.on_unlock(&client, None);
+
+        assert!(!is_scheduled(user_id));
+    }
+
+    #[cfg(feature = "wasm")]
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn test_on_unlock_from_client_managed_state_schedules_nothing() {
+        let (client, user_id) = unlocked_client().await;
+
+        EncryptedMigratorUnlockHandler
+            .on_unlock(&client, Some(&InitUserCryptoMethod::ClientManagedState {}));
+
+        assert!(!is_scheduled(user_id));
     }
 }
