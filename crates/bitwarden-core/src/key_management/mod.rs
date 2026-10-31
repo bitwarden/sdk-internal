@@ -69,6 +69,13 @@ mod local_user_data_key_state;
 #[cfg(feature = "internal")]
 pub mod state_bridge;
 
+#[cfg(feature = "internal")]
+mod unlock_handler;
+#[cfg(feature = "internal")]
+pub use unlock_handler::UnlockHandler;
+#[cfg(feature = "internal")]
+pub(crate) use unlock_handler::UnlockHandlers;
+
 use crate::{OrganizationId, UserId};
 
 /// Represents the local user data key, wrapped by user key.

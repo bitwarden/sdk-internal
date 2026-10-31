@@ -31,7 +31,7 @@ use crate::{
     error::NotAuthenticatedError,
     key_management::{
         MasterPasswordUnlockData, PrivateKeySlotId, SecurityState, SigningKeySlotId,
-        SymmetricKeySlotId, V2UpgradeToken,
+        SymmetricKeySlotId, UnlockHandlers, V2UpgradeToken,
         account_cryptographic_state::WrappedAccountCryptographicState, state_bridge::StateBridge,
     },
 };
@@ -129,6 +129,9 @@ pub struct InternalClient {
     // removed as soon as KM state can be mapped via the platform APIs.
     #[cfg(feature = "internal")]
     pub(crate) state_bridge: StateBridge,
+
+    #[cfg(feature = "internal")]
+    pub(crate) unlock_handlers: UnlockHandlers,
 
     /// Administrator-forced settings acquired from the operating system's device-management
     /// channel. The host application owns this cell and pushes profiles into it. The SDK only

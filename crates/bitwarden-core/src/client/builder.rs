@@ -7,7 +7,7 @@ use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
 #[cfg(feature = "internal")]
-use crate::key_management::state_bridge::StateBridge;
+use crate::key_management::{UnlockHandlers, state_bridge::StateBridge};
 use crate::{
     auth::auth_tokens::{NoopTokenHandler, TokenHandler},
     client::{
@@ -178,6 +178,8 @@ impl ClientBuilder {
                 security_state: RwLock::new(None),
                 #[cfg(feature = "internal")]
                 state_bridge: StateBridge::new(),
+                #[cfg(feature = "internal")]
+                unlock_handlers: UnlockHandlers::default(),
                 state_registry: Arc::new(state_registry),
                 managed_profile,
             }),

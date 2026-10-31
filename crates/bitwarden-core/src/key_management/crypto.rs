@@ -97,7 +97,7 @@ pub struct InitUserCryptoRequest {
 }
 
 /// The crypto method used to initialize the user cryptographic state.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[bitwarden_ffi::wasm_record]
@@ -173,7 +173,7 @@ pub enum InitUserCryptoMethod {
 }
 
 /// Auth requests supports multiple initialization methods.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[bitwarden_ffi::wasm_record]
@@ -225,7 +225,8 @@ pub(super) async fn initialize_user_crypto(
             | InitUserCryptoMethod::ClientManagedState { .. }
     );
 
-    match req.method {
+    // Cloned, so the unlock handlers receive the method after the unlock.
+    match req.method.clone() {
         InitUserCryptoMethod::MasterPasswordUnlock {
             password,
             master_password_unlock,
@@ -393,7 +394,7 @@ pub(super) async fn initialize_user_crypto(
             .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
     }
 
-    on_unlock_handler(client).await?;
+    on_unlock_handler(client, Some(&req.method)).await?;
 
     client
         .internal
@@ -917,9 +918,16 @@ async fn initialize_user_local_data_key(client: &Client) -> Result<(), Encryptio
 /// Both code paths leave the SDK in an unlocked state with the active user key in the key store,
 /// and both need to ensure derived per-user state is consistent with that user key before clients
 /// can use the session.
-async fn on_unlock_handler(client: &Client) -> Result<(), EncryptionSettingsError> {
+///
+/// `method` is the method that `initialize_user_crypto` unlocked with, and `None` for
+/// `reinit_user_crypto`.
+async fn on_unlock_handler(
+    client: &Client,
+    method: Option<&InitUserCryptoMethod>,
+) -> Result<(), EncryptionSettingsError> {
     initialize_user_local_data_key(client).await?;
     PinLockSystem::on_unlock(&PinLockSystem::with_client(client)).await;
+    client.internal.unlock_handlers.run_handlers(client, method);
     Ok(())
 }
 
@@ -1021,7 +1029,13 @@ pub(crate) fn make_user_password_registration(
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroU32;
+    use std::{
+        num::NonZeroU32,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+    };
 
     use bitwarden_crypto::{
         Decryptable, KeyStore, Pkcs8PrivateKeyBytes, PrivateKey, PublicKeyEncryptionAlgorithm,
@@ -1033,7 +1047,7 @@ mod tests {
         Client,
         client::test_accounts::{test_bitwarden_com_account, test_bitwarden_com_account_v2},
         key_management::{
-            KeySlotIds, PrivateKeySlotId, V2UpgradeToken,
+            KeySlotIds, PrivateKeySlotId, UnlockHandler, V2UpgradeToken,
             state_bridge::test_support::InMemoryStateBridge,
         },
     };
@@ -1090,6 +1104,31 @@ mod tests {
         )
         .await
         .unwrap();
+    }
+
+    fn master_password_unlock_request(password: &str) -> InitUserCryptoRequest {
+        InitUserCryptoRequest {
+            user_id: Some(UserId::new_v4()),
+            kdf_params: Kdf::PBKDF2 {
+                iterations: 600_000.try_into().unwrap(),
+            },
+            email: TEST_USER_EMAIL.to_string(),
+            account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
+            },
+            method: InitUserCryptoMethod::MasterPasswordUnlock {
+                password: password.to_string(),
+                master_password_unlock: MasterPasswordUnlockData {
+                    kdf: Kdf::PBKDF2 {
+                        iterations: 600_000.try_into().unwrap(),
+                    },
+                    master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
+                    salt: TEST_USER_EMAIL.to_string(),
+                    contained_key_id: None,
+                },
+            },
+            upgrade_token: None,
+        }
     }
 
     #[tokio::test]
@@ -1645,33 +1684,9 @@ mod tests {
     async fn test_initialize_user_crypto_master_password_unlock() {
         let client = Client::new_test(None);
 
-        initialize_user_crypto(
-            &client,
-            InitUserCryptoRequest {
-                user_id: Some(UserId::new_v4()),
-                kdf_params: Kdf::PBKDF2 {
-                    iterations: 600_000.try_into().unwrap(),
-                },
-                email: TEST_USER_EMAIL.to_string(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
-                },
-                method: InitUserCryptoMethod::MasterPasswordUnlock {
-                    password: TEST_USER_PASSWORD.to_string(),
-                    master_password_unlock: MasterPasswordUnlockData {
-                        kdf: Kdf::PBKDF2 {
-                            iterations: 600_000.try_into().unwrap(),
-                        },
-                        master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
-                        salt: TEST_USER_EMAIL.to_string(),
-                        contained_key_id: None,
-                    },
-                },
-                upgrade_token: None,
-            },
-        )
-        .await
-        .unwrap();
+        initialize_user_crypto(&client, master_password_unlock_request(TEST_USER_PASSWORD))
+            .await
+            .unwrap();
 
         let key_store = client.internal.get_key_store();
         {
@@ -1698,6 +1713,75 @@ mod tests {
         } else {
             panic!("Expected username login method");
         }
+    }
+
+    #[derive(Default)]
+    struct CountingUnlockHandler {
+        calls: AtomicUsize,
+    }
+
+    impl UnlockHandler for CountingUnlockHandler {
+        fn on_unlock(&self, _client: &Client, _method: Option<&InitUserCryptoMethod>) {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_calls_unlock_handlers_once() {
+        let client = Client::new_test(None);
+        let handler = Arc::new(CountingUnlockHandler::default());
+        client.register_unlock_handler(handler.clone());
+
+        initialize_user_crypto(&client, master_password_unlock_request(TEST_USER_PASSWORD))
+            .await
+            .unwrap();
+
+        assert_eq!(handler.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[derive(Default)]
+    struct MasterPasswordUnlockHandler {
+        master_password_unlocks: AtomicUsize,
+    }
+
+    impl UnlockHandler for MasterPasswordUnlockHandler {
+        fn on_unlock(&self, _client: &Client, method: Option<&InitUserCryptoMethod>) {
+            if matches!(
+                method,
+                Some(InitUserCryptoMethod::MasterPasswordUnlock { .. })
+            ) {
+                self.master_password_unlocks.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_passes_the_unlock_method_to_unlock_handlers() {
+        let client = Client::new_test(None);
+        let handler = Arc::new(MasterPasswordUnlockHandler::default());
+        client.register_unlock_handler(handler.clone());
+
+        initialize_user_crypto(&client, master_password_unlock_request(TEST_USER_PASSWORD))
+            .await
+            .unwrap();
+
+        assert_eq!(handler.master_password_unlocks.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_with_wrong_password_does_not_call_unlock_handlers() {
+        let client = Client::new_test(None);
+        let handler = Arc::new(CountingUnlockHandler::default());
+        client.register_unlock_handler(handler.clone());
+
+        let result =
+            initialize_user_crypto(&client, master_password_unlock_request("wrong password")).await;
+
+        assert!(matches!(
+            result,
+            Err(EncryptionSettingsError::Crypto(CryptoError::Decrypt))
+        ));
+        assert_eq!(handler.calls.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]
@@ -1913,27 +1997,8 @@ mod tests {
         let result = initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
-                user_id: Some(UserId::new_v4()),
-                kdf_params: Kdf::PBKDF2 {
-                    iterations: 600_000.try_into().unwrap(),
-                },
-                email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    // The private key is never decrypted because the token fails first.
-                    private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
-                },
-                method: InitUserCryptoMethod::MasterPasswordUnlock {
-                    password: "asdfasdfasdf".into(),
-                    master_password_unlock: MasterPasswordUnlockData {
-                        kdf: Kdf::PBKDF2 {
-                            iterations: 600_000.try_into().unwrap(),
-                        },
-                        master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
-                        salt: "test@bitwarden.com".to_string(),
-                        contained_key_id: None,
-                    },
-                },
                 upgrade_token: Some(mismatched_token),
+                ..master_password_unlock_request(TEST_USER_PASSWORD)
             },
         )
         .await;
@@ -2000,24 +2065,8 @@ mod tests {
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
-                user_id: Some(UserId::new_v4()),
-                kdf_params: Kdf::PBKDF2 {
-                    iterations: 600_000.try_into().unwrap(),
-                },
-                email: TEST_USER_EMAIL.into(),
                 account_cryptographic_state: account_crypto_state.clone(),
-                method: InitUserCryptoMethod::MasterPasswordUnlock {
-                    password: TEST_USER_PASSWORD.into(),
-                    master_password_unlock: MasterPasswordUnlockData {
-                        kdf: Kdf::PBKDF2 {
-                            iterations: 600_000.try_into().unwrap(),
-                        },
-                        master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
-                        salt: TEST_USER_EMAIL.to_string(),
-                        contained_key_id: None,
-                    },
-                },
-                upgrade_token: None,
+                ..master_password_unlock_request(TEST_USER_PASSWORD)
             },
         )
         .await
