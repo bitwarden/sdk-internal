@@ -19,11 +19,14 @@ use super::{
         wire::{self, CredentialBundle},
     },
     Timing,
-    cpace::perform_cpace,
+    cpace::{Exchange, perform_cpace},
     ui::{
         EnrollmentStatus, SsoEnrollmentContext, SsoEnrollmentResult, SsoUi, VerificationCodeResult,
     },
 };
+
+/// How many verification codes the user may try, as many as 1Password's own clients allow.
+const MAX_CODE_ATTEMPTS: u32 = 3;
 
 /// What the server reports about an enrollment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,6 +35,8 @@ enum ServerStatus {
     SelectingVerifier,
     /// An enrolled device approved the request and shows the verification code.
     WaitingForCode,
+    /// A stage of the code check, named after 1Password's web client.
+    PendingValidation,
     /// The user denied the request on the enrolled device.
     Denied,
     /// Anything else the server may report.
@@ -43,6 +48,7 @@ impl ServerStatus {
         match status {
             "SELECTING_VERIFIER" => ServerStatus::SelectingVerifier,
             "WAITING_FOR_CODE" => ServerStatus::WaitingForCode,
+            "PENDING_VALIDATION" => ServerStatus::PendingValidation,
             _ => ServerStatus::Unknown,
         }
     }
@@ -158,46 +164,79 @@ async fn enroll(
         return Err(unknown_status(status));
     }
 
-    // The enrolled device shows the verification code. Polling on makes denying it there
-    // noticed while the user types.
-    let verification_code = {
-        let user_input = pin!(context.provide_verification_code());
-        let poll = pin!(poll_status_until_done(
-            &[ServerStatus::WaitingForCode],
+    let mut replaced_msg_a = None;
+    for attempt in 0..MAX_CODE_ATTEMPTS {
+        let verification_code = ask_for_code(
+            attempt,
             sign_in_token,
             enrollment_uuid,
+            context,
             rest,
             timing,
-        ));
-        match select(user_input, poll).await {
-            Either::Left((VerificationCodeResult::Code(code), _)) => Zeroizing::new(code),
-            Either::Left((VerificationCodeResult::Cancel, _)) => return Err(Stop::Canceled),
-            // Nothing but the user is supposed to end the wait.
-            Either::Right((polled, _)) => return Err(unknown_status(valid_status(polled?)?)),
-        }
-    };
-
-    context
-        .update_status(
-            EnrollmentStatus::ExchangingCredentials,
-            "Exchanging credentials securely",
         )
-        .await;
-    let credential_bundle = perform_cpace(
-        username,
-        sign_in_address,
+        .await?;
+
+        context
+            .update_status(
+                EnrollmentStatus::ExchangingCredentials,
+                "Exchanging credentials securely",
+            )
+            .await;
+        match perform_cpace(
+            username,
+            sign_in_address,
+            sign_in_token,
+            enrollment_uuid,
+            &verification_code,
+            replaced_msg_a.as_deref(),
+            rest,
+            timing,
+        )
+        .await?
+        {
+            Exchange::Shared(credential_bundle) => {
+                context
+                    .update_status(EnrollmentStatus::Completing, "Completing enrollment")
+                    .await;
+                return Ok(credential_bundle);
+            }
+            Exchange::WrongCode { msg_a } => replaced_msg_a = Some(msg_a),
+        }
+    }
+
+    Err(Stop::Failed(OnePasswordError::VerificationCodeFailed))
+}
+
+/// Asks for the verification code the enrolled device shows. Polling on makes denying the request
+/// there noticed while the user types.
+async fn ask_for_code(
+    attempt: u32,
+    sign_in_token: &str,
+    enrollment_uuid: &str,
+    context: &dyn SsoEnrollmentContext,
+    rest: &RestClient,
+    timing: &Timing,
+) -> Result<Zeroizing<String>, Stop> {
+    let user_input = pin!(context.provide_verification_code(attempt));
+    // After a wrong code the enrolled device checks it and shows a new one, so the status may be
+    // any stage short of the end. 1Password's own client waits through all of them too.
+    let poll = pin!(poll_status_until_done(
+        &[
+            ServerStatus::SelectingVerifier,
+            ServerStatus::WaitingForCode,
+            ServerStatus::PendingValidation,
+        ],
         sign_in_token,
         enrollment_uuid,
-        &verification_code,
         rest,
         timing,
-    )
-    .await?;
-
-    context
-        .update_status(EnrollmentStatus::Completing, "Completing enrollment")
-        .await;
-    Ok(credential_bundle)
+    ));
+    match select(user_input, poll).await {
+        Either::Left((VerificationCodeResult::Code(code), _)) => Ok(Zeroizing::new(code)),
+        Either::Left((VerificationCodeResult::Cancel, _)) => Err(Stop::Canceled),
+        // Nothing but the user is supposed to end the wait.
+        Either::Right((polled, _)) => Err(unknown_status(valid_status(polled?)?)),
+    }
 }
 
 /// Denial ends the enrollment, any other status is up to the caller.
@@ -292,12 +331,14 @@ async fn get_enrollment_status(
 #[cfg(test)]
 mod tests {
     use std::{
+        collections::VecDeque,
         sync::{Arc, Mutex},
         time::Duration,
     };
 
     use async_trait::async_trait;
-    use serde_json::json;
+    use data_encoding::{BASE64, BASE64URL_NOPAD};
+    use serde_json::{Value, json};
     use tokio::sync::Notify;
     use wiremock::{Mock, MockBuilder, MockServer, Request, ResponseTemplate, matchers};
 
@@ -322,11 +363,19 @@ mod tests {
     #[derive(Debug, PartialEq)]
     enum Event {
         Status(EnrollmentStatus, String),
+        CodeAsked(u32),
         Ended(SsoEnrollmentResult),
     }
 
     fn status(status: EnrollmentStatus, message: &str) -> Event {
         Event::Status(status, message.into())
+    }
+
+    fn exchanging() -> Event {
+        status(
+            EnrollmentStatus::ExchangingCredentials,
+            "Exchanging credentials securely",
+        )
     }
 
     /// The handles the test keeps on a scripted enrollment.
@@ -347,9 +396,10 @@ mod tests {
         }
     }
 
+    /// Answers the code prompts in turn.
     struct ScriptedContext {
         script: Script,
-        prompt: Prompt,
+        prompts: Mutex<VecDeque<Prompt>>,
     }
 
     #[async_trait]
@@ -366,9 +416,20 @@ mod tests {
                 .push(Event::Status(status, message.into()));
         }
 
-        async fn provide_verification_code(&self) -> VerificationCodeResult {
-            match &self.prompt {
-                Prompt::Code(code) => VerificationCodeResult::Code(code.clone()),
+        async fn provide_verification_code(&self, attempt: u32) -> VerificationCodeResult {
+            self.script
+                .events
+                .lock()
+                .expect("not poisoned")
+                .push(Event::CodeAsked(attempt));
+            let prompt = self
+                .prompts
+                .lock()
+                .expect("not poisoned")
+                .pop_front()
+                .expect("a scripted answer for every prompt");
+            match prompt {
+                Prompt::Code(code) => VerificationCodeResult::Code(code),
                 Prompt::Cancel => VerificationCodeResult::Cancel,
                 Prompt::Pending => std::future::pending().await,
             }
@@ -404,10 +465,14 @@ mod tests {
     }
 
     fn scripted(prompt: Prompt) -> (ScriptedUi, Script) {
+        scripted_prompts([prompt])
+    }
+
+    fn scripted_prompts(prompts: impl IntoIterator<Item = Prompt>) -> (ScriptedUi, Script) {
         let script = Script::default();
         let ui = ScriptedUi(Mutex::new(Some(ScriptedContext {
             script: script.clone(),
-            prompt,
+            prompts: Mutex::new(prompts.into_iter().collect()),
         })));
         (ui, script)
     }
@@ -512,6 +577,155 @@ mod tests {
         assert!(matches!(result.err(), Some(OnePasswordError::Denied)));
     }
 
+    /// An enrolled device that refuses every code, for `rounds` exchanges. Each round has a
+    /// `msga` of its own, which the server only serves after the replaced one once more, and a
+    /// `taga` no client secret matches.
+    async fn mock_refusing_enrolled_device(
+        server: &MockServer,
+        vectors: &CpaceVectors,
+        rounds: u8,
+    ) {
+        let mut replaced = None;
+        for round in 0..rounds {
+            let mut msg_a: Value =
+                serde_json::from_str(&vectors.msga_json).expect("the vector msga parses");
+            msg_a["ad"]["session_id"] = json!(vec![round; 16]);
+            let msg_a = BASE64.encode(msg_a.to_string().as_bytes());
+
+            for served in replaced.iter().chain([&msg_a]) {
+                server
+                    .register(
+                        Mock::given(matchers::method("POST"))
+                            .and(matchers::path(path(vectors, "cpace/msga")))
+                            .respond_with(
+                                ResponseTemplate::new(200).set_body_json(json!({ "msga": served })),
+                            )
+                            .up_to_n_times(1)
+                            .expect(1),
+                    )
+                    .await;
+            }
+            replaced = Some(msg_a);
+        }
+
+        for (method, endpoint, answer) in [
+            ("PUT", "cpace/msgb", json!({"success": 1})),
+            (
+                "POST",
+                "cpace/taga",
+                json!({ "taga": BASE64URL_NOPAD.encode(&[7; 64]) }),
+            ),
+            ("PUT", "cpace/tagb", json!({"success": 1})),
+        ] {
+            server
+                .register(
+                    Mock::given(matchers::method(method))
+                        .and(matchers::path(path(vectors, endpoint)))
+                        .respond_with(ResponseTemplate::new(200).set_body_json(answer))
+                        .expect(u64::from(rounds)),
+                )
+                .await;
+        }
+    }
+
+    #[tokio::test]
+    async fn three_wrong_codes_fail_the_enrollment() {
+        let vectors = vectors().cpace;
+        let server = MockServer::start().await;
+        mock_start(&server, &vectors).await;
+        mock_statuses(&server, &vectors, vec![reports("WAITING_FOR_CODE")]).await;
+        mock_refusing_enrolled_device(&server, &vectors, 3).await;
+        mock_cancel(&server, &vectors, 1).await;
+        let (ui, script) =
+            scripted_prompts([code("7777-XXXX"), code("8888-YYYY"), code("9999-ZZZZ")]);
+
+        let error = run_enrollment(&server, &vectors, &ui, &quick_timing())
+            .await
+            .err()
+            .expect("the enrollment fails");
+
+        assert!(matches!(error, OnePasswordError::VerificationCodeFailed));
+        assert_eq!(
+            script.take_events(),
+            [
+                status(
+                    EnrollmentStatus::WaitingForApproval,
+                    "Waiting for approval from enrolled device..."
+                ),
+                Event::CodeAsked(0),
+                exchanging(),
+                Event::CodeAsked(1),
+                exchanging(),
+                Event::CodeAsked(2),
+                exchanging(),
+                Event::Ended(SsoEnrollmentResult::Failed),
+            ]
+        );
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn canceling_after_a_wrong_code_cancels_the_enrollment_on_the_server() {
+        let vectors = vectors().cpace;
+        let server = MockServer::start().await;
+        mock_start(&server, &vectors).await;
+        mock_statuses(&server, &vectors, vec![reports("WAITING_FOR_CODE")]).await;
+        mock_refusing_enrolled_device(&server, &vectors, 1).await;
+        mock_cancel(&server, &vectors, 1).await;
+        let (ui, script) = scripted_prompts([code("9999-ZZZZ"), Prompt::Cancel]);
+
+        let error = run_enrollment(&server, &vectors, &ui, &quick_timing())
+            .await
+            .err()
+            .expect("the enrollment is canceled");
+
+        assert!(matches!(error, OnePasswordError::Canceled));
+        assert_eq!(
+            script.take_events(),
+            [
+                status(
+                    EnrollmentStatus::WaitingForApproval,
+                    "Waiting for approval from enrolled device..."
+                ),
+                Event::CodeAsked(0),
+                exchanging(),
+                Event::CodeAsked(1),
+                Event::Ended(SsoEnrollmentResult::Canceled),
+            ]
+        );
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn the_code_prompt_waits_through_the_stages_of_a_code_check() {
+        let vectors = vectors().cpace;
+        let server = MockServer::start().await;
+        mock_start(&server, &vectors).await;
+        mock_statuses(
+            &server,
+            &vectors,
+            vec![
+                reports("WAITING_FOR_CODE"),
+                reports("PENDING_VALIDATION"),
+                reports("SELECTING_VERIFIER"),
+                reports("WAITING_FOR_CODE"),
+                denial(),
+            ],
+        )
+        .await;
+        mock_cancel(&server, &vectors, 0).await;
+        let (ui, script) = scripted(Prompt::Pending);
+
+        let result = run_enrollment(&server, &vectors, &ui, &quick_timing()).await;
+
+        assert_denied(result);
+        assert_eq!(
+            script.take_events().last(),
+            Some(&Event::Ended(SsoEnrollmentResult::Denied))
+        );
+        server.verify().await;
+    }
+
     #[tokio::test]
     async fn a_failed_exchange_fails_the_enrollment() {
         let vectors = vectors().cpace;
@@ -546,10 +760,8 @@ mod tests {
                     EnrollmentStatus::WaitingForApproval,
                     "Waiting for approval from enrolled device..."
                 ),
-                status(
-                    EnrollmentStatus::ExchangingCredentials,
-                    "Exchanging credentials securely"
-                ),
+                Event::CodeAsked(0),
+                exchanging(),
                 Event::Ended(SsoEnrollmentResult::Failed),
             ]
         );
@@ -784,6 +996,7 @@ mod tests {
                     EnrollmentStatus::WaitingForApproval,
                     "Waiting for approval from enrolled device..."
                 ),
+                Event::CodeAsked(0),
                 Event::Ended(SsoEnrollmentResult::Canceled),
             ]
         );
@@ -911,6 +1124,10 @@ mod tests {
         assert_eq!(
             ServerStatus::parse("WAITING_FOR_CODE"),
             ServerStatus::WaitingForCode
+        );
+        assert_eq!(
+            ServerStatus::parse("PENDING_VALIDATION"),
+            ServerStatus::PendingValidation
         );
         assert_eq!(ServerStatus::parse("DONE"), ServerStatus::Unknown);
         assert_eq!(ServerStatus::parse(""), ServerStatus::Unknown);

@@ -48,6 +48,7 @@ pub(super) struct CpaceVectors {
     pub msgb: String,
     pub auth_a: String,
     pub auth_b: String,
+    pub tag_a: String,
     pub tag_b: String,
     pub exchange_key: String,
     pub credential_bundle_json: String,
@@ -151,8 +152,9 @@ pub(super) async fn mock_enrolled_device(server: &MockServer, vectors: &CpaceVec
     mock_empty_then_answer(
         server,
         path(vectors, "cpace/taga"),
-        ResponseTemplate::new(200)
-            .set_body_json(json!({ "taga": BASE64URL_NOPAD.encode(&[7; 64]) })),
+        ResponseTemplate::new(200).set_body_json(json!({
+            "taga": BASE64URL_NOPAD.encode(&hex(&vectors.tag_a)),
+        })),
     )
     .await;
 
