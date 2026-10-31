@@ -97,7 +97,7 @@ pub struct InitUserCryptoRequest {
 }
 
 /// The crypto method used to initialize the user cryptographic state.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[bitwarden_ffi::wasm_record]
@@ -173,7 +173,7 @@ pub enum InitUserCryptoMethod {
 }
 
 /// Auth requests supports multiple initialization methods.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[bitwarden_ffi::wasm_record]
@@ -225,7 +225,8 @@ pub(super) async fn initialize_user_crypto(
             | InitUserCryptoMethod::ClientManagedState { .. }
     );
 
-    match req.method {
+    // Cloned, so the unlock handlers receive the method after the unlock.
+    match req.method.clone() {
         InitUserCryptoMethod::MasterPasswordUnlock {
             password,
             master_password_unlock,
@@ -393,7 +394,7 @@ pub(super) async fn initialize_user_crypto(
             .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
     }
 
-    on_unlock_handler(client).await?;
+    on_unlock_handler(client, Some(&req.method)).await?;
 
     client
         .internal
@@ -917,10 +918,16 @@ async fn initialize_user_local_data_key(client: &Client) -> Result<(), Encryptio
 /// Both code paths leave the SDK in an unlocked state with the active user key in the key store,
 /// and both need to ensure derived per-user state is consistent with that user key before clients
 /// can use the session.
-async fn on_unlock_handler(client: &Client) -> Result<(), EncryptionSettingsError> {
+///
+/// `method` is the method that `initialize_user_crypto` unlocked with, and `None` for
+/// `reinit_user_crypto`.
+async fn on_unlock_handler(
+    client: &Client,
+    method: Option<&InitUserCryptoMethod>,
+) -> Result<(), EncryptionSettingsError> {
     initialize_user_local_data_key(client).await?;
     PinLockSystem::on_unlock(&PinLockSystem::with_client(client)).await;
-    client.internal.unlock_handlers.run_handlers(client);
+    client.internal.unlock_handlers.run_handlers(client, method);
     Ok(())
 }
 
@@ -1714,7 +1721,7 @@ mod tests {
     }
 
     impl UnlockHandler for CountingUnlockHandler {
-        fn on_unlock(&self, _client: &Client) {
+        fn on_unlock(&self, _client: &Client, _method: Option<&InitUserCryptoMethod>) {
             self.calls.fetch_add(1, Ordering::SeqCst);
         }
     }
@@ -1730,6 +1737,35 @@ mod tests {
             .unwrap();
 
         assert_eq!(handler.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[derive(Default)]
+    struct MasterPasswordUnlockHandler {
+        master_password_unlocks: AtomicUsize,
+    }
+
+    impl UnlockHandler for MasterPasswordUnlockHandler {
+        fn on_unlock(&self, _client: &Client, method: Option<&InitUserCryptoMethod>) {
+            if matches!(
+                method,
+                Some(InitUserCryptoMethod::MasterPasswordUnlock { .. })
+            ) {
+                self.master_password_unlocks.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_passes_the_unlock_method_to_unlock_handlers() {
+        let client = Client::new_test(None);
+        let handler = Arc::new(MasterPasswordUnlockHandler::default());
+        client.register_unlock_handler(handler.clone());
+
+        initialize_user_crypto(&client, master_password_unlock_request(TEST_USER_PASSWORD))
+            .await
+            .unwrap();
+
+        assert_eq!(handler.master_password_unlocks.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]
