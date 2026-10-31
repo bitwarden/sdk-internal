@@ -8,7 +8,7 @@ use std::{
 use bitwarden_core::{
     Client, UserId,
     client::internal::InternalClient,
-    key_management::{SymmetricKeySlotId, UnlockHandler},
+    key_management::{SymmetricKeySlotId, UnlockHandler, crypto::InitUserCryptoMethod},
 };
 use bitwarden_threading::cancellation_token::CancellationToken;
 use tokio::sync::oneshot;
@@ -36,12 +36,21 @@ pub fn trigger_background_migrations(client: &Client) {
     SCHEDULER.trigger(client);
 }
 
-/// Schedules the background migrations after each unlock.
+/// Schedules the background migrations after an explicit unlock.
+///
+/// Only the SDK client that the user unlocks schedules the run. A client that is initialized from
+/// client-managed state, for example a re-created client or the popup client next to the background
+/// client, and `reinit_user_crypto` do not schedule a run.
 pub struct EncryptedMigratorUnlockHandler;
 
 impl UnlockHandler for EncryptedMigratorUnlockHandler {
-    fn on_unlock(&self, client: &Client) {
-        trigger_background_migrations(client);
+    fn on_unlock(&self, client: &Client, method: Option<&InitUserCryptoMethod>) {
+        match method {
+            #[cfg(feature = "wasm")]
+            Some(InitUserCryptoMethod::ClientManagedState {}) => {}
+            Some(_) => trigger_background_migrations(client),
+            None => {}
+        }
     }
 }
 
@@ -232,6 +241,40 @@ mod tests {
     /// finish before this returns.
     async fn wait_past(delay: Duration) {
         tokio::time::sleep(delay + Duration::from_secs(1)).await;
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn test_on_unlock_with_an_unlock_method_schedules_a_run() {
+        let (client, user_id) = unlocked_client().await;
+
+        EncryptedMigratorUnlockHandler.on_unlock(
+            &client,
+            Some(&InitUserCryptoMethod::DecryptedKey {
+                decrypted_user_key: String::new(),
+            }),
+        );
+
+        assert!(SCHEDULER.user_run_states.contains(user_id));
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn test_on_unlock_from_reinit_user_crypto_schedules_nothing() {
+        let (client, user_id) = unlocked_client().await;
+
+        EncryptedMigratorUnlockHandler.on_unlock(&client, None);
+
+        assert!(!SCHEDULER.user_run_states.contains(user_id));
+    }
+
+    #[cfg(feature = "wasm")]
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn test_on_unlock_from_client_managed_state_schedules_nothing() {
+        let (client, user_id) = unlocked_client().await;
+
+        EncryptedMigratorUnlockHandler
+            .on_unlock(&client, Some(&InitUserCryptoMethod::ClientManagedState {}));
+
+        assert!(!SCHEDULER.user_run_states.contains(user_id));
     }
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
