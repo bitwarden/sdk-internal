@@ -220,8 +220,8 @@ export class PublicKeyEncryptionKeyPairResponse {
   object!: "publicKeyEncryptionKeyPair";
   wrappedPrivateKey!: string;
   publicKey!: string;
-  /** A real server sends `null` where the emulator omits the field. */
-  signedPublicKey?: string | null;
+  /** `null` for a V1 account. */
+  signedPublicKey!: string | null;
 }
 
 export class SignatureKeyPairResponse {
@@ -241,9 +241,9 @@ export type AccountKeysBody = Omit<AccountKeysResponse, "toAccountCryptographicS
 export class AccountKeysResponse {
   object!: "privateKeys";
   publicKeyEncryptionKeyPair!: PublicKeyEncryptionKeyPairResponse;
-  // A V1 account has neither. A real server sends `null` for them, and the emulator omits them.
-  signatureKeyPair?: SignatureKeyPairResponse | null;
-  securityState?: SecurityStateResponse | null;
+  /** `null` for a V1 account, as is {@link securityState}. */
+  signatureKeyPair!: SignatureKeyPairResponse | null;
+  securityState!: SecurityStateResponse | null;
 
   /**
    * These keys as an instance, from the fields alone.
@@ -267,11 +267,11 @@ export class AccountKeysResponse {
   toAccountCryptographicState(): WrappedAccountCryptographicState {
     const { publicKeyEncryptionKeyPair: pair, signatureKeyPair, securityState } = this;
 
-    if (!signatureKeyPair || !securityState) {
+    if (signatureKeyPair === null || securityState === null) {
       return { V1: { private_key: asEncString(pair.wrappedPrivateKey) } };
     }
 
-    if (!pair.signedPublicKey) {
+    if (pair.signedPublicKey === null) {
       throw new Error("V2 account has no signed public key");
     }
 
@@ -296,7 +296,10 @@ export class AccountKeysResponse {
           object: "publicKeyEncryptionKeyPair",
           wrappedPrivateKey: state.V1.private_key,
           publicKey: user.publicKey,
+          signedPublicKey: null,
         },
+        signatureKeyPair: null,
+        securityState: null,
       });
     }
 
@@ -640,14 +643,14 @@ export class MasterPasswordUnlockResponse {
   kdf!: KdfModel;
   masterKeyEncryptedUserKey!: string;
   salt!: string;
-  containedKeyId?: string | null;
+  containedKeyId!: string | null;
 
   static fromStored(unlock: StoredMasterPasswordUnlock): MasterPasswordUnlockResponse {
     return {
       kdf: KdfModel.fromKdf(unlock.kdf),
       masterKeyEncryptedUserKey: unlock.masterKeyWrappedUserKey,
       salt: unlock.salt,
-      containedKeyId: unlock.containedKeyId ?? undefined,
+      containedKeyId: unlock.containedKeyId ?? null,
     };
   }
 }
@@ -730,20 +733,18 @@ export class V2UpgradeTokenResponse {
  * `webAuthnPrfOptions` is omitted until an account vector has any.
  */
 export class UserDecryptionResponse {
-  // A real server sends `null` for what an account lacks, where the emulator omits the field.
-  masterPasswordUnlock?: MasterPasswordUnlockResponse | null;
-  v2UpgradeToken?: V2UpgradeTokenResponse | null;
-  userKeyId?: string | null;
+  /** `null` for an account without a master password. */
+  masterPasswordUnlock!: MasterPasswordUnlockResponse | null;
+  /** Omitted, not `null`, when absent, as is {@link userKeyId}. */
+  v2UpgradeToken?: V2UpgradeTokenResponse;
+  userKeyId?: string;
 
   static fromUser(user: UserEntity): UserDecryptionResponse {
     return {
-      ...(user.masterPasswordUnlock === null
-        ? {}
-        : {
-            masterPasswordUnlock: MasterPasswordUnlockResponse.fromStored(
-              user.masterPasswordUnlock,
-            ),
-          }),
+      masterPasswordUnlock:
+        user.masterPasswordUnlock === null
+          ? null
+          : MasterPasswordUnlockResponse.fromStored(user.masterPasswordUnlock),
       ...(user.upgradeToken === undefined
         ? {}
         : {

@@ -89,10 +89,8 @@ export class ClientEmulator {
     this.local.organizationKeys = Object.fromEntries(
       synced.profile.organizations.map((organization) => [organization.id, organization.key]),
     );
-    // A real server sends `null` for what the account lacks, where the emulator omits the field.
-    const unlock = synced.userDecryption.masterPasswordUnlock ?? undefined;
-    const v2UpgradeToken = synced.userDecryption.v2UpgradeToken ?? undefined;
-    const userKeyId = synced.userDecryption.userKeyId ?? undefined;
+    const unlock = synced.userDecryption.masterPasswordUnlock;
+    const { v2UpgradeToken, userKeyId } = synced.userDecryption;
 
     const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
@@ -102,13 +100,14 @@ export class ClientEmulator {
       accountCryptographicState: accountKeys.toAccountCryptographicState(),
       userDecryption: {
         masterPasswordUnlock:
-          unlock === undefined
+          unlock === null
             ? undefined
             : {
                 masterKeyWrappedUserKey: asEncString(unlock.masterKeyEncryptedUserKey),
                 salt: unlock.salt,
                 kdf: toKdf(unlock.kdf),
-                containedKeyId: unlock.containedKeyId ? asKeyId(unlock.containedKeyId) : undefined,
+                containedKeyId:
+                  unlock.containedKeyId === null ? undefined : asKeyId(unlock.containedKeyId),
               },
         v2UpgradeToken:
           v2UpgradeToken === undefined
@@ -123,7 +122,7 @@ export class ClientEmulator {
 
     // Quirk, the crypto sync handler writes the kdf only when the account has no master-password
     // but clients always write it. The KDF a real client learns at `POST /accounts/prelogin`.
-    if (unlock === undefined) {
+    if (unlock === null) {
       if (this.preloginKdf === undefined) {
         throw new Error(
           "the synced account has no master-password unlock data and no prelogin KDF",

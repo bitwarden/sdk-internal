@@ -14,9 +14,10 @@ export const IGNORED_FIELDS = ["revisionDate", "creationDate"] as const;
 const FALSE_MEANS_ABSENT_FIELDS: readonly string[] = ["httpAuthenticationEnabled"];
 
 /**
- * Fields where an empty list means the same as an absent value. An item with no custom fields
- * decrypts with `fields: []` before a key rotation and with no `fields` after one against a real
- * server: again a change of representation, not of meaning.
+ * Fields where an empty list means the same as an absent value. A key rotation re-encrypts an item
+ * into the blob format, and an item with no custom fields decrypts with `fields: []` from the
+ * field-level format but with no `fields` from the blob: again a change of representation, not of
+ * meaning.
  */
 const EMPTY_MEANS_ABSENT_FIELDS: readonly string[] = ["fields"];
 
