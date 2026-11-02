@@ -55,7 +55,8 @@ println!("Remote version: {}", response.version);
 
 `wait_for_peer` retries discover requests until the destination answers or the optional cancellation
 token is cancelled. Use it before sending to a peer that may not have started yet, since messages
-sent before then are lost:
+sent before then are lost. An error answer from the peer, or a local subscribe error such as the
+client not running, is returned without retrying:
 
 ```rust,no_run
 # use bitwarden_ipc::{*, discover::*};

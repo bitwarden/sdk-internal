@@ -64,7 +64,8 @@ impl RpcHandler for DiscoverHandler {
 /// `cancellation_token` is cancelled.
 ///
 /// Use this before sending to a peer that may not have started yet. An error answer from the peer,
-/// such as having no discover handler, is returned without retrying, since the peer is up.
+/// such as having no discover handler, is returned without retrying, since the peer is up. A
+/// subscribe error, such as the local client not running, is also returned without retrying.
 pub async fn wait_for_peer<C: IpcClient + ?Sized>(
     client: &C,
     destination: Endpoint,
@@ -80,7 +81,7 @@ pub async fn wait_for_peer<C: IpcClient + ?Sized>(
 
             match attempt {
                 Ok(Ok(response)) => return Ok(response),
-                Ok(Err(e @ RequestError::Rpc(_))) => return Err(e),
+                Ok(Err(e @ (RequestError::Rpc(_) | RequestError::Subscribe(_)))) => return Err(e),
                 _ => sleep(RETRY_DELAY).await,
             }
         }
@@ -103,7 +104,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        HostId, IncomingMessage, IpcClientImpl, NoEncryptionCryptoProvider, Source,
+        HostId, IncomingMessage, IpcClientImpl, NoEncryptionCryptoProvider, Source, SubscribeError,
         rpc::error::RpcError,
         traits::{InMemorySessionRepository, TestCommunicationBackend},
     };
@@ -186,6 +187,24 @@ mod tests {
         assert!(matches!(
             result,
             Err(RequestError::Rpc(RpcError::NoHandlerFound))
+        ));
+        assert!(backend.drain_outgoing().await.is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_wait_for_peer_returns_subscribe_errors_without_retrying() {
+        let backend = TestCommunicationBackend::new();
+        let client = IpcClientImpl::new(
+            NoEncryptionCryptoProvider,
+            backend.clone(),
+            InMemorySessionRepository::new(HashMap::new()),
+        );
+
+        let result = wait_for_peer(&client, peer(), None).await;
+
+        assert!(matches!(
+            result,
+            Err(RequestError::Subscribe(SubscribeError::NotStarted))
         ));
         assert!(backend.drain_outgoing().await.is_empty());
     }
