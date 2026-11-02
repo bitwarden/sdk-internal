@@ -2,7 +2,8 @@ use bitwarden_collections::collection::Collection;
 use bitwarden_core::{
     Client, NotAuthenticatedError, OrganizationId, UserId, key_management::KeySlotIds,
 };
-use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
+use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStore, KeyStoreContext};
+use bitwarden_ffi::LargeVec;
 use bitwarden_vault::{
     Cipher, CipherView, EncryptMode, EncryptionContext, Folder, FolderView,
     should_use_blob_encryption,
@@ -19,7 +20,7 @@ use crate::{
 pub(crate) async fn export_vault(
     client: &Client,
     folders: Vec<Folder>,
-    ciphers: Vec<Cipher>,
+    ciphers: LargeVec<Cipher>,
     format: ExportFormat,
 ) -> Result<String, ExportError> {
     let key_store = client.internal.get_key_store();
@@ -27,10 +28,7 @@ pub(crate) async fn export_vault(
     let folders: Vec<FolderView> = key_store.decrypt_list(&folders)?;
     let folders: Vec<crate::Folder> = folders.into_iter().flat_map(|f| f.try_into()).collect();
 
-    let ciphers: Vec<crate::Cipher> = ciphers
-        .into_iter()
-        .flat_map(|c| crate::Cipher::from_cipher(key_store, c))
-        .collect();
+    let ciphers = decrypt_ciphers(key_store, ciphers)?;
 
     match format {
         ExportFormat::Csv => Ok(export_csv(folders, ciphers)?),
@@ -56,14 +54,11 @@ pub(crate) fn export_organization_vault(
 pub(crate) fn export_cxf(
     client: &Client,
     account: Account,
-    ciphers: Vec<Cipher>,
+    ciphers: LargeVec<Cipher>,
 ) -> Result<String, ExportError> {
     let key_store = client.internal.get_key_store();
 
-    let mut ciphers: Vec<crate::Cipher> = ciphers
-        .into_iter()
-        .flat_map(|c| crate::Cipher::from_cipher(key_store, c))
-        .collect();
+    let mut ciphers = decrypt_ciphers(key_store, ciphers)?;
 
     for cipher in &mut ciphers {
         if let crate::CipherType::Login(login) = &mut cipher.r#type {
@@ -72,6 +67,22 @@ pub(crate) fn export_cxf(
     }
 
     Ok(build_cxf(account, ciphers)?)
+}
+
+/// Decrypts `ciphers` for export with [`KeyStore::decrypt_large_vec`], so ciphers from JavaScript
+/// are converted a batch at a time. A cipher that fails to decrypt or to convert is left out. The
+/// decrypted list is built in full.
+fn decrypt_ciphers(
+    key_store: &KeyStore<KeySlotIds>,
+    ciphers: LargeVec<Cipher>,
+) -> Result<Vec<crate::Cipher>, ExportError> {
+    let mut decrypted = Vec::with_capacity(ciphers.len());
+    for result in key_store.decrypt_large_vec::<_, _, CipherView>(ciphers) {
+        if let Ok(view) = result? {
+            decrypted.extend(crate::Cipher::try_from(view).ok());
+        }
+    }
+    Ok(decrypted)
 }
 
 /// Encrypts a parsed/imported cipher for the user's vault, or for an organization when

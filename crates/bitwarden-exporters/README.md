@@ -58,7 +58,7 @@ use bitwarden_exporters::{ExporterClientExt, ExportFormat};
 async fn export(client: &Client, folders: Vec<Folder>, ciphers: Vec<Cipher>) {
     let export = client
         .exporters()
-        .export_vault(folders, ciphers, ExportFormat::Json)
+        .export_vault(folders, ciphers.into(), ExportFormat::Json)
         .await
         .unwrap();
 }
@@ -98,7 +98,7 @@ use bitwarden_exporters::{Account, ExporterClientExt};
 fn export_cxf(client: &Client, account: Account, ciphers: Vec<Cipher>) {
     let cxf_json = client
         .exporters()
-        .export_cxf(account, ciphers)
+        .export_cxf(account, ciphers.into())
         .unwrap();
 }
 ```
