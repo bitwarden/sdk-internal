@@ -1,9 +1,10 @@
 //! Password protected key envelope is a cryptographic building block that allows sealing a
 //! symmetric key with a low entropy secret (password, PIN, etc.).
 //!
-//! It is implemented by using a KDF (Argon2ID) combined with secret key encryption
-//! (XChaCha20-Poly1305). The KDF prevents brute-force by requiring work to be done to derive the
-//! key from the password.
+//! It is implemented by using a KDF combined with secret key encryption. The KDF prevents
+//! brute-force by requiring work to be done to derive the key from the password. The algorithms
+//! depend on the key store's [`CipherSuite`]: the standard suite uses Argon2id + AES-256-GCM,
+//! while the FIPS suite uses the FIPS-approved PBKDF2 + AES-256-GCM.
 //!
 //! For the consumer, the output is an opaque blob that can be later unsealed with the same
 //! password. The KDF parameters and salt are contained in the envelope, and don't need to be
@@ -56,7 +57,10 @@ const ENVELOPE_PBKDF2_SALT_SIZE: usize = 16;
 /// The KDF parameters such as iterations and salt are stored in the envelope and do not have to
 /// be provided.
 ///
-/// Internally, Argon2 is used as the KDF and XChaCha20-Poly1305 is used to encrypt the key.
+/// The algorithms used depend on the key store's [`CipherSuite`]: the standard suite uses Argon2id
+/// as the KDF, while the FIPS suite uses PBKDF2. Both suites encrypt the key with AES-256-GCM; the
+/// KDF and content-encryption algorithms are recorded in the envelope, so unsealing does not need
+/// to know the suite up front.
 #[derive(Clone)]
 pub struct PasswordProtectedKeyEnvelope {
     cose_encrypt: coset::CoseEncrypt,

@@ -120,10 +120,9 @@ pub struct ProfileResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub organizations: Option<Vec<models::ProfileOrganizationResponseModel>>,
-    /// Organizations where the user is in the Confirmed or Accepted status. Null when the
-    /// `pm-34145-policies-in-accepted-state` feature flag is disabled. New clients should prefer
-    /// this property and fall back to Bit.Api.Models.Response.ProfileResponseModel.Organizations
-    /// if absent.
+    /// Organizations where the user is in the Confirmed or Accepted status. New clients should
+    /// prefer this property and fall back to
+    /// Bit.Api.Models.Response.ProfileResponseModel.Organizations if absent.
     #[serde(
         rename = "organizationsNew",
         alias = "OrganizationsNew",

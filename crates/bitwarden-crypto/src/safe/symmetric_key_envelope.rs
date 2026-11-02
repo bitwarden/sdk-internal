@@ -39,7 +39,7 @@ pub enum SymmetricKeyEnvelopeError {
     /// The key store could not be written to, for example due to being read-only
     #[error("Could not write to key store")]
     KeyStore,
-    /// The wrong unseal method was used for the key type
+    /// A wrapping or contained key has an unsupported type
     #[error("Wrong key type")]
     WrongKeyType,
     /// The symmetric key envelope namespace is invalid.
