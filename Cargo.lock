@@ -1932,6 +1932,7 @@ dependencies = [
  "bitwarden-threading",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
+ "bitwarden-web-connector",
  "console_error_panic_hook",
  "rand 0.10.3",
  "rsa",
@@ -1945,6 +1946,21 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "bitwarden-web-connector"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-encoding",
+ "bitwarden-error",
+ "bitwarden-ffi",
+ "bitwarden-random",
+ "rand 0.10.3",
+ "snow",
+ "thiserror",
+ "url",
+ "wasm-bindgen",
 ]
 
 [[package]]
