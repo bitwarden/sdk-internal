@@ -39,6 +39,8 @@ mod move_many;
 pub use move_many::MoveCipherError;
 mod restore;
 pub use restore::RestoreCipherError;
+#[cfg(feature = "perf-baselines")]
+mod perf_baselines;
 mod share_cipher;
 
 /// Returns `true` when cipher data for the given scope should be written in the blob-encrypted

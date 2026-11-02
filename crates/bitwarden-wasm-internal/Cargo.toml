@@ -36,6 +36,9 @@ dangerous-crypto-debug = ["bitwarden-core/dangerous-crypto-debug"]
 # WARNING: There are a lot of traces emitted to give context for operations. This is quite slow and may slow down decryption
 # and other bulk data operations, and should only be enabled for debugging purposes.
 performance-tracing = []
+# Benchmark-only API variants, built by `e2e/wasm/perf/build.sh`. Never enable in
+# production.
+perf-baselines = ["bitwarden-vault/perf-baselines"]
 
 [dependencies]
 async-trait = { workspace = true }
