@@ -57,7 +57,7 @@ impl ExporterClient {
         ciphers: Vec<Cipher>,
         format: ExportFormat,
     ) -> Result<String> {
-        Ok(self.0.export_vault(folders, ciphers, format).await?)
+        Ok(self.0.export_vault(folders, ciphers.into(), format).await?)
     }
 
     /// Export organization vault
@@ -79,7 +79,7 @@ impl ExporterClient {
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally the output should be immediately deserialized to [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn export_cxf(&self, account: Account, ciphers: Vec<Cipher>) -> Result<String> {
-        Ok(self.0.export_cxf(account, ciphers)?)
+        Ok(self.0.export_cxf(account, ciphers.into())?)
     }
 
     /// Credential Exchange Format (CXF)
