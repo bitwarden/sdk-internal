@@ -24,7 +24,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use rayon::{iter::Either, prelude::*};
+use rayon::prelude::*;
 
 use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeySlotId, KeySlotIds};
 
@@ -287,25 +287,7 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
         &self,
         data: &[Data],
     ) -> Result<Vec<Output>, crate::CryptoError> {
-        let res: Result<Vec<_>, _> = data
-            .par_chunks(batch_chunk_size(data.len()))
-            .map(|chunk| {
-                let mut ctx = self.context();
-
-                let mut result = Vec::with_capacity(chunk.len());
-
-                for item in chunk {
-                    let key = item.key_identifier();
-                    result.push(item.decrypt(&mut ctx, key));
-                    ctx.clear_local();
-                }
-
-                result
-            })
-            .flatten()
-            .collect();
-
-        res
+        self.decrypt_batch(data).into_iter().collect()
     }
 
     /// Decrypt a list of items using this key store, returning a tuple of successful and failed
@@ -326,28 +308,108 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
         &self,
         data: &'a [Data],
     ) -> (Vec<Output>, Vec<&'a Data>) {
-        let results: (Vec<_>, Vec<_>) = data
-            .par_chunks(batch_chunk_size(data.len()))
-            .flat_map(|chunk| {
+        let mut successes = Vec::with_capacity(data.len());
+        let mut failures = Vec::new();
+        for (item, result) in data.iter().zip(self.decrypt_batch(data)) {
+            match result {
+                Ok(output) => successes.push(output),
+                Err(_) => failures.push(item),
+            }
+        }
+        (successes, failures)
+    }
+
+    /// Decrypt the items of an iterator using this key store, a batch at a time, yielding the
+    /// results in input order. Meant for long lists whose items are produced as they are read,
+    /// such as items converted from another language one by one, so that only one batch of input
+    /// and output is held at a time. For items already in a slice, use
+    /// [KeyStore::decrypt_list] or [KeyStore::decrypt_list_with_failures].
+    ///
+    /// Each input item is a `Result`, so that errors the caller meets while producing the items
+    /// (for example, an item that does not convert) pass through in order. Each output item is:
+    /// - `Ok(Ok(output))` for an item that decrypted,
+    /// - `Ok(Err(failure))` for an item that failed to decrypt, handing back the item and its
+    ///   error. The pair is boxed so that a result takes the size of the output, not of the
+    ///   encrypted item, which can be much larger.
+    /// - `Err(error)` for an input error, in the place where the input yielded it.
+    ///
+    /// The iterator does not stop at an input error: it goes on with the input items after it. A
+    /// caller that fails on the first input error stops reading there, and the input is not read
+    /// further. Items are read from the input one batch at a time, and a batch ends early at an
+    /// input error, so the error is yielded right after the items before it.
+    ///
+    /// The batch size depends on the number of threads available. Each batch is decrypted by the
+    /// same code as [KeyStore::decrypt_list] and [KeyStore::decrypt_list_with_failures], which
+    /// spreads the items over the available threads, with one context per thread's share, cleared
+    /// after each item. No context is held between batches, so a caller that reads the iterator
+    /// slowly does not keep the store locked.
+    pub fn decrypt_iter<'a, Key, Data, Output, E>(
+        &'a self,
+        items: impl IntoIterator<Item = Result<Data, E>> + 'a,
+    ) -> impl Iterator<Item = Result<Result<Output, Box<(Data, crate::CryptoError)>>, E>> + 'a
+    where
+        Key: KeySlotId,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync + 'a,
+        Output: Send + 'a,
+        E: 'a,
+    {
+        self.decrypt_iter_in_batches(items, decrypt_iter_batch_size())
+    }
+
+    /// [KeyStore::decrypt_iter] with a given batch size (at least one).
+    fn decrypt_iter_in_batches<'a, Key, Data, Output, E>(
+        &'a self,
+        items: impl IntoIterator<Item = Result<Data, E>> + 'a,
+        batch_size: usize,
+    ) -> impl Iterator<Item = Result<Result<Output, Box<(Data, crate::CryptoError)>>, E>> + 'a
+    where
+        Key: KeySlotId,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync + 'a,
+        Output: Send + 'a,
+        E: 'a,
+    {
+        DecryptBatches {
+            store: self,
+            items: items.into_iter(),
+            batch_size: batch_size.max(1),
+            batch: Vec::new().into_iter(),
+            results: Vec::new().into_iter(),
+            input_error: None,
+            _key: std::marker::PhantomData,
+        }
+    }
+
+    /// Decrypts the items of a slice, returning each item's result in order. The decrypt behind
+    /// [KeyStore::decrypt_list], [KeyStore::decrypt_list_with_failures], and each batch of
+    /// [KeyStore::decrypt_iter].
+    ///
+    /// The items are split into chunks spread over the rayon threads. Each chunk gets its own
+    /// context, whose local keys are cleared after every item, and the context is dropped at the
+    /// end of the chunk.
+    fn decrypt_batch<Key, Data, Output>(
+        &self,
+        batch: &[Data],
+    ) -> Vec<Result<Output, crate::CryptoError>>
+    where
+        Key: KeySlotId,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync,
+        Output: Send,
+    {
+        batch
+            .par_chunks(batch_chunk_size(batch.len()))
+            .flat_map_iter(|chunk| {
                 let mut ctx = self.context();
 
                 chunk
                     .iter()
                     .map(|item| {
-                        let result = item
-                            .decrypt(&mut ctx, item.key_identifier())
-                            .map_err(|_| item);
+                        let result = item.decrypt(&mut ctx, item.key_identifier());
                         ctx.clear_local();
                         result
                     })
                     .collect::<Vec<_>>()
             })
-            .partition_map(|result| match result {
-                Ok(output) => Either::Left(output),
-                Err(original_item) => Either::Right(original_item),
-            });
-
-        results
+            .collect()
     }
 
     /// Encrypt a list of items using this key store. The keys returned by
@@ -399,6 +461,91 @@ fn batch_chunk_size(len: usize) -> usize {
 
     // As a result, we pick whichever of the two values is larger.
     usize::max(items_per_thread, MINIMUM_CHUNK_SIZE)
+}
+
+/// How many items [KeyStore::decrypt_iter] reads and decrypts at a time.
+fn decrypt_iter_batch_size() -> usize {
+    // The batch has to be large enough to give every thread a share well above the minimum chunk
+    // size of `batch_chunk_size`, so that the per-batch cost of spreading the work over the threads
+    // and waiting for the slowest one stays small. It has to be small enough that one batch of
+    // input and output takes little memory: in WASM, which has a single thread and whose memory
+    // never shrinks, this is 250 items. A caller reading the items out of a `Vec` holds the batch
+    // on top of the `Vec`, which keeps its buffer until it is dropped.
+    const ITEMS_PER_THREAD: usize = 250;
+
+    rayon::current_num_threads() * ITEMS_PER_THREAD
+}
+
+/// The iterator [KeyStore::decrypt_iter] returns.
+struct DecryptBatches<'a, Ids: KeySlotIds, Key, Items, Data, Output, E> {
+    store: &'a KeyStore<Ids>,
+    items: Items,
+    batch_size: usize,
+    /// The rest of the current batch's items, each handed back if it failed to decrypt.
+    batch: std::vec::IntoIter<Data>,
+    /// The results of the rest of the current batch's items, in the same order.
+    results: std::vec::IntoIter<Result<Output, crate::CryptoError>>,
+    /// An input error that ended the current batch, yielded after the batch's results.
+    input_error: Option<E>,
+    _key: std::marker::PhantomData<Key>,
+}
+
+impl<Ids, Key, Items, Data, Output, E> Iterator
+    for DecryptBatches<'_, Ids, Key, Items, Data, Output, E>
+where
+    Ids: KeySlotIds,
+    Key: KeySlotId,
+    Items: Iterator<Item = Result<Data, E>>,
+    Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync,
+    Output: Send,
+{
+    type Item = Result<Result<Output, Box<(Data, crate::CryptoError)>>, E>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let (Some(item), Some(result)) = (self.batch.next(), self.results.next()) {
+            return Some(Ok(result.map_err(|error| Box::new((item, error)))));
+        }
+        if let Some(error) = self.input_error.take() {
+            return Some(Err(error));
+        }
+
+        // Release the previous batch's buffers before reading the next batch.
+        self.batch = Vec::new().into_iter();
+        self.results = Vec::new().into_iter();
+
+        let capacity = match self.items.size_hint() {
+            (_, Some(upper)) => upper.min(self.batch_size),
+            (_, None) => self.batch_size,
+        };
+        let mut batch = Vec::with_capacity(capacity);
+        while batch.len() < self.batch_size {
+            match self.items.next() {
+                Some(Ok(item)) => batch.push(item),
+                Some(Err(error)) => {
+                    self.input_error = Some(error);
+                    break;
+                }
+                None => break,
+            }
+        }
+
+        if batch.is_empty() {
+            return self.input_error.take().map(Err);
+        }
+
+        self.results = self.store.decrypt_batch(&batch).into_iter();
+        self.batch = batch.into_iter();
+        self.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let buffered = self.results.len() + usize::from(self.input_error.is_some());
+        let (lower, upper) = self.items.size_hint();
+        (
+            buffered.saturating_add(lower),
+            upper.and_then(|upper| upper.checked_add(buffered)),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -471,6 +618,314 @@ pub(crate) mod tests {
         for (orig, dec) in data.iter().zip(decrypted.iter()) {
             assert_eq!(orig.0, dec.0);
             assert_eq!(orig.1, dec.1);
+        }
+    }
+
+    mod decrypt_list {
+        use super::{decrypt_iter::store_and_items, *};
+
+        #[test]
+        fn decrypt_list_fails_with_a_failing_item() {
+            let (store, items) = store_and_items(120, &[70]);
+
+            let result: Result<Vec<DataView>, _> = store.decrypt_list(&items);
+
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn decrypt_list_with_failures_keeps_the_order_of_each_side() {
+            // More items than one chunk of `batch_chunk_size`, with failures in more than one
+            // chunk.
+            let failing = [0, 3, 60, 61, 119];
+            let (store, items) = store_and_items(120, &failing);
+
+            let (successes, failures): (Vec<DataView>, Vec<&Data>) =
+                store.decrypt_list_with_failures(&items);
+
+            let expected: Vec<_> = (0..120)
+                .filter(|n| !failing.contains(n))
+                .map(|n| format!("Item {n}"))
+                .collect();
+            let decrypted: Vec<_> = successes.into_iter().map(|view| view.0).collect();
+            assert_eq!(decrypted, expected);
+            let failed: Vec<_> = failures.into_iter().map(std::ptr::from_ref).collect();
+            let expected_failed: Vec<_> = failing
+                .iter()
+                .map(|&n| std::ptr::from_ref(&items[n]))
+                .collect();
+            assert_eq!(failed, expected_failed);
+        }
+    }
+
+    mod decrypt_iter {
+        use std::cell::Cell;
+
+        use super::*;
+        use crate::{CryptoError, Decryptable, IdentifyKey, store::decrypt_iter_batch_size};
+
+        /// A key slot no test puts a key in, so an item under it fails to decrypt.
+        const MISSING_KEY: TestSymmKey = TestSymmKey::A(99);
+
+        /// A store with a few keys, and `count` items encrypted under them, in order. The items at
+        /// `failing` are put under [MISSING_KEY].
+        pub(super) fn store_and_items(
+            count: usize,
+            failing: &[usize],
+        ) -> (KeyStore<TestIds>, Vec<Data>) {
+            let store: KeyStore<TestIds> = KeyStore::default();
+            for n in 0..3 {
+                let mut ctx = store.context_mut();
+                let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+                ctx.persist_symmetric_key(local_key_id, TestSymmKey::A(n))
+                    .unwrap();
+            }
+            let views: Vec<_> = (0..count)
+                .map(|n| DataView(format!("Item {n}"), TestSymmKey::A((n % 3) as u8)))
+                .collect();
+            let items = store
+                .encrypt_list(&views)
+                .unwrap()
+                .into_iter()
+                .enumerate()
+                .map(|(n, item)| {
+                    if failing.contains(&n) {
+                        Data(item.0, MISSING_KEY)
+                    } else {
+                        item
+                    }
+                })
+                .collect();
+            (store, items)
+        }
+
+        /// An output item of [KeyStore::decrypt_iter] in these tests.
+        type DecryptIterItem = Result<Result<DataView, Box<(Data, CryptoError)>>, &'static str>;
+
+        /// What an output item says, for comparing whole outputs: the decrypted text, the failed
+        /// item's key, or the input error.
+        #[derive(Debug, PartialEq)]
+        enum Outcome {
+            Decrypted(String),
+            Failed(TestSymmKey),
+            InputError(&'static str),
+        }
+
+        fn outcome(item: DecryptIterItem) -> Outcome {
+            match item {
+                Ok(Ok(view)) => Outcome::Decrypted(view.0),
+                Ok(Err(failure)) => Outcome::Failed(failure.0.1),
+                Err(error) => Outcome::InputError(error),
+            }
+        }
+
+        fn decrypted(range: std::ops::Range<usize>) -> Vec<Outcome> {
+            range
+                .map(|n| Outcome::Decrypted(format!("Item {n}")))
+                .collect()
+        }
+
+        #[test]
+        fn yields_nothing_for_no_items() {
+            let (store, _) = store_and_items(0, &[]);
+
+            let output: Vec<_> = store
+                .decrypt_iter::<_, Data, DataView, &str>(std::iter::empty())
+                .collect();
+
+            assert!(output.is_empty());
+        }
+
+        #[test]
+        fn decrypts_in_order_with_the_default_batch_size() {
+            let count = decrypt_iter_batch_size() * 2 + 7;
+            let (store, items) = store_and_items(count, &[]);
+
+            let output: Vec<_> = store
+                .decrypt_iter(items.into_iter().map(Ok))
+                .map(outcome)
+                .collect();
+
+            assert_eq!(output, decrypted(0..count));
+        }
+
+        #[test]
+        fn decrypts_in_order_across_batch_sizes() {
+            // Shorter than a batch, exactly a batch, and longer than a batch with a partial last
+            // batch, for a batch size below and above the minimum chunk size.
+            for batch_size in [1, 7, 100] {
+                for count in [
+                    1,
+                    batch_size - 1,
+                    batch_size,
+                    batch_size + 1,
+                    3 * batch_size + 2,
+                ] {
+                    if count == 0 {
+                        continue;
+                    }
+                    let (store, items) = store_and_items(count, &[]);
+
+                    let output: Vec<_> = store
+                        .decrypt_iter_in_batches(items.into_iter().map(Ok::<_, &str>), batch_size)
+                        .map(outcome)
+                        .collect();
+
+                    assert_eq!(
+                        output,
+                        decrypted(0..count),
+                        "batch {batch_size}, {count} items"
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn hands_back_failed_items_in_place() {
+            // Failures at the start, on both sides of the batch boundaries at 5 and 10, and at the
+            // end.
+            let (store, items) = store_and_items(12, &[0, 4, 5, 9, 10, 11]);
+
+            let output: Vec<_> = store
+                .decrypt_iter_in_batches(items.into_iter().map(Ok), 5)
+                .map(outcome)
+                .collect();
+
+            let expected: Vec<_> = (0..12)
+                .map(|n| {
+                    if [0, 4, 5, 9, 10, 11].contains(&n) {
+                        Outcome::Failed(MISSING_KEY)
+                    } else {
+                        Outcome::Decrypted(format!("Item {n}"))
+                    }
+                })
+                .collect();
+            assert_eq!(output, expected);
+        }
+
+        #[test]
+        fn passes_input_errors_through_in_place_and_goes_on() {
+            let (store, items) = store_and_items(8, &[]);
+            // Input errors in the middle of a batch, right after a batch boundary, and last.
+            let input: Vec<Result<Data, &str>> = items
+                .into_iter()
+                .enumerate()
+                .flat_map(|(n, item)| match n {
+                    2 => vec![Ok(item), Err("after 2")],
+                    3 => vec![Err("before 3"), Ok(item)],
+                    7 => vec![Ok(item), Err("last")],
+                    _ => vec![Ok(item)],
+                })
+                .collect();
+
+            let output: Vec<_> = store
+                .decrypt_iter_in_batches(input, 3)
+                .map(outcome)
+                .collect();
+
+            let mut expected = decrypted(0..3);
+            expected.push(Outcome::InputError("after 2"));
+            expected.push(Outcome::InputError("before 3"));
+            expected.extend(decrypted(3..8));
+            expected.push(Outcome::InputError("last"));
+            assert_eq!(output, expected);
+        }
+
+        #[test]
+        fn stops_reading_the_input_when_the_caller_stops_at_an_input_error() {
+            let (store, items) = store_and_items(10, &[]);
+            let read = Cell::new(0);
+            let input = items.into_iter().enumerate().map(|(n, item)| {
+                read.set(read.get() + 1);
+                if n == 4 { Err("invalid") } else { Ok(item) }
+            });
+
+            let result: Result<Vec<_>, _> = store.decrypt_iter_in_batches(input, 3).collect();
+
+            assert_eq!(result.err(), Some("invalid"));
+            assert_eq!(read.get(), 5);
+        }
+
+        #[test]
+        fn reads_the_input_one_batch_at_a_time() {
+            let (store, items) = store_and_items(10, &[]);
+            let read = Cell::new(0);
+            let input = items.into_iter().map(|item| {
+                read.set(read.get() + 1);
+                Ok::<_, &str>(item)
+            });
+
+            let mut output = store.decrypt_iter_in_batches(input, 4);
+
+            assert_eq!(
+                read.get(),
+                0,
+                "nothing is read before the first item is asked for"
+            );
+            let mut read_after_each = Vec::new();
+            while output.next().is_some() {
+                read_after_each.push(read.get());
+            }
+            assert_eq!(read_after_each, [4, 4, 4, 4, 8, 8, 8, 8, 10, 10]);
+        }
+
+        #[test]
+        fn holds_no_context_between_items() {
+            let (store, items) = store_and_items(10, &[]);
+
+            let mut output = store.decrypt_iter_in_batches(items.into_iter().map(Ok::<_, &str>), 4);
+
+            // A context holds the store's lock, which would make the write lock unavailable.
+            while output.next().is_some() {
+                assert!(store.inner.try_write().is_ok());
+            }
+        }
+
+        /// A wrapper with its own decryption, as a caller might map each input item into.
+        struct Wrapped(Data);
+
+        impl IdentifyKey<TestSymmKey> for Wrapped {
+            fn key_identifier(&self) -> TestSymmKey {
+                self.0.key_identifier()
+            }
+        }
+
+        impl Decryptable<TestIds, TestSymmKey, DataView> for Wrapped {
+            fn decrypt(
+                &self,
+                ctx: &mut KeyStoreContext<TestIds>,
+                key: TestSymmKey,
+            ) -> Result<DataView, CryptoError> {
+                let view = self.0.decrypt(ctx, key)?;
+                Ok(DataView(format!("Wrapped {}", view.0), view.1))
+            }
+        }
+
+        #[test]
+        fn decrypts_mapped_items_and_hands_back_the_mapped_item() {
+            let (store, items) = store_and_items(5, &[3]);
+
+            let output: Vec<_> = store
+                .decrypt_iter_in_batches(
+                    items.into_iter().map(|item| Ok::<_, &str>(Wrapped(item))),
+                    2,
+                )
+                .map(|item| match item.unwrap() {
+                    Ok(view) => Ok(view.0),
+                    Err(failure) => Err((failure.0).0.1),
+                })
+                .collect();
+
+            assert_eq!(
+                output,
+                [
+                    Ok("Wrapped Item 0".to_owned()),
+                    Ok("Wrapped Item 1".to_owned()),
+                    Ok("Wrapped Item 2".to_owned()),
+                    Err(MISSING_KEY),
+                    Ok("Wrapped Item 4".to_owned()),
+                ]
+            );
         }
     }
 }
