@@ -139,11 +139,11 @@ pub struct OrganizationNoPaymentCreateRequest {
     )]
     pub use_privileged_controls: Option<bool>,
     #[serde(
-        rename = "pamSeatMinimum",
-        alias = "PamSeatMinimum",
+        rename = "pamSeats",
+        alias = "PamSeats",
         skip_serializing_if = "Option::is_none"
     )]
-    pub pam_seat_minimum: Option<i32>,
+    pub pam_seats: Option<i32>,
     #[serde(
         rename = "isFromSecretsManagerTrial",
         alias = "IsFromSecretsManagerTrial",
@@ -197,7 +197,7 @@ impl OrganizationNoPaymentCreateRequest {
             additional_service_accounts: None,
             use_secrets_manager,
             use_privileged_controls: None,
-            pam_seat_minimum: None,
+            pam_seats: None,
             is_from_secrets_manager_trial: None,
             initiation_path: None,
             trial_length: None,

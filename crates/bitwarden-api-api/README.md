@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`61341c89372031a166feac87e3b58f5191e3547c`](https://github.com/bitwarden/server/commit/61341c89372031a166feac87e3b58f5191e3547c)
+  [`2028f0a5cc9d8ab8ff8475029085f29f81483598`](https://github.com/bitwarden/server/commit/2028f0a5cc9d8ab8ff8475029085f29f81483598)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -348,6 +348,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationSubscriptionsApi_               | [**preview_organization_plan_change**](docs/OrganizationSubscriptionsApi.md#preview_organization_plan_change)                                                    | **POST** /organizations/{organizationId}/billing/subscription/plan-change/preview                        |
 | _OrganizationSubscriptionsApi_               | [**preview_organization_restart**](docs/OrganizationSubscriptionsApi.md#preview_organization_restart)                                                            | **POST** /organizations/{organizationId}/billing/subscription/restart/preview                            |
 | _OrganizationSubscriptionsApi_               | [**preview_organization_subscription_purchase**](docs/OrganizationSubscriptionsApi.md#preview_organization_subscription_purchase)                                | **POST** /organizations/billing/subscription/purchase/preview                                            |
+| _OrganizationSubscriptionsApi_               | [**purchase_privileged_controls**](docs/OrganizationSubscriptionsApi.md#purchase_privileged_controls)                                                            | **POST** /organizations/{organizationId}/billing/subscription/privileged-controls/purchase               |
 | _OrganizationUsersApi_                       | [**accept**](docs/OrganizationUsersApi.md#organization_users_accept)                                                                                             | **POST** /organizations/{orgId}/users/{organizationUserId}/accept                                        |
 | _OrganizationUsersApi_                       | [**accept_init**](docs/OrganizationUsersApi.md#organization_users_accept_init)                                                                                   | **POST** /organizations/{orgId}/users/{organizationUserId}/accept-init                                   |
 | _OrganizationUsersApi_                       | [**accept_invite_link**](docs/OrganizationUsersApi.md#organization_users_accept_invite_link)                                                                     | **POST** /organizations/users/invite-link/accept                                                         |
@@ -561,6 +562,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _SlackIntegrationApi_                        | [**create**](docs/SlackIntegrationApi.md#slack_integration_create)                                                                                               | **GET** /organizations/integrations/slack/create                                                         |
 | _SlackIntegrationApi_                        | [**redirect**](docs/SlackIntegrationApi.md#slack_integration_redirect)                                                                                           | **GET** /organizations/{organizationId}/integrations/slack/redirect                                      |
 | _SsoCookieVendorApi_                         | [**get**](docs/SsoCookieVendorApi.md#sso_cookie_vendor_get)                                                                                                      | **GET** /sso-cookie-vendor                                                                               | Reads SSO cookie (shards supported) and redirects to the bitwarden:// URI with cookie value(s).                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| _SsoJitProvisionFinishApi_                   | [**finish_jit_provision_for_password**](docs/SsoJitProvisionFinishApi.md#sso_jit_provision_finish_finish_jit_provision_for_password)                             | **POST** /sso-jit-provision-finish/password                                                              | Sets the initial master password and account keys for an SSO JIT provisioned user in an organization that uses master password decryption. Accepts the pending organization invite only when Bit.Api.Auth.Models.Request.SsoJitProvisionFinish.SsoJitProvisionFinishPasswordRequestModel.AcceptOrganizationInvite is `true`.                                                                                                                                                                                                          |
 | _StripeApi_                                  | [**create_setup_intent_for_bank_account**](docs/StripeApi.md#stripe_create_setup_intent_for_bank_account)                                                        | **POST** /setup-intent/bank-account                                                                      |
 | _StripeApi_                                  | [**create_setup_intent_for_card**](docs/StripeApi.md#stripe_create_setup_intent_for_card)                                                                        | **POST** /setup-intent/card                                                                              |
 | _StripeApi_                                  | [**is_country_supported**](docs/StripeApi.md#stripe_is_country_supported)                                                                                        | **GET** /tax/is-country-supported                                                                        |
@@ -1028,6 +1030,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PrivilegedControlsInvoiceItems](docs/PrivilegedControlsInvoiceItems.md)
 - [PrivilegedControlsPlanFeaturesResponseModel](docs/PrivilegedControlsPlanFeaturesResponseModel.md)
 - [PrivilegedControlsSeatsRequest](docs/PrivilegedControlsSeatsRequest.md)
+- [PrivilegedControlsSelections](docs/PrivilegedControlsSelections.md)
 - [ProductTierType](docs/ProductTierType.md)
 - [ProfileOrganizationResponseModel](docs/ProfileOrganizationResponseModel.md)
 - [ProfileOrganizationResponseModelListResponseModel](docs/ProfileOrganizationResponseModelListResponseModel.md)
@@ -1079,6 +1082,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PublicKeyEncryptionKeyPairResponseModel](docs/PublicKeyEncryptionKeyPairResponseModel.md)
 - [PublicKeysResponseModel](docs/PublicKeysResponseModel.md)
 - [PurchasableProration](docs/PurchasableProration.md)
+- [PurchasePrivilegedControlsRequest](docs/PurchasePrivilegedControlsRequest.md)
 - [PurchaseSelections](docs/PurchaseSelections.md)
 - [PushDeviceRequestModel](docs/PushDeviceRequestModel.md)
 - [PushRegistrationRequestModel](docs/PushRegistrationRequestModel.md)
@@ -1174,6 +1178,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SmImportRequestModel](docs/SmImportRequestModel.md)
 - [SsoConfigurationData](docs/SsoConfigurationData.md)
 - [SsoConfigurationDataRequest](docs/SsoConfigurationDataRequest.md)
+- [SsoJitProvisionFinishPasswordRequestModel](docs/SsoJitProvisionFinishPasswordRequestModel.md)
 - [SsoType](docs/SsoType.md)
 - [SsoUrls](docs/SsoUrls.md)
 - [Storage](docs/Storage.md)
