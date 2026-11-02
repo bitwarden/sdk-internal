@@ -19,10 +19,6 @@ use crate::{
 
 /// Gives the data of the unlock or the sync time to reach state before the run.
 const TRIGGER_DELAY: Duration = Duration::from_secs(5);
-/// Runs the migrations again while the account stays unlocked, so that a failed migration does not
-/// wait for the next unlock or sync. An account can stay unlocked for days, for example with the
-/// "never lock" timeout.
-const RECURRING_DELAY: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// Global to the process, not per [`Client`], because the TypeScript clients replace the SDK client
 /// each time the account's keys change in their state.
@@ -56,16 +52,11 @@ impl Scheduler {
             return;
         };
         if let Some(token) = self.user_run_states.try_schedule(user_id) {
-            self.spawn_delayed_run(
-                Arc::downgrade(&client.internal),
-                user_id,
-                token,
-                TRIGGER_DELAY,
-            );
+            self.spawn_delayed_run(Arc::downgrade(&client.internal), user_id, token);
         }
     }
 
-    /// Spawns a task that runs the migrations after `delay`, then schedules the next run.
+    /// Spawns a task that runs the migrations after [`TRIGGER_DELAY`].
     ///
     /// The task holds only a weak reference while it waits, so it does not keep a dropped client
     /// and its keys in memory.
@@ -74,11 +65,10 @@ impl Scheduler {
         client: Weak<InternalClient>,
         user_id: UserId,
         token: CancellationToken,
-        delay: Duration,
     ) {
         let scheduler = Arc::clone(self);
         bitwarden_threading::spawn(async move {
-            if !wait_unless_replaced(&token, delay).await {
+            if !wait_unless_replaced(&token, TRIGGER_DELAY).await {
                 return;
             }
             let Some(client) = upgrade_if_unlocked(&client).await else {
@@ -94,9 +84,7 @@ impl Scheduler {
                 return;
             }
             scheduler.run_background_migrations(&client).await;
-            scheduler
-                .schedule_recurring_run_if_unlocked(&client, user_id, &token)
-                .await;
+            scheduler.user_run_states.remove(user_id, &token);
         });
     }
 
@@ -111,27 +99,6 @@ impl Scheduler {
         });
         // The sender never sends, so the receiver resolves with an error once the task drops it.
         let _ = finished_receiver.await;
-    }
-
-    /// Schedules the next run after [`RECURRING_DELAY`] if the client is unlocked. Otherwise
-    /// removes the user's entry, and the next unlock schedules a new run.
-    async fn schedule_recurring_run_if_unlocked(
-        self: &Arc<Self>,
-        client: &Client,
-        user_id: UserId,
-        token: &CancellationToken,
-    ) {
-        if !is_unlocked(client).await {
-            self.user_run_states.remove(user_id, token);
-            return;
-        }
-        let next = self.user_run_states.mark_next_run_scheduled(user_id);
-        self.spawn_delayed_run(
-            Arc::downgrade(&client.internal),
-            user_id,
-            next,
-            RECURRING_DELAY,
-        );
     }
 }
 
@@ -214,15 +181,12 @@ pub(crate) mod tests {
         SCHEDULER.user_run_states.contains(user_id)
     }
 
-    /// A scheduler with one fake migration that calls `on_run`, and the number of its runs.
-    fn fake_scheduler(
-        on_run: impl Fn() + Send + Sync + 'static,
-    ) -> (Arc<Scheduler>, Arc<AtomicUsize>) {
+    /// A scheduler with one fake migration, and the number of its runs.
+    fn fake_scheduler() -> (Arc<Scheduler>, Arc<AtomicUsize>) {
         let runs = Arc::new(AtomicUsize::new(0));
         let runs_in_migration = Arc::clone(&runs);
         let run: FakeRun = Arc::new(move |_| {
             runs_in_migration.fetch_add(1, Ordering::SeqCst);
-            on_run();
         });
         let scheduler = Scheduler::new(move |_| {
             vec![Box::new(FakeMigration {
@@ -240,23 +204,22 @@ pub(crate) mod tests {
     }
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
-    async fn test_trigger_runs_after_the_trigger_delay_and_again_after_the_recurring_delay() {
+    async fn test_trigger_runs_once_after_the_trigger_delay_and_removes_the_entry() {
         let (client, user_id) = unlocked_client().await;
-        let (scheduler, runs) = fake_scheduler(|| {});
+        let (scheduler, runs) = fake_scheduler();
 
         scheduler.trigger(&client);
         wait_past(TRIGGER_DELAY).await;
-        assert_eq!(runs.load(Ordering::SeqCst), 1);
-        wait_past(RECURRING_DELAY).await;
+        wait_past(Duration::from_secs(24 * 60 * 60)).await;
 
-        assert_eq!(runs.load(Ordering::SeqCst), 2);
-        assert!(scheduler.user_run_states.contains(user_id));
+        assert_eq!(runs.load(Ordering::SeqCst), 1);
+        assert!(!scheduler.user_run_states.contains(user_id));
     }
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn test_trigger_during_the_trigger_delay_runs_once() {
         let (client, _) = unlocked_client().await;
-        let (scheduler, runs) = fake_scheduler(|| {});
+        let (scheduler, runs) = fake_scheduler();
 
         scheduler.trigger(&client);
         tokio::time::sleep(TRIGGER_DELAY / 2).await;
@@ -269,7 +232,7 @@ pub(crate) mod tests {
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn test_trigger_without_a_user_id_schedules_nothing() {
         let client = Client::new(None);
-        let (scheduler, runs) = fake_scheduler(|| {});
+        let (scheduler, runs) = fake_scheduler();
 
         scheduler.trigger(&client);
         wait_past(TRIGGER_DELAY).await;
@@ -280,7 +243,7 @@ pub(crate) mod tests {
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn test_locked_client_removes_the_entry_without_a_run() {
         let (client, user_id) = unlocked_client().await;
-        let (scheduler, runs) = fake_scheduler(|| {});
+        let (scheduler, runs) = fake_scheduler();
         scheduler.trigger(&client);
         client.internal.get_key_store().clear();
 
@@ -293,7 +256,7 @@ pub(crate) mod tests {
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn test_dropped_client_removes_the_entry_without_a_run() {
         let (client, user_id) = unlocked_client().await;
-        let (scheduler, runs) = fake_scheduler(|| {});
+        let (scheduler, runs) = fake_scheduler();
         scheduler.trigger(&client);
         drop(client);
 
@@ -304,15 +267,15 @@ pub(crate) mod tests {
     }
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
-    async fn test_client_locked_during_the_run_schedules_no_next_run() {
-        let (client, user_id) = unlocked_client().await;
-        let key_store = client.internal.get_key_store().clone();
-        let (scheduler, runs) = fake_scheduler(move || key_store.clear());
+    async fn test_trigger_after_a_run_runs_again() {
+        let (client, _) = unlocked_client().await;
+        let (scheduler, runs) = fake_scheduler();
 
         scheduler.trigger(&client);
         wait_past(TRIGGER_DELAY).await;
+        scheduler.trigger(&client);
+        wait_past(TRIGGER_DELAY).await;
 
-        assert_eq!(runs.load(Ordering::SeqCst), 1);
-        assert!(!scheduler.user_run_states.contains(user_id));
+        assert_eq!(runs.load(Ordering::SeqCst), 2);
     }
 }

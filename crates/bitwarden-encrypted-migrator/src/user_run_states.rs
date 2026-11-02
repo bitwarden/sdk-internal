@@ -50,14 +50,6 @@ impl UserRunStates {
         true
     }
 
-    /// Replaces the entry of the run in progress with the next scheduled run and returns its token.
-    pub(crate) fn mark_next_run_scheduled(&self, user_id: UserId) -> CancellationToken {
-        let token = CancellationToken::new();
-        self.entries()
-            .insert(user_id, RunState::Scheduled(token.clone()));
-        token
-    }
-
     /// Removes the user's entry, unless `token` is canceled. Also removes the entry of a run in
     /// progress, because a trigger does not cancel its token.
     pub(crate) fn remove(&self, user_id: UserId, token: &CancellationToken) {
@@ -107,24 +99,6 @@ mod tests {
         assert!(run_states.try_mark_run_in_progress(user_id, &token));
 
         assert!(run_states.try_schedule(user_id).is_none());
-    }
-
-    #[test]
-    fn test_try_schedule_after_a_run_cancels_the_recurring_token() {
-        let run_states = UserRunStates::default();
-        let user_id = UserId::new_v4();
-        let token = run_states
-            .try_schedule(user_id)
-            .expect("no run is in progress");
-        assert!(run_states.try_mark_run_in_progress(user_id, &token));
-        let recurring = run_states.mark_next_run_scheduled(user_id);
-
-        let triggered = run_states
-            .try_schedule(user_id)
-            .expect("no run is in progress");
-
-        assert!(recurring.is_cancelled());
-        assert!(run_states.try_mark_run_in_progress(user_id, &triggered));
     }
 
     #[test]

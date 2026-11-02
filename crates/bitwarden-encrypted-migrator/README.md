@@ -24,15 +24,14 @@ calls a slow server keeps the user on the lock screen.
 
 ## When the migrations run
 
-On WASM, the SDK schedules the migrations of each user:
+On WASM, the SDK runs the migrations of each user 5 seconds after an explicit unlock or a sync, so
+that the data of the unlock or the sync reaches state. Only the SDK client that the user unlocks
+schedules the run. A client that is initialized from client-managed state, for example a re-created
+client or the popup client next to the background client, and `reinit_user_crypto` do not schedule a
+run.
 
-- 5 seconds after an explicit unlock or a sync, so that the data of the unlock or the sync reaches
-  state. Only the SDK client that the user unlocks schedules the run. A client that is initialized
-  from client-managed state, for example a re-created client or the popup client next to the
-  background client, and `reinit_user_crypto` do not schedule a run,
-- 24 hours after each run, while the account stays unlocked.
-
-Only one run of a user is in progress at a time. A failed migration runs again in the next run.
+Only one run of a user is in progress at a time. A failed migration runs again after the next unlock
+or sync.
 
 All SDK clients of a user share one schedule, because the TypeScript clients replace the SDK client
 each time the keys of the account change in their state.

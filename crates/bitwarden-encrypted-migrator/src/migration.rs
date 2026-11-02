@@ -18,7 +18,8 @@ pub(crate) trait EncryptedMigration: Send + Sync {
     /// Checks the current state of the account.
     fn needs_migration(&self) -> MigrationNeed;
 
-    /// Runs the migration. A migration logs its own failures and runs again in the next run.
+    /// Runs the migration. A migration logs its own failures and runs again after the next unlock
+    /// or sync.
     ///
     /// Gets the master password when [`EncryptedMigration::needs_migration`] returns
     /// [`MigrationNeed::NeedsMasterPassword`].
