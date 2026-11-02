@@ -69,7 +69,7 @@ impl SyncClient {
         }
     }
 
-    /// Get the timestamp of the last successful sync or confirmed-up-to-date skip, if any.
+    /// Get the timestamp of the last successful sync, if any.
     pub async fn last_sync(&self) -> Option<DateTime<Utc>> {
         match self.last_sync.as_ref()?.get().await {
             Ok(value) => value,

@@ -75,7 +75,7 @@ pub use context::KeyStoreContext;
 /// let store: KeyStore<Ids> = KeyStore::default();
 ///
 /// #[allow(deprecated)]
-/// store.context_mut().set_symmetric_key(SymmKeySlotIds::User, SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac));
+/// store.context_mut().set_symmetric_key(SymmKeySlotIds::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);

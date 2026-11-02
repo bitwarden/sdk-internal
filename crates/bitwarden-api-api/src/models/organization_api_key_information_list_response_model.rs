@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// OrganizationApiKeyInformationListResponseModel : A paginated list response wrapper.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationApiKeyInformationListResponseModel {
     #[serde(
@@ -36,7 +35,6 @@ pub struct OrganizationApiKeyInformationListResponseModel {
 }
 
 impl OrganizationApiKeyInformationListResponseModel {
-    /// A paginated list response wrapper.
     pub fn new() -> OrganizationApiKeyInformationListResponseModel {
         OrganizationApiKeyInformationListResponseModel {
             object: None,
