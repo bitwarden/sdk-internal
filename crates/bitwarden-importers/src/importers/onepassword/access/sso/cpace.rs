@@ -101,7 +101,7 @@ fn calculate_msg_b(
 ) -> [u8; 32] {
     let passcode_hash = calculate_passcode_hash(verification_code, &msg_a.ad.salt);
     let first_hash = calculate_first_hash(username, sign_in_address, enrollment_uuid, msg_a);
-    let second_hash = calculate_second_hash(&first_hash, passcode_hash.as_slice(), msg_a);
+    let second_hash = calculate_second_hash(first_hash.as_slice(), passcode_hash.as_slice(), msg_a);
     let generator = RistrettoPoint::from_uniform_bytes(&second_hash);
     multiply_by_client_scalar(&generator, client_secret)
 }
@@ -117,8 +117,8 @@ fn calculate_first_hash(
     sign_in_address: &str,
     enrollment_uuid: &str,
     msg_a: &MsgA,
-) -> [u8; 64] {
-    sha512(&leb128_prefixed(&[
+) -> Zeroizing<[u8; 64]> {
+    Zeroizing::new(sha512(&leb128_prefixed(&[
         b"1P-SSO-TRUSTED-DEVICE",
         b"1P-SSO-NEW-DEVICE",
         email.as_bytes(),
@@ -126,7 +126,7 @@ fn calculate_first_hash(
         enrollment_uuid.as_bytes(),
         &msg_a.ad.salt,
         &[1],
-    ]))
+    ])))
 }
 
 /// The input of the CPace generator, which binds the passcode to the first hash and the session.
@@ -638,7 +638,7 @@ mod tests {
             &msg_a(),
         );
 
-        assert_eq!(HEXLOWER.encode(&hash), vectors.first_hash);
+        assert_eq!(HEXLOWER.encode(hash.as_slice()), vectors.first_hash);
     }
 
     #[test]
