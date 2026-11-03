@@ -29,10 +29,10 @@ async-trait = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-member-administration = { workspace = true }
 bitwarden-organizations = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
 bitwarden-threading = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
-zeroize = { workspace = true }
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }

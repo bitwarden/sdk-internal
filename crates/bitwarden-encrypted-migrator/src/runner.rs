@@ -1,8 +1,8 @@
 //! Runs a list of encrypted migrations of different types.
 
+use bitwarden_sensitive_value::MasterPassword;
 use bitwarden_threading::BoxFuture;
 use tracing::{Instrument, info, info_span};
-use zeroize::Zeroizing;
 
 use crate::migration::{EncryptedMigration, MigrationNeed};
 
@@ -13,7 +13,7 @@ pub(crate) trait DynEncryptedMigration: Send + Sync {
 
     fn needs_migration(&self) -> MigrationNeed;
 
-    fn run<'a>(&'a self, master_password: Option<&'a Zeroizing<String>>) -> BoxFuture<'a, ()>;
+    fn run<'a>(&'a self, master_password: Option<&'a MasterPassword>) -> BoxFuture<'a, ()>;
 }
 
 impl<M: EncryptedMigration> DynEncryptedMigration for M {
@@ -25,7 +25,7 @@ impl<M: EncryptedMigration> DynEncryptedMigration for M {
         EncryptedMigration::needs_migration(self)
     }
 
-    fn run<'a>(&'a self, master_password: Option<&'a Zeroizing<String>>) -> BoxFuture<'a, ()> {
+    fn run<'a>(&'a self, master_password: Option<&'a MasterPassword>) -> BoxFuture<'a, ()> {
         Box::pin(EncryptedMigration::run(self, master_password))
     }
 }
@@ -35,7 +35,7 @@ impl<M: EncryptedMigration> DynEncryptedMigration for M {
 /// Without `master_password`, skips the migrations that need it.
 pub(crate) async fn run_migrations(
     migrations: &[Box<dyn DynEncryptedMigration>],
-    master_password: Option<&Zeroizing<String>>,
+    master_password: Option<&MasterPassword>,
 ) {
     for migration in migrations {
         async {
@@ -58,9 +58,11 @@ pub(crate) async fn run_migrations(
 pub(crate) mod tests {
     use std::sync::{Arc, Mutex};
 
+    use bitwarden_sensitive_value::ExposeSensitive;
+
     use super::*;
 
-    pub(crate) type FakeRun = Arc<dyn Fn(Option<&Zeroizing<String>>) + Send + Sync>;
+    pub(crate) type FakeRun = Arc<dyn Fn(Option<&MasterPassword>) + Send + Sync>;
 
     pub(crate) struct FakeMigration {
         pub(crate) need: MigrationNeed,
@@ -74,7 +76,7 @@ pub(crate) mod tests {
             self.need
         }
 
-        async fn run(&self, master_password: Option<&Zeroizing<String>>) {
+        async fn run(&self, master_password: Option<&MasterPassword>) {
             (self.run)(master_password)
         }
     }
@@ -90,9 +92,10 @@ pub(crate) mod tests {
         Box::new(FakeMigration {
             need,
             run: Arc::new(move |master_password| {
+                // EXPOSE: The test compares the master password that each migration gets.
                 log.lock()
                     .expect("Mutex is not poisoned")
-                    .push((name, master_password.map(|p| p.to_string())))
+                    .push((name, master_password.map(|p| p.expose().clone())))
             }),
         })
     }
@@ -147,7 +150,7 @@ pub(crate) mod tests {
             recording("master_password", MigrationNeed::NeedsMasterPassword, &log),
             recording("needed", MigrationNeed::Needed, &log),
         ];
-        let master_password = Zeroizing::new("master password".to_string());
+        let master_password = MasterPassword::from("master password");
 
         run_migrations(&migrations, Some(&master_password)).await;
 

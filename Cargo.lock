@@ -925,12 +925,12 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-member-administration",
  "bitwarden-organizations",
+ "bitwarden-sensitive-value",
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-threading",
  "tokio",
  "tracing",
- "zeroize",
 ]
 
 [[package]]

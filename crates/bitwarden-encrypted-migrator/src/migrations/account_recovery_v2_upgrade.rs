@@ -7,8 +7,8 @@
 use bitwarden_core::{Client, FromClient, OrganizationId};
 use bitwarden_member_administration::OrganizationUsersManagementClient;
 use bitwarden_organizations::{OrganizationsClient, ProfileOrganization};
+use bitwarden_sensitive_value::MasterPassword;
 use tracing::warn;
-use zeroize::Zeroizing;
 
 use crate::migration::{EncryptedMigration, MigrationNeed};
 
@@ -34,7 +34,7 @@ impl EncryptedMigration for AccountRecoveryV2UpgradeMigration {
         MigrationNeed::Needed
     }
 
-    async fn run(&self, _master_password: Option<&Zeroizing<String>>) {
+    async fn run(&self, _master_password: Option<&MasterPassword>) {
         let organizations = match self.organizations.get_all().await {
             Ok(organizations) => organizations,
             Err(e) => {

@@ -4,8 +4,8 @@
 //! [`EncryptedMigration`], and add the migration to [`all`](crate::migrations::all) in the
 //! position where it must run.
 
+use bitwarden_sensitive_value::MasterPassword;
 use bitwarden_threading::MaybeSend;
-use zeroize::Zeroizing;
 
 /// An encrypted migration of the account.
 ///
@@ -23,10 +23,8 @@ pub(crate) trait EncryptedMigration: Send + Sync {
     ///
     /// Gets the master password when [`EncryptedMigration::needs_migration`] returns
     /// [`MigrationNeed::NeedsMasterPassword`].
-    fn run(
-        &self,
-        master_password: Option<&Zeroizing<String>>,
-    ) -> impl Future<Output = ()> + MaybeSend;
+    fn run(&self, master_password: Option<&MasterPassword>)
+    -> impl Future<Output = ()> + MaybeSend;
 }
 
 /// Whether the account needs a migration, and what the migration needs to run.
