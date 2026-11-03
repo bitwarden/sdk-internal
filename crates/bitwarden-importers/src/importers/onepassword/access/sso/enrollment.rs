@@ -786,7 +786,13 @@ mod tests {
             vec![reports("SELECTING_VERIFIER"), reports("WAITING_FOR_CODE")],
         )
         .await;
-        mock_enrolled_device_for_any_client(&server, &vectors, &vectors.sign_in_address).await;
+        mock_enrolled_device_for_any_client(
+            &server,
+            &vectors,
+            &vectors.sign_in_address,
+            &[&vectors.verification_code],
+        )
+        .await;
         mock_cancel(&server, &vectors, 0).await;
         let (ui, script) = scripted(code(&vectors.verification_code));
 

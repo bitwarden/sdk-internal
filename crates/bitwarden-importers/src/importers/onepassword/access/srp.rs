@@ -426,7 +426,8 @@ pub(super) struct TestServer {
 
 #[cfg(test)]
 impl TestServer {
-    /// A server that knows the account with the given `srp_x`, and answers with `g^secret_b`.
+    /// A server that knows the account with the given `srp_x`, and answers with the SRP public
+    /// value `B = k*v + g^b`, where `b` is `secret_b`.
     pub(super) fn new(
         srp_x: &[u8],
         secret_b: &[u8; 32],

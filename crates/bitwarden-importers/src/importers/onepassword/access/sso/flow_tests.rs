@@ -1,7 +1,10 @@
 //! The whole SSO login against a fake server: what it asks of the identity provider and of the
 //! server.
 
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+};
 
 use async_trait::async_trait;
 use bitwarden_api_base::new_http_client;
@@ -29,10 +32,12 @@ use super::{
     },
 };
 
-/// The user of the login: signs in with the identity provider or gives up on it, and enters the
-/// verification code of the vectors when the device is enrolled.
+/// The user of the login: signs in with the identity provider or gives up on it, and enters
+/// verification codes when the device is enrolled, by default the vectors' code.
 struct ScriptedUser {
     login: Mutex<Option<SsoLoginResult>>,
+    codes: Arc<Mutex<VecDeque<String>>>,
+    asked: Arc<Mutex<Vec<u32>>>,
     enrollments: Arc<Mutex<Vec<SsoEnrollmentResult>>>,
 }
 
@@ -48,8 +53,24 @@ impl ScriptedUser {
     fn new(login: SsoLoginResult) -> ScriptedUser {
         ScriptedUser {
             login: Mutex::new(Some(login)),
+            codes: Arc::new(Mutex::new(VecDeque::from([vectors()
+                .cpace
+                .verification_code]))),
+            asked: Arc::default(),
             enrollments: Arc::default(),
         }
+    }
+
+    /// Types `codes` in turn at the verification code prompts.
+    fn typing(self, codes: &[&str]) -> ScriptedUser {
+        *self.codes.lock().expect("not poisoned") =
+            codes.iter().map(|code| code.to_string()).collect();
+        self
+    }
+
+    /// The attempts the user was asked for a code for.
+    fn codes_asked(&self) -> Vec<u32> {
+        self.asked.lock().expect("not poisoned").clone()
     }
 
     /// How the enrollments that ran ended.
@@ -72,12 +93,16 @@ impl SsoUi for ScriptedUser {
 
     async fn begin_sso_enrollment(&self) -> Box<dyn SsoEnrollmentContext> {
         Box::new(EnrollingUser {
+            codes: self.codes.clone(),
+            asked: self.asked.clone(),
             ended: self.enrollments.clone(),
         })
     }
 }
 
 struct EnrollingUser {
+    codes: Arc<Mutex<VecDeque<String>>>,
+    asked: Arc<Mutex<Vec<u32>>>,
     ended: Arc<Mutex<Vec<SsoEnrollmentResult>>>,
 }
 
@@ -89,8 +114,10 @@ impl SsoEnrollmentContext for EnrollingUser {
 
     async fn update_status(&self, _: EnrollmentStatus, _: &str) {}
 
-    async fn provide_verification_code(&self, _: u32) -> VerificationCodeResult {
-        VerificationCodeResult::Code(vectors().cpace.verification_code)
+    async fn provide_verification_code(&self, attempt: u32) -> VerificationCodeResult {
+        self.asked.lock().expect("not poisoned").push(attempt);
+        let code = self.codes.lock().expect("not poisoned").pop_front();
+        VerificationCodeResult::Code(code.expect("a code for every prompt"))
     }
 
     async fn end_enrollment(&self, result: SsoEnrollmentResult) {
@@ -123,8 +150,8 @@ async fn sign_in(
 }
 
 /// What the server needs to enroll a device: the enrollment, the approval of an enrolled device
-/// and the credential exchange with it.
-async fn mock_enrollment(server: &FakeServer) {
+/// that shows `codes` in turn, and the credential exchange with it.
+async fn mock_enrollment(server: &FakeServer, codes: &[&str]) {
     let cpace = vectors().cpace;
     server
         .mock
@@ -154,7 +181,8 @@ async fn mock_enrollment(server: &FakeServer) {
                 ),
         )
         .await;
-    mock_enrolled_device_for_any_client(&server.mock, &cpace, &server.sign_in_address()).await;
+    mock_enrolled_device_for_any_client(&server.mock, &cpace, &server.sign_in_address(), codes)
+        .await;
 }
 
 /// Downloads the account with the account unlock key and checks it has what the server holds.
@@ -185,7 +213,7 @@ async fn a_new_device_is_enrolled_and_signs_in() {
     server
         .mock_sso_verify(verify_response("device_not_enrolled"))
         .await;
-    mock_enrollment(&server).await;
+    mock_enrollment(&server, &[&vectors().cpace.verification_code]).await;
     let ui = ScriptedUser::signing_in();
 
     let (session, master_key) = sign_in(&server, &ui)
@@ -205,6 +233,27 @@ async fn a_new_device_is_enrolled_and_signs_in() {
 }
 
 #[tokio::test]
+async fn a_wrong_verification_code_is_asked_for_again() {
+    let server = FakeServer::start().await;
+    server.mock_login_info(true).await;
+    server.mock_sso_start().await;
+    server
+        .mock_sso_verify(verify_response("device_not_enrolled"))
+        .await;
+    mock_enrollment(&server, &["1111-AAAA", "2222-BBBB"]).await;
+    let ui = ScriptedUser::signing_in().typing(&["9999-ZZZZ", "2222-BBBB"]);
+
+    let (session, master_key) = sign_in(&server, &ui)
+        .await
+        .expect("the second code enrolls the device");
+
+    assert_downloads_the_account(session, master_key).await;
+    assert_eq!(ui.codes_asked(), [0, 1]);
+    assert_eq!(ui.enrollments(), [SsoEnrollmentResult::Success]);
+    server.mock.verify().await;
+}
+
+#[tokio::test]
 async fn a_second_factor_after_the_sso_login_is_unsupported() {
     let server = FakeServer::start_with_mfa(json!({"totp": {"enabled": true}})).await;
     server.mock_login_info(true).await;
@@ -212,7 +261,7 @@ async fn a_second_factor_after_the_sso_login_is_unsupported() {
     server
         .mock_sso_verify(verify_response("device_not_enrolled"))
         .await;
-    mock_enrollment(&server).await;
+    mock_enrollment(&server, &[&vectors().cpace.verification_code]).await;
     let ui = ScriptedUser::signing_in();
 
     let error = sign_in(&server, &ui).await.err();
