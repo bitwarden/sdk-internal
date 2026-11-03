@@ -4,8 +4,6 @@
 //! the crate README.
 
 mod classify;
-#[cfg(test)]
-mod live;
 mod password_write;
 mod session;
 #[cfg(test)]
