@@ -38,18 +38,22 @@ export function liveSecret(): string {
 
 interface LedgerEntry {
   email: string;
-  event: "created" | "deleted";
+  /**
+   * `absent` means the server rejected the account's credentials, so there is nothing left to
+   * delete: its registration failed, or the secret its password derives from has changed since.
+   */
+  event: "created" | "deleted" | "absent";
   at: string;
 }
 
-/** Records that an account was created or deleted. */
+/** Records that an account was created, deleted or found absent. */
 export function recordAccount(email: string, event: LedgerEntry["event"]): void {
   mkdirSync(STATE_DIR, { recursive: true });
   const entry: LedgerEntry = { email, event, at: new Date().toISOString() };
   appendFileSync(LEDGER_FILE, `${JSON.stringify(entry)}\n`);
 }
 
-/** Accounts created at least `ageMs` ago that no entry records as deleted. */
+/** Accounts created at least `ageMs` ago that no later entry records as deleted or absent. */
 export function undeletedAccounts(ageMs: number): string[] {
   if (!existsSync(LEDGER_FILE)) {
     return [];

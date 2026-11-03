@@ -693,6 +693,9 @@ export class PasswordPreloginRequest {
   email!: string;
 }
 
+/** The server's default PBKDF2 iteration count. */
+const DEFAULT_PBKDF2_ITERATIONS = 600_000;
+
 /** `PasswordPreloginResponseModel`. */
 export class PasswordPreloginResponse {
   // PM-28143: legacy flat KDF fields, removed with the cleanup
@@ -708,6 +711,21 @@ export class PasswordPreloginResponse {
   static fromUser(user: UserEntity, email: string): PasswordPreloginResponse {
     const kdfSettings = KdfModel.fromKdf(user.kdf);
 
+    return PasswordPreloginResponse.fromKdf(kdfSettings, email);
+  }
+
+  /**
+   * The answer for an address with no account. The server answers rather than refusing, so that
+   * prelogin can't tell which addresses have accounts; this is the default it most often gives.
+   */
+  static forUnknownEmail(email: string): PasswordPreloginResponse {
+    return PasswordPreloginResponse.fromKdf(
+      { kdfType: KdfType.pbkdf2Sha256, iterations: DEFAULT_PBKDF2_ITERATIONS },
+      email,
+    );
+  }
+
+  private static fromKdf(kdfSettings: KdfModel, email: string): PasswordPreloginResponse {
     return {
       kdf: kdfSettings.kdfType,
       kdfIterations: kdfSettings.iterations,

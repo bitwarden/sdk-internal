@@ -23,7 +23,7 @@ import {
 } from "./dto";
 import type { MockReply, Routes } from "./http-mock";
 import type { UserEntity } from "./entities";
-import { error, HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from "./replies";
+import { error, HTTP_BAD_REQUEST } from "./replies";
 
 /** The OAuth2 grant types the token endpoint answers. */
 const GRANT_TYPE_PASSWORD = "password";
@@ -112,7 +112,7 @@ export class IdentityServer {
   private prelogin(posted: PasswordPreloginRequest): MockReply {
     const user = this.userFor(posted.email);
     if (user === undefined) {
-      return oauth2Error(HTTP_NOT_FOUND, "invalid_request", `no account for ${posted.email}`);
+      return { json: PasswordPreloginResponse.forUnknownEmail(posted.email) };
     }
 
     return { json: PasswordPreloginResponse.fromUser(user, posted.email) };

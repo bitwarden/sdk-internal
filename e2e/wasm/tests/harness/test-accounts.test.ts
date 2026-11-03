@@ -58,4 +58,15 @@ describe("test accounts", () => {
     },
     TIMEOUT,
   );
+
+  it(
+    "reports an account that doesn't exist as absent, so a sweep stops retrying it",
+    async () => {
+      const account = await harness.accounts.create();
+      await harness.accounts.deleteAll();
+
+      expect(await harness.accounts.deleteByEmail(account.email)).toBe("absent");
+    },
+    TIMEOUT,
+  );
 });

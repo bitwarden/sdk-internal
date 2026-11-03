@@ -5,7 +5,12 @@
 
 import { createHmac, pbkdf2Sync, randomBytes } from "node:crypto";
 
-import { PureCrypto, type ClientSettings, type LoginRequest } from "@bitwarden/sdk-internal";
+import {
+  isPasswordLoginError,
+  PureCrypto,
+  type ClientSettings,
+  type LoginRequest,
+} from "@bitwarden/sdk-internal";
 
 import { makePasswordManagerClient, makeStateBridge } from "../tests/utils";
 
@@ -62,6 +67,9 @@ export class TestAccounts {
     const account = { email, password: passwordFor(this.config.secret, email) };
 
     const token = await this.emailVerificationToken(email);
+    // Recorded before registering, and left in place if registering fails: the server may have
+    // created the account before the failure. The sweep deletes it if so, and records it absent if
+    // not.
     if (this.config.ledger) {
       recordAccount(email, "created");
     }
@@ -111,9 +119,27 @@ export class TestAccounts {
     }
   }
 
-  /** Deletes an account by its address alone, as the sweep does for a crashed run's. */
-  async deleteByEmail(email: string): Promise<void> {
-    await this.delete({ email, password: passwordFor(this.config.secret, email) });
+  /**
+   * Deletes an account by its address alone, as the sweep does for a crashed run's.
+   *
+   * Answers `absent`, and records it, when the server rejects the account's credentials: then there
+   * is no account this secret can delete, and retrying on every later run would only fail again.
+   * Any other failure throws, so the account is tried again next run.
+   */
+  async deleteByEmail(email: string): Promise<"deleted" | "absent"> {
+    try {
+      await this.delete({ email, password: passwordFor(this.config.secret, email) });
+      return "deleted";
+    } catch (error) {
+      if (!isPasswordLoginError(error) || error.variant !== "InvalidUsernameOrPassword") {
+        throw error;
+      }
+
+      if (this.config.ledger) {
+        recordAccount(email, "absent");
+      }
+      return "absent";
+    }
   }
 
   /**
