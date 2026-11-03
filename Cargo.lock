@@ -1811,6 +1811,7 @@ dependencies = [
  "bitwarden-test",
  "bitwarden-uuid",
  "chrono",
+ "criterion",
  "data-encoding",
  "futures",
  "hmac 0.13.0",

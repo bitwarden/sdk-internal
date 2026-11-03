@@ -77,8 +77,13 @@ zxcvbn = { workspace = true }
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
 bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
 bitwarden-test = { workspace = true }
+criterion = "0.8.0"
 tokio = { workspace = true, features = ["rt"] }
 wiremock = { workspace = true }
 
 [lints]
 workspace = true
+
+[[bench]]
+name = "decrypt_cipher_list"
+harness = false
