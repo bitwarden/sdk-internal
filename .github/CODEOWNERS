@@ -48,6 +48,7 @@ crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-crypto-cipher-suite/** @bitwarden/team-key-management-dev
 crates/bitwarden-crypto-sync-handler/** @bitwarden/team-key-management-dev
 crates/bitwarden-emergency-access/** @bitwarden/team-auth-dev
+crates/bitwarden-encrypted-migrator/** @bitwarden/team-key-management-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev
 crates/bitwarden-generators/** @bitwarden/team-tools-dev
 crates/bitwarden-importers/** @bitwarden/team-tools-dev
