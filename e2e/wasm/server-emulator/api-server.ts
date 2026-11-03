@@ -259,6 +259,22 @@ export class ApiServer {
       ciphers.push({ posted: cipher, stored });
     }
 
+    // A rotation re-encrypts the whole vault it read. One that read an older vault than the server
+    // holds now would overwrite newer writes, or leave items behind under the old key.
+    const missing = this.db.ciphers
+      .filter((entity) => entity.userId === user.userId)
+      .find((entity) => !ciphers.some(({ stored }) => stored === entity));
+    if (missing !== undefined) {
+      return error(HTTP_BAD_REQUEST, `cipher ${missing.cipher.id} is missing from the rotation`);
+    }
+
+    for (const { posted: cipher, stored } of ciphers) {
+      const stale = this.staleWrite(stored.cipher, cipher);
+      if (stale !== undefined) {
+        return stale;
+      }
+    }
+
     const folders: { posted: { id: string; name: string }; stored: FolderEntity }[] = [];
     for (const folder of posted.accountData.folders ?? []) {
       const stored = this.db.folders.get(folder.id);
@@ -362,11 +378,33 @@ export class ApiServer {
     return undefined;
   }
 
+  /**
+   * 400 when a personal cipher was encrypted under a key other than the account's current user key.
+   *
+   * What stops a client still on the pre-rotation key from writing items nobody can decrypt.
+   */
+  private wrongKey(user: UserEntity, posted: CipherRequest): MockReply | undefined {
+    const keyId = posted.encryptedByKeyId;
+    if (posted.organizationId || !keyId || user.userKeyId === undefined) {
+      return undefined;
+    }
+    if (keyId === user.userKeyId) {
+      return undefined;
+    }
+
+    return error(HTTP_BAD_REQUEST, "the item was encrypted with a key that is not the user key");
+  }
+
   private createCipher(
     user: UserEntity,
     posted: CipherRequest,
     collectionIds: string[],
   ): MockReply {
+    const wrongKey = this.wrongKey(user, posted);
+    if (wrongKey !== undefined) {
+      return wrongKey;
+    }
+
     const organizationId = posted.organizationId ?? null;
     if (organizationId !== null && !this.isMember(user, organizationId)) {
       return error(HTTP_NOT_FOUND, `no organization ${organizationId} for this account`);
@@ -397,6 +435,11 @@ export class ApiServer {
     const stored = this.reachableCipher(user, id);
     if (stored === undefined) {
       return error(HTTP_NOT_FOUND, `no cipher ${id}`);
+    }
+
+    const wrongKey = stored.userId === null ? undefined : this.wrongKey(user, posted);
+    if (wrongKey !== undefined) {
+      return wrongKey;
     }
 
     const stale = this.staleWrite(stored.cipher, posted);
