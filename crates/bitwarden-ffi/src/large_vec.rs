@@ -3,30 +3,17 @@
 
 use std::fmt;
 
-/// A list parameter that may hold many items, such as a vault's ciphers. JavaScript arrays are
-/// converted item by item as they are read, so WASM memory stays bounded as long as the function
-/// does not hold every item at once; use a plain `Vec` for small lists.
+/// A list parameter that converts a JavaScript array lazily, one item at a time. Use it for lists
+/// that can be large, such as a vault's ciphers, and a plain `Vec` for the rest.
 ///
-/// wasm_bindgen converts a `Vec<T>` parameter in full before the function body runs, so WASM
-/// linear memory holds every item at once and keeps that peak for the rest of the session. A
-/// `LargeVec<T>` parameter takes the array as a list of JavaScript value handles, four bytes each,
-/// and converts each item as the body reads it.
+/// A regular `Vec<T>` converts the whole array as soon as JavaScript passes it in, which grows
+/// WASM linear memory. WASM cannot give that memory back, so the allocation stays for the rest of
+/// the session.
 ///
-/// A function reads the items by iterating over the list (`for item in list`), or first takes
-/// them as a `Vec` with [`LargeVec::try_into_vec`] when they came from Rust.
-///
-/// Rust and UniFFI callers pass a `Vec<T>` with `.into()`. From JavaScript, a `LargeVec<T>`
-/// parameter accepts an array and converts each item only when it is read. It crosses the
-/// boundary as `Vec<JsValue>` would: the generated JavaScript copies the item handles when the
-/// call is made, so changing the array afterwards does not change the list, and a value that is not
-/// array-like throws there, as for a `Vec<T>`. TypeScript sees the parameter as `T[]`: the type
-/// comes from the item type's own wasm_bindgen description, as for a `Vec<T>`, so the parameter
-/// needs no attribute.
-///
-/// The handles are copied up front, not passed as one handle to the array, because wasm_bindgen
-/// converts the arguments of an `async` function inside the returned promise. A handle to the array
-/// would see changes the caller makes after the call returns. The items themselves are converted
-/// only when they are read, which for an `async` function is after the call returned.
+/// TypeScript sees `LargeVec<T>` as `T[]`, so `Vec` and `LargeVec` are interchangeable from
+/// TypeScript's perspective. Rust and UniFFI callers wrap a regular `Vec` with `.into()`, which
+/// does not copy it. Read the items by iterating over them, or take the Rust `Vec` back with
+/// [`LargeVec::try_into_vec`].
 pub struct LargeVec<T>(Items<T>);
 
 enum Items<T> {
@@ -227,6 +214,13 @@ mod wasm {
     {
         type Abi = <Box<[JsValue]> as FromWasmAbi>::Abi;
 
+        /// Takes the array as one JavaScript value handle per item, four bytes each, and converts
+        /// the items only when they are read.
+        ///
+        /// The generated JavaScript copies the handles when the call is made, as for a
+        /// `Vec<JsValue>`. wasm_bindgen converts the arguments of an `async` function inside the
+        /// returned promise, so a single handle to the array would see changes the caller makes
+        /// after the call returns.
         unsafe fn from_abi(js: Self::Abi) -> Self {
             // SAFETY: `js` is the ABI form of a `Box<[JsValue]>`, as `describe` declares, so it is
             // taken over as wasm_bindgen takes over a `Vec<JsValue>` parameter.
