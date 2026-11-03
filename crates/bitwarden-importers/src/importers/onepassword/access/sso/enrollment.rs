@@ -163,7 +163,7 @@ async fn enroll(
         return Err(unknown_status(status));
     }
 
-    let mut replaced_msg_a: Option<Vec<u8>> = None;
+    let mut replaced_msg_a: Option<MsgA> = None;
     for attempt in 0..MAX_CODE_ATTEMPTS {
         // The enrolled device shows the new code before it sends the new `msga`, so waiting for
         // that message keeps the user from entering the old code.
@@ -197,7 +197,7 @@ async fn enroll(
 /// Waits for the `msga` that replaces `replaced`. Only the status tells a denial on the enrolled
 /// device from any other failure of the wait.
 async fn wait_for_new_msg_a(
-    replaced: &[u8],
+    replaced: &MsgA,
     session: &EnrollmentSession<'_>,
     rest: &RestClient,
     timing: &Timing,

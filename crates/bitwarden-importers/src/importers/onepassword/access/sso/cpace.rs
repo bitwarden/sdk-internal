@@ -274,7 +274,7 @@ pub(super) enum Exchange {
     Shared(CredentialBundle),
     /// The user typed another code than the enrolled device shows. That device goes on to show a
     /// new one and to replace `msg_a`, the first message of this exchange, to start over.
-    WrongCode { msg_a: Vec<u8> },
+    WrongCode { msg_a: MsgA },
 }
 
 /// Runs the whole exchange over `rest` with a fresh random client secret.
@@ -331,9 +331,7 @@ async fn perform_cpace_with_client_secret(
     // The enrolled device learns that the codes differ only from `tagb`, so it goes out either way.
     send_tag_b(&tag_b, session, rest).await?;
     if !verify_tag_a(&tag_a, auth_b.as_slice(), &msg_a) {
-        return Ok(Exchange::WrongCode {
-            msg_a: msg_a.original_message,
-        });
+        return Ok(Exchange::WrongCode { msg_a });
     }
 
     let encrypted_credentials = request_encrypted_credentials(session, rest, timing).await?;
@@ -346,7 +344,7 @@ async fn perform_cpace_with_client_secret(
 /// `replaced`. It answers an empty 200 while it has none.
 pub(super) async fn request_msg_a(
     session: &EnrollmentSession<'_>,
-    replaced: Option<&[u8]>,
+    replaced: Option<&MsgA>,
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<MsgA, OnePasswordError> {
@@ -357,7 +355,7 @@ pub(super) async fn request_msg_a(
             .await?;
         if let Some(response) = response {
             let msg_a = decode64_loose(&response.msga)?;
-            if replaced != Some(msg_a.as_slice()) {
+            if replaced.is_none_or(|replaced| replaced.original_message != msg_a) {
                 return parse_msg_a(&msg_a);
             }
         }
@@ -942,7 +940,10 @@ mod tests {
         let Exchange::WrongCode { msg_a } = exchange else {
             panic!("the codes differ");
         };
-        assert_eq!(msg_a, base64url(&exchanges.wrong_code.msga));
+        assert_eq!(
+            msg_a.original_message,
+            base64url(&exchanges.wrong_code.msga)
+        );
         server.verify().await;
     }
 
@@ -972,12 +973,13 @@ mod tests {
     #[tokio::test]
     async fn waits_for_a_msg_a_other_than_the_replaced_one() {
         let vectors = vectors().cpace;
-        let replaced = edited_msg_a("/ad/version", Some(json!(2)));
+        let replaced_bytes = edited_msg_a("/ad/version", Some(json!(2)));
+        let replaced = parse_msg_a(&replaced_bytes).expect("valid msga");
         let server = MockServer::start().await;
         for answer in [
             ResponseTemplate::new(200),
             ResponseTemplate::new(200)
-                .set_body_json(json!({ "msga": BASE64URL_NOPAD.encode(&replaced) })),
+                .set_body_json(json!({ "msga": BASE64URL_NOPAD.encode(&replaced_bytes) })),
         ] {
             server
                 .register(
