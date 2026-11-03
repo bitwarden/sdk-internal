@@ -162,6 +162,16 @@ fn size_name(size: usize) -> String {
     format!("{} {}", size_round, units[unit])
 }
 
+/// Decrypts attachment contents with a raw attachment key (v2/v3).
+pub(super) fn decrypt_with_attachment_key(
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricCryptoKey,
+    contents: &EncString,
+) -> Result<Vec<u8>, CryptoError> {
+    let content_key = ctx.add_local_symmetric_key(key);
+    contents.decrypt(ctx, content_key)
+}
+
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, Vec<u8>> for AttachmentFile {
     fn decrypt(
         &self,
@@ -170,8 +180,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Vec<u8>> for AttachmentFile {
     ) -> Result<Vec<u8>, CryptoError> {
         // Version 2 or 3: attachment view already holds the raw attachment key
         if let Some(attachment_key) = &self.attachment.key {
-            let content_key = ctx.add_local_symmetric_key(attachment_key.clone());
-            self.contents.decrypt(ctx, content_key).map_err(|e| {
+            decrypt_with_attachment_key(ctx, attachment_key.clone(), &self.contents).map_err(|e| {
                 tracing::warn!(
                     attachment_id = ?self.attachment.id,
                     cipher_id = ?self.cipher.id,

@@ -38,8 +38,9 @@ import {
 import type { AccountId, EmergencyAccessEntity, UserEntity } from "./entities";
 import type { MockReply, Routes } from "./http-mock";
 
+import { AttachmentStorage } from "./attachment-storage";
 import { authenticatedRoute } from "./authentication";
-import { error, HTTP_BAD_REQUEST } from "./replies";
+import { error, HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from "./replies";
 
 /** The server refuses every invalid emergency access request with the same message. */
 const NOT_VALID = "Emergency Access not valid.";
@@ -129,6 +130,16 @@ export class EmergencyAccessServer {
 
       "POST /emergency-access/:id/view": authenticatedRoute(this.db, (user, request) =>
         this.view(user, asGrantId(request.params.id)),
+      ),
+      "GET /emergency-access/:id/:cipherId/attachment/:attachmentId": authenticatedRoute(
+        this.db,
+        (user, request) =>
+          this.attachmentData(
+            user,
+            asGrantId(request.params.id),
+            request.params.cipherId,
+            request.params.attachmentId,
+          ),
       ),
       "POST /emergency-access/:id/takeover": authenticatedRoute(this.db, (user, request) =>
         this.takeover(user, asGrantId(request.params.id)),
@@ -337,6 +348,26 @@ export class EmergencyAccessServer {
     };
 
     return { json: body };
+  }
+
+  /** A download URL for an attachment on one of the grantor's own items, as `view` serves them. */
+  private attachmentData(
+    user: UserEntity,
+    id: GrantId,
+    cipherId: string,
+    attachmentId: string,
+  ): MockReply {
+    const grant = this.approvedFor(user, id, EmergencyAccessType.view);
+    if (grant === undefined) {
+      return error(HTTP_BAD_REQUEST, NOT_VALID);
+    }
+
+    const entity = this.db.ciphers.get(cipherId);
+    if (entity === undefined || entity.userId !== grant.grantorId) {
+      return error(HTTP_NOT_FOUND, `no cipher ${cipherId}`);
+    }
+
+    return AttachmentStorage.attachmentData(this.db, entity.cipher, attachmentId);
   }
 
   /** What the grantee needs to set the grantor a new master password: the key and its KDF. */
