@@ -4,6 +4,7 @@ pub(crate) mod bank_account;
 #[allow(dead_code)]
 pub(crate) mod blob;
 pub(crate) mod card;
+pub(crate) mod change_login_password;
 #[allow(clippy::module_inception)]
 pub(crate) mod cipher;
 pub(crate) mod cipher_client;
@@ -33,6 +34,7 @@ pub use attachment_client::{
 pub use bank_account::{BankAccountListView, BankAccountView};
 pub use blob::{BlobEncryptionError, SealedCipherBlobError};
 pub use card::{CardBrand, CardListView, CardView};
+pub use change_login_password::ChangeLoginPasswordError;
 pub use cipher::{
     Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,
     CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptMode,

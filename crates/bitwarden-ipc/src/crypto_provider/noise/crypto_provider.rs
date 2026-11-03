@@ -15,6 +15,7 @@ use crate::{
     },
     error::{ErrorKind, IpcErrorKind},
     message::{IncomingMessage, OutgoingMessage},
+    timeline::{self, Entry, Track},
     traits::{
         CommunicationBackend, CommunicationBackendReceiver, CryptoProvider, SessionRepository,
     },
@@ -98,6 +99,9 @@ impl NoiseCryptoProvider {
         Ses: SessionRepository<NoiseCryptoProviderState>,
     {
         debug!("Starting noise handshake with {:?}", destination);
+        let _span = timeline::span(Track::Handshakes, timeline::Duration::Actual, || {
+            handshake_entry("Initiator", &destination)
+        });
 
         let mut initiator = HandshakeInitiator::new(&CipherSuite::default());
         let message = initiator
@@ -169,6 +173,14 @@ impl NoiseCryptoProvider {
         );
 
         Ok(())
+    }
+}
+
+/// Timeline entry for a handshake, e.g. "Noise handshake" as "Initiator" with "DesktopMain".
+fn handshake_entry(role: &str, peer: &crate::endpoint::Endpoint) -> Entry {
+    Entry {
+        name: "Noise handshake".to_owned(),
+        properties: vec![("Role", role.to_owned()), ("Peer", format!("{peer:?}"))],
     }
 }
 
@@ -341,6 +353,10 @@ where
 
             match transport_frame {
                 Frame::HandshakeStart(handshake_start) => {
+                    let _span =
+                        timeline::span(Track::Handshakes, timeline::Duration::Actual, || {
+                            handshake_entry("Responder", &source_endpoint)
+                        });
                     let mut responder = HandshakeResponder::new(&handshake_start.ciphersuite);
                     responder
                         .read_start_message(&handshake_start)

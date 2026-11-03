@@ -24,11 +24,9 @@ pub trait SsoUi: Send + Sync {
 
 /// The stage a device enrollment is in, for the UI to show.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, tsify::Tsify),
-    tsify(into_wasm_abi, type_prefix = "OnePasswordSso")
-)]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[bitwarden_ffi::wasm_record]
+#[cfg_attr(feature = "wasm", tsify(type_prefix = "OnePasswordSso"))]
 pub enum EnrollmentStatus {
     /// Waiting for the user to approve this device on one that is already enrolled.
     WaitingForApproval,
@@ -40,11 +38,9 @@ pub enum EnrollmentStatus {
 
 /// How a device enrollment ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, tsify::Tsify),
-    tsify(into_wasm_abi, type_prefix = "OnePassword")
-)]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
+#[bitwarden_ffi::wasm_record]
+#[cfg_attr(feature = "wasm", tsify(type_prefix = "OnePassword"))]
 pub enum SsoEnrollmentResult {
     /// The approving device handed over the credentials.
     Success,

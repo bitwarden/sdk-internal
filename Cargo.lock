@@ -495,9 +495,38 @@ checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
 name = "bitwarden-access-connector"
 version = "4.0.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
+ "bitwarden-access-token",
+ "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-commercial-marker",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-generators",
+ "bitwarden-pam",
+ "bitwarden-pam-sealed",
+ "bitwarden-sensitive-value",
+ "bitwarden-state",
+ "bitwarden-threading",
+ "bitwarden-vault",
+ "chrono",
  "clap",
+ "http",
+ "reqwest",
+ "reqwest-middleware",
+ "serde",
+ "serde_json",
+ "tempfile",
  "thiserror",
+ "tokio",
+ "toml 1.1.3+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+ "wiremock",
 ]
 
 [[package]]
@@ -625,6 +654,20 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
+]
+
+[[package]]
+name = "bitwarden-autotype"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-ffi",
+ "bitwarden-ipc",
+ "bitwarden-threading",
+ "serde",
+ "tracing",
+ "tsify",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -869,6 +912,24 @@ dependencies = [
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-test",
+]
+
+[[package]]
+name = "bitwarden-encrypted-migrator"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-ffi",
+ "bitwarden-member-administration",
+ "bitwarden-organizations",
+ "bitwarden-state",
+ "bitwarden-test",
+ "tokio",
+ "tracing",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -1140,12 +1201,17 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-ffi",
+ "bitwarden-organization-crypto",
  "bitwarden-organizations",
  "serde",
  "thiserror",
+ "tokio",
+ "tracing",
  "tsify",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -1284,6 +1350,7 @@ dependencies = [
  "bitwarden-crypto-cipher-suite",
  "bitwarden-crypto-sync-handler",
  "bitwarden-emergency-access",
+ "bitwarden-encrypted-migrator",
  "bitwarden-exporters",
  "bitwarden-ffi",
  "bitwarden-fido",
@@ -1630,6 +1697,7 @@ dependencies = [
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-uniffi-error",
+ "bitwarden-unlock",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
  "chrono",
@@ -1658,7 +1726,10 @@ version = "4.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-error",
+ "bitwarden-ffi",
  "bitwarden-state",
+ "serde",
  "thiserror",
  "tokio",
  "tracing",
@@ -1680,6 +1751,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ffi",
  "bitwarden-logging",
+ "bitwarden-organization-crypto",
  "bitwarden-send",
  "bitwarden-test",
  "bitwarden-vault",
@@ -1769,11 +1841,13 @@ name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bitwarden-autotype",
  "bitwarden-commercial-vault",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-crypto-sync-handler",
  "bitwarden-emergency-access",
+ "bitwarden-encrypted-migrator",
  "bitwarden-error",
  "bitwarden-ffi",
  "bitwarden-ipc",
@@ -6625,6 +6699,7 @@ dependencies = [
  "libc",
  "mio 1.2.2",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",

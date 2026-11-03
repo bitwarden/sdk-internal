@@ -110,6 +110,11 @@ impl PasswordManagerClient {
         self.0.0.user_crypto_management()
     }
 
+    /// Unlock related operations.
+    pub fn unlock(&self) -> UnlockClient {
+        self.0.unlock()
+    }
+
     /// Vault item related operations.
     pub fn vault(&self) -> VaultClient {
         self.0.vault()
@@ -177,6 +182,11 @@ impl PasswordManagerClient {
     /// Organization member administration operations.
     pub fn organization_users_management(&self) -> OrganizationUsersManagementClient {
         self.0.organization_users_management()
+    }
+
+    /// Encrypted migrations that bring the account's keys and encrypted data to the current format.
+    pub fn encrypted_migrator(&self) -> EncryptedMigratorClient {
+        self.0.encrypted_migrator()
     }
 
     /// Crypto cipher suite operations.

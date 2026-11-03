@@ -7,7 +7,10 @@ use sha2::Digest;
 use typenum::U32;
 use zeroize::Zeroize;
 
-use crate::CryptoError;
+use crate::{
+    CryptoError,
+    slow_crypto_span::{SlowCryptoOp, measure},
+};
 
 const PBKDF2_MIN_ITERATIONS: u32 = 5000;
 
@@ -40,7 +43,9 @@ impl KdfDerivedKeyMaterial {
                     return Err(CryptoError::InsufficientKdfParameters);
                 }
 
-                let mut hash = crate::util::pbkdf2(secret, salt, iterations);
+                let mut hash = measure(SlowCryptoOp::Pbkdf2, || {
+                    crate::util::pbkdf2(secret, salt, iterations)
+                });
 
                 let key_material = Box::pin(hash.into());
                 hash.zeroize();
@@ -69,7 +74,9 @@ impl KdfDerivedKeyMaterial {
                 use argon2::*;
                 let params = Params::new(memory, iterations, parallelism, Some(32))?;
                 let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-                argon.hash_password_into(secret, &salt_sha, hash.as_mut_slice())?;
+                measure(SlowCryptoOp::Argon2id, || {
+                    argon.hash_password_into(secret, &salt_sha, hash.as_mut_slice())
+                })?;
 
                 // Argon2 is using some stack memory that is not zeroed. Eventually some function
                 // will overwrite the stack, but we use this trick to force the used

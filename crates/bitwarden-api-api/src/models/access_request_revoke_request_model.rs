@@ -16,8 +16,8 @@ use crate::models;
 /// activated.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessRequestRevokeRequestModel {
-    /// Why the request is being revoked. Required when a managing approver revokes; recorded with
-    /// their decision and surfaced to the requester.
+    /// Required when a managing approver revokes; recorded with their decision and surfaced to the
+    /// requester.
     #[serde(
         rename = "reason",
         alias = "Reason",

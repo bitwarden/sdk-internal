@@ -12,14 +12,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessRequestCreateRequestModel : A request to lease a cipher. Supply
-/// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.DurationSeconds for the
-/// automatic path, or
-/// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.Start/Bit.Services.Pam.Api.
-/// Models.Request.AccessRequestCreateRequestModel.End +
-/// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.Reason for the human path.
-/// The server validates the shape against the cipher's resolved approval outcome (run a pre-check
-/// first). The cipher is identified by the route.
+/// AccessRequestCreateRequestModel : A request to lease the routed cipher. Supply
+/// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.DurationSeconds on the
+/// automatic path, or Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.Start,
+/// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.End and
+/// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.Reason on the human path;
+/// the pre-check reports which path applies.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessRequestCreateRequestModel {
     #[serde(
@@ -49,14 +47,13 @@ pub struct AccessRequestCreateRequestModel {
 }
 
 impl AccessRequestCreateRequestModel {
-    /// A request to lease a cipher. Supply
-    /// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.DurationSeconds for the
+    /// A request to lease the routed cipher. Supply
+    /// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.DurationSeconds on the
     /// automatic path, or
-    /// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.Start/Bit.Services.Pam.
-    /// Api.Models.Request.AccessRequestCreateRequestModel.End +
-    /// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.Reason for the human
-    /// path. The server validates the shape against the cipher's resolved approval outcome (run a
-    /// pre-check first). The cipher is identified by the route.
+    /// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.Start,
+    /// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.End and
+    /// Bit.Services.Pam.Api.Models.Request.AccessRequestCreateRequestModel.Reason on the human
+    /// path; the pre-check reports which path applies.
     pub fn new() -> AccessRequestCreateRequestModel {
         AccessRequestCreateRequestModel {
             duration_seconds: None,

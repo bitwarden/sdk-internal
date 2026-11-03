@@ -122,7 +122,7 @@ pub struct AccessAuditEventResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub sync_state: Option<models::PamRotationSyncState>,
-    /// An approver comment or a revoke reason.
+    /// The reason, comment or message recorded with the event.
     #[serde(
         rename = "detail",
         alias = "Detail",

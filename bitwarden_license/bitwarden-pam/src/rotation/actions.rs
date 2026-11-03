@@ -1,8 +1,6 @@
 //! Which actions a rotation config currently offers.
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::{
     configs::RotationConfigView,
@@ -11,7 +9,7 @@ use super::{
 
 /// The actions a rotation config offers right now, derived together so no pair contradicts.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct RotationConfigActions {
     /// Whether an on-demand rotation may be dispatched.

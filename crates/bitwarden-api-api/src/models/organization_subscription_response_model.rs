@@ -392,6 +392,14 @@ pub struct OrganizationSubscriptionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub is_on_pam_sales_initiated_trial: Option<bool>,
+    /// The organization's Privileged Controls seat minimum, or the plan default. Null on
+    /// self-hosted, when Privileged Controls is off, and when the plan has no Privileged Controls.
+    #[serde(
+        rename = "pamSeatMinimum",
+        alias = "PamSeatMinimum",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pam_seat_minimum: Option<i32>,
     /// Date when a self-hosted organization's subscription expires, without any grace period.
     #[serde(
         rename = "expirationWithoutGracePeriod",
@@ -479,6 +487,7 @@ impl OrganizationSubscriptionResponseModel {
             sm_service_accounts_grace: None,
             occupied_pam_seats: None,
             is_on_pam_sales_initiated_trial: None,
+            pam_seat_minimum: None,
             expiration_without_grace_period: None,
             expiration: None,
             exempt_from_billing_automation: None,

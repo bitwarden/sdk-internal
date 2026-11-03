@@ -1516,6 +1516,7 @@ fn decrypt_restricted_cipher_view(
             uris: decrypt_restricted_uris(&restricted, ctx, ciphers_key, strict)?,
             totp: None,
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             fido2_credentials: None,
         })
     } else {
@@ -2209,6 +2210,14 @@ impl TryFrom<CipherResponseModel> for Cipher {
     }
 }
 
+impl TryFrom<CipherMiniResponseModel> for Cipher {
+    type Error = VaultParseError;
+
+    fn try_from(cipher: CipherMiniResponseModel) -> Result<Self, Self::Error> {
+        cipher.merge_with_cipher(None)
+    }
+}
+
 impl PartialCipher for CipherMiniResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         let cipher = cipher.as_ref();
@@ -2395,6 +2404,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             id: Some(test_id),
@@ -2708,6 +2718,7 @@ mod tests {
                 uris: None,
                 totp: Some("2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap()),
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: Some(vec![generate_fido2(&mut key_store.context(), SymmetricKeySlotId::User)]),
             }),
             identity: None,
@@ -4061,6 +4072,42 @@ mod tests {
     }
 
     #[test]
+    fn test_try_from_cipher_mini_response_model_login() {
+        use bitwarden_api_api::models::CipherLoginModel;
+        use chrono::Utc;
+
+        let mini_response = CipherMiniResponseModel {
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: Some(TEST_UUID.parse().unwrap()),
+            name: Some(TEST_CIPHER_NAME.to_string()),
+            r#type: Some(bitwarden_api_api::models::CipherType::Login),
+            login: Some(Box::new(CipherLoginModel {
+                username: Some(TEST_CIPHER_NAME.to_string()),
+                ..Default::default()
+            })),
+            creation_date: Some(Utc::now().to_rfc3339()),
+            revision_date: Some(Utc::now().to_rfc3339()),
+            ..Default::default()
+        };
+
+        let cipher = Cipher::try_from(mini_response).unwrap();
+
+        assert_eq!(cipher.id, Some(TEST_UUID.parse().unwrap()));
+        assert_eq!(
+            cipher.organization_id,
+            Some(TEST_UUID.parse::<OrganizationId>().unwrap())
+        );
+        assert_eq!(cipher.r#type, CipherType::Login);
+        assert_eq!(cipher.name, Some(TEST_CIPHER_NAME.parse().unwrap()));
+        assert_eq!(
+            cipher.login.as_ref().unwrap().username,
+            Some(TEST_CIPHER_NAME.parse().unwrap())
+        );
+        assert!(cipher.view_password);
+        assert!(cipher.key.is_none());
+    }
+
+    #[test]
     fn test_mini_response_model_view_password_defaults_to_true() {
         use chrono::Utc;
 
@@ -4198,6 +4245,7 @@ mod tests {
                 uris: None,
                 totp: Some("otpauth://totp/test?secret=SECRET".to_string()),
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             });
             view
@@ -4721,6 +4769,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             });
             view
@@ -4844,6 +4893,109 @@ mod tests {
             let login = restored.login.expect("round-trip should restore login");
             assert_eq!(login.username, original.login.as_ref().unwrap().username);
             assert_eq!(login.password, original.login.as_ref().unwrap().password);
+        }
+
+        fn with_http_authentication(enabled: Option<bool>) -> CipherView {
+            let mut view = base_login_view();
+            if let Some(login) = view.login.as_mut() {
+                login.http_authentication_enabled = enabled;
+            }
+            view
+        }
+
+        /// The HTTP authentication setting is sealed in the blob and restored on decryption.
+        #[test]
+        fn blob_variant_round_trips_http_authentication_enabled() {
+            let key_store = make_key_store();
+
+            let cipher: Cipher = key_store
+                .encrypt(EncryptMode::Blob(with_http_authentication(Some(true))))
+                .unwrap();
+            let restored: CipherView = key_store.decrypt(&cipher).unwrap();
+
+            assert_eq!(
+                restored.login.unwrap().http_authentication_enabled,
+                Some(true)
+            );
+        }
+
+        /// A login without the HTTP authentication setting is stored with it turned off.
+        #[test]
+        fn blob_variant_stores_missing_http_authentication_enabled_as_off() {
+            let key_store = make_key_store();
+
+            let cipher: Cipher = key_store
+                .encrypt(EncryptMode::Blob(with_http_authentication(None)))
+                .unwrap();
+            let restored: CipherView = key_store.decrypt(&cipher).unwrap();
+
+            assert_eq!(
+                restored.login.unwrap().http_authentication_enabled,
+                Some(false)
+            );
+        }
+
+        /// The legacy field-level format stores the HTTP authentication setting unencrypted on the
+        /// login, and both the lenient and strict decryption paths restore it.
+        #[test]
+        fn legacy_variant_round_trips_http_authentication_enabled() {
+            let key_store = make_key_store();
+
+            let cipher: Cipher = key_store
+                .encrypt(EncryptMode::Legacy(with_http_authentication(Some(true))))
+                .unwrap();
+
+            assert_eq!(
+                cipher.login.as_ref().unwrap().http_authentication_enabled,
+                Some(true)
+            );
+
+            let lenient: CipherView = key_store.decrypt(&cipher).unwrap();
+            assert_eq!(
+                lenient.login.unwrap().http_authentication_enabled,
+                Some(true)
+            );
+
+            let strict: CipherView = key_store.decrypt(&StrictDecrypt(cipher)).unwrap();
+            assert_eq!(
+                strict.login.unwrap().http_authentication_enabled,
+                Some(true)
+            );
+        }
+
+        /// The legacy format keeps an unset HTTP authentication setting unset, unlike the blob.
+        #[test]
+        fn legacy_variant_keeps_missing_http_authentication_enabled_unset() {
+            let key_store = make_key_store();
+
+            let cipher: Cipher = key_store
+                .encrypt(EncryptMode::Legacy(with_http_authentication(None)))
+                .unwrap();
+            let restored: CipherView = key_store.decrypt(&cipher).unwrap();
+
+            assert_eq!(restored.login.unwrap().http_authentication_enabled, None);
+        }
+
+        /// A legacy cipher re-encrypted in the blob format carries its HTTP authentication setting
+        /// into the blob, through the decrypted view.
+        #[test]
+        fn legacy_http_authentication_enabled_survives_conversion_to_blob() {
+            let key_store = make_key_store();
+
+            let legacy_cipher: Cipher = key_store
+                .encrypt(EncryptMode::Legacy(with_http_authentication(Some(true))))
+                .unwrap();
+            let legacy_view: CipherView = key_store.decrypt(&legacy_cipher).unwrap();
+
+            let blob_cipher: Cipher = key_store.encrypt(EncryptMode::Blob(legacy_view)).unwrap();
+            assert!(try_parse_blob(&blob_cipher).is_some());
+            assert!(blob_cipher.login.is_none());
+
+            let restored: CipherView = key_store.decrypt(&blob_cipher).unwrap();
+            assert_eq!(
+                restored.login.unwrap().http_authentication_enabled,
+                Some(true)
+            );
         }
 
         /// `key_identifier` must delegate to the inner view so `encrypt_list`

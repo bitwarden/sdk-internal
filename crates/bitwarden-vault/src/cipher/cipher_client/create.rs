@@ -225,6 +225,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             organization_id: Default::default(),
@@ -323,6 +324,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             })
         );
@@ -424,6 +426,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             fields: vec![],

@@ -93,7 +93,7 @@ pub enum ProductTierType {
 #[derive(Default, PartialEq, Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[bitwarden_ffi::wasm_record]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase")]
 pub struct Permissions {
     /// Can view the organization's event logs.
     pub access_event_logs: bool,
@@ -119,4 +119,8 @@ pub struct Permissions {
     pub manage_reset_password: bool,
     /// Can manage SCIM (System for Cross-domain Identity Management) configuration.
     pub manage_scim: bool,
+    /// Can manage access rules in Privileged Controls.
+    pub manage_access_rules: bool,
+    /// Can manage password rotation in Privileged Controls.
+    pub manage_rotation: bool,
 }

@@ -3,6 +3,7 @@ import type {
   ClientSettings,
   Folder,
   InitUserCryptoMethod,
+  InitUserCryptoRequest,
   PasswordManagerClient,
   Policy,
   Repository,
@@ -71,6 +72,15 @@ export interface LocalIdentity {
 
 type ClearMode = "ProcessReload" | "Restart";
 
+/** Whether clients on this state run local unlock migrations, such as the PIN migration. */
+export enum UnlockMigrations {
+  /** The default, as a single-client app or a browser extension's background does. */
+  Perform = "perform",
+
+  /** As a browser extension's popup does, leaving them to its background. */
+  Disabled = "disabled",
+}
+
 export class LocalState {
   readonly bridge = makeStateBridge();
   readonly ciphers = new TestRepository<Cipher>();
@@ -79,6 +89,9 @@ export class LocalState {
 
   /** Organization keys sealed to this account, keyed by organization id. */
   organizationKeys: Record<string, string> = {};
+
+  /** Applies to clients built after it is set. */
+  unlockMigrations = UnlockMigrations.Perform;
 
   private identity: LocalIdentity | undefined;
 
@@ -143,6 +156,10 @@ export class LocalState {
   locked(): PasswordManagerClient {
     const client = makePasswordManagerClient(this.bridge, SETTINGS, this.account.userId);
 
+    if (this.unlockMigrations === UnlockMigrations.Disabled) {
+      client.crypto().disable_local_unlock_migrations();
+    }
+
     client.platform().state().register_client_managed_repositories({
       cipher: this.ciphers,
       folder: this.folders,
@@ -161,8 +178,15 @@ export class LocalState {
    *
    * The KDF settings, cryptographic state and upgrade token are read back out of the bridge, which
    * is where the crypto sync handler put them. Nothing is passed in behind the SDK's back.
+   *
+   * `client` defaults to a fresh locked one, unlocked through `initialize_user_crypto`. Passing a
+   * client that was locked in place unlocks that same instance again through `UnlockClient.unlock`,
+   * as a long-lived app does.
    */
-  async unlock(method: InitUserCryptoMethod): Promise<PasswordManagerClient> {
+  async unlock(
+    method: InitUserCryptoMethod,
+    client?: PasswordManagerClient,
+  ): Promise<PasswordManagerClient> {
     const { userId, email } = this.account;
 
     const accountCryptographicState = await this.bridge.get_account_cryptographic_state();
@@ -173,16 +197,21 @@ export class LocalState {
 
     const upgradeToken = await this.bridge.get_v2_upgrade_token();
 
-    const client = this.locked();
-
-    await client.crypto().initialize_user_crypto({
+    const request: InitUserCryptoRequest = {
       userId: asUserId(userId),
       email,
       kdfParams,
       accountCryptographicState,
       method,
       upgradeToken: upgradeToken ?? undefined,
-    });
+    };
+
+    if (client === undefined) {
+      client = this.locked();
+      await client.crypto().initialize_user_crypto(request);
+    } else {
+      await client.unlock().unlock({ legacy: request });
+    }
 
     const sealedOrganizationKeys = Object.entries(this.organizationKeys);
     if (sealedOrganizationKeys.length > 0) {

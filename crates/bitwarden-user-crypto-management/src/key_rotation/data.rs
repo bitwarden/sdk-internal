@@ -340,6 +340,7 @@ mod tests {
                 totp: None,
                 uris: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
                 password_revision_date: None,
             }),
@@ -409,6 +410,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             ..make_test_cipher(None)

@@ -1,7 +1,5 @@
 use chrono::{DateTime, Duration, Utc};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::models::AccessRequestCreateRequest;
 
@@ -14,7 +12,7 @@ use super::models::AccessRequestCreateRequest;
 pub const MAX_REQUEST_ACCESS_WINDOW_SECONDS: u32 = 365 * 24 * 60 * 60;
 
 /// [`MAX_REQUEST_ACCESS_WINDOW_SECONDS`], for callers that cannot read a Rust `const`.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 pub fn max_request_access_window_seconds() -> u32 {
     MAX_REQUEST_ACCESS_WINDOW_SECONDS
 }
@@ -24,7 +22,7 @@ pub fn max_request_access_window_seconds() -> u32 {
 pub const DEFAULT_REQUEST_ACCESS_DURATION_SECONDS: u32 = 3_600;
 
 /// [`DEFAULT_REQUEST_ACCESS_DURATION_SECONDS`], for callers that cannot read a Rust `const`.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 pub fn default_request_access_duration_seconds() -> u32 {
     DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
 }

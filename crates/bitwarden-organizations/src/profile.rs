@@ -202,6 +202,8 @@ pub struct OrganizationMembership {
     pub user_is_claimed_by_organization: bool,
     /// Whether the current user has access to Secrets Manager for this organization.
     pub access_secrets_manager: bool,
+    /// Whether the current user has access to Privileged Controls for this organization.
+    pub access_pam: bool,
 }
 
 impl Default for OrganizationMembership {
@@ -218,6 +220,7 @@ impl Default for OrganizationMembership {
             sso_bound: false,
             user_is_claimed_by_organization: false,
             access_secrets_manager: false,
+            access_pam: false,
         }
     }
 }
@@ -375,7 +378,9 @@ mod tests {
                     "managePolicies": false,
                     "manageUsers": true,
                     "manageResetPassword": false,
-                    "manageScim": false
+                    "manageScim": false,
+                    "manageAccessRules": false,
+                    "manageRotation": false
                 },
                 "userId": "1c6b3e3d-7c4a-4d8f-8a5b-1b2c3d4e5f60",
                 "organizationUserId": "2d7c4f4e-8d5b-4e9a-9b6c-2c3d4e5f6071",
@@ -384,7 +389,8 @@ mod tests {
                 "resetPasswordEnrolled": true,
                 "ssoBound": false,
                 "userIsClaimedByOrganization": false,
-                "accessSecretsManager": false
+                "accessSecretsManager": false,
+                "accessPam": false
             },
             "collectionManagement": {
                 "limitCollectionCreation": true,

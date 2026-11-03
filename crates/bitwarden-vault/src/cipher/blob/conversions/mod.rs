@@ -90,6 +90,7 @@ impl CipherBlobV1 {
                         .unwrap_or_default(),
                     totp: login.totp.clone(),
                     autofill_on_page_load: login.autofill_on_page_load,
+                    http_authentication_enabled: login.http_authentication_enabled.unwrap_or(false),
                     fido2_credentials,
                 })
             }
@@ -203,6 +204,7 @@ impl CipherBlobV1 {
                     uris: none_if_empty(login_data.uris.iter().map(LoginUriView::from).collect()),
                     totp: login_data.totp.clone(),
                     autofill_on_page_load: login_data.autofill_on_page_load,
+                    http_authentication_enabled: Some(login_data.http_authentication_enabled),
                     fido2_credentials,
                 });
             }
@@ -347,6 +349,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             ..create_shell_cipher_view(CipherType::Login)

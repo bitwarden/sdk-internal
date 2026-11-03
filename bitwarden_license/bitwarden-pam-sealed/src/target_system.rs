@@ -25,8 +25,6 @@ pub enum SealedTargetSystemMethod {
 pub enum SealedTargetSystemKind {
     /// Microsoft Entra ID.
     Entra,
-    /// Microsoft SQL Server.
-    Mssql,
     /// A customer-supplied rotation script.
     CustomScript,
 }

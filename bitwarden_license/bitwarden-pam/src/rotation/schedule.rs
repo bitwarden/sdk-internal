@@ -1,10 +1,6 @@
 //! Quartz cron schedule helpers shared by every rotation surface.
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The canonical Quartz cron expression for each named preset. Quartz has 6 or 7 fields
 /// (`seconds minutes hours day-of-month month day-of-week [year]`), one more than UNIX cron.
@@ -16,7 +12,7 @@ const MONTHLY_CRON: &str = "0 0 0 1 * ?";
 
 /// A named rotation schedule, for presentation only; the server stores only the cron string.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum QuartzSchedulePreset {
     /// No scheduled rotation. On-demand and access-end rotations still apply.
@@ -98,10 +94,10 @@ pub fn is_likely_quartz_cron(value: &str) -> bool {
 }
 
 /// The WASM-facing surface for the schedule helpers.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct RotationScheduleClient;
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl RotationScheduleClient {
     /// See [`preset_for_cron`].
     pub fn preset_for_cron(&self, cron: Option<String>) -> QuartzSchedulePreset {

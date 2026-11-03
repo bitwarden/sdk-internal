@@ -56,6 +56,11 @@ pub use webauthn_prf::{WebAuthnPrfError, WebAuthnPrfUnlockData, WebAuthnPrfUnloc
 mod wasm_unlock_state;
 
 #[cfg(feature = "internal")]
+mod crypto_settings;
+#[cfg(feature = "internal")]
+pub(crate) use crypto_settings::CryptoSettings;
+
+#[cfg(feature = "internal")]
 mod pin_lock_system;
 #[cfg(feature = "internal")]
 pub use pin_lock_system::{PinLockSystem, PinLockType, PinUnlockStatus};
@@ -95,6 +100,7 @@ key_slot_ids! {
 
     #[private]
     pub enum PrivateKeySlotId {
+        Organization(OrganizationId),
         UserPrivateKey,
         #[local]
         Local(LocalId),

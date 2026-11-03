@@ -123,6 +123,7 @@ impl From<Login> for bitwarden_vault::LoginView {
             uris: if l.is_empty() { None } else { Some(l) },
             totp: login.totp,
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             // Fido2Credentials are set by `encrypt_import`.
             fido2_credentials: None,
         }
