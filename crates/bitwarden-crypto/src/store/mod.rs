@@ -351,15 +351,55 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
         Output: Send + 'a,
         E: 'a,
     {
-        DecryptBatches {
-            store: self,
-            items: items.into_iter(),
-            batch_size: batch_size.max(1),
-            batch: Vec::new().into_iter(),
-            results: Vec::new().into_iter(),
-            input_error: None,
-            _key: std::marker::PhantomData,
-        }
+        let batch_size = batch_size.max(1);
+        let mut items = items.into_iter();
+        let mut ready = Vec::new().into_iter();
+
+        std::iter::from_fn(move || {
+            loop {
+                if let Some(result) = ready.next() {
+                    return Some(result);
+                }
+                // Free the previous batch's results before reading the next batch.
+                ready = Default::default();
+
+                // Reserve only what the input can still yield, up to one batch.
+                let capacity = match items.size_hint() {
+                    (_, Some(upper)) => upper.min(batch_size),
+                    (_, None) => batch_size,
+                };
+                let mut batch = Vec::with_capacity(capacity);
+                let mut input_error = None;
+                while batch.len() < batch_size {
+                    match items.next() {
+                        Some(Ok(item)) => batch.push(item),
+                        Some(Err(error)) => {
+                            input_error = Some(error);
+                            break;
+                        }
+                        None => break,
+                    }
+                }
+                if batch.is_empty() && input_error.is_none() {
+                    return None;
+                }
+
+                // `decrypt_iter` takes ownership of the items, so the caller has no copy of an
+                // item that fails to decrypt, meaning that we can't give back a reference. The
+                // result returns the item itself, because callers such as the vault need to return
+                // failed ciphers to their clients. The item is boxed to keep the `Err` variant
+                // small, as clippy's `result_large_err` requires, because encrypted items such as
+                // a `Cipher` can be large.
+                let results = self.decrypt_batch(&batch);
+                ready = batch
+                    .into_iter()
+                    .zip(results)
+                    .map(|(item, result)| Ok(result.map_err(|error| Box::new((item, error)))))
+                    .chain(input_error.map(Err))
+                    .collect::<Vec<_>>()
+                    .into_iter();
+            }
+        })
     }
 
     /// Decrypts the items of a slice, returning each item's result in order. The decrypt behind
@@ -457,84 +497,6 @@ fn decrypt_iter_batch_size() -> usize {
     const ITEMS_PER_THREAD: usize = 250;
 
     rayon::current_num_threads() * ITEMS_PER_THREAD
-}
-
-/// The iterator [KeyStore::decrypt_iter] returns.
-struct DecryptBatches<'a, Ids: KeySlotIds, Key, Items, Data, Output, E> {
-    store: &'a KeyStore<Ids>,
-    items: Items,
-    batch_size: usize,
-    /// The rest of the current batch's items, each handed back if it failed to decrypt.
-    batch: std::vec::IntoIter<Data>,
-    /// The results of the rest of the current batch's items, in the same order.
-    results: std::vec::IntoIter<Result<Output, crate::CryptoError>>,
-    /// An input error that ended the current batch, yielded after the batch's results.
-    input_error: Option<E>,
-    _key: std::marker::PhantomData<Key>,
-}
-
-impl<Ids, Key, Items, Data, Output, E> Iterator
-    for DecryptBatches<'_, Ids, Key, Items, Data, Output, E>
-where
-    Ids: KeySlotIds,
-    Key: KeySlotId,
-    Items: Iterator<Item = Result<Data, E>>,
-    Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync,
-    Output: Send,
-{
-    // `decrypt_iter` takes ownership of the items, so the caller has no copy of an item that fails
-    // to decrypt, meaning that we can't give back a reference. The result returns the item itself,
-    // because callers such as the vault need to return failed ciphers to their clients. The item is
-    // boxed to keep the `Err` variant small, as clippy's `result_large_err` requires, because
-    // encrypted items such as a `Cipher` can be large.
-    type Item = Result<Result<Output, Box<(Data, crate::CryptoError)>>, E>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let (Some(item), Some(result)) = (self.batch.next(), self.results.next()) {
-            return Some(Ok(result.map_err(|error| Box::new((item, error)))));
-        }
-        if let Some(error) = self.input_error.take() {
-            return Some(Err(error));
-        }
-
-        // Release the previous batch's buffers before reading the next batch.
-        self.batch = Vec::new().into_iter();
-        self.results = Vec::new().into_iter();
-
-        // Reserve only what the input can still yield, up to one batch.
-        let capacity = match self.items.size_hint() {
-            (_, Some(upper)) => upper.min(self.batch_size),
-            (_, None) => self.batch_size,
-        };
-        let mut batch = Vec::with_capacity(capacity);
-        while batch.len() < self.batch_size {
-            match self.items.next() {
-                Some(Ok(item)) => batch.push(item),
-                Some(Err(error)) => {
-                    self.input_error = Some(error);
-                    break;
-                }
-                None => break,
-            }
-        }
-
-        if batch.is_empty() {
-            return self.input_error.take().map(Err);
-        }
-
-        self.results = self.store.decrypt_batch(&batch).into_iter();
-        self.batch = batch.into_iter();
-        self.next()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let buffered = self.results.len() + usize::from(self.input_error.is_some());
-        let (lower, upper) = self.items.size_hint();
-        (
-            buffered.saturating_add(lower),
-            upper.and_then(|upper| upper.checked_add(buffered)),
-        )
-    }
 }
 
 #[cfg(test)]
