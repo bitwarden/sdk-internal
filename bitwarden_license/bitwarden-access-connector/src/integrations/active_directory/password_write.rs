@@ -1,10 +1,17 @@
+use std::{
+    collections::HashMap,
+    sync::{Mutex, MutexGuard, PoisonError},
+};
+
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use ldap3::{LdapError, result::LdapResult};
+use uuid::Uuid;
 
 use super::classify::{Phase, RC_INVALID_CREDENTIALS, classify_ldap_error};
 use crate::{
     error::Retry,
-    integrations::{IntegrationError, TargetEffect},
+    integrations::{IntegrationError, RotateContext, TargetEffect},
 };
 
 /// The directory operations the write needs, so [`apply_password_write`] can be tested without a
@@ -21,14 +28,42 @@ pub(super) trait PasswordWriter: Send {
     async fn bind_as_account(&mut self, account_dn: &str, password: &str) -> Result<(), LdapError>;
 }
 
-/// A rejected write doesn't prove the old password still stands: a retry re-sends the same
-/// password, which password history refuses if an earlier, unobserved write had landed. So a
-/// permanent rejection is settled by binding as the account with the new password. Transient ones
-/// aren't probed, since every failed probe counts towards locking out the account.
+/// Targets whose last write got no answer, mapped to the start of the attempt that sent it, so a
+/// later attempt doesn't inherit the entry.
+#[derive(Debug, Default)]
+pub(super) struct UnsettledWrites(Mutex<HashMap<Uuid, DateTime<Utc>>>);
+
+impl UnsettledWrites {
+    /// Whether an earlier write in this attempt may have landed without an answer.
+    pub(super) fn contains(&self, ctx: &RotateContext) -> bool {
+        self.lock().get(&ctx.target_system_id) == Some(&ctx.rotation_started_at)
+    }
+
+    pub(super) fn record(&self, ctx: &RotateContext, outcome: &Result<(), IntegrationError>) {
+        let mut writes = self.lock();
+        match outcome {
+            Err(err) if err.effect == TargetEffect::Unknown => {
+                writes.insert(ctx.target_system_id, ctx.rotation_started_at);
+            }
+            _ => {
+                writes.remove(&ctx.target_system_id);
+            }
+        }
+    }
+
+    fn lock(&self) -> MutexGuard<'_, HashMap<Uuid, DateTime<Utc>>> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// A permanent rejection means the write didn't land, unless an earlier write in this attempt got
+/// no answer and may have. Only then is the effect settled by binding as the account with the new
+/// password, since every failed bind counts towards locking the account out.
 pub(super) async fn apply_password_write(
     writer: &mut impl PasswordWriter,
     account_dn: &str,
     new_password: &str,
+    earlier_write_unsettled: bool,
 ) -> Result<(), IntegrationError> {
     let answer = writer
         .replace_password(account_dn, &encode_unicode_pwd(new_password))
@@ -39,10 +74,12 @@ pub(super) async fn apply_password_write(
     };
 
     let mut err = classify_ldap_error(&rejection, Phase::Write);
-    err.effect = if err.retry == Retry::Permanent {
-        effect_from_probe(&writer.bind_as_account(account_dn, new_password).await)
-    } else {
-        TargetEffect::Unknown
+    err.effect = match (err.retry, earlier_write_unsettled) {
+        (Retry::Permanent, true) => {
+            effect_from_probe(&writer.bind_as_account(account_dn, new_password).await)
+        }
+        (Retry::Permanent, false) => TargetEffect::NotApplied,
+        (Retry::Transient, _) => TargetEffect::Unknown,
     };
     Err(err)
 }
@@ -59,8 +96,7 @@ fn effect_from_probe(probe: &Result<(), LdapError>) -> TargetEffect {
     }
 }
 
-/// The quoted password as little-endian UTF-16 without a byte-order mark, which is the only shape
-/// Active Directory accepts.
+/// The `unicodePwd` value: the password in double quotes, as UTF-16LE with no byte-order mark.
 fn encode_unicode_pwd(password: &str) -> Vec<u8> {
     const QUOTE: u16 = b'"' as u16;
 
@@ -79,7 +115,11 @@ mod tests {
     use bitwarden_pam::RotationFailureCode;
 
     use super::*;
-    use crate::integrations::active_directory::test_support::{SECRET, ldap_result};
+    use crate::{
+        error::SafeDetail,
+        integrations::active_directory::test_support::{SENTINEL_PASSWORD, ldap_result},
+        resolver::ResolvedCredentials,
+    };
 
     const ACCOUNT_DN: &str = "CN=svc-app,OU=Managed,DC=corp,DC=example";
 
@@ -174,11 +214,11 @@ mod tests {
 
     #[test]
     fn unicode_pwd_never_contains_the_plain_utf8_password() {
-        let encoded = encode_unicode_pwd(SECRET);
+        let encoded = encode_unicode_pwd(SENTINEL_PASSWORD);
         assert!(
             encoded
-                .windows(SECRET.len())
-                .all(|w| w != SECRET.as_bytes()),
+                .windows(SENTINEL_PASSWORD.len())
+                .all(|w| w != SENTINEL_PASSWORD.as_bytes()),
             "password must not appear as plain UTF-8"
         );
     }
@@ -219,9 +259,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_accepted_write_succeeds_and_costs_no_bind() {
+    async fn an_accepted_write_succeeds_and_costs_no_bind_even_after_an_unanswered_one() {
         let mut directory = FakeDirectory::answering(Ok(ldap_result(0, "")));
-        apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+        apply_password_write(&mut directory, ACCOUNT_DN, SENTINEL_PASSWORD, true)
             .await
             .expect("a write the directory accepted must succeed");
         assert!(
@@ -233,7 +273,7 @@ mod tests {
     #[tokio::test]
     async fn the_write_sends_the_encoded_password_to_the_located_account() {
         let mut directory = FakeDirectory::answering(Ok(ldap_result(0, "")));
-        apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+        apply_password_write(&mut directory, ACCOUNT_DN, SENTINEL_PASSWORD, false)
             .await
             .expect("a write the directory accepted must succeed");
 
@@ -241,27 +281,30 @@ mod tests {
         assert_eq!(dn, ACCOUNT_DN, "the write must target the located account");
         assert_eq!(
             value.as_slice(),
-            encode_unicode_pwd(SECRET).as_slice(),
+            encode_unicode_pwd(SENTINEL_PASSWORD).as_slice(),
             "the value must be the unicodePwd encoding, not the raw password"
         );
         assert!(
-            value.windows(SECRET.len()).all(|w| w != SECRET.as_bytes()),
+            value
+                .windows(SENTINEL_PASSWORD.len())
+                .all(|w| w != SENTINEL_PASSWORD.as_bytes()),
             "the plain password must not be what goes on the wire"
         );
     }
 
     #[tokio::test]
-    async fn a_rejected_write_is_probed_as_the_rotated_account_with_the_new_password() {
+    async fn a_rejection_after_an_unanswered_write_is_probed_as_the_account_with_the_new_password()
+    {
         let mut directory = FakeDirectory::answering(Ok(ldap_result(19, "constraint violation")))
             .probed_with(Ok(()));
 
-        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SENTINEL_PASSWORD, true)
             .await
             .expect_err("a rejected write must not be reported as success");
 
         assert_eq!(
             directory.binds,
-            vec![(ACCOUNT_DN.to_string(), SECRET.to_string())],
+            vec![(ACCOUNT_DN.to_string(), SENTINEL_PASSWORD.to_string())],
             "the probe must rebind once, as the rotated account, with the new password"
         );
         assert_eq!(
@@ -274,14 +317,33 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_rejected_write_whose_probe_is_refused_is_reported_not_applied() {
+    async fn a_permanent_rejection_with_no_unanswered_write_before_it_costs_no_bind() {
+        // constraintViolation, insufficientAccessRights, unwillingToPerform.
+        for rc in [19, 50, 53] {
+            let mut directory = FakeDirectory::answering(Ok(ldap_result(rc, "")));
+
+            let err = apply_password_write(&mut directory, ACCOUNT_DN, SENTINEL_PASSWORD, false)
+                .await
+                .expect_err("a rejected write must not be reported as success");
+
+            assert!(
+                directory.binds.is_empty(),
+                "rc {rc} repeats on every attempt, so probing it would lock the account out"
+            );
+            assert_eq!(err.effect, TargetEffect::NotApplied, "rc {rc}");
+            assert_eq!(err.retry, Retry::Permanent, "rc {rc}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_probe_refused_with_invalid_credentials_is_reported_not_applied() {
         let mut directory = FakeDirectory::answering(Ok(ldap_result(19, ""))).probed_with(Err(
             LdapError::LdapResult {
                 result: ldap_result(RC_INVALID_CREDENTIALS, ""),
             },
         ));
 
-        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SENTINEL_PASSWORD, true)
             .await
             .expect_err("a rejected write must not be reported as success");
 
@@ -290,13 +352,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_rejected_write_whose_probe_cannot_reach_the_directory_is_reported_unknown() {
+    async fn a_probe_that_cannot_reach_the_directory_is_reported_unknown() {
         let mut directory =
             FakeDirectory::answering(Ok(ldap_result(19, ""))).probed_with(Err(LdapError::Io {
                 source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
             }));
 
-        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SENTINEL_PASSWORD, true)
             .await
             .expect_err("a rejected write must not be reported as success");
 
@@ -310,7 +372,7 @@ mod tests {
         for rc in [11, 51, 52] {
             let mut directory = FakeDirectory::answering(Ok(ldap_result(rc, "")));
 
-            let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            let err = apply_password_write(&mut directory, ACCOUNT_DN, SENTINEL_PASSWORD, true)
                 .await
                 .expect_err("a rejected write must not be reported as success");
 
@@ -330,7 +392,7 @@ mod tests {
             source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
         }));
 
-        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SENTINEL_PASSWORD, true)
             .await
             .expect_err("a write that got no answer must not be reported as success");
 
@@ -346,20 +408,79 @@ mod tests {
     async fn a_rejected_write_reports_neither_the_password_nor_directory_text() {
         let mut directory = FakeDirectory::answering(Ok(ldap_result(
             53,
-            &format!("will not perform for {SECRET}"),
+            &format!("will not perform for {SENTINEL_PASSWORD}"),
         )))
         .probed_with(Ok(()));
 
-        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SENTINEL_PASSWORD, true)
             .await
             .expect_err("a rejected write must not be reported as success");
 
         let rendered = err.to_string();
-        assert!(!rendered.contains(SECRET), "password leaked: {rendered}");
+        assert!(
+            !rendered.contains(SENTINEL_PASSWORD),
+            "password leaked: {rendered}"
+        );
         assert!(
             !rendered.contains("OU=Service Accounts"),
             "matched DN leaked: {rendered}"
         );
         assert_eq!(err.detail.as_str(), "LDAP result code 53");
+    }
+
+    fn attempt(target_system_id: Uuid, rotation_started_at: DateTime<Utc>) -> RotateContext {
+        RotateContext {
+            target_system_id,
+            account_identity: "svc-app".to_string(),
+            new_password: SENTINEL_PASSWORD.to_string(),
+            creds: ResolvedCredentials::new(),
+            rotation_started_at,
+        }
+    }
+
+    fn failure(effect: TargetEffect) -> Result<(), IntegrationError> {
+        Err(IntegrationError::new(
+            Retry::Transient,
+            effect,
+            RotationFailureCode::TargetUnreachable,
+            SafeDetail::from_kind("ConnectionClosed"),
+        ))
+    }
+
+    #[test]
+    fn an_unanswered_write_is_remembered_for_its_own_attempt_only() {
+        let writes = UnsettledWrites::default();
+        let target = Uuid::new_v4();
+        let first = attempt(target, Utc::now());
+        let later = attempt(
+            target,
+            first.rotation_started_at + chrono::Duration::seconds(60),
+        );
+
+        writes.record(&first, &failure(TargetEffect::Unknown));
+
+        assert!(writes.contains(&first));
+        assert!(
+            !writes.contains(&later),
+            "a later attempt sends a fresh password, which the earlier write can't have set"
+        );
+        assert!(!writes.contains(&attempt(Uuid::new_v4(), first.rotation_started_at)));
+    }
+
+    #[test]
+    fn a_settled_outcome_clears_the_entry() {
+        for settled in [
+            Ok(()),
+            failure(TargetEffect::NotApplied),
+            failure(TargetEffect::Applied),
+        ] {
+            let writes = UnsettledWrites::default();
+            let ctx = attempt(Uuid::new_v4(), Utc::now());
+
+            writes.record(&ctx, &failure(TargetEffect::Unknown));
+            writes.record(&ctx, &settled);
+
+            assert!(!writes.contains(&ctx), "{settled:?}");
+        }
     }
 }

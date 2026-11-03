@@ -10,7 +10,10 @@ use uuid::Uuid;
 
 use super::{CredentialResolver, ResolveError, ResolvedCredentials};
 use crate::{
-    resolver::env::{prefix_for, required_suffixes},
+    resolver::env::{
+        BASE_DN_SUFFIX, BIND_DN_SUFFIX, CA_CERTIFICATE_SUFFIX, LDAP_HOST_SUFFIX, prefix_for,
+        required_suffixes,
+    },
     sys::EnvSource,
 };
 
@@ -44,10 +47,10 @@ impl TargetEntry {
             ("SCRIPT_TYPE", self.script_type.map(|t| t.as_str())),
             ("TENANT_ID", self.tenant_id.as_deref()),
             ("CLIENT_ID", self.client_id.as_deref()),
-            ("LDAP_HOST", self.ldap_host.as_deref()),
-            ("BIND_DN", self.bind_dn.as_deref()),
-            ("BASE_DN", self.base_dn.as_deref()),
-            ("CA_CERTIFICATE", self.ca_certificate.as_deref()),
+            (LDAP_HOST_SUFFIX, self.ldap_host.as_deref()),
+            (BIND_DN_SUFFIX, self.bind_dn.as_deref()),
+            (BASE_DN_SUFFIX, self.base_dn.as_deref()),
+            (CA_CERTIFICATE_SUFFIX, self.ca_certificate.as_deref()),
         ]
         .into_iter()
         .filter_map(|(suffix, opt)| opt.map(|v| (suffix, v)))

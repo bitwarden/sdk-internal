@@ -6,11 +6,17 @@ use crate::{
     integrations::{IntegrationError, TargetEffect},
 };
 
-// LDAP result codes, RFC 4511 §A.1.
+// LDAP result codes from <https://www.rfc-editor.org/rfc/rfc4511#appendix-A.1>.
+
+/// `adminLimitExceeded`: the operation exceeded a limit the server's administrator set.
 const RC_ADMIN_LIMIT_EXCEEDED: u32 = 11;
-const RC_BUSY: u32 = 51;
-const RC_UNAVAILABLE: u32 = 52;
+/// `invalidCredentials`: the bind's name or password is wrong. Active Directory also answers it for
+/// a locked-out or disabled account.
 pub(super) const RC_INVALID_CREDENTIALS: u32 = 49;
+/// `busy`: the server is too busy to handle the operation now.
+const RC_BUSY: u32 = 51;
+/// `unavailable`: the server is shutting down, or a part it needs is offline.
+const RC_UNAVAILABLE: u32 = 52;
 
 /// Where in a rotation an LDAP failure happened, which decides what it says about the target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -155,7 +161,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::integrations::active_directory::test_support::{SECRET, ldap_result};
+    use crate::integrations::active_directory::test_support::{SENTINEL_PASSWORD, ldap_result};
 
     #[test]
     fn directory_rejections_are_fatal() {
@@ -287,13 +293,16 @@ mod tests {
     fn detail_carries_only_the_result_code_not_directory_text() {
         let err = classify_ldap_error(
             &LdapError::LdapResult {
-                result: ldap_result(53, &format!("rejected password {SECRET}")),
+                result: ldap_result(53, &format!("rejected password {SENTINEL_PASSWORD}")),
             },
             Phase::Write,
         );
         assert_eq!(err.detail.as_str(), "LDAP result code 53");
         let rendered = err.to_string();
-        assert!(!rendered.contains(SECRET), "password leaked: {rendered}");
+        assert!(
+            !rendered.contains(SENTINEL_PASSWORD),
+            "password leaked: {rendered}"
+        );
         assert!(
             !rendered.contains("OU=Service Accounts"),
             "matched DN leaked: {rendered}"

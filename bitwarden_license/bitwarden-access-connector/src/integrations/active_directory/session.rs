@@ -19,6 +19,9 @@ use crate::{
     integrations::{IntegrationError, TargetEffect},
 };
 
+/// The account's password. A search never returns it, and replacing it is an administrative reset,
+/// which needs the Reset Password right and an encrypted connection. See
+/// <https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/6e803168-f140-4d23-b2d3-c3a8ab5917d2>.
 const UNICODE_PWD_ATTR: &[u8] = b"unicodePwd";
 
 /// The "no attributes" OID (RFC 4511 §4.5.1.8); the lookup only needs the DN.
@@ -30,7 +33,7 @@ pub(super) struct Timeouts {
     pub(super) operation: Duration,
 }
 
-/// Dropping the session aborts its driver task, so an early return can't leak the socket.
+/// An LDAPS connection to a domain controller. Every request on it uses the operation timeout.
 pub(super) struct LdapSession {
     ldap: Ldap,
     driver: JoinHandle<()>,
@@ -137,6 +140,7 @@ impl LdapSession {
 
 impl Drop for LdapSession {
     fn drop(&mut self) {
+        // Closes the socket, so an early return can't leak it.
         self.driver.abort();
     }
 }

@@ -241,11 +241,18 @@ Take the UUID, make it uppercase, replace the hyphens with underscores, and add 
 85808642_BABA_4B8E_8C34_B48000D60A0A_ADMIN_TOKEN=…
 ```
 
-| Target kind      | Required suffixes                                  |
-| ---------------- | -------------------------------------------------- |
-| Entra            | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`          |
-| Active Directory | `LDAP_HOST`, `BIND_DN`, `BASE_DN`, `BIND_PASSWORD` |
-| Custom script    | `SCRIPT`                                           |
+| Target kind      | Suffix           | Required | `[targets]` key  |
+| ---------------- | ---------------- | -------- | ---------------- |
+| Entra            | `TENANT_ID`      | Yes      | `tenant_id`      |
+| Entra            | `CLIENT_ID`      | Yes      | `client_id`      |
+| Entra            | `CLIENT_SECRET`  | Yes      | Environment only |
+| Active Directory | `LDAP_HOST`      | Yes      | `ldap_host`      |
+| Active Directory | `BIND_DN`        | Yes      | `bind_dn`        |
+| Active Directory | `BASE_DN`        | Yes      | `base_dn`        |
+| Active Directory | `BIND_PASSWORD`  | Yes      | Environment only |
+| Active Directory | `CA_CERTIFICATE` | No       | `ca_certificate` |
+| Custom script    | `SCRIPT`         | Yes      | `script`         |
+| Custom script    | `SCRIPT_TYPE`    | No       | `script_type`    |
 
 Any other variable with the same prefix is passed to the integration. That's how a script gets its
 own settings: `…_API_URL` above reaches the script as `credentials.API_URL`.
@@ -271,10 +278,9 @@ bind_dn   = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
 base_dn   = "OU=Managed Accounts,DC=corp,DC=example"
 ```
 
-Only `script`, `script_type`, `tenant_id`, `client_id`, `ldap_host`, `bind_dn`, `base_dn` and
-`ca_certificate` are accepted here. Everything else, including `client_secret`, `bind_password` and
-any extra values your script needs, has to come from the environment. If a key is set in both
-places, the `[targets]` value wins.
+The keys accepted here are in the last column of the table under
+[Target credentials](#target-credentials). Everything else, including any extra values your script
+needs, has to come from the environment. If a key is set in both places, the `[targets]` value wins.
 
 `script_type` is only needed for scripts whose file extension doesn't say how to run them. See
 [PowerShell scripts](#powershell-scripts).
@@ -330,8 +336,8 @@ The `ActiveDirectory` target kind rotates an on-premises domain account by repla
 Every connection is made with an `ldaps://` URL (implicit TLS, port 636 by default). There is no
 plaintext LDAP path, no StartTLS fallback, and no flag to skip certificate validation.
 
-This is not only a Bitwarden policy: a domain controller refuses a `unicodePwd` write on an
-unencrypted connection, answering `confidentialityRequired` (LDAP result code 13).
+A domain controller refuses a `unicodePwd` write on an unencrypted connection anyway, answering
+`confidentialityRequired` (LDAP result code 13).
 
 The domain controller's certificate is validated against the host's native trust store. A deployment
 whose DC uses a private or self-signed certificate can name a PEM file of extra trust anchors with
@@ -361,26 +367,13 @@ base_dn        = "OU=Managed Accounts,DC=corp,DC=example"
 ca_certificate = "/etc/bwac/ad-ca.pem"
 ```
 
-Or via the environment: `<TARGET_ID_UPPER_UNDERSCORE>_CA_CERTIFICATE=/etc/bwac/ad-ca.pem`. It is a
-file path, not a secret, so unlike `bind_password` it is accepted in either place; the usual
-precedence applies (config file wins per key, environment is the fallback).
+Or set `<TARGET_ID>_CA_CERTIFICATE` in the environment.
 
-Three properties are worth being explicit about:
-
-- **Additive, never substitutive.** The file's anchors are _added_ to the platform trust store.
-  Public CAs keep their standing, and the extra anchor applies only to that target's connections.
-- **Verification is never relaxed.** The certificate chain and the host name are checked exactly as
-  they are for a publicly-issued certificate. There is no `insecure`, `no_verify`, or
-  `skip_hostname` flag, and none will be added: a private CA is an additional anchor, not a reason
-  to stop checking. The `ldap_host` you configure must therefore match a SAN on the DC's
-  certificate.
-- **No silent fallback.** A missing file, an unreadable one, a malformed PEM, or a PEM with no
-  certificate in it aborts the rotation with `credentials_unresolved`. The connector will not
-  quietly continue on platform roots, because that would leave an operator believing a connection is
-  pinned when it is not.
-
-When `ca_certificate` is absent the connection uses the platform trust store alone, exactly as it
-did before the key existed.
+The file's anchors are added to the platform trust store, for that target's connections only. The
+chain and host name are checked as they are for a public certificate, so `ldap_host` must match a
+SAN on the DC's certificate. A missing or unreadable file, a malformed PEM, or a PEM with no
+certificate fails the rotation with `credentials_unresolved` instead of falling back to the platform
+roots. Without `ca_certificate`, the connection trusts the platform store alone.
 
 To export a DC's current LDAPS certificate, on the DC:
 
@@ -476,10 +469,6 @@ ABC_1234_…_BASE_DN=OU=Managed Accounts,DC=corp,DC=example
 ABC_1234_…_BIND_PASSWORD=<secret>
 ```
 
-`LDAP_HOST`, `BIND_DN`, `BASE_DN`, and `CA_CERTIFICATE` may also be supplied in the
-`[targets.<uuid>]` config section as `ldap_host`, `bind_dn`, `base_dn`, and `ca_certificate`.
-`BIND_PASSWORD` may not — see [The `[targets]` section](#the-targets-section).
-
 ### Error classification
 
 **Retry** applies within a single attempt: `Transient` is retried in place with exponential backoff
@@ -496,23 +485,18 @@ the domain controller once per attempt.
 | `ca_certificate` missing, unreadable, or malformed    | Permanent | unchanged                                                   | `credentials_unresolved` |
 | Bind rejected (rc 49, 50)                             | Permanent | unchanged                                                   | `target_rejected`        |
 | Account not found or ambiguous                        | Permanent | unchanged                                                   | `target_rejected`        |
-| Write rejected (rc 13, 19, 32, 53, schema errors)     | Permanent | established by a rebind, not assumed                        | `target_rejected`        |
+| Write rejected (rc 13, 19, 32, 53, schema errors)     | Permanent | unchanged, or settled by a rebind after an unanswered write | `target_rejected`        |
 | DC busy / unavailable / admin limit (rc 51, 52, 11)   | Transient | unchanged before the write, **indeterminate** after         | `target_unreachable`     |
 | Timeout or dropped connection after the write is sent | Transient | **indeterminate**                                           | `target_unreachable`     |
 | Rebind with the new password rejected                 | Permanent | updated                                                     | `verification_failed`    |
 
-A rejected write does not by itself prove the account still holds its old password: every retry
-re-sends the same generated password, so a rejection can follow an earlier attempt whose write
-reached the directory unobserved — password history then refuses the identical value. The connector
-therefore settles the sync state by rebinding as the account with the new password rather than
-inferring it from the result code.
-
-A bind the directory accepts proves the new password is live; only `invalidCredentials` (rc 49)
-proves it is not. Any other answer is the directory declining the question, and is reported as
-indeterminate. A locked-out or disabled account also answers rc 49 whatever password is offered,
-which is the one state the rebind cannot distinguish. The rebind is spent only on a rejection that
-is actually reported — a transient rejection is superseded by its retry, and probing on every
-attempt would drive `badPwdCount` towards the domain lockout threshold.
+A permanently rejected write leaves the account on its old password, unless an earlier write in the
+same attempt got no answer. That write may have landed, so only then does the connector bind as the
+account with the new password to find out. An accepted bind means the new password is live, and
+`invalidCredentials` (rc 49) means it isn't. Any other answer is reported as indeterminate. A
+locked-out or disabled account also answers rc 49, whatever password is offered. Every failed bind
+counts towards the account's `badPwdCount`, which is why the connector doesn't probe every
+rejection.
 
 Only the numeric LDAP result code reaches the failure report. The directory's `diagnosticMessage`
 and matched DN are never read: both can echo account names and password-policy text.

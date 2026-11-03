@@ -1,7 +1,22 @@
-//! On-premises Active Directory: an administrative reset of `unicodePwd` over LDAPS, bound as a
-//! delegated service account. There is no plaintext, StartTLS or skip-verification path, since a
-//! domain controller refuses the write without encryption anyway. Operator-facing behaviour is in
-//! the crate README.
+//! On-premises Active Directory, rotated by an administrative reset of the account's `unicodePwd`
+//! over LDAPS.
+//!
+//! `rotate` connects to `LDAP_HOST` and binds as the delegated service account in `BIND_DN`. It
+//! searches below `BASE_DN` for the one user whose `sAMAccountName` or `userPrincipalName` is the
+//! account identity, then replaces that user's `unicodePwd` with the new password. A reset doesn't
+//! need the current password and isn't checked against password history, so a retry can resend the
+//! same password. `verify` opens a new session, finds the account again and binds as it with the
+//! new password. Session termination isn't supported, since a reset can't revoke Kerberos tickets
+//! already issued.
+//!
+//! Every connection is LDAPS and trusts the platform roots plus any `CA_CERTIFICATE` anchors. There
+//! is no plaintext, StartTLS or skip-verification path, since a domain controller refuses a
+//! `unicodePwd` write without encryption anyway.
+//!
+//! What a failure says about the target depends on its `Phase`. A failure before the write and a
+//! rejected write both leave the target unchanged, while a write that got no answer may have
+//! landed. A permanent rejection that follows an unanswered write in the same attempt is settled by
+//! binding as the account with the new password. Operator-facing behaviour is in the crate README.
 
 mod classify;
 mod password_write;
@@ -19,35 +34,41 @@ use ldap3::LdapError;
 
 use self::{
     classify::{Phase, classify_ldap_error},
-    password_write::apply_password_write,
+    password_write::{UnsettledWrites, apply_password_write},
     session::{LdapSession, Timeouts, ldaps_url},
 };
 use super::{Integration, IntegrationError, RotateContext, TargetEffect};
 use crate::{
     error::{Retry, SafeDetail},
-    resolver::ResolvedCredentials,
+    resolver::{
+        ResolvedCredentials,
+        env::{
+            BASE_DN_SUFFIX, BIND_DN_SUFFIX, BIND_PASSWORD_SUFFIX, CA_CERTIFICATE_SUFFIX,
+            LDAP_HOST_SUFFIX,
+        },
+    },
 };
 
-const HOST_SUFFIX: &str = "LDAP_HOST";
-const BIND_DN_SUFFIX: &str = "BIND_DN";
-const BASE_DN_SUFFIX: &str = "BASE_DN";
-const BIND_PASSWORD_SUFFIX: &str = "BIND_PASSWORD";
-const CA_CERTIFICATE_SUFFIX: &str = "CA_CERTIFICATE";
-
+/// ldap3 sets no connect or operation timeout, so without these a domain controller that stops
+/// answering would hang the rotation.
 const TIMEOUTS: Timeouts = Timeouts {
     connect: Duration::from_secs(15),
     operation: Duration::from_secs(30),
 };
 
-/// Holds no credentials; each operation reads them from `ctx.creds`.
+/// The [`Integration`] for Active Directory targets.
 #[derive(Debug)]
 pub(crate) struct ActiveDirectoryIntegration {
     timeouts: Timeouts,
+    unsettled_writes: UnsettledWrites,
 }
 
 impl ActiveDirectoryIntegration {
     pub(crate) fn new() -> Self {
-        Self { timeouts: TIMEOUTS }
+        Self {
+            timeouts: TIMEOUTS,
+            unsettled_writes: UnsettledWrites::default(),
+        }
     }
 }
 
@@ -63,7 +84,7 @@ struct Credentials<'a> {
 impl<'a> Credentials<'a> {
     fn resolve(creds: &'a ResolvedCredentials) -> Result<Self, IntegrationError> {
         Ok(Self {
-            url: ldaps_url(get_cred(creds, HOST_SUFFIX)?)?,
+            url: ldaps_url(get_cred(creds, LDAP_HOST_SUFFIX)?)?,
             bind_dn: get_cred(creds, BIND_DN_SUFFIX)?,
             base_dn: get_cred(creds, BASE_DN_SUFFIX)?,
             bind_password: get_cred(creds, BIND_PASSWORD_SUFFIX)?,
@@ -106,14 +127,21 @@ impl Integration for ActiveDirectoryIntegration {
             Phase::BeforeWrite,
         )
         .await?;
-        apply_password_write(&mut session, &account_dn, &ctx.new_password).await?;
+        let written = apply_password_write(
+            &mut session,
+            &account_dn,
+            &ctx.new_password,
+            self.unsettled_writes.contains(ctx),
+        )
+        .await;
+        self.unsettled_writes.record(ctx, &written);
+        written?;
         session.close().await;
         Ok(())
     }
 
-    /// Binds as the rotated account with the new password, which unlike an attribute read can't be
-    /// stale.
     async fn verify(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
+        // A bind with the new password can't be stale, unlike an attribute read.
         let creds = Credentials::resolve(&ctx.creds).map_err(as_applied)?;
         let (mut session, account_dn) = LdapSession::open_and_locate(
             &creds,
@@ -137,9 +165,9 @@ impl Integration for ActiveDirectoryIntegration {
         }
     }
 
-    /// A password reset can't revoke Kerberos tickets already issued, so AD targets are sealed
-    /// without session termination and this is never reached.
     async fn terminate_sessions(&self, _ctx: &RotateContext) -> Result<(), IntegrationError> {
+        // AD targets are sealed without session termination, since a reset can't revoke Kerberos
+        // tickets already issued, so the executor never calls this.
         Err(IntegrationError::new(
             Retry::Permanent,
             TargetEffect::NotApplied,
@@ -155,13 +183,13 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::integrations::active_directory::test_support::SECRET;
+    use crate::integrations::active_directory::test_support::SENTINEL_PASSWORD;
 
     fn make_ctx(creds: ResolvedCredentials) -> RotateContext {
         RotateContext {
             target_system_id: Uuid::nil(),
             account_identity: "svc-app".to_string(),
-            new_password: SECRET.to_string(),
+            new_password: SENTINEL_PASSWORD.to_string(),
             creds,
             rotation_started_at: Utc::now(),
         }
@@ -169,10 +197,13 @@ mod tests {
 
     fn complete_creds(host: &str) -> ResolvedCredentials {
         let mut creds = ResolvedCredentials::new();
-        creds.insert(HOST_SUFFIX.to_string(), host.to_string());
+        creds.insert(LDAP_HOST_SUFFIX.to_string(), host.to_string());
         creds.insert(BIND_DN_SUFFIX.to_string(), "CN=svc,DC=corp".to_string());
         creds.insert(BASE_DN_SUFFIX.to_string(), "DC=corp".to_string());
-        creds.insert(BIND_PASSWORD_SUFFIX.to_string(), SECRET.to_string());
+        creds.insert(
+            BIND_PASSWORD_SUFFIX.to_string(),
+            SENTINEL_PASSWORD.to_string(),
+        );
         creds
     }
 
@@ -180,16 +211,25 @@ mod tests {
     fn integration_debug_holds_no_secrets() {
         let integration = ActiveDirectoryIntegration::new();
         let debug = format!("{integration:?}");
-        assert!(!debug.contains(SECRET), "debug leaked a secret: {debug}");
+        assert!(
+            !debug.contains(SENTINEL_PASSWORD),
+            "debug leaked a secret: {debug}"
+        );
     }
 
     #[tokio::test]
     async fn rotate_context_debug_redacts_the_new_password() {
         let mut creds = ResolvedCredentials::new();
-        creds.insert(BIND_PASSWORD_SUFFIX.to_string(), SECRET.to_string());
+        creds.insert(
+            BIND_PASSWORD_SUFFIX.to_string(),
+            SENTINEL_PASSWORD.to_string(),
+        );
         let ctx = make_ctx(creds);
         let debug = format!("{ctx:?}");
-        assert!(!debug.contains(SECRET), "password leaked: {debug}");
+        assert!(
+            !debug.contains(SENTINEL_PASSWORD),
+            "password leaked: {debug}"
+        );
     }
 
     #[tokio::test]
@@ -217,7 +257,7 @@ mod tests {
             .expect_err("a non-LDAPS host must be refused");
         assert_eq!(err.code, RotationFailureCode::CredentialsUnresolved);
         assert_eq!(err.detail.as_str(), "error kind: MalformedLdapHost");
-        assert!(!err.to_string().contains(SECRET));
+        assert!(!err.to_string().contains(SENTINEL_PASSWORD));
     }
 
     #[test]
