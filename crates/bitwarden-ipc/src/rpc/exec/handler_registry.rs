@@ -1,7 +1,7 @@
 use erased_serde::Serialize as ErasedSerialize;
 use tokio::sync::RwLock;
 
-use super::handler::{ErasedRpcHandler, RpcHandler};
+use super::handler::{ErasedRpcHandler, RpcHandler, RpcRequestInfo};
 use crate::rpc::{error::RpcError, request::RpcRequest, request_message::RpcRequestPayload};
 
 pub struct RpcHandlerRegistry {
@@ -30,9 +30,10 @@ impl RpcHandlerRegistry {
     pub async fn handle(
         &self,
         request: &RpcRequestPayload,
+        info: RpcRequestInfo,
     ) -> Result<Box<dyn ErasedSerialize>, RpcError> {
         match self.handlers.read().await.get(request.request_type()) {
-            Some(handler) => handler.handle(request).await,
+            Some(handler) => handler.handle(request, info).await,
             None => Err(RpcError::NoHandlerFound),
         }
     }
@@ -44,6 +45,7 @@ mod test {
 
     use super::*;
     use crate::{
+        endpoint::{HostId, Source},
         rpc::{request::RpcRequest, request_message::RpcRequestMessage},
         serde_utils,
     };
@@ -70,7 +72,7 @@ mod test {
     impl RpcHandler for TestHandler {
         type Request = TestRequest;
 
-        async fn handle(&self, request: Self::Request) -> TestResponse {
+        async fn handle(&self, request: Self::Request, _info: RpcRequestInfo) -> TestResponse {
             TestResponse {
                 result: request.a + request.b,
             }
@@ -91,7 +93,7 @@ mod test {
         let serialized_request =
             RpcRequestPayload::from_slice(serde_utils::to_vec(&message).unwrap()).unwrap();
 
-        let result = registry.handle(&serialized_request).await;
+        let result = registry.handle(&serialized_request, test_info()).await;
 
         assert!(matches!(result, Err(RpcError::NoHandlerFound)));
     }
@@ -113,12 +115,18 @@ mod test {
             RpcRequestPayload::from_slice(serde_utils::to_vec(&message).unwrap()).unwrap();
 
         let result = registry
-            .handle(&serialized_request)
+            .handle(&serialized_request, test_info())
             .await
             .expect("Failed to handle request");
         let response: TestResponse = deserialize_erased_object(&result);
 
         assert_eq!(response.result, 3);
+    }
+
+    fn test_info() -> RpcRequestInfo {
+        RpcRequestInfo {
+            source: Source::BrowserBackground { id: HostId::Own },
+        }
     }
 
     fn deserialize_erased_object<T, R>(value: &T) -> R

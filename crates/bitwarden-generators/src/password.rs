@@ -5,8 +5,6 @@ use rand::{Rng, RngExt, distr::Distribution, seq::SliceRandom};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -22,7 +20,7 @@ pub enum PasswordError {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct PasswordGeneratorRequest {
     /// Include lowercase characters (a-z).
     pub lowercase: bool,

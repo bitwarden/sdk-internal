@@ -7,11 +7,7 @@ use crate::login::api::response::WebAuthnPrfUserDecryptionOptionApiResponse;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct WebAuthnPrfUserDecryptionOption {
     /// PRF key encrypted private key
     pub encrypted_private_key: EncString,

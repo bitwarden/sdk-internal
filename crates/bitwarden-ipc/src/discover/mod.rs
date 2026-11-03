@@ -1,17 +1,15 @@
 #![doc = include_str!("README.md")]
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::{RpcHandler, rpc::request::RpcRequest};
+use crate::{RpcHandler, RpcRequestInfo, rpc::request::RpcRequest};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// A request to discover/ping a client.
 pub struct DiscoverRequest;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 /// The response to a discover/ping request.
 pub struct DiscoverResponse {
     /// The version of the client that responded to the discover request.
@@ -40,7 +38,7 @@ impl DiscoverHandler {
 impl RpcHandler for DiscoverHandler {
     type Request = DiscoverRequest;
 
-    async fn handle(&self, _request: Self::Request) -> DiscoverResponse {
+    async fn handle(&self, _request: Self::Request, _info: RpcRequestInfo) -> DiscoverResponse {
         self.response.clone()
     }
 }

@@ -28,7 +28,9 @@ pub struct AuthenticationExtensionsLargeBlobInputs {
         skip_serializing_if = "Option::is_none"
     )]
     pub read: Option<bool>,
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
+    #[serde_as(
+        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
+    )]
     #[serde(
         rename = "write",
         alias = "Write",

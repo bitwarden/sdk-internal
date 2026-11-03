@@ -37,9 +37,6 @@ pub use cipher_suite::CipherSuite;
 use context::GlobalKeys;
 pub use context::KeyStoreContext;
 
-mod key_rotation;
-pub use key_rotation::*;
-
 /// An in-memory key store that provides a safe and secure way to store keys and use them for
 /// encryption/decryption operations. The store API is designed to work only on key identifiers
 /// ([KeySlotId]). These identifiers are user-defined types that contain no key material, which

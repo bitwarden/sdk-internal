@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Send Options policy.
 pub struct SendOptionsPolicy;
 
-impl Policy for SendOptionsPolicy {
+impl PolicyDefinition for SendOptionsPolicy {
     type Data = SendOptionsPolicyData;
 
     fn policy_type(&self) -> PolicyType {
@@ -21,11 +21,7 @@ impl Policy for SendOptionsPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct SendOptionsPolicyData {
     /// Whether members are prevented from hiding their email address from
     /// Send recipients.

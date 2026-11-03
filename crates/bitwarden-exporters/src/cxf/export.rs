@@ -5,7 +5,7 @@ use credential_exchange_format::{
 };
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     Cipher, CipherType, Login,
@@ -15,13 +15,9 @@ use crate::{
 /// Temporary struct to hold metadata related to current account
 ///
 /// Eventually the SDK itself should have this state and we get rid of this struct.
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct Account {
     id: Uuid,
     email: String,
@@ -286,11 +282,14 @@ mod tests {
         match credential {
             Credential::BasicAuth(basic_auth) => {
                 let username = basic_auth.username.as_ref().unwrap();
-                assert_eq!(username.value.0, "test@bitwarden.com");
+                assert_eq!(
+                    username.value.as_expected().unwrap().0,
+                    "test@bitwarden.com"
+                );
                 assert!(username.label.is_none());
 
                 let password = basic_auth.password.as_ref().unwrap();
-                assert_eq!(password.value.0, "asdfasdfasdf");
+                assert_eq!(password.value.as_expected().unwrap().0, "asdfasdfasdf");
                 assert!(password.label.is_none());
             }
             _ => panic!("Expected Credential::BasicAuth"),
@@ -329,7 +328,7 @@ mod tests {
 
         match credential {
             Credential::Note(n) => {
-                assert_eq!(n.content.value.0, "My note");
+                assert_eq!(n.content.value.as_expected().unwrap().0, "My note");
             }
             _ => panic!("Expected Credential::Note"),
         }
@@ -344,7 +343,7 @@ mod tests {
                 match &custom_fields.fields[0] {
                     EditableFieldValue::String(field) => {
                         assert_eq!(field.label.as_ref().unwrap(), "Text");
-                        assert_eq!(field.value.0, "A");
+                        assert_eq!(field.value.as_expected().unwrap().0, "A");
                     }
                     _ => panic!("Expected String field"),
                 }
@@ -353,7 +352,7 @@ mod tests {
                 match &custom_fields.fields[1] {
                     EditableFieldValue::ConcealedString(field) => {
                         assert_eq!(field.label.as_ref().unwrap(), "Hidden");
-                        assert_eq!(field.value.0, "B");
+                        assert_eq!(field.value.as_expected().unwrap().0, "B");
                     }
                     _ => panic!("Expected ConcealedString field"),
                 }
@@ -362,7 +361,7 @@ mod tests {
                 match &custom_fields.fields[2] {
                     EditableFieldValue::Boolean(field) => {
                         assert_eq!(field.label.as_ref().unwrap(), "Boolean (true)");
-                        assert!(field.value.0);
+                        assert!(field.value.as_expected().unwrap().0);
                     }
                     _ => panic!("Expected Boolean field"),
                 }
@@ -371,7 +370,7 @@ mod tests {
                 match &custom_fields.fields[3] {
                     EditableFieldValue::Boolean(field) => {
                         assert_eq!(field.label.as_ref().unwrap(), "Boolean (false)");
-                        assert!(!field.value.0);
+                        assert!(!field.value.as_expected().unwrap().0);
                     }
                     _ => panic!("Expected Boolean field"),
                 }
@@ -380,7 +379,7 @@ mod tests {
                 match &custom_fields.fields[4] {
                     EditableFieldValue::String(field) => {
                         assert_eq!(field.label.as_ref().unwrap(), "Linked");
-                        assert_eq!(field.value.0, "101"); // linked_id as string
+                        assert_eq!(field.value.as_expected().unwrap().0, "101"); // linked_id as string
                     }
                     _ => panic!("Expected String field for Linked"),
                 }

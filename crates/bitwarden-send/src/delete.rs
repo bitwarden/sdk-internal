@@ -6,8 +6,6 @@ use bitwarden_state::{
     repository::{Repository, RepositoryError},
 };
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{Send, SendId, send_client::SendClient};
 
@@ -103,7 +101,7 @@ async fn retry_pending_deletions<R: Repository<Send> + ?Sized>(
     Ok(())
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Delete a [Send] from the server and remove it from local state.
     pub async fn delete(&self, send_id: SendId) -> Result<(), DeleteSendError> {
@@ -146,17 +144,14 @@ mod tests {
     use bitwarden_api_api::apis::ApiClient;
     use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
-    use bitwarden_state::SettingItem;
-    use bitwarden_test::MemoryRepository;
+    use bitwarden_test::{MemoryRepository, MemorySetting};
     use uuid::uuid;
 
     use super::*;
     use crate::{AuthType, Send, SendId, SendTextView, SendType, SendView};
 
     fn make_pending_setting() -> Setting<Vec<SendId>> {
-        let repository: Arc<dyn Repository<SettingItem>> =
-            Arc::new(MemoryRepository::<SettingItem>::default());
-        Setting::new(repository, PENDING_SEND_DELETIONS)
+        MemorySetting::create()
     }
 
     async fn make_store_with_send(

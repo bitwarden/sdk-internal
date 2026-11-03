@@ -4,8 +4,6 @@ use bitwarden_encoding::FromStrVisitor;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 use zeroize::Zeroize;
 
 use crate::{CryptoError, error::EncodingError};
@@ -124,40 +122,7 @@ impl<'de> Deserialize<'de> for KeyId {
 }
 
 // Key ids cross the WASM boundary as their hex string form, mirroring the other crypto types.
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for KeyId {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for KeyId {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-
-        let s = unsafe { String::from_abi(abi) };
-        Self::from_str(&s).unwrap_throw()
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl OptionFromWasmAbi for KeyId {
-    fn is_none(abi: &Self::Abi) -> bool {
-        <String as OptionFromWasmAbi>::is_none(abi)
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl IntoWasmAbi for KeyId {
-    type Abi = <String as IntoWasmAbi>::Abi;
-
-    fn into_abi(self) -> Self::Abi {
-        self.to_string().into_abi()
-    }
-}
+bitwarden_ffi::impl_wire_string!(KeyId);
 
 #[cfg(feature = "wasm")]
 impl TryFrom<wasm_bindgen::JsValue> for KeyId {

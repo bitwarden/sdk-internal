@@ -12,9 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// PamAccessConnectorResponseModel : An access connector as the fleet-admin surface renders it: its
-/// derived liveness (spec `ConnectorConnection`) and the target systems it is assigned to. The list
-/// view model for `GET access-connectors`.
+/// PamAccessConnectorResponseModel : An access connector with its derived liveness and target
+/// assignments.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PamAccessConnectorResponseModel {
     #[serde(
@@ -23,18 +22,14 @@ pub struct PamAccessConnectorResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    /// The access connector's unique identifier.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    /// The organization this access connector belongs to.
     #[serde(
         rename = "organizationId",
         alias = "OrganizationId",
         skip_serializing_if = "Option::is_none"
     )]
     pub organization_id: Option<uuid::Uuid>,
-    /// The access connector's display label, shown wherever access connectors are listed and
-    /// managed.
     #[serde(
         rename = "name",
         alias = "Name",
@@ -47,40 +42,35 @@ pub struct PamAccessConnectorResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub status: Option<models::PamAccessConnectorStatus>,
-    /// Derived from
-    /// Bit.Services.Pam.AccessConnector.Api.Models.Response.PamAccessConnectorResponseModel.
-    /// LastHeartbeatAt against `PamRotationOptions.ConnectorOfflineAfter` -- spec
-    /// `ConnectorConnection`.
+    /// Whether Bit.Services.Pam.AccessConnector.Api.Models.Response.
+    /// PamAccessConnectorResponseModel.LastHeartbeatAt is within `AccessConnectorOfflineAfter` of
+    /// now (spec `ConnectorConnection`).
     #[serde(
         rename = "isConnected",
         alias = "IsConnected",
         skip_serializing_if = "Option::is_none"
     )]
     pub is_connected: Option<bool>,
-    /// The last time the access connector polled or reported (UTC). Null until its first request;
-    /// bumped only by the access connector's own requests, never by a sweep.
+    /// The last time the access connector polled or reported. Null until its first request.
     #[serde(
         rename = "lastHeartbeatAt",
         alias = "LastHeartbeatAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub last_heartbeat_at: Option<String>,
-    /// The target systems this access connector is assigned to work. An access connector is
-    /// offered rotation jobs only for the targets it is assigned.
+    /// The only target systems the access connector is offered rotation jobs for.
     #[serde(
         rename = "assignedTargetSystemIds",
         alias = "AssignedTargetSystemIds",
         skip_serializing_if = "Option::is_none"
     )]
     pub assigned_target_system_ids: Option<Vec<uuid::Uuid>>,
-    /// When the access connector was registered (UTC).
     #[serde(
         rename = "creationDate",
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub creation_date: Option<String>,
-    /// When the access connector was last modified (UTC).
     #[serde(
         rename = "revisionDate",
         alias = "RevisionDate",
@@ -90,9 +80,7 @@ pub struct PamAccessConnectorResponseModel {
 }
 
 impl PamAccessConnectorResponseModel {
-    /// An access connector as the fleet-admin surface renders it: its derived liveness (spec
-    /// `ConnectorConnection`) and the target systems it is assigned to. The list view model for
-    /// `GET access-connectors`.
+    /// An access connector with its derived liveness and target assignments.
     pub fn new() -> PamAccessConnectorResponseModel {
         PamAccessConnectorResponseModel {
             object: None,

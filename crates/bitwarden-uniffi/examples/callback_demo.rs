@@ -7,7 +7,7 @@
 use std::sync::{Arc, Mutex};
 
 use bitwarden_core::auth::ClientManagedTokens;
-use bitwarden_uniffi::{Client, LogCallback, ManagedSettingsBindingClient};
+use bitwarden_uniffi::{Client, LogCallback, LogLevel, ManagedSettingsBindingClient};
 
 /// Mock token provider for demo
 #[derive(Debug)]
@@ -22,17 +22,20 @@ impl ClientManagedTokens for DemoTokenProvider {
 
 /// Demo callback that prints logs to stdout
 struct DemoLogCallback {
-    logs: Arc<Mutex<Vec<(String, String, String)>>>,
+    logs: Arc<Mutex<Vec<(LogLevel, String, String)>>>,
 }
 
 impl LogCallback for DemoLogCallback {
     fn on_log(
         &self,
-        level: String,
+        level: LogLevel,
         target: String,
         message: String,
     ) -> Result<(), bitwarden_uniffi::error::BitwardenError> {
-        println!("📋 Callback received: [{}] {} - {}", level, target, message);
+        println!(
+            "📋 Callback received: [{:?}] {} - {}",
+            level, target, message
+        );
         self.logs
             .lock()
             .expect("Failed to lock logs mutex")
@@ -47,9 +50,10 @@ fn main() {
     let logs = Arc::new(Mutex::new(Vec::new()));
     let callback = Arc::new(DemoLogCallback { logs: logs.clone() });
 
-    // Initialize logger with callback BEFORE creating any clients
+    // Initialize logger with callback BEFORE creating any clients. The platform logger is off, so
+    // each event below is printed once, by the callback.
     println!("Step 1: Initialize SDK logger with callback...\n");
-    bitwarden_uniffi::init_logger(Some(callback), None);
+    bitwarden_uniffi::init_logger(Some(callback), None, false);
 
     println!("Step 2: Create SDK client...\n");
     let _client = Client::new(
@@ -83,7 +87,7 @@ fn main() {
         "   Levels: {}",
         captured
             .iter()
-            .map(|(l, _, _)| l.as_str())
+            .map(|(l, _, _)| format!("{l:?}"))
             .collect::<Vec<_>>()
             .join(", ")
     );

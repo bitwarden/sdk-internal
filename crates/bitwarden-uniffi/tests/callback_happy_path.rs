@@ -23,11 +23,11 @@ impl bitwarden_core::auth::ClientManagedTokens for MockTokenProvider {
 
 /// Test callback implementation that captures logs
 struct TestCallback {
-    logs: Arc<Mutex<Vec<(String, String, String)>>>,
+    logs: Arc<Mutex<Vec<(LogLevel, String, String)>>>,
 }
 
 impl LogCallback for TestCallback {
-    fn on_log(&self, level: String, target: String, message: String) -> Result<()> {
+    fn on_log(&self, level: LogLevel, target: String, message: String) -> Result<()> {
         self.logs
             .lock()
             .expect("Failed to lock logs mutex")
@@ -43,7 +43,7 @@ fn test_callback_happy_path() {
     let callback = Arc::new(TestCallback { logs: logs.clone() });
 
     // Initialize logger with callback
-    init_logger(Some(callback), None);
+    init_logger(Some(callback), None, true);
 
     // Create client
     let _client = Client::new(
@@ -67,7 +67,7 @@ fn test_callback_happy_path() {
 
     // Validate log data structure
     let (level, target, message) = our_log;
-    assert_eq!(level, "INFO", "Log level should be INFO");
+    assert_eq!(*level, LogLevel::Info, "Log level should be INFO");
     assert!(!target.is_empty(), "Target should not be empty");
     assert!(
         message.contains("integration test message"),

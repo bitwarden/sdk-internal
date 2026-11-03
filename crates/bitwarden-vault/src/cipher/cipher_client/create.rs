@@ -10,10 +10,6 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
@@ -44,17 +40,27 @@ pub enum CreateCipherError {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherCreateRequest {
+    /// Organization that will own the cipher, or `None` for the user's individual vault.
     pub organization_id: Option<OrganizationId>,
+    /// Collections to add the cipher to. Only applies to organization ciphers.
     pub collection_ids: Vec<CollectionId>,
+    /// Folder to place the cipher in, if any.
     pub folder_id: Option<FolderId>,
+    /// Display name of the cipher.
     pub name: String,
+    /// Free-form notes.
     pub notes: Option<String>,
+    /// Whether the cipher is marked as a favorite.
     pub favorite: bool,
+    /// Whether the user must re-enter their master password to view the cipher.
     pub reprompt: CipherRepromptType,
+    /// Type of the cipher and its type-specific data.
     pub r#type: CipherViewType,
+    /// Custom fields.
     pub fields: Vec<FieldView>,
+    /// When the cipher was archived, or `None` if it is not archived.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub archived_date: Option<DateTime<Utc>>,
 }
@@ -70,6 +76,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
     // merge; `Utc::now()` is a safe placeholder.
     let now = chrono::Utc::now();
     CipherView {
+        partial: false,
         id: None,
         organization_id: r.organization_id,
         folder_id: r.folder_id,
@@ -157,7 +164,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Creates a new [Cipher] and saves it to the server.
     pub async fn create(
@@ -174,14 +181,7 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let mut view: CipherView = convert_request_to_cipher_view(request);
-
-        // TODO: Once this flag is removed, the key generation logic should
-        // be moved directly into the CompositeEncryptable implementation.
-        if self.client.flags().get().await.enable_cipher_key_encryption {
-            let key = view.key_identifier();
-            view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
-        }
+        let view: CipherView = convert_request_to_cipher_view(request);
 
         let use_blob = self.should_use_blob_encryption(view.organization_id);
 
@@ -225,6 +225,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             organization_id: Default::default(),
@@ -323,6 +324,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             })
         );
@@ -389,6 +391,7 @@ mod tests {
                             .and_then(|id| id.parse().ok()),
                         name: request_body.cipher.name.clone(),
                         r#type: request_body.cipher.r#type,
+                        key: request_body.cipher.key.clone(),
                         creation_date: Some(Utc::now().to_string()),
                         revision_date: Some(Utc::now().to_string()),
                         ..Default::default()
@@ -423,6 +426,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             fields: vec![],
@@ -450,6 +454,7 @@ mod tests {
 
         assert_eq!(response.id, cipher_view.id);
         assert_eq!(response.organization_id, cipher_view.organization_id);
+        assert_eq!(cipher_view.name, "Test Cipher");
 
         assert_eq!(response.id, Some(TEST_CIPHER_ID.parse().unwrap()));
         assert_eq!(response.organization_id, Some(TEST_ORG_ID.parse().unwrap()));

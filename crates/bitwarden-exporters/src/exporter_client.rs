@@ -1,8 +1,6 @@
 use bitwarden_collections::collection::Collection;
 use bitwarden_core::Client;
 use bitwarden_vault::{Cipher, EncryptionContext, Folder};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     Account, ExportError, ExportFormat,
@@ -10,12 +8,12 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct ExporterClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl ExporterClient {
     fn new(client: Client) -> Self {
         Self { client }

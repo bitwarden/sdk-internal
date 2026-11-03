@@ -3,8 +3,6 @@
 use bitwarden_crypto::{UnsignedSharedKey, safe::SymmetricKeyEnvelope};
 use bitwarden_state::{register_repository_item, register_setting_key};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::{flags::Flags, login_method::UserLoginMethod};
 use crate::{
@@ -18,7 +16,7 @@ use crate::{
 /// The `org_id` is included in the struct so it can be recovered from `Repository::list()`.
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct OrganizationSharedKey {
     /// The organization this key belongs to.
     pub org_id: OrganizationId,

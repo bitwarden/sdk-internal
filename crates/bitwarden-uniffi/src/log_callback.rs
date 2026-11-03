@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
 use tracing_subscriber::{Layer, layer::Context};
+
+use crate::LogLevel;
+
 /// Callback interface for receiving SDK log events
 /// Mobile implementations forward these to Flight Recorder
 #[uniffi::export(with_foreign)]
@@ -8,14 +11,14 @@ pub trait LogCallback: Send + Sync {
     /// Called when SDK emits a log entry
     ///
     /// # Parameters
-    /// - level: Log level ("TRACE", "DEBUG", "INFO", "WARN", "ERROR")
+    /// - level: Log level
     /// - target: Module that emitted log (e.g., "bitwarden_core::auth")
     /// - message: The log message text
     ///
     /// # Returns
     /// Result<(), BitwardenError> - mobile implementations should catch exceptions
     /// and return errors rather than panicking
-    fn on_log(&self, level: String, target: String, message: String) -> crate::Result<()>;
+    fn on_log(&self, level: LogLevel, target: String, message: String) -> crate::Result<()>;
 }
 
 /// Custom tracing Layer that forwards events to UNIFFI callback
@@ -33,7 +36,7 @@ where
 {
     fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
         let metadata = event.metadata();
-        let level = metadata.level().to_string();
+        let level = metadata.level().into();
         let target = metadata.target().to_string();
 
         let mut message = String::new();
@@ -53,11 +56,11 @@ mod tests {
     use super::*;
 
     struct TestLogCallback {
-        logs: Arc<Mutex<Vec<(String, String, String)>>>,
+        logs: Arc<Mutex<Vec<(LogLevel, String, String)>>>,
     }
 
     impl LogCallback for TestLogCallback {
-        fn on_log(&self, level: String, target: String, message: String) -> crate::Result<()> {
+        fn on_log(&self, level: LogLevel, target: String, message: String) -> crate::Result<()> {
             self.logs.lock().unwrap().push((level, target, message));
             Ok(())
         }

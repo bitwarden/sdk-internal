@@ -8,7 +8,7 @@ use aes_gcm::{
     aead::{Aead, Nonce, Payload},
 };
 use data_encoding::BASE64URL_NOPAD;
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 use super::{error::OnePasswordError, wire::EncryptedEnvelope};
 
@@ -124,8 +124,35 @@ impl AesKey {
         })
     }
 
+    /// Encrypts `plaintext` into a wire envelope using the given 12-byte IV, authenticating `aad`.
+    #[cfg(test)]
+    pub(super) fn encrypt_with_aad(
+        &self,
+        plaintext: &[u8],
+        iv: &[u8],
+        aad: &[u8],
+    ) -> Result<EncryptedEnvelope, OnePasswordError> {
+        let ciphertext = encrypt(&self.key, plaintext, iv, aad)?;
+        Ok(EncryptedEnvelope {
+            kid: self.id.clone(),
+            enc: ENCRYPTION_SCHEME.to_string(),
+            cty: CONTAINER_TYPE.to_string(),
+            iv: Some(BASE64URL_NOPAD.encode(iv)),
+            data: BASE64URL_NOPAD.encode(&ciphertext),
+        })
+    }
+
     /// Decrypts an envelope encrypted for this key, with empty associated data.
     pub(super) fn decrypt(&self, encrypted: &Encrypted) -> Result<Vec<u8>, OnePasswordError> {
+        self.decrypt_with_aad(encrypted, &[])
+    }
+
+    /// Decrypts an envelope encrypted for this key, verifying `aad`.
+    pub(super) fn decrypt_with_aad(
+        &self,
+        encrypted: &Encrypted,
+        aad: &[u8],
+    ) -> Result<Vec<u8>, OnePasswordError> {
         if encrypted.key_id != self.id {
             return Err(OnePasswordError::Internal("mismatching key id".into()));
         }
@@ -135,21 +162,21 @@ impl AesKey {
                 encrypted.scheme
             )));
         }
-        decrypt(&self.key, &encrypted.ciphertext, &encrypted.iv, &[])
+        decrypt(&self.key, &encrypted.ciphertext, &encrypted.iv, aad)
     }
 }
 
 /// Decodes URL-safe, standard, or mixed base64 with or without padding.
 pub(super) fn decode64_loose(s: &str) -> Result<Vec<u8>, OnePasswordError> {
-    let normalized: String = s
-        .trim_end_matches('=')
-        .chars()
-        .map(|c| match c {
-            '-' => '+',
-            '_' => '/',
-            other => other,
-        })
-        .collect();
+    // Wiped because the input is often key material. Sized up front so growing never leaves a copy
+    // behind.
+    let unpadded = s.trim_end_matches('=');
+    let mut normalized = Zeroizing::new(String::with_capacity(unpadded.len()));
+    normalized.extend(unpadded.chars().map(|c| match c {
+        '-' => '+',
+        '_' => '/',
+        other => other,
+    }));
     data_encoding::BASE64_NOPAD
         .decode(normalized.as_bytes())
         .map_err(|_| OnePasswordError::Parse)
@@ -240,6 +267,33 @@ mod tests {
         assert!(msg(decrypt(&[0; 32], &[0; 13], &[0; 12], &[])).contains("ciphertext must"));
         assert!(msg(decrypt(&[0; 13], &[0; 16], &[0; 12], &[])).contains("key must"));
         assert!(msg(decrypt(&[0; 32], &[0; 16], &[0; 13], &[])).contains("iv must"));
+    }
+
+    #[test]
+    fn envelope_round_trips_with_aad() {
+        let key = AesKey::new("kid", vec![7; 32]);
+        let envelope = key
+            .encrypt_with_aad(b"secret", &[9; 12], b"context")
+            .expect("encrypts");
+        let encrypted = Encrypted::parse(&envelope).expect("decodes envelope");
+
+        assert_eq!(
+            key.decrypt_with_aad(&encrypted, b"context")
+                .expect("decrypts"),
+            b"secret"
+        );
+        assert!(key.decrypt_with_aad(&encrypted, b"other").is_err());
+        assert!(key.decrypt(&encrypted).is_err());
+    }
+
+    #[test]
+    fn decode64_loose_accepts_either_alphabet_with_or_without_padding() {
+        for input in ["+/+/", "-_-_", "+_-/"] {
+            assert_eq!(decode64_loose(input).expect("decodes"), [0xfb, 0xff, 0xbf]);
+        }
+        for input in ["+/8=", "-_8=", "-_8"] {
+            assert_eq!(decode64_loose(input).expect("decodes"), [0xfb, 0xff]);
+        }
     }
 
     #[test]

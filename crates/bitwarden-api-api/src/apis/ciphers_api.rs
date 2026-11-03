@@ -106,6 +106,12 @@ pub trait CiphersApi: Send + Sync {
         include_member_items: Option<bool>,
     ) -> Result<models::CipherMiniDetailsResponseModelListResponseModel, Error>;
 
+    /// GET /ciphers/organization-details/logins
+    async fn get_organization_login_ciphers<'a>(
+        &self,
+        organization_id: Option<uuid::Uuid>,
+    ) -> Result<models::CipherMiniDetailsResponseModelListResponseModel, Error>;
+
     /// PUT /ciphers/move
     async fn move_many<'a>(
         &self,
@@ -627,6 +633,30 @@ impl CiphersApi for CiphersApiClient {
         if let Some(ref param_value) = include_member_items {
             local_var_req_builder =
                 local_var_req_builder.query(&[("includeMemberItems", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_organization_login_ciphers<'a>(
+        &self,
+        organization_id: Option<uuid::Uuid>,
+    ) -> Result<models::CipherMiniDetailsResponseModelListResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/ciphers/organization-details/logins",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        if let Some(ref param_value) = organization_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("organizationId", &param_value.to_string())]);
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 

@@ -1,0 +1,31 @@
+[package]
+name = "bitwarden-pam-sealed"
+description = """
+Internal commercial crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE_SDK.txt"
+keywords.workspace = true
+
+[dependencies]
+bitwarden-commercial-marker = { workspace = true }
+bitwarden-crypto = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+bitwarden-encoding = { workspace = true }
+# Pins the GENERATOR_*_LENGTH constants. `wasm` keeps it building when another crate enables
+# `bitwarden-error/wasm`.
+bitwarden-generators = { workspace = true, features = ["wasm"] }
+
+[lints]
+workspace = true

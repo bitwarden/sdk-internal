@@ -30,7 +30,7 @@ pub trait EmergencyAccessApi: Send + Sync {
     async fn accept<'a>(
         &self,
         id: uuid::Uuid,
-        organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
+        emergency_access_accept_request_model: Option<models::EmergencyAccessAcceptRequestModel>,
     ) -> Result<(), Error>;
 
     /// POST /emergency-access/{id}/approve
@@ -140,7 +140,7 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
     async fn accept<'a>(
         &self,
         id: uuid::Uuid,
-        organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
+        emergency_access_accept_request_model: Option<models::EmergencyAccessAcceptRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -155,7 +155,7 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&organization_user_accept_request_model);
+        local_var_req_builder = local_var_req_builder.json(&emergency_access_accept_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }

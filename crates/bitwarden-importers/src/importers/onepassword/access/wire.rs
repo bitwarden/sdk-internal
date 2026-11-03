@@ -3,7 +3,10 @@
 //! These carry only the fields the client reads. serde ignores everything else on the wire, so the
 //! structs stay small while remaining forward compatible with the full server responses.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
+use zeroize::Zeroizing;
 
 /// The JSON "opdata" envelope as it appears on the wire.
 ///
@@ -90,8 +93,15 @@ impl KeyDerivationInfo {
 }
 
 /// Response from `v2/auth/methods`.
+///
+/// `userUuid` and `signInAddress` are only needed for an SSO login, and the server may leave them
+/// out.
 #[derive(Debug, Deserialize)]
 pub(super) struct LoginInfo {
+    #[serde(rename = "userUuid")]
+    pub user_uuid: Option<String>,
+    #[serde(rename = "signInAddress")]
+    pub sign_in_address: Option<String>,
     #[serde(rename = "authMethods")]
     pub auth_methods: Vec<AuthMethod>,
 }
@@ -101,6 +111,52 @@ pub(super) struct LoginInfo {
 pub(super) struct AuthMethod {
     #[serde(rename = "type")]
     pub kind: String,
+}
+
+/// Response from `v3/auth/sso/oidc/start`.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoLoginUrl {
+    #[serde(rename = "authRedirect")]
+    pub auth_redirect: String,
+}
+
+/// Response from `v3/auth/sso/oidc/verify`.
+///
+/// `type` is `device_not_enrolled` for a device the server has not seen, which every import is.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoSession {
+    #[serde(rename = "type")]
+    pub state: String,
+    pub user: SsoUser,
+    #[serde(rename = "ssoAuth")]
+    pub sso_auth: SsoAuth,
+}
+
+/// The user an SSO login authenticated.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoUser {
+    /// Goes into the header of every request that follows.
+    #[serde(rename = "sessionUuid")]
+    pub session_uuid: String,
+}
+
+/// What the identity provider login earned: a token to sign in with.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoAuth {
+    #[serde(rename = "signInTokenDetails")]
+    pub sign_in_token_details: SignInTokenDetails,
+}
+
+/// The sign-in token, a bearer credential for the login after the SSO step.
+#[derive(Deserialize)]
+pub(super) struct SignInTokenDetails {
+    pub token: Zeroizing<String>,
+}
+
+impl fmt::Debug for SignInTokenDetails {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SignInTokenDetails").finish_non_exhaustive()
+    }
 }
 
 /// Response from `v3/auth/start`.
@@ -131,7 +187,7 @@ pub(super) struct UserAuth {
     pub salt: String,
 }
 
-/// Response from `v1/device` and `v1/device/{uuid}/reauthorize`.
+/// Response from `v1/device`, `v1/device/{uuid}/reauthorize` and the CPace `msgb` and `tagb`.
 #[derive(Debug, Deserialize)]
 pub(super) struct SuccessStatus {
     pub success: i32,
@@ -201,6 +257,74 @@ pub(super) struct BasicMfa {
     pub enabled: bool,
 }
 
+/// Response from `v3/device/enrollments`.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoEnrollInfo {
+    #[serde(rename = "enrollmentUuid")]
+    pub enrollment_uuid: String,
+}
+
+/// Response from `v3/device/enrollments/status`.
+#[derive(Debug, Deserialize)]
+pub(super) struct SsoEnrollStatus {
+    pub status: String,
+}
+
+/// Response from `v3/device/enrollments/{uuid}/cpace/msga`.
+#[derive(Debug, Deserialize)]
+pub(super) struct CpaceMsgA {
+    pub msga: String,
+}
+
+/// The CPace message from the enrolled device, base64 encoded inside the `msga` response of
+/// `v3/device/enrollments/{uuid}/cpace/msga`.
+#[derive(Debug, Deserialize)]
+pub(super) struct MsgA {
+    pub ya: String,
+    pub ad: MsgAAd,
+}
+
+/// The associated data of a CPace message.
+///
+/// `session_id` is a JSON array of byte values, so an element above 255 fails to parse.
+#[derive(Debug, Deserialize)]
+pub(super) struct MsgAAd {
+    pub version: i32,
+    pub salt: String,
+    pub session_id: Vec<u8>,
+}
+
+/// Response from `v3/device/enrollments/{uuid}/cpace/taga`.
+#[derive(Debug, Deserialize)]
+pub(super) struct CpaceTagA {
+    pub taga: String,
+}
+
+/// Response from `v3/device/enrollments/{uuid}/share/credentials`.
+#[derive(Debug, Deserialize)]
+pub(super) struct SharedCredentials {
+    #[serde(rename = "encCreds")]
+    pub encrypted_credentials: EncryptedEnvelope,
+}
+
+/// The credentials the enrolled device hands over, decrypted from the `encCreds` of
+/// `v3/device/enrollments/{uuid}/share/credentials`.
+///
+/// Deliberately not `Debug`: it holds the SRP `x` and the account unlock key. The secrets are
+/// `Zeroizing` field by field, so a bundle that fails to parse halfway is wiped too.
+#[derive(Deserialize)]
+pub(super) struct CredentialBundle {
+    pub srpx: Zeroizing<String>,
+    pub auk: Auk,
+}
+
+/// The account unlock key in the shape of a JWK, of which only the key is read. Deliberately not
+/// `Debug`.
+#[derive(Deserialize)]
+pub(super) struct Auk {
+    pub k: Zeroizing<String>,
+}
+
 /// A server error body.
 #[derive(Debug, Deserialize)]
 pub(super) struct ErrorResponse {
@@ -226,6 +350,8 @@ pub(super) struct AccountInfo {
 #[derive(Debug, Deserialize)]
 pub(super) struct VaultInfo {
     pub uuid: String,
+    #[serde(rename = "activeItemCount")]
+    pub active_item_count: Option<u32>,
     #[serde(rename = "encAttrs")]
     pub enc_attrs: EncryptedEnvelope,
     pub access: Vec<VaultAccess>,
@@ -243,7 +369,6 @@ pub(super) struct VaultAccess {
 #[derive(Deserialize)]
 pub(super) struct VaultAttributes {
     pub name: Option<String>,
-    pub desc: Option<String>,
 }
 
 /// A page of vault items. The last page is marked `batchComplete`.
@@ -273,7 +398,6 @@ pub(super) struct VaultItem {
 #[derive(Deserialize)]
 pub struct VaultItemOverview {
     pub title: Option<String>,
-    pub ainfo: Option<String>,
     pub url: Option<String>,
     #[serde(rename = "URLs")]
     pub urls: Option<Vec<VaultItemUrl>>,
@@ -283,8 +407,6 @@ pub struct VaultItemOverview {
 /// A URL entry in an item overview.
 #[derive(Deserialize)]
 pub struct VaultItemUrl {
-    #[serde(rename = "l")]
-    pub name: Option<String>,
     #[serde(rename = "u")]
     pub url: Option<String>,
 }
@@ -298,15 +420,6 @@ pub struct VaultItemDetails {
     pub sections: Option<Vec<VaultItemSection>>,
     /// The secret of a Password-category item, which carries no `fields`.
     pub password: Option<String>,
-    #[serde(rename = "passwordHistory")]
-    pub password_history: Option<Vec<VaultItemPasswordHistory>>,
-}
-
-/// A superseded password and the unix time it was replaced, oldest first.
-#[derive(Deserialize)]
-pub struct VaultItemPasswordHistory {
-    pub value: Option<String>,
-    pub time: Option<i64>,
 }
 
 /// A designation-based login field (username/password).
@@ -320,14 +433,9 @@ pub struct VaultItemField {
     pub kind: Option<String>,
 }
 
-/// A titled section of fields.
+/// A section of fields. Bitwarden custom fields are a flat list, so only the fields are read.
 #[derive(Deserialize)]
 pub struct VaultItemSection {
-    /// The section's stable id, such as `Section_l2bagl3iupehvr7jvrc62mjhee`.
-    #[serde(rename = "name")]
-    pub id: Option<String>,
-    #[serde(rename = "title")]
-    pub name: Option<String>,
     pub fields: Option<Vec<VaultItemSectionField>>,
 }
 
@@ -344,23 +452,11 @@ pub struct VaultItemSectionField {
     pub kind: Option<String>,
     #[serde(rename = "a")]
     pub attributes: Option<VaultItemFieldAttributes>,
-    /// Keyboard hints for the 1Password UI, of no use to an import.
-    #[serde(rename = "inputTraits")]
-    pub input_traits: Option<VaultItemInputTraits>,
-}
-
-/// How the 1Password UI should present a field's editor.
-#[derive(Debug, Deserialize)]
-pub struct VaultItemInputTraits {
-    pub autocapitalization: Option<String>,
-    pub keyboard: Option<String>,
-    pub correction: Option<String>,
 }
 
 /// Extra attributes on a section field.
 #[derive(Deserialize)]
 pub struct VaultItemFieldAttributes {
-    pub guarded: Option<String>,
     #[serde(rename = "sshKeyAttributes")]
     pub ssh_key: Option<SshKeyAttributes>,
 }
@@ -373,15 +469,4 @@ pub struct SshKeyAttributes {
     #[serde(rename = "publicKey")]
     pub public_key: Option<String>,
     pub fingerprint: Option<String>,
-    #[serde(rename = "keyType")]
-    pub key_type: Option<SshKeyType>,
-}
-
-/// An SSH key's type and, for RSA, its bit length.
-#[derive(Debug, Deserialize)]
-pub struct SshKeyType {
-    #[serde(rename = "t")]
-    pub kind: String,
-    #[serde(rename = "c", default)]
-    pub bits: i64,
 }

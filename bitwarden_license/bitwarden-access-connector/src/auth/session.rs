@@ -1,0 +1,922 @@
+//! Session state machine for the access connector.
+//!
+//! ```text
+//! authenticating → active → expired → authenticating  (refresh cycle)
+//!                         → revoked  (terminal: rejected credential)
+//!                         → closed   (terminal: explicit shutdown)
+//! ```
+//!
+//! Entering `Revoked` or `Closed` drops the bearer and clears the key store.
+
+use std::{sync::Arc, time::Duration};
+
+use bitwarden_access_token::AccessToken;
+use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
+use bitwarden_crypto::KeyStore;
+use tokio::{
+    sync::{Mutex, watch},
+    time::Instant,
+};
+
+use crate::{
+    auth::identity::{AuthError, AuthSuccess, IdentityClient},
+    crypto::{CryptoModuleError, unwrap_org_key},
+};
+
+/// Proactive renewal margin, matching bitwarden-auth's `TOKEN_RENEW_MARGIN_SECONDS`.
+const TOKEN_RENEW_MARGIN_SECS: u64 = 5 * 60;
+
+const BACKOFF_BASE: Duration = Duration::from_secs(1);
+
+const BACKOFF_CAP: Duration = Duration::from_secs(30);
+
+/// Renewal attempt count for a `None` deadline.
+const NO_DEADLINE_MAX_TRIES: u32 = 3;
+
+/// Observable phases of the connector session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SessionPhase {
+    /// Credential exchange in progress.
+    Authenticating,
+    /// Access token valid; org key installed in the key store.
+    Active,
+    /// A renewal attempt failed without a rejection; renewal will be retried.
+    Expired,
+    /// Terminal: the credential was rejected, so no further auth attempts are made.
+    Revoked,
+    /// Terminal: [`SessionManager::close`] was called.
+    Closed,
+}
+
+/// Terminal session-loss variants exposed to callers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SessionLost {
+    /// The session was revoked (credential rejected).
+    Revoked,
+    /// The session was closed via [`SessionManager::close`].
+    Closed,
+}
+
+/// Errors returned by [`SessionManager::bearer`] and [`SessionManager::force_refresh`].
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum SessionError {
+    /// The session is terminally lost (revoked or closed).
+    #[error("session lost: {0:?}")]
+    Lost(SessionLost),
+    /// Renewal failed without a rejection (network, 5xx, malformed response); retryable.
+    #[error("transient renewal error: {0}")]
+    Transient(String),
+}
+
+struct SessionState {
+    phase: SessionPhase,
+    /// The last issued bearer, kept through renewals and cleared only on terminal entry.
+    bearer: Option<String>,
+    /// Monotonic expiry of `bearer`.
+    expires_at: Option<Instant>,
+    /// Shared with the client, so clearing it on terminal entry reaches core too.
+    key_store: KeyStore<KeySlotIds>,
+    /// The organisation from the access token's claim; `None` until the first authentication.
+    organization_id: Option<OrganizationId>,
+    phase_tx: watch::Sender<SessionPhase>,
+}
+
+impl SessionState {
+    /// Whether the stored bearer is within or past the proactive renewal margin.
+    fn needs_renewal(&self) -> bool {
+        match self.expires_at {
+            Some(t) => {
+                let margin = Duration::from_secs(TOKEN_RENEW_MARGIN_SECS);
+                match t.checked_duration_since(Instant::now()) {
+                    Some(remaining) => remaining <= margin,
+                    None => true, // already expired
+                }
+            }
+            None => true,
+        }
+    }
+
+    /// The stored bearer for a session the caller has just seen valid, still under the same guard.
+    /// Without a bearer this is the terminal error for the phase; any other phase is an invariant
+    /// breach (an `Active` session always has a bearer).
+    fn active_bearer(&self) -> Result<String, SessionError> {
+        match (&self.bearer, self.phase) {
+            (Some(bearer), _) => Ok(bearer.clone()),
+            (None, SessionPhase::Revoked) => Err(SessionError::Lost(SessionLost::Revoked)),
+            (None, SessionPhase::Closed) => Err(SessionError::Lost(SessionLost::Closed)),
+            (None, _) => Err(SessionError::Transient("session has no bearer".to_owned())),
+        }
+    }
+
+    fn set_phase(&mut self, phase: SessionPhase) {
+        self.phase = phase;
+        self.phase_tx.send_if_modified(|p| {
+            *p = phase;
+            true
+        });
+    }
+
+    fn apply_success(
+        &mut self,
+        success: AuthSuccess,
+        token: &AccessToken,
+    ) -> Result<(), CryptoModuleError> {
+        use bitwarden_sensitive_value::ExposeSensitive as _;
+
+        let expires_at = Instant::now() + Duration::from_secs(success.expires_in);
+
+        unwrap_org_key(
+            &self.key_store,
+            success.organization_id,
+            token,
+            &success.encrypted_payload,
+        )?;
+
+        self.bearer = Some(success.access_token.expose().to_owned());
+        self.expires_at = Some(expires_at);
+        self.organization_id = Some(success.organization_id);
+        self.set_phase(SessionPhase::Active);
+        Ok(())
+    }
+
+    /// Enter a terminal phase, dropping the bearer and the org key.
+    fn enter_terminal(&mut self, lost: SessionLost) {
+        let phase = match lost {
+            SessionLost::Revoked => SessionPhase::Revoked,
+            SessionLost::Closed => SessionPhase::Closed,
+        };
+        self.set_phase(phase);
+        self.bearer = None;
+        self.expires_at = None;
+        // Clear in place rather than swap, so every clone of the store loses the org key.
+        self.key_store.clear();
+    }
+}
+
+/// Manages the connector session lifecycle. All mutable state sits behind one async `Mutex`, so at
+/// most one renewal is in flight. `Debug` is hand-written to avoid leaking the token or bearer.
+pub(crate) struct SessionManager {
+    state: Mutex<SessionState>,
+    identity: IdentityClient,
+    token: AccessToken,
+}
+
+impl std::fmt::Debug for SessionManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SessionManager").finish_non_exhaustive()
+    }
+}
+
+impl SessionManager {
+    /// Build the manager and authenticate. A rejected credential returns
+    /// `Err(SessionError::Lost(Revoked))`, which callers treat as a fatal startup failure.
+    /// `key_store` is the client's, which the org key is installed into.
+    pub(crate) async fn new(
+        identity: IdentityClient,
+        token: AccessToken,
+        key_store: KeyStore<KeySlotIds>,
+    ) -> Result<Arc<Self>, SessionError> {
+        let (phase_tx, _phase_rx) = watch::channel(SessionPhase::Authenticating);
+
+        let state = SessionState {
+            phase: SessionPhase::Authenticating,
+            bearer: None,
+            expires_at: None,
+            key_store,
+            organization_id: None,
+            phase_tx,
+        };
+
+        let mgr = Arc::new(Self {
+            state: Mutex::new(state),
+            identity,
+            token,
+        });
+
+        mgr.renew_with_backoff(None, None).await?;
+
+        Ok(mgr)
+    }
+
+    pub(crate) async fn phase(&self) -> SessionPhase {
+        self.state.lock().await.phase
+    }
+
+    /// Test accessor for the held key store.
+    #[cfg(test)]
+    pub(crate) async fn key_store(&self) -> KeyStore<KeySlotIds> {
+        self.state.lock().await.key_store.clone()
+    }
+
+    /// `None` only before the first authentication, which [`Self::new`] has already performed.
+    pub(crate) async fn organization_id(&self) -> Option<OrganizationId> {
+        self.state.lock().await.organization_id
+    }
+
+    /// Obtain a valid bearer, renewing as needed. Retries transient errors with capped backoff up
+    /// to `deadline` ([`NO_DEADLINE_MAX_TRIES`] caps a `None` deadline); a rejected credential
+    /// clears secrets and returns `Err(Lost(Revoked))`.
+    pub(crate) async fn bearer(&self, deadline: Option<Instant>) -> Result<String, SessionError> {
+        self.renew_with_backoff(deadline, None).await
+    }
+
+    /// Force a session refresh on the 401 path. A bearer that no longer matches `stale` was already
+    /// renewed concurrently and is returned as-is, as in bitwarden-auth's `resolve_retry`.
+    pub(crate) async fn force_refresh(
+        &self,
+        stale: &str,
+        deadline: Option<Instant>,
+    ) -> Result<String, SessionError> {
+        self.renew_with_backoff(deadline, Some(stale)).await
+    }
+
+    /// Transition to `Closed`, dropping the bearer and the org key.
+    pub(crate) async fn close(&self) {
+        let mut guard = self.state.lock().await;
+        if !matches!(guard.phase, SessionPhase::Revoked | SessionPhase::Closed) {
+            guard.enter_terminal(SessionLost::Closed);
+        }
+    }
+
+    /// Return the stored bearer if it is fresh and not `stale`, otherwise renew with backoff. The
+    /// check runs under the same guard as the renewal, so concurrent callers coalesce onto one
+    /// renewal and a concurrent `close()` cannot slip in between. The mutex is held across the
+    /// identity call and released during the backoff sleep.
+    async fn renew_with_backoff(
+        &self,
+        deadline: Option<Instant>,
+        stale: Option<&str>,
+    ) -> Result<String, SessionError> {
+        let mut delay = BACKOFF_BASE;
+        let mut tries: u32 = 0;
+
+        loop {
+            let mut guard = self.state.lock().await;
+
+            match guard.phase {
+                SessionPhase::Revoked => return Err(SessionError::Lost(SessionLost::Revoked)),
+                SessionPhase::Closed => return Err(SessionError::Lost(SessionLost::Closed)),
+                SessionPhase::Active
+                    if !guard.needs_renewal() && guard.bearer.as_deref() != stale =>
+                {
+                    return guard.active_bearer();
+                }
+                _ => {}
+            }
+
+            guard.set_phase(SessionPhase::Authenticating);
+
+            // Other callers block on the mutex until this attempt finishes.
+            let result = self.identity.authenticate(&self.token).await;
+
+            let (kind, err_msg) = match result {
+                Ok(success) => match guard.apply_success(success, &self.token) {
+                    Ok(()) => {
+                        tracing::info!(retry = tries, "session authenticated");
+                        return guard.active_bearer();
+                    }
+                    // A 200 whose payload does not open is treated like a protocol failure.
+                    Err(e) => ("org key unwrap failed", e.to_string()),
+                },
+                Err(AuthError::Rejected) => {
+                    guard.enter_terminal(SessionLost::Revoked);
+                    tracing::warn!(
+                        "session entered Revoked phase (credential rejected by identity server)"
+                    );
+                    return Err(SessionError::Lost(SessionLost::Revoked));
+                }
+                Err(AuthError::Transient(msg)) => ("transient", msg),
+                Err(AuthError::Protocol) => (
+                    "protocol error",
+                    "identity server returned unexpected response".to_owned(),
+                ),
+            };
+
+            tries += 1;
+
+            // Set Expired so phase-watchers see a transient stall.
+            guard.set_phase(SessionPhase::Expired);
+            drop(guard);
+
+            if deadline.is_none() && tries >= NO_DEADLINE_MAX_TRIES {
+                tracing::warn!(
+                    retry = tries,
+                    "session renewal failed ({kind}): {err_msg}; giving up after {tries} attempts"
+                );
+                return Err(SessionError::Transient(err_msg));
+            }
+
+            let sleep_dur = match deadline {
+                None => delay,
+                Some(dl) => {
+                    let remaining = dl.saturating_duration_since(Instant::now());
+                    if remaining.is_zero() {
+                        tracing::warn!(
+                            retry = tries,
+                            "session renewal deadline exceeded before retry; last error: {err_msg}"
+                        );
+                        return Err(SessionError::Transient(
+                            "renewal deadline exceeded".to_owned(),
+                        ));
+                    }
+                    delay.min(remaining)
+                }
+            };
+
+            tracing::warn!(
+                retry = tries,
+                sleep_ms = sleep_dur.as_millis(),
+                "session renewal failed ({kind}): {err_msg}; retrying after {sleep_dur:?}"
+            );
+            tokio::time::sleep(sleep_dur).await;
+            delay = (delay * 2).min(BACKOFF_CAP);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use bitwarden_crypto::{
+        KeyDecryptable, PrimitiveEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm,
+    };
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
+    };
+
+    use super::*;
+    use crate::{
+        auth::identity::IdentityClient,
+        test_support::{
+            access_token_tagged, encrypted_payload_for, test_org_id, test_org_slot as org_slot,
+            test_token,
+        },
+    };
+
+    /// `bearer` is a short tag, expanded to a real JWT so the `organization` claim parses.
+    fn success_response(
+        bearer: &str,
+        expires_in: u64,
+        encrypted_payload: &str,
+    ) -> ResponseTemplate {
+        let bearer = access_token_tagged(test_org_id(), bearer);
+        let body = format!(
+            r#"{{"access_token":"{bearer}","expires_in":{expires_in},"encrypted_payload":"{encrypted_payload}"}}"#
+        );
+        ResponseTemplate::new(200)
+            .set_body_string(body)
+            .insert_header("content-type", "application/json")
+    }
+
+    fn rejected_response() -> ResponseTemplate {
+        ResponseTemplate::new(400)
+            .set_body_string(r#"{"error":"invalid_client"}"#)
+            .insert_header("content-type", "application/json")
+    }
+
+    #[tokio::test]
+    async fn successful_auth_populates_bearer_and_org_key() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let encrypted_payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("my-bearer", 3600, &encrypted_payload))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("SessionManager::new");
+
+        assert_eq!(mgr.phase().await, SessionPhase::Active);
+
+        let bearer = mgr.bearer(None).await.expect("bearer");
+        assert_eq!(bearer, access_token_tagged(test_org_id(), "my-bearer"));
+        assert_eq!(server.received_requests().await.unwrap().len(), 1);
+
+        // Probe that the org key is installed.
+        let store = mgr.key_store().await;
+        let probe_enc = {
+            let mut ctx = store.context();
+            "probe-value"
+                .encrypt(&mut ctx, org_slot())
+                .expect("encrypt probe")
+        };
+        let decrypted: String = probe_enc.decrypt_with_key(&org_key).expect("decrypt probe");
+        assert_eq!(decrypted, "probe-value");
+    }
+
+    #[tokio::test]
+    async fn expiry_margin_triggers_renewal() {
+        // expires_in=0 puts the first token inside the renewal margin at once.
+        let org_key1 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload1 = encrypted_payload_for(&org_key1);
+        let org_key2 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload2 = encrypted_payload_for(&org_key2);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("first-token", 0, &payload1))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("second-token", 3600, &payload2))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("SessionManager::new");
+
+        let bearer = mgr.bearer(None).await.expect("bearer");
+        assert_eq!(bearer, access_token_tagged(test_org_id(), "second-token"));
+        assert_eq!(server.received_requests().await.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn concurrent_bearer_calls_coalesce_to_single_renewal() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        // Initial auth: expires immediately.
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("initial-tok", 0, &payload))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+
+        let org_key2 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload2 = encrypted_payload_for(&org_key2);
+        // The delay makes the concurrent callers overlap.
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                success_response("renewed-tok", 3600, &payload2)
+                    .set_delay(Duration::from_millis(50)),
+            )
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = Arc::new(
+            SessionManager::new(client, test_token(), KeyStore::default())
+                .await
+                .expect("SessionManager::new"),
+        );
+
+        let handles: Vec<_> = (0..5)
+            .map(|_| {
+                let m = Arc::clone(&mgr);
+                tokio::spawn(async move { m.bearer(None).await })
+            })
+            .collect();
+
+        for h in handles {
+            assert_eq!(
+                h.await.expect("spawn").expect("bearer"),
+                access_token_tagged(test_org_id(), "renewed-tok")
+            );
+        }
+
+        // Initial auth plus one renewal.
+        assert_eq!(server.received_requests().await.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn invalid_client_at_startup_returns_revoked() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(rejected_response())
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let result = SessionManager::new(client, test_token(), KeyStore::default()).await;
+
+        assert!(
+            matches!(result, Err(SessionError::Lost(SessionLost::Revoked))),
+            "expected Lost(Revoked), got {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn revoked_session_short_circuits_without_identity_hits() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(rejected_response())
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("first auth succeeds");
+
+        // Trigger revocation via force_refresh.
+        let _ = mgr
+            .force_refresh(&access_token_tagged(test_org_id(), "tok"), None)
+            .await;
+        assert_eq!(mgr.phase().await, SessionPhase::Revoked);
+
+        let count_before = server.received_requests().await.unwrap().len();
+
+        let err = mgr.bearer(None).await.expect_err("should be lost");
+        assert!(matches!(err, SessionError::Lost(SessionLost::Revoked)));
+
+        assert_eq!(
+            server.received_requests().await.unwrap().len(),
+            count_before
+        );
+    }
+
+    #[tokio::test]
+    async fn close_transitions_to_closed_and_short_circuits() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("auth");
+
+        mgr.close().await;
+        assert_eq!(mgr.phase().await, SessionPhase::Closed);
+
+        let count_before = server.received_requests().await.unwrap().len();
+        let err = mgr.bearer(None).await.expect_err("should be lost");
+        assert!(matches!(err, SessionError::Lost(SessionLost::Closed)));
+        assert_eq!(
+            server.received_requests().await.unwrap().len(),
+            count_before
+        );
+    }
+
+    #[tokio::test]
+    async fn secrets_cleared_on_revoked() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(rejected_response())
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("first auth");
+
+        let _ = mgr
+            .force_refresh(&access_token_tagged(test_org_id(), "tok"), None)
+            .await;
+        assert_eq!(mgr.phase().await, SessionPhase::Revoked);
+
+        let err = mgr.bearer(None).await.expect_err("must be lost");
+        assert!(matches!(err, SessionError::Lost(SessionLost::Revoked)));
+
+        let store = mgr.key_store().await;
+        assert!(
+            !store.context().has_symmetric_key(org_slot()),
+            "org key slot must be cleared after revocation"
+        );
+    }
+
+    /// A key-store clone taken before revocation must also lose the org key.
+    #[tokio::test]
+    async fn key_store_handle_taken_before_revocation_loses_the_org_key() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(rejected_response())
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("first auth");
+
+        // Taken before revocation.
+        let hoisted = mgr.key_store().await;
+        assert!(
+            hoisted.context().has_symmetric_key(org_slot()),
+            "org key must be installed before revocation"
+        );
+
+        let _ = mgr
+            .force_refresh(&access_token_tagged(test_org_id(), "tok"), None)
+            .await;
+        assert_eq!(mgr.phase().await, SessionPhase::Revoked);
+
+        assert!(
+            !hoisted.context().has_symmetric_key(org_slot()),
+            "a handle taken before revocation must not still hold the org key"
+        );
+    }
+
+    /// The same, for the shutdown path.
+    #[tokio::test]
+    async fn key_store_handle_taken_before_close_loses_the_org_key() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("auth");
+
+        let hoisted = mgr.key_store().await;
+        assert!(hoisted.context().has_symmetric_key(org_slot()));
+
+        mgr.close().await;
+
+        assert!(
+            !hoisted.context().has_symmetric_key(org_slot()),
+            "a handle taken before close must not still hold the org key"
+        );
+    }
+
+    #[tokio::test]
+    async fn secrets_cleared_on_closed() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, &payload))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("auth");
+
+        mgr.close().await;
+
+        let store = mgr.key_store().await;
+        assert!(
+            !store.context().has_symmetric_key(org_slot()),
+            "org key slot must be cleared after close"
+        );
+    }
+
+    #[tokio::test]
+    async fn force_refresh_reuses_token_if_already_renewed() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("fresh-tok", 3600, &payload))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("auth");
+
+        let count_after_init = server.received_requests().await.unwrap().len();
+
+        // Stored token is "fresh-tok"; "old-stale-value" differs, so it's reused.
+        let result = mgr
+            .force_refresh("old-stale-value", None)
+            .await
+            .expect("force_refresh");
+        assert_eq!(result, access_token_tagged(test_org_id(), "fresh-tok"));
+        assert_eq!(
+            server.received_requests().await.unwrap().len(),
+            count_after_init,
+            "no additional identity call should be made"
+        );
+    }
+
+    #[tokio::test]
+    async fn concurrent_force_refresh_with_same_stale_bearer_renews_once() {
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload = encrypted_payload_for(&org_key);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("initial-tok", 3600, &payload))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        // The delay makes the concurrent callers overlap.
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                success_response("renewed-tok", 3600, &payload)
+                    .set_delay(Duration::from_millis(50)),
+            )
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("SessionManager::new");
+
+        // Hold the state lock until every caller is queued on it, so they all observe the same
+        // stale bearer before any renewal runs.
+        let guard = mgr.state.lock().await;
+        let stale = access_token_tagged(test_org_id(), "initial-tok");
+        let handles: Vec<_> = (0..5)
+            .map(|_| {
+                let m = Arc::clone(&mgr);
+                let stale = stale.clone();
+                tokio::spawn(async move { m.force_refresh(&stale, None).await })
+            })
+            .collect();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        drop(guard);
+
+        for h in handles {
+            assert_eq!(
+                h.await.expect("spawn").expect("force_refresh"),
+                access_token_tagged(test_org_id(), "renewed-tok")
+            );
+        }
+
+        // Initial auth plus one renewal.
+        assert_eq!(server.received_requests().await.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn org_key_re_derived_on_every_refresh() {
+        let org_key1 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload1 = encrypted_payload_for(&org_key1);
+        let org_key2 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let payload2 = encrypted_payload_for(&org_key2);
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok1", 0, &payload1))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok2", 3600, &payload2))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let mgr = SessionManager::new(client, test_token(), KeyStore::default())
+            .await
+            .expect("first auth");
+
+        // Trigger renewal (expired token).
+        let _bearer2 = mgr.bearer(None).await.expect("second bearer");
+
+        let store = mgr.key_store().await;
+        let probe_enc = {
+            let mut ctx = store.context();
+            "check-key".encrypt(&mut ctx, org_slot()).expect("encrypt")
+        };
+
+        let ok: Result<String, _> = probe_enc.decrypt_with_key(&org_key2);
+        assert!(ok.is_ok(), "probe must decrypt under the new org key");
+        let fail: Result<String, _> = probe_enc.decrypt_with_key(&org_key1);
+        assert!(
+            fail.is_err(),
+            "probe must NOT decrypt under the old org key"
+        );
+    }
+
+    /// A 200 whose `encrypted_payload` does not open must go through the same backoff and
+    /// `Expired` handling as other renewal failures, not return at once.
+    #[tokio::test]
+    async fn org_key_unwrap_failure_retries_with_backoff_and_expires() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(success_response("tok", 3600, "not-a-valid-payload"))
+            .mount(&server)
+            .await;
+
+        let client = IdentityClient::new(server.uri()).expect("client");
+        let (phase_tx, _phase_rx) = watch::channel(SessionPhase::Authenticating);
+        let mgr = SessionManager {
+            state: Mutex::new(SessionState {
+                phase: SessionPhase::Authenticating,
+                bearer: None,
+                expires_at: None,
+                key_store: KeyStore::default(),
+                organization_id: None,
+                phase_tx,
+            }),
+            identity: client,
+            token: test_token(),
+        };
+
+        // Real time: the HTTP mock does not work under paused time. A short deadline bounds the
+        // backoff.
+        let deadline = Instant::now() + Duration::from_millis(1500);
+        let err = mgr
+            .bearer(Some(deadline))
+            .await
+            .expect_err("unwrap must fail");
+        assert!(
+            matches!(err, SessionError::Transient(_)),
+            "expected Transient, got {err:?}"
+        );
+        assert!(
+            server.received_requests().await.unwrap().len() > 1,
+            "must retry with backoff"
+        );
+        assert_eq!(mgr.phase().await, SessionPhase::Expired);
+    }
+
+    #[test]
+    fn active_bearer_maps_phase_and_bearer() {
+        let state = |phase, bearer: Option<&str>| {
+            let (phase_tx, _phase_rx) = watch::channel(phase);
+            SessionState {
+                phase,
+                bearer: bearer.map(str::to_owned),
+                expires_at: None,
+                key_store: KeyStore::default(),
+                organization_id: None,
+                phase_tx,
+            }
+        };
+
+        assert_eq!(
+            state(SessionPhase::Active, Some("x"))
+                .active_bearer()
+                .expect("bearer"),
+            "x"
+        );
+        assert!(matches!(
+            state(SessionPhase::Closed, None).active_bearer(),
+            Err(SessionError::Lost(SessionLost::Closed))
+        ));
+        assert!(matches!(
+            state(SessionPhase::Revoked, None).active_bearer(),
+            Err(SessionError::Lost(SessionLost::Revoked))
+        ));
+        assert!(matches!(
+            state(SessionPhase::Active, None).active_bearer(),
+            Err(SessionError::Transient(_))
+        ));
+    }
+}

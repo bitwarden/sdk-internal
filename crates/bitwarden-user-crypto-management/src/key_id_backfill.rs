@@ -11,8 +11,6 @@ use bitwarden_crypto::KeyId;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use tracing::{error, info};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::UserCryptoManagementClient;
 
@@ -34,7 +32,7 @@ pub enum KeyIdBackfillError {
     Api,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl UserCryptoManagementClient {
     /// Returns whether the server is missing the id of the user's current user key.

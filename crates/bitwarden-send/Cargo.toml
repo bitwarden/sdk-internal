@@ -16,14 +16,17 @@ keywords.workspace = true
 
 [features]
 uniffi = [
+    "bitwarden-auth/uniffi",
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
     "bitwarden-vault/uniffi",
     "dep:uniffi",
 ]
 wasm = [
+    "bitwarden-auth/wasm",
     "bitwarden-core/wasm",
     "bitwarden-encoding/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-state/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -34,10 +37,12 @@ wasm = [
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-base = { workspace = true }
+bitwarden-auth = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-uuid = { workspace = true }

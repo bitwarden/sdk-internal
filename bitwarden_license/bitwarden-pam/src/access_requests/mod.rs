@@ -1,22 +1,23 @@
 //! PAM access request operations.
 //!
-//! An *access request* is a member's ask to open a PAM-gated cipher. A requester
-//! [`pre_check`](AccessRequestsClient::pre_check)s a cipher to learn whether a request would be
-//! auto-approved, then [`request`](AccessRequestsClient::request)s access. On the automatic (no
-//! human approval) path the server auto-approves it, and the requester
-//! [`activate`](AccessRequestsClient::activate)s the approved request to mint a short-lived
-//! [`AccessLease`](crate::AccessLeaseView) over the cipher.
-//!
-//! [`AccessRequestsClient`] is obtained from the [`PamClient`](crate::PamClient) and covers
-//! per-cipher access-state reads, opening a request, listing/reading the caller's requests,
-//! activating an approved one, and cancelling a pending one.
+//! An *access request* is a member's ask to open a PAM-gated cipher. Once approved, the requester
+//! [`activate`](AccessRequestsClient::activate)s it to mint a short-lived lease over the cipher.
 
 mod client;
+mod error;
 mod models;
+mod validate;
 
 pub use client::AccessRequestsClient;
+pub use error::AccessRequestError;
 pub use models::{
-    AccessApprovalMode, AccessApprover, AccessDecider, AccessDecisionVerdict, AccessPreCheckView,
-    AccessRequestCreateRequest, AccessRequestDecisionView, AccessRequestResultView,
-    AccessRequestStatus, AccessRequestSummaryView, AccessRequestView, CipherAccessStateView,
+    AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
+    AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView,
+    AccessRequestResultView, AccessRequestStatus, AccessRequestSummaryView, AccessRequestView,
+    CipherAccessStateView,
+};
+pub use validate::{
+    AccessRequestWindowError, DEFAULT_REQUEST_ACCESS_DURATION_SECONDS,
+    MAX_REQUEST_ACCESS_WINDOW_SECONDS, default_request_access_duration_seconds,
+    max_request_access_window_seconds,
 };

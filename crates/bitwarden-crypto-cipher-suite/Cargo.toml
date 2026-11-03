@@ -20,6 +20,7 @@ uniffi = ["bitwarden-core/uniffi", "bitwarden-crypto/uniffi", "dep:uniffi"]
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
+    "bitwarden-ffi/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
 ]
@@ -27,6 +28,7 @@ wasm = [
 [dependencies]
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
+bitwarden-ffi = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }

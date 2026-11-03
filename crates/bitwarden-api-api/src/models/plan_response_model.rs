@@ -188,6 +188,12 @@ pub struct PlanResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub password_manager: Option<Box<models::PasswordManagerPlanFeaturesResponseModel>>,
+    #[serde(
+        rename = "privilegedControls",
+        alias = "PrivilegedControls",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub privileged_controls: Option<Box<models::PrivilegedControlsPlanFeaturesResponseModel>>,
 }
 
 impl PlanResponseModel {
@@ -222,6 +228,7 @@ impl PlanResponseModel {
             disabled: None,
             secrets_manager: None,
             password_manager: None,
+            privileged_controls: None,
         }
     }
 }

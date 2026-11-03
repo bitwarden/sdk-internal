@@ -1,8 +1,6 @@
 use rand::CryptoRng;
 use serde::{Deserialize, Serialize};
 use ssh_key::{Algorithm, EcdsaCurve};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::{
     SshKeyData,
@@ -11,7 +9,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum KeyAlgorithm {
     Ed25519,

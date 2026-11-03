@@ -1,11 +1,7 @@
 use chrono::{DateTime, Utc};
 
 /// Records when the user first became eligible for v2 encrypted migrations.
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct V2EncryptedMigrationsGracePeriodStart(

@@ -1,5 +1,7 @@
 //! Key management work that runs on every sync.
 
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+use bitwarden_core::key_management::crypto::{ReinitUserCryptoError, ReinitUserCryptoRequest};
 #[cfg(not(target_arch = "wasm32"))]
 use bitwarden_core::key_management::{
     MasterPasswordError, V2UpgradeTokenError, WebAuthnPrfError,
@@ -14,19 +16,15 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyId;
 use serde::{Deserialize, Serialize};
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+use tracing::debug;
 use tracing::warn;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// The parts of a sync response the key management sync handler needs.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct CryptoSyncData {
     /// The account's user decryption options, as the server reports them on sync.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -42,11 +40,7 @@ pub struct CryptoSyncData {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct CryptoSyncUserDecryption {
     /// Unlock data for accounts that have a master password.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -157,9 +151,17 @@ impl TryFrom<&bitwarden_api_api::models::UserDecryptionResponseModel> for Crypto
 
 /// Runs the key management sync work for the given sync data.
 async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
+    // A replayed payload is refused whole: taking its user decryption options would let the
+    // server swap out the key id and unlock data that belong to the state it just tried to undo.
+    if is_replayed_state(client, data).await {
+        warn!("WARNING: Refusing a V2 to V1 account cryptographic state downgrade.");
+        return;
+    }
+
     // Handlers MUST NOT fail, to avoid partial state writes
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
+    handle_v2_upgrade(client, data).await;
 
     // Further key management sync handlers go here.
 }
@@ -225,16 +227,70 @@ async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncDa
         return;
     }
 
-    // A malicious or compromised server must not be able to move an account back to V1, which
-    // would silently drop the signed security state that V2 exists to protect.
-    if let Some(local) = state_bridge.get_account_cryptographic_state().await
-        && is_v2_to_v1_downgrade(&local, incoming)
-    {
-        warn!("Refusing a V2 to V1 account cryptographic state downgrade; keeping the local state");
+    state_bridge.set_account_cryptographic_state(incoming).await;
+}
+
+/// Applies a V1 to V2 upgrade done on another device to an unlocked client.
+///
+/// The upgrade token and V2 state are stored above, but an unlocked client still holds the V1 user
+/// key, in memory and in client state. Re-initializing swaps it for the V2 key and writes that
+/// back, so the client does not prompt for a second, destructive, V2 to V2 rotation.
+///
+///   unlocked client (K1) ── sync(V2 state + token) ──▶ reinit ──▶ K2 in memory and in state
+///   locked client       ── sync(V2 state + token) ──▶ nothing, the next unlock upgrades
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+async fn handle_v2_upgrade(client: &Client, data: &CryptoSyncData) {
+    let Some(account_cryptographic_state) = data.account_cryptographic_state.clone() else {
         return;
+    };
+    let Some(upgrade_token) = data
+        .user_decryption
+        .as_ref()
+        .and_then(|user_decryption| user_decryption.v2_upgrade_token.clone())
+    else {
+        return;
+    };
+
+    let result = client
+        .crypto()
+        .reinit_user_crypto(ReinitUserCryptoRequest {
+            account_cryptographic_state,
+            upgrade_token,
+        })
+        .await;
+
+    match result {
+        Ok(()) => {}
+        Err(ReinitUserCryptoError::NotUnlocked) => debug!("Locked, skipping V2 upgrade reinit"),
+        // Handlers MUST NOT fail, to avoid partial state writes
+        Err(e) => warn!(error = ?e, "Failed to apply the V2 upgrade to the unlocked client"),
+    }
+}
+
+#[cfg(not(any(feature = "uniffi", feature = "wasm")))]
+async fn handle_v2_upgrade(_client: &Client, _data: &CryptoSyncData) {}
+
+/// Whether the sync carries a state that constitutes a cryptographic downgrade
+///
+/// Currently, the only downgrade defined is a V2 -> V1 encryption downgrade
+async fn is_replayed_state(client: &Client, data: &CryptoSyncData) -> bool {
+    let Some(incoming) = data.account_cryptographic_state.as_ref() else {
+        return false;
+    };
+    let Some(local) = client
+        .km_state_bridge()
+        .get_account_cryptographic_state()
+        .await
+    else {
+        return false;
+    };
+
+    if is_v2_to_v1_downgrade(&local, incoming) {
+        return true;
     }
 
-    state_bridge.set_account_cryptographic_state(incoming).await;
+    // If we define more downgrade types in the future, check them here.
+    false
 }
 
 /// Whether the incoming state moves a locally V2 account back to V1.
@@ -251,7 +307,7 @@ fn is_v2_to_v1_downgrade(
 /// Client for the key management work that runs on every sync.
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CryptoSyncHandlerClient {
     client: Client,
 }
@@ -262,7 +318,7 @@ impl CryptoSyncHandlerClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl CryptoSyncHandlerClient {
     /// Runs the key management sync work. Call this after each sync, once the user's cryptographic
@@ -534,7 +590,7 @@ mod tests {
             account_cryptographic_state: Some(incoming.clone()),
             ..Default::default()
         };
-        handle_account_cryptographic_state(client, &data).await;
+        handle_crypto_sync(client, &data).await;
         client
             .km_state_bridge()
             .get_account_cryptographic_state()

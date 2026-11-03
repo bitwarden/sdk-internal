@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 #[serde(rename_all = "snake_case")]
 /// Invalid request errors - typically due to missing parameters.
@@ -26,7 +24,7 @@ pub enum SendAccessTokenInvalidRequestError {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 #[serde(rename_all = "snake_case")]
 /// Invalid grant errors - typically due to invalid credentials.
@@ -43,7 +41,7 @@ pub enum SendAccessTokenInvalidGrantError {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "error")]

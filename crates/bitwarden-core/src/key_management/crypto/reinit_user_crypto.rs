@@ -1,7 +1,7 @@
 //! `reinit_user_crypto`: refresh an unlocked user's cryptographic state
 //! intended to be used for mobile clients.
 
-#![cfg(feature = "uniffi")]
+#![cfg(any(feature = "uniffi", feature = "wasm"))]
 
 use bitwarden_crypto::SymmetricKeyAlgorithm;
 use bitwarden_error::bitwarden_error;
@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
+#[cfg(feature = "wasm")]
+use crate::key_management::wasm_unlock_state::copy_user_key_to_state;
 use crate::{
     Client,
     key_management::{
@@ -23,6 +25,8 @@ use crate::{
 /// This presumes the SDK is already unlocked (has user key in memory).
 #[derive(Serialize, Deserialize, Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReinitUserCryptoRequest {
     /// The user's account cryptographic state, encrypted under the user key
     pub account_cryptographic_state: WrappedAccountCryptographicState,
@@ -145,6 +149,14 @@ pub(crate) async fn reinit_user_crypto(
         .set_v2_upgrade_token(&req.upgrade_token)
         .await;
 
+    // Without this the client state keeps the V1 key, and the next re-creation of the SDK from
+    // state reads it back and runs a second rotation.
+    #[cfg(feature = "wasm")]
+    copy_user_key_to_state(client).await.map_err(|_| {
+        error!("Failed to copy the upgraded user key to state during reinit_user_crypto");
+        ReinitUserCryptoError::CryptoInitialization
+    })?;
+
     super::on_unlock_handler(client).await.map_err(|e| {
         error!(error = ?e, "Failure in on_unlock_handler during reinit_user_crypto.");
         ReinitUserCryptoError::LocalMigrationFailed
@@ -219,7 +231,7 @@ mod tests {
             private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
             signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
             security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
-            signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+            signed_public_key: TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap(),
         }
     }
 

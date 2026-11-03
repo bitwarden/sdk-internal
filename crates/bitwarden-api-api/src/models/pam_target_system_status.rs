@@ -16,6 +16,7 @@ use crate::models;
 pub enum PamTargetSystemStatus {
     Active,
     Disabled,
+    PendingSeal,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -26,6 +27,7 @@ impl PamTargetSystemStatus {
         match self {
             Self::Active => 0,
             Self::Disabled => 1,
+            Self::PendingSeal => 2,
             Self::__Unknown(v) => *v,
         }
     }
@@ -34,6 +36,7 @@ impl PamTargetSystemStatus {
         match value {
             0 => Self::Active,
             1 => Self::Disabled,
+            2 => Self::PendingSeal,
             v => Self::__Unknown(v),
         }
     }

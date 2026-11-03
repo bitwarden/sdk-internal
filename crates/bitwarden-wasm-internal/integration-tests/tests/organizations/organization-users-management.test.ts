@@ -1,6 +1,6 @@
 import { ClientSettings, OrganizationUserId, PasswordManagerClient } from "@bitwarden/sdk-internal";
 
-import { HttpMock, MockReply, installHttpMock } from "../http-mock";
+import { HttpMock, MockReply, installHttpMock } from "../../server-emulator/http-mock";
 import { TEST_ORGANIZATION_ID } from "../org-fixtures";
 import { makePasswordManagerClient, makeStateBridge } from "../utils";
 

@@ -8,12 +8,10 @@
 use bitwarden_core::Client;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// Client for initializing a user account.
 #[derive(Clone)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct RegistrationClient {
     #[allow(dead_code)]
     pub(crate) client: Client,

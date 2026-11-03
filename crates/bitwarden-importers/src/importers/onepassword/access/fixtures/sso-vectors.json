@@ -1,0 +1,42 @@
+{
+  "_comment": "Generated test vectors for the 1Password SSO crypto. Binary values are lowercase hex unless noted.",
+  "cpace": {
+    "username": "user@example.com",
+    "sign_in_address": "https://acme.1password.com",
+    "enrollment_uuid": "k5x2ooeirvhpxq6s4mdkfexbiu",
+    "verification_code": "ABCD-1234",
+    "client_secret": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+    "ya_secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f",
+    "msga_json": "{\"ya\":\"IrCugkEa6t7w1_c8A8rYXtk4flTBrMStgtMSEf7qFUE\",\"ad\":{\"version\":1,\"salt\":\"AQIDBAUGBwgJCgsMDQ4PEA\",\"session_id\":[100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115]}}",
+    "passcode_hash": "38837917fc2192f6ccc118b6a25d9588c6cf8c849097ecea45769e2de14ba7e2",
+    "first_hash": "fad519a59425dab622eec9b938a2b341e56cfcd60140b83513ca4d74be7b7995b18ea6fc3ff4329cd5b624520c4869ce5066c7197d4e720c7b746386782bd7d2",
+    "second_hash": "864b9a56885da39814af5a98a06157c622980141b801e95b7dcb1ce8fa82d2f401e428d977241d345f50a0769b73b1d6f8d76c1b6bb7d8dc577f90d20310dea0",
+    "msgb": "34ae978ac0faa39661655e3146484b6d87dc944d537ff545f4f4d8fd6250c91e",
+    "auth_a": "1e62850677e8a2427a5e117e229253b90a302221a155456eb8da168bc004953d",
+    "auth_b": "43dc8de8ae51090471e30403e18f4cc17519b16c5a0f4e4198a98edc8f8cbe318e5cba0a26894ba9a5b501b7c0cb4344d8ab542079c15a16c300adacdfb65d63",
+    "tag_b": "990f58c91dbf2adb7037fab74320acedec316a2310f00513480e78106826d06dc87fe795de51bd1893112e60bdc163438a99ace5f7ea46c573cbb139d0db1c79",
+    "exchange_key": "b35273550fe48b2dd6a6bb9bd441f3001c0540ad795cf1748b88a2652f36d1e7",
+    "credential_bundle_json": "{\"srpx\":\"oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8\",\"auk\":{\"alg\":\"A256GCM\",\"k\":\"WyICHHlP5lPigZUGZYoivbJMqgHjSti86UKwdjCryYM\",\"kty\":\"oct\",\"kid\":\"mp\"}}",
+    "encrypted_credentials": {
+      "kid": "1P_SSO_ENROLLMENT_TRANSPORT_KEY",
+      "enc": "A256GCM",
+      "cty": "b5+jwk+json",
+      "iv": "yMnKy8zNzs_Q0dLT",
+      "data": "NSZ7d9lP3P-eMh74rbJfWc25EMh5LEAYnvoLtBOmJC1NpXhLP4v4q1jBGcJeDJstQvf7ec88S8n4RoR7oufObFzMfCS3tg3rKBY89Djv5xNKb-Pv0sV4ZOyN7aQy26VMVT2olmfagaJ_XYNqz92v7UtdDtW8JOU6t1jMdbiZgywQUbXbCqJjiCuC36oYceISWAJk0264QveqX5x-xsfSNw3tSEqYUk8"
+    }
+  },
+  "leb128_prefix": {
+    "0": "00",
+    "1": "01",
+    "127": "7f",
+    "128": "8001",
+    "300": "ac02",
+    "16383": "ff7f",
+    "16384": "808001"
+  },
+  "redirect": {
+    "url": "https://acme.1password.com/sso/oidc/redirect/#code=1.ASgAwV5aTMWa%2Bkab&state=AheikL9HpINJRhPsoa9KWw&session_state=002f7c59-8098-a5c0-a0d5-dd5ed564dd9a",
+    "code": "1.ASgAwV5aTMWa+kab",
+    "state": "AheikL9HpINJRhPsoa9KWw"
+  }
+}

@@ -239,6 +239,18 @@ pub struct OrganizationResponseModel {
     )]
     pub max_autoscale_sm_service_accounts: Option<i32>,
     #[serde(
+        rename = "pamSeats",
+        alias = "PamSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pam_seats: Option<i32>,
+    #[serde(
+        rename = "maxAutoscalePamSeats",
+        alias = "MaxAutoscalePamSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_autoscale_pam_seats: Option<i32>,
+    #[serde(
         rename = "limitCollectionCreation",
         alias = "LimitCollectionCreation",
         skip_serializing_if = "Option::is_none"
@@ -359,6 +371,8 @@ impl OrganizationResponseModel {
             sm_service_accounts: None,
             max_autoscale_sm_seats: None,
             max_autoscale_sm_service_accounts: None,
+            pam_seats: None,
+            max_autoscale_pam_seats: None,
             limit_collection_creation: None,
             limit_collection_deletion: None,
             limit_item_deletion: None,

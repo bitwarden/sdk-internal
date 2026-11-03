@@ -14,39 +14,27 @@ use crate::models;
 
 /// CreateRotationConfigRequestModel : Creates a rotation config for a cipher (spec
 /// `CreateRotationConfig`).
-/// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.CreateRotationConfigRequestModel.
-/// ScheduleCron is a Quartz 6-field cron expression; null means no scheduled rotation (on-demand
-/// and/or access-end only).
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CreateRotationConfigRequestModel {
-    /// The organization cipher holding the credential this config rotates. A cipher has at most
-    /// one rotation config.
+    /// The organization cipher to rotate. A cipher has at most one rotation config.
     #[serde(rename = "cipherId", alias = "CipherId")]
     pub cipher_id: uuid::Uuid,
-    /// The target system the rotated account lives on.
     #[serde(rename = "targetSystemId", alias = "TargetSystemId")]
     pub target_system_id: uuid::Uuid,
-    /// The account this config rotates on the target system. Opaque to the server -- never parsed.
-    #[serde(rename = "accountIdentity", alias = "AccountIdentity")]
-    pub account_identity: String,
-    /// When true, the access connector terminates the account's live sessions after each rotation.
-    /// Only an automatic target that supports session termination can honour it.
-    #[serde(
-        rename = "terminateSessions",
-        alias = "TerminateSessions",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub terminate_sessions: Option<bool>,
-    /// The scheduled-rotation cadence, as a Quartz 6-field cron expression evaluated in UTC. Null
-    /// means no scheduled rotation -- the config rotates on demand and/or on access end only.
+    /// The config's sealed blob.
+    #[serde(rename = "sealedData", alias = "SealedData")]
+    pub sealed_data: String,
+    /// The content key of the sealed blob, wrapped by the organization key.
+    #[serde(rename = "wrappedKey", alias = "WrappedKey")]
+    pub wrapped_key: String,
+    /// A Quartz 6-field cron expression evaluated in UTC. Null means no scheduled rotation.
     #[serde(
         rename = "scheduleCron",
         alias = "ScheduleCron",
         skip_serializing_if = "Option::is_none"
     )]
     pub schedule_cron: Option<String>,
-    /// When true, the credential is rotated whenever an access lease on the cipher ends, whether
-    /// it expired or was revoked.
+    /// When true, the credential rotates whenever a lease on the cipher ends, however it ended.
     #[serde(
         rename = "rotateOnAccessEnd",
         alias = "RotateOnAccessEnd",
@@ -57,19 +45,17 @@ pub struct CreateRotationConfigRequestModel {
 
 impl CreateRotationConfigRequestModel {
     /// Creates a rotation config for a cipher (spec `CreateRotationConfig`).
-    /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Request.
-    /// CreateRotationConfigRequestModel.ScheduleCron is a Quartz 6-field cron expression; null
-    /// means no scheduled rotation (on-demand and/or access-end only).
     pub fn new(
         cipher_id: uuid::Uuid,
         target_system_id: uuid::Uuid,
-        account_identity: String,
+        sealed_data: String,
+        wrapped_key: String,
     ) -> CreateRotationConfigRequestModel {
         CreateRotationConfigRequestModel {
             cipher_id,
             target_system_id,
-            account_identity,
-            terminate_sessions: None,
+            sealed_data,
+            wrapped_key,
             schedule_cron: None,
             rotate_on_access_end: None,
         }

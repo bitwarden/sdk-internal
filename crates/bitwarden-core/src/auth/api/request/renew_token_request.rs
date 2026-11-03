@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::auth::{api::response::IdentityTokenResponse, login::LoginError};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub(crate) struct RenewTokenRequest {
     grant_type: String,
     refresh_token: String,

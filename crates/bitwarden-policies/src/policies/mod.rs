@@ -1,15 +1,16 @@
-//! Concrete [`Policy`](crate::Policy) implementations, one per
+//! Concrete [`PolicyDefinition`](crate::PolicyDefinition) implementations, one per
 //! [`PolicyType`](crate::PolicyType).
 //!
 //! Each policy lives in its own module alongside its `...PolicyData` struct (for
 //! the policies that carry data) and any supporting enums. Future note: once the
-//! policies crate is stable, each Policy implementation will be distributed to
+//! policies crate is stable, each policy implementation will be distributed to
 //! the team that owns its domain.
 
 mod activate_autofill;
 mod automatic_app_log_in;
 mod automatic_user_confirmation;
 mod autotype_default_setting;
+mod autotype_ga_policy;
 mod block_claimed_domain_account_creation;
 mod disable_personal_vault_export;
 mod disable_send;
@@ -34,6 +35,7 @@ pub use activate_autofill::*;
 pub use automatic_app_log_in::*;
 pub use automatic_user_confirmation::*;
 pub use autotype_default_setting::*;
+pub use autotype_ga_policy::*;
 pub use block_claimed_domain_account_creation::*;
 pub use disable_personal_vault_export::*;
 pub use disable_send::*;

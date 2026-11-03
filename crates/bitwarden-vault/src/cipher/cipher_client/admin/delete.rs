@@ -2,8 +2,6 @@ use bitwarden_api_api::models::CipherBulkDeleteRequestModel;
 use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{CipherId, cipher_client::admin::CipherAdminClient};
 
@@ -67,7 +65,7 @@ async fn soft_delete_many(
     Ok(())
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CipherAdminClient {
     /// Deletes the Cipher with the matching CipherId from the server, using the admin endpoint.
     /// Affects server data only, does not modify local state.

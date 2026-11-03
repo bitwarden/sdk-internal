@@ -3,12 +3,12 @@ use std::sync::Arc;
 use bitwarden_api_api::models::OrganizationUserBulkRequestModel;
 use bitwarden_core::{
     ApiError, Client, FromClient, MissingFieldError, OrganizationId, client::ApiConfigurations,
+    key_management::KeySlotIds,
 };
+use bitwarden_crypto::KeyStore;
 use bitwarden_error::bitwarden_error;
 use bitwarden_organizations::OrganizationUserId;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::OrganizationUserBulkResponse;
 
@@ -25,13 +25,14 @@ pub enum OrganizationUsersManagementError {
 }
 
 /// Client for administering the members of an organization.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct OrganizationUsersManagementClient {
+    pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl OrganizationUsersManagementClient {
     /// Sends invites to the given staged members, promoting them to invited and consuming a seat.
     ///

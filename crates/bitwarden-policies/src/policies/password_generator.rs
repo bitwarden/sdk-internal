@@ -1,14 +1,12 @@
 use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Password Generator policy.
 pub struct PasswordGeneratorPolicy;
 
-impl Policy for PasswordGeneratorPolicy {
+impl PolicyDefinition for PasswordGeneratorPolicy {
     type Data = PasswordGeneratorPolicyData;
 
     fn policy_type(&self) -> PolicyType {
@@ -29,7 +27,7 @@ impl Policy for PasswordGeneratorPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum PasswordGeneratorType {
     /// Force the password generator.
     Password,
@@ -42,11 +40,7 @@ pub enum PasswordGeneratorType {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct PasswordGeneratorPolicyData {
     /// Forces the generator type; `None` leaves the choice to the member.
     #[serde(skip_serializing_if = "Option::is_none")]

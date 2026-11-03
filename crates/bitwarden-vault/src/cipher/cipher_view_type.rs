@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::{
     BankAccountView, CardView, DriversLicenseView, IdentityView, LoginView, PassportView,
@@ -11,7 +9,7 @@ use crate::{
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[allow(missing_docs, clippy::large_enum_variant)]
 pub enum CipherViewType {
     Login(LoginView),

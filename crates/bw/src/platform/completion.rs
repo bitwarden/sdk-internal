@@ -24,9 +24,12 @@ impl BwCommand for CompletionArgs {
             );
         };
 
-        let mut cmd = Cli::command();
-        let name = cmd.get_name().to_string();
-        clap_complete::generate(shell, &mut cmd, name, &mut std::io::stdout());
+        clap_complete::generate(
+            shell,
+            &mut Cli::command(),
+            env!("CARGO_BIN_NAME"),
+            &mut std::io::stdout(),
+        );
         Ok(().into())
     }
 }

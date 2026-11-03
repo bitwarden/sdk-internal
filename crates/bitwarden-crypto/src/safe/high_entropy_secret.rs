@@ -13,8 +13,6 @@ use bitwarden_sensitive_value::{ExposeSensitive, Sensitive, SensitiveSlice};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 use zeroize::Zeroizing;
 
 /// Minimum accepted secret length in bytes. 16 bytes = 128 bits of headroom for a uniformly
@@ -145,40 +143,11 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type HighEntropySecret = Tagged<string, "HighEntropySecret">;
 "#;
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for HighEntropySecret {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for HighEntropySecret {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-        let string = unsafe { String::from_abi(abi) };
-        HighEntropySecret::from_str(&string).unwrap_throw()
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl OptionFromWasmAbi for HighEntropySecret {
-    fn is_none(abi: &Self::Abi) -> bool {
-        <String as OptionFromWasmAbi>::is_none(abi)
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl IntoWasmAbi for HighEntropySecret {
-    type Abi = <String as IntoWasmAbi>::Abi;
-
-    fn into_abi(self) -> Self::Abi {
-        let string: String = B64::from(self.secret.as_slice()).to_string();
-        string.into_abi()
-    }
-}
+bitwarden_ffi::impl_wire_string!(
+    HighEntropySecret,
+    parse = |wire: String| wire.parse(),
+    format = |secret: HighEntropySecret| B64::from(secret.secret.as_slice()).to_string(),
+);
 
 #[cfg(test)]
 mod tests {

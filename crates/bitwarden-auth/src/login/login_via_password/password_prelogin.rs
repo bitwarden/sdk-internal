@@ -2,8 +2,6 @@ use bitwarden_api_identity::models::PasswordPreloginRequestModel;
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::login::{LoginClient, login_via_password::PasswordPreloginResponse};
 
@@ -31,7 +29,7 @@ impl From<bitwarden_core::MissingFieldError> for PasswordPreloginError {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl LoginClient {
     /// Retrieves the data required before authenticating with a password.
     /// This includes the user's KDF configuration needed to properly derive the master key.

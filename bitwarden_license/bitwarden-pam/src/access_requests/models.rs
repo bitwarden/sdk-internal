@@ -10,36 +10,37 @@ use bitwarden_api_api::models::{
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{OrganizationId, UserId, require};
 use bitwarden_vault::CipherId;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
+use super::validate::{
+    AccessRequestWindowError, DEFAULT_REQUEST_ACCESS_DURATION_SECONDS,
+    MAX_REQUEST_ACCESS_WINDOW_SECONDS,
+};
 use crate::{
-    AccessLeaseId, AccessLeaseStatus, AccessRequestId, AccessRuleId, error::LeasingError,
+    AccessLeaseId, AccessLeaseStatus, AccessRequestId, AccessRuleId, error::PamDecodeError,
     leases::AccessLeaseView,
 };
 
 /// The lifecycle state of an access request.
 ///
-/// The automatic (no human approval) path moves `Pending -> Approved`; the requester activates the
-/// approved request to mint a lease. Activation does not change the status — it is observed through
+/// Activation does not change the status; it shows in
 /// [`produced_lease_id`](AccessRequestView::produced_lease_id) and
-/// [`produced_lease_status`](AccessRequestView::produced_lease_status). `Denied`, `Canceled`, and
-/// `Expired` are terminal states in which no lease exists.
+/// [`produced_lease_status`](AccessRequestView::produced_lease_status).
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessRequestStatus {
-    /// Awaiting a decision (or, on the automatic path, awaiting the server's auto-approval).
+    /// Awaiting an approver's decision.
     Pending,
     /// Approved; the requester may activate it to mint a lease.
     Approved,
-    /// Denied by an approver; terminal.
+    /// Denied by an approver, or automatically; terminal.
     Denied,
-    /// Cancelled by the requester before resolution; terminal.
+    /// Withdrawn by the requester before activation; terminal.
     Canceled,
-    /// Approved but lapsed before the requester activated it; terminal.
+    /// The window lapsed unanswered or unactivated; [`decisions`](AccessRequestView::decisions)
+    /// tells which. Terminal.
     Expired,
     /// A status value this SDK version does not recognize. Kept as a distinct variant so listing
     /// requests never fails on a newer server's status.
@@ -61,7 +62,7 @@ impl From<ApiAccessRequestStatus> for AccessRequestStatus {
 
 /// An approver's verdict on an access request decision.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessDecisionVerdict {
     /// The request was denied.
@@ -84,13 +85,8 @@ impl From<ApiAccessDecisionVerdict> for AccessDecisionVerdict {
 }
 
 /// A single decision recorded on an access request's decision log.
-///
-/// Every decision carries a [`verdict`](Self::verdict), an optional [`comment`](Self::comment), and
-/// the time it was [`decided_at`](Self::decided_at). [`decider`](Self::decider) distinguishes an
-/// automatic (access-rule) decision from a human one and, for a human, carries the approver's
-/// identity.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestDecisionView {
     /// Who made the decision.
@@ -105,11 +101,10 @@ pub struct AccessRequestDecisionView {
 
 /// Who made a decision on an access request.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub enum AccessDecider {
-    /// The decision was made automatically by the governing access rule; no human approval was
-    /// required.
+    /// Decided automatically by the governing access rule.
     Automatic,
     /// The decision was made by a human approver, whose identity is denormalized by the server.
     Human(AccessApprover),
@@ -117,7 +112,7 @@ pub enum AccessDecider {
 
 /// The identity of a human approver, denormalized by the server.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessApprover {
     /// The approver's user id; `None` when the server omitted it.
@@ -129,7 +124,7 @@ pub struct AccessApprover {
 }
 
 impl TryFrom<AccessRequestDecisionResponseModel> for AccessRequestDecisionView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestDecisionResponseModel) -> Result<Self, Self::Error> {
         let decider = match require!(response.decider_kind) {
@@ -140,7 +135,7 @@ impl TryFrom<AccessRequestDecisionResponseModel> for AccessRequestDecisionView {
                 email: response.email,
             }),
             ApiAccessDeciderKind::__Unknown(_) => {
-                return Err(LeasingError::UnrecognizedDeciderKind);
+                return Err(PamDecodeError::UnrecognizedDeciderKind);
             }
         };
 
@@ -153,13 +148,9 @@ impl TryFrom<AccessRequestDecisionResponseModel> for AccessRequestDecisionView {
     }
 }
 
-/// A decrypted view of an access request, as its requester sees it.
-///
-/// An access request is a member's ask to open a PAM-gated cipher. Once approved, the requester
-/// [`activate`](crate::AccessRequestsClient::activate)s it to mint an
-/// [`AccessLease`](crate::AccessLeaseView).
+/// An access request, as returned by the server.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestView {
     /// The request's unique identifier.
@@ -172,13 +163,12 @@ pub struct AccessRequestView {
     pub organization_id: Option<OrganizationId>,
     /// The member who opened the request.
     pub requester_id: UserId,
-    /// The access rule pinned to the request at submit time. None for requests created before rule
-    /// pinning existed.
+    /// The access rule pinned to the request at submit, if any.
     pub rule_id: Option<AccessRuleId>,
     /// The request's lifecycle state.
     pub status: AccessRequestStatus,
-    /// The start of the activation window resolved at submit (UTC) - the earliest the request may
-    /// be promoted to a lease.
+    /// The start of the activation window resolved at submit (UTC), the earliest the request may
+    /// be activated.
     pub lease_not_before: DateTime<Utc>,
     /// The end of the activation window resolved at submit (UTC).
     pub lease_not_after: DateTime<Utc>,
@@ -186,15 +176,18 @@ pub struct AccessRequestView {
     pub reason: Option<String>,
     /// When the request was opened (UTC).
     pub submitted_at: DateTime<Utc>,
-    /// When the request was approved, denied, or cancelled (UTC); None while pending.
+    /// When the request was approved, denied, or cancelled (UTC); None while pending or expired.
     pub resolved_at: Option<DateTime<Utc>>,
-    /// The request's decision log, oldest first. Empty only while pending.
+    /// The request's decision log, oldest first.
     pub decisions: Vec<AccessRequestDecisionView>,
-    /// The lease produced once this (approved) request was activated. None until activation.
+    /// The lease this request produced on activation. None until activation.
     pub produced_lease_id: Option<AccessLeaseId>,
     /// The status of the produced lease at the time this view was fetched. None until activation.
     pub produced_lease_status: Option<AccessLeaseStatus>,
-    /// The parent lease this request extends, if it is an extension request. None otherwise.
+    /// The produced lease's current end (UTC); None until activation. Unlike
+    /// [`lease_not_after`](Self::lease_not_after), this moves when the lease is extended.
+    pub produced_lease_not_after: Option<DateTime<Utc>>,
+    /// The parent lease, if this is an extension request.
     pub extension_of_lease_id: Option<AccessLeaseId>,
     /// The requester's display name, denormalized by the server. None only when the user could
     /// not be resolved.
@@ -202,12 +195,30 @@ pub struct AccessRequestView {
     /// The requester's email, denormalized by the server. None only when the user could not be
     /// resolved.
     pub requester_email: Option<String>,
+    /// True while approved but not yet activated into a lease.
+    pub awaiting_activation: bool,
+    /// The approver's or holder's decision, if any. None for automatic decisions.
+    pub human_decision: Option<AccessRequestDecisionView>,
 }
 
 impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestDetailsResponseModel) -> Result<Self, Self::Error> {
+        let status = AccessRequestStatus::from(require!(response.status));
+        let produced_lease_id = response.produced_lease_id.map(AccessLeaseId::new);
+        let decisions = response
+            .decisions
+            .unwrap_or_default()
+            .into_iter()
+            .map(AccessRequestDecisionView::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let human_decision = decisions
+            .iter()
+            .find(|decision| !matches!(decision.decider, AccessDecider::Automatic))
+            .cloned();
+
         Ok(Self {
             id: AccessRequestId::new(require!(response.id)),
             cipher_id: CipherId::new(require!(response.cipher_id)),
@@ -215,20 +226,22 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
             organization_id: response.organization_id.map(OrganizationId::new),
             requester_id: UserId::new(require!(response.requester_id)),
             rule_id: response.rule_id.map(AccessRuleId::new),
-            status: AccessRequestStatus::from(require!(response.status)),
+            status,
             lease_not_before: require!(response.lease_not_before).parse()?,
             lease_not_after: require!(response.lease_not_after).parse()?,
             reason: response.reason,
             submitted_at: require!(response.submitted_at).parse()?,
             resolved_at: response.resolved_at.map(|d| d.parse()).transpose()?,
-            decisions: response
-                .decisions
-                .unwrap_or_default()
-                .into_iter()
-                .map(AccessRequestDecisionView::try_from)
-                .collect::<Result<Vec<_>, _>>()?,
-            produced_lease_id: response.produced_lease_id.map(AccessLeaseId::new),
+            awaiting_activation: status == AccessRequestStatus::Approved
+                && produced_lease_id.is_none(),
+            human_decision,
+            decisions,
+            produced_lease_id,
             produced_lease_status: response.produced_lease_status.map(AccessLeaseStatus::from),
+            produced_lease_not_after: response
+                .produced_lease_not_after
+                .map(|d| d.parse())
+                .transpose()?,
             extension_of_lease_id: response.extension_of_lease_id.map(AccessLeaseId::new),
             requester_name: response.requester_name,
             requester_email: response.requester_email,
@@ -236,18 +249,14 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
     }
 }
 
-/// The approval path a lease request will take, surfaced by
-/// [`pre_check`](crate::AccessRequestsClient::pre_check) so the client can present the right
-/// workflow before the requester commits.
+/// The approval path an access request takes.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessApprovalMode {
-    /// A request would be approved immediately - the client should let the requester pick a
-    /// duration.
+    /// Approved on submit; the requester picks a duration.
     Automatic,
-    /// A request would need an approver - the client should let the requester pick a window and
-    /// justify it.
+    /// Needs an approver; the requester picks a window and gives a reason.
     Human,
     /// An approval mode value this SDK version does not recognize.
     Unknown,
@@ -265,37 +274,66 @@ impl From<ApiAccessApprovalMode> for AccessApprovalMode {
 
 /// The resolved approval outcome for a cipher, read without submitting a request.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessPreCheckView {
     /// The cipher this pre-check was resolved for.
     pub cipher_id: CipherId,
     /// The approval path a request for this cipher would take.
     pub approval_mode: AccessApprovalMode,
-    /// True when the caller already holds an active lease: reveal the credential, no request
-    /// needed.
+    /// True when the caller already holds an active lease, so no request is needed.
     pub has_active_lease: bool,
+    /// Duration to pre-select, in seconds; never above
+    /// [`max_duration_seconds`](Self::max_duration_seconds).
+    pub default_duration_seconds: u32,
+    /// Longest duration or window span, in seconds, that submit will accept for this cipher.
+    pub max_duration_seconds: u32,
+    /// False while another member holds this cipher's single active lease. A hint; the server
+    /// re-checks at start.
+    pub can_start_lease: bool,
+    /// When the lease holding the slot ends; None while
+    /// [`can_start_lease`](Self::can_start_lease) is true.
+    pub slot_frees_at: Option<DateTime<Utc>>,
 }
 
 impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessPreCheckResponseModel) -> Result<Self, Self::Error> {
+        // Absent and non-positive both mean "no cap", resolving to the ceiling as the server's
+        // `EffectiveMax` does.
+        let max_duration_seconds = positive_u32(response.max_duration_seconds)
+            .map_or(MAX_REQUEST_ACCESS_WINDOW_SECONDS, |max| {
+                max.min(MAX_REQUEST_ACCESS_WINDOW_SECONDS)
+            });
+
         Ok(Self {
             cipher_id: CipherId::new(require!(response.cipher_id)),
             approval_mode: AccessApprovalMode::from(require!(response.approval_mode)),
             has_active_lease: require!(response.has_active_lease),
+            // Re-clamped here and server-side: the two bounds arrive as independent fields,
+            // so a default above the cap would pre-fill a value submit refuses.
+            default_duration_seconds: positive_u32(response.default_duration_seconds)
+                .unwrap_or(DEFAULT_REQUEST_ACCESS_DURATION_SECONDS)
+                .min(max_duration_seconds),
+            max_duration_seconds,
+            // Fails open: reading absence as false would block every gated cipher.
+            can_start_lease: response.can_start_lease.unwrap_or(true),
+            slot_frees_at: response.slot_frees_at.map(|d| d.parse()).transpose()?,
         })
     }
 }
 
-/// A decrypted view of an access request as its requester sees it right after submitting it.
-///
-/// A lighter sibling of [`AccessRequestView`]: the create response doesn't carry a decision log,
-/// pinned rule, produced-lease linkage, or denormalized requester identity, since none of those
-/// exist yet for a request that was just opened.
+/// Reads an optional wire-side duration, mapping absent, zero, and negative alike onto `None` so
+/// the caller applies its fallback.
+fn positive_u32(value: Option<i32>) -> Option<u32> {
+    value.filter(|v| *v > 0).map(|v| v as u32)
+}
+
+/// A just-submitted access request, as its requester sees it; a lighter sibling of
+/// [`AccessRequestView`].
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestSummaryView {
     /// The request's unique identifier.
@@ -319,7 +357,7 @@ pub struct AccessRequestSummaryView {
 }
 
 impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestSummaryView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -338,10 +376,10 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestSummaryView {
 
 /// The result of submitting a cipher-lease request.
 ///
-/// No lease is minted at submit on either path - the requester
+/// No lease is minted at submit on either path; the requester
 /// [`activate`](crate::AccessRequestsClient::activate)s the request to start the lease.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestResultView {
     /// [`Automatic`](AccessApprovalMode::Automatic) when [`request`](Self::request) was approved
@@ -353,7 +391,7 @@ pub struct AccessRequestResultView {
 }
 
 impl TryFrom<AccessRequestResultResponseModel> for AccessRequestResultView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestResultResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -363,15 +401,31 @@ impl TryFrom<AccessRequestResultResponseModel> for AccessRequestResultView {
     }
 }
 
+/// The single badge to show for a gated cipher: an active lease outranks an approved request,
+/// which outranks a pending one. Has no `unavailable` or `expired` state, since the access-state
+/// response covers only the caller.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[bitwarden_ffi::wasm_record]
+#[serde(rename_all = "camelCase")]
+pub enum AccessBadgeState {
+    /// The caller holds an active lease; the cipher is unlocked until it expires.
+    Active {
+        /// The active lease's access window close time (UTC).
+        #[serde(rename = "expiresAt")]
+        expires_at: DateTime<Utc>,
+    },
+    /// The caller's request was approved and is ready to be activated into a lease.
+    Ready,
+    /// The caller has a request awaiting a decision.
+    Pending,
+    /// No active lease, approved request, or pending request; the item is gated and resting.
+    Privileged,
+}
+
 /// A single-snapshot read of the caller's access state for one cipher, powering the cipher-view
 /// banner and the vault-row badge.
-///
-/// At most one of [`active_lease`](Self::active_lease), [`pending_request`](Self::pending_request),
-/// and [`approved_request`](Self::approved_request) is meaningfully "next": an active lease
-/// authorizes access, a pending request awaits a decision, and an approved request awaits
-/// activation by the caller.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct CipherAccessStateView {
     /// The cipher this state was resolved for.
@@ -383,31 +437,50 @@ pub struct CipherAccessStateView {
     /// The caller's approved-but-not-yet-activated request on this cipher, if any. Lapsed
     /// approvals are never surfaced here.
     pub approved_request: Option<AccessRequestView>,
+    /// The single badge to show for this cipher; see [`AccessBadgeState`] for precedence.
+    pub badge_state: AccessBadgeState,
     /// Whether the active lease can still be extended.
     pub extensions_allowed: bool,
-    /// The longest a single extension of the active lease may run, in seconds; None when there is
-    /// no cap or no active lease.
+    /// The longest a single extension of the active lease may run, in seconds; None without an
+    /// active lease or when its rule does not allow extensions.
     pub max_extension_duration_seconds: Option<i32>,
 }
 
 impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: CipherAccessStateResponseModel) -> Result<Self, Self::Error> {
+        let active_lease = response
+            .active_lease
+            .map(|lease| AccessLeaseView::try_from(*lease))
+            .transpose()?;
+        let pending_request = response
+            .pending_request
+            .map(|request| AccessRequestView::try_from(*request))
+            .transpose()?;
+        let approved_request = response
+            .approved_request
+            .map(|request| AccessRequestView::try_from(*request))
+            .transpose()?;
+
+        let badge_state = if let Some(lease) = &active_lease {
+            AccessBadgeState::Active {
+                expires_at: lease.not_after,
+            }
+        } else if approved_request.is_some() {
+            AccessBadgeState::Ready
+        } else if pending_request.is_some() {
+            AccessBadgeState::Pending
+        } else {
+            AccessBadgeState::Privileged
+        };
+
         Ok(Self {
             cipher_id: CipherId::new(require!(response.cipher_id)),
-            active_lease: response
-                .active_lease
-                .map(|lease| AccessLeaseView::try_from(*lease))
-                .transpose()?,
-            pending_request: response
-                .pending_request
-                .map(|request| AccessRequestView::try_from(*request))
-                .transpose()?,
-            approved_request: response
-                .approved_request
-                .map(|request| AccessRequestView::try_from(*request))
-                .transpose()?,
+            active_lease,
+            pending_request,
+            approved_request,
+            badge_state,
             extensions_allowed: require!(response.extensions_allowed),
             max_extension_duration_seconds: response.max_extension_duration_seconds,
         })
@@ -417,11 +490,9 @@ impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
 /// Request to lease a cipher.
 ///
 /// Supply [`duration_seconds`](Self::duration_seconds) for the automatic path, or
-/// [`start`](Self::start)/[`end`](Self::end) + [`reason`](Self::reason) for the human path. Run a
-/// [`pre_check`](crate::AccessRequestsClient::pre_check) first to know which shape the server
-/// expects.
+/// [`start`](Self::start)/[`end`](Self::end) + [`reason`](Self::reason) for the human path.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestCreateRequest {
     /// How long the automatic path's lease should run, in seconds. None on the human path.
@@ -434,14 +505,24 @@ pub struct AccessRequestCreateRequest {
     pub reason: Option<String>,
 }
 
-impl From<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
-    fn from(request: AccessRequestCreateRequest) -> Self {
-        Self {
+impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
+    type Error = AccessRequestWindowError;
+
+    /// Validates the request's activation window on the way to the wire model, so no path to the
+    /// server skips it.
+    fn try_from(request: AccessRequestCreateRequest) -> Result<Self, Self::Error> {
+        request.validate()?;
+
+        Ok(Self {
             duration_seconds: request.duration_seconds.map(|d| d.get() as i32),
-            start: request.start.map(|d| d.to_rfc3339()),
-            end: request.end.map(|d| d.to_rfc3339()),
+            start: request
+                .start
+                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
+            end: request
+                .end
+                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
             reason: request.reason,
-        }
+        })
     }
 }
 
@@ -641,6 +722,117 @@ mod tests {
         assert_eq!(view.approval_mode, AccessApprovalMode::Unknown);
     }
 
+    #[test]
+    fn pre_check_view_defaults_can_start_lease_to_true_when_absent() {
+        let response = pre_check_response(None, None);
+
+        let view = AccessPreCheckView::try_from(response).unwrap();
+
+        assert!(view.can_start_lease);
+        assert_eq!(view.slot_frees_at, None);
+    }
+
+    #[test]
+    fn pre_check_view_maps_a_taken_slot_and_its_free_time() {
+        let response = AccessPreCheckResponseModel {
+            can_start_lease: Some(false),
+            slot_frees_at: Some("2026-08-31T10:52:00Z".to_string()),
+            ..pre_check_response(None, None)
+        };
+
+        let view = AccessPreCheckView::try_from(response).unwrap();
+
+        assert!(!view.can_start_lease);
+        assert_eq!(
+            view.slot_frees_at,
+            Some("2026-08-31T10:52:00Z".parse::<DateTime<Utc>>().unwrap())
+        );
+    }
+
+    #[test]
+    fn pre_check_view_maps_a_taken_slot_without_a_free_time() {
+        let response = AccessPreCheckResponseModel {
+            can_start_lease: Some(false),
+            slot_frees_at: None,
+            ..pre_check_response(None, None)
+        };
+
+        let view = AccessPreCheckView::try_from(response).unwrap();
+
+        assert!(!view.can_start_lease);
+        assert_eq!(view.slot_frees_at, None);
+    }
+
+    fn pre_check_response(
+        default_duration_seconds: Option<i32>,
+        max_duration_seconds: Option<i32>,
+    ) -> AccessPreCheckResponseModel {
+        AccessPreCheckResponseModel {
+            cipher_id: Some(cipher_id()),
+            approval_mode: Some(ApiAccessApprovalMode::Automatic),
+            has_active_lease: Some(false),
+            default_duration_seconds,
+            max_duration_seconds,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn pre_check_view_carries_the_rules_duration_bounds() {
+        let view = AccessPreCheckView::try_from(pre_check_response(Some(900), Some(1800))).unwrap();
+
+        assert_eq!(view.default_duration_seconds, 900);
+        assert_eq!(view.max_duration_seconds, 1800);
+    }
+
+    #[test]
+    fn pre_check_view_falls_back_when_bounds_are_absent() {
+        let view = AccessPreCheckView::try_from(pre_check_response(None, None)).unwrap();
+
+        assert_eq!(
+            view.default_duration_seconds,
+            DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
+        );
+        assert_eq!(view.max_duration_seconds, MAX_REQUEST_ACCESS_WINDOW_SECONDS);
+    }
+
+    #[test]
+    fn pre_check_view_clamps_default_to_max() {
+        // A rule left at a 1h default but capped at 15m; pre-filling the default
+        // would hand the requester a duration submit refuses.
+        let view = AccessPreCheckView::try_from(pre_check_response(Some(3600), Some(900))).unwrap();
+
+        assert_eq!(view.default_duration_seconds, 900);
+        assert_eq!(view.max_duration_seconds, 900);
+    }
+
+    #[test]
+    fn pre_check_view_publishes_the_rule_cap_narrowed_only_by_the_global_ceiling() {
+        let ceiling = i32::try_from(MAX_REQUEST_ACCESS_WINDOW_SECONDS).unwrap();
+        for (sent, expected) in [
+            // A multi-day cap under the ceiling must survive unclamped.
+            (7 * 86_400, 7 * 86_400),
+            (ceiling + 1, MAX_REQUEST_ACCESS_WINDOW_SECONDS),
+        ] {
+            let view = AccessPreCheckView::try_from(pre_check_response(None, Some(sent))).unwrap();
+
+            assert_eq!(view.max_duration_seconds, expected, "cap {sent}");
+        }
+    }
+
+    #[test]
+    fn pre_check_view_treats_non_positive_bounds_as_absent() {
+        // Zero means "no cap" and a negative only comes from a malformed response; neither should
+        // collapse the picker.
+        let view = AccessPreCheckView::try_from(pre_check_response(Some(0), Some(-1))).unwrap();
+
+        assert_eq!(
+            view.default_duration_seconds,
+            DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
+        );
+        assert_eq!(view.max_duration_seconds, MAX_REQUEST_ACCESS_WINDOW_SECONDS);
+    }
+
     fn sample_created_request() -> AccessRequestDetailsResponseModel {
         AccessRequestDetailsResponseModel {
             id: Some(request_id().into()),
@@ -698,6 +890,7 @@ mod tests {
         assert_eq!(view.active_lease, None);
         assert_eq!(view.pending_request, None);
         assert_eq!(view.approved_request, None);
+        assert_eq!(view.badge_state, AccessBadgeState::Privileged);
         assert!(!view.extensions_allowed);
         assert_eq!(view.max_extension_duration_seconds, None);
     }
@@ -729,24 +922,258 @@ mod tests {
         assert!(view.active_lease.is_some());
         assert!(view.pending_request.is_some());
         assert!(view.approved_request.is_some());
+        // An active lease outranks the (also-populated) approved and pending requests.
+        assert_eq!(
+            view.badge_state,
+            AccessBadgeState::Active {
+                expires_at: "2025-01-01T01:00:00Z".parse().unwrap()
+            }
+        );
         assert!(view.extensions_allowed);
         assert_eq!(view.max_extension_duration_seconds, Some(3600));
     }
 
+    fn cipher_access_state_response_with(
+        active_lease: Option<Box<AccessLeaseResponseModel>>,
+        pending_request: Option<Box<AccessRequestDetailsResponseModel>>,
+        approved_request: Option<Box<AccessRequestDetailsResponseModel>>,
+    ) -> CipherAccessStateResponseModel {
+        CipherAccessStateResponseModel {
+            cipher_id: Some(cipher_id()),
+            active_lease,
+            pending_request,
+            approved_request,
+            extensions_allowed: Some(false),
+            max_extension_duration_seconds: None,
+            ..Default::default()
+        }
+    }
+
+    fn sample_active_lease() -> Box<AccessLeaseResponseModel> {
+        Box::new(AccessLeaseResponseModel {
+            id: Some(uuid!("33333333-3333-3333-3333-333333333333")),
+            request_id: Some(request_id().into()),
+            cipher_id: Some(cipher_id()),
+            collection_id: Some(uuid!("66666666-6666-6666-6666-666666666666")),
+            requester_id: Some(uuid!("88888888-8888-8888-8888-888888888888")),
+            status: Some(ApiAccessLeaseStatus::Active),
+            not_before: Some("2025-01-01T00:00:00Z".to_string()),
+            not_after: Some("2025-01-01T01:00:00Z".to_string()),
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn badge_state_is_active_when_only_an_active_lease_is_present() {
+        let response = cipher_access_state_response_with(Some(sample_active_lease()), None, None);
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(
+            view.badge_state,
+            AccessBadgeState::Active {
+                expires_at: "2025-01-01T01:00:00Z".parse().unwrap()
+            }
+        );
+    }
+
+    #[test]
+    fn badge_state_is_ready_when_approved_request_is_present_without_a_lease() {
+        let response =
+            cipher_access_state_response_with(None, None, Some(Box::new(full_response())));
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Ready);
+    }
+
+    #[test]
+    fn badge_state_prefers_ready_over_pending() {
+        let response = cipher_access_state_response_with(
+            None,
+            Some(Box::new(full_response())),
+            Some(Box::new(full_response())),
+        );
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Ready);
+    }
+
+    #[test]
+    fn badge_state_is_pending_when_only_a_pending_request_is_present() {
+        let response =
+            cipher_access_state_response_with(None, Some(Box::new(full_response())), None);
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Pending);
+    }
+
+    #[test]
+    fn badge_state_is_privileged_when_nothing_is_present() {
+        let response = cipher_access_state_response_with(None, None, None);
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Privileged);
+    }
+
+    #[test]
+    fn active_badge_state_serializes_with_camel_case_expires_at() {
+        let state = AccessBadgeState::Active {
+            expires_at: "2025-01-01T01:00:00Z".parse().unwrap(),
+        };
+
+        let json = serde_json::to_value(&state).unwrap();
+
+        assert_eq!(json["active"]["expiresAt"], "2025-01-01T01:00:00Z");
+    }
+
+    #[test]
+    fn unit_badge_states_serialize_as_bare_strings() {
+        assert_eq!(
+            serde_json::to_value(AccessBadgeState::Ready).unwrap(),
+            serde_json::json!("ready")
+        );
+        assert_eq!(
+            serde_json::to_value(AccessBadgeState::Pending).unwrap(),
+            serde_json::json!("pending")
+        );
+        assert_eq!(
+            serde_json::to_value(AccessBadgeState::Privileged).unwrap(),
+            serde_json::json!("privileged")
+        );
+    }
+
+    /// Far future because `validate` rejects an already-ended window; only the rendering is
+    /// under test here.
     #[test]
     fn access_request_create_request_converts_to_model() {
         let request = AccessRequestCreateRequest {
             duration_seconds: NonZeroU32::new(3600),
-            start: Some("2025-01-01T00:00:00Z".parse().unwrap()),
-            end: Some("2025-01-01T01:00:00Z".parse().unwrap()),
+            start: Some("2099-01-01T00:00:00Z".parse().unwrap()),
+            end: Some("2099-01-01T01:00:00Z".parse().unwrap()),
             reason: Some("Need access".to_string()),
         };
 
-        let model = AccessRequestCreateRequestModel::from(request);
+        let model = AccessRequestCreateRequestModel::try_from(request).unwrap();
 
         assert_eq!(model.duration_seconds, Some(3600));
-        assert_eq!(model.start, Some("2025-01-01T00:00:00+00:00".to_string()));
-        assert_eq!(model.end, Some("2025-01-01T01:00:00+00:00".to_string()));
+        assert_eq!(model.start, Some("2099-01-01T00:00:00.000Z".to_string()));
+        assert_eq!(model.end, Some("2099-01-01T01:00:00.000Z".to_string()));
         assert_eq!(model.reason, Some("Need access".to_string()));
+    }
+
+    #[test]
+    fn access_request_create_request_window_is_serialized_as_utc_with_a_z_designator() {
+        let request = AccessRequestCreateRequest {
+            start: Some("2099-06-15T13:30:00.250Z".parse().unwrap()),
+            end: Some("2099-06-15T14:30:00Z".parse().unwrap()),
+            ..Default::default()
+        };
+
+        let model = AccessRequestCreateRequestModel::try_from(request).unwrap();
+
+        assert_eq!(model.start, Some("2099-06-15T13:30:00.250Z".to_string()));
+        assert_eq!(model.end, Some("2099-06-15T14:30:00.000Z".to_string()));
+        assert!(model.start.unwrap().ends_with('Z'));
+        assert!(model.end.unwrap().ends_with('Z'));
+    }
+
+    #[test]
+    fn access_request_create_request_conversion_enforces_validation() {
+        let request = AccessRequestCreateRequest {
+            start: Some("2025-01-01T01:00:00Z".parse().unwrap()),
+            end: Some("2025-01-01T00:00:00Z".parse().unwrap()),
+            ..Default::default()
+        };
+
+        let result = AccessRequestCreateRequestModel::try_from(request);
+
+        assert_eq!(
+            result.unwrap_err(),
+            AccessRequestWindowError::EndBeforeStart
+        );
+    }
+
+    #[test]
+    fn awaiting_activation_is_true_for_an_approved_request_with_no_lease_yet() {
+        let response = AccessRequestDetailsResponseModel {
+            status: Some(ApiAccessRequestStatus::Approved),
+            produced_lease_id: None,
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(view.awaiting_activation);
+    }
+
+    /// Activation does not change the status, so only the minted lease separates "still to start"
+    /// from "already running".
+    #[test]
+    fn awaiting_activation_is_false_once_the_request_has_minted_a_lease() {
+        let response = AccessRequestDetailsResponseModel {
+            status: Some(ApiAccessRequestStatus::Approved),
+            produced_lease_id: Some(Uuid::new_v4()),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(!view.awaiting_activation);
+        assert_eq!(view.status, AccessRequestStatus::Approved);
+    }
+
+    #[test]
+    fn awaiting_activation_is_false_for_a_request_still_pending() {
+        let response = AccessRequestDetailsResponseModel {
+            status: Some(ApiAccessRequestStatus::Pending),
+            produced_lease_id: None,
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(!view.awaiting_activation);
+    }
+
+    #[test]
+    fn human_decision_skips_the_automatic_one() {
+        let response = AccessRequestDetailsResponseModel {
+            decisions: Some(vec![automatic_decision(), human_decision()]),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        let decision = view.human_decision.expect("a human decided this request");
+        assert!(matches!(decision.decider, AccessDecider::Human(_)));
+        assert_eq!(decision.comment.as_deref(), Some("Looks fine"));
+    }
+
+    #[test]
+    fn human_decision_is_none_when_only_an_access_rule_decided() {
+        let response = AccessRequestDetailsResponseModel {
+            decisions: Some(vec![automatic_decision()]),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(view.human_decision.is_none());
+    }
+
+    #[test]
+    fn human_decision_is_none_while_the_request_is_undecided() {
+        let response = AccessRequestDetailsResponseModel {
+            decisions: Some(vec![]),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(view.human_decision.is_none());
     }
 }

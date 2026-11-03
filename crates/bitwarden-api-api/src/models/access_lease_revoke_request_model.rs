@@ -13,12 +13,9 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 /// AccessLeaseRevokeRequestModel : A request to revoke an active lease early.
-/// Bit.Services.Pam.Api.Models.Request.AccessLeaseRevokeRequestModel.Reason is optional and
-/// retained for the audit trail.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessLeaseRevokeRequestModel {
-    /// An optional note explaining the revocation. Recorded on the audit trail; not surfaced on
-    /// the lease itself.
+    /// Recorded on the audit trail; not surfaced on the lease itself.
     #[serde(
         rename = "reason",
         alias = "Reason",
@@ -29,8 +26,6 @@ pub struct AccessLeaseRevokeRequestModel {
 
 impl AccessLeaseRevokeRequestModel {
     /// A request to revoke an active lease early.
-    /// Bit.Services.Pam.Api.Models.Request.AccessLeaseRevokeRequestModel.Reason is optional and
-    /// retained for the audit trail.
     pub fn new() -> AccessLeaseRevokeRequestModel {
         AccessLeaseRevokeRequestModel { reason: None }
     }

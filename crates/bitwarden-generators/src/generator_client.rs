@@ -1,6 +1,4 @@
 use bitwarden_core::Client;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     PassphraseError, PassphraseGeneratorRequest, PasswordError, PasswordGeneratorRequest,
@@ -9,12 +7,12 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct GeneratorClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl GeneratorClient {
     fn new(client: Client) -> Self {
         Self { client }

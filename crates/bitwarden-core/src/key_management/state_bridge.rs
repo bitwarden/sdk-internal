@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use bitwarden_crypto::{
     EncString, Kdf, KeyId, SymmetricCryptoKey, safe::PasswordProtectedKeyEnvelope,
 };
-#[cfg(feature = "wasm")]
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -58,7 +58,7 @@ impl Default for StateBridge {
 /// state held by the clients
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct StateBridgeClient {
     pub(crate) client: crate::Client,
 }
@@ -85,7 +85,7 @@ impl StateBridgeClient {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// Raw JavaScript-side state bridge implementation. The corresponding TypeScript
     /// interface (`WasmStateBridge`) and the per-method extern bindings are generated

@@ -12,30 +12,24 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// PamRotationAttemptResponseModel : One access connector's try at executing a rotation job. An
-/// element of
-/// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.PamRotationJobResponseModel.
-/// Attempts.
+/// PamRotationAttemptResponseModel : One access connector's try at executing a rotation job.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PamRotationAttemptResponseModel {
-    /// The attempt's unique identifier.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    /// The rotation job this attempt was made against.
     #[serde(
         rename = "jobId",
         alias = "JobId",
         skip_serializing_if = "Option::is_none"
     )]
     pub job_id: Option<uuid::Uuid>,
-    /// The access connector that executed this attempt, fixed for the attempt's lifetime.
+    /// The access connector that executed this attempt, fixed for its lifetime.
     #[serde(
         rename = "claimedByAccessConnectorId",
         alias = "ClaimedByAccessConnectorId",
         skip_serializing_if = "Option::is_none"
     )]
     pub claimed_by_access_connector_id: Option<uuid::Uuid>,
-    /// Whether the access connector wrote the rotated secret back to the cipher.
     #[serde(
         rename = "cipherUpdated",
         alias = "CipherUpdated",
@@ -48,8 +42,7 @@ pub struct PamRotationAttemptResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub status: Option<models::PamRotationAttemptStatus>,
-    /// Why the attempt failed -- the access connector's error code and its optional detail,
-    /// combined. Null unless
+    /// The access connector's error code and optional detail, combined. Null unless
     /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.
     /// PamRotationAttemptResponseModel.Status is Bit.Pam.Enums.PamRotationAttemptStatus.Errored.
     #[serde(
@@ -70,14 +63,14 @@ pub struct PamRotationAttemptResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub session_termination: Option<models::PamSessionTerminationOutcome>,
-    /// When the attempt was created, at claim time (UTC).
+    /// When the attempt was created, at claim time.
     #[serde(
         rename = "creationDate",
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub creation_date: Option<String>,
-    /// When the attempt reached a terminal status (UTC). Null while it is still executing.
+    /// When the attempt reached a terminal status. Null while it is still executing.
     #[serde(
         rename = "resolvedDate",
         alias = "ResolvedDate",
@@ -87,9 +80,7 @@ pub struct PamRotationAttemptResponseModel {
 }
 
 impl PamRotationAttemptResponseModel {
-    /// One access connector's try at executing a rotation job. An element of
-    /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.PamRotationJobResponseModel.
-    /// Attempts.
+    /// One access connector's try at executing a rotation job.
     pub fn new() -> PamRotationAttemptResponseModel {
         PamRotationAttemptResponseModel {
             id: None,

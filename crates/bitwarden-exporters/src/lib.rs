@@ -28,12 +28,9 @@ pub use error::ExportError;
 pub use export::encrypt_import;
 
 #[allow(missing_docs)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum ExportFormat {
     Csv,
     Json,
@@ -126,6 +123,7 @@ impl From<Login> for bitwarden_vault::LoginView {
             uris: if l.is_empty() { None } else { Some(l) },
             totp: login.totp,
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             // Fido2Credentials are set by `encrypt_import`.
             fido2_credentials: None,
         }
@@ -258,6 +256,7 @@ impl From<ImportingCipher> for CipherView {
         };
 
         Self {
+            partial: false,
             id: None,
             organization_id: None,
             folder_id: value.folder_id.map(FolderId::new),

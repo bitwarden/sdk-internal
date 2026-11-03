@@ -59,6 +59,7 @@ pub enum EventType {
     Cipher_ClientToggledIbanVisible,
     Cipher_ClientCopiedNationalIdentificationNumber,
     Cipher_ClientToggledNationalIdentificationNumberVisible,
+    Cipher_ClientHttpAuthReleased,
     Collection_Created,
     Collection_Updated,
     Collection_Deleted,
@@ -167,6 +168,8 @@ pub enum EventType {
     Send_Deleted_File,
     Send_Accessed_Text,
     Send_Accessed_File,
+    Send_PolicyDisabled,
+    Send_PolicyEnabled,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -220,6 +223,7 @@ impl EventType {
             Self::Cipher_ClientToggledIbanVisible => 1130,
             Self::Cipher_ClientCopiedNationalIdentificationNumber => 1131,
             Self::Cipher_ClientToggledNationalIdentificationNumberVisible => 1132,
+            Self::Cipher_ClientHttpAuthReleased => 1133,
             Self::Collection_Created => 1300,
             Self::Collection_Updated => 1301,
             Self::Collection_Deleted => 1302,
@@ -328,6 +332,8 @@ impl EventType {
             Self::Send_Deleted_File => 2509,
             Self::Send_Accessed_Text => 2510,
             Self::Send_Accessed_File => 2511,
+            Self::Send_PolicyDisabled => 2512,
+            Self::Send_PolicyEnabled => 2513,
             Self::__Unknown(v) => *v,
         }
     }
@@ -379,6 +385,7 @@ impl EventType {
             1130 => Self::Cipher_ClientToggledIbanVisible,
             1131 => Self::Cipher_ClientCopiedNationalIdentificationNumber,
             1132 => Self::Cipher_ClientToggledNationalIdentificationNumberVisible,
+            1133 => Self::Cipher_ClientHttpAuthReleased,
             1300 => Self::Collection_Created,
             1301 => Self::Collection_Updated,
             1302 => Self::Collection_Deleted,
@@ -491,6 +498,8 @@ impl EventType {
             2509 => Self::Send_Deleted_File,
             2510 => Self::Send_Accessed_Text,
             2511 => Self::Send_Accessed_File,
+            2512 => Self::Send_PolicyDisabled,
+            2513 => Self::Send_PolicyEnabled,
             v => Self::__Unknown(v),
         }
     }

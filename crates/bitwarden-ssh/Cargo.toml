@@ -18,6 +18,7 @@ keywords.workspace = true
 [features]
 wasm = [
     "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
 ] # WASM support
@@ -25,6 +26,7 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 
 [dependencies]
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-random = { workspace = true }
 block-padding = { version = "=0.4.2" }
 ed25519 = { version = "3.0.0-rc.4", features = ["pkcs8"] }

@@ -4,8 +4,6 @@ use bitwarden_encoding::{B64, FromStrVisitor};
 pub use internal::UnsignedSharedKey;
 use rsa::Oaep;
 use serde::Deserialize;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use super::{from_b64_vec, split_enc_string};
 use crate::{
@@ -13,6 +11,7 @@ use crate::{
     RawPublicKey, SymmetricCryptoKey,
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
+    slow_crypto_span::{SlowCryptoOp, measure},
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -145,40 +144,7 @@ impl Display for UnsignedSharedKey {
     }
 }
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for UnsignedSharedKey {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for UnsignedSharedKey {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-
-        let s = unsafe { String::from_abi(abi) };
-        Self::from_str(&s).unwrap_throw()
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl OptionFromWasmAbi for UnsignedSharedKey {
-    fn is_none(abi: &Self::Abi) -> bool {
-        <String as OptionFromWasmAbi>::is_none(abi)
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl IntoWasmAbi for UnsignedSharedKey {
-    type Abi = <String as IntoWasmAbi>::Abi;
-
-    fn into_abi(self) -> Self::Abi {
-        self.to_string().into_abi()
-    }
-}
+bitwarden_ffi::impl_wire_string!(UnsignedSharedKey);
 
 #[cfg(feature = "wasm")]
 impl TryFrom<wasm_bindgen::JsValue> for UnsignedSharedKey {
@@ -289,7 +255,7 @@ impl UnsignedSharedKey {
         match decapsulation_key.inner() {
             RawPrivateKey::RsaOaepSha1(rsa_private_key) => {
                 use UnsignedSharedKey::*;
-                let key_data = match self {
+                let key_data = measure(SlowCryptoOp::RsaDecrypt, || match self {
                     Rsa2048_OaepSha256_B64 { data } => {
                         rsa_private_key.decrypt(Oaep::<sha2::Sha256>::new(), data)
                     }
@@ -304,7 +270,7 @@ impl UnsignedSharedKey {
                     Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
                         rsa_private_key.decrypt(Oaep::<sha1::Sha1>::new(), data)
                     }
-                }
+                })
                 .map_err(|_| CryptoError::KeyDecrypt)?;
                 SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_data))
             }

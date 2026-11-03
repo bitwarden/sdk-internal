@@ -4,9 +4,8 @@ use bitwarden_logging::{FlightRecorderConfig, init_flight_recorder};
 use tracing::Level;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 use tracing_web::MakeWebConsoleWriter;
-use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 pub enum LogLevel {
     Trace,
     Debug,
@@ -32,7 +31,7 @@ pub(crate) fn convert_level(level: LogLevel) -> Level {
 /// - `flight_recorder_level`: Minimum level for the flight recorder. Defaults to `Info`.
 /// - `flight_recorder_buffer_size`: Ring-buffer capacity for the flight recorder. Defaults to 1000.
 ///   Pass `0` to disable the flight recorder entirely.
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 pub fn init_sdk(
     log_level: Option<LogLevel>,
     flight_recorder_level: Option<LogLevel>,

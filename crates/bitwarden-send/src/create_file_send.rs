@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -20,7 +18,7 @@ use crate::{
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum FileUploadType {
     /// Upload directly to the Bitwarden server via `POST /sends/{id}/file/{file_id}`.
     Direct = 0,
@@ -47,7 +45,7 @@ impl TryFrom<bitwarden_api_api::models::FileUploadType> for FileUploadType {
 /// Contains the created send and information needed to upload the file data.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CreateFileSendResponse {
     /// The created send.
     pub send: SendView,
@@ -119,7 +117,7 @@ pub enum RenewFileUploadUrlError {
     MissingField(#[from] MissingFieldError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Create a new file [Send] and save it to the server.
     ///

@@ -34,6 +34,10 @@ pub enum EncryptionSettingsError {
     #[error("Wrong Pin")]
     WrongPin,
 
+    /// No PIN envelope is available, e.g. an AfterFirstUnlock PIN after an app restart
+    #[error("Pin unlock not available")]
+    PinUnlockNotAvailable,
+
     /// The user-key could not be set to the state, and the sdk will remain locked
     #[error("Unable to set user-key to state")]
     UserKeyStateUpdateFailed,

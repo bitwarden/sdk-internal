@@ -1,6 +1,5 @@
 use bitwarden_api_api::Configuration;
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 
 use crate::{
     DeviceType,
@@ -10,7 +9,7 @@ use crate::{
     },
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub(crate) struct PasswordTokenRequest {
     scope: String,
     client_id: String,
@@ -43,7 +42,7 @@ impl PasswordTokenRequest {
         two_factor: &Option<TwoFactorRequest>,
     ) -> Self {
         let tf = two_factor.as_ref();
-        let obj = Self {
+        Self {
             scope: "api offline_access".to_string(),
             client_id: "web".to_string(),
             device_type: device_type as u8,
@@ -55,9 +54,7 @@ impl PasswordTokenRequest {
             two_factor_token: tf.map(|t| t.token.to_owned()),
             two_factor_provider: tf.map(|t| t.provider.clone()),
             two_factor_remember: tf.map(|t| t.remember),
-        };
-        debug!(?obj, "initializing");
-        obj
+        }
     }
 
     pub(crate) async fn send(

@@ -12,15 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessRequestDecisionResponseModel : One decision on an access request: who decided
-/// (Bit.Services.Pam.Api.Models.Response.AccessRequestDecisionResponseModel.DeciderKind), their
-/// identity for a human decision, the verdict, an optional comment, and when. An element of
-/// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.Decisions — the request's
-/// full decision log, oldest first.              For an automatic (access-rule) decision
-/// Bit.Services.Pam.Api.Models.Response.AccessRequestDecisionResponseModel.Id/Bit.Services.Pam.Api.
-/// Models.Response.AccessRequestDecisionResponseModel.Name/Bit.Services.Pam.Api.Models.Response.
-/// AccessRequestDecisionResponseModel.Email are null; for a human decision they carry the approver
-/// (name/email denormalized by the server, null only when the user could not be resolved).
+/// AccessRequestDecisionResponseModel : One decision in
+/// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.Decisions.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessRequestDecisionResponseModel {
     #[serde(
@@ -32,23 +25,20 @@ pub struct AccessRequestDecisionResponseModel {
     /// The human approver's user id, or null for an automatic decision.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    /// The human approver's display name; null for an automatic decision, or when the user could
-    /// not be resolved.
+    /// The approver's display name; null for an automatic decision or an unresolved user.
     #[serde(
         rename = "name",
         alias = "Name",
         skip_serializing_if = "Option::is_none"
     )]
     pub name: Option<String>,
-    /// The human approver's email; null for an automatic decision, or when the user could not be
-    /// resolved.
+    /// The approver's email; null for an automatic decision or an unresolved user.
     #[serde(
         rename = "email",
         alias = "Email",
         skip_serializing_if = "Option::is_none"
     )]
     pub email: Option<String>,
-    /// The optional note the approver left with the decision.
     #[serde(
         rename = "comment",
         alias = "Comment",
@@ -61,7 +51,6 @@ pub struct AccessRequestDecisionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub verdict: Option<models::AccessDecisionVerdict>,
-    /// When the decision was recorded (UTC).
     #[serde(
         rename = "decidedAt",
         alias = "DecidedAt",
@@ -71,16 +60,8 @@ pub struct AccessRequestDecisionResponseModel {
 }
 
 impl AccessRequestDecisionResponseModel {
-    /// One decision on an access request: who decided
-    /// (Bit.Services.Pam.Api.Models.Response.AccessRequestDecisionResponseModel.DeciderKind), their
-    /// identity for a human decision, the verdict, an optional comment, and when. An element of
-    /// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.Decisions — the
-    /// request's full decision log, oldest first.              For an automatic (access-rule)
-    /// decision Bit.Services.Pam.Api.Models.Response.AccessRequestDecisionResponseModel.Id/Bit.
-    /// Services.Pam.Api.Models.Response.AccessRequestDecisionResponseModel.Name/Bit.Services.Pam.
-    /// Api.Models.Response.AccessRequestDecisionResponseModel.Email are null; for a human decision
-    /// they carry the approver (name/email denormalized by the server, null only when the user
-    /// could not be resolved).
+    /// One decision in
+    /// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.Decisions.
     pub fn new() -> AccessRequestDecisionResponseModel {
         AccessRequestDecisionResponseModel {
             decider_kind: None,

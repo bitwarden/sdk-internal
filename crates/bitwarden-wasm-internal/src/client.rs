@@ -24,10 +24,10 @@ export type BitwardenClient = PasswordManagerClient;
 "#;
 
 /// The main entry point for the Bitwarden SDK in WebAssembly environments
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 pub struct PasswordManagerClient(pub(crate) InnerPasswordManagerClient);
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     ///
@@ -110,6 +110,11 @@ impl PasswordManagerClient {
         self.0.0.user_crypto_management()
     }
 
+    /// Unlock related operations.
+    pub fn unlock(&self) -> UnlockClient {
+        self.0.unlock()
+    }
+
     /// Vault item related operations.
     pub fn vault(&self) -> VaultClient {
         self.0.vault()
@@ -164,9 +169,24 @@ impl PasswordManagerClient {
         self.0.invite_link()
     }
 
+    /// Organization verified domain operations.
+    pub fn organization_domains(&self) -> OrganizationDomainsClient {
+        self.0.organization_domains()
+    }
+
+    /// Emergency access operations, performed as the grantee.
+    pub fn emergency_access(&self) -> EmergencyAccessClient {
+        self.0.emergency_access()
+    }
+
     /// Organization member administration operations.
     pub fn organization_users_management(&self) -> OrganizationUsersManagementClient {
         self.0.organization_users_management()
+    }
+
+    /// Encrypted migrations that bring the account's keys and encrypted data to the current format.
+    pub fn encrypted_migrator(&self) -> EncryptedMigratorClient {
+        self.0.encrypted_migrator()
     }
 
     /// Crypto cipher suite operations.
@@ -177,6 +197,15 @@ impl PasswordManagerClient {
     /// Whether the client is in Gov Mode.
     pub fn gov_mode(&self) -> bool {
         self.0.0.gov_mode()
+    }
+
+    /// Dev-only debug capabilities that reach past the public API into internal
+    /// state, for automated tooling. Rooted debug tree mirroring the client
+    /// tree. Available only when built with the `debug-capabilities` feature,
+    /// which must never be enabled in production.
+    #[cfg(feature = "debug-capabilities")]
+    pub fn debug(&self) -> bitwarden_pm::debug::DebugClient {
+        self.0.debug()
     }
 }
 

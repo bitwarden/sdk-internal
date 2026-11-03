@@ -20,9 +20,10 @@ default = []
 # It disables redaction of secret values in `Debug`/`Display` output.
 dangerous-crypto-debug = []
 uniffi = ["dep:uniffi"]
-wasm = ["dep:wasm-bindgen"]
+wasm = ["bitwarden-ffi/wasm", "dep:wasm-bindgen"]
 
 [dependencies]
+bitwarden-ffi = { workspace = true }
 serde = { workspace = true }
 uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }

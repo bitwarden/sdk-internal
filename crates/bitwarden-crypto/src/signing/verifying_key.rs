@@ -20,6 +20,7 @@ use crate::{
     cose::{CoseKeyThumbprintExt, CoseSerializable, thumbprint_from_required_params},
     error::{EncodingError, SignatureError},
     keys::KeyId,
+    slow_crypto_span::{SlowCryptoOp, SlowCryptoSpan},
 };
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
@@ -45,15 +46,6 @@ impl std::fmt::Debug for VerifyingKey {
         };
         let mut debug_struct = f.debug_struct(format!("VerifyingKey::{}", key_suffix).as_str());
         debug_struct.field("id", &self.id);
-        match &self.inner {
-            RawVerifyingKey::Ed25519(key) => {
-                debug_struct.field("key", &hex::encode(key.to_bytes()));
-            }
-            RawVerifyingKey::MlDsa44(key) => {
-                let encoded = key.encode();
-                debug_struct.field("key", &hex::encode(encoded));
-            }
-        }
         debug_struct.finish()
     }
 }
@@ -82,6 +74,7 @@ impl VerifyingKey {
                     .map_err(|_| SignatureError::InvalidSignature.into())
             }
             RawVerifyingKey::MlDsa44(key) => {
+                let _span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaVerify);
                 let sig = ml_dsa::Signature::<MlDsa44>::try_from(signature)
                     .map_err(|_| SignatureError::InvalidSignature)?;
                 key.verify(data, &sig)

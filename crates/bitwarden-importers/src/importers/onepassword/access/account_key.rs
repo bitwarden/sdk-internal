@@ -36,8 +36,8 @@ impl AccountKey {
             .collect();
 
         let Some(format) = s.get(..2) else {
-            return Err(OnePasswordError::Internal(format!(
-                "invalid account key: too short, got {}",
+            return Err(OnePasswordError::InvalidAccountKey(format!(
+                "too short, got {}",
                 s.len()
             )));
         };
@@ -48,25 +48,25 @@ impl AccountKey {
             "A2" if s.len() == 33 => {}
             "A3" if s.len() == 34 => {}
             "A2" => {
-                return Err(OnePasswordError::Internal(format!(
-                    "invalid account key: 'A2' needs 33 characters without dashes, got {}",
+                return Err(OnePasswordError::InvalidAccountKey(format!(
+                    "'A2' needs 33 characters without dashes, got {}",
                     s.len()
                 )));
             }
             "A3" => {
-                return Err(OnePasswordError::Internal(format!(
-                    "invalid account key: 'A3' needs 34 characters without dashes, got {}",
+                return Err(OnePasswordError::InvalidAccountKey(format!(
+                    "'A3' needs 34 characters without dashes, got {}",
                     s.len()
                 )));
             }
             _ => {
-                return Err(OnePasswordError::Internal(format!(
-                    "invalid account key: unknown format '{format}'"
+                return Err(OnePasswordError::InvalidAccountKey(format!(
+                    "unknown format '{format}'"
                 )));
             }
         }
 
-        let invalid = || OnePasswordError::Internal("invalid account key".into());
+        let invalid = || OnePasswordError::InvalidAccountKey("malformed".into());
         Ok(AccountKey {
             format: format.to_string(),
             uuid: s.get(2..8).ok_or_else(invalid)?.to_string(),
@@ -162,7 +162,7 @@ mod tests {
             match AccountKey::parse(case) {
                 Ok(_) => panic!("expected {case:?} to be invalid"),
                 Err(err) => assert!(
-                    err.to_string().contains("invalid account key"),
+                    matches!(err, OnePasswordError::InvalidAccountKey(_)),
                     "unexpected error for {case:?}: {err}"
                 ),
             }

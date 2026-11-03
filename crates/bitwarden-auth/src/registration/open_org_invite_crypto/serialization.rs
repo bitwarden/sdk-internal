@@ -89,39 +89,11 @@ impl<'de> Deserialize<'de> for SealedOpenOrgInviteData {
     }
 }
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for SealedOpenOrgInviteData {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::convert::FromWasmAbi for SealedOpenOrgInviteData {
-    type Abi = <String as wasm_bindgen::convert::FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-        let string = unsafe { String::from_abi(abi) };
-        SealedOpenOrgInviteData::from_str(&string).unwrap_throw()
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::convert::OptionFromWasmAbi for SealedOpenOrgInviteData {
-    fn is_none(abi: &Self::Abi) -> bool {
-        <String as wasm_bindgen::convert::OptionFromWasmAbi>::is_none(abi)
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::convert::IntoWasmAbi for SealedOpenOrgInviteData {
-    type Abi = <String as wasm_bindgen::convert::IntoWasmAbi>::Abi;
-
-    fn into_abi(self) -> Self::Abi {
-        String::from(self).into_abi()
-    }
-}
+bitwarden_ffi::impl_wire_string!(
+    SealedOpenOrgInviteData,
+    parse = |wire: String| wire.parse(),
+    format = String::from,
+);
 
 #[cfg(test)]
 mod tests {

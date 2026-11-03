@@ -3,9 +3,23 @@ use std::future::Future;
 use erased_serde::Serialize as ErasedSerialize;
 
 use crate::{
+    endpoint::Source,
     rpc::{error::RpcError, request::RpcRequest, request_message::RpcRequestPayload},
     serde_utils,
 };
+
+/// Information about an incoming RPC request that is not part of the request itself.
+///
+/// The IPC client fills this in from the message that carried the request. The source is the one
+/// reported by the [`CommunicationBackend`](crate::traits::CommunicationBackend), so how far it can
+/// be trusted for decisions such as checking which endpoint sent the request depends on that
+/// backend.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RpcRequestInfo {
+    /// The endpoint that sent the request, including per-variant metadata such as the origin of
+    /// a web page.
+    pub source: Source,
+}
 
 /// Trait defining a handler for RPC requests.
 /// These can registered with the IPC client and will be used to handle incoming RPC requests.
@@ -14,10 +28,11 @@ pub trait RpcHandler {
     type Request: RpcRequest;
 
     /// Handle the request. Any errors that occur should be defined as part of the `RpcRequest`
-    /// type.
+    /// type. `info` describes where the request came from, see [`RpcRequestInfo`].
     fn handle(
         &self,
         request: Self::Request,
+        info: RpcRequestInfo,
     ) -> impl Future<Output = <Self::Request as RpcRequest>::Response> + Send;
 }
 
@@ -76,6 +91,7 @@ pub trait ErasedRpcHandler: Send + Sync {
     async fn handle(
         &self,
         serialized_request: &RpcRequestPayload,
+        info: RpcRequestInfo,
     ) -> Result<Box<dyn ErasedSerialize>, RpcError>;
 }
 
@@ -87,10 +103,11 @@ where
     async fn handle(
         &self,
         serialized_request: &RpcRequestPayload,
+        info: RpcRequestInfo,
     ) -> Result<Box<dyn ErasedSerialize>, RpcError> {
         let request: H::Request = serialized_request.deserialize_full()?.request;
 
-        let response = self.handle(request).await;
+        let response = self.handle(request, info).await;
 
         Ok(Box::new(response) as Box<dyn ErasedSerialize>)
     }

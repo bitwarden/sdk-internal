@@ -1,0 +1,5 @@
+error: #[wasm_export] does not support generic methods; wasm_bindgen cannot export them
+ --> tests/compilation_tests/wasm_export_generic_method.rs:7:16
+  |
+7 |     pub fn draw<T: Copy>(&self, shape: T) -> T {
+  |                ^

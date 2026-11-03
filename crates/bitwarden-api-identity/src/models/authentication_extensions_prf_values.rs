@@ -16,10 +16,14 @@ use crate::models;
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthenticationExtensionsPrfValues {
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
+    #[serde_as(
+        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
+    )]
     #[serde(rename = "first", alias = "First")]
     pub first: Option<Vec<u8>>,
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
+    #[serde_as(
+        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
+    )]
     #[serde(
         rename = "second",
         alias = "Second",

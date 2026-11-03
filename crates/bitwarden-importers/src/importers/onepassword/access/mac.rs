@@ -25,7 +25,8 @@ impl MacSigner {
         Self::with_request_id(session_key, bitwarden_random::rng().next_u32())
     }
 
-    fn with_request_id(session_key: &AesKey, request_id: u32) -> MacSigner {
+    /// Creates a signer whose first request id is `request_id`. The SSO login starts from 1.
+    pub(super) fn with_request_id(session_key: &AesKey, request_id: u32) -> MacSigner {
         MacSigner {
             session_id: session_key.id.clone(),
             salt: calculate_session_hmac_salt(&session_key.key),
@@ -163,5 +164,24 @@ mod tests {
             .map(|_| MacSigner::new(&key).request_id.into_inner())
             .collect();
         assert!(ids.iter().any(|id| *id != ids[0]));
+    }
+
+    #[test]
+    fn with_request_id_signs_from_the_given_id() {
+        let key = AesKey::new(
+            "PBXONDZUWVCJFAV25C7XR7IYDQ",
+            decode64_loose(SESSION_KEY).expect("valid key"),
+        );
+        let signer = MacSigner::with_request_id(&key, 1);
+
+        let first = signer
+            .sign("https://my.1password.com/api/v1/auth/verify", "POST")
+            .expect("signs");
+        let second = signer
+            .sign("https://my.1password.com/api/v1/auth/verify", "POST")
+            .expect("signs");
+
+        assert!(first.starts_with("v1|1|"));
+        assert!(second.starts_with("v1|2|"));
     }
 }

@@ -1,9 +1,9 @@
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Autotype Default Setting policy.
 pub struct AutotypeDefaultSettingPolicy;
 
-impl Policy for AutotypeDefaultSettingPolicy {
+impl PolicyDefinition for AutotypeDefaultSettingPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {

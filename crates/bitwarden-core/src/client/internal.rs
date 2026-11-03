@@ -30,8 +30,8 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        MasterPasswordUnlockData, PrivateKeySlotId, SecurityState, SigningKeySlotId,
-        SymmetricKeySlotId, V2UpgradeToken,
+        CryptoSettings, MasterPasswordUnlockData, PrivateKeySlotId, SecurityState,
+        SigningKeySlotId, SymmetricKeySlotId, V2UpgradeToken,
         account_cryptographic_state::WrappedAccountCryptographicState, state_bridge::StateBridge,
     },
 };
@@ -122,13 +122,17 @@ pub struct InternalClient {
     // TODO: Flags have been migrated to Setting but this will have to stay temporarily until the
     // feature flags are removed.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
-    pub(crate) state_registry: StateRegistry,
+    pub(crate) state_registry: Arc<StateRegistry>,
 
     // A bridge used to map in KM state into the SDK, until a more robust solution is implemented
     // by platform. This is not a stable API and other teams should not use it. It will be
     // removed as soon as KM state can be mapped via the platform APIs.
     #[cfg(feature = "internal")]
     pub(crate) state_bridge: StateBridge,
+
+    /// Key-management settings the host sets after building the client.
+    #[cfg(feature = "internal")]
+    pub(crate) crypto_settings: CryptoSettings,
 
     /// Administrator-forced settings acquired from the operating system's device-management
     /// channel. The host application owns this cell and pushes profiles into it. The SDK only
@@ -207,6 +211,15 @@ impl InternalClient {
     /// reading this handle directly.
     pub fn managed_profile_handle(&self) -> Arc<RwLock<Option<ManagementProfile>>> {
         self.managed_profile.clone()
+    }
+
+    /// Shared handle to the SDK's state registry, for the dev-only debug browse.
+    ///
+    /// Prefer `bitwarden_state::debug::StateDebug` (reached through the client's
+    /// debug tree) over reading this handle directly.
+    #[cfg(feature = "debug-capabilities")]
+    pub fn state_registry(&self) -> Arc<StateRegistry> {
+        self.state_registry.clone()
     }
 
     #[allow(missing_docs)]
@@ -301,7 +314,10 @@ impl InternalClient {
 
         // Note: The actual key does not get logged unless the crypto crate has the
         // dangerous-crypto-debug feature enabled, so this is safe
-        info!("Setting user key with ID {:?}", user_key_id);
+        info!(
+            "Setting user key with ID {:?}",
+            ctx.get_symmetric_key_id(user_key_id)
+        );
 
         // The key store should not already have any keys initialized
         if ctx.has_symmetric_key(SymmetricKeySlotId::User)

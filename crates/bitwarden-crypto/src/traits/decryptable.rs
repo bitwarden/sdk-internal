@@ -13,7 +13,7 @@ pub trait Decryptable<Ids: KeySlotIds, Key: KeySlotId, Output> {
 }
 
 impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
-    #[bitwarden_logging::instrument(err)]
+    #[bitwarden_logging::instrument(err, level = "debug")]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -24,7 +24,7 @@ impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
 }
 
 impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
-    #[bitwarden_logging::instrument(err)]
+    #[bitwarden_logging::instrument(err, level = "debug")]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,

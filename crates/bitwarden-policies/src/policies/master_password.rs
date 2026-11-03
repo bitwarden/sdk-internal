@@ -2,12 +2,12 @@ use bitwarden_api_api::models::MasterPasswordPolicyResponseModel;
 use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Master Password policy.
 pub struct MasterPasswordPolicy;
 
-impl Policy for MasterPasswordPolicy {
+impl PolicyDefinition for MasterPasswordPolicy {
     type Data = MasterPasswordPolicyData;
 
     fn policy_type(&self) -> PolicyType {
@@ -33,11 +33,7 @@ impl Policy for MasterPasswordPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct MasterPasswordPolicyData {
     /// The minimum complexity score required for the master password.
     /// Complexity is calculated based on password strength metrics.

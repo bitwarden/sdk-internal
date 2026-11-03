@@ -4,14 +4,14 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
 
 use crate::visitor::MessageVisitor;
 
 /// A single log event captured by the Flight Recorder.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct FlightRecorderEvent {
     /// Unix timestamp in milliseconds.
     pub timestamp: i64,

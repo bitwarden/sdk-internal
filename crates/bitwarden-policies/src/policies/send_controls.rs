@@ -1,9 +1,9 @@
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Send Controls policy.
 pub struct SendControlsPolicy;
 
-impl Policy for SendControlsPolicy {
+impl PolicyDefinition for SendControlsPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {

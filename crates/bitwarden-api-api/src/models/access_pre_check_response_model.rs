@@ -12,9 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessPreCheckResponseModel : The resolved approval outcome for a cipher, without submitting a
-/// request — lets the client present the right workflow (pick a duration vs. pick a window and
-/// justify) before the requester commits.
+/// AccessPreCheckResponseModel : The approval outcome a request for this cipher would get, so the
+/// client can offer the right form before submitting.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessPreCheckResponseModel {
     #[serde(
@@ -35,26 +34,60 @@ pub struct AccessPreCheckResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub approval_mode: Option<models::AccessApprovalMode>,
-    /// True when the caller already holds an active lease: reveal the credential, no request
-    /// needed.
+    /// True when the caller already holds an active lease, so no request is needed.
     #[serde(
         rename = "hasActiveLease",
         alias = "HasActiveLease",
         skip_serializing_if = "Option::is_none"
     )]
     pub has_active_lease: Option<bool>,
+    /// The duration to pre-select, from the rule's default or the global one, clamped to
+    /// Bit.Services.Pam.Api.Models.Response.AccessPreCheckResponseModel.MaxDurationSeconds.
+    #[serde(
+        rename = "defaultDurationSeconds",
+        alias = "DefaultDurationSeconds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_duration_seconds: Option<i32>,
+    /// The longest duration (automatic path) or window (human path) a request may ask for, which
+    /// is the rule's cap narrowed by the global ceiling. Submit enforces the same limit.
+    #[serde(
+        rename = "maxDurationSeconds",
+        alias = "MaxDurationSeconds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_duration_seconds: Option<i32>,
+    /// False only when the single-active-lease constraint binds and another member holds the slot.
+    /// A hint, re-checked at start; absent means true.
+    #[serde(
+        rename = "canStartLease",
+        alias = "CanStartLease",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub can_start_lease: Option<bool>,
+    /// When the lease holding the slot ends. Null when
+    /// Bit.Services.Pam.Api.Models.Response.AccessPreCheckResponseModel.CanStartLease is true.
+    #[serde(
+        rename = "slotFreesAt",
+        alias = "SlotFreesAt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub slot_frees_at: Option<String>,
 }
 
 impl AccessPreCheckResponseModel {
-    /// The resolved approval outcome for a cipher, without submitting a request — lets the client
-    /// present the right workflow (pick a duration vs. pick a window and justify) before the
-    /// requester commits.
+    /// The approval outcome a request for this cipher would get, so the client can offer the right
+    /// form before submitting.
     pub fn new() -> AccessPreCheckResponseModel {
         AccessPreCheckResponseModel {
             object: None,
             cipher_id: None,
             approval_mode: None,
             has_active_lease: None,
+            default_duration_seconds: None,
+            max_duration_seconds: None,
+            can_start_lease: None,
+            slot_frees_at: None,
         }
     }
 }

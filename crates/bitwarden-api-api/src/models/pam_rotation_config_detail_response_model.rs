@@ -12,13 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// PamRotationConfigDetailResponseModel : A rotation config's detail view: the list shape flattened
-/// onto the same object, plus the config's full job/attempt history. The managed-credential surface
-/// renders its header from the config fields and the history section from
-/// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.
-/// PamRotationConfigDetailResponseModel.Jobs, so both arrive in one response -- the same shape
-/// Bit.Services.Pam.AccessConnector.Api.Models.Response.PamAccessConnectorDetailResponseModel
-/// returns for an access connector.
+/// PamRotationConfigDetailResponseModel : A rotation config with its full job and attempt history.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PamRotationConfigDetailResponseModel {
     #[serde(
@@ -27,33 +21,26 @@ pub struct PamRotationConfigDetailResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    /// The rotation config's unique identifier.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    /// The organization this config belongs to.
     #[serde(
         rename = "organizationId",
         alias = "OrganizationId",
         skip_serializing_if = "Option::is_none"
     )]
     pub organization_id: Option<uuid::Uuid>,
-    /// The organization cipher holding the credential this config rotates.
     #[serde(
         rename = "cipherId",
         alias = "CipherId",
         skip_serializing_if = "Option::is_none"
     )]
     pub cipher_id: Option<uuid::Uuid>,
-    /// The target system the rotated account lives on.
     #[serde(
         rename = "targetSystemId",
         alias = "TargetSystemId",
         skip_serializing_if = "Option::is_none"
     )]
     pub target_system_id: Option<uuid::Uuid>,
-    /// The target system's display name, joined in rather than nested: a config list renders a row
-    /// per config, and the target's own view carries a policy and a status a row has no use for.
-    /// It is a copy, so it reflects the target as of the read.
     #[serde(
         rename = "targetSystemName",
         alias = "TargetSystemName",
@@ -66,39 +53,35 @@ pub struct PamRotationConfigDetailResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub target_system_method: Option<models::PamTargetSystemMethod>,
-    /// The account this config rotates on the target system. Opaque to the server -- never parsed;
-    /// only the access connector interprets it.
+    /// The config's sealed blob.
     #[serde(
-        rename = "accountIdentity",
-        alias = "AccountIdentity",
+        rename = "sealedData",
+        alias = "SealedData",
         skip_serializing_if = "Option::is_none"
     )]
-    pub account_identity: Option<String>,
-    /// When true, the access connector terminates the account's live sessions after each rotation.
+    pub sealed_data: Option<String>,
+    /// The content key of the sealed blob, wrapped by the organization key.
     #[serde(
-        rename = "terminateSessions",
-        alias = "TerminateSessions",
+        rename = "wrappedKey",
+        alias = "WrappedKey",
         skip_serializing_if = "Option::is_none"
     )]
-    pub terminate_sessions: Option<bool>,
-    /// The scheduled-rotation cadence, as a Quartz 6-field cron expression evaluated in UTC. Null
-    /// means no scheduled rotation.
+    pub wrapped_key: Option<String>,
+    /// A Quartz 6-field cron expression evaluated in UTC. Null means no scheduled rotation.
     #[serde(
         rename = "scheduleCron",
         alias = "ScheduleCron",
         skip_serializing_if = "Option::is_none"
     )]
     pub schedule_cron: Option<String>,
-    /// When true, the credential is rotated whenever an access lease on the cipher ends, whether
-    /// it expired or was revoked.
+    /// When true, the credential rotates whenever a lease on the cipher ends, however it ended.
     #[serde(
         rename = "rotateOnAccessEnd",
         alias = "RotateOnAccessEnd",
         skip_serializing_if = "Option::is_none"
     )]
     pub rotate_on_access_end: Option<bool>,
-    /// When the config is next due (UTC). On an automatic target the sweep offers a job once this
-    /// is reached; on a manual target it instead marks the config
+    /// When the config is next due: an automatic target then gets a job, a manual one becomes
     /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.
     /// PamRotationConfigResponseModel.AwaitingManualRotation. Null means nothing is due.
     #[serde(
@@ -107,53 +90,49 @@ pub struct PamRotationConfigDetailResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub next_rotation_at: Option<String>,
-    /// When false, the config is inactive and no rotation is offered for it.
+    /// When false, the config is paused and no rotation is offered for it.
     #[serde(
         rename = "enabled",
         alias = "Enabled",
         skip_serializing_if = "Option::is_none"
     )]
     pub enabled: Option<bool>,
-    /// When the last rotation for this config completed successfully (UTC). Null until the first
-    /// success.
+    /// When the last successful rotation completed. Null until the first success.
     #[serde(
         rename = "lastRotationAt",
         alias = "LastRotationAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub last_rotation_at: Option<String>,
-    /// Whether the config has a job in an active status -- spec `has_active_job`.
+    /// Whether the config has a pending or claimed job, or a timed-out one the sweep has not yet
+    /// recorded (spec `has_active_job`).
     #[serde(
         rename = "hasActiveJob",
         alias = "HasActiveJob",
         skip_serializing_if = "Option::is_none"
     )]
     pub has_active_job: Option<bool>,
-    /// A manual-target config whose schedule has come due -- spec `awaiting_manual_rotation`.
-    /// There is no job to claim; an operator must record the out-of-band rotation via `POST
-    /// rotation/configs/{id}/record-manual`.
+    /// An enabled manual-target config that has come due (spec `awaiting_manual_rotation`). An
+    /// operator rotates it out of band and records that via `record-manual`.
     #[serde(
         rename = "awaitingManualRotation",
         alias = "AwaitingManualRotation",
         skip_serializing_if = "Option::is_none"
     )]
     pub awaiting_manual_rotation: Option<bool>,
-    /// When the config was created (UTC).
     #[serde(
         rename = "creationDate",
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub creation_date: Option<String>,
-    /// When the config was last modified (UTC).
     #[serde(
         rename = "revisionDate",
         alias = "RevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub revision_date: Option<String>,
-    /// Every job recorded against the config, newest first, each carrying its own attempts (oldest
-    /// first).
+    /// Every job recorded against the config, newest first, each with its attempts oldest first.
     #[serde(
         rename = "jobs",
         alias = "Jobs",
@@ -163,13 +142,7 @@ pub struct PamRotationConfigDetailResponseModel {
 }
 
 impl PamRotationConfigDetailResponseModel {
-    /// A rotation config's detail view: the list shape flattened onto the same object, plus the
-    /// config's full job/attempt history. The managed-credential surface renders its header from
-    /// the config fields and the history section from
-    /// Bit.Services.Pam.AccessConnector.Rotation.Api.Models.Response.
-    /// PamRotationConfigDetailResponseModel.Jobs, so both arrive in one response -- the same shape
-    /// Bit.Services.Pam.AccessConnector.Api.Models.Response.PamAccessConnectorDetailResponseModel
-    /// returns for an access connector.
+    /// A rotation config with its full job and attempt history.
     pub fn new() -> PamRotationConfigDetailResponseModel {
         PamRotationConfigDetailResponseModel {
             object: None,
@@ -179,8 +152,8 @@ impl PamRotationConfigDetailResponseModel {
             target_system_id: None,
             target_system_name: None,
             target_system_method: None,
-            account_identity: None,
-            terminate_sessions: None,
+            sealed_data: None,
+            wrapped_key: None,
             schedule_cron: None,
             rotate_on_access_end: None,
             next_rotation_at: None,
