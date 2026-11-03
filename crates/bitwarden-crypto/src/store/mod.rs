@@ -24,6 +24,7 @@
 
 use std::sync::{Arc, RwLock};
 
+use bitwarden_ffi::{LargeVec, LargeVecError};
 use rayon::prelude::*;
 
 use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeySlotId, KeySlotIds};
@@ -319,14 +320,46 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
         (successes, failures)
     }
 
-    /// Decrypt items from an iterator a batch at a time, so only one batch is held in memory. Use
-    /// it for long lists whose items are produced as they are read. For a slice, use
-    /// [KeyStore::decrypt_list] or [KeyStore::decrypt_list_with_failures].
+    /// Decrypt a list that can be large. Items from Rust are decrypted together, as
+    /// [KeyStore::decrypt_list] does. Items from JavaScript are converted and decrypted a batch at
+    /// a time, so only one batch is held in memory.
+    ///
+    /// Results come in input order: `Ok(Ok(output))` when an item decrypts, `Ok(Err(failure))` with
+    /// the item and its error when it does not, and `Err(error)` for an item from JavaScript that
+    /// does not convert, which ends the list.
+    pub fn decrypt_large_vec<'a, Key, Data, Output>(
+        &'a self,
+        items: LargeVec<Data>,
+    ) -> impl Iterator<Item = Result<Result<Output, Box<(Data, crate::CryptoError)>>, LargeVecError>> + 'a
+    where
+        Key: KeySlotId,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync + 'a,
+        Output: Send + 'a,
+    {
+        let results: Box<dyn Iterator<Item = _> + 'a> = match items.try_into_vec() {
+            // Items from Rust are already in memory, so they are decrypted as one slice, which
+            // avoids moving each item into a batch.
+            Ok(items) => {
+                let results = self.decrypt_batch(&items);
+                Box::new(
+                    items
+                        .into_iter()
+                        .zip(results)
+                        .map(|(item, result)| result.map_err(|error| Box::new((item, error))))
+                        .map(Ok),
+                )
+            }
+            Err(items) => Box::new(self.decrypt_iter(items)),
+        };
+        results
+    }
+
+    /// Decrypt items from an iterator a batch at a time, so only one batch is held in memory.
     ///
     /// Results come in input order: `Ok(Ok(output))` when an item decrypts, `Ok(Err(failure))` with
     /// the item and its error when it does not, and `Err(error)` in place of an input error. The
     /// iteration goes on after an input error. To fail on it, stop reading.
-    pub fn decrypt_iter<'a, Key, Data, Output, E>(
+    fn decrypt_iter<'a, Key, Data, Output, E>(
         &'a self,
         items: impl IntoIterator<Item = Result<Data, E>> + 'a,
     ) -> impl Iterator<Item = Result<Result<Output, Box<(Data, crate::CryptoError)>>, E>> + 'a
@@ -607,6 +640,59 @@ pub(crate) mod tests {
                 .map(|&n| std::ptr::from_ref(&items[n]))
                 .collect();
             assert_eq!(failed, expected_failed);
+        }
+    }
+
+    mod decrypt_large_vec {
+        use bitwarden_ffi::LargeVec;
+
+        use super::*;
+        use crate::store::tests::decrypt_iter::store_and_items;
+
+        #[test]
+        fn decrypts_a_rust_vec_in_order_and_hands_back_failed_items_in_place() {
+            let failing = [0, 3, 6];
+            let (store, items) = store_and_items(7, &failing);
+            let expected_keys: Vec<_> = items.iter().map(|item| item.1).collect();
+
+            let output: Vec<_> = store
+                .decrypt_large_vec::<_, _, DataView>(LargeVec::from(items))
+                .map(|result| match result.unwrap() {
+                    Ok(view) => Ok(view.0),
+                    Err(failure) => Err(failure.0.1),
+                })
+                .collect();
+
+            let expected: Vec<_> = (0..7)
+                .map(|n| {
+                    if failing.contains(&n) {
+                        Err(expected_keys[n])
+                    } else {
+                        Ok(format!("Item {n}"))
+                    }
+                })
+                .collect();
+            assert_eq!(output, expected);
+        }
+
+        #[test]
+        fn decrypts_mapped_items() {
+            let (store, items) = store_and_items(4, &[]);
+
+            let output: Vec<_> = store
+                .decrypt_large_vec::<_, _, DataView>(
+                    LargeVec::from(items).map(|item| Data(item.0, item.1)),
+                )
+                .map(|result| match result {
+                    Ok(Ok(view)) => view.0,
+                    _ => panic!("every item decrypts"),
+                })
+                .collect();
+
+            assert_eq!(
+                output,
+                (0..4).map(|n| format!("Item {n}")).collect::<Vec<_>>()
+            );
         }
     }
 
