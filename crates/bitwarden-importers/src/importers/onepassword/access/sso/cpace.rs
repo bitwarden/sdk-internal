@@ -101,11 +101,7 @@ fn calculate_msg_b(
 ) -> [u8; 32] {
     let passcode_hash = calculate_passcode_hash(verification_code, &msg_a.ad.salt);
     let first_hash = calculate_first_hash(username, sign_in_address, enrollment_uuid, msg_a);
-    let second_hash = Zeroizing::new(calculate_second_hash(
-        &first_hash,
-        passcode_hash.as_slice(),
-        msg_a,
-    ));
+    let second_hash = calculate_second_hash(&first_hash, passcode_hash.as_slice(), msg_a);
     let generator = RistrettoPoint::from_uniform_bytes(&second_hash);
     multiply_by_client_scalar(&generator, client_secret)
 }
@@ -134,14 +130,18 @@ fn calculate_first_hash(
 }
 
 /// The input of the CPace generator, which binds the passcode to the first hash and the session.
-fn calculate_second_hash(first_hash: &[u8], passcode_hash: &[u8], msg_a: &MsgA) -> [u8; 64] {
-    sha512(&leb128_prefixed(&[
+fn calculate_second_hash(
+    first_hash: &[u8],
+    passcode_hash: &[u8],
+    msg_a: &MsgA,
+) -> Zeroizing<[u8; 64]> {
+    Zeroizing::new(sha512(&leb128_prefixed(&[
         b"CPaceRistretto255",
         passcode_hash,
         &[0; PADDING_LENGTH],
         first_hash,
         &msg_a.ad.session_id,
-    ]))
+    ])))
 }
 
 /// Multiplies by the scalar the client secret reduces to, and compresses the result.
@@ -651,7 +651,7 @@ mod tests {
             &msg_a(),
         );
 
-        assert_eq!(HEXLOWER.encode(&hash), vectors.second_hash);
+        assert_eq!(HEXLOWER.encode(hash.as_slice()), vectors.second_hash);
     }
 
     #[test]
