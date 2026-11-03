@@ -1,0 +1,53 @@
+name: Verifpal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+    paths:
+      - "protocols/**"
+      - ".github/workflows/verifpal.yml"
+
+env:
+  VERIFPAL_VERSION: v1.6.7
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify protocol models
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+
+      - name: Build Verifpal
+        run: cargo install verifpal --git https://github.com/symbolicsoft/verifpal --tag "$VERIFPAL_VERSION" --locked
+
+      # Findings (attacks) are expected and do not fail the job.
+      # Parse and analysis errors exit non-zero and do.
+      - name: Verify models
+        run: |
+          shopt -s globstar nullglob
+          models=(protocols/**/*.vp)
+          if [ ${#models[@]} -eq 0 ]; then
+            echo "No models found"
+            exit 1
+          fi
+          for model in "${models[@]}"; do
+            echo "::group::$model"
+            verifpal verify "$model"
+            echo "::endgroup::"
+          done
