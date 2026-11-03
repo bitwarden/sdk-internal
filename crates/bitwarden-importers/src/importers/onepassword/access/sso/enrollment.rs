@@ -19,7 +19,7 @@ use super::{
         wire::{self, CredentialBundle},
     },
     Timing,
-    cpace::{EnrollmentSession, Exchange, MsgA, perform_cpace, request_msg_a},
+    cpace::{EnrollmentSession, Exchange, MsgA, SignIn, perform_cpace, request_msg_a},
     ui::{
         EnrollmentStatus, SsoEnrollmentContext, SsoEnrollmentResult, SsoUi, VerificationCodeResult,
     },
@@ -84,9 +84,7 @@ impl From<Stop> for OnePasswordError {
 /// after the server handed out its uuid is also canceled on the server, so the approving device
 /// stops waiting.
 pub(super) async fn enroll_device(
-    username: &str,
-    sign_in_address: &str,
-    sign_in_token: &str,
+    sign_in: SignIn<'_>,
     ui: &dyn SsoUi,
     rest: &RestClient,
     timing: &Timing,
@@ -98,15 +96,7 @@ pub(super) async fn enroll_device(
     // Checking the cancellation first makes it win a tie.
     let outcome = {
         let cancelled = pin!(context.cancelled());
-        let enrollment = pin!(enroll(
-            username,
-            sign_in_address,
-            sign_in_token,
-            context,
-            rest,
-            timing,
-            &mut enrollment_uuid,
-        ));
+        let enrollment = pin!(enroll(sign_in, context, rest, timing, &mut enrollment_uuid));
         match select(cancelled, enrollment).await {
             Either::Left(_) => Err(Stop::Canceled),
             Either::Right((outcome, _)) => outcome,
@@ -124,7 +114,7 @@ pub(super) async fn enroll_device(
     if matches!(outcome, Err(Stop::Canceled | Stop::Failed(_)))
         && let Some(enrollment_uuid) = &enrollment_uuid
     {
-        cancel_enrollment(sign_in_token, enrollment_uuid, rest).await;
+        cancel_enrollment(sign_in.sign_in_token, enrollment_uuid, rest).await;
     }
     context.end_enrollment(result).await;
 
@@ -134,9 +124,7 @@ pub(super) async fn enroll_device(
 /// The steps of the enrollment. The uuid goes to `started` as soon as the server hands it out, for
 /// the caller to cancel the enrollment should this be dropped halfway.
 async fn enroll(
-    username: &str,
-    sign_in_address: &str,
-    sign_in_token: &str,
+    sign_in: SignIn<'_>,
     context: &dyn SsoEnrollmentContext,
     rest: &RestClient,
     timing: &Timing,
@@ -150,10 +138,8 @@ async fn enroll(
         )
         .await;
     let session = EnrollmentSession {
-        username,
-        sign_in_address,
-        sign_in_token,
-        enrollment_uuid: started.insert(start_enrollment(sign_in_token, rest).await?),
+        sign_in,
+        enrollment_uuid: started.insert(start_enrollment(sign_in.sign_in_token, rest).await?),
     };
 
     // The user has to press "Transfer key" on one of the enrolled devices.
@@ -316,7 +302,7 @@ async fn get_enrollment_status(
         .post_json_unless_status(
             "v3/device/enrollments/status",
             json!({
-                "signInToken": session.sign_in_token,
+                "signInToken": session.sign_in.sign_in_token,
                 "enrollmentUuid": session.enrollment_uuid,
             }),
             StatusCode::NOT_FOUND,
@@ -346,7 +332,7 @@ mod tests {
         super::{
             test_support::{
                 CpaceVectors, SIGN_IN_TOKEN, mock_msga, path, quick_timing, rest_client, session,
-                vectors,
+                sign_in, vectors,
             },
             ui::SsoLoginResult,
         },
@@ -563,15 +549,7 @@ mod tests {
         ui: &ScriptedUi,
         timing: &Timing,
     ) -> Result<CredentialBundle, OnePasswordError> {
-        enroll_device(
-            &vectors.username,
-            &vectors.sign_in_address,
-            SIGN_IN_TOKEN,
-            ui,
-            &rest_client(server),
-            timing,
-        )
-        .await
+        enroll_device(sign_in(vectors), ui, &rest_client(server), timing).await
     }
 
     fn assert_denied(result: Result<CredentialBundle, OnePasswordError>) {
@@ -1226,14 +1204,7 @@ mod tests {
         let (ui, _) = scripted(Prompt::Pending);
         let timing = quick_timing();
 
-        let enrollment = enroll_device(
-            &vectors.username,
-            &vectors.sign_in_address,
-            SIGN_IN_TOKEN,
-            &ui,
-            &rest,
-            &timing,
-        );
+        let enrollment = enroll_device(sign_in(&vectors), &ui, &rest, &timing);
 
         assert_send(&enrollment);
     }

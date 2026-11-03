@@ -8,6 +8,7 @@ use url::{Url, form_urlencoded};
 use zeroize::Zeroizing;
 
 use self::{
+    cpace::SignIn,
     enrollment::enroll_device,
     ui::{SsoLoginResult, SsoUi},
 };
@@ -106,16 +107,12 @@ pub(super) async fn sso_login(
     sso_session.require_new_device()?;
 
     // 9. The user approves the device on an enrolled one, which hands over the credential bundle.
-    let sign_in_token = sso_session.sso_auth.sign_in_token_details.token.as_str();
-    let bundle = enroll_device(
-        &credentials.username,
-        &account.sign_in_address,
-        sign_in_token,
-        ui,
-        &sso_rest,
-        timing,
-    )
-    .await?;
+    let sign_in = SignIn {
+        username: &credentials.username,
+        sign_in_address: &account.sign_in_address,
+        sign_in_token: &sso_session.sso_auth.sign_in_token_details.token,
+    };
+    let bundle = enroll_device(sign_in, ui, &sso_rest, timing).await?;
 
     // 10. The bundle holds the SRP x that signs in without a password.
     let srp_x = Zeroizing::new(decode64_loose(&bundle.srpx)?);

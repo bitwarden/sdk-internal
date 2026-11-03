@@ -12,7 +12,7 @@ use wiremock::{Mock, MockServer, Respond, ResponseTemplate, matchers};
 use super::{
     super::{rest::RestClient, wire::EncryptedEnvelope},
     Timing,
-    cpace::EnrollmentSession,
+    cpace::{EnrollmentSession, SignIn},
 };
 
 pub(super) const SIGN_IN_TOKEN: &str = "SIGN_IN_TOKEN";
@@ -89,11 +89,17 @@ pub(super) fn rest_client(server: &MockServer) -> RestClient {
     .expect("valid headers")
 }
 
-pub(super) fn session(vectors: &CpaceVectors) -> EnrollmentSession<'_> {
-    EnrollmentSession {
+pub(super) fn sign_in(vectors: &CpaceVectors) -> SignIn<'_> {
+    SignIn {
         username: &vectors.username,
         sign_in_address: &vectors.sign_in_address,
         sign_in_token: SIGN_IN_TOKEN,
+    }
+}
+
+pub(super) fn session(vectors: &CpaceVectors) -> EnrollmentSession<'_> {
+    EnrollmentSession {
+        sign_in: sign_in(vectors),
         enrollment_uuid: &vectors.enrollment_uuid,
     }
 }
