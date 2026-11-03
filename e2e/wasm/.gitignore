@@ -1,0 +1,2 @@
+# Live runs keep the test-account secret and ledger here.
+.live/

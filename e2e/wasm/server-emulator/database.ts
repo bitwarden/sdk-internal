@@ -92,6 +92,15 @@ class Table<T> {
     this.byId.delete(id);
   }
 
+  /** Removes every item matching `predicate`. */
+  removeWhere(predicate: (item: T) => boolean): void {
+    for (const [id, item] of this.byId) {
+      if (predicate(item)) {
+        this.byId.delete(id);
+      }
+    }
+  }
+
   /** The items matching `predicate`, in insertion order. */
   filter(predicate: (item: T) => boolean): T[] {
     return [...this.byId.values()].filter(predicate);
@@ -116,4 +125,8 @@ export class Database {
     new SequentialUuidGenerator("emergency-access"),
   );
   readonly sessions = new Table<string>(new SequentialUuidGenerator("sessions"));
+  /** Email-verification tokens a registration may finish with, mapped to the address they verify. */
+  readonly emailVerificationTokens = new Table<string>(
+    new SequentialUuidGenerator("email-verification-tokens"),
+  );
 }

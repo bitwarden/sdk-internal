@@ -63,8 +63,8 @@ describe("login via password", () => {
       });
 
       // The account is now reachable with the issued token, and the unlock data it came back with
-      // is the account's own. The token is opaque, so the assertion is that it authenticates the
-      // account rather than that it holds any particular value.
+      // is the account's own. The test treats the token as opaque: it checks that the token
+      // authenticates the account, not what the token holds.
       const authenticated = response.Authenticated;
       const synced = await fetch(`${SETTINGS.apiUrl}/sync`, {
         headers: { Authorization: `Bearer ${authenticated.accessToken}` },

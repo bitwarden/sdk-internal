@@ -1,7 +1,11 @@
+import { randomBytes } from "node:crypto";
+
 import type { ClientSettings, LoginRequest } from "@bitwarden/sdk-internal";
 
 import { ClientEmulator, LOGIN_REQUEST } from "./client-emulator/client-emulator";
 import { SETTINGS } from "./client-emulator/local-state";
+import { TestAccounts } from "./live/accounts";
+import type { LiveConfig } from "./live/config";
 import { ServerEmulator } from "./server-emulator/server-emulator";
 
 import type { HttpMock } from "./server-emulator/http-mock";
@@ -15,12 +19,30 @@ export class TestHarness {
   // Patches `fetch` to route requests to the server emulator globally. Absent in live mode.
   private readonly hook: HttpMock | undefined;
 
+  /**
+   * Accounts this test creates through registration and deletes in {@link dispose}, on either
+   * backend.
+   */
+  readonly accounts: TestAccounts;
+
   private constructor(
     private readonly settings: ClientSettings,
     private readonly loginRequest: LoginRequest,
-    emulated: boolean,
+    live: LiveConfig | undefined,
   ) {
-    if (!emulated) {
+    this.accounts = new TestAccounts(
+      live === undefined
+        ? {
+            settings,
+            loginRequest,
+            secret: randomBytes(32).toString("base64"),
+            emailDomain: "example.com",
+            ledger: false,
+          }
+        : { ...live, ledger: true },
+    );
+
+    if (live !== undefined) {
       return;
     }
 
@@ -30,12 +52,12 @@ export class TestHarness {
 
   /** A harness over the server emulator. */
   static emulated(): TestHarness {
-    return new TestHarness(SETTINGS, LOGIN_REQUEST, true);
+    return new TestHarness(SETTINGS, LOGIN_REQUEST, undefined);
   }
 
   /** A harness over a real server, reached over the network. */
-  static live(settings: ClientSettings, loginRequest: LoginRequest): TestHarness {
-    return new TestHarness(settings, loginRequest, false);
+  static live(config: LiveConfig): TestHarness {
+    return new TestHarness(config.settings, config.loginRequest, config);
   }
 
   /**
@@ -60,6 +82,18 @@ export class TestHarness {
   restore(): void {
     this.hook?.restore();
   }
+
+  /**
+   * Deletes the accounts this test created, then unpatches `fetch`. Call in `afterEach` in place of
+   * {@link restore} once a test creates accounts.
+   */
+  async dispose(): Promise<void> {
+    try {
+      await this.accounts.deleteAll();
+    } finally {
+      this.restore();
+    }
+  }
 }
 
 /** A fresh harness over the server emulator. Call in `beforeEach`. */
@@ -68,6 +102,6 @@ export function testHarness(): TestHarness {
 }
 
 /** A fresh harness over a real server. Call in `beforeEach`. */
-export function liveHarness(settings: ClientSettings, loginRequest: LoginRequest): TestHarness {
-  return TestHarness.live(settings, loginRequest);
+export function liveHarness(config: LiveConfig): TestHarness {
+  return TestHarness.live(config);
 }

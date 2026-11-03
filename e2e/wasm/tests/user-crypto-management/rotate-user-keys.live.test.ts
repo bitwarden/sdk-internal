@@ -4,6 +4,7 @@
 
 import { LoginMethod, type ClientEmulator } from "../../client-emulator/client-emulator";
 import { IGNORED_FIELDS, validateVault } from "../../client-emulator/validate";
+import type { TestAccount } from "../../live/accounts";
 import { describeLoginFailure, liveConfig, requireLiveConfig } from "../../live/config";
 import type { SeedVault } from "../../server-emulator/server-emulator";
 import { liveHarness, type TestHarness } from "../../test-harness";
@@ -28,25 +29,25 @@ const describeLive = config === undefined ? describe.skip : describe;
 describeLive("rotate user keys (live server)", () => {
   let harness: TestHarness;
 
-  beforeEach(() => {
-    const live = requireLiveConfig();
-    harness = liveHarness(live.settings, live.loginRequest);
-  });
+  let account: TestAccount;
 
-  afterEach(() => harness.restore());
+  beforeEach(async () => {
+    harness = liveHarness(requireLiveConfig());
+    account = await harness.accounts.create();
+  }, TIMEOUT);
+
+  afterEach(() => harness.dispose(), TIMEOUT);
 
   /** A client logged in, synced and unlocked, as a real one arrives at the vault. */
   async function loggedIn(): Promise<ClientEmulator> {
-    const live = requireLiveConfig();
-
     const client = harness.newClientEmulator();
     try {
-      await client.login(live.email, LoginMethod.Password, live.password);
+      await client.login(account.email, LoginMethod.Password, account.password);
     } catch (error) {
       throw new Error(describeLoginFailure(error));
     }
 
-    await client.unlock(live.password);
+    await client.unlock(account.password);
 
     return client;
   }
@@ -130,12 +131,11 @@ describeLive("rotate user keys (live server)", () => {
    *
    *   K0 ──rotate──▶ K1 ──rotate──▶ K2 ──rotate──▶ K3 ──▶ vault still decrypts, fresh login reads it
    *
-   * Re-runnable: the first round upgrades a V1 account, and every round after is V2 to V2.
+   * The account is new, so each run starts from what registration makes today.
    */
   it(
     `survives ${ROTATION_COUNT} consecutive rotations`,
     async () => {
-      const live = requireLiveConfig();
       const client = await loggedIn();
 
       await ensureVaultNotEmpty(client);
@@ -147,11 +147,15 @@ describeLive("rotate user keys (live server)", () => {
       const userKeys = [await client.getPasswordManagerClient().crypto().get_user_encryption_key()];
 
       for (let round = 0; round < ROTATION_COUNT; round++) {
-        await rotateByPassword(client.getPasswordManagerClient(), live.password, "CreateIfNeeded");
+        await rotateByPassword(
+          client.getPasswordManagerClient(),
+          account.password,
+          "CreateIfNeeded",
+        );
 
         await client.sync();
         await client.lock();
-        await client.unlock(live.password);
+        await client.unlock(account.password);
 
         userKeys.push(await client.getPasswordManagerClient().crypto().get_user_encryption_key());
       }
