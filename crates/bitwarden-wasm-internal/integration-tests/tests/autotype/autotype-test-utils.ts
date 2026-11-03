@@ -1,10 +1,13 @@
 import {
+  AutotypeCredentials,
   AutotypeDriver,
+  AutotypeRenderDriver,
   AutotypeRunningApp,
   IpcClient,
   Source,
   init_sdk,
   registerAutotypeHandlers,
+  registerAutotypeRenderHandlers,
 } from "@bitwarden/sdk-internal";
 
 import { makeMockTransportPair } from "../utils";
@@ -73,11 +76,46 @@ export function makeMockAutotypeDriver(
 }
 
 /**
+ * Behavior for the mock render driver, the render process's side of the main → render
+ * channels.
+ */
+export interface MockAutotypeRenderDriverOptions {
+  // Typed loosely so a test can return malformed credentials, which is exactly what the SDK's
+  // deserialization is being asked to survive.
+  getCredentials: (app: AutotypeRunningApp) => Promise<unknown>;
+}
+
+/** Recorded calls per main → render channel. */
+export interface MockAutotypeRenderDriverCalls {
+  getCredentialsCalls: AutotypeRunningApp[];
+}
+
+/**
+ * In-memory implementation of the `AutotypeRenderDriver` JS interface. Records what it was asked
+ * to do, and returns what the per-channel behavior gives it. By default it finds no match.
+ */
+export function makeMockAutotypeRenderDriver(
+  options: Partial<MockAutotypeRenderDriverOptions> = {},
+): AutotypeRenderDriver & MockAutotypeRenderDriverCalls {
+  const { getCredentials = async () => undefined } = options;
+
+  const getCredentialsCalls: AutotypeRunningApp[] = [];
+
+  return {
+    getCredentialsCalls,
+    get_autotype_credentials: async (app: AutotypeRunningApp) => {
+      getCredentialsCalls.push(app);
+      return (await getCredentials(app)) as AutotypeCredentials | undefined;
+    },
+  };
+}
+
+/**
  * Builds the desktop pairing the real app uses: a main-process client that owns the global
  * shortcut and a renderer-process client that drives it, over paired in-memory transports.
  *
- * Only `main` registers the handlers, matching the one-directional channels — the renderer sends,
- * main applies.
+ * Only `main` registers handlers, matching the renderer → main channels — the renderer sends, main
+ * applies. See `setupRenderHandlerPair` for the main → renderer channels.
  *
  * `rendererSource` is the source main sees on the sending side's messages. It defaults to the real
  * renderer; pass another source to stand in for a different peer of main, such as the browser
@@ -97,6 +135,32 @@ export async function setupClientPair(
   await renderer.start();
 
   await registerAutotypeHandlers(main, driver);
+
+  return { main, renderer };
+}
+
+/**
+ * The mirror of `setupClientPair` for the main → renderer channels: only `renderer` registers
+ * handlers, so main sends and the renderer applies.
+ *
+ * `mainSource` is the source the renderer sees on the sending side's messages. It defaults to the
+ * real main process; pass another source to stand in for a native-messaging peer whose messages
+ * main forwards to the renderer under their original source, such as the browser extension or CLI.
+ */
+export async function setupRenderHandlerPair(
+  driver: AutotypeRenderDriver = makeMockAutotypeRenderDriver(),
+  mainSource: Source = "DesktopMain",
+) {
+  init_sdk();
+
+  const [mainBackend, rendererBackend] = makeMockTransportPair(mainSource, "DesktopRenderer");
+  const main = IpcClient.newWithSdkInMemorySessions(mainBackend);
+  const renderer = IpcClient.newWithSdkInMemorySessions(rendererBackend);
+
+  await main.start();
+  await renderer.start();
+
+  await registerAutotypeRenderHandlers(renderer, driver);
 
   return { main, renderer };
 }
