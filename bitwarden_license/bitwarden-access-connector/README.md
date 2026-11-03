@@ -496,7 +496,8 @@ account with the new password to find out. An accepted bind means the new passwo
 `invalidCredentials` (rc 49) means it isn't. Any other answer is reported as indeterminate. A
 locked-out or disabled account also answers rc 49, whatever password is offered. Every failed bind
 counts towards the account's `badPwdCount`, which is why the connector doesn't probe every
-rejection.
+rejection. A retry that fails before writing, after an earlier write in the attempt got no answer,
+is reported as indeterminate, since that earlier write may have landed.
 
 Only the numeric LDAP result code reaches the failure report. The directory's `diagnosticMessage`
 and matched DN are never read: both can echo account names and password-policy text.

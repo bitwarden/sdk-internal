@@ -15,8 +15,9 @@
 //!
 //! What a failure says about the target depends on its `Phase`. A failure before the write and a
 //! rejected write both leave the target unchanged, while a write that got no answer may have
-//! landed. A permanent rejection that follows an unanswered write in the same attempt is settled by
-//! binding as the account with the new password. Operator-facing behaviour is in the crate README.
+//! landed. Once a write in an attempt has gone unanswered, a later try that fails before writing
+//! reports the effect as unknown, and a permanent rejection is settled by binding as the account
+//! with the new password. Operator-facing behaviour is in the crate README.
 
 mod classify;
 mod password_write;
@@ -120,18 +121,26 @@ fn as_applied(mut err: IntegrationError) -> IntegrationError {
 impl Integration for ActiveDirectoryIntegration {
     async fn rotate(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let creds = Credentials::resolve(&ctx.creds)?;
+        let earlier_write_unsettled = self.unsettled_writes.contains(ctx);
         let (mut session, account_dn) = LdapSession::open_and_locate(
             &creds,
             &ctx.account_identity,
             self.timeouts,
             Phase::BeforeWrite,
         )
-        .await?;
+        .await
+        .map_err(|mut err| {
+            // This try wrote nothing, but the earlier write may have landed.
+            if earlier_write_unsettled {
+                err.effect = TargetEffect::Unknown;
+            }
+            err
+        })?;
         let written = apply_password_write(
             &mut session,
             &account_dn,
             &ctx.new_password,
-            self.unsettled_writes.contains(ctx),
+            earlier_write_unsettled,
         )
         .await;
         self.unsettled_writes.record(ctx, &written);
@@ -281,6 +290,44 @@ mod tests {
 
         let resolved = Credentials::resolve(&creds).expect("credentials resolve");
         assert_eq!(resolved.ca_certificate, Some("/etc/pki/ad-ca.pem"));
+    }
+
+    #[tokio::test]
+    async fn a_failure_before_the_write_after_an_unanswered_one_is_reported_unknown() {
+        let closed_port = std::net::TcpListener::bind("127.0.0.1:0")
+            .and_then(|listener| listener.local_addr())
+            .expect("a free loopback port")
+            .port();
+        let integration = ActiveDirectoryIntegration::new();
+        let ctx = make_ctx(complete_creds(&format!("127.0.0.1:{closed_port}")));
+
+        let first_try = integration
+            .rotate(&ctx)
+            .await
+            .expect_err("nothing listens on the port");
+        assert_eq!(first_try.effect, TargetEffect::NotApplied);
+
+        let unanswered = Err(IntegrationError::new(
+            Retry::Transient,
+            TargetEffect::Unknown,
+            RotationFailureCode::TargetUnreachable,
+            SafeDetail::from_kind("ConnectionClosed"),
+        ));
+        integration.unsettled_writes.record(&ctx, &unanswered);
+
+        let retry = integration
+            .rotate(&ctx)
+            .await
+            .expect_err("nothing listens on the port");
+        assert_eq!(
+            retry.effect,
+            TargetEffect::Unknown,
+            "the earlier write may have landed, whatever stopped this try"
+        );
+        assert!(
+            integration.unsettled_writes.contains(&ctx),
+            "a try that wrote nothing must not settle the earlier write"
+        );
     }
 
     #[tokio::test]
