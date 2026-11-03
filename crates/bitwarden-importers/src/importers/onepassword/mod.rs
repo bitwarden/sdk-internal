@@ -23,6 +23,9 @@ impl From<OnePasswordError> for ImportError {
             OnePasswordError::TwoFactorFailed => ImportError::OnePasswordTwoFactorFailed,
             OnePasswordError::Canceled => ImportError::OnePasswordCanceled,
             OnePasswordError::Denied => ImportError::OnePasswordDenied,
+            OnePasswordError::VerificationCodeFailed => {
+                ImportError::OnePasswordVerificationCodeFailed
+            }
             OnePasswordError::Unsupported(what) => ImportError::OnePasswordUnsupported(what),
             OnePasswordError::Network(what) => ImportError::OnePasswordNetwork(what),
             // A payload that will not decrypt or parse is the same story to a user: the account
@@ -30,15 +33,43 @@ impl From<OnePasswordError> for ImportError {
             OnePasswordError::Decryption | OnePasswordError::Parse => {
                 ImportError::OnePasswordDecryption
             }
-            // Neither of these can reach a caller as anything actionable, so they read as a
-            // transport failure with the detail kept.
+            // Nothing a user can act on, and not the network either. The detail is for the logs.
             OnePasswordError::NotFound => {
-                ImportError::OnePasswordNetwork("the account or vault was not found".to_string())
+                ImportError::OnePasswordInternal("the account or vault was not found".to_string())
             }
-            OnePasswordError::Internal(what) => ImportError::OnePasswordNetwork(what),
+            OnePasswordError::Internal(what) => ImportError::OnePasswordInternal(what),
             error @ OnePasswordError::UnexpectedStatus { .. } => {
-                ImportError::OnePasswordNetwork(error.to_string())
+                ImportError::OnePasswordInternal(error.to_string())
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_transport_failure_is_a_network_error() {
+        assert!(matches!(
+            ImportError::from(OnePasswordError::Network("connection reset".into())),
+            ImportError::OnePasswordNetwork(what) if what == "connection reset"
+        ));
+        assert!(matches!(
+            ImportError::from(OnePasswordError::Internal("device enrollment timed out".into())),
+            ImportError::OnePasswordInternal(what) if what == "device enrollment timed out"
+        ));
+        for error in [
+            OnePasswordError::NotFound,
+            OnePasswordError::UnexpectedStatus {
+                endpoint: "v3/auth/start".into(),
+                status: 500,
+            },
+        ] {
+            assert!(matches!(
+                ImportError::from(error),
+                ImportError::OnePasswordInternal(_)
+            ));
         }
     }
 }
