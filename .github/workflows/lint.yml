@@ -111,7 +111,7 @@ jobs:
       # files, which a fresh install makes new.
       - name: Cache build output
         if: matrix.build_cache
-        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
+        uses: bitwarden/gh-actions/cargo-build-cache@main
         with:
           key: lint-${{ matrix.check }}
           toolchain: ${{ matrix.check == 'udeps' && steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN || '' }}

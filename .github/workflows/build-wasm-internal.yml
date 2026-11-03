@@ -114,7 +114,7 @@ jobs:
       # the features differ. The standard library is built from the rust-src sources (build-std),
       # which a fresh toolchain install gives the current time.
       - name: Cache build output
-        uses: bitwarden/gh-actions/cargo-build-cache@cargo-build-cache
+        uses: bitwarden/gh-actions/cargo-build-cache@main
         with:
           key: wasm-${{ matrix.license_type.artifact_name }}
           reset_sysroot_mtimes: true
