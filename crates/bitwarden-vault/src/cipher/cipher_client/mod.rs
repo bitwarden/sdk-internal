@@ -249,19 +249,6 @@ impl CiphersClient {
     ) -> Result<Vec<CipherListView>, DecryptListError> {
         let key_store = self.client.internal.get_key_store();
         let strict = self.is_strict_decrypt().await;
-        // Ciphers from Rust or UniFFI are already in memory, so they are decrypted as a slice.
-        let ciphers = match ciphers.try_into_vec() {
-            Ok(ciphers) => {
-                return Ok(if strict {
-                    let wrapped: Vec<StrictDecrypt<Cipher>> =
-                        ciphers.into_iter().map(StrictDecrypt).collect();
-                    key_store.decrypt_list(&wrapped)?
-                } else {
-                    key_store.decrypt_list(&ciphers)?
-                });
-            }
-            Err(ciphers) => ciphers,
-        };
         // The room for every cipher is reserved up front: growing by doubling holds the old and the
         // new buffer at once.
         let mut views = Vec::with_capacity(ciphers.len());
@@ -359,24 +346,6 @@ impl CiphersClient {
     {
         let key_store = self.client.internal.get_key_store();
         let strict = self.is_strict_decrypt().await;
-        // Ciphers from Rust or UniFFI are already in memory, so they are decrypted as a slice.
-        let ciphers = match ciphers.try_into_vec() {
-            Ok(ciphers) => {
-                return Ok(if strict {
-                    let wrapped: Vec<StrictDecrypt<Cipher>> =
-                        ciphers.into_iter().map(StrictDecrypt).collect();
-                    let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
-                    (
-                        successes,
-                        failures.into_iter().map(|f| f.0.clone()).collect(),
-                    )
-                } else {
-                    let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-                    (successes, failures.into_iter().cloned().collect())
-                });
-            }
-            Err(ciphers) => ciphers,
-        };
         // The room for every cipher is reserved up front: growing by doubling holds the old and the
         // new buffer at once.
         let mut successes = Vec::with_capacity(ciphers.len());
@@ -398,9 +367,9 @@ type DecryptedCipher<Output> = Result<
     bitwarden_ffi::LargeVecError,
 >;
 
-/// Decrypts `ciphers` in order, a batch at a time as [`KeyStore::decrypt_iter`] reads them, with
-/// [`StrictDecrypt`] when `strict` is set. An input item that is not a cipher comes as an `Err`;
-/// callers fail the call there.
+/// Decrypts `ciphers` in order with [`KeyStore::decrypt_large_vec`], with [`StrictDecrypt`] when
+/// `strict` is set. An input item that is not a cipher comes as an `Err`; callers fail the call
+/// there.
 fn decrypt_ciphers<'a, Output>(
     key_store: &'a KeyStore<KeySlotIds>,
     ciphers: LargeVec<Cipher>,
@@ -412,17 +381,20 @@ where
     Output: Send + 'a,
 {
     if strict {
-        let wrapped = ciphers.into_iter().map(|cipher| cipher.map(StrictDecrypt));
-        Box::new(key_store.decrypt_iter(wrapped).map(|result| {
-            result.map(|decrypted| {
-                decrypted.map_err(|failure| {
-                    let (cipher, error) = *failure;
-                    Box::new((cipher.0, error))
-                })
-            })
-        }))
+        Box::new(
+            key_store
+                .decrypt_large_vec(ciphers.map(StrictDecrypt))
+                .map(|result| {
+                    result.map(|decrypted| {
+                        decrypted.map_err(|failure| {
+                            let (cipher, error) = *failure;
+                            Box::new((cipher.0, error))
+                        })
+                    })
+                }),
+        )
     } else {
-        Box::new(key_store.decrypt_iter(ciphers))
+        Box::new(key_store.decrypt_large_vec(ciphers))
     }
 }
 
