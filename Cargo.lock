@@ -1727,6 +1727,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ffi",
  "bitwarden-logging",
+ "bitwarden-organization-crypto",
  "bitwarden-send",
  "bitwarden-test",
  "bitwarden-vault",

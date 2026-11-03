@@ -1,7 +1,10 @@
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
-use bitwarden_organization_crypto::invite::InviteKeyBundleError;
+use bitwarden_organization_crypto::{
+    account_recovery::AccountRecoveryMakeError, invite::InviteKeyBundleError,
+    organization_shared_key::OrganizationSharedKeyMakeError,
+};
 use http::StatusCode;
 use thiserror::Error;
 
@@ -40,6 +43,12 @@ pub enum AcceptInviteLinkError {
     /// A cryptographic invite operation (unsealing the invite key or organization key) failed.
     #[error(transparent)]
     Invite(#[from] InviteKeyBundleError),
+    /// The user's key could not be shared with the organization for account recovery.
+    #[error(transparent)]
+    AccountRecovery(#[from] AccountRecoveryMakeError),
+    /// The organization key could not be shared with the user on self-confirmation.
+    #[error(transparent)]
+    OrganizationSharedKey(#[from] OrganizationSharedKeyMakeError),
     /// A network request to the server failed.
     #[error(transparent)]
     Api(#[from] ApiError),
