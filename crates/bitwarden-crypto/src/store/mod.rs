@@ -319,30 +319,13 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
         (successes, failures)
     }
 
-    /// Decrypt the items of an iterator using this key store, a batch at a time, yielding the
-    /// results in input order. Meant for long lists whose items are produced as they are read,
-    /// such as items converted from another language one by one, so that only one batch of input
-    /// and output is held at a time. For items already in a slice, use
+    /// Decrypt items from an iterator a batch at a time, so only one batch is held in memory. Use
+    /// it for long lists whose items are produced as they are read. For a slice, use
     /// [KeyStore::decrypt_list] or [KeyStore::decrypt_list_with_failures].
     ///
-    /// Each input item is a `Result`, so that errors the caller meets while producing the items
-    /// (for example, an item that does not convert) pass through in order. Each output item is:
-    /// - `Ok(Ok(output))` for an item that decrypted,
-    /// - `Ok(Err(failure))` for an item that failed to decrypt, handing back the item and its
-    ///   error. The pair is boxed so that a result takes the size of the output, not of the
-    ///   encrypted item, which can be much larger.
-    /// - `Err(error)` for an input error, in the place where the input yielded it.
-    ///
-    /// The iterator does not stop at an input error: it goes on with the input items after it. A
-    /// caller that fails on the first input error stops reading there, and the input is not read
-    /// further. Items are read from the input one batch at a time, and a batch ends early at an
-    /// input error, so the error is yielded right after the items before it.
-    ///
-    /// The batch size depends on the number of threads available. Each batch is decrypted by the
-    /// same code as [KeyStore::decrypt_list] and [KeyStore::decrypt_list_with_failures], which
-    /// spreads the items over the available threads, with one context per thread's share, cleared
-    /// after each item. No context is held between batches, so a caller that reads the iterator
-    /// slowly does not keep the store locked.
+    /// Results come in input order: `Ok(Ok(output))` when an item decrypts, `Ok(Err(failure))` with
+    /// the item and its error when it does not, and `Err(error)` in place of an input error. The
+    /// iteration goes on after an input error. To fail on it, stop reading.
     pub fn decrypt_iter<'a, Key, Data, Output, E>(
         &'a self,
         items: impl IntoIterator<Item = Result<Data, E>> + 'a,
@@ -499,6 +482,8 @@ where
     Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync,
     Output: Send,
 {
+    // The failed item is boxed so that a result takes the size of the output, not of the
+    // encrypted item, which can be much larger.
     type Item = Result<Result<Output, Box<(Data, crate::CryptoError)>>, E>;
 
     fn next(&mut self) -> Option<Self::Item> {
