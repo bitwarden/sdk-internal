@@ -501,6 +501,7 @@ where
         self.batch = Vec::new().into_iter();
         self.results = Vec::new().into_iter();
 
+        // Reserve only what the input can still yield, up to one batch.
         let capacity = match self.items.size_hint() {
             (_, Some(upper)) => upper.min(self.batch_size),
             (_, None) => self.batch_size,
