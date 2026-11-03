@@ -482,10 +482,11 @@ where
     Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync,
     Output: Send,
 {
-    // A failed item is handed back because the caller no longer holds it: the iterator takes the
-    // items by value, and callers such as the vault return failed ciphers to their clients. It is
-    // boxed to keep the `Err` variant small, as clippy's `result_large_err` requires: an encrypted
-    // item such as a `Cipher` is about 5 KB.
+    // `decrypt_iter` takes ownership of the items, so the caller has no copy of an item that fails
+    // to decrypt, meaning that we can't give back a reference. The result returns the item itself,
+    // because callers such as the vault need to return failed ciphers to their clients. The item is
+    // boxed to keep the `Err` variant small, as clippy's `result_large_err` requires, because
+    // encrypted items such as a `Cipher` can be large.
     type Item = Result<Result<Output, Box<(Data, crate::CryptoError)>>, E>;
 
     fn next(&mut self) -> Option<Self::Item> {
