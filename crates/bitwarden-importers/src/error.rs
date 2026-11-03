@@ -36,6 +36,8 @@ pub enum ImportError {
     OnePasswordUnsupported(String),
     #[error("Could not reach 1Password: {0}")]
     OnePasswordNetwork(String),
+    #[error("The 1Password import failed: {0}")]
+    OnePasswordInternal(String),
     #[error("The data 1Password returned could not be read")]
     OnePasswordDecryption,
 
