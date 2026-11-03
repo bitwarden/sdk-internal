@@ -97,6 +97,7 @@ crates/bw/src/vault/** @bitwarden/team-vault-dev
 
 ## Multiple owners
 .github/workflows/build-* @bitwarden/team-platform-dev
+.github/workflows/build-access-connector.yml @bitwarden/team-pam-dev
 .github/workflows/version-bump.yml @bitwarden/team-platform-dev
 
 # Docker-related files
