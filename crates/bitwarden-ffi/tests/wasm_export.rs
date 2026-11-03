@@ -2,7 +2,7 @@
 #![cfg(feature = "wasm")]
 #![allow(missing_docs)]
 
-use bitwarden_ffi::{Ts, TsError, wasm_export};
+use bitwarden_ffi::{LargeVec, Ts, TsError, wasm_export};
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -175,6 +175,12 @@ pub fn shout(msg: String) -> String {
     msg.to_uppercase()
 }
 
+/// A `LargeVec` parameter converts its items as they are read, so the shim passes it through.
+#[wasm_export]
+pub fn count(points: LargeVec<Point>) -> usize {
+    points.len()
+}
+
 // --- The original methods keep their plain Rust signatures ---
 //
 // This is the property that makes the macro usable on signatures shared with UniFFI: nothing below
@@ -282,6 +288,7 @@ fn shims_wrap_marked_values_in_ts() {
     let _: fn(Ts<Point>, i32) -> Result<Ts<Point>, TsError<MoveError>> = __wasm_ts_shift;
     let _: fn(Ts<Point>) -> Result<Ts<Point>, TsError> = __wasm_ts_shift_back;
     let _: fn(String) -> Result<String, TsError> = __wasm_ts_shout;
+    let _: fn(LargeVec<Point>) -> Result<usize, TsError> = __wasm_ts_count;
 }
 
 /// `#[wasm_only]` renames the original out of the way; the shim keeps the JS name.
