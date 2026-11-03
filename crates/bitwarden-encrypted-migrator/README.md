@@ -29,8 +29,9 @@ data of the unlock or the sync reaches state. A client that the host called
 `disable_local_unlock_migrations` on, for example the popup client next to the background client,
 and `reinit_user_crypto` do not schedule a run on unlock.
 
-Only one run of a user is in progress at a time. A failed migration runs again after the next unlock
-or sync.
+Only one run of a user is in progress at a time. An unlock or a sync during a run schedules another
+run when the run ends, because a sync can bring data that the run did not see. A failed migration
+runs again after the next unlock or sync.
 
 All SDK clients of a user share one schedule, because the TypeScript clients replace the SDK client
 each time the keys of the account change in their state.

@@ -51,12 +51,15 @@ impl Scheduler {
         let Some(user_id) = client.internal.get_user_id() else {
             return;
         };
-        if let Some(token) = self.user_run_states.try_schedule(user_id) {
-            self.spawn_delayed_run(Arc::downgrade(&client.internal), user_id, token);
+        let client = Arc::downgrade(&client.internal);
+        if let Some(token) = self.user_run_states.try_schedule(user_id, &client) {
+            self.spawn_delayed_run(client, user_id, token);
         }
     }
 
-    /// Spawns a task that runs the migrations after [`TRIGGER_DELAY`].
+    /// Spawns a task that runs the migrations after [`TRIGGER_DELAY`]. After a trigger during the
+    /// run, spawns the follow-up run, because a sync during the run can bring data that the run
+    /// did not see.
     ///
     /// The task holds only a weak reference while it waits, so it does not keep a dropped client
     /// and its keys in memory.
@@ -84,7 +87,9 @@ impl Scheduler {
                 return;
             }
             scheduler.run_background_migrations(&client).await;
-            scheduler.user_run_states.remove(user_id, &token);
+            if let Some((follow_up, client)) = scheduler.user_run_states.finish_run(user_id) {
+                scheduler.spawn_delayed_run(client, user_id, follow_up);
+            }
         });
     }
 
@@ -263,6 +268,43 @@ pub(crate) mod tests {
         wait_past(TRIGGER_DELAY).await;
 
         assert_eq!(runs.load(Ordering::SeqCst), 0);
+        assert!(!scheduler.user_run_states.contains(user_id));
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn test_trigger_during_a_run_runs_again_after_the_trigger_delay() {
+        let (client, user_id) = unlocked_client().await;
+        let runs = Arc::new(AtomicUsize::new(0));
+        let runs_in_migration = Arc::clone(&runs);
+        // The first run triggers the scheduler that runs it.
+        let scheduler = Arc::new_cyclic(|scheduler: &Weak<Scheduler>| {
+            let scheduler = Weak::clone(scheduler);
+            Scheduler::new(move |client| {
+                let scheduler = Weak::clone(&scheduler);
+                let client = client.clone();
+                let runs = Arc::clone(&runs_in_migration);
+                let run: FakeRun = Arc::new(move |_| {
+                    if runs.fetch_add(1, Ordering::SeqCst) == 0 {
+                        scheduler
+                            .upgrade()
+                            .expect("the test holds the scheduler")
+                            .trigger(&client);
+                    }
+                });
+                vec![Box::new(FakeMigration {
+                    need: MigrationNeed::Needed,
+                    run,
+                })]
+            })
+        });
+
+        scheduler.trigger(&client);
+        wait_past(TRIGGER_DELAY).await;
+        let runs_before_the_follow_up_delay = runs.load(Ordering::SeqCst);
+        wait_past(TRIGGER_DELAY).await;
+
+        assert_eq!(runs_before_the_follow_up_delay, 1);
+        assert_eq!(runs.load(Ordering::SeqCst), 2);
         assert!(!scheduler.user_run_states.contains(user_id));
     }
 
