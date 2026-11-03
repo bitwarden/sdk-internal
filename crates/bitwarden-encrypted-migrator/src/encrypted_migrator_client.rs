@@ -30,21 +30,17 @@ impl EncryptedMigratorClient {
     }
 }
 
-/// Schedules the background migrations after an explicit unlock.
+/// Schedules the background migrations after an unlock.
 ///
-/// Only the SDK client that the user unlocks schedules the run. A client that is initialized from
-/// client-managed state, for example a re-created client or the popup client next to the background
-/// client, and `reinit_user_crypto` do not schedule a run.
+/// A client that the host disabled local unlock migrations on, for example the popup client next
+/// to the background client, and `reinit_user_crypto` do not schedule a run.
 pub struct EncryptedMigratorUnlockHandler;
 
 #[async_trait::async_trait]
 impl UnlockHandler for EncryptedMigratorUnlockHandler {
     async fn on_unlock(&self, client: &Client, method: Option<&InitUserCryptoMethod>) {
-        match method {
-            #[cfg(feature = "wasm")]
-            Some(InitUserCryptoMethod::ClientManagedState {}) => {}
-            Some(_) => client.encrypted_migrator().trigger_background_migrations(),
-            None => {}
+        if method.is_some() && client.internal.perform_local_unlock_migrations() {
+            client.encrypted_migrator().trigger_background_migrations();
         }
     }
 }
@@ -93,13 +89,18 @@ mod tests {
         assert!(!is_scheduled(user_id));
     }
 
-    #[cfg(feature = "wasm")]
     #[tokio::test(flavor = "current_thread", start_paused = true)]
-    async fn test_on_unlock_from_client_managed_state_schedules_nothing() {
+    async fn test_on_unlock_with_local_unlock_migrations_disabled_schedules_nothing() {
         let (client, user_id) = unlocked_client().await;
+        client.crypto().disable_local_unlock_migrations();
 
         EncryptedMigratorUnlockHandler
-            .on_unlock(&client, Some(&InitUserCryptoMethod::ClientManagedState {}))
+            .on_unlock(
+                &client,
+                Some(&InitUserCryptoMethod::DecryptedKey {
+                    decrypted_user_key: String::new(),
+                }),
+            )
             .await;
 
         assert!(!is_scheduled(user_id));

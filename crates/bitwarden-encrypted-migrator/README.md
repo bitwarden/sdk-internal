@@ -24,11 +24,10 @@ calls a slow server keeps the user on the lock screen.
 
 ## When the migrations run
 
-On WASM, the SDK runs the migrations of each user 5 seconds after an explicit unlock or a sync, so
-that the data of the unlock or the sync reaches state. Only the SDK client that the user unlocks
-schedules the run. A client that is initialized from client-managed state, for example a re-created
-client or the popup client next to the background client, and `reinit_user_crypto` do not schedule a
-run.
+On WASM, the SDK runs the migrations of each user 5 seconds after an unlock or a sync, so that the
+data of the unlock or the sync reaches state. A client that the host called
+`disable_local_unlock_migrations` on, for example the popup client next to the background client,
+and `reinit_user_crypto` do not schedule a run on unlock.
 
 Only one run of a user is in progress at a time. A failed migration runs again after the next unlock
 or sync.
