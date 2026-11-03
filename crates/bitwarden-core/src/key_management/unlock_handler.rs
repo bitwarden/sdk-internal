@@ -5,13 +5,14 @@ use std::sync::{Arc, RwLock};
 use crate::{Client, key_management::crypto::InitUserCryptoMethod};
 
 /// Runs after the client is unlocked, by `initialize_user_crypto` or `reinit_user_crypto`.
+#[async_trait::async_trait]
 pub trait UnlockHandler: Send + Sync {
     /// Called after the user key is in the key store. The unlock does not complete until this
     /// method returns.
     ///
     /// `method` is the method that `initialize_user_crypto` unlocked with, and `None` for
     /// `reinit_user_crypto`.
-    fn on_unlock(&self, client: &Client, method: Option<&InitUserCryptoMethod>);
+    async fn on_unlock(&self, client: &Client, method: Option<&InitUserCryptoMethod>);
 }
 
 /// The unlock handlers registered on a client, called in registration order.
@@ -28,15 +29,20 @@ impl UnlockHandlers {
             .push(handler);
     }
 
-    pub(crate) fn run_handlers(&self, client: &Client, method: Option<&InitUserCryptoMethod>) {
-        // Cloned, so a handler that registers another handler does not deadlock.
+    pub(crate) async fn run_handlers(
+        &self,
+        client: &Client,
+        method: Option<&InitUserCryptoMethod>,
+    ) {
+        // Cloned, so a handler that registers another handler does not deadlock, and the lock is
+        // not held across an await.
         let handlers = self
             .handlers
             .read()
             .expect("RwLock is not poisoned")
             .clone();
         for handler in handlers {
-            handler.on_unlock(client, method);
+            handler.on_unlock(client, method).await;
         }
     }
 }

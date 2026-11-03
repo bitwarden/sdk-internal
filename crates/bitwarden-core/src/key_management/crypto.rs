@@ -938,7 +938,11 @@ async fn on_unlock_handler(
         PinLockSystem::on_unlock(&PinLockSystem::with_client(client)).await;
     }
 
-    client.internal.unlock_handlers.run_handlers(client, method);
+    client
+        .internal
+        .unlock_handlers
+        .run_handlers(client, method)
+        .await;
 
     Ok(())
 }
@@ -1783,8 +1787,9 @@ mod tests {
         calls: AtomicUsize,
     }
 
+    #[async_trait::async_trait]
     impl UnlockHandler for CountingUnlockHandler {
-        fn on_unlock(&self, _client: &Client, _method: Option<&InitUserCryptoMethod>) {
+        async fn on_unlock(&self, _client: &Client, _method: Option<&InitUserCryptoMethod>) {
             self.calls.fetch_add(1, Ordering::SeqCst);
         }
     }
@@ -1807,8 +1812,9 @@ mod tests {
         master_password_unlocks: AtomicUsize,
     }
 
+    #[async_trait::async_trait]
     impl UnlockHandler for MasterPasswordUnlockHandler {
-        fn on_unlock(&self, _client: &Client, method: Option<&InitUserCryptoMethod>) {
+        async fn on_unlock(&self, _client: &Client, method: Option<&InitUserCryptoMethod>) {
             if matches!(
                 method,
                 Some(InitUserCryptoMethod::MasterPasswordUnlock { .. })
