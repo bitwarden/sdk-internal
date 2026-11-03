@@ -394,7 +394,8 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
                 ready = batch
                     .into_iter()
                     .zip(results)
-                    .map(|(item, result)| Ok(result.map_err(|error| Box::new((item, error)))))
+                    .map(|(item, result)| result.map_err(|error| Box::new((item, error))))
+                    .map(Ok)
                     .chain(input_error.map(Err))
                     .collect::<Vec<_>>()
                     .into_iter();
