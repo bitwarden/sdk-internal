@@ -32,8 +32,8 @@ Build & test:
 Lint & format:
 
 - `npm run lint` — every check CI runs (fmt, clippy, sort, udeps, dylint, doc, prettier,
-  dep-ownership, cargo-lock, advisories); `npm run lint:fix` auto-fixes;
-  `npm run lint -- --only <check>` runs one. Backed by `scripts/lint.sh`.
+  dep-ownership, cargo-lock); `npm run lint:fix` auto-fixes; `npm run lint -- --only <check>` runs
+  one. Backed by `scripts/lint.sh`.
 - **Never run bare `cargo fmt`** — `rustfmt.toml` uses nightly-only options that stable rustfmt
   silently ignores. Use `npm run lint:fix -- --only fmt`.
 - Custom dylint lints live in `support/lints/` (not a workspace member).
