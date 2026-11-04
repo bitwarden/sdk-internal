@@ -55,5 +55,10 @@ tempfile = ">=3.27.0, <4"
 tokio = { workspace = true, features = ["rt", "test-util"] }
 wiremock = { workspace = true }
 
+# Needs a live domain controller, so `cargo test` skips it unless the target is named.
+[[test]]
+name = "active_directory_integration"
+test = false
+
 [lints]
 workspace = true

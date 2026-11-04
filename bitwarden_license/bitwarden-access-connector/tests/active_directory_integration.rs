@@ -1,6 +1,6 @@
 //! Runs the whole connector against wiremock identity and API servers to rotate an account on a
 //! real domain controller. The Active Directory target's credentials come from the environment.
-//! Every test is `#[ignore]`d; run them with:
+//! `cargo test` skips this target and every test is `#[ignore]`d; run them with:
 //!
 //! ```text
 //! BWAC_AD_LIVE_HOST=dc01.example.com:636 \
