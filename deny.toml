@@ -7,7 +7,7 @@
 unmaintained = "workspace"
 ignore = [
   # Marvin attack in `rsa`: https://rustsec.org/advisories/RUSTSEC-2023-0071
-  { id = "RUSTSEC-2023-0071", reason = "No fixed release of rsa exists. Used by bitwarden-crypto for RSA keys." },
+  { id = "RUSTSEC-2023-0071", reason = "No fixed release of rsa exists. Used directly by bitwarden-crypto, bitwarden-importers, bitwarden-ssh and bitwarden-wasm-internal, and through ssh-key." },
   # crypto-bigint constant-time fixes: https://rustsec.org/advisories/RUSTSEC-2026-0387
   # crypto-bigint 0.5.x has no patched release. It comes in through elliptic-curve 0.13 from p256 0.13, which
   # bitwarden-fido (directly and through passkey-rs) and snow 0.10 (bitwarden-ipc, bitwarden-random) depend on.
