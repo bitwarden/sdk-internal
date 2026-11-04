@@ -1,0 +1,16 @@
+# cargo-deny configuration. Only the advisories check is used, through
+# `scripts/lint.sh --only advisories`.
+
+# https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html
+[advisories]
+# Fail on unmaintained crates that the workspace depends on directly, not on transitive ones.
+unmaintained = "workspace"
+ignore = [
+  # Marvin attack in `rsa`: https://rustsec.org/advisories/RUSTSEC-2023-0071
+  { id = "RUSTSEC-2023-0071", reason = "No fixed release of rsa exists. Used by bitwarden-crypto for RSA keys." },
+  # crypto-bigint constant-time fixes: https://rustsec.org/advisories/RUSTSEC-2026-0387
+  # crypto-bigint 0.5.x has no patched release. It comes in through elliptic-curve 0.13 from p256 0.13, which
+  # bitwarden-fido (directly and through passkey-rs) and snow 0.10 (bitwarden-ipc, bitwarden-random) depend on.
+  # This entry stays until those move to elliptic-curve 0.14.
+  { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5.x has no fix (via p256 0.13 in bitwarden-fido, passkey-rs and snow)." },
+]

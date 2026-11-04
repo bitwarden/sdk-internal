@@ -573,7 +573,11 @@ npm run lint -- --only clippy
 ```
 
 The list of available checks: `fmt`, `clippy`, `sort`, `udeps`, `dylint`, `doc`, `prettier`,
-`dep-ownership`, `cargo-lock`.
+`dep-ownership`, `cargo-lock`, `advisories`.
+
+`advisories` checks `Cargo.lock` against the RustSec advisory database, with ignores in
+[deny.toml](./deny.toml). A newly published advisory can make it fail without any change in this
+repository, so CI reports it in a separate job that does not block merging.
 
 The command is implemented in [scripts/lint.sh](./scripts/lint.sh) and mirrors
 [.github/workflows/lint.yml](./.github/workflows/lint.yml), so a local pass means CI will pass.
@@ -597,6 +601,7 @@ on first invocation. The underlying tools are:
 - [rust clippy](https://github.com/rust-lang/rust-clippy)
 - [cargo dylint](https://github.com/trailofbits/dylint)
 - [cargo sort](https://github.com/DevinR528/cargo-sort)
+- [cargo deny](https://github.com/EmbarkStudios/cargo-deny)
 - [prettier](https://github.com/prettier/prettier)
 
 If `cargo-run-bin` itself is missing locally, `npm run lint` will tell you how to install it.
