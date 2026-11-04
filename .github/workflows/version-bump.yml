@@ -16,7 +16,8 @@ on:
         description: "New version (example: '2024.1.0')"
         required: true
       cut_rc_branch:
-        description: "Cut RC branch?"
+        # Leave unticked for bitwarden-access-connector: this cuts the shared SDK rc branch.
+        description: "Cut RC branch? (leave unticked for bitwarden-access-connector)"
         default: false
         type: boolean
 
