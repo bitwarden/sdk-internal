@@ -180,14 +180,30 @@ async fn enroll(
     Err(Stop::Failed(OnePasswordError::VerificationCodeFailed))
 }
 
-/// Waits for the `msga` that replaces `replaced`. Only the status tells a denial on the enrolled
-/// device from any other failure of the wait.
+/// Waits for the `msga` that replaces `replaced`. The server answers 400 to a request for it while
+/// the enrolled device checks the wrong code (`PENDING_VALIDATION`), so the status has to be back
+/// at `WAITING_FOR_CODE` first, as it is once that device shows the new code. Only the status tells
+/// a denial on the enrolled device from any other failure of the wait.
 async fn wait_for_new_msg_a(
     replaced: &MsgA,
     session: &EnrollmentSession<'_>,
     rest: &RestClient,
     timing: &Timing,
 ) -> Result<MsgA, Stop> {
+    let status = poll_status_until_done(
+        &[
+            ServerStatus::SelectingVerifier,
+            ServerStatus::PendingValidation,
+        ],
+        session,
+        rest,
+        timing,
+    )
+    .await?;
+    if valid_status(status)? != ServerStatus::WaitingForCode {
+        return Err(unknown_status(status));
+    }
+
     match request_msg_a(session, Some(replaced), rest, timing).await {
         Ok(msg_a) => Ok(msg_a),
         Err(error) => match get_enrollment_status(session, rest).await {
@@ -318,7 +334,10 @@ async fn get_enrollment_status(
 mod tests {
     use std::{
         collections::VecDeque,
-        sync::{Arc, Mutex},
+        sync::{
+            Arc, Mutex,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        },
         time::Duration,
     };
 
@@ -714,6 +733,74 @@ mod tests {
                 Event::CodeAsked(0),
                 exchanging(),
                 Event::Ended(SsoEnrollmentResult::Failed),
+            ]
+        );
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn the_new_msga_is_asked_for_once_the_wrong_code_is_checked() {
+        let vectors = vectors().cpace;
+        let server = MockServer::start().await;
+        mock_start(&server, &vectors).await;
+        // Like 1Password's, the server refuses `msga` with a 400 while it checks a wrong code.
+        let checked = Arc::new(AtomicBool::new(false));
+        let polls = AtomicUsize::new(0);
+        let status_checked = checked.clone();
+        server
+            .register(status_mock(&vectors).respond_with(move |_: &Request| {
+                match polls.fetch_add(1, Ordering::SeqCst) {
+                    0 => reports("WAITING_FOR_CODE"),
+                    1 | 2 => reports("PENDING_VALIDATION"),
+                    _ => {
+                        status_checked.store(true, Ordering::SeqCst);
+                        reports("WAITING_FOR_CODE")
+                    }
+                }
+            }))
+            .await;
+        let first = BASE64.encode(vectors.msga_json.as_bytes());
+        let mut replacement: Value =
+            serde_json::from_str(&vectors.msga_json).expect("the vector msga parses");
+        replacement["ad"]["session_id"] = json!(vec![9u8; 16]);
+        let replacement = BASE64.encode(replacement.to_string().as_bytes());
+        let requests = AtomicUsize::new(0);
+        server
+            .register(
+                Mock::given(matchers::method("POST"))
+                    .and(matchers::path(path(&vectors, "cpace/msga")))
+                    .respond_with(move |_: &Request| {
+                        if requests.fetch_add(1, Ordering::SeqCst) == 0 {
+                            ResponseTemplate::new(200).set_body_json(json!({ "msga": first }))
+                        } else if checked.load(Ordering::SeqCst) {
+                            ResponseTemplate::new(200).set_body_json(json!({ "msga": replacement }))
+                        } else {
+                            ResponseTemplate::new(400).set_body_json(json!({}))
+                        }
+                    }),
+            )
+            .await;
+        mock_refusing_enrolled_device(&server, &vectors, 1).await;
+        mock_cancel(&server, &vectors, 1).await;
+        let (ui, script) = scripted_prompts([code("9999-ZZZZ"), Prompt::Cancel]);
+
+        let error = run_enrollment(&server, &vectors, &ui, &quick_timing())
+            .await
+            .err()
+            .expect("the enrollment is canceled");
+
+        assert!(matches!(error, OnePasswordError::Canceled));
+        assert_eq!(
+            script.take_events(),
+            [
+                status(
+                    EnrollmentStatus::WaitingForApproval,
+                    "Waiting for approval from enrolled device..."
+                ),
+                Event::CodeAsked(0),
+                exchanging(),
+                Event::CodeAsked(1),
+                Event::Ended(SsoEnrollmentResult::Canceled),
             ]
         );
         server.verify().await;
