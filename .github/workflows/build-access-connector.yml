@@ -65,6 +65,13 @@ jobs:
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: access-connector-${{ matrix.target }}
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
+
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@main
+        with:
+          key: access-connector-${{ matrix.target }}
 
       - name: Build
         run: cargo build -p bitwarden-access-connector --release --locked --target ${{ matrix.target }}
