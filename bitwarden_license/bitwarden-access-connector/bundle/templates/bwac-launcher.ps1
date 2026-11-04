@@ -79,8 +79,11 @@ try {
 
     $psi = New-Object Diagnostics.ProcessStartInfo
     $psi.FileName = $Exe
-    $psi.Arguments = ('run --config "{0}"' -f $Config)
+    $psi.Arguments = 'run'
     $psi.UseShellExecute = $false
+    # The path goes in the environment, not the command line, so it never needs quoting.
+    # Set after the env file is loaded, so -Config wins over a BWAC_CONFIG in that file.
+    $psi.EnvironmentVariables['BWAC_CONFIG'] = $Config
     $psi.RedirectStandardError = $true
     $psi.CreateNoWindow = $true
     $psi.WorkingDirectory = Split-Path -Parent $Config
