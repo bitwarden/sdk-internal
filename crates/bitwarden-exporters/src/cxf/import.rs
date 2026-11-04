@@ -814,6 +814,8 @@ mod tests {
 
     fn generated_password_item(credentials: Vec<Credential>) -> Item {
         Item {
+            // Fixed fixture values: the importer doesn't read `Item.id`, and fixed timestamps keep
+            // the tests deterministic.
             id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
