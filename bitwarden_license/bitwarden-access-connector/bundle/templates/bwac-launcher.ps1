@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <#
-    Launcher for bwac, written by Install-AccessConnector.ps1.
+    Launcher for bwac, run by the scheduled task from the Windows steps in README.md.
 
     Sets the env file's variables on this process only, for the connector to inherit. A
     machine-level variable would put the token in a registry key any user can read, and
