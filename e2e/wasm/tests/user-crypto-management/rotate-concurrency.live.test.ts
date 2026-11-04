@@ -3,7 +3,7 @@
 
 import type { CipherView } from "@bitwarden/sdk-internal";
 
-import { LoginMethod, type ClientEmulator } from "../../client-emulator/client-emulator";
+import type { ClientEmulator } from "../../client-emulator/client-emulator";
 import { IGNORED_FIELDS, validateVault } from "../../client-emulator/validate";
 import type { SeedVault } from "../../server-emulator/server-emulator";
 import {
@@ -14,7 +14,13 @@ import {
   type TestHarness,
 } from "../../test-harness";
 import { testVectors } from "../../vectors/test-vectors";
-import { rotateByPassword } from "./rotate-helpers";
+import {
+  createLogin,
+  ensureVaultNotEmpty,
+  rotateByPassword,
+  session,
+  sessions,
+} from "./rotate-helpers";
 
 /** The account the emulator is seeded with. A live run uses the configured one instead. */
 const V2_VECTOR = testVectors.users.withMasterPassword().get("v2-pbkdf2-blob");
@@ -41,8 +47,6 @@ const MAX_EDITS = 5_000;
 /** A rotation that read a vault an edit has since changed is refused and has to be retried. */
 const MAX_ROTATION_ATTEMPTS = 100;
 
-const PLACEHOLDER_NAME = "sdk-internal integration tests";
-
 /** A recorded vault, in the shape `validateVault` compares against. */
 type Recorded = { vault: SeedVault };
 
@@ -58,68 +62,6 @@ describe(`rotate user keys under contention (${TARGET})`, () => {
   /** The account under test: a fresh one seeded into the emulator, or the configured live one. */
   async function provide(): Promise<TargetAccount> {
     return targetAccount(harness, V2_VECTOR);
-  }
-
-  /** A client logged in, synced and unlocked. */
-  async function session(account: TargetAccount): Promise<ClientEmulator> {
-    const client = account.newClient();
-    await client.login(account.email, LoginMethod.Password, account.password);
-    await client.unlock(account.password);
-
-    return client;
-  }
-
-  /** Same as {@link session}, for many clients at once. Sequential: logins are not the test. */
-  async function sessions(account: TargetAccount, count: number): Promise<ClientEmulator[]> {
-    const clients: ClientEmulator[] = [];
-    for (let i = 0; i < count; i++) {
-      clients.push(await session(account));
-    }
-
-    return clients;
-  }
-
-  /** Gives the account something to rotate; a rotation over an empty vault proves nothing. */
-  async function ensureVaultNotEmpty(client: ClientEmulator): Promise<void> {
-    const sdk = client.getPasswordManagerClient();
-    if ((await sdk.vault().ciphers().get_all()).successes.length > 0) {
-      return;
-    }
-
-    await createLogin(client, PLACEHOLDER_NAME, "created by the rotation tests");
-    await client.sync();
-  }
-
-  async function createLogin(
-    client: ClientEmulator,
-    name: string,
-    notes: string,
-  ): Promise<CipherView> {
-    return await client
-      .getPasswordManagerClient()
-      .vault()
-      .ciphers()
-      .create({
-        organizationId: undefined,
-        collectionIds: [],
-        folderId: undefined,
-        name,
-        notes,
-        favorite: false,
-        reprompt: 0,
-        type: {
-          login: {
-            username: "integration-tests@example.com",
-            password: "a password the rotation has to carry across",
-            passwordRevisionDate: undefined,
-            uris: undefined,
-            totp: undefined,
-            autofillOnPageLoad: undefined,
-            fido2Credentials: undefined,
-          },
-        },
-        fields: [],
-      });
   }
 
   /** What the client's account decrypts to right now, in the shape a vector records. */

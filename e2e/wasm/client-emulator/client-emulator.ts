@@ -52,6 +52,9 @@ export class ClientEmulator {
 
   private preloginKdf: Kdf | undefined;
 
+  /** The last sync response, as the server sent it, for tests about what the wire carries. */
+  lastSync: SyncResponse | undefined;
+
   /**
    * @param settings where the SDK points, which is also where this client's own requests go.
    * @param server the emulator, when there is one. Only {@link LoginMethod.Unimplemented} needs it.
@@ -84,6 +87,7 @@ export class ClientEmulator {
     }
 
     const synced: SyncResponse = await response.json();
+    this.lastSync = synced;
 
     this.local.setIdentity({ userId: synced.profile.id, email: synced.profile.email });
     this.local.organizationKeys = Object.fromEntries(
