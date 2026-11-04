@@ -2,9 +2,11 @@ import type { ClientSettings, LoginRequest } from "@bitwarden/sdk-internal";
 
 import { ClientEmulator, LOGIN_REQUEST } from "./client-emulator/client-emulator";
 import { SETTINGS } from "./client-emulator/local-state";
+import { describeLoginFailure, liveConfig } from "./live/config";
 import { ServerEmulator } from "./server-emulator/server-emulator";
 
 import type { HttpMock } from "./server-emulator/http-mock";
+import type { MasterPasswordUserVector } from "./vectors/load";
 
 /**
  * The backend a test runs against: either the emulator, or a real server over the network.
@@ -70,4 +72,62 @@ export function testHarness(): TestHarness {
 /** A fresh harness over a real server. Call in `beforeEach`. */
 export function liveHarness(settings: ClientSettings, loginRequest: LoginRequest): TestHarness {
   return TestHarness.live(settings, loginRequest);
+}
+
+/** The backend a test that runs on either one is pointed at, for its name. */
+export const TARGET = liveConfig() === undefined ? "emulator" : "live server";
+
+/**
+ * A fresh harness over the live server when `BW_LIVE_SERVER_URL` is set, and over the emulator
+ * otherwise. Call in `beforeEach`.
+ */
+export function targetHarness(): TestHarness {
+  const live = liveConfig();
+
+  return live === undefined ? testHarness() : liveHarness(live.settings, live.loginRequest);
+}
+
+/** An account a test can open any number of sessions on. */
+export interface TargetAccount {
+  email: string;
+  password: string;
+  newClient(): ClientEmulator;
+}
+
+/**
+ * The account a test uses on `harness`: `vector` seeded into the emulator, or the configured live
+ * account. A live login that fails says what the account needs, since the SDK can't tell why.
+ */
+export function targetAccount(
+  harness: TestHarness,
+  vector: MasterPasswordUserVector,
+): TargetAccount {
+  const live = liveConfig();
+  if (live === undefined) {
+    const seeded = harness.server.seedUserTestVector(vector);
+
+    return {
+      email: seeded.email,
+      password: seeded.vector.account.password,
+      newClient: () => harness.newClientEmulator(),
+    };
+  }
+
+  return {
+    email: live.email,
+    password: live.password,
+    newClient: () => {
+      const client = harness.newClientEmulator();
+      const login = client.login.bind(client);
+      client.login = async (...args) => {
+        try {
+          await login(...args);
+        } catch (error) {
+          throw new Error(describeLoginFailure(error));
+        }
+      };
+
+      return client;
+    },
+  };
 }

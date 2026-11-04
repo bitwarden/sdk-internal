@@ -29,8 +29,10 @@ state.
 
 Some tests can run against a live deployment instead of the emulator, to check that the requests the
 SDK builds are ones a real server accepts — the one thing a model of the backend cannot tell you,
-since it answers whatever it was written to answer. They are named `*.live.test.ts`, are skipped
-unless configured, and never run in CI.
+since it answers whatever it was written to answer. They are named `*.live.test.ts` and pick their
+backend from `BW_LIVE_SERVER_URL`: set, they run against that server; unset, a test that can also
+run on the emulator does (`rotate-concurrency.live.test.ts`), and one that can't is skipped
+(`rotate-user-keys.live.test.ts`). CI never sets it, so CI only ever runs them on the emulator.
 
 ```sh
 BW_LIVE_SERVER_URL=https://vault.example.com \
