@@ -3,8 +3,7 @@ use std::{collections::HashSet, time::Duration};
 use async_trait::async_trait;
 use bitwarden_pam::RotationFailureCode;
 use ldap3::{
-    Ldap, LdapConnAsync, LdapConnSettings, LdapError, Mod, ResultEntry, Scope, SearchEntry,
-    result::LdapResult,
+    Ldap, LdapConnAsync, LdapConnSettings, LdapError, Mod, ResultEntry, Scope, result::LdapResult,
 };
 use tokio::task::JoinHandle;
 
@@ -112,7 +111,8 @@ impl LdapSession {
         let Some(entry) = entries.pop() else {
             return Err(target_rejected(phase.settled(), "AccountNotFound"));
         };
-        let dn = SearchEntry::construct(entry).dn;
+        let dn = entry_dn(entry)
+            .ok_or_else(|| target_rejected(phase.settled(), "MalformedSearchEntry"))?;
         if dn.is_empty() {
             return Err(target_rejected(phase.settled(), "AccountWithoutDn"));
         }
@@ -168,13 +168,20 @@ impl PasswordWriter for LdapSession {
 }
 
 /// AD answers every subtree search with continuation references to subordinate naming contexts,
-/// so a domain-root base would look ambiguous, and `SearchEntry::construct` panics on a reference.
-/// References are dropped rather than chased, so the bind never goes to a server nobody named.
+/// so a domain-root base would look ambiguous. References are dropped rather than chased, so the
+/// bind never goes to a server nobody named.
 fn search_entries_only(results: Vec<ResultEntry>) -> Vec<ResultEntry> {
     results
         .into_iter()
         .filter(|entry| !entry.is_ref() && !entry.is_intermediate())
         .collect()
+}
+
+/// The DN of a search result entry, or `None` if the entry is malformed. `SearchEntry::construct`
+/// panics on a malformed entry instead, which would end the process.
+fn entry_dn(entry: ResultEntry) -> Option<String> {
+    let mut elements = entry.0.match_id(4)?.expect_constructed()?.into_iter();
+    String::from_utf8(elements.next()?.expect_primitive()?).ok()
 }
 
 /// The identity comes from the server, so it is escaped before it goes into the filter.
@@ -230,7 +237,7 @@ mod tests {
     const TAG_SEARCH_RESULT_REFERENCE: u64 = 19;
     const TAG_INTERMEDIATE_RESPONSE: u64 = 25;
 
-    /// The DN followed by an empty attribute list, as `SearchEntry::construct` expects.
+    /// A well-formed entry: the DN followed by an empty attribute list.
     fn entry_pdu(dn: &str) -> ResultEntry {
         ResultEntry::new(StructureTag {
             class: TagClass::Application,
@@ -294,9 +301,52 @@ mod tests {
             "continuation references must not count towards the match count"
         );
         assert_eq!(
-            SearchEntry::construct(entries.into_iter().next().expect("one entry")).dn,
-            "CN=svc-app,OU=Service Accounts,DC=corp,DC=example"
+            entry_dn(entries.into_iter().next().expect("one entry")).as_deref(),
+            Some("CN=svc-app,OU=Service Accounts,DC=corp,DC=example")
         );
+    }
+
+    #[test]
+    fn a_malformed_entry_has_no_dn_instead_of_panicking() {
+        let tag = |id, payload| StructureTag {
+            class: TagClass::Application,
+            id,
+            payload,
+        };
+        let octets = |bytes: &[u8]| StructureTag {
+            class: TagClass::Universal,
+            id: 4,
+            payload: PL::P(bytes.to_vec()),
+        };
+        let malformed = [
+            (
+                "not an entry",
+                tag(TAG_SEARCH_RESULT_REFERENCE, PL::C(vec![octets(b"CN=x")])),
+            ),
+            (
+                "primitive entry",
+                tag(TAG_SEARCH_RESULT_ENTRY, PL::P(b"CN=x".to_vec())),
+            ),
+            (
+                "no elements",
+                tag(TAG_SEARCH_RESULT_ENTRY, PL::C(Vec::new())),
+            ),
+            (
+                "constructed DN",
+                tag(
+                    TAG_SEARCH_RESULT_ENTRY,
+                    PL::C(vec![tag(4, PL::C(Vec::new()))]),
+                ),
+            ),
+            (
+                "DN not UTF-8",
+                tag(TAG_SEARCH_RESULT_ENTRY, PL::C(vec![octets(&[0xff, 0xfe])])),
+            ),
+        ];
+
+        for (case, pdu) in malformed {
+            assert_eq!(entry_dn(ResultEntry::new(pdu)), None, "{case}");
+        }
     }
 
     #[test]

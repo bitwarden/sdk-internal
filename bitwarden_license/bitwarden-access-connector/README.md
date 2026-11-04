@@ -484,7 +484,7 @@ the domain controller once per attempt.
 | TLS handshake or certificate rejected                 | Permanent | unchanged before the write is sent, **indeterminate** after | `target_unreachable`     |
 | `ca_certificate` missing, unreadable, or malformed    | Permanent | unchanged                                                   | `credentials_unresolved` |
 | Bind rejected (rc 49, 50)                             | Permanent | unchanged                                                   | `target_rejected`        |
-| Account not found or ambiguous                        | Permanent | unchanged                                                   | `target_rejected`        |
+| Account not found, ambiguous, or malformed            | Permanent | unchanged                                                   | `target_rejected`        |
 | Write rejected (rc 13, 19, 32, 53, schema errors)     | Permanent | unchanged, or settled by a rebind after an unanswered write | `target_rejected`        |
 | DC busy / unavailable / admin limit (rc 51, 52, 11)   | Transient | unchanged before the write, **indeterminate** after         | `target_unreachable`     |
 | Timeout or dropped connection after the write is sent | Transient | **indeterminate**                                           | `target_unreachable`     |
