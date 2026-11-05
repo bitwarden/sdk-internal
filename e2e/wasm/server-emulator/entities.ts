@@ -6,6 +6,7 @@ import type {
   KeyId,
   UnsignedSharedKey,
   V2UpgradeToken,
+  WebAuthnPrfUnlockOption,
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
 
@@ -53,6 +54,8 @@ export interface UserEntity {
   masterPasswordAuthenticationHash: string | null;
   /** Set while a V1 to V2 upgrade is outstanding; served in the account's decryption options. */
   upgradeToken?: V2UpgradeToken;
+  /** Passkeys registered for unlock with the PRF extension. Absent when there are none. */
+  webAuthnPrfOptions?: WebAuthnPrfUnlockOption[];
   /** Organization keys sealed to this account, keyed by organization id. */
   organizationKeys: Record<string, string>;
 }
