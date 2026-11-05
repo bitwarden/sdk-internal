@@ -135,7 +135,7 @@ WASM:
 
 ```sh
 cd e2e/wasm
-npm run build:test          # rebuilds wasm (build.sh) then runs jest
+npm run build:test          # rebuilds wasm (build.sh), typechecks, then runs vitest
 npm run test -- -t "<name>" # re-run without rebuilding when only TS changed
 ```
 

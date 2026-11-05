@@ -140,9 +140,10 @@ describe("feature", () => {
 npm run e2e:wasm  # from the repository root
 ```
 
-`build:test` builds wasm (`../build.sh`) into `../npm/`, then typechecks and runs vitest. After the
-first build, if only TS changed: `npm test`, or `npx vitest run tests/<path>.test.ts`. Rebuild after
-any Rust change. CI runs `npm test` on a fresh build.
+`e2e:wasm` builds wasm (`crates/bitwarden-wasm-internal/build.sh`) into
+`crates/bitwarden-wasm-internal/npm/`, then typechecks and runs vitest. After the first build, if
+only TS changed: `cd e2e/wasm && npm test`, or `cd e2e/wasm && npx vitest run tests/<path>.test.ts`.
+Rebuild after any Rust change. CI runs `npm test` in `e2e/wasm` on a fresh build.
 
 Rust harness tests: `cargo test -p <crate> --test <name>`; add `RUST_LOG=debug … -- --nocapture` for
 one test's logs.
