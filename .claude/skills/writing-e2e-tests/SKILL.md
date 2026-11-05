@@ -119,6 +119,14 @@ describe("feature", () => {
 - **Multi-device** flows: two emulators on one harness; call `second.sync(email)` explicitly (no
   push notifications). Draw an ASCII timeline in the test's doc comment (see `change-kdf.test.ts`,
   `rotate-user-keys.test.ts`).
+- **Assert outcomes, not every step.** Assertions belong in the `// N. Verify …` steps and check end
+  state (vault comparison, server rows). Don't assert after each call
+  (`expect(created.id).toBeDefined()`, re-checking fields just returned) — the verify steps cover
+  them. One extra assertion is fine when the verify steps would also pass on a no-op; say so in a
+  comment (see the unique-key check in `rotate-user-keys.test.ts`).
+- **Spell out client calls.** Write `client.getPasswordManagerClient().vault().ciphers().edit(…)` in
+  full rather than wrapping it in terse closures (`ciphers()`, `ciphersOf(device)`). Helpers get
+  descriptive names (`editRequest`, not `editOf`).
 - **Failures**: `rejection(promise, isXxxError)`, assert `error.variant`, then assert neither side
   changed.
 - **Ignore lists**: `validateVault` ignores `revisionDate`/`creationDate`. Pass `[]` when nothing
