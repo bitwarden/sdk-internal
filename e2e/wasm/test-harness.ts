@@ -1,8 +1,9 @@
 import type { ClientSettings, LoginRequest } from "@bitwarden/sdk-internal";
 
-import { ClientEmulator, LOGIN_REQUEST } from "./client-emulator/client-emulator";
+import { ClientEmulator, LOGIN_REQUEST, LoginMethod } from "./client-emulator/client-emulator";
 import { SETTINGS } from "./client-emulator/local-state";
-import { ServerEmulator } from "./server-emulator/server-emulator";
+import { ServerEmulator, type SeededTestVector } from "./server-emulator/server-emulator";
+import { hasMasterPassword } from "./vectors/load";
 
 import type { HttpMock } from "./server-emulator/http-mock";
 
@@ -54,6 +55,25 @@ export class TestHarness {
 
   newClientEmulator(): ClientEmulator {
     return new ClientEmulator(this.settings, this.emulator, this.loginRequest);
+  }
+
+  /**
+   * A new device, logged in to `seeded` and unlocked with the vector's first unlock method.
+   *
+   * Only password login is implemented; TDE and Key Connector accounts skip authentication.
+   */
+  async newUnlockedClient(seeded: SeededTestVector): Promise<ClientEmulator> {
+    const { email, vector } = seeded;
+    const client = this.newClientEmulator();
+
+    if (hasMasterPassword(vector)) {
+      await client.login(email, LoginMethod.Password, vector.account.password);
+    } else {
+      await client.login(email, LoginMethod.Unimplemented);
+    }
+    await client.unlockWith(vector.unlockMethods[0]);
+
+    return client;
   }
 
   /** Unpatches `fetch`. Call in `afterEach`, or the patch outlives the test. */

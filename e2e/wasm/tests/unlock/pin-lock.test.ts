@@ -1,10 +1,7 @@
 import { isEncryptionSettingsError } from "@bitwarden/sdk-internal";
 
-import { LoginMethod, type ClientEmulator } from "../../client-emulator/client-emulator";
 import { validateVault } from "../../client-emulator/validate";
-import type { SeededTestVector } from "../../server-emulator/server-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
-import { hasMasterPassword } from "../../vectors/load";
 import { testVectors } from "../../vectors/test-vectors";
 import { rejection, TEST_PIN } from "../utils";
 
@@ -23,22 +20,6 @@ describe("pin lock", () => {
 
   afterEach(() => harness.restore());
 
-  /** Logs a new device in to `seeded` and unlocks it with the vector's first unlock method. */
-  async function open(seeded: SeededTestVector): Promise<ClientEmulator> {
-    const { email, vector } = seeded;
-    const client = harness.newClientEmulator();
-
-    // Only password login is implemented; TDE and Key Connector accounts skip authentication.
-    if (hasMasterPassword(vector)) {
-      await client.login(email, LoginMethod.Password, vector.account.password);
-    } else {
-      await client.login(email, LoginMethod.Unimplemented);
-    }
-    await client.unlockWith(vector.unlockMethods[0]);
-
-    return client;
-  }
-
   /**
    * A BeforeFirstUnlock PIN keeps a persistent envelope, so it unlocks straight after the app
    * restarts, both from the encrypted PIN and from the envelope itself.
@@ -49,7 +30,7 @@ describe("pin lock", () => {
     "$name unlocks with a BeforeFirstUnlock PIN after a restart",
     async (vector) => {
       const seeded = harness.server.seedUserTestVector(vector);
-      const device = await open(seeded);
+      const device = await harness.newUnlockedClient(seeded);
 
       // 1. Enroll the PIN
       await device
@@ -84,7 +65,7 @@ describe("pin lock", () => {
     "$name unlocks with an AfterFirstUnlock PIN until a restart",
     async (vector) => {
       const seeded = harness.server.seedUserTestVector(vector);
-      const device = await open(seeded);
+      const device = await harness.newUnlockedClient(seeded);
 
       // 1. Enroll the PIN
       await device
@@ -113,7 +94,7 @@ describe("pin lock", () => {
     "validates the PIN",
     async () => {
       const seeded = harness.server.seedUserTestVector(V2_VECTOR);
-      const device = await open(seeded);
+      const device = await harness.newUnlockedClient(seeded);
       const pinSettings = device.getPasswordManagerClient().user_crypto_management().pin_settings();
 
       // 1. Enroll the PIN
@@ -130,7 +111,7 @@ describe("pin lock", () => {
     "unsets the PIN",
     async () => {
       const seeded = harness.server.seedUserTestVector(V2_VECTOR);
-      const device = await open(seeded);
+      const device = await harness.newUnlockedClient(seeded);
       const pinSettings = device.getPasswordManagerClient().user_crypto_management().pin_settings();
 
       // 1. Enroll the PIN, then unset it
@@ -152,7 +133,7 @@ describe("pin lock", () => {
     "stores the PIN length on set and clears it on unset",
     async () => {
       const seeded = harness.server.seedUserTestVector(V2_VECTOR);
-      const device = await open(seeded);
+      const device = await harness.newUnlockedClient(seeded);
       const pinSettings = device.getPasswordManagerClient().user_crypto_management().pin_settings();
 
       // 1. Enroll the PIN, and verify the length is stored
@@ -174,7 +155,7 @@ describe("pin lock", () => {
     "stores the length of a PIN set before lengths were, on unlock",
     async () => {
       const seeded = harness.server.seedUserTestVector(V2_VECTOR);
-      const device = await open(seeded);
+      const device = await harness.newUnlockedClient(seeded);
 
       // 1. Enroll the PIN as an older client would have, with no length stored
       await device
