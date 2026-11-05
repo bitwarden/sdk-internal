@@ -54,4 +54,8 @@ pub(crate) use query::QueryRequest;
 pub use scene::Scene;
 pub use scene_template::SceneTemplate;
 pub(crate) use scene_template::{CreateSceneRequest, CreateSceneResponse};
-pub use scenes::{SingleUserArgs, SingleUserResult, SingleUserScene};
+pub use scenes::{
+    OrganizationLoginCipherArgs, OrganizationLoginCipherResult, OrganizationLoginCipherScene,
+    OrganizationOverrides, PlanType, SingleOrganizationArgs, SingleOrganizationResult,
+    SingleOrganizationScene, SingleUserArgs, SingleUserResult, SingleUserScene,
+};
