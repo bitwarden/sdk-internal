@@ -41,11 +41,14 @@ wasm32.
   `uniffi.toml` next to `Cargo.toml`, copying the `[bindings.kotlin]` / `[bindings.swift]` layout
   from a neighboring crate and substituting this crate's Kotlin package name and Swift module names
   (enforced by the `missing_uniffi_config` dylint lint, which only checks that the file exists).
-- WASM: use the `bitwarden-ffi` macros, not raw `#[wasm_bindgen]` or tsify attributes.
-  `#[bitwarden_ffi::wasm_record]` (or `wasm_record(input)` for JavaScript-to-Rust only) on serde
-  DTOs, `#[bitwarden_ffi::wasm_object]` on class handles such as clients,
-  `#[bitwarden_ffi::wasm_export]` on exported impl blocks and functions, and
-  `#[bitwarden_ffi::wasm_import]` on `extern "C"` import blocks.
+- WASM: use the `bitwarden-ffi` macros in place of an item-level `#[wasm_bindgen]` or
+  `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(..))]`: `#[bitwarden_ffi::wasm_record]` (or
+  `wasm_record(input)` for JavaScript-to-Rust only) on DTOs, next to their own
+  `#[derive(Serialize, Deserialize)]`; `#[bitwarden_ffi::wasm_object]` on class handles such as
+  clients; `#[bitwarden_ffi::wasm_export]` on exported impl blocks and functions; and
+  `#[bitwarden_ffi::wasm_import]` on `extern "C"` import blocks. Field-level `#[tsify(..)]` and
+  `#[wasm_bindgen(..)]` on methods and imports stay as they are; the macros forward them. The crate
+  needs `bitwarden-ffi = { workspace = true }` and `"bitwarden-ffi/wasm"` in its `wasm` feature.
 - Errors: annotate with `bitwarden-error` (`basic`/`flat`/`full` modes) to generate the WASM,
   TypeScript, and UniFFI error bindings.
 

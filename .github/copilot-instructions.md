@@ -90,14 +90,19 @@ Structs and enums that are exposed through a domain client must be derive:
 
 #### WASM
 
-WASM is used for web bindings. Expose types and functions through the `bitwarden-ffi` macros instead
-of raw `#[wasm_bindgen]` or tsify attributes:
+WASM is used for web bindings. Expose types and functions through the `bitwarden-ffi` macros in
+place of an item-level `#[wasm_bindgen]` or
+`#[cfg_attr(feature = "wasm", derive(Tsify), tsify(..))]`:
 
 - `#[bitwarden_ffi::wasm_record]` on serde structs and enums that cross as plain data;
   `#[bitwarden_ffi::wasm_record(input)]` when they only go from JavaScript to Rust.
 - `#[bitwarden_ffi::wasm_object]` on types JavaScript holds as a class handle, such as clients.
 - `#[bitwarden_ffi::wasm_export]` on the impl blocks and free functions JavaScript calls.
 - `#[bitwarden_ffi::wasm_import]` on `extern "C"` blocks of JavaScript imports.
+
+Field-level `#[tsify(..)]` and `#[wasm_bindgen(..)]` on methods and imports stay as they are; the
+macros forward them. The crate needs `bitwarden-ffi = { workspace = true }` in its dependencies and
+`"bitwarden-ffi/wasm"` in its `wasm` feature.
 
 ```rust
 #[derive(Serialize, Deserialize)]
