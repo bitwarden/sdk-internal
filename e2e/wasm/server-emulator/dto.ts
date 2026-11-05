@@ -727,16 +727,23 @@ export class V2UpgradeTokenResponse {
   wrappedUserKey2!: string;
 }
 
+/** `WebAuthnPrfDecryptionOption` — a passkey that can unlock the account. */
+export class WebAuthnPrfDecryptionOptionResponse {
+  encryptedPrivateKey!: string;
+  encryptedUserKey!: string;
+  credentialId!: string | null;
+  transports!: string[] | null;
+}
+
 /**
  * `UserDecryptionResponseModel` — how an account can be unlocked, as `GET /sync` reports it.
- *
- * `webAuthnPrfOptions` is omitted until an account vector has any.
  */
 export class UserDecryptionResponse {
   /** `null` for an account without a master password. */
   masterPasswordUnlock!: MasterPasswordUnlockResponse | null;
   /** Omitted, not `null`, when absent, as is {@link userKeyId}. */
   v2UpgradeToken?: V2UpgradeTokenResponse;
+  webAuthnPrfOptions?: WebAuthnPrfDecryptionOptionResponse[];
   userKeyId?: string;
 
   static fromUser(user: UserEntity): UserDecryptionResponse {
@@ -753,6 +760,12 @@ export class UserDecryptionResponse {
               wrappedUserKey2: String(user.upgradeToken.wrapped_user_key_2),
             },
           }),
+      webAuthnPrfOptions: user.webAuthnPrfOptions?.map((option) => ({
+        encryptedPrivateKey: String(option.encryptedPrivateKey),
+        encryptedUserKey: String(option.encryptedUserKey),
+        credentialId: option.credentialId ?? null,
+        transports: option.transports ?? null,
+      })),
       userKeyId: user.userKeyId ?? undefined,
     };
   }
