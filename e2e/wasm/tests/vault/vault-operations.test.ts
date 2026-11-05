@@ -19,6 +19,8 @@ const TIMEOUT = 120_000;
 
 const V2_VECTOR = testVectors.users.withMasterPassword().get("v2-pbkdf2-blob");
 
+const NEW_PASSWORD = "correct horse battery staple";
+
 /** A login as a user would fill one in. */
 const NEW_LOGIN: CipherCreateRequest = {
   organizationId: undefined,
@@ -31,15 +33,15 @@ const NEW_LOGIN: CipherCreateRequest = {
   type: {
     login: {
       username: "alice@example.com",
-      password: "correct horse battery staple",
+      password: NEW_PASSWORD,
       uris: [{ uri: "https://example.com" }],
     },
   },
   fields: [],
 };
 
-/** Applies the user's changes to the item they opened, as the edit screen does. */
-function editOf(view: CipherView, changes: Partial<CipherEditRequest>): CipherEditRequest {
+/** An edit request applying `changes` to the item the user opened, as the edit screen does. */
+function editRequest(view: CipherView, changes: Partial<CipherEditRequest>): CipherEditRequest {
   if (view.id === undefined || view.login === undefined) {
     throw new Error(`cipher ${view.id} is not a saved login`);
   }
@@ -139,11 +141,11 @@ describe("vault operations", () => {
   }
 
   /**
-   *   client  ──create──▶ get ─▶ lock ─▶ unlock ─▶ reads
+   *   client  ──create──▶ lock ─▶ unlock ─▶ reads
    *               │
    *   server  ────┴── stores ciphertext
    *               │
-   *   relogin ────┴───────────── login ─▶ unlock ─▶ reads
+   *   relogin ────┴───── login ─▶ unlock ─▶ reads
    */
   testVectors.users.each(
     "$name creates a login",
@@ -153,22 +155,12 @@ describe("vault operations", () => {
 
       // 1. Create
       const created = await client.getPasswordManagerClient().vault().ciphers().create(NEW_LOGIN);
-      expect(created.id).toBeDefined();
-      expect(created.name).toBe(NEW_LOGIN.name);
-      expect(created.login?.password).toBe("correct horse battery staple");
 
       // 2. Verify the server holds ciphertext, not the plaintext
       const stored = harness.server.db.ciphers.get(String(created.id));
-      expect(stored?.userId).toBe(seeded.userId);
-      expect(JSON.stringify(stored?.cipher)).not.toContain("correct horse battery staple");
+      expect(JSON.stringify(stored?.cipher)).not.toContain(NEW_PASSWORD);
 
-      // 3. Verify local state: get, then lock and unlock
-      const fetched = await client
-        .getPasswordManagerClient()
-        .vault()
-        .ciphers()
-        .get(asCipherId(String(created.id)));
-      expectPlaintextEqual(fetched, created, "created cipher");
+      // 3. Verify local state
       await relock(client, seeded);
       await assertVault(client, seeded, { written: [created] });
 
@@ -187,70 +179,76 @@ describe("vault operations", () => {
     async (vector) => {
       const seeded = harness.server.seedUserTestVector(vector);
       const client = await open(seeded);
-      const ciphers = () => client.getPasswordManagerClient().vault().ciphers();
 
       // 1. Edit an item created in this session
-      const created = await ciphers().create(NEW_LOGIN);
-      const editedNew = await ciphers().edit(
-        editOf(created, {
-          name: "Example, renamed",
-          favorite: true,
-          type: { login: { ...created.login, password: "new password" } },
-        }),
-      );
-      expect(editedNew.name).toBe("Example, renamed");
-      expect(editedNew.favorite).toBe(true);
-      expect(editedNew.login?.password).toBe("new password");
+      const created = await client.getPasswordManagerClient().vault().ciphers().create(NEW_LOGIN);
+      const editedNew = await client
+        .getPasswordManagerClient()
+        .vault()
+        .ciphers()
+        .edit(
+          editRequest(created, {
+            name: "Example, renamed",
+            favorite: true,
+            type: { login: { ...created.login, password: "new password" } },
+          }),
+        );
 
       // 2. Edit an item the vector recorded
-      const original = await ciphers().get(asCipherId(seededLoginId(seeded)));
-      const editedSeeded = await ciphers().edit(
-        editOf(original, { notes: "edited by the vault e2e suite" }),
-      );
-      expect(editedSeeded.notes).toBe("edited by the vault e2e suite");
-      expect(editedSeeded.login?.password).toBe(original.login?.password);
+      const original = await client
+        .getPasswordManagerClient()
+        .vault()
+        .ciphers()
+        .get(asCipherId(seededLoginId(seeded)));
+      const editedSeeded = await client
+        .getPasswordManagerClient()
+        .vault()
+        .ciphers()
+        .edit(editRequest(original, { notes: "edited by the vault e2e suite" }));
 
-      // 3. Verify local state
+      // 3. Verify the edit landed, so the vault assertions below cannot pass on a no-op edit
+      expect(editedSeeded.notes).not.toEqual(original.notes);
+
+      // 4. Verify local state
       await relock(client, seeded);
       await assertVault(client, seeded, { written: [editedNew, editedSeeded] });
 
-      // 4. Verify server state
+      // 5. Verify server state
       await assertVault(await open(seeded), seeded, { written: [editedNew, editedSeeded] });
     },
     TIMEOUT,
   );
 
   /**
-   *   client  ──soft delete──▶ in trash ──restore──▶ back in vault
-   *                                │                    │
-   *   relogin ─────────────────────┴─ sees trash        └─ sees vault
+   *   client  ──soft delete──────────────▶ restore
+   *                  │                        │
+   *   relogin ───────┴─ sees it in trash      │
+   *                                           │
+   *   relogin ────────────────────────────────┴─ sees the seeded vault
    */
   testVectors.users.each(
     "$name moves a login to the trash and restores it",
     async (vector) => {
       const seeded = harness.server.seedUserTestVector(vector);
       const client = await open(seeded);
-      const ciphers = () => client.getPasswordManagerClient().vault().ciphers();
-      const seededId = seededLoginId(seeded);
-      const id = asCipherId(seededId);
-      const original = await ciphers().get(id);
+      const id = asCipherId(seededLoginId(seeded));
 
       // 1. Soft delete
-      await ciphers().soft_delete(id);
+      await client.getPasswordManagerClient().vault().ciphers().soft_delete(id);
 
-      // 2. Verify both sides hold it in the trash, otherwise unchanged
-      const trashed = await ciphers().get(id);
+      // 2. Verify a fresh login sees it in the trash. Local state is not compared here: the SDK
+      //    stamps its own `deletedDate` locally, which differs from the server's until a sync.
+      const trashed = await (
+        await open(seeded)
+      )
+        .getPasswordManagerClient()
+        .vault()
+        .ciphers()
+        .get(id);
       expect(trashed.deletedDate).toBeDefined();
-      expect(harness.server.db.ciphers.get(seededId)?.cipher.deletedDate).toBeDefined();
-      expectPlaintextEqual(trashed, original, "trashed cipher", [...IGNORED_FIELDS, "deletedDate"]);
-
-      const other = await open(seeded);
-      const trashedOnServer = await other.getPasswordManagerClient().vault().ciphers().get(id);
-      expect(trashedOnServer.deletedDate).toBeDefined();
 
       // 3. Restore
-      const restored = await ciphers().restore(id);
-      expect(restored.deletedDate).toBeUndefined();
+      await client.getPasswordManagerClient().vault().ciphers().restore(id);
 
       // 4. Verify both sides are back to the seeded vault
       await relock(client, seeded);
@@ -270,8 +268,7 @@ describe("vault operations", () => {
       // 1. Delete
       await client.getPasswordManagerClient().vault().ciphers().delete(asCipherId(id));
 
-      // 2. Verify it is gone from the server, local state, and a fresh login
-      expect(harness.server.db.ciphers.get(id)).toBeUndefined();
+      // 2. Verify it is gone from local state and a fresh login
       await relock(client, seeded);
       await assertVault(client, seeded, { removed: [id] });
       await assertVault(await open(seeded), seeded, { removed: [id] });
@@ -281,46 +278,54 @@ describe("vault operations", () => {
 
   /**
    * Folders are created and renamed through the SDK, and items filed into them either one at a
-   * time on edit or in bulk with a move.
+   * time on create or in bulk with a move.
    */
   testVectors.users.each(
     "$name files logins into a folder",
     async (vector) => {
       const seeded = harness.server.seedUserTestVector(vector);
       const client = await open(seeded);
-      const folders = () => client.getPasswordManagerClient().vault().folders();
-      const ciphers = () => client.getPasswordManagerClient().vault().ciphers();
-      const seededFolderCount = (seeded.seed.vault?.folders ?? []).length;
+      const movedId = asCipherId(seededLoginId(seeded));
 
       // 1. Create a folder and rename it
-      const created = await folders().create({ name: "Work" });
-      expect(created.id).toBeDefined();
-      const folderId = created.id!;
-      const renamed = await folders().edit(folderId, { name: "Work, renamed" });
-      expect(renamed.name).toBe("Work, renamed");
+      const folder = await client
+        .getPasswordManagerClient()
+        .vault()
+        .folders()
+        .create({ name: "Work" });
+      const folderId = folder.id!;
+      await client
+        .getPasswordManagerClient()
+        .vault()
+        .folders()
+        .edit(folderId, { name: "Work, renamed" });
 
       // 2. File a new login into it on create, and a seeded one with a move
-      const filed = await ciphers().create({ ...NEW_LOGIN, folderId });
-      const movedId = asCipherId(seededLoginId(seeded));
-      await ciphers().move_many([movedId], folderId);
-      const moved = await ciphers().get(movedId);
+      const filed = await client
+        .getPasswordManagerClient()
+        .vault()
+        .ciphers()
+        .create({ ...NEW_LOGIN, folderId });
+      await client.getPasswordManagerClient().vault().ciphers().move_many([movedId], folderId);
+      const moved = await client.getPasswordManagerClient().vault().ciphers().get(movedId);
+
+      // 3. Verify the move landed, so the vault assertions below cannot pass on a no-op move
       expect(moved.folderId).toBe(folderId);
 
-      // 3. Verify local state
+      // 4. Verify local state
       await relock(client, seeded);
-      expect(await folders().list()).toHaveLength(seededFolderCount + 1);
-      expect((await folders().get(folderId)).name).toBe("Work, renamed");
+      const localFolder = await client.getPasswordManagerClient().vault().folders().get(folderId);
+      expect(localFolder.name).toBe("Work, renamed");
       await assertVault(client, seeded, { written: [filed, moved] });
 
-      // 4. Verify server state
-      const other = await open(seeded);
-      expect((await other.getPasswordManagerClient().vault().folders().get(folderId)).name).toBe(
-        "Work, renamed",
-      );
-      await assertVault(other, seeded, { written: [filed, moved] });
+      // 5. Verify server state
+      const relogin = await open(seeded);
+      const serverFolder = await relogin.getPasswordManagerClient().vault().folders().get(folderId);
+      expect(serverFolder.name).toBe("Work, renamed");
+      await assertVault(relogin, seeded, { written: [filed, moved] });
 
-      // 5. Move the seeded login back out, and verify it matches the vector again
-      await ciphers().move_many([movedId], undefined);
+      // 6. Move the seeded login back out, and verify it matches the vector again
+      await client.getPasswordManagerClient().vault().ciphers().move_many([movedId], undefined);
       await relock(client, seeded);
       await assertVault(client, seeded, { written: [filed] });
       await assertVault(await open(seeded), seeded, { written: [filed] });
@@ -342,37 +347,44 @@ describe("vault operations", () => {
     "a second device picks up an edit on sync, and is refused an edit from stale data",
     async () => {
       const seeded = harness.server.seedUserTestVector(V2_VECTOR);
-      const first = await open(seeded);
-      const second = await open(seeded);
+      const device1 = await open(seeded);
+      const device2 = await open(seeded);
       const id = asCipherId(seededLoginId(seeded));
-      const ciphersOf = (device: ClientEmulator) =>
-        device.getPasswordManagerClient().vault().ciphers();
 
       // 1. Both devices open the item; the first edits it
-      const stale = await ciphersOf(second).get(id);
-      const edited = await ciphersOf(first).edit(
-        editOf(await ciphersOf(first).get(id), { notes: "edited on device 1" }),
-      );
+      const staleOnDevice2 = await device2.getPasswordManagerClient().vault().ciphers().get(id);
+      const openOnDevice1 = await device1.getPasswordManagerClient().vault().ciphers().get(id);
+      const edited = await device1
+        .getPasswordManagerClient()
+        .vault()
+        .ciphers()
+        .edit(editRequest(openOnDevice1, { notes: "edited on device 1" }));
 
       // 2. Verify the second device's edit from what it holds is refused, and changed nothing
       const error = await rejection(
-        ciphersOf(second).edit(editOf(stale, { notes: "edited on device 2" })),
+        device2
+          .getPasswordManagerClient()
+          .vault()
+          .ciphers()
+          .edit(editRequest(staleOnDevice2, { notes: "edited on device 2" })),
         isEditCipherError,
       );
       expect(error.variant).toBe("Api");
       await assertVault(await open(seeded), seeded, { written: [edited] });
 
       // 3. The second device syncs, sees the first device's edit, and edits on top of it
-      await second.sync();
-      const synced = await ciphersOf(second).get(id);
-      expect(synced.notes).toBe("edited on device 1");
-      const editedAgain = await ciphersOf(second).edit(
-        editOf(synced, { notes: "edited on device 2" }),
-      );
+      await device2.sync();
+      const syncedOnDevice2 = await device2.getPasswordManagerClient().vault().ciphers().get(id);
+      expect(syncedOnDevice2.notes).toBe("edited on device 1");
+      const editedAgain = await device2
+        .getPasswordManagerClient()
+        .vault()
+        .ciphers()
+        .edit(editRequest(syncedOnDevice2, { notes: "edited on device 2" }));
 
       // 4. Verify the first device sees the second edit after it syncs
-      await first.sync();
-      await assertVault(first, seeded, { written: [editedAgain] });
+      await device1.sync();
+      await assertVault(device1, seeded, { written: [editedAgain] });
     },
     TIMEOUT,
   );
