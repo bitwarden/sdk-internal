@@ -51,6 +51,7 @@ url = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+bitwarden-test = { workspace = true }
 tempfile = ">=3.27.0, <4"
 tokio = { workspace = true, features = ["rt", "test-util"] }
 wiremock = { workspace = true }
@@ -58,6 +59,11 @@ wiremock = { workspace = true }
 # Needs a live domain controller, so `cargo test` skips it unless the target is named.
 [[test]]
 name = "active_directory_integration"
+test = false
+
+# Needs a live server and seeder, so `cargo test` skips it unless the target is named.
+[[test]]
+name = "e2e"
 test = false
 
 [lints]
