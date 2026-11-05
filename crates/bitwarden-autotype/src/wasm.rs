@@ -64,7 +64,7 @@ export interface AutotypeRenderDriver {
 }
 "#;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// JavaScript implementation of the various Autotype operations.
     #[wasm_bindgen(js_name = AutotypeDriver, typescript_type = "AutotypeDriver")]

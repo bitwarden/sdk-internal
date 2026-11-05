@@ -59,8 +59,6 @@ use bitwarden_organizations::OrganizationUserType;
 use thiserror::Error;
 use tracing::warn;
 use uuid::Uuid;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::OrganizationUsersManagementClient;
 
@@ -340,7 +338,7 @@ async fn fetch_pending(
     })
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl OrganizationUsersManagementClient {
     /// Re-encapsulates the account recovery keys of members who have upgraded to a V2 user key.
     ///
