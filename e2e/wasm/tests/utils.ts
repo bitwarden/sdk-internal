@@ -53,6 +53,7 @@ export function makeStateBridge(): WasmStateBridge {
   let persistentPinEnvelope: PasswordProtectedKeyEnvelope | null;
   let ephemeralPinEnvelope: PasswordProtectedKeyEnvelope | null;
   let encryptedPin: EncString | null;
+  let pinLength: number | null = null;
   let user_key: SymmetricKey | null;
   let userKeyId: KeyId | null;
   let v2UpgradeToken: V2UpgradeToken | null;
@@ -103,6 +104,14 @@ export function makeStateBridge(): WasmStateBridge {
     get_encrypted_pin: async () => encryptedPin,
     clear_encrypted_pin: async () => {
       encryptedPin = null;
+    },
+
+    set_pin_length: async (v: number) => {
+      pinLength = v;
+    },
+    get_pin_length: async () => pinLength,
+    clear_pin_length: async () => {
+      pinLength = null;
     },
 
     set_v2_upgrade_token: async (v: V2UpgradeToken) => {
