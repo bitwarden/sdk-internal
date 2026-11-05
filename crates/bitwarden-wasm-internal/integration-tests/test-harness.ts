@@ -4,10 +4,20 @@ import { ClientEmulator, LOGIN_REQUEST } from "./client-emulator/client-emulator
 import { SETTINGS } from "./client-emulator/local-state";
 import { describeLoginFailure, liveConfig } from "./live/config";
 import { SeederClient, type SeederConfig } from "./live/seeder";
-import { ServerEmulator } from "./server-emulator/server-emulator";
+import { ServerEmulator, type SeedAccount } from "./server-emulator/server-emulator";
+import { toSeedAccount, type MasterPasswordUserVector, type UserVector } from "./vectors/load";
 
 import type { HttpMock } from "./server-emulator/http-mock";
-import type { MasterPasswordUserVector } from "./vectors/load";
+import type { SeededVector as SeederResult } from "./live/seeder";
+
+/** A user vector seeded on either backend. */
+export interface SeededVector<V extends UserVector = UserVector> {
+  userId: string;
+  email: string;
+  vector: V;
+  /** What the account decrypts to, for `validateVault`, under the ids the server gave the items. */
+  seed: SeedAccount;
+}
 
 /**
  * The backend a test runs against: either the emulator, or a real server over the network.
@@ -62,6 +72,31 @@ export class TestHarness {
     }
 
     return this.emulator;
+  }
+
+  /**
+   * Seeds a committed user vector: into the emulator, or uploaded unchanged to the live server's
+   * seeder. Throws in live mode without a seeder.
+   */
+  async seedUserTestVector<V extends UserVector>(vector: V): Promise<SeededVector<V>> {
+    if (this.emulator !== undefined) {
+      const seeded = this.emulator.seedUserTestVector(vector);
+
+      return { userId: String(seeded.userId), email: seeded.email, vector, seed: seeded.seed };
+    }
+
+    if (this.seeder === undefined) {
+      throw new Error("no seeder in live mode: set BW_LIVE_SEEDER_URL to seed test vectors");
+    }
+
+    const seeded = await this.seeder.seedUserVector(vector);
+
+    return {
+      userId: seeded.userId,
+      email: seeded.email,
+      vector,
+      seed: withSeededIds(toSeedAccount(vector), seeded),
+    };
   }
 
   newClientEmulator(): ClientEmulator {
@@ -125,11 +160,11 @@ export async function targetAccount(
 ): Promise<TargetAccount> {
   const live = liveConfig();
   if (live === undefined) {
-    const seeded = harness.server.seedUserTestVector(vector);
+    const seeded = await harness.seedUserTestVector(vector);
 
     return {
       email: seeded.email,
-      password: seeded.vector.account.password,
+      password: vector.account.password,
       newClient: () => harness.newClientEmulator(),
     };
   }
@@ -138,7 +173,7 @@ export async function targetAccount(
     harness.seeder === undefined
       ? (live.account ?? missingAccount())
       : {
-          email: (await harness.seeder.seedUserVector(vector)).email,
+          email: (await harness.seedUserTestVector(vector)).email,
           password: vector.account.password,
         };
 
@@ -163,4 +198,41 @@ export async function targetAccount(
 
 function missingAccount(): never {
   throw new Error("live mode has neither a seeder nor an account configured");
+}
+
+/** The seed account a vector produces, with the ids the seeder gave its account and items. */
+function withSeededIds(seed: SeedAccount, seeded: SeederResult): SeedAccount {
+  const cipherId = (id: string) => seeded.cipherIds[id] ?? id;
+  const folderId = (id: string) => seeded.folderIds[id] ?? id;
+
+  return {
+    ...seed,
+    account: { ...seed.account, userId: seeded.userId as never, email: seeded.email },
+    vault: {
+      ciphers: seed.vault?.ciphers?.map((cipher) => ({
+        ...cipher,
+        id: cipherId(cipher.id),
+        encrypted: {
+          ...cipher.encrypted,
+          id: cipherId(cipher.id) as never,
+          folderId: cipher.encrypted.folderId
+            ? (folderId(String(cipher.encrypted.folderId)) as never)
+            : undefined,
+        },
+        decrypted: cipher.decrypted && {
+          ...cipher.decrypted,
+          id: cipherId(cipher.id) as never,
+          folderId: cipher.decrypted.folderId
+            ? (folderId(String(cipher.decrypted.folderId)) as never)
+            : undefined,
+        },
+      })),
+      folders: seed.vault?.folders?.map((folder) => ({
+        ...folder,
+        id: folderId(folder.id),
+        encrypted: { ...folder.encrypted, id: folderId(folder.id) as never },
+        decrypted: folder.decrypted && { ...folder.decrypted, id: folderId(folder.id) as never },
+      })),
+    },
+  };
 }
