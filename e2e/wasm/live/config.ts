@@ -2,6 +2,8 @@
 
 import type { ClientSettings, LoginRequest } from "@bitwarden/sdk-internal";
 
+import type { SeederConfig } from "./seeder";
+
 /** The server URL. Its presence is what puts the harness in live mode. */
 const SERVER_URL = "BW_LIVE_SERVER_URL";
 /**
@@ -19,12 +21,21 @@ const DEVICE_IDENTIFIER = "BW_LIVE_DEVICE_IDENTIFIER";
 const DEFAULT_DEVICE_IDENTIFIER = "sdk-internal-integration-tests";
 const CLIENT_VERSION = "BW_LIVE_CLIENT_VERSION";
 const DEFAULT_CLIENT_VERSION = "2026.9.0";
+/**
+ * The server's SeederApi. With it, every test seeds a fresh account from its test vector, and
+ * {@link EMAIL} and {@link PASSWORD} aren't needed.
+ */
+const SEEDER_URL = "BW_LIVE_SEEDER_URL";
+const SEEDER_USERNAME = "BW_LIVE_SEEDER_USERNAME";
+const SEEDER_PASSWORD = "BW_LIVE_SEEDER_PASSWORD";
 
 export interface LiveConfig {
   settings: ClientSettings;
-  email: string;
-  password: string;
   loginRequest: LoginRequest;
+  /** One existing account every test shares, when no seeder is configured. */
+  account?: { email: string; password: string };
+  /** The SeederApi that seeds each test's account from its vector. */
+  seeder?: SeederConfig;
 }
 
 /**
@@ -42,6 +53,19 @@ export function liveConfig(): LiveConfig | undefined {
 export function requireLiveConfig(): LiveConfig {
   const baseUrl = trimTrailingSlash(required(SERVER_URL));
   const deviceIdentifier = process.env[DEVICE_IDENTIFIER] ?? DEFAULT_DEVICE_IDENTIFIER;
+  const seederUrl = optional(SEEDER_URL);
+  const seeder =
+    seederUrl === undefined
+      ? undefined
+      : {
+          url: trimTrailingSlash(seederUrl),
+          username: required(SEEDER_USERNAME),
+          password: required(SEEDER_PASSWORD),
+        };
+  const account =
+    seeder !== undefined && optional(EMAIL) === undefined
+      ? undefined
+      : { email: required(EMAIL), password: required(PASSWORD) };
 
   return {
     settings: {
@@ -50,8 +74,8 @@ export function requireLiveConfig(): LiveConfig {
       deviceIdentifier,
       bitwardenClientVersion: process.env[CLIENT_VERSION] ?? DEFAULT_CLIENT_VERSION,
     },
-    email: required(EMAIL),
-    password: required(PASSWORD),
+    account,
+    seeder,
     loginRequest: {
       clientId: "web",
       device: {
@@ -82,10 +106,18 @@ function originOr(name: string, fallback: string): string {
   return configured === undefined || configured === "" ? fallback : trimTrailingSlash(configured);
 }
 
-function required(name: string): string {
+function optional(name: string): string | undefined {
   const value = process.env[name];
-  if (value === undefined || value === "") {
-    throw new Error(`${name} is not set; live mode needs ${SERVER_URL}, ${EMAIL} and ${PASSWORD}`);
+
+  return value === undefined || value === "" ? undefined : value;
+}
+
+function required(name: string): string {
+  const value = optional(name);
+  if (value === undefined) {
+    throw new Error(
+      `${name} is not set; live mode needs ${SERVER_URL}, and ${EMAIL} and ${PASSWORD} or ${SEEDER_URL}`,
+    );
   }
 
   return value;

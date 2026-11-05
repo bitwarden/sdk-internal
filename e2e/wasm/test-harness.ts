@@ -3,6 +3,7 @@ import type { ClientSettings, LoginRequest } from "@bitwarden/sdk-internal";
 import { ClientEmulator, LOGIN_REQUEST, LoginMethod } from "./client-emulator/client-emulator";
 import { SETTINGS } from "./client-emulator/local-state";
 import { describeLoginFailure, liveConfig } from "./live/config";
+import { SeederClient, type SeederConfig } from "./live/seeder";
 import { ServerEmulator, type SeededTestVector } from "./server-emulator/server-emulator";
 import { hasMasterPassword } from "./vectors/load";
 
@@ -18,12 +19,17 @@ export class TestHarness {
   // Patches `fetch` to route requests to the server emulator globally. Absent in live mode.
   private readonly hook: HttpMock | undefined;
 
+  /** Seeds a real server from test vectors. Present in live mode when a seeder is configured. */
+  readonly seeder: SeederClient | undefined;
+
   private constructor(
     private readonly settings: ClientSettings,
     private readonly loginRequest: LoginRequest,
     emulated: boolean,
+    seeder?: SeederConfig,
   ) {
     if (!emulated) {
+      this.seeder = seeder === undefined ? undefined : new SeederClient(seeder);
       return;
     }
 
@@ -36,9 +42,13 @@ export class TestHarness {
     return new TestHarness(SETTINGS, LOGIN_REQUEST, true);
   }
 
-  /** A harness over a real server, reached over the network. */
-  static live(settings: ClientSettings, loginRequest: LoginRequest): TestHarness {
-    return new TestHarness(settings, loginRequest, false);
+  /** A harness over a real server, reached over the network, seeded through `seeder` if given. */
+  static live(
+    settings: ClientSettings,
+    loginRequest: LoginRequest,
+    seeder?: SeederConfig,
+  ): TestHarness {
+    return new TestHarness(settings, loginRequest, false, seeder);
   }
 
   /**
@@ -78,9 +88,13 @@ export class TestHarness {
     return client;
   }
 
-  /** Unpatches `fetch`. Call in `afterEach`, or the patch outlives the test. */
-  restore(): void {
+  /**
+   * Unpatches `fetch`, and removes what the seeder seeded. Call in `afterEach`, or the patch
+   * outlives the test.
+   */
+  async restore(): Promise<void> {
     this.hook?.restore();
+    await this.seeder?.cleanup();
   }
 }
 
@@ -90,8 +104,12 @@ export function testHarness(): TestHarness {
 }
 
 /** A fresh harness over a real server. Call in `beforeEach`. */
-export function liveHarness(settings: ClientSettings, loginRequest: LoginRequest): TestHarness {
-  return TestHarness.live(settings, loginRequest);
+export function liveHarness(
+  settings: ClientSettings,
+  loginRequest: LoginRequest,
+  seeder?: SeederConfig,
+): TestHarness {
+  return TestHarness.live(settings, loginRequest, seeder);
 }
 
 /** The backend a test that runs on either one is pointed at, for its name. */
@@ -104,7 +122,9 @@ export const TARGET = liveConfig() === undefined ? "emulator" : "live server";
 export function targetHarness(): TestHarness {
   const live = liveConfig();
 
-  return live === undefined ? testHarness() : liveHarness(live.settings, live.loginRequest);
+  return live === undefined
+    ? testHarness()
+    : liveHarness(live.settings, live.loginRequest, live.seeder);
 }
 
 /** An account a test can open any number of sessions on. */
@@ -115,13 +135,14 @@ export interface TargetAccount {
 }
 
 /**
- * The account a test uses on `harness`: `vector` seeded into the emulator, or the configured live
- * account. A live login that fails says what the account needs, since the SDK can't tell why.
+ * The account a test uses on `harness`: `vector`, seeded into the emulator or through the live
+ * server's seeder, or else the configured live account. A live login that fails says what the
+ * account needs, since the SDK can't tell why.
  */
-export function targetAccount(
+export async function targetAccount(
   harness: TestHarness,
   vector: MasterPasswordUserVector,
-): TargetAccount {
+): Promise<TargetAccount> {
   const live = liveConfig();
   if (live === undefined) {
     const seeded = harness.server.seedUserTestVector(vector);
@@ -133,9 +154,17 @@ export function targetAccount(
     };
   }
 
+  const { email, password } =
+    harness.seeder === undefined
+      ? (live.account ?? missingAccount())
+      : {
+          email: (await harness.seeder.seedUserVector(vector)).email,
+          password: vector.account.password,
+        };
+
   return {
-    email: live.email,
-    password: live.password,
+    email,
+    password,
     newClient: () => {
       const client = harness.newClientEmulator();
       const login = client.login.bind(client);
@@ -150,4 +179,8 @@ export function targetAccount(
       return client;
     },
   };
+}
+
+function missingAccount(): never {
+  throw new Error("live mode has neither a seeder nor an account configured");
 }

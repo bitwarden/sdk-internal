@@ -65,7 +65,7 @@ describe(`rotate user keys, then write with the old key (${TARGET})`, () => {
   it(
     "refuses an item encrypted under the key from before another client rotated",
     async () => {
-      const account = targetAccount(harness, V2_VECTOR);
+      const account = await targetAccount(harness, V2_VECTOR);
       const stale = await session(account);
       const rotator = await session(account);
       await ensureVaultNotEmpty(rotator);
@@ -110,7 +110,7 @@ describe(`rotate user keys, then write with the old key (${TARGET})`, () => {
   it(
     "keeps every item created while a rotation lands readable under the new key",
     async () => {
-      const account = targetAccount(harness, V2_VECTOR);
+      const account = await targetAccount(harness, V2_VECTOR);
       const rotator = await session(account);
       await ensureVaultNotEmpty(rotator);
       const creators = await sessions(account, CREATOR_COUNT);
@@ -162,7 +162,7 @@ describe(`rotate user keys, then write with the old key (${TARGET})`, () => {
   it(
     "names the account's user key in the master-password unlock data it syncs",
     async () => {
-      const account = targetAccount(harness, V2_VECTOR);
+      const account = await targetAccount(harness, V2_VECTOR);
       const rotator = await session(account);
 
       // 1. Rotate
