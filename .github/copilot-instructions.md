@@ -41,12 +41,12 @@ that implements the core business logic for the domain.
 
 ```rust
 /// Generator extension for the Client struct
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct GeneratorClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl GeneratorClient {
     fn new(client: &'a Client) -> Self {
         Self { client }
@@ -90,16 +90,18 @@ Structs and enums that are exposed through a domain client must be derive:
 
 #### WASM
 
-WASM is used for web bindings. Structs and enums that are exposed through a domain client should
-derive tsify.
+WASM is used for web bindings. Expose types and functions through the `bitwarden-ffi` macros instead
+of raw `#[wasm_bindgen]` or tsify attributes:
+
+- `#[bitwarden_ffi::wasm_record]` on serde structs and enums that cross as plain data;
+  `#[bitwarden_ffi::wasm_record(input)]` when they only go from JavaScript to Rust.
+- `#[bitwarden_ffi::wasm_object]` on types JavaScript holds as a class handle, such as clients.
+- `#[bitwarden_ffi::wasm_export]` on the impl blocks and free functions JavaScript calls.
+- `#[bitwarden_ffi::wasm_import]` on `extern "C"` blocks of JavaScript imports.
 
 ```rust
-// Add import to top of file
-#[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
-
 #[derive(Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct ExampleStruct {
     // Fields here
 }
