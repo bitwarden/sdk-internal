@@ -440,9 +440,8 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     /// [KeyStore::decrypt_list], [KeyStore::decrypt_list_with_failures], and each batch of
     /// [KeyStore::decrypt_iter].
     ///
-    /// The items are split into chunks spread over the rayon threads. Each chunk gets its own
-    /// context, whose local keys are cleared after every item, and the context is dropped at the
-    /// end of the chunk.
+    /// The items are spread over the rayon threads in pieces of at least `batch_chunk_size` items.
+    /// Each piece gets its own context, whose local keys are cleared after every item.
     fn decrypt_batch<Key, Data, Output>(
         &self,
         batch: &[Data],
@@ -453,19 +452,16 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
         Output: Send,
     {
         batch
-            .par_chunks(batch_chunk_size(batch.len()))
-            .flat_map_iter(|chunk| {
-                let mut ctx = self.context();
-
-                chunk
-                    .iter()
-                    .map(|item| {
-                        let result = item.decrypt(&mut ctx, item.key_identifier());
-                        ctx.clear_local();
-                        result
-                    })
-                    .collect::<Vec<_>>()
-            })
+            .par_iter()
+            .with_min_len(batch_chunk_size(batch.len()))
+            .map_init(
+                || self.context(),
+                |ctx, item| {
+                    let result = item.decrypt(ctx, item.key_identifier());
+                    ctx.clear_local();
+                    result
+                },
+            )
             .collect()
     }
 
