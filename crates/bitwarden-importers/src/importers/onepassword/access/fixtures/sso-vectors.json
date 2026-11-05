@@ -14,6 +14,7 @@
     "msgb": "34ae978ac0faa39661655e3146484b6d87dc944d537ff545f4f4d8fd6250c91e",
     "auth_a": "1e62850677e8a2427a5e117e229253b90a302221a155456eb8da168bc004953d",
     "auth_b": "43dc8de8ae51090471e30403e18f4cc17519b16c5a0f4e4198a98edc8f8cbe318e5cba0a26894ba9a5b501b7c0cb4344d8ab542079c15a16c300adacdfb65d63",
+    "tag_a": "697922ff74f8ae040dfc7fd4d484094fad7d423a94632b8075bb4779cf8a3df2c5975fdb18538c3ec9a375ff9bb90c6a40094c8bcb04eec45624ccd9140d8807",
     "tag_b": "990f58c91dbf2adb7037fab74320acedec316a2310f00513480e78106826d06dc87fe795de51bd1893112e60bdc163438a99ace5f7ea46c573cbb139d0db1c79",
     "exchange_key": "b35273550fe48b2dd6a6bb9bd441f3001c0540ad795cf1748b88a2652f36d1e7",
     "credential_bundle_json": "{\"srpx\":\"oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8\",\"auk\":{\"alg\":\"A256GCM\",\"k\":\"WyICHHlP5lPigZUGZYoivbJMqgHjSti86UKwdjCryYM\",\"kty\":\"oct\",\"kid\":\"mp\"}}",
