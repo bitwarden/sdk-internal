@@ -20,6 +20,7 @@ For the security model and hardening advice, see [SECURITY.md](SECURITY.md).
 - [Configuration](#configuration)
 - [Target credentials](#target-credentials)
 - [Microsoft Entra ID](#microsoft-entra-id)
+- [Active Directory](#active-directory)
 - [Custom scripts](#custom-scripts)
 - [PowerShell scripts](#powershell-scripts)
 - [Running in production](#running-in-production)
@@ -226,8 +227,9 @@ missing, for example `api` without `identity`, the connector fails at startup.
 Each target system needs credentials the connector can use to reset passwords on it. They're keyed
 by the target system's UUID, which is shown in the Admin Console.
 
-The connector supports Microsoft Entra ID and custom script targets. Other target kinds, such as
-Microsoft SQL Server, aren't available in this build and fail with `unsupported_kind`.
+The connector supports Microsoft Entra ID, on-premises Active Directory and custom script targets.
+Other target kinds, such as Microsoft SQL Server, aren't available in this build and fail with
+`unsupported_kind`.
 
 ### Environment variables
 
@@ -239,10 +241,18 @@ Take the UUID, make it uppercase, replace the hyphens with underscores, and add 
 85808642_BABA_4B8E_8C34_B48000D60A0A_ADMIN_TOKEN=…
 ```
 
-| Target kind   | Required suffixes                         |
-| ------------- | ----------------------------------------- |
-| Entra         | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET` |
-| Custom script | `SCRIPT`                                  |
+| Target kind      | Suffix           | Required | `[targets]` key  |
+| ---------------- | ---------------- | -------- | ---------------- |
+| Entra            | `TENANT_ID`      | Yes      | `tenant_id`      |
+| Entra            | `CLIENT_ID`      | Yes      | `client_id`      |
+| Entra            | `CLIENT_SECRET`  | Yes      | Environment only |
+| Active Directory | `LDAP_HOST`      | Yes      | `ldap_host`      |
+| Active Directory | `BIND_DN`        | Yes      | `bind_dn`        |
+| Active Directory | `BASE_DN`        | Yes      | `base_dn`        |
+| Active Directory | `BIND_PASSWORD`  | Yes      | Environment only |
+| Active Directory | `CA_CERTIFICATE` | No       | `ca_certificate` |
+| Custom script    | `SCRIPT`         | Yes      | `script`         |
+| Custom script    | `SCRIPT_TYPE`    | No       | `script_type`    |
 
 Any other variable with the same prefix is passed to the integration. That's how a script gets its
 own settings: `…_API_URL` above reaches the script as `credentials.API_URL`.
@@ -261,11 +271,16 @@ script = "/opt/bwac/scripts/rotate-appliance.sh"
 [targets.00000000-0000-0000-0000-000000000001]
 tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 client_id = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+
+[targets.00000000-0000-0000-0000-000000000002]
+ldap_host = "dc01.corp.example"
+bind_dn   = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
+base_dn   = "OU=Managed Accounts,DC=corp,DC=example"
 ```
 
-Only `script`, `script_type`, `tenant_id` and `client_id` are accepted here. Everything else,
-including `client_secret` and any extra values your script needs, has to come from the environment.
-If a key is set in both places, the `[targets]` value wins.
+The keys accepted here are in the last column of the table under
+[Target credentials](#target-credentials). Everything else, including any extra values your script
+needs, has to come from the environment. If a key is set in both places, the `[targets]` value wins.
 
 `script_type` is only needed for scripts whose file extension doesn't say how to run them. See
 [PowerShell scripts](#powershell-scripts).
@@ -273,9 +288,9 @@ If a key is set in both places, the `[targets]` value wins.
 ### UUIDs that start with a digit
 
 A POSIX shell can't `export` a variable whose name starts with a digit, and most target UUIDs do.
-The `[targets]` section avoids this for the four keys it accepts. For everything else, load the
-variables without going through a shell: systemd's `Environment=` and `EnvironmentFile=` both work,
-as does Docker's `--env-file`.
+The `[targets]` section avoids this for the keys it accepts. For everything else, load the variables
+without going through a shell: systemd's `Environment=` and `EnvironmentFile=` both work, as does
+Docker's `--env-file`.
 
 ## Microsoft Entra ID
 
@@ -310,6 +325,182 @@ With `entra_verify_probe = true`, the connector first tries to sign in as the us
 password. A successful sign-in or an MFA prompt counts as verified, and a wrong-password response
 fails verification. Any other response falls back to the timestamp check. The probe is off by
 default because MFA or Conditional Access blocks this kind of sign-in in most tenants.
+
+## Active Directory
+
+The `ActiveDirectory` target kind rotates an on-premises domain account by replacing its
+`unicodePwd` attribute over LDAPS.
+
+### LDAPS is mandatory
+
+Every connection is made with an `ldaps://` URL (implicit TLS, port 636 by default). There is no
+plaintext LDAP path, no StartTLS fallback, and no flag to skip certificate validation.
+
+A domain controller refuses a `unicodePwd` write on an unencrypted connection anyway, answering
+`confidentialityRequired` (LDAP result code 13).
+
+The domain controller's certificate is validated against the host's native trust store. A deployment
+whose DC uses a private or self-signed certificate can name a PEM file of extra trust anchors with
+`ca_certificate` — see [Trusting a private CA](#trusting-a-private-ca). A validation failure ends
+the attempt at once, with no backoff and no second connection inside it; the job itself is still
+re-claimed on later polls until its attempt budget is spent.
+
+`ldap_host` is a bare host name, optionally with a `:port` suffix — never a URL. Anything containing
+a scheme, a path, userinfo, or whitespace is rejected at rotation time so that a mistyped host
+cannot silently downgrade the connection or redirect the bind.
+
+### Trusting a private CA
+
+Most AD deployments issue the LDAPS certificate from an internal enterprise CA, or use the
+self-signed certificate the DC generates for itself. Neither chains to a public root, so the
+connection fails with `TlsHandshakeFailed` unless that CA is trusted. An untrusted anchor therefore
+shows up as a run of identical `target_unreachable` attempts, one per poll, not as a single failure.
+
+Set `ca_certificate` to the path of a PEM file holding the issuing CA certificate (or the DC's own
+self-signed certificate):
+
+```toml
+[targets.00000000-0000-0000-0000-000000000003]
+ldap_host      = "dc01.corp.example"
+bind_dn        = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
+base_dn        = "OU=Managed Accounts,DC=corp,DC=example"
+ca_certificate = "/etc/bwac/ad-ca.pem"
+```
+
+Or set `<TARGET_ID>_CA_CERTIFICATE` in the environment.
+
+The file's anchors are added to the platform trust store, for that target's connections only. The
+chain and host name are checked as they are for a public certificate, so `ldap_host` must match a
+SAN on the DC's certificate. A missing or unreadable file, a malformed PEM, or a PEM with no
+certificate fails the rotation with `credentials_unresolved` instead of falling back to the platform
+roots. Without `ca_certificate`, the connection trusts the platform store alone.
+
+To export a DC's current LDAPS certificate, on the DC:
+
+```powershell
+$c = Get-ChildItem Cert:\LocalMachine\My |
+  Where-Object { $_.Subject -like "*$env:COMPUTERNAME*" -and $_.EnhancedKeyUsageList.FriendlyName -contains 'Server Authentication' } |
+  Select-Object -First 1
+@(
+  '-----BEGIN CERTIFICATE-----'
+  [Convert]::ToBase64String($c.RawData, 'InsertLineBreaks')
+  '-----END CERTIFICATE-----'
+) | Set-Content -Encoding ascii C:\dc-ldaps.pem
+```
+
+### Bind identity: a delegated service account
+
+The account named by `bind_dn` is expected to be a **delegated service account** whose only
+privileges on the target OU are:
+
+| Privilege        | Why needed                                           |
+| ---------------- | ---------------------------------------------------- |
+| `Reset Password` | Replace `unicodePwd` on the target accounts          |
+| Read             | Resolve the account identity to a distinguished name |
+
+Delegate these with the Active Directory Users and Computers _Delegate Control_ wizard, scoped to
+the OU that holds the managed accounts. **Do not use a Domain Admin account.** A credential held by
+a long-running connector should never carry domain-wide authority, and nothing in this integration
+needs it.
+
+### How rotation works
+
+1. Connect to `ldap_host` over LDAPS and simple-bind as `bind_dn`.
+2. Search below `base_dn` (subtree scope) for exactly one user whose `sAMAccountName` or
+   `userPrincipalName` matches the account identity. Zero matches and multiple matches are both
+   fatal — rotating the wrong account is worse than not rotating.
+3. `replace` the account's `unicodePwd` with the new password, wrapped in ASCII double quotes and
+   encoded as little-endian UTF-16 (no BOM), as Active Directory requires.
+
+This is an administrative reset: it never needs the account's current password, which is what allows
+a failed attempt to be retried with a freshly generated password.
+
+The account identity is escaped per RFC 4515 before it enters the search filter, so a hostile
+identity cannot widen the search.
+
+### Verification
+
+`verify` simple-binds **as the rotated account** using the new password, on the connection the
+account lookup already opened. A successful bind is direct proof that the directory accepted the
+write — unlike a timestamp read it cannot be stale, and unlike an attribute compare it cannot be
+satisfied by some other change. A rejected bind is fatal.
+
+### The previous password stays valid for a grace period
+
+Rotating an AD password does **not** invalidate the previous one immediately. Windows keeps
+accepting the immediately-preceding password for NTLM and LDAP simple binds for
+`OldPasswordAllowedPeriod` — **60 minutes by default**, configured under
+`HKLM\SYSTEM\CurrentControlSet\Control\Lsa`.
+
+This is directory behaviour, not something the connector can override, and it is worth pairing with
+the note below: for up to an hour after a rotation, both the old and the new credential
+authenticate, and existing Kerberos tickets remain valid on top of that. Deployments that need a
+hard cut-off must shorten `OldPasswordAllowedPeriod` and handle ticket lifetime separately.
+
+`verify` is unaffected — it binds with the _new_ password, which is valid immediately.
+
+### Session termination is not supported
+
+`terminate_sessions` always fails with `unsupported_kind`. An LDAP password reset cannot revoke
+Kerberos ticket-granting tickets that have already been issued, and LDAP offers no revocation
+operation; there is no honest implementation. The Admin Console registers Active Directory targets
+without session termination, so the connector should never call it.
+
+Operators who need existing sessions cut off must do it out of band (for example by resetting the
+account's `msDS-KeyVersionNumber`, disabling and re-enabling the account, or waiting out the ticket
+lifetime).
+
+### Resolver env shape (Active Directory)
+
+| Suffix           | Value                                                            |
+| ---------------- | ---------------------------------------------------------------- |
+| `LDAP_HOST`      | Domain controller host name, optionally `host:port`              |
+| `BIND_DN`        | DN of the delegated service account                              |
+| `BASE_DN`        | Search base DN for account lookup                                |
+| `BIND_PASSWORD`  | Password of the delegated service account (**environment only**) |
+| `CA_CERTIFICATE` | _Optional._ Path to a PEM file of additional TLS trust anchors   |
+
+Example (target id `abc-1234-…`):
+
+```
+ABC_1234_…_LDAP_HOST=dc01.corp.example
+ABC_1234_…_BIND_DN=CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example
+ABC_1234_…_BASE_DN=OU=Managed Accounts,DC=corp,DC=example
+ABC_1234_…_BIND_PASSWORD=<secret>
+```
+
+### Error classification
+
+**Retry** applies within a single attempt: `Transient` is retried in place with exponential backoff
+up to `max_retry_attempts`, `Permanent` ends the attempt on the spot. Neither ends the job. A
+reported failure returns the job to the claimable pool and the connector re-claims it on a later
+poll, until the server's attempt budget is spent — so a `Permanent` misconfiguration still reaches
+the domain controller once per attempt.
+
+| Condition                                             | Retry     | Sync state                                                  | Failure code             |
+| ----------------------------------------------------- | --------- | ----------------------------------------------------------- | ------------------------ |
+| Missing or malformed credential                       | Permanent | unchanged                                                   | `credentials_unresolved` |
+| TCP failure, reset connection                         | Transient | unchanged                                                   | `target_unreachable`     |
+| TLS handshake or certificate rejected                 | Permanent | unchanged before the write is sent, **indeterminate** after | `target_unreachable`     |
+| `ca_certificate` missing, unreadable, or malformed    | Permanent | unchanged                                                   | `credentials_unresolved` |
+| Bind rejected (rc 49, 50)                             | Permanent | unchanged                                                   | `target_rejected`        |
+| Account not found, ambiguous, or malformed            | Permanent | unchanged                                                   | `target_rejected`        |
+| Write rejected (rc 13, 19, 32, 53, schema errors)     | Permanent | unchanged, or settled by a rebind after an unanswered write | `target_rejected`        |
+| DC busy / unavailable / admin limit (rc 51, 52, 11)   | Transient | unchanged before the write, **indeterminate** after         | `target_unreachable`     |
+| Timeout or dropped connection after the write is sent | Transient | **indeterminate**                                           | `target_unreachable`     |
+| Rebind with the new password rejected                 | Permanent | updated                                                     | `verification_failed`    |
+
+A permanently rejected write leaves the account on its old password, unless an earlier write in the
+same attempt got no answer. That write may have landed, so only then does the connector bind as the
+account with the new password to find out. An accepted bind means the new password is live, and
+`invalidCredentials` (rc 49) means it isn't. Any other answer is reported as indeterminate. A
+locked-out or disabled account also answers rc 49, whatever password is offered. Every failed bind
+counts towards the account's `badPwdCount`, which is why the connector doesn't probe every
+rejection. A retry that fails before writing, after an earlier write in the attempt got no answer,
+is reported as indeterminate, since that earlier write may have landed.
+
+Only the numeric LDAP result code reaches the failure report. The directory's `diagnosticMessage`
+and matched DN are never read: both can echo account names and password-policy text.
 
 ## Custom scripts
 
@@ -606,7 +797,8 @@ On `SIGTERM` or Ctrl-C, the connector stops taking new jobs, closes its session 
 A rotation in progress is abandoned without a report, and the server deals with the unreported
 attempt. Where you can, restart between rotations. The logs show when one is running.
 
-The connector keeps no state on disk and writes no log file.
+Apart from an empty lock file, in `%ProgramData%` on Windows and `/var/tmp` on macOS, the connector
+keeps no state on disk and writes no log file.
 
 ### More than one organization
 
@@ -619,6 +811,9 @@ organizations runs one connector per organization. Give each one its own:
 
 If the connectors need their own scripts, point each `script_root` at a different directory. They
 can share the binary. Each unit's logs are separate in the journal.
+
+A token runs in one process per host. A second `bwac` started with the same token logs an error and
+exits with `5`.
 
 ## Logs and exit codes
 
@@ -646,6 +841,8 @@ available jobs, heartbeats, jobs another connector claimed first, and more detai
 | `warn`  | Session termination aborted or failed                        | `attempt_id`, `abort_reason`                                                                     |
 | `warn`  | Success report rejected or unknown                           | `attempt_id`                                                                                     |
 | `warn`  | Transient poll error                                         | backoff duration                                                                                 |
+| `warn`  | Could not check for another bwac process                     |                                                                                                  |
+| `error` | Another bwac process is already running with this token      |                                                                                                  |
 | `error` | Access connector credential refused                          |                                                                                                  |
 | `error` | Access connector could not authenticate at startup           |                                                                                                  |
 | `error` | Access connector not eligible for rotation endpoints         |                                                                                                  |
@@ -661,6 +858,7 @@ Logs never contain passwords, tokens or other credential values.
 | `2`  | The token was refused                                                        | Have an admin issue a new token, then restart with it                                   |
 | `3`  | The connector isn't allowed to rotate                                        | Check the connector isn't revoked or disabled, the license is active and PAM is enabled |
 | `4`  | Couldn't sign in at startup, for example the identity server was unreachable | Check the network and the identity URL, then restart                                    |
+| `5`  | Another `bwac` on this host is running with the same token                   | Stop the other process. A service restarts on its own and takes over                    |
 
 ## Troubleshooting
 
@@ -673,6 +871,7 @@ Logs never contain passwords, tokens or other credential values.
 | `api URL must be supplied via …`                                                  | `identity` or `BWAC_IDENTITY_URL` is set without an API URL or `base` |
 | `config file … is invalid TOML: unknown field`                                    | A typo, or `client_secret` in a `[targets]` block                     |
 | `poll_interval must be >= 15 seconds`                                             | `poll_interval` is below 15                                           |
+| `Another bwac process is already running with this access connector token`        | A second `bwac` uses the same token, often one started from a console |
 
 ### Nothing gets rotated
 

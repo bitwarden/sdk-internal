@@ -27,6 +27,8 @@ pub enum SealedTargetSystemKind {
     Entra,
     /// A customer-supplied rotation script.
     CustomScript,
+    /// On-premises Active Directory, not Entra ID.
+    ActiveDirectory,
 }
 
 /// Security-relevant fields of a PAM target system. Sealed so neither a hostile server nor a MitM

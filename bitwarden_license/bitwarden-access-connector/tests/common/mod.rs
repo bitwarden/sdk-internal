@@ -171,6 +171,23 @@ pub fn assert_cipher_write_rotated(
     // The body is the real request type, not just JSON that happens to decrypt.
     serde_json::from_value::<CipherRequestModel>(body.clone())
         .expect("body is a CipherRequestModel");
+    let read = |pointer: &str| decrypt_cipher_write_field(org_key, body, original_key, pointer);
+
+    assert_ne!(read("/login/password"), old_password);
+    assert_eq!(read("/passwordHistory/0/password"), old_password);
+    assert!(body["login"]["passwordRevisionDate"].is_string());
+    assert_eq!(body["lastKnownRevisionDate"], "2024-06-01T12:00:00Z");
+    assert!(body["data"].is_null());
+}
+
+/// Decrypts the field at `pointer` in a cipher write `body`, under the item key unwrapped from
+/// `original_key`.
+pub fn decrypt_cipher_write_field(
+    org_key: &SymmetricCryptoKey,
+    body: &serde_json::Value,
+    original_key: &str,
+    pointer: &str,
+) -> String {
     let store = KeyStore::<KeySlotIds>::default();
     let mut ctx = store.context_mut();
     #[allow(deprecated)]
@@ -181,21 +198,13 @@ pub fn assert_cipher_write_rotated(
     let item_key = ctx
         .unwrap_symmetric_key(test_org_slot(), &wrapped)
         .expect("item key unwraps under the org key");
-    let mut read = |pointer: &str| -> String {
-        let enc: EncString = body
-            .pointer(pointer)
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or_else(|| panic!("no string at {pointer}"))
-            .parse()
-            .expect("parse");
-        enc.decrypt(&mut ctx, item_key).expect("decrypt")
-    };
-
-    assert_ne!(read("/login/password"), old_password);
-    assert_eq!(read("/passwordHistory/0/password"), old_password);
-    assert!(body["login"]["passwordRevisionDate"].is_string());
-    assert_eq!(body["lastKnownRevisionDate"], "2024-06-01T12:00:00Z");
-    assert!(body["data"].is_null());
+    let enc: EncString = body
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_else(|| panic!("no string at {pointer}"))
+        .parse()
+        .expect("parse");
+    enc.decrypt(&mut ctx, item_key).expect("decrypt")
 }
 
 pub fn fixtures_dir() -> PathBuf {
@@ -238,12 +247,6 @@ pub fn seal_claim_blobs(
     cipher_id: Uuid,
     terminate_sessions: bool,
 ) -> (Sealed, Sealed) {
-    let store = KeyStore::<KeySlotIds>::default();
-    let mut ctx = store.context_mut();
-    #[allow(deprecated)]
-    ctx.set_symmetric_key(test_org_slot(), org_key.clone())
-        .expect("set_symmetric_key");
-
     let target = TargetSystemSealedV1 {
         target_system_id: target_id,
         method: SealedTargetSystemMethod::Automatic,
@@ -264,6 +267,20 @@ pub fn seal_claim_blobs(
         account_identity: "testuser@example.com".to_owned(),
         terminate_sessions,
     };
+    seal_claim(org_key, target, config)
+}
+
+/// Seal a target-system and rotation-config pair under `org_key`.
+pub fn seal_claim(
+    org_key: &SymmetricCryptoKey,
+    target: TargetSystemSealedV1,
+    config: RotationConfigSealedV1,
+) -> (Sealed, Sealed) {
+    let store = KeyStore::<KeySlotIds>::default();
+    let mut ctx = store.context_mut();
+    #[allow(deprecated)]
+    ctx.set_symmetric_key(test_org_slot(), org_key.clone())
+        .expect("set_symmetric_key");
 
     let target_blob = seal_target_system(target, &test_org_slot(), &mut ctx).expect("seal target");
     let config_blob =
@@ -280,9 +297,18 @@ pub fn claim_body(
     cipher_id: Uuid,
     terminate_sessions: bool,
 ) -> serde_json::Value {
-    let (target_blob, config_blob) =
-        seal_claim_blobs(org_key, target_id, cipher_id, terminate_sessions);
+    let sealed = seal_claim_blobs(org_key, target_id, cipher_id, terminate_sessions);
+    claim_body_from(attempt_id, job_id, target_id, cipher_id, &sealed)
+}
 
+/// The claim response carrying an already sealed pair.
+pub fn claim_body_from(
+    attempt_id: Uuid,
+    job_id: Uuid,
+    target_id: Uuid,
+    cipher_id: Uuid,
+    (target_blob, config_blob): &(Sealed, Sealed),
+) -> serde_json::Value {
     serde_json::json!({
         "attemptId": attempt_id,
         "jobId": job_id,
@@ -295,4 +321,55 @@ pub fn claim_body(
         "rotationConfigWrappedKey": config_blob.wrapped_key.to_string(),
         "executeBy": execute_by_future()
     })
+}
+
+/// Runs the connector against `api`/`identity` with `vars` set until it reports an outcome or
+/// `deadline` passes, then shuts it down.
+pub async fn run_access_connector_with_env(
+    api: &MockServer,
+    identity: &MockServer,
+    script_root: Option<PathBuf>,
+    vars: Vec<(String, String)>,
+    deadline: Duration,
+) {
+    {
+        let _guard = lock_env();
+        // SAFETY: guarded by ENV_LOCK.
+        unsafe {
+            for (k, v) in &vars {
+                std::env::set_var(k, v);
+            }
+        }
+    }
+
+    let cancel = CancellationToken::new();
+    let cancel_clone = cancel.clone();
+    let cfg = make_cfg(api.uri(), identity.uri(), script_root);
+    let handle =
+        tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
+
+    let give_up = tokio::time::Instant::now() + deadline;
+    while tokio::time::Instant::now() < give_up {
+        let requests = api.received_requests().await.expect("recording is on");
+        if requests.iter().any(|r| {
+            let p = r.url.path();
+            p.ends_with("/success") || p.ends_with("/failure")
+        }) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    cancel.cancel();
+    let exit = handle.await.expect("task panicked");
+    assert_eq!(exit, RunExit::Shutdown);
+
+    {
+        let _guard = lock_env();
+        // SAFETY: guarded by ENV_LOCK.
+        unsafe {
+            for (k, _) in &vars {
+                std::env::remove_var(k);
+            }
+        }
+    }
 }
