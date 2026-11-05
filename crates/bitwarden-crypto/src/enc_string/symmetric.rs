@@ -190,7 +190,7 @@ impl EncString {
             CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => {
                 SymmetricKeyAlgorithm::XChaCha20Poly1305
             }
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
                 SymmetricKeyAlgorithm::Aes256CbcHmac
             }
         };
@@ -1066,7 +1066,7 @@ mod tests {
             .key_id(key.key_id().as_slice().to_vec())
             .build();
         let message = encrypt_cose0(
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
             coset::CoseEncrypt0Builder::new(),
             protected_header,
             AES256_CBC_HMAC_COSE_PLAINTEXT.as_bytes(),

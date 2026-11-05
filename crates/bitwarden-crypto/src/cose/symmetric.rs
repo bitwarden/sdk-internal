@@ -45,7 +45,7 @@ pub(crate) enum CoseContentEncryptionAlgorithm {
     /// XChaCha20-Poly1305 (private-use [`XCHACHA20_POLY1305`]).
     XChaCha20Poly1305,
     /// AES-256-CBC-HMAC-SHA256 Encrypt-then-MAC (private-use [`AES_256_CBC_HMAC_SHA256_AEAD`]).
-    Aes256CbcHmacSha256,
+    Aes256CbcHmacSha256Aead,
 }
 
 /// Policy for resolving and validating a COSE message's content-encryption algorithm.
@@ -67,7 +67,9 @@ impl TryFrom<&Algorithm> for CoseContentEncryptionAlgorithm {
             Algorithm::Assigned(iana::Algorithm::A256GCM) => Ok(Self::Aes256Gcm),
             Algorithm::PrivateUse(XAES_256_GCM) => Ok(Self::XAes256Gcm),
             Algorithm::PrivateUse(XCHACHA20_POLY1305) => Ok(Self::XChaCha20Poly1305),
-            Algorithm::PrivateUse(AES_256_CBC_HMAC_SHA256_AEAD) => Ok(Self::Aes256CbcHmacSha256),
+            Algorithm::PrivateUse(AES_256_CBC_HMAC_SHA256_AEAD) => {
+                Ok(Self::Aes256CbcHmacSha256Aead)
+            }
             _ => Err(CryptoError::WrongKeyType),
         }
     }
@@ -173,7 +175,7 @@ pub(crate) fn encrypt_cose(
                 cek,
             ))
         }
-        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
             let cek: &<Aes256CbcHmacSha256Aead as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Ok(Aes256CbcHmacSha256Aead::encrypt_cose(
@@ -212,7 +214,7 @@ pub(crate) fn decrypt_cose(
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             XChaCha20Poly1305::decrypt_cose(cose_encrypt, cek)?
         }
-        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
             let cek: &<Aes256CbcHmacSha256Aead as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Aes256CbcHmacSha256Aead::decrypt_cose(cose_encrypt, cek)?
@@ -277,7 +279,7 @@ pub(crate) fn encrypt_cose0(
                 cek,
             ))
         }
-        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
             let cek: &<Aes256CbcHmacSha256Aead as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Ok(Aes256CbcHmacSha256Aead::encrypt_cose0(
@@ -316,7 +318,7 @@ pub(crate) fn decrypt_cose0(
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             XChaCha20Poly1305::decrypt_cose0(cose_encrypt0, cek)?
         }
-        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
             let cek: &<Aes256CbcHmacSha256Aead as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Aes256CbcHmacSha256Aead::decrypt_cose0(cose_encrypt0, cek)?
@@ -960,7 +962,10 @@ mod tests {
             (CoseContentEncryptionAlgorithm::Aes256Gcm, &CEK),
             (CoseContentEncryptionAlgorithm::XAes256Gcm, &CEK),
             (CoseContentEncryptionAlgorithm::XChaCha20Poly1305, &CEK),
-            (CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256, &CEK_64),
+            (
+                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
+                &CEK_64,
+            ),
         ]
     }
 
@@ -1033,7 +1038,7 @@ mod tests {
     fn test_aes256_cbc_hmac_rejects_wrong_length_cek() {
         assert!(matches!(
             encrypt_cose0(
-                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
                 CoseEncrypt0Builder::new(),
                 HeaderBuilder::new().build(),
                 PLAINTEXT,
@@ -1046,7 +1051,7 @@ mod tests {
     #[test]
     fn test_aes256_cbc_hmac_cose0_fails_with_wrong_key() {
         let message = encrypt_cose0(
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
             CoseEncrypt0Builder::new(),
             HeaderBuilder::new().build(),
             PLAINTEXT,
@@ -1059,7 +1064,9 @@ mod tests {
         assert!(
             decrypt_cose0(
                 &message,
-                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256),
+                CoseAlgorithmPolicy::Exactly(
+                    CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead
+                ),
                 &wrong_cek,
             )
             .is_err()
@@ -1071,7 +1078,9 @@ mod tests {
         assert!(
             decrypt_cose0(
                 &message,
-                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256),
+                CoseAlgorithmPolicy::Exactly(
+                    CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead
+                ),
                 &wrong_mac_key,
             )
             .is_err()
@@ -1081,7 +1090,7 @@ mod tests {
     #[test]
     fn test_aes256_cbc_hmac_cose0_fails_when_ciphertext_tampered() {
         let mut message = encrypt_cose0(
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
             CoseEncrypt0Builder::new(),
             HeaderBuilder::new().build(),
             PLAINTEXT,
@@ -1093,7 +1102,9 @@ mod tests {
         assert!(
             decrypt_cose0(
                 &message,
-                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256),
+                CoseAlgorithmPolicy::Exactly(
+                    CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead
+                ),
                 &CEK_64,
             )
             .is_err()
@@ -1105,7 +1116,7 @@ mod tests {
     #[test]
     fn test_aes256_cbc_hmac_cose0_rejects_mismatched_policy() {
         let message = encrypt_cose0(
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
             CoseEncrypt0Builder::new(),
             HeaderBuilder::new().build(),
             PLAINTEXT,
@@ -1554,7 +1565,7 @@ mod tests {
             .key_id(key.key_id().as_slice().to_vec())
             .build();
         encrypt_cose0(
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
             CoseEncrypt0Builder::new(),
             protected_header,
             plaintext,
