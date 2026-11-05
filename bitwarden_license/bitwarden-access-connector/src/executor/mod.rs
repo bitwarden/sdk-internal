@@ -103,7 +103,8 @@ impl AccessConnectorConfig {
                 retry_base_delay: Duration::from_millis(10),
             },
             script_root,
-            script_timeout: Duration::from_secs(10),
+            // PowerShell can take several seconds to start on a busy CI runner.
+            script_timeout: Duration::from_secs(30),
             powershell_path: None,
             powershell_execution_policy: "Bypass".to_string(),
             entra_verify_probe: false,

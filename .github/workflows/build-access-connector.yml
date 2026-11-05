@@ -71,6 +71,13 @@ jobs:
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: access-connector-${{ matrix.target }}
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
+
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@main
+        with:
+          key: access-connector-${{ matrix.target }}
 
       - name: Build
         run: cargo build -p bitwarden-access-connector --release --locked --target ${{ matrix.target }}
@@ -83,6 +90,57 @@ jobs:
         run: |
           "${BINARY}" --version
           "${BINARY}" run --help
+
+      - name: Check the systemd unit template
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sed -e 's|@SERVICE_USER@|root|g' \
+              -e 's|@ENV_FILE@|/etc/bwac/env|g' \
+              -e 's|@BINARY_PATH@|/bin/true|g' \
+              -e 's|@CONFIG_FILE@|/etc/bwac/config.toml|g' \
+              -e 's|@STATE_DIR@|/var/lib/bwac|g' \
+              bitwarden_license/bitwarden-access-connector/bundle/templates/bwac.service.in \
+              > /tmp/bwac.service
+          systemd-analyze verify /tmp/bwac.service
+
+      - name: Check the launchd plist template
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          cp bitwarden_license/bitwarden-access-connector/bundle/templates/launchd.plist.in \
+              /tmp/bwac.plist
+          plutil -lint /tmp/bwac.plist
+
+      - name: Check the config template
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb')); print(sys.argv[1], 'is valid TOML')" \
+              bitwarden_license/bitwarden-access-connector/bundle/templates/config.toml.in
+
+      - name: Check the launcher template parses
+        if: startsWith(matrix.os, 'windows')
+        shell: powershell
+        run: |
+          $path = "bitwarden_license\bitwarden-access-connector\bundle\templates\bwac-launcher.ps1"
+          $errors = $null
+          $tokens = $null
+          [void] [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path, [ref] $tokens, [ref] $errors)
+          if ($errors) {
+              $errors | ForEach-Object {
+                  Write-Host "::error file=$path,line=$($_.Extent.StartLineNumber)::$($_.Message)"
+              }
+              exit 1
+          }
+          Write-Host "$path parses clean"
+
+      - name: Stage binary and bundle
+        env:
+          BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          BUNDLE: bitwarden_license/bitwarden-access-connector/bundle
+        run: |
+          mkdir package
+          cp -R "${BUNDLE}/." package/
+          cp "${BINARY}" package/
 
       - name: Log in to Azure
         if: ${{ env._SIGN_WINDOWS == 'true' }}
@@ -112,7 +170,7 @@ jobs:
         if: ${{ env._SIGN_WINDOWS == 'true' }}
         run: dotnet tool install --global AzureSignTool --version 4.0.1
 
-      - name: Sign Windows binary
+      - name: Sign Windows binary and PowerShell scripts
         if: ${{ env._SIGN_WINDOWS == 'true' }}
         env:
           SIGNING_VAULT_URL: ${{ steps.get-kv-secrets.outputs.code-signing-vault-url }}
@@ -120,8 +178,16 @@ jobs:
           SIGNING_TENANT_ID: ${{ steps.get-kv-secrets.outputs.code-signing-tenant-id }}
           SIGNING_CLIENT_SECRET: ${{ steps.get-kv-secrets.outputs.code-signing-client-secret }}
           SIGNING_CERT_NAME: ${{ steps.get-kv-secrets.outputs.code-signing-cert-name }}
-          BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          # Sign the staged copies so target/ (saved by the build cache) and bundle/ stay unsigned.
+          BINARY: package/${{ matrix.binary }}
         run: |
+          mapfile -t SCRIPTS < <(find package -type f -name '*.ps1' | sort)
+          # The Windows bundle needs at least the launcher, so no scripts means the layout broke.
+          if [[ ${#SCRIPTS[@]} -eq 0 ]]; then
+            echo "::error::No .ps1 files found under package/"
+            exit 1
+          fi
+          printf 'Signing %s\n' "${BINARY}" "${SCRIPTS[@]}"
           azuresigntool sign -v \
             -kvu "$SIGNING_VAULT_URL" \
             -kvi "$SIGNING_CLIENT_ID" \
@@ -131,27 +197,13 @@ jobs:
             -fd sha256 \
             -du https://bitwarden.com \
             -tr http://timestamp.digicert.com \
-            "${BINARY}"
-
-      # actions/upload-artifact drops file permissions, so the binary would come back
-      # without its executable bit. Archive it first to keep the download runnable as-is.
-      # Windows ships as .zip, the other targets as .tar.gz.
-      - name: Package binary
-        env:
-          RELEASE_DIR: target/${{ matrix.target }}/release
-          ARCHIVE: bwac-${{ matrix.target }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
-        run: |
-          if [[ "${RUNNER_OS}" == "Windows" ]]; then
-            7z a -tzip "${ARCHIVE}" "./${RELEASE_DIR}/${{ matrix.binary }}"
-          else
-            tar -czf "${ARCHIVE}" -C "${RELEASE_DIR}" "${{ matrix.binary }}"
-          fi
+            "${BINARY}" "${SCRIPTS[@]}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bwac-${{ matrix.target }}
-          path: bwac-${{ matrix.target }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
+          path: package/
           if-no-files-found: error
 
   ci-pass:

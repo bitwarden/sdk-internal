@@ -7,6 +7,7 @@
     "build:test": "bash ../build.sh && npm run test",
     "test": "npm run typecheck && vitest run",
     "typecheck": "tsc --noEmit",
+    "test:live": "npm run typecheck && vitest run --mode live",
     "perf": "vitest bench --run",
     "perf:profile": "vitest bench --run --execArgv=--cpu-prof --execArgv=--cpu-prof-dir=perf/profiles"
   },

@@ -14,9 +14,14 @@ export function authenticate(db: Database, request: MockRequest): Authenticated 
     return { reply: error(HTTP_UNAUTHORIZED, `no bearer token on ${request.route}`) };
   }
 
-  const user = db.users.get(token);
+  const userId = db.sessions.get(token);
+  if (userId === undefined) {
+    return { reply: error(HTTP_UNAUTHORIZED, `bearer token ${token} was never issued`) };
+  }
+
+  const user = db.users.get(userId);
   if (user === undefined) {
-    return { reply: error(HTTP_UNAUTHORIZED, `bearer token ${token} is not a seeded account`) };
+    return { reply: error(HTTP_UNAUTHORIZED, `token ${token} authenticates no seeded account`) };
   }
 
   return { user };

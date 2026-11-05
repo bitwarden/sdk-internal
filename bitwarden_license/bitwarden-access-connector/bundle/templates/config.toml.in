@@ -1,0 +1,18 @@
+# bwac configuration. After editing it, restart the service.
+#
+# Secrets do not belong here. The connector treats a config containing a token as a
+# startup error, and rejects client_secret inside [targets], because config files end
+# up in repositories. Unknown keys are rejected too, so a typo is loud.
+#
+# Defaults not shown: poll_interval 15, heartbeat_interval 30, offline_grace 60,
+# max_retry_attempts 5, retry_base_delay 1, script_timeout 60.
+
+script_root = "@SCRIPT_ROOT@"
+
+[environment]
+base = "@SERVER_URL@"
+
+# For Bitwarden's cloud, set base to https://bitwarden.com (US) or https://bitwarden.eu (EU).
+# api and identity override base; set both only for a non-standard layout:
+# api      = "https://bitwarden.example.com/api"
+# identity = "https://bitwarden.example.com/identity"

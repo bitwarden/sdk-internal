@@ -104,7 +104,7 @@ describe("emergency access", () => {
 
         // Unlock: the old grantor password must not decrypt the new unlock data.
         // The device syncs the new unlock data down without logging in again.
-        await stale.sync(seeded.grantor.email);
+        await stale.sync();
         await expect(stale.unlock(oldGrantorPassword)).rejects.toBeDefined();
 
         // The new password must pass both authentication and unlock.
