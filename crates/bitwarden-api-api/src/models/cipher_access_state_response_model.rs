@@ -62,6 +62,15 @@ pub struct CipherAccessStateResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub max_extension_duration_seconds: Option<i32>,
+    /// False when no lease or request is in play and the rule's conditions would refuse a new
+    /// request now, for example outside its IP allowlist. Submit would fail the same way. Absent
+    /// means true.
+    #[serde(
+        rename = "canRequest",
+        alias = "CanRequest",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub can_request: Option<bool>,
 }
 
 impl CipherAccessStateResponseModel {
@@ -75,6 +84,7 @@ impl CipherAccessStateResponseModel {
             approved_request: None,
             extensions_allowed: None,
             max_extension_duration_seconds: None,
+            can_request: None,
         }
     }
 }
