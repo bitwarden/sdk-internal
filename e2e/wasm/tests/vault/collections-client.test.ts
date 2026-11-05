@@ -11,7 +11,7 @@ import { encstring, makeOrgInitializedClient, makeStateBridge } from "../utils";
 
 // `decrypt_list_with_failures` is a thin FFI wrapper — its success/failure partitioning behavior
 // is covered comprehensively by the crate's Rust unit tests (`CollectionsClient`). These
-// integration tests exist only to prove the FFI-specific concern: that a failed item survives the
+// e2e tests exist only to prove the FFI-specific concern: that a failed item survives the
 // WASM boundary as an untouched `Collection`, alongside successes, rather than aborting the batch.
 
 function testCollection(overrides: Partial<Collection> = {}): Collection {

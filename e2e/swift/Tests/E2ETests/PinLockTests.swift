@@ -1,7 +1,7 @@
 import BitwardenSdk
 import XCTest
 
-/// Swift port of `crates/bitwarden-wasm-internal/integration-tests/tests/pin-lock.test.ts`.
+/// Swift port of `e2e/wasm/tests/unlock/pin-lock.test.ts`.
 final class PinLockTests: XCTestCase {
     var client: Client!
     var stateBridge: InMemoryStateBridge!

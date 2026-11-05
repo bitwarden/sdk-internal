@@ -33,7 +33,7 @@ import type {
 
 import type { SeedAccount, SeedOrganization } from "../server-emulator/server-emulator";
 
-const VECTORS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../test-vectors");
+const VECTORS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../../test-vectors");
 
 /** The server's default, for a vector that records no KDF. */
 const DEFAULT_KDF: Kdf = { pBKDF2: { iterations: 600_000 } };

@@ -1,7 +1,7 @@
 import BitwardenSdk
 import XCTest
 
-/// Swift integration tests for `CryptoClient.reinitUserCrypto`.
+/// Swift e2e tests for `CryptoClient.reinitUserCrypto`.
 final class ReinitUserCryptoTests: XCTestCase {
     var stateBridge: InMemoryStateBridge!
 

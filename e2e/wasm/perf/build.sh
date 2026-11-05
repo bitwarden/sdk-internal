@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Release build of the Node target only, for performance runs.
 #
-# Mirrors `../../build.sh -r` but keeps the wasm `names` section (`wasm-opt -g`) so CPU profiles
-# show Rust symbols instead of `wasm-function[1234]`. Names do not change generated code.
+# Mirrors `crates/bitwarden-wasm-internal/build.sh -r` but keeps the wasm `names` section
+# (`wasm-opt -g`) so CPU profiles show Rust symbols instead of `wasm-function[1234]`. Names do
+# not change generated code.
 #
 # PERF_WASM_CPU overrides the wasm target features, e.g.
 #   PERF_WASM_CPU="-Ctarget-cpu=mvp" ./perf/build.sh
@@ -10,10 +11,10 @@
 #   PERF_CARGO_ARGS="--config profile.release.package.argon2.opt-level=3" ./perf/build.sh
 set -eo pipefail
 
-# Default matches the shipped .wasm in `../../build.sh`.
+# Default matches the shipped .wasm in `crates/bitwarden-wasm-internal/build.sh`.
 WASM_CPU=${PERF_WASM_CPU:--Ctarget-cpu=mvp -Ctarget-feature=+simd128,+bulk-memory,+sign-ext,+nontrapping-fptoint,+mutable-globals}
 
-cd "$(dirname "$0")/../../../.."
+cd "$(dirname "$0")/../../.."
 
 OUT=crates/bitwarden-wasm-internal/npm/node
 WASM=./target/wasm32-unknown-unknown/release/bitwarden_wasm_internal.wasm

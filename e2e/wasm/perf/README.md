@@ -14,7 +14,8 @@ npm run perf:profile               # same, writing a V8 CPU profile to perf/prof
 
 `perf/build.sh` takes overrides to compare build configurations:
 
-- `PERF_WASM_CPU`: wasm target features (default: the shipped `.wasm` features from `../build.sh`).
+- `PERF_WASM_CPU`: wasm target features (default: the shipped `.wasm` features from
+  `crates/bitwarden-wasm-internal/build.sh`).
 - `PERF_CARGO_ARGS`: extra cargo flags, e.g. `--config profile.release.package.argon2.opt-level=3`.
 
 Set `PERF_LABEL` to write results to `perf/results/<label>/<task>.json`. Timings vary between

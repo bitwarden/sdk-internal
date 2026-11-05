@@ -1,10 +1,10 @@
 {
-  "name": "sdk-internal-integration-tests",
+  "name": "sdk-internal-e2e-tests",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build:test": "bash ../build.sh && npm run test",
+    "build:test": "bash ../../crates/bitwarden-wasm-internal/build.sh && npm run test",
     "test": "npm run typecheck && vitest run",
     "typecheck": "tsc --noEmit",
     "test:live": "npm run typecheck && vitest run --mode live",
@@ -12,7 +12,7 @@
     "perf:profile": "vitest bench --run --execArgv=--cpu-prof --execArgv=--cpu-prof-dir=perf/profiles"
   },
   "dependencies": {
-    "@bitwarden/sdk-internal": "file:../npm/"
+    "@bitwarden/sdk-internal": "file:../../crates/bitwarden-wasm-internal/npm/"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
