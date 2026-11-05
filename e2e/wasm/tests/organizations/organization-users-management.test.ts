@@ -1,142 +1,175 @@
-import { ClientSettings, OrganizationUserId, PasswordManagerClient } from "@bitwarden/sdk-internal";
+import { isOrganizationUsersManagementError } from "@bitwarden/sdk-internal";
 
-import { HttpMock, MockReply, installHttpMock } from "../../server-emulator/http-mock";
-import { TEST_ORGANIZATION_ID } from "../org-fixtures";
-import { makePasswordManagerClient, makeStateBridge } from "../utils";
+import { OrganizationRole, PendingMemberStatus } from "../../server-emulator/entities";
+import type { SeededOrganization } from "../../server-emulator/server-emulator";
+import { testHarness, type TestHarness } from "../../test-harness";
+import { testVectors } from "../../vectors/test-vectors";
+import { rejection } from "../utils";
 
-// Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
-// SDK's request URLs parseable and makes an unmocked route fail loudly rather than escape to
-// the network.
-const SETTINGS: ClientSettings = {
-  apiUrl: "http://localhost:4000",
-  identityUrl: "http://localhost:4000/identity",
-};
+const TIMEOUT = 120_000;
 
-const ORG = TEST_ORGANIZATION_ID as unknown as string;
-const SEND_INVITE = `POST /organizations/${ORG}/users/send-invite`;
-const REINVITE = `POST /organizations/${ORG}/users/reinvite`;
-const reinviteOne = (id: OrganizationUserId) =>
-  `POST /organizations/${ORG}/users/${id as unknown as string}/reinvite`;
+const ORG_VECTOR = testVectors.organizations.get("example-org");
 
-const memberId = (s: string) => s as unknown as OrganizationUserId;
-const MEMBER_A = memberId("1c4d9d5a-0000-4000-8000-00000000000a");
-const MEMBER_B = memberId("1c4d9d5a-0000-4000-8000-00000000000b");
+/** Members of {@link ORG_VECTOR}, by user-vector name. */
+const ADMIN = "v1-pbkdf2-password";
+const USER = "v1-argon2id-password";
 
-/** The list the bulk member endpoints return; the server reports success as an empty error. */
-function bulkList(rows: { id: OrganizationUserId; error: string }[]): MockReply {
-  return {
-    json: {
-      object: "list",
-      data: rows.map((row) => ({ object: "organizationUserBulkResponseModel", ...row })),
-      continuationToken: null,
-    },
-  };
-}
+const NOT_STAGED = "User is not staged.";
+const NOT_INVITED = "User invalid.";
 
-// The Rust unit tests cover the mapping in detail. These tests exist to prove the FFI-specific
-// concerns: the client is reachable, the ids cross the boundary as plain strings, and the
-// per-member outcome — including the absence of an error — survives the trip back.
+// The Rust unit tests cover the mapping in detail. These tests prove the ids cross the boundary as
+// plain strings, and the per-member outcome, including the absence of an error, survives the trip
+// back.
 describe("organization users management client", () => {
-  // Every command here is a plain API call with no crypto, so the client needs no unlock.
-  let client: PasswordManagerClient;
-  let mock: HttpMock;
+  let harness: TestHarness;
+  let organization: SeededOrganization;
 
-  beforeAll(() => {
-    client = makePasswordManagerClient(makeStateBridge(), SETTINGS);
-  });
-
-  afterEach(() => {
-    expect(mock.unmatched.map((request) => request.route)).toEqual([]);
-    mock.restore();
-  });
-
-  describe("send_staged_invites", () => {
-    it("posts the member ids and returns the outcome per member", async () => {
-      mock = installHttpMock({
-        [SEND_INVITE]: () =>
-          bulkList([
-            { id: MEMBER_A, error: "" },
-            { id: MEMBER_B, error: "User is not staged." },
-          ]),
-      });
-
-      const results = await client
-        .organization_users_management()
-        .send_staged_invites(TEST_ORGANIZATION_ID, [MEMBER_A, MEMBER_B]);
-
-      expect(mock.routes()).toEqual([SEND_INVITE]);
-      expect(mock.bodyFor(SEND_INVITE)).toEqual({ ids: [MEMBER_A, MEMBER_B] });
-
-      expect(results).toHaveLength(2);
-      expect(results[0].id).toBe(MEMBER_A);
-      expect(results[0].error).toBeUndefined();
-      expect(results[1].id).toBe(MEMBER_B);
-      expect(results[1].error).toBe("User is not staged.");
+  beforeEach(() => {
+    harness = testHarness();
+    organization = harness.server.seedOrganizationTestVector(ORG_VECTOR, {
+      [ADMIN]: OrganizationRole.Admin,
     });
+  }, TIMEOUT);
 
-    it("rejects with a typed error when the server refuses the batch", async () => {
-      mock = installHttpMock({
-        [SEND_INVITE]: () => ({
-          status: 400,
-          json: { message: "Seat limit has been reached." },
-        }),
-      });
+  afterEach(() => harness.restore());
 
-      await expect(
-        client
+  /** Status of the pending member `id`, as the server holds it. */
+  function statusOf(id: unknown): PendingMemberStatus | undefined {
+    return harness.server
+      .organization(organization.organizationId)
+      .pendingMembers.find((member) => member.id === id)?.status;
+  }
+
+  it(
+    "sends invites to staged members, and reports the rest",
+    async () => {
+      // 1. One member is staged, one already invited
+      const staged = harness.server.addPendingMember(
+        organization.organizationId,
+        "staged@example.com",
+        PendingMemberStatus.Staged,
+      );
+      const invited = harness.server.addPendingMember(
+        organization.organizationId,
+        "invited@example.com",
+        PendingMemberStatus.Invited,
+      );
+
+      // 2. An admin sends invites to both
+      const admin = await harness.newUnlockedClient(organization.members[ADMIN]);
+      const results = await admin
+        .getPasswordManagerClient()
+        .organization_users_management()
+        .send_staged_invites(organization.organizationId, [staged, invited]);
+
+      // 3. Verify the outcome per member, and that the staged member is now invited
+      expect(results.map((result) => [result.id, result.error])).toEqual([
+        [staged, undefined],
+        [invited, NOT_STAGED],
+      ]);
+      expect(statusOf(staged)).toBe(PendingMemberStatus.Invited);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "refuses to send invites for a member who cannot manage users",
+    async () => {
+      // 1. A plain member sends an invite to a staged member
+      const staged = harness.server.addPendingMember(
+        organization.organizationId,
+        "staged@example.com",
+        PendingMemberStatus.Staged,
+      );
+      const user = await harness.newUnlockedClient(organization.members[USER]);
+      const error = await rejection(
+        user
+          .getPasswordManagerClient()
           .organization_users_management()
-          .send_staged_invites(TEST_ORGANIZATION_ID, [MEMBER_A]),
-      ).rejects.toMatchObject({ name: "OrganizationUsersManagementError", variant: "Api" });
-    });
-  });
+          .send_staged_invites(organization.organizationId, [staged]),
+        isOrganizationUsersManagementError,
+      );
 
-  describe("bulk_reinvite", () => {
-    it("posts the member ids to the reinvite endpoint and returns the outcome per member", async () => {
-      mock = installHttpMock({
-        [REINVITE]: () =>
-          bulkList([
-            { id: MEMBER_A, error: "" },
-            { id: MEMBER_B, error: "User invalid." },
-          ]),
-      });
+      // 2. Verify the request is refused, and the member is still staged
+      expect(error.variant).toBe("Api");
+      expect(statusOf(staged)).toBe(PendingMemberStatus.Staged);
+    },
+    TIMEOUT,
+  );
 
-      const results = await client
+  it(
+    "reinvites invited members in bulk, and reports the rest",
+    async () => {
+      // 1. One member is invited, one only staged
+      const invited = harness.server.addPendingMember(
+        organization.organizationId,
+        "invited@example.com",
+        PendingMemberStatus.Invited,
+      );
+      const staged = harness.server.addPendingMember(
+        organization.organizationId,
+        "staged@example.com",
+        PendingMemberStatus.Staged,
+      );
+
+      // 2. An admin reinvites both
+      const admin = await harness.newUnlockedClient(organization.members[ADMIN]);
+      const results = await admin
+        .getPasswordManagerClient()
         .organization_users_management()
-        .bulk_reinvite(TEST_ORGANIZATION_ID, [MEMBER_A, MEMBER_B]);
+        .bulk_reinvite(organization.organizationId, [invited, staged]);
 
-      expect(mock.routes()).toEqual([REINVITE]);
-      // Reinviting must not fall through to the staged-invite endpoint.
-      expect(mock.called(SEND_INVITE)).toBe(false);
-      expect(mock.bodyFor(REINVITE)).toEqual({ ids: [MEMBER_A, MEMBER_B] });
+      // 3. Verify the outcome per member, and that reinviting staged nobody
+      expect(results.map((result) => [result.id, result.error])).toEqual([
+        [invited, undefined],
+        [staged, NOT_INVITED],
+      ]);
+      expect(statusOf(staged)).toBe(PendingMemberStatus.Staged);
+    },
+    TIMEOUT,
+  );
 
-      expect(results).toHaveLength(2);
-      expect(results[0].id).toBe(MEMBER_A);
-      expect(results[0].error).toBeUndefined();
-      expect(results[1].id).toBe(MEMBER_B);
-      expect(results[1].error).toBe("User invalid.");
-    });
-  });
+  it(
+    "reinvites a single invited member",
+    async () => {
+      // 1. An invited member
+      const invited = harness.server.addPendingMember(
+        organization.organizationId,
+        "invited@example.com",
+        PendingMemberStatus.Invited,
+      );
 
-  describe("reinvite", () => {
-    it("posts to the member's reinvite endpoint with no body and resolves", async () => {
-      mock = installHttpMock({ [reinviteOne(MEMBER_A)]: () => ({}) });
+      // 2. Verify an admin reinvites them
+      const admin = await harness.newUnlockedClient(organization.members[ADMIN]);
+      await admin
+        .getPasswordManagerClient()
+        .organization_users_management()
+        .reinvite(organization.organizationId, invited);
+    },
+    TIMEOUT,
+  );
 
-      await expect(
-        client.organization_users_management().reinvite(TEST_ORGANIZATION_ID, MEMBER_A),
-      ).resolves.toBeUndefined();
+  it(
+    "refuses to reinvite a single member who was never invited",
+    async () => {
+      // 1. A staged member
+      const staged = harness.server.addPendingMember(
+        organization.organizationId,
+        "staged@example.com",
+        PendingMemberStatus.Staged,
+      );
 
-      expect(mock.routes()).toEqual([reinviteOne(MEMBER_A)]);
-      expect(mock.requests[0].body).toBe("");
-    });
-
-    it("rejects with a typed error when the member cannot be reinvited", async () => {
-      mock = installHttpMock({
-        [reinviteOne(MEMBER_A)]: () => ({ status: 400, json: { message: "User invalid." } }),
-      });
-
-      await expect(
-        client.organization_users_management().reinvite(TEST_ORGANIZATION_ID, MEMBER_A),
-      ).rejects.toMatchObject({ name: "OrganizationUsersManagementError", variant: "Api" });
-    });
-  });
+      // 2. Verify an admin's reinvite is refused
+      const admin = await harness.newUnlockedClient(organization.members[ADMIN]);
+      const error = await rejection(
+        admin
+          .getPasswordManagerClient()
+          .organization_users_management()
+          .reinvite(organization.organizationId, staged),
+        isOrganizationUsersManagementError,
+      );
+      expect(error.variant).toBe("Api");
+    },
+    TIMEOUT,
+  );
 });

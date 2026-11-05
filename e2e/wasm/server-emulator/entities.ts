@@ -87,6 +87,37 @@ export interface OrganizationMember {
   organizationKeySealedToMember: string;
   /** Present only for a member enrolled in account recovery. */
   accountRecoveryKey?: string;
+  role: OrganizationRole;
+}
+
+/** `OrganizationUserType`: what a member may administer. Owners and admins manage users. */
+export enum OrganizationRole {
+  Owner = 0,
+  Admin = 1,
+  User = 2,
+}
+
+/** Where a member who has not joined yet stands. */
+export enum PendingMemberStatus {
+  /** Added by an admin, but sent no invite and holding no seat yet. */
+  Staged = "staged",
+  /** Sent an invite email, not yet accepted. */
+  Invited = "invited",
+}
+
+/** A member who has not joined: no account is attached, and no organization key is sealed to it. */
+export interface PendingMember {
+  /** The organization user id. */
+  id: string;
+  email: string;
+  status: PendingMemberStatus;
+}
+
+/** A domain the organization has claimed. */
+export interface OrganizationDomain {
+  domainName: string;
+  /** `null` until the DNS check proves ownership. */
+  verifiedDate: string | null;
 }
 
 /** An organization as the server holds it. */
@@ -97,6 +128,8 @@ export interface OrganizationEntity {
   wrappedPrivateKey?: string;
   organizationKeyId: string | null;
   members: OrganizationMember[];
+  pendingMembers: PendingMember[];
+  domains: OrganizationDomain[];
 }
 
 /** An emergency access grant, as the server holds it. */
