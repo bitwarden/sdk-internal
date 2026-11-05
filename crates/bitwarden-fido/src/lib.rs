@@ -2,7 +2,7 @@
 
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{
-    CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
+    CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
 };
 use crypto::{CoseKeyToPkcs8Error, PrivateKeyFromSecretKeyError};
 use passkey::types::{CredentialExtensions, Passkey, ctap2::Aaguid};
@@ -62,25 +62,22 @@ pub struct SelectedCredential {
     credential: Fido2CredentialView,
 }
 
-// This container is needed so we can properly implement the TryFrom trait for Passkey
-// Otherwise we need to decrypt the Fido2 credentials every time we create a CipherView
+// The passkey item handed to passkey-rs. It pairs the credential with the cipher it belongs to, so
+// that the UI hints can refer to the cipher and implementing passkey-rs traits doesn't run into
+// the orphan rule.
 #[derive(Clone)]
 pub(crate) struct CipherViewContainer {
     cipher: CipherView,
-    fido2_credentials: Vec<Fido2CredentialFullView>,
+    fido2_credentials: Vec<Fido2CredentialView>,
 }
 
 impl CipherViewContainer {
-    fn new(cipher: CipherView) -> Result<Self, CipherError> {
-        let fido2_credentials = cipher
-            .get_fido2_credentials()
-            .into_iter()
-            .map(Fido2CredentialFullView::from)
-            .collect();
-        Ok(Self {
+    fn new(cipher: CipherView) -> Self {
+        let fido2_credentials = cipher.get_fido2_credentials();
+        Self {
             cipher,
             fido2_credentials,
-        })
+        }
     }
 }
 
@@ -115,18 +112,22 @@ impl TryFrom<CipherViewContainer> for Passkey {
             .first()
             .ok_or(Fido2Error::NoFido2CredentialsFound)?;
 
-        try_from_credential_full_view(cred.clone())
+        try_from_credential_view(cred)
     }
 }
 
-fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passkey, Fido2Error> {
+fn try_from_credential_view(value: &Fido2CredentialView) -> Result<Passkey, Fido2Error> {
     let counter: u32 = value
         .counter
         .parse()
         .map_err(|_| Fido2Error::InvalidCounter)?;
     let counter = (counter != 0).then_some(counter);
-    let key_value = B64Url::try_from(value.key_value)?;
-    let user_handle = value.user_handle.map(B64Url::try_from).transpose()?;
+    let key_value = B64Url::try_from(value.key_value.as_str())?;
+    let user_handle = value
+        .user_handle
+        .as_deref()
+        .map(B64Url::try_from)
+        .transpose()?;
 
     let key = pkcs8_to_cose_key(key_value.as_bytes())?;
 

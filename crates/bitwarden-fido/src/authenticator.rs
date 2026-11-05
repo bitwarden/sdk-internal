@@ -1,7 +1,6 @@
 use std::sync::Mutex;
 
 use bitwarden_core::Client;
-use bitwarden_crypto::CryptoError;
 use bitwarden_vault::{CipherError, CipherView, EncryptError, VaultClientExt};
 use itertools::Itertools;
 use passkey::{
@@ -29,9 +28,6 @@ pub enum GetSelectedCredentialError {
     NoSelectedCredential,
     #[error("No fido2 credentials found")]
     NoCredentialFound,
-
-    #[error(transparent)]
-    Crypto(#[from] CryptoError),
 }
 
 #[allow(missing_docs)]
@@ -362,10 +358,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         #[derive(Debug, Error)]
         enum InnerError {
             #[error(transparent)]
-            Cipher(#[from] CipherError),
-            #[error(transparent)]
-            Crypto(#[from] CryptoError),
-            #[error(transparent)]
             Fido2Callback(#[from] Fido2CallbackError),
         }
 
@@ -398,10 +390,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             // When using the credential for authentication we have to ask the user to pick one.
             if this.create_credential {
-                Ok(creds
-                    .into_iter()
-                    .map(CipherViewContainer::new)
-                    .collect::<Result<_, _>>()?)
+                Ok(creds.into_iter().map(CipherViewContainer::new).collect())
             } else {
                 let picked = this
                     .authenticator
@@ -416,7 +405,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                     .expect("Mutex is not poisoned")
                     .replace(picked.clone());
 
-                Ok(vec![CipherViewContainer::new(picked)?])
+                Ok(vec![CipherViewContainer::new(picked)])
             }
         }
 
@@ -441,8 +430,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             FillCredential(#[from] FillCredentialError),
             #[error(transparent)]
             Cipher(#[from] CipherError),
-            #[error(transparent)]
-            Crypto(#[from] CryptoError),
             #[error(transparent)]
             Encrypt(#[from] EncryptError),
             #[error(transparent)]
@@ -516,8 +503,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             FillCredential(#[from] FillCredentialError),
             #[error(transparent)]
             Cipher(#[from] CipherError),
-            #[error(transparent)]
-            Crypto(#[from] CryptoError),
             #[error(transparent)]
             Encrypt(#[from] EncryptError),
             #[error(transparent)]
