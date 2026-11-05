@@ -125,8 +125,8 @@ describe("feature", () => {
   them. One extra assertion is fine when the verify steps would also pass on a no-op; say so in a
   comment (see the unique-key check in `rotate-user-keys.test.ts`).
 - **Spell out client calls.** Write `client.getPasswordManagerClient().vault().ciphers().edit(…)` in
-  full rather than wrapping it in terse closures (`ciphers()`, `ciphersOf(device)`). Helpers get
-  descriptive names (`editRequest`, not `editOf`).
+  full rather than wrapping it in terse closures (a test-local `ciphers()` helper,
+  `ciphersOf(device)`). Helpers get descriptive names (`editRequest`, not `editOf`).
 - **Failures**: `rejection(promise, isXxxError)`, assert `error.variant`, then assert neither side
   changed.
 - **Ignore lists**: `validateVault` ignores `revisionDate`/`creationDate`. Pass `[]` when nothing
