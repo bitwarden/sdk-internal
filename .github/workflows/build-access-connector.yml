@@ -170,7 +170,7 @@ jobs:
         if: ${{ env._SIGN_WINDOWS == 'true' }}
         run: dotnet tool install --global AzureSignTool --version 4.0.1
 
-      - name: Sign Windows binary and PowerShell scripts
+      - name: Sign Windows binary and launcher script
         if: ${{ env._SIGN_WINDOWS == 'true' }}
         env:
           SIGNING_VAULT_URL: ${{ steps.get-kv-secrets.outputs.code-signing-vault-url }}
@@ -181,12 +181,16 @@ jobs:
           # Sign the staged copies so target/ (saved by the build cache) and bundle/ stay unsigned.
           BINARY: package/${{ matrix.binary }}
         run: |
-          mapfile -t SCRIPTS < <(find package -type f -name '*.ps1' | sort)
-          # The Windows bundle needs at least the launcher, so no scripts means the layout broke.
-          if [[ ${#SCRIPTS[@]} -eq 0 ]]; then
-            echo "::error::No .ps1 files found under package/"
-            exit 1
-          fi
+          # Scripts customers run unchanged. The examples are meant to be edited, so they stay unsigned.
+          SCRIPTS=(
+            package/templates/bwac-launcher.ps1
+          )
+          for f in "${BINARY}" "${SCRIPTS[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "::error::File to sign not found: $f"
+              exit 1
+            fi
+          done
           printf 'Signing %s\n' "${BINARY}" "${SCRIPTS[@]}"
           azuresigntool sign -v \
             -kvu "$SIGNING_VAULT_URL" \
