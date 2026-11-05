@@ -60,6 +60,7 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     private var persistentPinEnvelope: PasswordProtectedKeyEnvelope?
     private var ephemeralPinEnvelope: PasswordProtectedKeyEnvelope?
     private var encryptedPin: EncString?
+    private var pinLength: UInt32?
     private var v2UpgradeToken: V2UpgradeToken?
     private var accountCryptographicState: WrappedAccountCryptographicState?
     private var masterpasswordUnlockData: MasterPasswordUnlockData?
@@ -86,6 +87,10 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     func setEncryptedPin(value: EncString) { encryptedPin = value }
     func getEncryptedPin() -> EncString? { encryptedPin }
     func clearEncryptedPin() { encryptedPin = nil }
+
+    func setPinLength(value: UInt32) { pinLength = value }
+    func getPinLength() -> UInt32? { pinLength }
+    func clearPinLength() { pinLength = nil }
 
     func setV2UpgradeToken(value: V2UpgradeToken) { v2UpgradeToken = value }
     func getV2UpgradeToken() -> V2UpgradeToken? { v2UpgradeToken }

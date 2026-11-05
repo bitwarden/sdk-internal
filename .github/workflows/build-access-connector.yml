@@ -65,6 +65,13 @@ jobs:
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: access-connector-${{ matrix.target }}
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
+
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@main
+        with:
+          key: access-connector-${{ matrix.target }}
 
       - name: Build
         run: cargo build -p bitwarden-access-connector --release --locked --target ${{ matrix.target }}
@@ -78,19 +85,62 @@ jobs:
           "${BINARY}" --version
           "${BINARY}" run --help
 
-      # actions/upload-artifact drops file permissions, so the binary would come back
-      # without its executable bit. Archive it first to keep the download runnable as-is.
-      - name: Package binary
+      - name: Check the systemd unit template
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sed -e 's|@SERVICE_USER@|root|g' \
+              -e 's|@ENV_FILE@|/etc/bwac/env|g' \
+              -e 's|@BINARY_PATH@|/bin/true|g' \
+              -e 's|@CONFIG_FILE@|/etc/bwac/config.toml|g' \
+              -e 's|@STATE_DIR@|/var/lib/bwac|g' \
+              bitwarden_license/bitwarden-access-connector/bundle/templates/bwac.service.in \
+              > /tmp/bwac.service
+          systemd-analyze verify /tmp/bwac.service
+
+      - name: Check the launchd plist template
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          cp bitwarden_license/bitwarden-access-connector/bundle/templates/launchd.plist.in \
+              /tmp/bwac.plist
+          plutil -lint /tmp/bwac.plist
+
+      - name: Check the config template
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb')); print(sys.argv[1], 'is valid TOML')" \
+              bitwarden_license/bitwarden-access-connector/bundle/templates/config.toml.in
+
+      - name: Check the launcher template parses
+        if: startsWith(matrix.os, 'windows')
+        shell: powershell
+        run: |
+          $path = "bitwarden_license\bitwarden-access-connector\bundle\templates\bwac-launcher.ps1"
+          $errors = $null
+          $tokens = $null
+          [void] [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path, [ref] $tokens, [ref] $errors)
+          if ($errors) {
+              $errors | ForEach-Object {
+                  Write-Host "::error file=$path,line=$($_.Extent.StartLineNumber)::$($_.Message)"
+              }
+              exit 1
+          }
+          Write-Host "$path parses clean"
+
+      - name: Stage binary and bundle
         env:
-          RELEASE_DIR: target/${{ matrix.target }}/release
-          ARCHIVE: bwac-${{ matrix.target }}.tar.gz
-        run: tar -czf "${ARCHIVE}" -C "${RELEASE_DIR}" "${{ matrix.binary }}"
+          BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          BUNDLE: bitwarden_license/bitwarden-access-connector/bundle
+        run: |
+          mkdir package
+          cp -R "${BUNDLE}/." package/
+          cp "${BINARY}" package/
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bwac-${{ matrix.target }}
-          path: bwac-${{ matrix.target }}.tar.gz
+          path: package/
           if-no-files-found: error
 
   ci-pass:
@@ -160,9 +210,9 @@ jobs:
       - name: Set up build context
         if: steps.dockerfile.outputs.exists == 'true'
         run: |
-          mkdir -p dist/linux/amd64 dist/linux/arm64
-          tar -xzf artifacts/bwac-x86_64-unknown-linux-gnu/bwac-x86_64-unknown-linux-gnu.tar.gz -C dist/linux/amd64
-          tar -xzf artifacts/bwac-aarch64-unknown-linux-gnu/bwac-aarch64-unknown-linux-gnu.tar.gz -C dist/linux/arm64
+          # download-artifact drops the executable bit, so restore it.
+          install -D -m 0755 artifacts/bwac-x86_64-unknown-linux-gnu/bwac dist/linux/amd64/bwac
+          install -D -m 0755 artifacts/bwac-aarch64-unknown-linux-gnu/bwac dist/linux/arm64/bwac
 
       - name: Generate image metadata
         id: meta
