@@ -19,7 +19,7 @@ pub struct LargeVec<T>(Items<T>);
 enum Items<T> {
     Rust(Vec<T>),
     #[cfg(feature = "wasm")]
-    Js(wasm::JsItems),
+    Js(wasm::JsItems<T>),
 }
 
 impl<T> From<Vec<T>> for LargeVec<T> {
@@ -58,7 +58,19 @@ impl<T> LargeVec<T> {
     }
 }
 
-impl<T: LargeVecItem> IntoIterator for LargeVec<T> {
+impl<T: 'static> LargeVec<T> {
+    /// Applies `f` to each item: right away for items from Rust, and as each item is read for
+    /// items from JavaScript.
+    pub fn map<U: 'static>(self, f: impl Fn(T) -> U + Send + Sync + 'static) -> LargeVec<U> {
+        LargeVec(match self.0 {
+            Items::Rust(items) => Items::Rust(items.into_iter().map(f).collect()),
+            #[cfg(feature = "wasm")]
+            Items::Js(items) => Items::Js(items.map(f)),
+        })
+    }
+}
+
+impl<T> IntoIterator for LargeVec<T> {
     type Item = Result<T, LargeVecError>;
     type IntoIter = IntoIter<T>;
 
@@ -83,13 +95,13 @@ pub struct IntoIter<T>(Remaining<T>);
 enum Remaining<T> {
     Rust(std::vec::IntoIter<T>),
     #[cfg(feature = "wasm")]
-    Js(wasm::JsItems),
+    Js(wasm::JsItems<T>),
     /// An item failed to convert, which ends the iteration.
     #[cfg(feature = "wasm")]
     Done,
 }
 
-impl<T: LargeVecItem> Iterator for IntoIter<T> {
+impl<T> Iterator for IntoIter<T> {
     type Item = Result<T, LargeVecError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -97,7 +109,7 @@ impl<T: LargeVecItem> Iterator for IntoIter<T> {
             Remaining::Rust(items) => items.next().map(Ok),
             #[cfg(feature = "wasm")]
             Remaining::Js(items) => {
-                let item = items.next_item::<T>()?;
+                let item = items.next_item()?;
                 if item.is_err() {
                     self.0 = Remaining::Done;
                 }
@@ -119,28 +131,6 @@ impl<T: LargeVecItem> Iterator for IntoIter<T> {
         }
     }
 }
-
-/// An item a [`LargeVec`] can hold. With the `wasm` feature, it has to convert from a JavaScript
-/// value, as any `#[wasm_record]` type does.
-#[cfg(feature = "wasm")]
-pub trait LargeVecItem: Sized {
-    /// Converts one array item.
-    fn from_js_item(value: wasm_bindgen::JsValue) -> Result<Self, String>;
-}
-
-#[cfg(feature = "wasm")]
-impl<T: tsify::Tsify + serde::de::DeserializeOwned> LargeVecItem for T {
-    fn from_js_item(value: wasm_bindgen::JsValue) -> Result<Self, String> {
-        T::from_js(value).map_err(|error| error.to_string())
-    }
-}
-
-/// An item a [`LargeVec`] can hold. Any type can, without the `wasm` feature.
-#[cfg(not(feature = "wasm"))]
-pub trait LargeVecItem {}
-
-#[cfg(not(feature = "wasm"))]
-impl<T> LargeVecItem for T {}
 
 /// An item of a [`LargeVec`] does not convert to the item type.
 #[derive(Debug)]
@@ -170,26 +160,42 @@ mod wasm {
         describe::{WasmDescribe, WasmDescribeVector},
     };
 
-    use super::{Items, LargeVec, LargeVecError, LargeVecItem};
+    use super::{Items, LargeVec, LargeVecError};
 
-    /// The item handles not yet converted, and the index of the next one.
-    pub(super) struct JsItems {
+    /// Converts one item handle.
+    type Convert<T> = Box<dyn Fn(JsValue) -> Result<T, String> + Send + Sync>;
+
+    /// The item handles not yet converted, the index of the next one, and how to convert one.
+    pub(super) struct JsItems<T> {
         items: std::vec::IntoIter<JsValue>,
         next: usize,
+        convert: Convert<T>,
     }
 
-    impl JsItems {
+    impl<T: 'static> JsItems<T> {
+        /// Applies `f` to each item after it is converted.
+        pub(super) fn map<U>(self, f: impl Fn(T) -> U + Send + Sync + 'static) -> JsItems<U> {
+            let convert = self.convert;
+            JsItems {
+                items: self.items,
+                next: self.next,
+                convert: Box::new(move |value| convert(value).map(&f)),
+            }
+        }
+    }
+
+    impl<T> JsItems<T> {
         pub(super) fn len(&self) -> usize {
             self.items.len()
         }
 
         /// Converts the next item, or returns `None` once every item is read. Its handle is
         /// released as it is converted.
-        pub(super) fn next_item<T: LargeVecItem>(&mut self) -> Option<Result<T, LargeVecError>> {
+        pub(super) fn next_item(&mut self) -> Option<Result<T, LargeVecError>> {
             let value = self.items.next()?;
             let index = self.next;
             self.next += 1;
-            Some(T::from_js_item(value).map_err(|message| LargeVecError { index, message }))
+            Some((self.convert)(value).map_err(|message| LargeVecError { index, message }))
         }
     }
 
@@ -209,7 +215,7 @@ mod wasm {
 
     impl<T> FromWasmAbi for LargeVec<T>
     where
-        T: Tsify,
+        T: Tsify + serde::de::DeserializeOwned + 'static,
         T::JsType: WasmDescribeVector,
     {
         type Abi = <Box<[JsValue]> as FromWasmAbi>::Abi;
@@ -228,6 +234,7 @@ mod wasm {
             Self(Items::Js(JsItems {
                 items: items.into_vec().into_iter(),
                 next: 0,
+                convert: Box::new(|value| T::from_js(value).map_err(|error| error.to_string())),
             }))
         }
     }
@@ -281,6 +288,15 @@ mod tests {
         }
 
         assert_eq!(items, vec![Item(1), Item(2)]);
+    }
+
+    #[test]
+    fn maps_the_items_of_a_rust_vec() {
+        let list = LargeVec::from(vec![Item(1), Item(2)]).map(|Item(n)| n * 10);
+
+        let items: Vec<_> = list.into_iter().map(Result::unwrap).collect();
+
+        assert_eq!(items, vec![10, 20]);
     }
 
     #[test]

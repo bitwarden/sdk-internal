@@ -178,7 +178,7 @@ zeroize = { version = ">=1.7.0, <2.0" }
 zxcvbn = ">=3.0.1, <4.0"
 
 [workspace.lints.clippy]
-disallowed-macros = "deny"
+disallowed_macros = "deny"
 unused_async = "warn"
 unwrap_used = "deny"
 string_slice = "warn"
@@ -205,6 +205,7 @@ libraries = [{ path = "support/lints" }]
 # Install the runner once with `cargo install cargo-run-bin --locked`, then
 # invoke any tool via `cargo bin <tool> <args>`. See README for details.
 [workspace.metadata.bin]
+cargo-deny = { version = "0.20.0", locked = true }
 cargo-sort = { version = "2.0.2", locked = true }
 cargo-udeps = { version = "0.1.57", locked = true }
 cargo-hack = { version = "0.6.33", locked = true }

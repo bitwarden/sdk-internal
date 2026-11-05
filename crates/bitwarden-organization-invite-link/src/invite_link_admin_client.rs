@@ -390,8 +390,8 @@ mod tests {
         (secret, invite, org_public_key)
     }
 
-    /// Regenerates the invite-link fixtures used by the WASM integration tests in
-    /// `crates/bitwarden-wasm-internal/integration-tests/tests/org-fixtures.ts`. All five values
+    /// Regenerates the invite-link fixtures used by the WASM e2e tests in
+    /// `e2e/wasm/tests/org-fixtures.ts`. All five values
     /// belong together — the invites bind the thumbprint of the public key of the private key they
     /// wrap — so they must always be copied over as a set.
     #[tokio::test]
