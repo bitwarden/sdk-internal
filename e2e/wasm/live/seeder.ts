@@ -33,11 +33,14 @@ export class SeederClient {
 
   constructor(private readonly config: SeederConfig) {}
 
-  /** Seeds a user vector as it is: its account and vault, already encrypted. */
+  /**
+   * Uploads a user vector, unchanged: the scene stores its account and vault, already encrypted,
+   * and ignores the plaintext the vector records for the tests' own assertions.
+   */
   async seedUserVector(vector: UserVector): Promise<SeededVector> {
     const response = await this.request("POST", "/seed", {
       template: "TestVectorUserScene",
-      arguments: serverHalf(vector),
+      arguments: vector,
     });
 
     return ((await response.json()) as { result: SeededVector }).result;
@@ -69,39 +72,4 @@ export class SeederClient {
 
     return response;
   }
-}
-
-/**
- * The part of a vector a server holds: wrapped keys, public keys, the authentication hash and the
- * encrypted vault. The plaintext the vector records for its own assertions never leaves the test.
- */
-function serverHalf(vector: UserVector): unknown {
-  const { password: _password, ...account } = vector.account;
-  const raw = vector.rawCryptographicState;
-
-  return {
-    name: vector.name,
-    account,
-    unlockMethods: vector.unlockMethods.flatMap((method) =>
-      "masterPasswordUnlock" in method
-        ? [
-            {
-              masterPasswordUnlock: {
-                master_password_unlock: method.masterPasswordUnlock.master_password_unlock,
-              },
-            },
-          ]
-        : [],
-    ),
-    masterPasswordAuthenticationHash: vector.masterPasswordAuthenticationHash,
-    rawCryptographicState: {
-      publicKey: raw.publicKey,
-      verifyingKey: raw.verifyingKey,
-      userKeyId: raw.userKeyId,
-    },
-    vault: {
-      ciphers: vector.vault.ciphers.map(({ id, encrypted }) => ({ id, encrypted })),
-      folders: (vector.vault.folders ?? []).map(({ id, encrypted }) => ({ id, encrypted })),
-    },
-  };
 }
