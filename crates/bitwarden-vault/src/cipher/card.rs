@@ -55,12 +55,14 @@ pub enum CardBrand {
     Visa,
     Mastercard,
     Amex,
+    DinaCard,
     Discover,
     #[serde(rename = "Diners Club")]
     DinersClub,
     #[serde(rename = "JCB")]
     Jcb,
     Maestro,
+    Mir,
     UnionPay,
     RuPay,
     #[serde(untagged)]
