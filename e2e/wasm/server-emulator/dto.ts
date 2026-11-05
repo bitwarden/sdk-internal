@@ -31,7 +31,12 @@ import {
   asString,
 } from "../tests/type-assertion-helpers";
 
-import type { EmergencyAccessEntity, StoredMasterPasswordUnlock, UserEntity } from "./entities";
+import type {
+  EmergencyAccessEntity,
+  OrganizationDomain,
+  StoredMasterPasswordUnlock,
+  UserEntity,
+} from "./entities";
 
 /** How long an issued access token stays valid, as the identity service reports it. */
 const TOKEN_LIFETIME_SECONDS = 3600;
@@ -1020,4 +1025,35 @@ export class EmergencyAccessPasswordRequest {
   key?: string | null;
   unlockData?: MasterPasswordUnlockDataModel | null;
   authenticationData?: MasterPasswordAuthenticationDataModel | null;
+}
+
+/** `OrganizationUserBulkRequestModel` — the body of the bulk member endpoints. */
+export interface OrganizationUserBulkRequest {
+  ids: string[];
+}
+
+/** `OrganizationUserBulkResponseModel` — one member's outcome; an empty error is a success. */
+export class OrganizationUserBulkResponse {
+  object!: "organizationUserBulkResponseModel";
+  id!: string;
+  error!: string;
+
+  static of(id: string, error: string): OrganizationUserBulkResponse {
+    return { object: "organizationUserBulkResponseModel", id, error };
+  }
+}
+
+/** `OrganizationDomainSsoDetailsResponseModel`'s slim sibling, served by `GET …/domain/mini`. */
+export class OrganizationDomainMiniResponse {
+  object!: "organizationDomainMini";
+  domainName!: string;
+  verifiedDate!: string | null;
+
+  static fromDomain(domain: OrganizationDomain): OrganizationDomainMiniResponse {
+    return {
+      object: "organizationDomainMini",
+      domainName: domain.domainName,
+      verifiedDate: domain.verifiedDate,
+    };
+  }
 }
