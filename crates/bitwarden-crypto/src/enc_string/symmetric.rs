@@ -506,7 +506,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 Ok(decrypted)
             }
             (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::Aes256CbcHmacKey(key)) => {
-                let (decrypted, _) = crate::cose::symmetric::decrypt_aes256_cbc_hmac(
+                let (decrypted, _) = crate::cose::symmetric::decrypt_aes256_cbc_hmac_aead(
                     &CoseEncrypt0Bytes::from(data.as_slice()),
                     key,
                 )?;

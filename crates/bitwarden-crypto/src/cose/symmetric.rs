@@ -868,9 +868,8 @@ pub(crate) fn decrypt_xaes256_gcm(
 
 /// Decrypts a typed COSE Encrypt0 message with an AES-256-CBC-HMAC-SHA256 key.
 ///
-/// Decrypt only: type 2 keys still encrypt to the legacy
-/// [`EncString::Aes256Cbc_HmacSha256_B64`](crate::EncString::Aes256Cbc_HmacSha256_B64) format.
-pub(crate) fn decrypt_aes256_cbc_hmac(
+/// Decrypt only: Added in November 2026. Enable encryption after February 2027.
+pub(crate) fn decrypt_aes256_cbc_hmac_aead(
     message: &CoseEncrypt0Bytes,
     key: &Aes256CbcHmacKey,
 ) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
@@ -1585,7 +1584,7 @@ mod tests {
     /// no longer decrypt.
     #[test]
     fn test_decrypt_aes256_cbc_hmac_test_vector() {
-        let decrypted = decrypt_aes256_cbc_hmac(
+        let decrypted = decrypt_aes256_cbc_hmac_aead(
             &CoseEncrypt0Bytes::from(TEST_VECTOR_AES256_CBC_HMAC_COSE_ENCRYPT0),
             &make_aes_cbc_hmac_key(),
         )
@@ -1607,7 +1606,7 @@ mod tests {
         ] {
             let encrypted = encrypt_aes256_cbc_hmac(TEST_VECTOR_PLAINTEXT, &key, content_format);
             assert_eq!(
-                decrypt_aes256_cbc_hmac(&encrypted, &key).unwrap(),
+                decrypt_aes256_cbc_hmac_aead(&encrypted, &key).unwrap(),
                 (TEST_VECTOR_PLAINTEXT.to_vec(), content_format)
             );
         }
@@ -1617,7 +1616,7 @@ mod tests {
     fn test_decrypt_aes256_cbc_hmac_fail_wrong_key_id() {
         let other_key = Aes256CbcHmacKey::new(&[1u8; 32], &[2u8; 32]);
         assert!(matches!(
-            decrypt_aes256_cbc_hmac(
+            decrypt_aes256_cbc_hmac_aead(
                 &CoseEncrypt0Bytes::from(TEST_VECTOR_AES256_CBC_HMAC_COSE_ENCRYPT0),
                 &other_key
             ),
@@ -1629,7 +1628,7 @@ mod tests {
     fn test_decrypt_aes256_cbc_hmac_fail_wrong_algorithm() {
         // XChaCha20-Poly1305 message
         assert!(matches!(
-            decrypt_aes256_cbc_hmac(
+            decrypt_aes256_cbc_hmac_aead(
                 &CoseEncrypt0Bytes::from(TEST_VECTOR_COSE_ENCRYPT0),
                 &make_aes_cbc_hmac_key()
             ),
@@ -1652,7 +1651,7 @@ mod tests {
             .into();
 
         assert!(matches!(
-            decrypt_aes256_cbc_hmac(&tampered, &make_aes_cbc_hmac_key()),
+            decrypt_aes256_cbc_hmac_aead(&tampered, &make_aes_cbc_hmac_key()),
             Err(CryptoError::KeyDecrypt)
         ));
     }
