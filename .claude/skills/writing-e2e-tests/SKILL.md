@@ -1,13 +1,13 @@
 ---
-name: writing-integration-tests
+name: writing-e2e-tests
 description:
-  Write integration tests for the SDK — WASM tests in `e2e/wasm`, or Rust integration tests with
-  their own harness (e.g. `bitwarden-shared-unlock/tests`). Use when asked to "add an integration
-  test", "test X across the FFI boundary", "test X end to end", reproduce a bug against the built
-  wasm package, or extend the server/client emulator.
+  Write e2e tests for the SDK — WASM e2e tests in `e2e/wasm`, or Rust integration tests with their
+  own harness (e.g. `bitwarden-shared-unlock/tests`). Use when asked to "add an e2e test", "add an
+  integration test", "test X across the FFI boundary", "test X end to end", reproduce a bug against
+  the built wasm package, or extend the server/client emulator.
 ---
 
-# Writing integration tests
+# Writing e2e tests
 
 **The core principle: a test harness lets you write the test at a high level.** A test reads like a
 user story — seed, log in, unlock, act, verify — in domain terms. Mechanics (HTTP, state wiring, key
