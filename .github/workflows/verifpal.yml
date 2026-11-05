@@ -10,7 +10,7 @@ on:
       - ".github/workflows/verifpal.yml"
 
 env:
-  VERIFPAL_VERSION: v1.6.7
+  VERIFPAL_REV: b02e677bff5a0e4f61c5c6939015cef05faa69a0 # v1.6.7
 
 permissions:
   contents: read
@@ -34,7 +34,7 @@ jobs:
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
       - name: Build Verifpal
-        run: cargo install verifpal --git https://github.com/symbolicsoft/verifpal --tag "$VERIFPAL_VERSION" --locked
+        run: cargo install verifpal --git https://github.com/symbolicsoft/verifpal --rev "$VERIFPAL_REV" --locked
 
       # Findings (attacks) are expected and do not fail the job.
       # Parse and analysis errors exit non-zero and do.
