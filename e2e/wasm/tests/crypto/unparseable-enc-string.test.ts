@@ -1,6 +1,9 @@
-import { Cipher, CipherView } from "@bitwarden/sdk-internal";
+import { validateCiphers } from "../../client-emulator/validate";
+import { testHarness, type TestHarness } from "../../test-harness";
+import { testVectors } from "../../vectors/test-vectors";
+import { asEncString } from "../type-assertion-helpers";
 
-import { encstring, makeInitializedPasswordmanagerClient, makeStateBridge } from "../utils";
+const TIMEOUT = 120_000;
 
 /**
  * An `EncString` whose iv decodes to 4 bytes instead of the required 16. It is well-formed base64
@@ -8,79 +11,65 @@ import { encstring, makeInitializedPasswordmanagerClient, makeStateBridge } from
  */
 const MALFORMED_IV = "2.AAECAw==|Y3Q=|AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
 
-const cipherView = (name: string): CipherView =>
-  ({
-    id: undefined,
-    organizationId: undefined,
-    folderId: undefined,
-    collectionIds: [],
-    key: undefined,
-    name,
-    notes: undefined,
-    type: 1,
-    login: {
-      username: undefined,
-      password: undefined,
-      passwordRevisionDate: undefined,
-      uris: undefined,
-      totp: undefined,
-      autofillOnPageLoad: undefined,
-      fido2Credentials: undefined,
-    },
-    identity: undefined,
-    card: undefined,
-    secureNote: undefined,
-    sshKey: undefined,
-    bankAccount: undefined,
-    driversLicense: undefined,
-    passport: undefined,
-    favorite: false,
-    reprompt: 0,
-    organizationUseTotp: false,
-    edit: true,
-    permissions: undefined,
-    viewPassword: true,
-    localData: undefined,
-    attachments: undefined,
-    fields: undefined,
-    passwordHistory: undefined,
-    creationDate: "2024-01-01T00:00:00Z",
-    deletedDate: undefined,
-    revisionDate: "2024-01-01T00:00:00Z",
-    archivedDate: undefined,
-  }) as unknown as CipherView;
-
 // A malformed `EncString` used to throw while being lifted across the boundary, before the called
 // method ran. It now crosses as an unparseable `EncString`, so a single bad item is reported as a
-// per-item decryption failure instead of taking down the whole call.
-describe("CiphersClient.decrypt_list_full_with_failures with an unparseable EncString", () => {
-  const setup = async () => {
-    const client = await makeInitializedPasswordmanagerClient(makeStateBridge());
-    const ciphers = client.vault().ciphers();
-    const { cipher: valid } = await ciphers.encrypt(cipherView("valid"));
+// per-item decryption failure instead of taking down the whole vault.
+describe("ciphers with an unparseable EncString", () => {
+  let harness: TestHarness;
 
-    // The item key protects every field, so an unparseable one fails the whole cipher.
-    const malformed: Cipher = { ...valid, key: encstring(MALFORMED_IV) };
-    return { ciphers, valid, malformed };
-  };
+  beforeEach(() => {
+    harness = testHarness();
+  }, TIMEOUT);
 
-  it("reports the malformed cipher as a failure and still decrypts the rest", async () => {
-    const { ciphers, valid, malformed } = await setup();
+  afterEach(() => harness.restore());
 
-    const result = await ciphers.decrypt_list_full_with_failures([valid, malformed]);
+  /** Overwrites the item key of the server's copy of each cipher in `ids` with a malformed one. */
+  function corrupt(ids: string[]): void {
+    for (const id of ids) {
+      const stored = harness.server.db.ciphers.get(id)!;
+      harness.server.db.ciphers.update(id, {
+        ...stored,
+        cipher: { ...stored.cipher, key: asEncString(MALFORMED_IV) },
+      });
+    }
+  }
 
-    expect(result.successes.map((c) => c.name)).toEqual(["valid"]);
-    expect(result.failures.length).toBe(1);
-    // The raw value survives the round trip, so the caller can report or re-send it unchanged.
-    expect(result.failures[0].key).toBe(MALFORMED_IV);
-  });
+  testVectors.users.each(
+    "$name reports a corrupt cipher from sync as a failure and decrypts the rest",
+    async (vector) => {
+      // 1. The server holds one cipher whose item key is malformed, and a device syncs it down
+      const seeded = harness.server.seedUserTestVector(vector);
+      const corruptId = seeded.ciphers()[0].id!;
+      corrupt([String(corruptId)]);
+      const device = await harness.newUnlockedClient(seeded);
 
-  it("reports every cipher as a failure when they are all malformed", async () => {
-    const { ciphers, malformed } = await setup();
+      // 2. Verify the corrupt cipher is reported as a failure, with its raw value intact so the
+      //    caller can report or re-send it unchanged
+      const result = await device.getPasswordManagerClient().vault().ciphers().get_all();
+      expect(result.failures.map((cipher) => [cipher.id, cipher.key])).toEqual([
+        [corruptId, MALFORMED_IV],
+      ]);
 
-    const result = await ciphers.decrypt_list_full_with_failures([malformed, malformed]);
+      // 3. Verify every other cipher still decrypts
+      validateCiphers({ ...result, failures: [] }, seeded.seed, []);
+    },
+    TIMEOUT,
+  );
 
-    expect(result.successes).toEqual([]);
-    expect(result.failures.length).toBe(2);
-  });
+  it(
+    "reports every cipher as a failure when they are all corrupt",
+    async () => {
+      // 1. The server holds only corrupt ciphers, and a device syncs them down
+      const seeded = harness.server.seedUserTestVector(testVectors.users.get("v2-pbkdf2-blob"));
+      const ids = seeded.ciphers().map((cipher) => String(cipher.id));
+      corrupt(ids);
+      const device = await harness.newUnlockedClient(seeded);
+
+      // 2. Verify every cipher is reported as a failure
+      const result = await device.getPasswordManagerClient().vault().ciphers().get_all();
+      expect(result.successes).toEqual([]);
+      expect(result.failures.map((cipher) => String(cipher.id)).sort()).toEqual(ids.sort());
+    },
+    TIMEOUT,
+  );
 });
