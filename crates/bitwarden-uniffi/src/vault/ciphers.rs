@@ -34,7 +34,7 @@ impl CiphersClient {
         &self,
         cipher_views: Vec<CipherView>,
     ) -> Result<Vec<EncryptionContext>> {
-        Ok(self.0.encrypt_list(cipher_views).await?)
+        Ok(self.0.encrypt_list(cipher_views.into()).await?)
     }
 
     /// Decrypt cipher list with failures
