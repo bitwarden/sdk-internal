@@ -17,8 +17,8 @@ use rustc_span::{ExpnKind, MacroKind};
 
 const HELP: &str = "serde_repr serializes this as its `#[repr(..)]` integer, but Tsify \
                     generates a TypeScript type from the Rust shape — they disagree at \
-                    the WASM boundary. Use `#[cfg_attr(feature = \"wasm\", wasm_bindgen)]` \
-                    instead of Tsify for repr-encoded enums.";
+                    the WASM boundary. Use `#[bitwarden_ffi::wasm_object]` instead of \
+                    Tsify for repr-encoded enums.";
 
 dylint_linting::impl_late_lint! {
     /// ### What it does
@@ -35,8 +35,8 @@ dylint_linting::impl_late_lint! {
     /// mismatch at the WASM boundary.
     ///
     /// For repr-encoded enums that need to cross the WASM boundary, use
-    /// `#[cfg_attr(feature = "wasm", wasm_bindgen)]` instead of `Tsify` —
-    /// `wasm_bindgen` natively supports integer-valued enums.
+    /// `#[bitwarden_ffi::wasm_object]` instead of `Tsify`. It exports the enum
+    /// through `wasm_bindgen`, which natively supports integer-valued enums.
     ///
     /// ### Example
     ///
@@ -51,7 +51,7 @@ dylint_linting::impl_late_lint! {
     ///
     /// ```rust,ignore
     /// #[derive(Serialize_repr, Deserialize_repr)]
-    /// #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    /// #[bitwarden_ffi::wasm_object]
     /// #[repr(u8)]
     /// pub enum CollectionType { Shared = 0, Default = 1 }
     /// ```
