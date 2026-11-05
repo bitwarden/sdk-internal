@@ -1,13 +1,16 @@
 //! Utilities for FFI bindings (WASM, UniFFI).
 //!
 //! Re-exports proc macros from `bitwarden-ffi-macro`, plus the wire traits. [`FromWasm`] and
-//! [`ToWasm`] explain how a type crosses the wasm ABI.
+//! [`ToWasm`] explain how a type crosses the wasm ABI, and a [`LargeVec`] parameter converts a
+//! JavaScript array item by item as it is read.
 
+pub mod large_vec;
 #[cfg(feature = "wasm")]
 mod wire;
 mod wire_macros;
 
 pub use bitwarden_ffi_macro::{wasm_export, wasm_import, wasm_object, wasm_record};
+pub use large_vec::{LargeVec, LargeVecError};
 #[cfg(feature = "wasm")]
 pub use wire::{FromWasm, ToWasm, WireError};
 #[cfg(feature = "wasm")]

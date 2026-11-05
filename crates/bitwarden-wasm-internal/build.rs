@@ -3,6 +3,11 @@
 use std::{env, process::Command};
 
 fn main() {
+    // Without these, Cargo only reruns this script when a file in the package changes, so a cached
+    // build would keep embedding an old version.
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-env-changed=SDK_VERSION");
+
     // Use the SDK_VERSION environment variable if it is set (e.g. by CI) or get it from Git
     let sdk_version = env::var("SDK_VERSION")
         .or_else(|_| version_from_git_info())
@@ -30,6 +35,8 @@ fn run(args: &[&str]) -> Result<String, std::io::Error> {
 ///    - `env!("GIT_BRANCH")`
 ///    - `env!("GIT_REV")`
 fn version_from_git_info() -> Result<String, std::io::Error> {
+    rerun_if_git_changed();
+
     // The exact tag for the current commit, can be empty when
     // the current commit doesn't have an associated tag
     let exact_tag = run(&["git", "describe", "--abbrev=0", "--tags", "--exact-match"]).ok();
@@ -51,5 +58,25 @@ fn version_from_git_info() -> Result<String, std::io::Error> {
         Ok(exact)
     } else {
         Ok(format!("{branch} ({rev_short})"))
+    }
+}
+
+/// Reruns this script when the checked out commit, the current branch, or the tags change.
+fn rerun_if_git_changed() {
+    let mut paths = vec![
+        "HEAD".to_string(),
+        "packed-refs".to_string(),
+        "refs/tags".to_string(),
+    ];
+    if let Ok(branch_ref) = run(&["git", "symbolic-ref", "-q", "HEAD"]) {
+        paths.push(branch_ref);
+    }
+    for path in paths {
+        // Cargo reruns the script on every build if a listed path doesn't exist
+        if let Ok(path) = run(&["git", "rev-parse", "--git-path", &path])
+            && std::path::Path::new(&path).exists()
+        {
+            println!("cargo:rerun-if-changed={path}");
+        }
     }
 }
