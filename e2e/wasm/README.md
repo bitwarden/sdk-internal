@@ -1,14 +1,20 @@
-# Integration Tests
+# WASM e2e tests
 
-This is a set of integration tests for the sdk. This aims to find issues that unit tests do not
+This is a set of end-to-end tests for the sdk. This aims to find issues that unit tests do not
 uncover, and especially find issues where the FFI conversions are broken.
 
 ## Running them
 
-To run the tests, the wasm module needs to be built, then the integration tests are run.
+From the repository root, build the wasm module and run the tests:
 
 ```sh
-npm run build:test
+npm run e2e:wasm
+```
+
+To rerun the tests without rebuilding, from `e2e/wasm/`:
+
+```sh
+npm test
 ```
 
 ## The server emulator

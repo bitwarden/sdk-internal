@@ -1,7 +1,7 @@
 import BitwardenSdk
 import XCTest
 
-/// Swift integration tests for `SdkRandomNumberClient`, the UniFFI binding for
+/// Swift e2e tests for `SdkRandomNumberClient`, the UniFFI binding for
 /// `bitwarden-random`'s cross-platform FFI.
 final class RandomNumberClientTests: XCTestCase {
     func testGenBytesReturnsRequestedLength() throws {

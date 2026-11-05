@@ -20,6 +20,8 @@
     "lint:dep-ownership": "tsx scripts/dep-ownership.ts",
     "prettier": "prettier --write .",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "e2e:wasm": "npm ci --prefix e2e/wasm && npm run build:test --prefix e2e/wasm",
+    "e2e:swift": "bash crates/bitwarden-uniffi/swift/build.sh && bash e2e/swift/test.sh",
     "prepare": "husky"
   },
   "devDependencies": {

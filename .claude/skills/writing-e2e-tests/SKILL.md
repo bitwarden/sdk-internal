@@ -1,14 +1,13 @@
 ---
-name: writing-integration-tests
+name: writing-e2e-tests
 description:
-  Write integration tests for the SDK — WASM tests in
-  `crates/bitwarden-wasm-internal/integration-tests`, or Rust integration tests with their own
-  harness (e.g. `bitwarden-shared-unlock/tests`). Use when asked to "add an integration test", "test
-  X across the FFI boundary", "test X end to end", reproduce a bug against the built wasm package,
-  or extend the server/client emulator.
+  Write e2e tests for the SDK — WASM e2e tests in `e2e/wasm`, or Rust integration tests with their
+  own harness (e.g. `bitwarden-shared-unlock/tests`). Use when asked to "add an e2e test", "add an
+  integration test", "test X across the FFI boundary", "test X end to end", reproduce a bug against
+  the built wasm package, or extend the server/client emulator.
 ---
 
-# Writing integration tests
+# Writing e2e tests
 
 **The core principle: a test harness lets you write the test at a high level.** A test reads like a
 user story — seed, log in, unlock, act, verify — in domain terms. Mechanics (HTTP, state wiring, key
@@ -17,9 +16,9 @@ instead.
 
 ## Pick where it lives
 
-- **WASM integration tests** (`crates/bitwarden-wasm-internal/integration-tests`, TS/vitest): drive
-  the **built** `@bitwarden/sdk-internal` package like a real client. Use for flows across client ↔
-  server, and anything where FFI/serde conversions or the wasm executor matter.
+- **WASM e2e tests** (`e2e/wasm`, TS/vitest): drive the **built** `@bitwarden/sdk-internal` package
+  like a real client. Use for flows across client ↔ server, and anything where FFI/serde conversions
+  or the wasm executor matter.
 - **Rust integration tests with a harness** (`crates/<crate>/tests/`): use when the behavior is a
   protocol or multi-party flow inside one crate and the FFI adds nothing. Reference:
   `bitwarden-shared-unlock/tests/` — `harness/` (simulated devices, in-memory IPC transport,
@@ -138,12 +137,13 @@ describe("feature", () => {
 ### Run
 
 ```bash
-cd crates/bitwarden-wasm-internal/integration-tests && npm ci && npm run build:test
+npm run e2e:wasm  # from the repository root
 ```
 
-`build:test` builds wasm (`../build.sh`) into `../npm/`, then typechecks and runs vitest. After the
-first build, if only TS changed: `npm test`, or `npx vitest run tests/<path>.test.ts`. Rebuild after
-any Rust change. CI runs `npm test` on a fresh build.
+`e2e:wasm` builds wasm (`crates/bitwarden-wasm-internal/build.sh`) into
+`crates/bitwarden-wasm-internal/npm/`, then typechecks and runs vitest. After the first build, if
+only TS changed: `cd e2e/wasm && npm test`, or `cd e2e/wasm && npx vitest run tests/<path>.test.ts`.
+Rebuild after any Rust change. CI runs `npm test` in `e2e/wasm` on a fresh build.
 
 Rust harness tests: `cargo test -p <crate> --test <name>`; add `RUST_LOG=debug … -- --nocapture` for
 one test's logs.

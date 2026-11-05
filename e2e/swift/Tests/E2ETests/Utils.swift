@@ -53,7 +53,7 @@ let MISMATCHED_UPGRADE_TOKEN_WRAPPED_UK2 =
     "2.kMXLlusmgVa3j6HZ9IL02g==|cNAewMA4BsenXjQyawhYwVpgpZHgLhIvNQeoAf6+eA8QbQpzfKYM+sPqQO7JeEMStJfn/6yewPVd+S/lADOnxUElZIUyGZeD1Ifmh2vXMb8=|cwSUXxHoYWGus1U36IuZAYTtxWAK0f8CA7cOYfqlh9k="
 
 /// In-memory `StateBridgeForeignImpl` for tests. Mirrors `makeStateBridge()`
-/// from the WASM integration tests.
+/// from the WASM e2e tests.
 actor InMemoryStateBridge: StateBridgeForeignImpl {
     private var userKey: SymmetricCryptoKey?
     private var userKeyId: KeyId?
@@ -123,7 +123,7 @@ final class MockTokenProvider: ClientManagedTokens {
 
 /// Builds a `Client` with a registered `InMemoryStateBridge` and an initialized
 /// crypto state, mirroring `makeInitializedPasswordmanagerClient` from the WASM
-/// integration tests.
+/// e2e tests.
 func makeInitializedClient(stateBridge: InMemoryStateBridge) async throws -> Client {
     // A fresh handle has no active profile, so no setting reads as administrator-forced.
     let client = Client(tokenProvider: MockTokenProvider(), settings: nil, managedSettings: ManagedSettingsBindingClient())

@@ -1,4 +1,4 @@
-// Vitest runs the integration suite (`npm test`), the live-server suite (`npm run test:live`) and
+// Vitest runs the e2e suite (`npm test`), the live-server suite (`npm run test:live`) and
 // the performance harnesses (`npm run perf`).
 import { defineConfig } from "vitest/config";
 

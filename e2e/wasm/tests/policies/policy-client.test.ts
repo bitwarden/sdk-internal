@@ -14,7 +14,7 @@ import { makePasswordManagerClient, makeStateBridge } from "../utils";
 
 // `filter_by_type` is a pure function with no crypto or network, so the client needs no unlock.
 // The filtering *behavior* is covered comprehensively by the crate's Rust unit tests
-// (`PolicyClient::filter_by_type`). These integration tests exist only to prove FFI-specific concerns.
+// (`PolicyClient::filter_by_type`). These e2e tests exist only to prove FFI-specific concerns.
 
 const POLICY_ID = asPolicyId("1c4d9d5a-0000-4000-8000-000000000000");
 const ORG_A = asOrganizationId("1c4d9d5a-0000-4000-8000-00000000000a");
