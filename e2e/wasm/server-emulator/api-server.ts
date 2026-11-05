@@ -6,6 +6,7 @@ import type { MockReply, Routes } from "./http-mock";
 
 import {
   asEncString,
+  asFolderId,
   asKeyId,
   asSignedPublicKey,
   asSignedSecurityState,
@@ -27,6 +28,7 @@ const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
 import { Database } from "./database";
 import {
   KeysResponse,
+  type CipherBulkMoveRequest,
   type CipherCreateRequest,
   CipherRequest,
   CipherResponse,
@@ -99,6 +101,9 @@ export class ApiServer {
       ),
       "PUT /ciphers/:id/restore": authenticatedRoute(this.db, (user, request) =>
         this.restamp(user, request.params.id, null),
+      ),
+      "PUT /ciphers/move": authenticatedRoute(this.db, (user, request) =>
+        this.moveCiphers(user, request.json<CipherBulkMoveRequest>()),
       ),
 
       "POST /folders": authenticatedRoute(this.db, (user, request) =>
@@ -442,6 +447,36 @@ export class ApiServer {
     this.db.ciphers.update(id, { ...stored, cipher });
 
     return { json: CipherResponse.fromCipher(cipher) };
+  }
+
+  /**
+   * Files the posted ciphers into a folder, or out of any folder for a `null` one.
+   *
+   * As the real server does, a folder the account does not own is refused outright, and ids the
+   * account cannot reach are skipped rather than failing the batch.
+   */
+  private moveCiphers(user: UserEntity, posted: CipherBulkMoveRequest): MockReply {
+    const folderId = posted.folderId ?? null;
+    if (folderId !== null && this.db.folders.get(folderId)?.userId !== user.userId) {
+      return error(HTTP_BAD_REQUEST, "Invalid folder.");
+    }
+
+    const now = this.db.revisions.next();
+    for (const id of posted.ids) {
+      const stored = this.reachableCipher(user, id);
+      if (stored === undefined) {
+        continue;
+      }
+
+      const cipher: Cipher = {
+        ...stored.cipher,
+        folderId: folderId === null ? undefined : asFolderId(folderId),
+        revisionDate: now,
+      };
+      this.db.ciphers.update(id, { ...stored, cipher });
+    }
+
+    return {};
   }
 
   private createFolder(user: UserEntity, posted: FolderRequest): MockReply {
