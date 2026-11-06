@@ -10,6 +10,8 @@ export default defineConfig(({ mode }) => ({
     // variables, but a default run should not load them at all; `--mode live` loads only them.
     include: mode === "live" ? ["tests/**/*.live.test.ts"] : ["tests/**/*.test.ts"],
     exclude: mode === "live" ? [] : ["**/node_modules/**", "tests/**/*.live.test.ts"],
+    // Before a live run, delete the test accounts a crashed one left behind.
+    globalSetup: mode === "live" ? ["live/sweep.ts"] : [],
     // Tests use `describe`/`it`/`expect` without importing them.
     globals: true,
     // Harnesses run one after another so they don't compete for CPU, and live suites one after

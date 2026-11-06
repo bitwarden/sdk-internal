@@ -1,6 +1,6 @@
 // Statuses the models answer with, and the error body they share.
 
-import type { ErrorResponse } from "./dto";
+import type { ErrorResponse } from "./dto/common";
 import type { MockReply } from "./http-mock";
 
 export const HTTP_BAD_REQUEST = 400;

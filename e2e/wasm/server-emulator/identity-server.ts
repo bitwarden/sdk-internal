@@ -6,10 +6,10 @@ import {
   PasswordPreloginRequest,
   PasswordPreloginResponse,
   TokenResponse,
-} from "./dto";
+} from "./dto/identity";
 import type { MockReply, Routes } from "./http-mock";
 import type { UserEntity } from "./entities";
-import { HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from "./replies";
+import { HTTP_BAD_REQUEST } from "./replies";
 
 /** The OAuth2 grant types the token endpoint answers. */
 const GRANT_TYPE_PASSWORD = "password";
@@ -36,7 +36,7 @@ export class IdentityServer {
   private prelogin(posted: PasswordPreloginRequest): MockReply {
     const user = this.userFor(posted.email);
     if (user === undefined) {
-      return oauth2Error(HTTP_NOT_FOUND, "invalid_request", `no account for ${posted.email}`);
+      return { json: PasswordPreloginResponse.forUnknownEmail(posted.email) };
     }
 
     return { json: PasswordPreloginResponse.fromUser(user, posted.email) };
@@ -81,7 +81,7 @@ export class IdentityServer {
     return token;
   }
 
-  private userFor(email: string): UserEntity | undefined {
+  userFor(email: string): UserEntity | undefined {
     const [user] = this.db.users.filter((candidate) => candidate.email === email);
 
     return user;
