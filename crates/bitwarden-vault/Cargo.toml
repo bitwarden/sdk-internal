@@ -15,8 +15,6 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
-# Benchmark-only API variants for the performance harnesses. Never enable in production.
-perf-baselines = []
 uniffi = [
     "bitwarden-collections/uniffi",
     "bitwarden-core/uniffi",
