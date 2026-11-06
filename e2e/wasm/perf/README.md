@@ -72,11 +72,13 @@ in JavaScript, registered as a web client registers its own. They share their se
 list harnesses.
 
 ```sh
-npm run perf -- iterator.perf      # time per mode
-./perf/iterator-memory.sh          # WASM memory growth per mode, one process each
-PERF_STREAM_MODE=list-iterable npm run perf -- iterator-memory   # a single mode
-./perf/iterable-gc.sh              # whether iterables left early are reclaimed, with and without gc()
+npm run perf -- iterator.perf                    # time per mode
+npm run perf -- iterator-memory                  # memory, one file per mode
+PERF_CHUNK_SIZE=1000 npm run perf -- iterator-memory-list-iterable.perf  # another chunk size
+npm run perf -- iterable-gc                      # whether iterables left early are reclaimed
+PERF_GC=0 npm run perf -- iterable-gc            # the same, without collecting garbage
 ```
 
-WASM memory never shrinks, so each memory run must be its own process. `npm run perf` runs the
-memory harnesses once, in their default modes.
+The memory harnesses are one file per mode, `iterator-memory-<mode>.perf.ts` and
+`iterable-gc-<mode>.perf.ts`, since each needs its own process. The shared code is in
+`iterator-memory.ts` and `iterable-gc.ts`.
