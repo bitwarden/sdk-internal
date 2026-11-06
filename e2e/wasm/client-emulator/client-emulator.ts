@@ -8,6 +8,7 @@ import type {
   LoginClient,
   LoginRequest,
   PasswordManagerClient,
+  RegistrationClient,
   WasmStateBridge,
 } from "@bitwarden/sdk-internal";
 
@@ -167,6 +168,31 @@ export class ClientEmulator {
     }
 
     await this.sync();
+  }
+
+  /**
+   * Logs in an account that has no keys yet, as SSO does for a just-in-time provisioned user, and
+   * returns the registration client. Registers this device; there is nothing to sync.
+   */
+  loginForRegistration(email: string): RegistrationClient {
+    if (this.server === undefined) {
+      throw new Error(
+        "a keyless login needs the server emulator; a real server cannot mint a token",
+      );
+    }
+
+    const [account] = this.server.db.pendingAccounts.filter((pending) => pending.email === email);
+    if (account === undefined) {
+      throw new Error(`no keyless account with email ${email}`);
+    }
+
+    this.local.setAccessToken(
+      this.server.identity.issueToken(email, this.loginRequest.device.deviceIdentifier),
+    );
+    this.local.setIdentity({ userId: account.userId, email });
+    this.client = this.local.locked();
+
+    return this.client.auth().registration();
   }
 
   /**

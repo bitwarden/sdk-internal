@@ -3,11 +3,13 @@ import { createHash } from "node:crypto";
 import type { Send } from "@bitwarden/sdk-internal";
 
 import type {
+  AccountRecoveryEnrollmentEntity,
   CipherEntity,
   DeviceEntity,
   EmergencyAccessEntity,
   FolderEntity,
   OrganizationEntity,
+  PendingAccountEntity,
   UserEntity,
 } from "./entities";
 
@@ -123,4 +125,10 @@ export class Database {
   );
   readonly sessions = new Table<string>(new SequentialUuidGenerator("sessions"));
   readonly devices = new Table<DeviceEntity>(new SequentialUuidGenerator("devices"));
+  readonly pendingAccounts = new Table<PendingAccountEntity>(
+    new SequentialUuidGenerator("pending-accounts"),
+  );
+  readonly accountRecoveryEnrollments = new Table<AccountRecoveryEnrollmentEntity>(
+    new SequentialUuidGenerator("account-recovery-enrollments"),
+  );
 }

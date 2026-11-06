@@ -72,6 +72,24 @@ export interface CipherEntity {
 }
 
 /** A folder as the server holds it. Folders are always personal — organizations have collections. */
+/**
+ * An account SSO provisioned that has no keys yet, as a just-in-time trusted device user is before
+ * registration. `POST /accounts/keys` turns it into a {@link UserEntity}.
+ */
+export interface PendingAccountEntity {
+  userId: AccountId;
+  email: string;
+  kdf: Kdf;
+}
+
+/** An account's enrollment into an organization's account recovery. */
+export interface AccountRecoveryEnrollmentEntity {
+  organizationId: string;
+  userId: AccountId;
+  /** The user key encapsulated to the organization's public key. */
+  resetPasswordKey: string;
+}
+
 /** A device registered at login. The keys are set once the user trusts it. */
 export interface DeviceEntity {
   userId: AccountId;

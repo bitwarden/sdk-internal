@@ -641,6 +641,29 @@ export class FolderResponse {
   }
 }
 
+/** `AccountKeysRequestModel` — the V2 account state a registration posts. */
+export class AccountKeysRequest {
+  userKeyEncryptedAccountPrivateKey?: string;
+  accountPublicKey?: string;
+  publicKeyEncryptionKeyPair?: PublicKeyEncryptionKeyPairRequest;
+  signatureKeyPair?: SignatureKeyPairRequest;
+  securityState?: SecurityStateRequest;
+}
+
+/** `KeysRequestModel` — the body of `POST /accounts/keys`. */
+export class KeysRequest {
+  publicKey!: string;
+  encryptedPrivateKey!: string;
+  accountKeys?: AccountKeysRequest;
+  userKeyId?: string;
+}
+
+/** `OrganizationUserResetPasswordEnrollmentRequestModel`. */
+export class ResetPasswordEnrollmentRequest {
+  resetPasswordKey?: string;
+  masterPasswordHash?: string;
+}
+
 /** `DeviceKeysRequestModel` — the body of `PUT /devices/:identifier/keys`. */
 export class DeviceKeysRequest {
   encryptedUserKey!: string;

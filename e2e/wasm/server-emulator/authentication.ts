@@ -1,7 +1,7 @@
 // Who a request is from, shared by every service that reads the same bearer token.
 
 import type { Database } from "./database";
-import type { UserEntity } from "./entities";
+import type { PendingAccountEntity, UserEntity } from "./entities";
 import { bearerToken, type MockReply, type MockRequest, type RouteHandler } from "./http-mock";
 import { error, HTTP_UNAUTHORIZED } from "./replies";
 
@@ -39,5 +39,25 @@ export function authenticatedRoute(
     }
 
     return handler(authenticated.user, request);
+  };
+}
+
+/**
+ * Wraps a handler for an account that is authenticated but has no keys yet, answering 401 when the
+ * token names no such account.
+ */
+export function pendingAccountRoute(
+  db: Database,
+  handler: (account: PendingAccountEntity, request: MockRequest) => MockReply | Promise<MockReply>,
+): RouteHandler {
+  return (request) => {
+    const token = bearerToken(request);
+    const userId = token === undefined ? undefined : db.sessions.get(token);
+    const account = userId === undefined ? undefined : db.pendingAccounts.get(userId);
+    if (account === undefined) {
+      return error(HTTP_UNAUTHORIZED, `no keyless account behind the token on ${request.route}`);
+    }
+
+    return handler(account, request);
   };
 }

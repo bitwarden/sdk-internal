@@ -12,7 +12,7 @@ import {
   asString,
 } from "../tests/type-assertion-helpers";
 
-import { authenticatedRoute } from "./authentication";
+import { authenticatedRoute, pendingAccountRoute } from "./authentication";
 
 /**
  * The floor the server puts under PBKDF2, which is stricter than the SDK's own.
@@ -35,6 +35,8 @@ import {
   CipherResponse,
   DeviceKeysRequest,
   DeviceResponse,
+  KeysRequest,
+  ResetPasswordEnrollmentRequest,
   FolderRequest,
   FolderResponse,
   KdfType,
@@ -48,7 +50,7 @@ import {
   UserKeyIdRequest,
   type ChangeKdfRequest,
 } from "./dto";
-import type { CipherEntity, FolderEntity, UserEntity } from "./entities";
+import type { CipherEntity, FolderEntity, PendingAccountEntity, UserEntity } from "./entities";
 import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_NOT_FOUND } from "./replies";
 
 export class ApiServer {
@@ -62,6 +64,18 @@ export class ApiServer {
       "GET /accounts/keys": authenticatedRoute(this.db, (user) => ({
         json: KeysResponse.fromUser(user),
       })),
+      "POST /accounts/keys": pendingAccountRoute(this.db, (account, request) =>
+        this.registerKeys(account, request.json<KeysRequest>()),
+      ),
+      "PUT /organizations/:organizationId/users/:userId/reset-password-enrollment":
+        authenticatedRoute(this.db, (user, request) =>
+          this.enrollAccountRecovery(
+            user,
+            request.params.organizationId,
+            request.params.userId,
+            request.json<ResetPasswordEnrollmentRequest>(),
+          ),
+        ),
 
       "POST /accounts/kdf": authenticatedRoute(this.db, (user, request) =>
         this.changeKdf(user, request.json<ChangeKdfRequest>()),
@@ -132,6 +146,82 @@ export class ApiServer {
       folders: this.db.folders.all(),
       devices: this.db.devices.all(),
     };
+  }
+
+  /**
+   * Stores a keyless account's first keys, which makes it a full account. Only the V2 shape is
+   * accepted: registration through the SDK always posts one.
+   */
+  private registerKeys(account: PendingAccountEntity, posted: KeysRequest): MockReply {
+    const keys = posted.accountKeys;
+    const encryptionPair = keys?.publicKeyEncryptionKeyPair;
+    const signaturePair = keys?.signatureKeyPair;
+    const signedPublicKey = encryptionPair?.signedPublicKey;
+    if (
+      encryptionPair === undefined ||
+      signaturePair === undefined ||
+      keys?.securityState === undefined ||
+      signedPublicKey === undefined
+    ) {
+      return error(HTTP_BAD_REQUEST, "V2 account keys required");
+    }
+
+    if (posted.userKeyId !== undefined && !KEY_ID_PATTERN.test(posted.userKeyId)) {
+      return error(HTTP_BAD_REQUEST, `malformed key id ${posted.userKeyId}`);
+    }
+
+    const user: UserEntity = {
+      userId: account.userId,
+      email: account.email,
+      accountCryptographicState: {
+        V2: {
+          private_key: asEncString(encryptionPair.wrappedPrivateKey),
+          signing_key: asEncString(signaturePair.wrappedSigningKey),
+          security_state: asSignedSecurityState(keys.securityState.securityState),
+          signed_public_key: asSignedPublicKey(signedPublicKey),
+        },
+      },
+      publicKey: encryptionPair.publicKey,
+      verifyingKey: signaturePair.verifyingKey,
+      securityVersion: keys.securityState.securityVersion,
+      kdf: account.kdf,
+      userKeyId: posted.userKeyId === undefined ? undefined : asKeyId(posted.userKeyId),
+      masterPasswordUnlock: null,
+      masterPasswordAuthenticationHash: null,
+      organizationKeys: {},
+    };
+    this.db.users.set(user.userId, user);
+    this.db.pendingAccounts.remove(account.userId);
+
+    return { json: KeysResponse.fromUser(user) };
+  }
+
+  /** Enrolls the caller into an organization's account recovery. */
+  private enrollAccountRecovery(
+    user: UserEntity,
+    organizationId: string,
+    userId: string,
+    posted: ResetPasswordEnrollmentRequest,
+  ): MockReply {
+    if (userId !== user.userId) {
+      return error(HTTP_NOT_FOUND, `user ${userId} is not the caller`);
+    }
+
+    if (this.db.organizations.get(organizationId) === undefined) {
+      return error(HTTP_NOT_FOUND, `no organization ${organizationId}`);
+    }
+
+    if (!posted.resetPasswordKey) {
+      return error(HTTP_BAD_REQUEST, "reset password key required");
+    }
+
+    this.db.accountRecoveryEnrollments.set(this.db.accountRecoveryEnrollments.newId(), {
+      organizationId,
+      userId: user.userId,
+      resetPasswordKey: posted.resetPasswordKey,
+    });
+
+    return {};
   }
 
   /** Records that a device holds a device key but received no trusted device keys. */
