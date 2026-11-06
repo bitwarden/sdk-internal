@@ -31,7 +31,9 @@ impl CiphersClient {
             .await
             .map_err(|error| match error {
                 DecryptListError::Crypto(error) => DecryptError::Crypto(error).into(),
-                // The items of a `Vec` are already converted, so this does not occur here.
+                // `InvalidInput` only comes from items converted from JavaScript, so a `Vec` from
+                // UniFFI never reaches this arm. It exists because the WASM binding shares the
+                // error type.
                 DecryptListError::InvalidInput(error) => {
                     BitwardenError::Conversion(error.to_string())
                 }
@@ -54,7 +56,9 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> Result<DecryptCipherListResult> {
-        // The items of a `Vec` are already converted, so the only error does not occur here.
+        // The only error, `InvalidInput`, comes from items converted from JavaScript, so it never
+        // occurs for a `Vec` from UniFFI. It is mapped because the WASM binding shares the error
+        // type.
         self.0
             .decrypt_list_with_failures(ciphers.into())
             .await
@@ -91,7 +95,9 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> Result<DecryptCipherResult> {
-        // The items of a `Vec` are already converted, so the only error does not occur here.
+        // The only error, `InvalidInput`, comes from items converted from JavaScript, so it never
+        // occurs for a `Vec` from UniFFI. It is mapped because the WASM binding shares the error
+        // type.
         self.0
             .decrypt_list_full_with_failures(ciphers.into())
             .await
