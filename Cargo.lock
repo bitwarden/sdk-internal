@@ -949,7 +949,7 @@ dependencies = [
 name = "bitwarden-error-macro"
 version = "4.0.0"
 dependencies = [
- "darling 0.20.11",
+ "darling 0.24.1",
  "js-sys",
  "proc-macro2",
  "quote",
