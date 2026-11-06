@@ -45,7 +45,12 @@ import {
   FolderRequest,
   FolderResponse,
 } from "./dto/vault";
-import type { CipherEntity, FolderEntity, UserEntity } from "./entities";
+import type {
+  CipherEntity,
+  FolderEntity,
+  KeyHoldingOrganizationMember,
+  UserEntity,
+} from "./entities";
 import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_FORBIDDEN, HTTP_NOT_FOUND } from "./replies";
 
 export class ApiServer {
@@ -148,7 +153,8 @@ export class ApiServer {
   }
 
   /**
-   * The organizations `user` is a member of, each with the organization key sealed to them.
+   * The organizations `user` is a confirmed member of, each with the organization key sealed to
+   * them. An accepted member holds no key yet, so it is left out.
    *
    * Two seeding styles reach the same place: a vector may record the sealed keys on the account
    * itself, or {@link ServerEmulator.seedOrganization} may record a membership row. A membership
@@ -163,7 +169,10 @@ export class ApiServer {
     );
 
     for (const organization of this.db.organizations.all()) {
-      const member = organization.members.find((candidate) => candidate.userId === user.userId);
+      const member = organization.members.find(
+        (candidate): candidate is KeyHoldingOrganizationMember =>
+          candidate.userId === user.userId && candidate.organizationKeySealedToMember !== null,
+      );
       if (member === undefined) {
         continue;
       }
@@ -186,7 +195,7 @@ export class ApiServer {
     const organization =
       entity.organizationId === null ? undefined : this.db.organizations.get(entity.organizationId);
 
-    return organization?.members.some((member) => member.userId === user.userId) === true;
+    return organization !== undefined && this.isMember(user, organization.organizationId);
   }
 
   /** A cipher `user` can reach, or `undefined` — which a handler answers 404 for. */
@@ -527,10 +536,17 @@ export class ApiServer {
     return { json: FolderResponse.fromFolder(folder) };
   }
 
-  /** Whether `user` is a member of `organizationId`. */
+  /**
+   * Whether `user` is a confirmed member of `organizationId`. An accepted member holds no
+   * organization key yet, so the server does not hand it organization data.
+   */
   private isMember(user: UserEntity, organizationId: string): boolean {
     const organization = this.db.organizations.get(organizationId);
 
-    return organization?.members.some((member) => member.userId === user.userId) === true;
+    return (
+      organization?.members.some(
+        (member) => member.userId === user.userId && member.status === "confirmed",
+      ) === true
+    );
   }
 }

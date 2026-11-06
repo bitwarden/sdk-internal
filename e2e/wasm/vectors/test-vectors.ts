@@ -9,8 +9,8 @@ import {
   loadUserVectors,
   unlockMethodName,
   type EmergencyAccessVector,
-  type MasterPasswordUserVector,
   type OrganizationVector,
+  type MasterPasswordUserVector,
   type UserVector,
 } from "./load";
 
@@ -146,6 +146,10 @@ class OrganizationVectors {
     }
 
     return found;
+  }
+
+  all(): OrganizationVector[] {
+    return [...this.vectors];
   }
 }
 

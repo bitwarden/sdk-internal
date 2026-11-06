@@ -16,6 +16,14 @@ export class ErrorResponse {
   validationErrors?: Record<string, string[]>;
 }
 
+/** The RFC 7807 body the newer endpoints refuse with: machine-readable codes keyed by property. */
+export class ValidationProblemResponse {
+  type!: "validation_error";
+  title!: string;
+  status!: number;
+  errors!: Record<string, { type: string; detail: string }[]>;
+}
+
 /** `ListResponseModel<T>`. */
 export class ListResponse<T> {
   object!: "list";
