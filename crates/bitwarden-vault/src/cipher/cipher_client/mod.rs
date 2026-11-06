@@ -373,18 +373,19 @@ where
         Box::new(
             key_store
                 .decrypt_large_vec(ciphers.map(StrictDecrypt))
-                .map(|result| {
-                    result.map(|decrypted| {
-                        decrypted.map_err(|failure| {
-                            let (cipher, error) = *failure;
-                            Box::new((cipher.0, error))
-                        })
-                    })
-                }),
+                .map(|result| Ok(result?.map_err(unwrap_strict_failure))),
         )
     } else {
         Box::new(key_store.decrypt_large_vec(ciphers))
     }
+}
+
+/// The cipher in a failed strict decrypt, without its [`StrictDecrypt`] wrapper.
+fn unwrap_strict_failure(
+    failure: Box<(StrictDecrypt<Cipher>, bitwarden_crypto::CryptoError)>,
+) -> Box<(Cipher, bitwarden_crypto::CryptoError)> {
+    let (StrictDecrypt(cipher), error) = *failure;
+    Box::new((cipher, error))
 }
 
 #[cfg(test)]
