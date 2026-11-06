@@ -73,6 +73,7 @@ src/apis/service_accounts_api.rs
 src/apis/settings_api.rs
 src/apis/slack_integration_api.rs
 src/apis/sso_cookie_vendor_api.rs
+src/apis/sso_jit_provision_finish_api.rs
 src/apis/stripe_api.rs
 src/apis/sync_api.rs
 src/apis/teams_integration_api.rs
@@ -501,6 +502,7 @@ src/models/private_keys_response_model.rs
 src/models/privileged_controls_invoice_items.rs
 src/models/privileged_controls_plan_features_response_model.rs
 src/models/privileged_controls_seats_request.rs
+src/models/privileged_controls_selections.rs
 src/models/product_tier_type.rs
 src/models/profile_organization_response_model.rs
 src/models/profile_organization_response_model_list_response_model.rs
@@ -552,6 +554,7 @@ src/models/public_key_encryption_key_pair_request_model.rs
 src/models/public_key_encryption_key_pair_response_model.rs
 src/models/public_keys_response_model.rs
 src/models/purchasable_proration.rs
+src/models/purchase_privileged_controls_request.rs
 src/models/purchase_selections.rs
 src/models/push_device_request_model.rs
 src/models/push_registration_request_model.rs
@@ -647,6 +650,7 @@ src/models/sm_export_response_model.rs
 src/models/sm_import_request_model.rs
 src/models/sso_configuration_data.rs
 src/models/sso_configuration_data_request.rs
+src/models/sso_jit_provision_finish_password_request_model.rs
 src/models/sso_type.rs
 src/models/sso_urls.rs
 src/models/storage.rs
