@@ -25,8 +25,20 @@ const UNLOCK_TIMEOUT = 120_000;
 const ORGANIZATION = "example-org";
 /** A confirmed member of {@link ORGANIZATION}, made its owner. */
 const ADMIN = "v1-pbkdf2-password";
-/** An account outside {@link ORGANIZATION}. Its low iteration count keeps unlocking it cheap. */
+/**
+ * The invitee where the account does not matter. It is outside {@link ORGANIZATION}, and its low
+ * iteration count keeps unlocking it cheap.
+ */
 const INVITEE = "v1-pbkdf2-min-iterations";
+/**
+ * Every account that can redeem a link: those with a master password, since the others cannot log
+ * in by password here, and outside {@link ORGANIZATION}, since a member cannot join it again.
+ */
+const INVITEES = testVectors.users
+  .withMasterPassword()
+  .except(
+    ...testVectors.organizations.get(ORGANIZATION).members.map((member) => member.userVectorName),
+  );
 /** The domain every vector account's email is on. */
 const VECTOR_DOMAIN = "test.bitwarden.com";
 
@@ -71,14 +83,18 @@ describe("invite link client", () => {
     harness.restore();
   });
 
-  /** Seeds the organization, with {@link ADMIN} as its owner, and the invitee's account. */
-  function seed(options: Omit<SeedOrganizationOptions, "roles"> = {}): void {
+  /** Seeds the organization, with {@link ADMIN} as its owner, and `invitee`'s account. */
+  function seed(options: Omit<SeedOrganizationOptions, "roles"> = {}, invitee = INVITEE): void {
     org = harness.server.seedOrganizationTestVector(testVectors.organizations.get(ORGANIZATION), {
       ...options,
       roles: { [ADMIN]: "owner" },
     });
     organizationId = org.organizationId;
-    harness.server.seedUserTestVector(testVectors.users.get(INVITEE));
+    harness.server.seedUserTestVector(testVectors.users.get(invitee));
+  }
+
+  function passwordOf(vectorName: string): string {
+    return testVectors.users.withMasterPassword().get(vectorName).account.password;
   }
 
   /** Logs `vectorName`'s account in from a new client and unlocks it. */
@@ -125,12 +141,12 @@ describe("invite link client", () => {
       );
   }
 
-  /** The invitee's membership as the server holds it, if any. */
-  function inviteeMembership() {
-    const invitee = harness.server.getUser(testVectors.users.get(INVITEE).account.email);
+  /** `invitee`'s membership as the server holds it, if any. */
+  function inviteeMembership(invitee = INVITEE) {
+    const user = harness.server.getUser(testVectors.users.get(invitee).account.email);
     return harness.server
       .getOrganization(organizationId)
-      .members.find((member) => member.userId === invitee.userId);
+      .members.find((member) => member.userId === user.userId);
   }
 
   /** Fails if any request body the emulator saw carries `plaintext`. */
@@ -174,23 +190,25 @@ describe("invite link client", () => {
           seed();
           const admin = await sdkFor(ADMIN);
 
+          // 1. Create a link, with domains the server has to sanitize
           const link = await createLink(admin, true, ["Test.Bitwarden.com", "  other.com "]);
 
+          // 2. Verify the server stored it, with the domains sanitized
           const stored = harness.server.inviteLinkFor(organizationId);
           expect(stored).toBeDefined();
           expect(link.id).toBe(stored!.id);
           expect(link.organizationId).toBe(organizationId);
           expect(link.supportsConfirmation).toBe(true);
-          // The server sanitizes the domains before storing them.
           expect(stored!.allowedDomains).toEqual(["test.bitwarden.com", "other.com"]);
           expect(link.allowedDomains).toEqual(stored!.allowedDomains);
 
-          // The link carries the code the server generated, not one the client chose.
+          // 3. Verify the link carries the code the server generated, not one the client chose
           const fragment = parseFragment(link);
           expect(fragment.organizationId).toBe(String(organizationId));
           expect(fragment.code).toBe(stored!.code);
 
-          // The invite itself never crosses the boundary; the client only gets the link to share.
+          // 4. Verify the invite itself never crosses the boundary; the client only gets the link
+          //    to share
           expect(link).not.toHaveProperty("invite");
           expect(Object.keys(envelopes(stored!.invite)).sort()).toEqual([
             "invite_key_sealed_invite_data_cek",
@@ -209,8 +227,10 @@ describe("invite link client", () => {
           seed();
           const admin = await sdkFor(ADMIN);
 
+          // 1. Create a link
           const link = await createLink(admin);
 
+          // 2. Verify no request carried its secret
           expectNeverSent(parseFragment(link).secret);
         },
         UNLOCK_TIMEOUT,
@@ -223,8 +243,10 @@ describe("invite link client", () => {
           const admin = await sdkFor(ADMIN);
           const first = await createLink(admin);
 
+          // 1. Create a second link
           const error = await rejection(createLink(admin), isInviteLinkError);
 
+          // 2. Verify the server refused it and kept the first
           expect(error.variant).toBe("Api");
           expect(harness.server.inviteLinkFor(organizationId)?.id).toBe(first.id);
         },
@@ -237,8 +259,10 @@ describe("invite link client", () => {
           seed();
           const admin = await sdkFor(ADMIN);
 
+          // 1. Create a link whose only domain is blank
           const error = await rejection(createLink(admin, true, ["   "]), isInviteLinkError);
 
+          // 2. Verify the server refused it and stored nothing
           expect(error.variant).toBe("Api");
           expect(harness.server.inviteLinkFor(organizationId)).toBeUndefined();
         },
@@ -251,8 +275,10 @@ describe("invite link client", () => {
           seed({ useInviteLinks: false });
           const admin = await sdkFor(ADMIN);
 
+          // 1. Create a link
           const error = await rejection(createLink(admin), isInviteLinkError);
 
+          // 2. Verify the server refused it and stored nothing
           expect(error.variant).toBe("Api");
           expect(harness.server.inviteLinkFor(organizationId)).toBeUndefined();
         },
@@ -266,8 +292,10 @@ describe("invite link client", () => {
           // The organization's other members are plain users.
           const member = await sdkFor("v1-argon2id-password");
 
+          // 1. Create a link as a plain member
           const error = await rejection(createLink(member), isInviteLinkError);
 
+          // 2. Verify the server refused it and stored nothing
           expect(error.variant).toBe("Api");
           expect(harness.server.inviteLinkFor(organizationId)).toBeUndefined();
         },
@@ -282,13 +310,15 @@ describe("invite link client", () => {
           seed();
           const admin = await sdkFor(ADMIN);
 
+          // 1. Verify there is no link yet
           expect(await admin.invite_link().admin().get(organizationId)).toBeUndefined();
 
+          // 2. Create one and fetch it
           const created = await createLink(admin);
           const fetched = await admin.invite_link().admin().get(organizationId);
 
+          // 3. Verify it reads the same every time: the secret is recovered from the stored invite
           expect(fetched?.id).toBe(created.id);
-          // The secret is recovered from the stored invite, so the link reads the same every time.
           expect(fetched?.urlFragment).toBe(created.urlFragment);
         },
         UNLOCK_TIMEOUT,
@@ -304,13 +334,17 @@ describe("invite link client", () => {
           const created = await createLink(admin);
           const before = harness.server.inviteLinkFor(organizationId)!;
 
+          // 1. Refresh the link
           const refreshed = await admin.invite_link().admin().refresh(organizationId, true);
 
+          // 2. Verify the server replaced it, keeping the domains
           const after = harness.server.inviteLinkFor(organizationId)!;
           expect(after.id).not.toBe(before.id);
           expect(after.code).not.toBe(before.code);
           expect(after.invite).not.toBe(before.invite);
           expect(after.allowedDomains).toEqual(before.allowedDomains);
+
+          // 3. Verify the new link carries the new code and a new secret, which never left
           expect(parseFragment(refreshed).code).toBe(after.code);
           expect(parseFragment(refreshed).secret).not.toBe(parseFragment(created).secret);
           expectNeverSent(parseFragment(refreshed).secret);
@@ -324,13 +358,21 @@ describe("invite link client", () => {
           seed();
           const admin = await sdkFor(ADMIN);
           const handedOut = await createLink(admin);
+          const invitee = await signIn(INVITEE);
+
+          // 1. Refresh the link, then redeem the one handed out before
           await admin.invite_link().admin().refresh(organizationId, true);
-          const invitee = await sdkFor(INVITEE);
+          const error = await rejection(
+            redeem(invitee.getPasswordManagerClient(), handedOut),
+            isAcceptInviteLinkError,
+          );
 
-          const error = await rejection(redeem(invitee, handedOut), isAcceptInviteLinkError);
-
+          // 2. Verify it was refused
           expect(error.variant).toBe("LinkNotFound");
+
+          // 3. Verify neither side moved
           expect(inviteeMembership()).toBeUndefined();
+          await expectLocalVault(invitee, INVITEE, accountSeed(INVITEE));
         },
         UNLOCK_TIMEOUT,
       );
@@ -345,12 +387,16 @@ describe("invite link client", () => {
           const created = await createLink(admin, true);
           const before = harness.server.inviteLinkFor(organizationId)!;
 
+          // 1. Disable confirmation
           const link = await admin.invite_link().admin().update_confirmation(organizationId, false);
 
+          // 2. Verify the server holds the link without confirmation
           const after = harness.server.inviteLinkFor(organizationId)!;
           expect(after.supportsConfirmation).toBe(false);
           expect(link.supportsConfirmation).toBe(false);
-          // The envelope is nulled out rather than dropped, and the other four are untouched.
+
+          // 3. Verify the envelope is nulled out rather than dropped, and the other four are
+          //    untouched
           const original = envelopes(before.invite);
           const stripped = envelopes(after.invite);
           expect(original.invite_key_sealed_organization_key).not.toBeNull();
@@ -363,7 +409,8 @@ describe("invite link client", () => {
           ]) {
             expect(stripped[key]).toBe(original[key]);
           }
-          // Links already handed out keep working: same code, same secret.
+
+          // 4. Verify links already handed out keep working: same code, same secret
           expect(after.code).toBe(before.code);
           expect(link.urlFragment).toBe(created.urlFragment);
         },
@@ -378,13 +425,16 @@ describe("invite link client", () => {
           const created = await createLink(admin, false);
           const before = harness.server.inviteLinkFor(organizationId)!;
 
+          // 1. Enable confirmation
           const link = await admin.invite_link().admin().update_confirmation(organizationId, true);
 
+          // 2. Verify the server holds the link with confirmation
           const after = harness.server.inviteLinkFor(organizationId)!;
           expect(after.supportsConfirmation).toBe(true);
           expect(link.supportsConfirmation).toBe(true);
-          // A fresh envelope appears where there was `null`; the invite key it wraps is unchanged,
-          // so `organization_key_sealed_invite_key` must not be rotated.
+
+          // 3. Verify a fresh envelope appears where there was `null`. The invite key it wraps is
+          //    unchanged, so `organization_key_sealed_invite_key` must not be rotated.
           expect(envelopes(before.invite).invite_key_sealed_organization_key).toBeNull();
           expect(envelopes(after.invite).invite_key_sealed_organization_key).toEqual(
             expect.any(String),
@@ -392,6 +442,8 @@ describe("invite link client", () => {
           expect(envelopes(after.invite).organization_key_sealed_invite_key).toBe(
             envelopes(before.invite).organization_key_sealed_invite_key,
           );
+
+          // 4. Verify the link reads the same, and its secret never left
           expect(link.urlFragment).toBe(created.urlFragment);
           expectNeverSent(parseFragment(link).secret);
         },
@@ -407,9 +459,10 @@ describe("invite link client", () => {
           await admin.invite_link().admin().update_confirmation(organizationId, false);
           const invitee = await sdkFor(INVITEE);
 
+          // 1. Redeem the link handed out before confirmation was turned off
           await redeem(invitee, handedOut);
 
-          // Confirmation was stripped, so the invitee could only accept.
+          // 2. Verify the invitee could only accept, since confirmation was stripped
           expect(inviteeMembership()).toMatchObject({
             status: "accepted",
             organizationKeySealedToMember: null,
@@ -427,11 +480,13 @@ describe("invite link client", () => {
           const admin = await sdkFor(ADMIN);
           const created = await createLink(admin);
 
+          // 1. Replace the domains, with ones the server has to sanitize
           const link = await admin
             .invite_link()
             .admin()
             .update_allowed_domains(organizationId, [" Example.COM ", "other.org"]);
 
+          // 2. Verify the server stored them sanitized, and the link reads the same
           expect(harness.server.inviteLinkFor(organizationId)?.allowedDomains).toEqual([
             "example.com",
             "other.org",
@@ -451,14 +506,24 @@ describe("invite link client", () => {
           const admin = await sdkFor(ADMIN);
           const handedOut = await createLink(admin);
 
+          // 1. Delete the link
           await admin.invite_link().admin().delete(organizationId);
 
+          // 2. Verify it is gone
           expect(harness.server.inviteLinkFor(organizationId)).toBeUndefined();
           expect(await admin.invite_link().admin().get(organizationId)).toBeUndefined();
 
-          const invitee = await sdkFor(INVITEE);
-          const error = await rejection(redeem(invitee, handedOut), isAcceptInviteLinkError);
+          // 3. Redeem the link handed out before, and verify it was refused
+          const invitee = await signIn(INVITEE);
+          const error = await rejection(
+            redeem(invitee.getPasswordManagerClient(), handedOut),
+            isAcceptInviteLinkError,
+          );
           expect(error.variant).toBe("LinkNotFound");
+
+          // 4. Verify neither side moved
+          expect(inviteeMembership()).toBeUndefined();
+          await expectLocalVault(invitee, INVITEE, accountSeed(INVITEE));
         },
         UNLOCK_TIMEOUT,
       );
@@ -474,11 +539,13 @@ describe("invite link client", () => {
           const link = await createLink(await sdkFor(ADMIN));
           const invitee = await sdkFor(INVITEE);
 
+          // 1. Ask for the link's status
           const status = await invitee
             .invite_link()
             .user()
             .get_status(organizationId, parseFragment(link).code);
 
+          // 2. Verify it reports the organization and that the link can be redeemed
           expect(status.organizationName).toBe(org.seed.name);
           expect(status.linksEnabled).toBe(true);
           expect(status.seatsAvailable).toBe(true);
@@ -494,11 +561,13 @@ describe("invite link client", () => {
           const link = await createLink(await sdkFor(ADMIN));
           const invitee = await sdkFor(INVITEE);
 
+          // 1. Ask for the link's status
           const status = await invitee
             .invite_link()
             .user()
             .get_status(organizationId, parseFragment(link).code);
 
+          // 2. Verify it reports no seats
           expect(status.seatsAvailable).toBe(false);
         },
         UNLOCK_TIMEOUT,
@@ -511,6 +580,7 @@ describe("invite link client", () => {
           await createLink(await sdkFor(ADMIN));
           const invitee = await sdkFor(INVITEE);
 
+          // 1. Ask for the status of a code the server never generated
           const error = await rejection(
             invitee
               .invite_link()
@@ -519,6 +589,7 @@ describe("invite link client", () => {
             isInviteLinkError,
           );
 
+          // 2. Verify the server refused it
           expect(error.variant).toBe("Api");
         },
         UNLOCK_TIMEOUT,
@@ -534,6 +605,7 @@ describe("invite link client", () => {
           const invitee = await sdkFor(INVITEE);
           const { code } = parseFragment(link);
 
+          // 1. Verify an address on an allowed domain is allowed, and one on another is not
           const user = invitee.invite_link().user();
           expect(await user.is_email_allowed(organizationId, code, "someone@example.com")).toBe(
             true,
@@ -547,33 +619,39 @@ describe("invite link client", () => {
     });
 
     describe("accept_and_optionally_confirm", () => {
-      it(
-        "self-confirms when the invite supports confirmation, giving the invitee the organization",
-        async () => {
-          seed();
+      INVITEES.each(
+        "$name self-confirms when the invite supports confirmation, gaining the organization",
+        async (vector) => {
+          seed({}, vector.name);
           const admin = await sdkFor(ADMIN);
           const link = await createLink(admin, true);
-          const invitee = await sdkFor(INVITEE);
+          const invitee = await signIn(vector.name);
 
-          await redeem(invitee, link);
+          // 1. Redeem the link
+          await redeem(invitee.getPasswordManagerClient(), link);
 
-          const member = inviteeMembership();
+          // 2. Verify the server holds a confirmed membership, with no recovery key since the
+          //    invitee did not enroll
+          const member = inviteeMembership(vector.name);
           expect(member?.status).toBe("confirmed");
           expect(member?.organizationKeySealedToMember).toMatch(/^\d+\./);
-          // Not enrolling means no recovery key is stored at all.
           expect(member?.accountRecoveryKey).toBeUndefined();
 
-          // The default collection name is organization data: it reaches the server encrypted with
-          // the organization key, so an admin opens it, and its plaintext never crosses the wire.
+          // 3. Verify the default collection name is organization data: it reaches the server
+          //    encrypted with the organization key, so an admin opens it, and its plaintext never
+          //    crosses the wire
           expect(member?.defaultCollectionName).toMatch(/^\d+\./);
           expect(defaultCollectionName(admin, member!.defaultCollectionName!)).toBe(
             COLLECTION_NAME,
           );
           expectNeverSent(COLLECTION_NAME);
 
-          // The key the invitee sealed to itself is the real organization key: after a fresh login
-          // it decrypts the organization's ciphers alongside its own.
-          await expectInviteeVault(withOrganizationVault(INVITEE));
+          // 4. Verify local state: the key the invitee sealed to itself is the real organization
+          //    key, so it decrypts the organization's ciphers alongside its own
+          await expectLocalVault(invitee, vector.name, withOrganizationVault(vector.name));
+
+          // 5. Verify server state: a fresh login does the same
+          await expectServerVault(vector.name, withOrganizationVault(vector.name));
         },
         UNLOCK_TIMEOUT,
       );
@@ -585,8 +663,10 @@ describe("invite link client", () => {
           const link = await createLink(await sdkFor(ADMIN), true);
           const invitee = await sdkFor(INVITEE);
 
+          // 1. Redeem the link, enrolling into account recovery
           await redeem(invitee, link, true);
 
+          // 2. Verify the server holds a recovery key alongside the organization key
           const member = inviteeMembership();
           expect(member?.status).toBe("confirmed");
           expect(member?.accountRecoveryKey).toMatch(/^\d+\./);
@@ -600,21 +680,29 @@ describe("invite link client", () => {
         async () => {
           seed();
           const link = await createLink(await sdkFor(ADMIN), false);
-          const invitee = await sdkFor(INVITEE);
+          const invitee = await signIn(INVITEE);
 
-          await redeem(invitee, link);
+          // 1. Redeem the link
+          await redeem(invitee.getPasswordManagerClient(), link);
 
+          // 2. Verify the server holds an accepted membership with no organization key
           expect(inviteeMembership()).toMatchObject({
             status: "accepted",
             organizationKeySealedToMember: null,
           });
-          // Without confirmation the invitee cannot reach the organization key, so it sends nothing
-          // that would need one; an admin confirms it out of band instead.
+
+          // 3. Verify the invitee sent nothing that would need the organization key, which it
+          //    cannot reach; an admin confirms it out of band instead
           const posted = postedTo("POST /organizations/users/invite-link/accept");
           expect(posted).not.toHaveProperty("orgUserKey");
           expect(posted).not.toHaveProperty("defaultUserCollectionName");
-          // Until an admin confirms it, the invitee reaches only its own vault.
-          await expectInviteeVault(accountSeed(INVITEE));
+
+          // 4. Verify local state: until an admin confirms it, the invitee reaches only its own
+          //    vault
+          await expectLocalVault(invitee, INVITEE, accountSeed(INVITEE));
+
+          // 5. Verify server state: a fresh login does the same
+          await expectServerVault(INVITEE, accountSeed(INVITEE));
         },
         UNLOCK_TIMEOUT,
       );
@@ -626,8 +714,10 @@ describe("invite link client", () => {
           const link = await createLink(await sdkFor(ADMIN), false);
           const invitee = await sdkFor(INVITEE);
 
+          // 1. Redeem the link, enrolling into account recovery
           await redeem(invitee, link, true);
 
+          // 2. Verify the server holds an accepted membership with a recovery key
           const member = inviteeMembership();
           expect(member?.status).toBe("accepted");
           expect(member?.accountRecoveryKey).toMatch(/^\d+\./);
@@ -641,12 +731,20 @@ describe("invite link client", () => {
           async () => {
             seed({ seats: FULL });
             const link = await createLink(await sdkFor(ADMIN), true);
-            const invitee = await sdkFor(INVITEE);
+            const invitee = await signIn(INVITEE);
 
-            const error = await rejection(redeem(invitee, link), isAcceptInviteLinkError);
+            // 1. Redeem the link
+            const error = await rejection(
+              redeem(invitee.getPasswordManagerClient(), link),
+              isAcceptInviteLinkError,
+            );
 
+            // 2. Verify it was refused
             expect(error.variant).toBe("OrganizationHasNoAvailableSeats");
+
+            // 3. Verify neither side moved
             expect(inviteeMembership()).toBeUndefined();
+            await expectLocalVault(invitee, INVITEE, accountSeed(INVITEE));
           },
           UNLOCK_TIMEOUT,
         );
@@ -661,15 +759,23 @@ describe("invite link client", () => {
             "rejects a member who confirms",
             async () => {
               seed();
-              const admin = await sdkFor(ADMIN);
-              const link = await createLink(admin, true);
+              const admin = await signIn(ADMIN);
+              const link = await createLink(admin.getPasswordManagerClient(), true);
               const before = harness.server.getOrganization(organizationId).members;
 
-              const error = await rejection(redeem(admin, link), isAcceptInviteLinkError);
+              // 1. Redeem the link as a member already
+              const error = await rejection(
+                redeem(admin.getPasswordManagerClient(), link),
+                isAcceptInviteLinkError,
+              );
 
+              // 2. Verify it was refused
               expect(error.variant).toBe("Api");
               expect(error.message).toContain(`You're already a member of ${org.seed.name}.`);
+
+              // 3. Verify neither side moved
               expect(harness.server.getOrganization(organizationId).members).toEqual(before);
+              await expectLocalVault(admin, ADMIN, withOrganizationVault(ADMIN));
             },
             UNLOCK_TIMEOUT,
           );
@@ -678,15 +784,23 @@ describe("invite link client", () => {
             "rejects a member who accepts",
             async () => {
               seed();
-              const admin = await sdkFor(ADMIN);
-              const link = await createLink(admin, false);
+              const admin = await signIn(ADMIN);
+              const link = await createLink(admin.getPasswordManagerClient(), false);
               const before = harness.server.getOrganization(organizationId).members;
 
-              const error = await rejection(redeem(admin, link), isAcceptInviteLinkError);
+              // 1. Redeem the link as a member already
+              const error = await rejection(
+                redeem(admin.getPasswordManagerClient(), link),
+                isAcceptInviteLinkError,
+              );
 
+              // 2. Verify it was refused
               expect(error.variant).toBe("Api");
               expect(error.message).toContain(`You're already a member of ${org.seed.name}.`);
+
+              // 3. Verify neither side moved
               expect(harness.server.getOrganization(organizationId).members).toEqual(before);
+              await expectLocalVault(admin, ADMIN, withOrganizationVault(ADMIN));
             },
             UNLOCK_TIMEOUT,
           );
@@ -696,20 +810,24 @@ describe("invite link client", () => {
             async () => {
               seed();
               const link = await createLink(await sdkFor(ADMIN), true);
-              const stored = harness.server.getOrganization(organizationId);
-              harness.server.db.organizations.update(String(organizationId), {
-                ...stored,
-                useInviteLinks: false,
-              });
-              const invitee = await sdkFor(INVITEE);
+              harness.server.setOrganizationPlan(organizationId, { useInviteLinks: false });
+              const invitee = await signIn(INVITEE);
 
-              const error = await rejection(redeem(invitee, link), isAcceptInviteLinkError);
+              // 1. Redeem a link created before the plan dropped invite links
+              const error = await rejection(
+                redeem(invitee.getPasswordManagerClient(), link),
+                isAcceptInviteLinkError,
+              );
 
+              // 2. Verify it was refused
               expect(error.variant).toBe("Api");
               expect(error.message).toContain(
                 "Your organization's plan does not support invite links.",
               );
+
+              // 3. Verify neither side moved
               expect(inviteeMembership()).toBeUndefined();
+              await expectLocalVault(invitee, INVITEE, accountSeed(INVITEE));
             },
             UNLOCK_TIMEOUT,
           );
@@ -719,15 +837,23 @@ describe("invite link client", () => {
             async () => {
               seed();
               const link = await createLink(await sdkFor(ADMIN), true, ["example.com"]);
-              const invitee = await sdkFor(INVITEE);
+              const invitee = await signIn(INVITEE);
 
-              const error = await rejection(redeem(invitee, link), isAcceptInviteLinkError);
+              // 1. Redeem a link that does not allow the invitee's domain
+              const error = await rejection(
+                redeem(invitee.getPasswordManagerClient(), link),
+                isAcceptInviteLinkError,
+              );
 
+              // 2. Verify it was refused
               expect(error.variant).toBe("Api");
               expect(error.message).toContain(
                 `You're not allowed to join the ${org.seed.name} vault with your email domain.`,
               );
+
+              // 3. Verify neither side moved
               expect(inviteeMembership()).toBeUndefined();
+              await expectLocalVault(invitee, INVITEE, accountSeed(INVITEE));
             },
             UNLOCK_TIMEOUT,
           );
@@ -736,41 +862,79 @@ describe("invite link client", () => {
     });
   });
 
-  it(
-    "round-trips an invite from an admin creating a link to an invitee joining with it",
-    async () => {
-      seed();
+  /**
+   * An admin creates a link and an invitee joins with it, holding nothing but the link. Everything
+   * the invitee sends is derived from the secret in it, and the secret itself never leaves it.
+   *
+   *   admin    ──create──┐
+   *                      │ sealed invite
+   *   server   ──────────┴── code ──┬──────────────────┬── member, Confirmed, key sealed to invitee
+   *                                 │ link             │
+   *   invitee  ──unlock─────────────┴─▶ open(secret) ──┴─ confirm ─▶ sync ─▶ lock ─▶ unlock ─▶ reads
+   *                                                    │
+   *   relogin  ────────────────────────────────────────┴── login ─▶ unlock ─────────────────▶ reads
+   */
+  INVITEES.each(
+    "$name round-trips an invite from an admin creating a link to joining with it",
+    async (vector) => {
+      seed({}, vector.name);
+
+      // 1. The admin creates a link
       const link = await createLink(await sdkFor(ADMIN), true);
 
-      // The invitee holds no organization key; it has only the link, and everything it sends is
-      // derived from the secret in it.
-      const invitee = await sdkFor(INVITEE);
-      await redeem(invitee, link, true);
+      // 2. The invitee, holding no organization key, redeems it and enrolls into account recovery
+      const invitee = await signIn(vector.name);
+      await redeem(invitee.getPasswordManagerClient(), link, true);
 
-      const member = inviteeMembership();
+      // 3. Verify the server holds a confirmed membership with a recovery key
+      const member = inviteeMembership(vector.name);
       expect(member?.status).toBe("confirmed");
       expect(member?.accountRecoveryKey).toEqual(expect.any(String));
-      await expectInviteeVault(withOrganizationVault(INVITEE));
 
-      // The whole point of the invite secret: it lives in the link, never on the wire.
+      // 4. Verify the invite secret lives in the link, never on the wire
       expectNeverSent(parseFragment(link).secret);
+
+      // 5. Verify local state: the invitee decrypts the organization's ciphers alongside its own
+      await expectLocalVault(invitee, vector.name, withOrganizationVault(vector.name));
+
+      // 6. Verify server state: a fresh login does the same
+      await expectServerVault(vector.name, withOrganizationVault(vector.name));
     },
     UNLOCK_TIMEOUT,
   );
 
   /**
-   * Logs the invitee in afresh and checks it decrypts exactly the ciphers `expected` records.
-   * Checks the ids as well, since `validateVault` only compares the ciphers that did arrive.
+   * Checks `client` decrypts exactly the ciphers `expected` records, holding it to every field
+   * since redeeming a link writes no cipher. Checks the ids as well, since `validateVault` only
+   * compares the ciphers that did arrive.
    */
-  async function expectInviteeVault(expected: SeedAccount): Promise<void> {
-    const client = await signIn(INVITEE);
-
-    await validateVault(client, expected);
+  async function expectVault(client: ClientEmulator, expected: SeedAccount): Promise<void> {
+    await validateVault(client, expected, []);
 
     const { successes } = await client.getPasswordManagerClient().vault().ciphers().get_all();
     expect(successes.map((cipher) => String(cipher.id)).sort()).toEqual(
       (expected.vault?.ciphers ?? []).map((cipher) => cipher.id).sort(),
     );
+  }
+
+  /**
+   * The client's own state: syncs down what the server now holds, then locks and unlocks, so the
+   * organization keys the sync brought are the ones opened, and checks the vault.
+   */
+  async function expectLocalVault(
+    client: ClientEmulator,
+    vectorName: string,
+    expected: SeedAccount,
+  ): Promise<void> {
+    await client.sync();
+    await client.lock();
+    await client.unlock(passwordOf(vectorName));
+    await expectVault(client, expected);
+  }
+
+  /** The server's state: logs `vectorName` in afresh and checks the vault it syncs down. */
+  async function expectServerVault(vectorName: string, expected: SeedAccount): Promise<void> {
+    await expectVault(await signIn(vectorName), expected);
   }
 
   /** The plaintext `vectorName`'s own vault decrypts to. */

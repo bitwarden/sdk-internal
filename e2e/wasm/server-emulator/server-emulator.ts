@@ -353,6 +353,15 @@ export class ServerEmulator {
     return organization;
   }
 
+  /** Changes a seeded organization's plan, as an upgrade or a downgrade would on the real server. */
+  setOrganizationPlan(
+    organizationId: OrganizationId | string,
+    plan: { useInviteLinks: boolean },
+  ): void {
+    const organization = this.getOrganization(organizationId);
+    this.db.organizations.update(organization.organizationId, { ...organization, ...plan });
+  }
+
   /** The organization's invite link, or `undefined` while it has none. */
   inviteLinkFor(organizationId: OrganizationId | string): OrganizationInviteLinkEntity | undefined {
     return this.db.inviteLinks.get(String(organizationId));
