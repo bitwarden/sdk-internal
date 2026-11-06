@@ -7,6 +7,7 @@ import type {
   EmergencyAccessEntity,
   FolderEntity,
   OrganizationEntity,
+  OrganizationInviteLinkEntity,
   UserEntity,
 } from "./entities";
 
@@ -112,6 +113,11 @@ export class Database {
   readonly ciphers = new Table<CipherEntity>(new SequentialUuidGenerator("ciphers"));
   readonly folders = new Table<FolderEntity>(new SequentialUuidGenerator("folders"));
   readonly sends = new Table<Send>(new SequentialUuidGenerator("sends"));
+  readonly inviteLinks = new Table<OrganizationInviteLinkEntity>(
+    new SequentialUuidGenerator("invite-links"),
+  );
+  /** Invite link codes, a sequence of their own so a code never reads as a link id. */
+  readonly inviteLinkCodes = new SequentialUuidGenerator("invite-link-codes");
   readonly emergencyAccess = new Table<EmergencyAccessEntity>(
     new SequentialUuidGenerator("emergency-access"),
   );

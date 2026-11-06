@@ -4,7 +4,7 @@ import { ClientEmulator, LOGIN_REQUEST } from "./client-emulator/client-emulator
 import { SETTINGS } from "./client-emulator/local-state";
 import { ServerEmulator } from "./server-emulator/server-emulator";
 
-import type { HttpMock } from "./server-emulator/http-mock";
+import type { HttpMock, MockRequest } from "./server-emulator/http-mock";
 
 /**
  * The backend a test runs against: either the emulator, or a real server over the network.
@@ -54,6 +54,20 @@ export class TestHarness {
 
   newClientEmulator(): ClientEmulator {
     return new ClientEmulator(this.settings, this.emulator, this.loginRequest);
+  }
+
+  /**
+   * Every request that reached the emulator, in order. For asserting what crossed the wire — that a
+   * secret never did, say — which the stored rows cannot show.
+   *
+   * Throws in live mode: no emulator sees the traffic.
+   */
+  get requests(): readonly MockRequest[] {
+    if (this.hook === undefined) {
+      throw new Error("no request log in live mode: requests go to a real server");
+    }
+
+    return this.hook.requests;
   }
 
   /** Unpatches `fetch`. Call in `afterEach`, or the patch outlives the test. */
