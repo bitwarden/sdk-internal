@@ -1,11 +1,13 @@
 use std::{path::PathBuf, sync::Arc};
 
+use futures::StreamExt;
 use serde::{de::DeserializeOwned, ser::Serialize};
 use tokio::sync::Mutex;
 
 use crate::{
     repository::{
-        RepositoryItem, RepositoryMigrationStep, RepositoryMigrations, validate_registry_name,
+        RepositoryItem, RepositoryMigrationStep, RepositoryMigrations, RepositoryStream,
+        validate_registry_name,
     },
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
@@ -280,6 +282,49 @@ impl Database for SqliteDatabase {
         }
         result
     }
+
+    /// Reads one page per chunk, in key order, continuing after the last key read.
+    fn stream<T: RepositoryItem>(&self, chunk_size: usize) -> RepositoryStream<T> {
+        let db = self.clone();
+        let limit = chunk_size.max(1) as i64;
+        // `None` once the stream ended; `Some(None)` before the first page.
+        futures::stream::unfold(Some(None::<String>), move |after| {
+            let db = db.clone();
+            async move {
+                let after = after?;
+                let page = db
+                    .with_conn(|conn| {
+                        // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled
+                        // and is validated to only contain valid characters, so it's safe to
+                        // interpolate here.
+                        let mut stmt = conn.prepare(&format!(
+                            "SELECT key, value FROM \"{}\" WHERE ?1 IS NULL OR key > ?1 \
+                             ORDER BY key LIMIT ?2",
+                            validate_identifier(T::NAME)?
+                        ))?;
+                        let rows = stmt.query_map(rusqlite::params![after, limit], |row| {
+                            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                        })?;
+
+                        let mut items = Vec::new();
+                        let mut last = None;
+                        for row in rows {
+                            let (key, value) = row?;
+                            items.push(serde_json::from_str(&value)?);
+                            last = Some(key);
+                        }
+                        Ok((items, last))
+                    })
+                    .await;
+                match page {
+                    Ok((items, _)) if items.is_empty() => None,
+                    Ok((items, last)) => Some((Ok(items), Some(last))),
+                    Err(error) => Some((Err(error.into()), None)),
+                }
+            }
+        })
+        .boxed()
+    }
 }
 
 #[cfg(test)]
@@ -513,5 +558,39 @@ mod tests {
         db.wipe().await.unwrap();
 
         std::fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_stream_pages_in_key_order() {
+        use futures::TryStreamExt;
+
+        #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+        struct Paged(String);
+        register_repository_item!(String => Paged, "TestItem_Paged");
+
+        let db = open_in_memory(vec![RepositoryMigrationStep::Add(Paged::data())]);
+        async fn keys(db: &SqliteDatabase, chunk_size: usize) -> Vec<Vec<String>> {
+            let chunks: Vec<Vec<Paged>> =
+                db.stream::<Paged>(chunk_size).try_collect().await.unwrap();
+            chunks
+                .into_iter()
+                .map(|chunk| chunk.into_iter().map(|item| item.0).collect())
+                .collect()
+        }
+
+        assert!(keys(&db, 2).await.is_empty());
+
+        let values = ["c", "a", "e", "b", "d"]
+            .map(|key| (key.to_string(), Paged(key.to_string())))
+            .into_iter()
+            .collect();
+        db.set_bulk(values).await.unwrap();
+
+        assert_eq!(
+            keys(&db, 2).await,
+            vec![vec!["a", "b"], vec!["c", "d"], vec!["e"]]
+        );
+        assert_eq!(keys(&db, 10).await, vec![vec!["a", "b", "c", "d", "e"]]);
+        assert_eq!(keys(&db, 0).await.len(), 5);
     }
 }

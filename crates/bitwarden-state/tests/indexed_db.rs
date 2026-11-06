@@ -161,3 +161,37 @@ async fn wipe_disconnects_clones_and_deletes_database() {
 
     reg2.wipe().await.unwrap();
 }
+
+#[wasm_bindgen_test]
+async fn stream_reads_every_item_in_chunks() {
+    use futures::TryStreamExt;
+
+    let reg = registry("stream", vec![RepositoryMigrationStep::Add(Item::data())]).await;
+    let repo = reg.get::<Item>().unwrap();
+
+    let empty: Vec<Vec<Item>> = repo.clone().stream(2).try_collect().await.unwrap();
+    assert!(empty.is_empty());
+
+    let values = ["c", "a", "e", "b", "d"]
+        .map(|key| (key.to_string(), Item(key.to_string())))
+        .into_iter()
+        .collect();
+    repo.set_bulk(values).await.unwrap();
+
+    let chunks: Vec<Vec<Item>> = repo.clone().stream(2).try_collect().await.unwrap();
+    assert_eq!(
+        chunks.iter().map(Vec::len).collect::<Vec<_>>(),
+        vec![2, 2, 1]
+    );
+    let mut all: Vec<Item> = chunks.into_iter().flatten().collect();
+    all.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(
+        all,
+        ["a", "b", "c", "d", "e"].map(|k| Item(k.into())).to_vec()
+    );
+
+    let oversized: Vec<Vec<Item>> = repo.clone().stream(10).try_collect().await.unwrap();
+    assert_eq!(oversized.len(), 1);
+
+    reg.wipe().await.unwrap();
+}

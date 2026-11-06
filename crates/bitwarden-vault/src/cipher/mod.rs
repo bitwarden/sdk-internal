@@ -42,9 +42,10 @@ pub use cipher::{
 };
 pub use cipher_client::{
     BulkUpdateCollectionsCipherError, CipherCreateRequest, CipherEditRequest,
-    CipherPartialEditRequest, CiphersClient, CreateCipherError, DeleteCipherError, EditCipherError,
-    GetAssignedOrgCiphersAdminError, GetCipherError, GetOrganizationCiphersAdminError,
-    MoveCipherError, RestoreCipherError, should_use_blob_encryption,
+    CipherPartialEditRequest, CiphersClient, CreateCipherError, DecryptStreamError, DecryptedChunk,
+    DeleteCipherError, EditCipherError, GetAssignedOrgCiphersAdminError, GetCipherError,
+    GetOrganizationCiphersAdminError, MoveCipherError, RestoreCipherError,
+    should_use_blob_encryption,
 };
 pub use cipher_view_type::CipherViewType;
 pub use drivers_license::DriversLicenseView;

@@ -995,12 +995,14 @@ name = "bitwarden-ffi"
 version = "4.0.0"
 dependencies = [
  "bitwarden-ffi-macro",
+ "futures",
  "serde",
  "serde_json",
  "thiserror",
  "trybuild",
  "tsify",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -1578,6 +1580,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ffi",
  "bitwarden-threading",
+ "futures",
  "indexed-db",
  "js-sys",
  "rusqlite",

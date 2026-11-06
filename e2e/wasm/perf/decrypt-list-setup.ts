@@ -1,10 +1,11 @@
-// Shared by the decrypt-list harnesses: a V2 account client and a vault encrypted for it.
+// Shared by the decrypt-list and iterator harnesses: a V2 account client and a vault encrypted for
+// it.
 //
 //   generateVault ──► encrypt_list (setupChunk ciphers per call) ──► Cipher[]
 
 import { ok } from "node:assert/strict";
 
-import type { Cipher, CiphersClient } from "@bitwarden/sdk-internal";
+import type { Cipher, CiphersClient, PasswordManagerClient } from "@bitwarden/sdk-internal";
 
 import { makeStateBridge, makeV2AccountClient } from "../tests/utils";
 
@@ -19,7 +20,7 @@ const CIPHER_KEY_FLAG = "enableCipherKeyEncryption";
 export async function encryptedVault(
   size: number,
   setupChunk: number,
-): Promise<{ ciphers: CiphersClient; vault: Cipher[] }> {
+): Promise<{ client: PasswordManagerClient; ciphers: CiphersClient; vault: Cipher[] }> {
   const client = await makeV2AccountClient(makeStateBridge());
   await client.platform().load_flags(new Map([[CIPHER_KEY_FLAG, true]]));
   const ciphers = client.vault().ciphers();
@@ -31,5 +32,5 @@ export async function encryptedVault(
     vault.push(...encrypted.map((ctx) => ctx.cipher));
   }
   ok(vault.every((cipher) => cipher.key !== undefined));
-  return { ciphers, vault };
+  return { client, ciphers, vault };
 }

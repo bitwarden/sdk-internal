@@ -2,15 +2,20 @@
 //!
 //! Re-exports proc macros from `bitwarden-ffi-macro`, plus the wire traits. [`FromWasm`] and
 //! [`ToWasm`] explain how a type crosses the wasm ABI, and a [`LargeVec`] parameter converts a
-//! JavaScript array item by item as it is read.
+//! JavaScript array item by item as it is read. [`BwStream`] crosses into JavaScript as an
+//! `AsyncIterable`.
 
 pub mod large_vec;
+#[cfg(feature = "wasm")]
+mod stream;
 #[cfg(feature = "wasm")]
 mod wire;
 mod wire_macros;
 
 pub use bitwarden_ffi_macro::{wasm_export, wasm_import, wasm_object, wasm_record};
 pub use large_vec::{LargeVec, LargeVecError};
+#[cfg(feature = "wasm")]
+pub use stream::BwStream;
 #[cfg(feature = "wasm")]
 pub use wire::{FromWasm, ToWasm, WireError};
 #[cfg(feature = "wasm")]

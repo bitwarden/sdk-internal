@@ -1,5 +1,7 @@
 use std::{any::TypeId, sync::Arc};
 
+use futures::{StreamExt, stream::BoxStream};
+
 use crate::{persist::Persist, registry::StateRegistryError};
 
 /// An error resulting from operations on a repository.
@@ -37,6 +39,10 @@ impl<V: RepositoryItem> RepositoryOption<V> for Option<Arc<dyn Repository<V>>> {
     }
 }
 
+/// Chunks of items read from a repository, as [`Repository::stream`] returns them. An `Err` ends
+/// the stream.
+pub type RepositoryStream<V> = BoxStream<'static, Result<Vec<V>, RepositoryError>>;
+
 /// This trait represents a generic repository interface, capable of storing and retrieving
 /// items using a key-value API.
 #[async_trait::async_trait]
@@ -45,6 +51,24 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
     async fn get(&self, key: V::Key) -> Result<Option<V>, RepositoryError>;
     /// Lists all items in the repository.
     async fn list(&self) -> Result<Vec<V>, RepositoryError>;
+
+    /// Lists all items in the repository in chunks of up to `chunk_size` items (at least one), in
+    /// no particular order.
+    ///
+    /// A repository that can read its items lazily overrides this, so a caller holds one chunk at
+    /// a time. The default reads every item with [`Self::list`] when the stream is first polled
+    /// and hands them out in chunks.
+    fn stream(self: Arc<Self>, chunk_size: usize) -> RepositoryStream<V>
+    where
+        Self: 'static,
+    {
+        futures::stream::once(async move { self.list().await })
+            .flat_map(move |items| match items {
+                Ok(items) => futures::stream::iter(chunks_of(items, chunk_size).map(Ok)).boxed(),
+                Err(error) => futures::stream::iter([Err(error)]).boxed(),
+            })
+            .boxed()
+    }
     /// Sets an item in the repository with the specified key.
     async fn set(&self, key: V::Key, value: V) -> Result<(), RepositoryError>;
     /// Sets multiple items in the repository.
@@ -64,6 +88,16 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
         self.remove_all().await?;
         self.set_bulk(values).await
     }
+}
+
+/// Splits `items` into chunks of up to `chunk_size` items (at least one), in order.
+pub(crate) fn chunks_of<V>(items: Vec<V>, chunk_size: usize) -> impl Iterator<Item = Vec<V>> {
+    let chunk_size = chunk_size.max(1);
+    let mut items = items.into_iter();
+    std::iter::from_fn(move || {
+        let chunk: Vec<V> = items.by_ref().take(chunk_size).collect();
+        (!chunk.is_empty()).then_some(chunk)
+    })
 }
 
 /// This trait is used to mark types that can be stored in a repository.
@@ -227,6 +261,8 @@ pub(crate) use ___internal::Internal;
 
 #[cfg(test)]
 mod tests {
+    use futures::StreamExt;
+
     use super::*;
 
     #[test]
@@ -237,5 +273,94 @@ mod tests {
         assert!(!validate_registry_name("Invalid Name"));
         assert!(!validate_registry_name("Invalid.Name"));
         assert!(!validate_registry_name("Invalid123"));
+    }
+
+    #[test]
+    fn chunks_of_keeps_order_and_boundaries() {
+        let chunks: Vec<Vec<u32>> = chunks_of((1..=5).collect(), 2).collect();
+        assert_eq!(chunks, vec![vec![1, 2], vec![3, 4], vec![5]]);
+    }
+
+    #[test]
+    fn chunks_of_an_empty_list_is_empty() {
+        assert_eq!(chunks_of(Vec::<u32>::new(), 2).count(), 0);
+    }
+
+    #[test]
+    fn chunks_of_size_zero_takes_one_at_a_time() {
+        assert_eq!(chunks_of(vec![1, 2], 0).count(), 2);
+    }
+
+    #[test]
+    fn chunks_of_more_than_the_list_is_one_chunk() {
+        let chunks: Vec<Vec<u32>> = chunks_of(vec![1, 2], 10).collect();
+        assert_eq!(chunks, vec![vec![1, 2]]);
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct ListItem(String);
+    crate::register_repository_item!(String => ListItem, "ListOnlyItem");
+
+    /// A repository that only implements `list`, to exercise the default `stream`.
+    struct ListOnly(Result<Vec<ListItem>, String>);
+
+    #[async_trait::async_trait]
+    impl Repository<ListItem> for ListOnly {
+        async fn get(&self, _key: String) -> Result<Option<ListItem>, RepositoryError> {
+            Ok(None)
+        }
+        async fn list(&self) -> Result<Vec<ListItem>, RepositoryError> {
+            self.0.clone().map_err(RepositoryError::Internal)
+        }
+        async fn set(&self, _key: String, _value: ListItem) -> Result<(), RepositoryError> {
+            Ok(())
+        }
+        async fn set_bulk(&self, _values: Vec<(String, ListItem)>) -> Result<(), RepositoryError> {
+            Ok(())
+        }
+        async fn remove(&self, _key: String) -> Result<(), RepositoryError> {
+            Ok(())
+        }
+        async fn remove_bulk(&self, _keys: Vec<String>) -> Result<(), RepositoryError> {
+            Ok(())
+        }
+        async fn remove_all(&self) -> Result<(), RepositoryError> {
+            Ok(())
+        }
+    }
+
+    async fn collect_stream(
+        repository: ListOnly,
+        chunk_size: usize,
+    ) -> Vec<Result<Vec<ListItem>, RepositoryError>> {
+        Arc::new(repository).stream(chunk_size).collect().await
+    }
+
+    fn items(names: &[&str]) -> Vec<ListItem> {
+        names
+            .iter()
+            .map(|name| ListItem(name.to_string()))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn default_stream_chunks_the_list_in_order() {
+        let chunks = collect_stream(ListOnly(Ok(items(&["a", "b", "c"]))), 2).await;
+
+        let chunks: Vec<Vec<ListItem>> = chunks.into_iter().map(Result::unwrap).collect();
+        assert_eq!(chunks, vec![items(&["a", "b"]), items(&["c"])]);
+    }
+
+    #[tokio::test]
+    async fn default_stream_of_an_empty_repository_is_empty() {
+        assert!(collect_stream(ListOnly(Ok(Vec::new())), 2).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn default_stream_ends_with_the_list_error() {
+        let chunks = collect_stream(ListOnly(Err("unavailable".to_owned())), 2).await;
+
+        assert_eq!(chunks.len(), 1);
+        assert!(matches!(&chunks[0], Err(RepositoryError::Internal(m)) if m == "unavailable"));
     }
 }
