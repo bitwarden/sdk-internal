@@ -6,6 +6,8 @@ import { randomBytes } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { ClientSettings } from "@bitwarden/sdk-internal";
+
 const SECRET = "BW_LIVE_SECRET";
 const STATE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../.live");
 const SECRET_FILE = join(STATE_DIR, "secret");
@@ -37,6 +39,11 @@ export function liveSecret(): string {
 }
 
 interface LedgerEntry {
+  /**
+   * The identity URL of the server the account is on. An address means nothing on another server,
+   * which would only find no such account there.
+   */
+  server: string;
   email: string;
   /**
    * `absent` means the server rejected the account's credentials, so there is nothing left to
@@ -46,15 +53,27 @@ interface LedgerEntry {
   at: string;
 }
 
-/** Records that an account was created, deleted or found absent. */
-export function recordAccount(email: string, event: LedgerEntry["event"]): void {
+/** The server a ledger entry names: the identity service's URL, where accounts are registered. */
+export function ledgerServer(settings: ClientSettings): string {
+  if (settings.identityUrl === undefined) {
+    throw new Error("a ledger needs the identity URL of the server its accounts are on");
+  }
+
+  return settings.identityUrl;
+}
+
+/** Records that an account on `server` was created, deleted or found absent. */
+export function recordAccount(server: string, email: string, event: LedgerEntry["event"]): void {
   mkdirSync(STATE_DIR, { recursive: true });
-  const entry: LedgerEntry = { email, event, at: new Date().toISOString() };
+  const entry: LedgerEntry = { server, email, event, at: new Date().toISOString() };
   appendFileSync(LEDGER_FILE, `${JSON.stringify(entry)}\n`);
 }
 
-/** Accounts created at least `ageMs` ago that no later entry records as deleted or absent. */
-export function undeletedAccounts(ageMs: number): string[] {
+/**
+ * Accounts on `server` created at least `ageMs` ago that no later entry records as deleted or
+ * absent. Other servers' entries are left for a run against those servers.
+ */
+export function undeletedAccounts(server: string, ageMs: number): string[] {
   if (!existsSync(LEDGER_FILE)) {
     return [];
   }
@@ -66,6 +85,10 @@ export function undeletedAccounts(ageMs: number): string[] {
     }
 
     const entry = JSON.parse(line) as LedgerEntry;
+    if (entry.server !== server) {
+      continue;
+    }
+
     if (entry.event === "created") {
       created.set(entry.email, Date.parse(entry.at));
     } else {

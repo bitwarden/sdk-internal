@@ -7,7 +7,7 @@
 
 import { TestAccounts } from "./accounts";
 import { liveConfig } from "./config";
-import { undeletedAccounts } from "./state";
+import { ledgerServer, undeletedAccounts } from "./state";
 
 const LEFT_BEHIND_AFTER_MS = 60 * 60 * 1000;
 
@@ -17,7 +17,7 @@ export default async function setup(): Promise<void> {
     return;
   }
 
-  const leftBehind = undeletedAccounts(LEFT_BEHIND_AFTER_MS);
+  const leftBehind = undeletedAccounts(ledgerServer(config.settings), LEFT_BEHIND_AFTER_MS);
   if (leftBehind.length === 0) {
     return;
   }

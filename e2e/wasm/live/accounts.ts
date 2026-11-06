@@ -14,7 +14,7 @@ import {
 
 import { makePasswordManagerClient, makeStateBridge } from "../tests/utils";
 
-import { recordAccount } from "./state";
+import { ledgerServer, recordAccount } from "./state";
 
 /** A person on the environment under test. */
 export interface TestAccount {
@@ -71,7 +71,7 @@ export class TestAccounts {
     // created the account before the failure. The sweep deletes it if so, and records it absent if
     // not.
     if (this.config.ledger) {
-      recordAccount(email, "created");
+      recordAccount(ledgerServer(this.config.settings), email, "created");
     }
 
     await makePasswordManagerClient(makeStateBridge(), this.config.settings)
@@ -136,7 +136,7 @@ export class TestAccounts {
       }
 
       if (this.config.ledger) {
-        recordAccount(email, "absent");
+        recordAccount(ledgerServer(this.config.settings), email, "absent");
       }
       return "absent";
     }
@@ -173,7 +173,7 @@ export class TestAccounts {
     }
 
     if (this.config.ledger) {
-      recordAccount(account.email, "deleted");
+      recordAccount(ledgerServer(this.config.settings), account.email, "deleted");
     }
   }
 
