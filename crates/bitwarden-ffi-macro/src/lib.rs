@@ -20,9 +20,20 @@ mod wasm_export;
 mod wasm_import;
 mod wasm_object;
 mod wasm_record;
+mod wire;
 
 /// Exports an impl block or a free function to JavaScript, in place of
 /// `#[cfg_attr(feature = "wasm", wasm_bindgen(..))]`.
+///
+/// The item is left exactly as written, so Rust and UniFFI callers see its plain signature. A
+/// second `#[wasm_bindgen]` block of `__wasm_ts_*` shims is generated beside it, and only those
+/// name the wire types: each parameter is projected onto `<T as FromWasm>::Wire` and each return
+/// onto `<T as ToWasm>::Wire`, with the conversion in the shim body. References pass through as
+/// written.
+///
+/// Every `pub` method is shimmed, matching wasm_bindgen's own rule, and every shim is fallible even
+/// where nothing can fail — wasm_bindgen renders `Result<T, E>` as `T` plus a throw, so the
+/// TypeScript is identical. A method's own `#[wasm_bindgen(..)]` moves onto its shim.
 ///
 /// Arguments are forwarded to `#[wasm_bindgen]`, so `#[wasm_export(js_class = Foo)]` behaves as it
 /// would there. The item must not be generic; wasm_bindgen cannot export generic items.
@@ -32,8 +43,8 @@ mod wasm_record;
 /// Marks a method whose only intended caller is JavaScript, because Rust has a better API for the
 /// same thing. The method is renamed with a `__wasm_only_` prefix, hidden from documentation, and
 /// marked `#[deprecated]` so it shows struck through in IDE autocomplete. Takes an optional
-/// `note = "..."` for that deprecation. The JS name is unaffected: the original name is declared as
-/// the method's `js_name`, unless it already declares one.
+/// `note = "..."` for that deprecation. The JS name is unaffected: it lives on the shim, which
+/// calls the renamed method.
 ///
 /// # Example
 ///
@@ -52,8 +63,11 @@ pub fn wasm_export(attr: TokenStream, item: TokenStream) -> TokenStream {
     wasm_export::wasm_export(attr.into(), item.into()).into()
 }
 
-/// Declares a type that crosses the wasm ABI through serde, in place of
-/// `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`.
+/// Declares a type that crosses the wasm ABI through serde, as `Ts<Self>`.
+///
+/// Derives `Tsify` and implements `FromWasm` / `ToWasm`, so a `#[wasm_export]` signature naming
+/// this type projects onto `Ts<Self>` and converts inside the shim body, where a failure is an
+/// ordinary `Err`.
 ///
 /// `#[serde(..)]` and `#[tsify(..)]` attributes are left in place for `Tsify`'s derive to read, and
 /// the `#[derive(..)]` for `Serialize` / `Deserialize` / UniFFI stays where it is — this macro only
@@ -97,6 +111,14 @@ pub fn wasm_object(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `#[wasm_export]` signature. Unlike the other macros, `#[wasm_bindgen]` is applied
 /// unconditionally: an extern block cannot compile without it, so the block's own `cfg` decides.
 ///
+/// A `catch` import takes Rust types for its by-value parameters. The import itself is renamed to
+/// a hidden `__wasm_raw_*` function taking each parameter's `<T as ToWasm>::Wire`, and a wrapper
+/// with the declared signature converts the arguments and calls it; a failed conversion is the
+/// wrapper's `Err`. An `Ok` type other than `()` or `JsValue` is received as its
+/// `<T as FromWasm>::Wire` and converted the same way. An import without `catch` has nowhere to
+/// report a failed conversion, so it, and any getter, setter, constructor, or variadic import, is
+/// passed through unchanged.
+///
 /// ```ignore
 /// #[wasm_import]
 /// extern "C" {
@@ -104,7 +126,7 @@ pub fn wasm_object(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     pub type RawJsSharedUnlockDriver;
 ///
 ///     #[wasm_bindgen(method, catch)]
-///     async fn lock_user(this: &RawJsSharedUnlockDriver, user_id: String) -> Result<(), JsValue>;
+///     async fn lock_user(this: &RawJsSharedUnlockDriver, user_id: UserId) -> Result<(), JsValue>;
 /// }
 /// ```
 #[proc_macro_attribute]

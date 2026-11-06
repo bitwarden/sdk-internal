@@ -1,8 +1,8 @@
 //! Utilities for FFI bindings (WASM, UniFFI).
 //!
-//! Re-exports proc macros from `bitwarden-ffi-macro`, plus the wire traits. [`FromWasm`] and
-//! [`ToWasm`] explain how a type crosses the wasm ABI, and a [`LargeVec`] parameter converts a
-//! JavaScript array item by item as it is read.
+//! Re-exports proc macros from `bitwarden-ffi-macro`, plus the types the code they generate refers
+//! to. [`FromWasm`] and [`ToWasm`] explain how a type crosses the wasm ABI, and a [`LargeVec`]
+//! parameter converts a JavaScript array item by item as it is read.
 
 pub mod large_vec;
 #[cfg(feature = "wasm")]
@@ -11,11 +11,15 @@ mod wire_macros;
 
 pub use bitwarden_ffi_macro::{wasm_export, wasm_import, wasm_object, wasm_record};
 pub use large_vec::{LargeVec, LargeVecError};
+// `Ts` appears in hand-written `extern "C"` signatures, so it is named outside an expansion
+// and belongs in the public surface.
 #[cfg(feature = "wasm")]
-pub use wire::{FromWasm, ToWasm, WireError};
+pub use tsify::Ts;
+#[cfg(feature = "wasm")]
+pub use wire::{FromJsValue, FromWasm, Never, ToWasm, TsError, WireError};
 #[cfg(feature = "wasm")]
 #[doc(hidden)]
-pub use wire::{format_wire_string, parse_wire_string};
+pub use wire::{format_wire_string, import_conversion_error, parse_wire_string, try_from_js_value};
 
 /// What the macro expansions name, so a call site imports nothing and names only this crate.
 ///

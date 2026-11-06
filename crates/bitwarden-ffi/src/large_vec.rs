@@ -161,6 +161,7 @@ mod wasm {
     };
 
     use super::{Items, LargeVec, LargeVecError};
+    use crate::{FromWasm, WireError};
 
     /// Converts one item handle.
     type Convert<T> = Box<dyn Fn(JsValue) -> Result<T, String> + Send + Sync>;
@@ -238,6 +239,20 @@ mod wasm {
             }))
         }
     }
+
+    /// Crosses as itself: the items convert when they are read, so there is nothing to convert
+    /// at the boundary.
+    impl<T> FromWasm for LargeVec<T>
+    where
+        T: Tsify + serde::de::DeserializeOwned + 'static,
+        T::JsType: WasmDescribeVector,
+    {
+        type Wire = Self;
+
+        fn from_wire(wire: Self) -> Result<Self, WireError> {
+            Ok(wire)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -249,7 +264,7 @@ mod tests {
     /// An item type for both builds: with the `wasm` feature, an item has to convert from
     /// JavaScript.
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    #[cfg_attr(feature = "wasm", derive(tsify::Tsify), tsify(from_wasm_abi))]
+    #[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
     struct Item(u32);
 
     #[test]
