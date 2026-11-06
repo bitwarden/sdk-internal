@@ -6,7 +6,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// background and each of its open popups. Work that must happen once per application, such as
 /// migrations, belongs to one of them.
 pub(crate) struct CryptoSettings {
-    /// Whether unlock runs local state migrations, such as the V1 to V2 PIN migration.
+    /// Whether unlock runs local state migrations, such as the V1 to V2 PIN migration, and
+    /// unlock handlers schedule the background migrations.
     perform_local_unlock_migrations: AtomicBool,
 }
 

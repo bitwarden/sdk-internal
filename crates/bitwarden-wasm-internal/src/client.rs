@@ -184,11 +184,6 @@ impl PasswordManagerClient {
         self.0.organization_users_management()
     }
 
-    /// Encrypted migrations that bring the account's keys and encrypted data to the current format.
-    pub fn encrypted_migrator(&self) -> EncryptedMigratorClient {
-        self.0.encrypted_migrator()
-    }
-
     /// Crypto cipher suite operations.
     pub fn crypto_cipher_suite(&self) -> CryptoCipherSuiteClient {
         self.0.crypto_cipher_suite()
