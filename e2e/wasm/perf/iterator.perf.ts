@@ -21,7 +21,7 @@
 //   PERF_CHUNK_SIZE   ciphers per chunk of the iterable          (default 250)
 //   PERF_LABEL        writes perf/results/<label>/<task>.json when set
 //
-// Memory is measured separately, one mode per process, by `iterator-memory.perf.ts`.
+// Memory is measured separately, one mode per process, by the `iterator-memory-*.perf.ts` files.
 
 import { strictEqual } from "node:assert/strict";
 
