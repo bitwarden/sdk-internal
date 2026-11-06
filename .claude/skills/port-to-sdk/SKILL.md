@@ -10,8 +10,8 @@ description:
 # Port to SDK
 
 ```
- 0 Source ─▶ 1 Gather ─▶ 2 Rollout ─▶ 3 Build + test ─▶ 4 Draft PRs
- (ask)       behavior     flag/direct   SDK, then origin   SDK PR + origin PR
+ 0 Source ─▶ 1 Gather ─▶ 2 Rollout ─▶ 3 Build + test ─▶ 4 Refactor pass ─▶ 5 Draft PRs
+ (ask)       behavior     flag/direct   SDK, then origin   audit consumers    SDK PR + origin PR
 ```
 
 ## 0. Source
@@ -86,7 +86,28 @@ touched files.
 Verify before claiming done: `cargo test -p <crate> --all-features`, `npm run lint`, SDK e2e suite,
 origin unit tests, origin e2e tests. Report anything not run.
 
-## 4. Draft PRs
+## 4. Refactor pass
+
+The minimum viable port moves logic but often leaves the surrounding API low level. Audit **every
+consumer** of the ported feature in all three hosts (clients, android, ios), not just the origin:
+
+- SDK APIs that touch the feature: grep the crates for its types, keys and endpoints (e.g. unlock
+  methods, registration, rotation, `make_*` helpers).
+- Host call sites of those APIs and of the origin service.
+
+Flag each API where the caller:
+
+- passes in state the SDK could read itself (keys, server responses already seen, identifiers);
+- receives secrets or raw keys back and must persist them;
+- must sequence several calls for one intent (register, then trust, then store, then unlock);
+- passes booleans or nullable bags instead of a domain enum or request struct.
+
+Present each finding to the user with 2–3 options (`AskUserQuestion`, code previews): the target
+high-level API, a smaller transitional step, and keeping it as is. Note which hosts each option
+breaks and how the old API is deprecated. Implement the chosen options in the same PRs, or file
+follow-ups if the user prefers. Repeat verification.
+
+## 5. Draft PRs
 
 One SDK PR, one origin PR, each on its own branch, opened with `gh pr create --draft`. Title
 `[PM-XXXXX] <type>: <subject>`. Body, nothing more:
