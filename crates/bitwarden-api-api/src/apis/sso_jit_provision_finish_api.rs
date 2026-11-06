@@ -26,6 +26,15 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SsoJitProvisionFinishApi: Send + Sync {
+    /// POST /sso-jit-provision-finish/key-connector
+    /// Accepts the same V2 and V1 key shapes as `accounts/set-key-connector-key`.
+    async fn finish_jit_provision_for_key_connector<'a>(
+        &self,
+        sso_jit_provision_finish_set_key_connector_key_request_model: Option<
+            models::SsoJitProvisionFinishSetKeyConnectorKeyRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
     /// POST /sso-jit-provision-finish/password
     /// Accepts MPAD + MPUD with exactly one keypair: V2 encryption (AccountKeys, V2 MP JIT flag on)
     /// or V1 encryption (legacy Keys).
@@ -33,6 +42,16 @@ pub trait SsoJitProvisionFinishApi: Send + Sync {
         &self,
         sso_jit_provision_finish_password_request_model: Option<
             models::SsoJitProvisionFinishPasswordRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
+    /// POST /sso-jit-provision-finish/trusted-device
+    /// Replaces the `accounts/keys`, `reset-password-enrollment` and `devices/{identifier}/keys`
+    /// calls of the trusted device encryption JIT flow.
+    async fn finish_trusted_device<'a>(
+        &self,
+        sso_jit_provision_finish_trusted_device_request_model: Option<
+            models::SsoJitProvisionFinishTrustedDeviceRequestModel,
         >,
     ) -> Result<(), Error>;
 }
@@ -50,6 +69,31 @@ impl SsoJitProvisionFinishApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SsoJitProvisionFinishApi for SsoJitProvisionFinishApiClient {
+    /// Accepts the same V2 and V1 key shapes as `accounts/set-key-connector-key`.
+    async fn finish_jit_provision_for_key_connector<'a>(
+        &self,
+        sso_jit_provision_finish_set_key_connector_key_request_model: Option<
+            models::SsoJitProvisionFinishSetKeyConnectorKeyRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/sso-jit-provision-finish/key-connector",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder
+            .json(&sso_jit_provision_finish_set_key_connector_key_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     /// Accepts MPAD + MPUD with exactly one keypair: V2 encryption (AccountKeys, V2 MP JIT flag on)
     /// or V1 encryption (legacy Keys).
     async fn finish_jit_provision_for_password<'a>(
@@ -72,6 +116,32 @@ impl SsoJitProvisionFinishApi for SsoJitProvisionFinishApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&sso_jit_provision_finish_password_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    /// Replaces the `accounts/keys`, `reset-password-enrollment` and `devices/{identifier}/keys`
+    /// calls of the trusted device encryption JIT flow.
+    async fn finish_trusted_device<'a>(
+        &self,
+        sso_jit_provision_finish_trusted_device_request_model: Option<
+            models::SsoJitProvisionFinishTrustedDeviceRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/sso-jit-provision-finish/trusted-device",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&sso_jit_provision_finish_trusted_device_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
