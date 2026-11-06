@@ -158,6 +158,18 @@ pub struct EventResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub send_id: Option<uuid::Uuid>,
+    #[serde(
+        rename = "accessRequestId",
+        alias = "AccessRequestId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_request_id: Option<uuid::Uuid>,
+    #[serde(
+        rename = "accessLeaseId",
+        alias = "AccessLeaseId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_lease_id: Option<uuid::Uuid>,
 }
 
 impl EventResponseModel {
@@ -187,6 +199,8 @@ impl EventResponseModel {
             service_account_id: None,
             granted_service_account_id: None,
             send_id: None,
+            access_request_id: None,
+            access_lease_id: None,
         }
     }
 }

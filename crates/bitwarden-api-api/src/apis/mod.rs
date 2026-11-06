@@ -74,6 +74,7 @@ pub mod service_accounts_api;
 pub mod settings_api;
 pub mod slack_integration_api;
 pub mod sso_cookie_vendor_api;
+pub mod sso_jit_provision_finish_api;
 pub mod stripe_api;
 pub mod sync_api;
 pub mod teams_integration_api;
@@ -171,6 +172,7 @@ struct ApiClientReal {
     settings_api: settings_api::SettingsApiClient,
     slack_integration_api: slack_integration_api::SlackIntegrationApiClient,
     sso_cookie_vendor_api: sso_cookie_vendor_api::SsoCookieVendorApiClient,
+    sso_jit_provision_finish_api: sso_jit_provision_finish_api::SsoJitProvisionFinishApiClient,
     stripe_api: stripe_api::StripeApiClient,
     sync_api: sync_api::SyncApiClient,
     teams_integration_api: teams_integration_api::TeamsIntegrationApiClient,
@@ -256,6 +258,7 @@ pub struct ApiClientMock {
     pub settings_api: settings_api::MockSettingsApi,
     pub slack_integration_api: slack_integration_api::MockSlackIntegrationApi,
     pub sso_cookie_vendor_api: sso_cookie_vendor_api::MockSsoCookieVendorApi,
+    pub sso_jit_provision_finish_api: sso_jit_provision_finish_api::MockSsoJitProvisionFinishApi,
     pub stripe_api: stripe_api::MockStripeApi,
     pub sync_api: sync_api::MockSyncApi,
     pub teams_integration_api: teams_integration_api::MockTeamsIntegrationApi,
@@ -342,6 +345,7 @@ impl ApiClient {
             settings_api: settings_api::SettingsApiClient::new(configuration.clone()),
             slack_integration_api: slack_integration_api::SlackIntegrationApiClient::new(configuration.clone()),
             sso_cookie_vendor_api: sso_cookie_vendor_api::SsoCookieVendorApiClient::new(configuration.clone()),
+            sso_jit_provision_finish_api: sso_jit_provision_finish_api::SsoJitProvisionFinishApiClient::new(configuration.clone()),
             stripe_api: stripe_api::StripeApiClient::new(configuration.clone()),
             sync_api: sync_api::SyncApiClient::new(configuration.clone()),
             teams_integration_api: teams_integration_api::TeamsIntegrationApiClient::new(configuration.clone()),
@@ -429,6 +433,7 @@ impl ApiClient {
             settings_api: settings_api::MockSettingsApi::new(),
             slack_integration_api: slack_integration_api::MockSlackIntegrationApi::new(),
             sso_cookie_vendor_api: sso_cookie_vendor_api::MockSsoCookieVendorApi::new(),
+            sso_jit_provision_finish_api: sso_jit_provision_finish_api::MockSsoJitProvisionFinishApi::new(),
             stripe_api: stripe_api::MockStripeApi::new(),
             sync_api: sync_api::MockSyncApi::new(),
             teams_integration_api: teams_integration_api::MockTeamsIntegrationApi::new(),
@@ -1006,6 +1011,15 @@ impl ApiClient {
             ApiClient::Real(real) => &real.sso_cookie_vendor_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.sso_cookie_vendor_api,
+        }
+    }
+    pub fn sso_jit_provision_finish_api(
+        &self,
+    ) -> &dyn sso_jit_provision_finish_api::SsoJitProvisionFinishApi {
+        match self {
+            ApiClient::Real(real) => &real.sso_jit_provision_finish_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.sso_jit_provision_finish_api,
         }
     }
     pub fn stripe_api(&self) -> &dyn stripe_api::StripeApi {
