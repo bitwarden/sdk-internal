@@ -1,4 +1,4 @@
-use bitwarden_vault::{CipherListView, TotpResponse};
+use bitwarden_vault::{CipherListView, TotpResponse, UriMatchStatus};
 use chrono::{DateTime, Utc};
 
 use crate::error::Result;
@@ -62,5 +62,26 @@ impl VaultClient {
         time: Option<DateTime<Utc>>,
     ) -> Result<TotpResponse> {
         Ok(self.0.totp().generate_totp_cipher_view(view, time)?)
+    }
+
+    /// Returns whether `target` matches the regular-expression URI `pattern`, case-insensitively.
+    /// Invalid, oversized, and too-expensive patterns never match.
+    pub fn uri_regex_matches(&self, pattern: String, target: String) -> bool {
+        bitwarden_vault::uri_regex_matches(&pattern, &target)
+    }
+
+    /// Evaluates each regular-expression URI pattern against `target`, one result per pattern.
+    /// Patterns not reached within the time budget are `Skipped`; pass just those to another call.
+    pub fn uri_regex_matches_batch(
+        &self,
+        patterns: Vec<String>,
+        target: String,
+    ) -> Result<Vec<UriMatchStatus>> {
+        Ok(bitwarden_vault::uri_regex_matches_batch(patterns, &target)?.0)
+    }
+
+    /// Checks whether `pattern` can be saved as a regular-expression URI match rule.
+    pub fn validate_uri_regex(&self, pattern: String) -> Result<()> {
+        Ok(bitwarden_vault::validate_uri_regex(&pattern)?)
     }
 }
