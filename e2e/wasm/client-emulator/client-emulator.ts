@@ -15,6 +15,7 @@ import {
   AccountKeysResponse,
   CipherResponse,
   FolderResponse,
+  ProfileOrganizationResponse,
   toKdf,
   type SyncResponse,
 } from "../server-emulator/dto";
@@ -139,6 +140,9 @@ export class ClientEmulator {
         ),
       ),
       folders: synced.folders.map(FolderResponse.toFolder),
+      organizations: synced.profile.organizations.map((organization) =>
+        ProfileOrganizationResponse.toProfileOrganization(organization, synced.profile.id),
+      ),
     });
   }
 
