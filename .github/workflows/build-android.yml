@@ -228,8 +228,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@f29f5a9d7b09a7c6b29859002d29d24e1674c884 # v5.0.1
 
+      - name: Build JVM bindings
+        run: ./crates/bitwarden-uniffi/kotlin/build-jvm.sh
+
       - name: Run e2e tests
-        run: ./e2e/kotlin/run.sh --warning-mode all --stacktrace
+        run: ./e2e/kotlin/test.sh --warning-mode all --stacktrace
 
   check-android-breaking-changes:
     name: Check for Android breaking changes

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Builds bitwarden-uniffi for the host, generates Kotlin bindings for the JVM, and runs the
-# e2e tests against them. Extra arguments are passed to Gradle, for example
-# `./run.sh --tests '*PinLockTests*'`.
+# Builds bitwarden-uniffi for the host and generates Kotlin bindings for a desktop JVM, for the e2e
+# tests in e2e/kotlin. Writes the bindings to jvm/bindings and the native library to jvm/lib.
 set -euo pipefail
 
 cd "$(dirname "$0")"
-REPO_ROOT="$(cd ../.. && pwd)"
+REPO_ROOT="$(cd ../../.. && pwd)"
 
 if [[ "${DEBUG_MODE:-true}" = "true" ]]; then
   PROFILE="debug"
@@ -21,16 +20,21 @@ case "$(uname -s)" in
   *) echo "Unsupported host: $(uname -s)" >&2; exit 1 ;;
 esac
 
-LIB_DIR="$REPO_ROOT/target/$PROFILE"
-BINDINGS_DIR="build/generated/uniffi"
-CONFIG_FILE="build/uniffi-jvm.toml"
+OUT_DIR="$PWD/jvm"
+BINDINGS_DIR="$OUT_DIR/bindings"
+LIB_DIR="$OUT_DIR/lib"
+CONFIG_FILE="$OUT_DIR/uniffi-jvm.toml"
+LIB_FILE="libbitwarden_uniffi.$LIB_EXT"
+
+rm -rf "$OUT_DIR"
+mkdir -p "$LIB_DIR"
 
 # 1. Build the host library
 (cd "$REPO_ROOT" && cargo build --package bitwarden-uniffi $PROFILE_FLAG)
+cp "$REPO_ROOT/target/$PROFILE/$LIB_FILE" "$LIB_DIR/"
 
 # 2. Turn off `android` for every crate that sets it. The Android cleaner it selects uses
 # Android-only APIs, which a desktop JVM does not have.
-mkdir -p build
 : > "$CONFIG_FILE"
 while IFS= read -r config; do
   crate_dir="$(dirname "$config")"
@@ -39,18 +43,14 @@ while IFS= read -r config; do
 done < <(grep -rl --include=uniffi.toml '^android = true' "$REPO_ROOT/crates" "$REPO_ROOT/bitwarden_license")
 
 # 3. Generate the bindings
-rm -rf "$BINDINGS_DIR"
 (cd "$REPO_ROOT" && cargo run -p uniffi-bindgen generate \
-  "$LIB_DIR/libbitwarden_uniffi.$LIB_EXT" \
+  "$LIB_DIR/$LIB_FILE" \
   --language kotlin \
   --no-format \
-  --config "$OLDPWD/$CONFIG_FILE" \
-  --out-dir "$OLDPWD/$BINDINGS_DIR")
+  --config "$CONFIG_FILE" \
+  --out-dir "$BINDINGS_DIR")
 
 if grep -rqE '^import androidx?\.|android\.system\.' "$BINDINGS_DIR"; then
   echo "The generated bindings still use Android APIs" >&2
   exit 1
 fi
-
-# 4. Run the tests
-"$REPO_ROOT/crates/bitwarden-uniffi/kotlin/gradlew" test -PuniffiLibDir="$LIB_DIR" "$@"

@@ -17,22 +17,28 @@ Requires a JDK (17 or later) and a Rust toolchain. From the repository root:
 npm run e2e:kotlin
 ```
 
-This runs `e2e/kotlin/run.sh`, which:
+This runs two scripts:
 
-1. builds `bitwarden-uniffi` for the host (`target/debug`; set `DEBUG_MODE=false` for a release
-   build),
-2. generates the Kotlin bindings into `e2e/kotlin/build/generated/uniffi`,
-3. runs the tests with the Gradle wrapper in `crates/bitwarden-uniffi/kotlin`, pointing JNA at the
-   host library.
+1. `crates/bitwarden-uniffi/kotlin/build-jvm.sh` builds `bitwarden-uniffi` for the host
+   (`target/debug`; set `DEBUG_MODE=false` for a release build) and generates the Kotlin bindings.
+   It writes the bindings and a copy of the native library to `crates/bitwarden-uniffi/kotlin/jvm`.
+2. `e2e/kotlin/test.sh` runs the tests with the Gradle wrapper in `crates/bitwarden-uniffi/kotlin`,
+   pointing JNA at that library.
 
-Arguments are passed to Gradle, for example `./e2e/kotlin/run.sh --tests '*PinLockTests*'`. The
-SDK's logs are off unless `RUST_LOG` is set, for example `RUST_LOG=debug ./e2e/kotlin/run.sh`.
+To rerun the tests without rebuilding:
+
+```sh
+./e2e/kotlin/test.sh
+```
+
+Arguments are passed to Gradle, for example `./e2e/kotlin/test.sh --tests '*PinLockTests*'`. The
+SDK's logs are off unless `RUST_LOG` is set, for example `RUST_LOG=debug ./e2e/kotlin/test.sh`.
 
 ## How the bindings differ from the Android ones
 
 The bindings are generated with `android = false` for every crate, where the Android package sets
-`android = true` in each crate's `uniffi.toml`. `run.sh` writes the override to
-`build/uniffi-jvm.toml` and passes it with `--config`.
+`android = true` in each crate's `uniffi.toml`. `build-jvm.sh` writes the override to
+`jvm/uniffi-jvm.toml` and passes it with `--config`.
 
 In UniFFI 0.32 that setting only selects the cleaner that frees Rust objects when their Kotlin
 wrapper is garbage collected: `android.system.SystemCleaner` on Android, `java.lang.ref.Cleaner` on
