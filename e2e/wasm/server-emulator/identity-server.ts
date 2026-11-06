@@ -60,6 +60,7 @@ export class IdentityServer {
       return oauth2Error(HTTP_BAD_REQUEST, "invalid_grant", "invalid_username_or_password");
     }
 
+    this.registerDevice(user, form.get("deviceIdentifier"));
     return { json: TokenResponse.forUser(user, this.issueToken(user.email)) };
   }
 
@@ -79,6 +80,28 @@ export class IdentityServer {
     this.db.sessions.set(token, user.userId);
 
     return token;
+  }
+
+  /** Records the device a login came from, once per user and identifier. */
+  private registerDevice(user: UserEntity, identifier: string | null): void {
+    if (identifier === null) {
+      return;
+    }
+
+    const known = this.db.devices.filter(
+      (device) => device.userId === user.userId && device.identifier === identifier,
+    );
+    if (known.length > 0) {
+      return;
+    }
+
+    this.db.devices.set(this.db.devices.newId(), {
+      userId: user.userId,
+      identifier,
+      encryptedUserKey: null,
+      encryptedPublicKey: null,
+      encryptedPrivateKey: null,
+    });
   }
 
   private userFor(email: string): UserEntity | undefined {

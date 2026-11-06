@@ -155,4 +155,6 @@ bitwarden_state_bridge_macro::state_bridge! {
     webauthn_prf_unlock_data: WebAuthnPrfUnlockData as ts "WebAuthnPrfUnlockData",
     kdf_config: Kdf as ts "Kdf",
     v2_encrypted_migrations_grace_period_start: V2EncryptedMigrationsGracePeriodStart as ts "DateTime<Utc>",
+    device_key: SymmetricCryptoKey as ts "SymmetricKey",
+    should_trust_device: bool as ts "boolean",
 }

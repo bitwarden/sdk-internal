@@ -4,6 +4,7 @@ import type { Send } from "@bitwarden/sdk-internal";
 
 import type {
   CipherEntity,
+  DeviceEntity,
   EmergencyAccessEntity,
   FolderEntity,
   OrganizationEntity,
@@ -97,6 +98,11 @@ class Table<T> {
     return [...this.byId.values()].filter(predicate);
   }
 
+  /** The id and item of the first match, for updates that look an item up by value. */
+  findEntry(predicate: (item: T) => boolean): [string, T] | undefined {
+    return [...this.byId.entries()].find(([, item]) => predicate(item));
+  }
+
   /** Every item, in insertion order. */
   all(): T[] {
     return [...this.byId.values()];
@@ -116,4 +122,5 @@ export class Database {
     new SequentialUuidGenerator("emergency-access"),
   );
   readonly sessions = new Table<string>(new SequentialUuidGenerator("sessions"));
+  readonly devices = new Table<DeviceEntity>(new SequentialUuidGenerator("devices"));
 }

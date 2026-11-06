@@ -61,6 +61,11 @@ mod crypto_settings;
 pub(crate) use crypto_settings::CryptoSettings;
 
 #[cfg(feature = "internal")]
+mod device_trust;
+#[cfg(feature = "internal")]
+pub use device_trust::{DeviceTrustClient, DeviceTrustError, TrustDeviceChoice, TrustOutcome};
+
+#[cfg(feature = "internal")]
 mod pin_lock_system;
 #[cfg(feature = "internal")]
 pub use pin_lock_system::{PinLockSystem, PinLockType, PinUnlockStatus};

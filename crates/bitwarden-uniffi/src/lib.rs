@@ -33,7 +33,7 @@ pub mod vault;
 #[cfg(target_os = "android")]
 mod android_support;
 
-use crypto::CryptoClient;
+use crypto::{CryptoClient, DeviceTrustClient};
 use error::{Error, Result};
 pub use log_callback::LogCallback;
 pub use managed_settings::ManagedSettingsBindingClient;
@@ -79,6 +79,11 @@ impl Client {
     /// Crypto operations
     pub fn crypto(&self) -> CryptoClient {
         CryptoClient(self.0.crypto())
+    }
+
+    /// Trusted device encryption operations
+    pub fn device_trust(&self) -> DeviceTrustClient {
+        DeviceTrustClient(self.0.device_trust())
     }
 
     /// Returns the key-management state bridge client used to register a

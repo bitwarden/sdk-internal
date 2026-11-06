@@ -30,6 +30,8 @@ import {
   type CipherCreateRequest,
   CipherRequest,
   CipherResponse,
+  DeviceKeysRequest,
+  DeviceResponse,
   FolderRequest,
   FolderResponse,
   KdfType,
@@ -101,6 +103,10 @@ export class ApiServer {
         this.restamp(user, request.params.id, null),
       ),
 
+      "PUT /devices/:identifier/keys": authenticatedRoute(this.db, (user, request) =>
+        this.trustDevice(user, request.params.identifier, request.json<DeviceKeysRequest>()),
+      ),
+
       "POST /folders": authenticatedRoute(this.db, (user, request) =>
         this.createFolder(user, request.json<FolderRequest>()),
       ),
@@ -117,7 +123,36 @@ export class ApiServer {
       organizations: this.db.organizations.all(),
       ciphers: this.db.ciphers.all(),
       folders: this.db.folders.all(),
+      devices: this.db.devices.all(),
     };
+  }
+
+  /**
+   * Stores the keys that make `identifier` a trusted device. Like the real server, the device must
+   * have been registered by a login, and all three keys are required.
+   */
+  private trustDevice(user: UserEntity, identifier: string, posted: DeviceKeysRequest): MockReply {
+    const entry = this.db.devices.findEntry(
+      (device) => device.userId === user.userId && device.identifier === identifier,
+    );
+    if (entry === undefined) {
+      return error(HTTP_NOT_FOUND, `no device ${identifier} for ${user.email}`);
+    }
+
+    if (!posted.encryptedUserKey || !posted.encryptedPublicKey || !posted.encryptedPrivateKey) {
+      return error(HTTP_BAD_REQUEST, "all three device keys are required");
+    }
+
+    const [id, device] = entry;
+    const trusted = {
+      ...device,
+      encryptedUserKey: posted.encryptedUserKey,
+      encryptedPublicKey: posted.encryptedPublicKey,
+      encryptedPrivateKey: posted.encryptedPrivateKey,
+    };
+    this.db.devices.update(id, trusted);
+
+    return { json: DeviceResponse.fromDevice(id, trusted) };
   }
 
   /**

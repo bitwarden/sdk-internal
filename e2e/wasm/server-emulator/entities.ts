@@ -72,6 +72,15 @@ export interface CipherEntity {
 }
 
 /** A folder as the server holds it. Folders are always personal — organizations have collections. */
+/** A device registered at login. The keys are set once the user trusts it. */
+export interface DeviceEntity {
+  userId: AccountId;
+  identifier: string;
+  encryptedUserKey: string | null;
+  encryptedPublicKey: string | null;
+  encryptedPrivateKey: string | null;
+}
+
 export interface FolderEntity {
   userId: string;
   folder: Folder;

@@ -156,6 +156,11 @@ impl PasswordManagerClient {
         self.0.crypto()
     }
 
+    /// Trusted device encryption operations
+    pub fn device_trust(&self) -> bitwarden_core::key_management::DeviceTrustClient {
+        self.0.device_trust()
+    }
+
     /// Crypto cipher suite operations
     pub fn crypto_cipher_suite(&self) -> bitwarden_crypto_cipher_suite::CryptoCipherSuiteClient {
         self.0.crypto_cipher_suite()

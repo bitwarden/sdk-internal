@@ -21,7 +21,7 @@ import {
 import type { ServerEmulator } from "../server-emulator/server-emulator";
 import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
 
-import { LocalState } from "./local-state";
+import { DEVICE_IDENTIFIER, LocalState } from "./local-state";
 
 import { makePasswordManagerClient, makeStateBridge } from "../tests/utils";
 
@@ -39,7 +39,7 @@ export const LOGIN_REQUEST: LoginRequest = {
   clientId: "web",
   device: {
     deviceType: "SDK",
-    deviceIdentifier: "integration-test-device",
+    deviceIdentifier: DEVICE_IDENTIFIER,
     deviceName: "Integration Tests",
     devicePushToken: undefined,
   },

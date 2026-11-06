@@ -64,6 +64,8 @@ export function makeStateBridge(): WasmStateBridge {
   // Initialized, unlike the slots above, so an untouched bridge reports `null` rather than
   // `undefined` — tests assert on the absence of a KDF config after a failed change.
   let kdfConfig: Kdf | null = null;
+  let deviceKey: SymmetricKey | null = null;
+  let shouldTrustDevice: boolean | null = null;
 
   return {
     set_user_key: async (v: SymmetricKey) => {
@@ -161,6 +163,22 @@ export function makeStateBridge(): WasmStateBridge {
       v2EncryptedMigrationsGracePeriodStart,
     clear_v2_encrypted_migrations_grace_period_start: async () => {
       v2EncryptedMigrationsGracePeriodStart = null;
+    },
+
+    set_device_key: async (v: SymmetricKey) => {
+      deviceKey = v;
+    },
+    get_device_key: async () => deviceKey,
+    clear_device_key: async () => {
+      deviceKey = null;
+    },
+
+    set_should_trust_device: async (v: boolean) => {
+      shouldTrustDevice = v;
+    },
+    get_should_trust_device: async () => shouldTrustDevice,
+    clear_should_trust_device: async () => {
+      shouldTrustDevice = null;
     },
   };
 }

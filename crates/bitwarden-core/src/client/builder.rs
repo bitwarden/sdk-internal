@@ -98,6 +98,7 @@ impl ClientBuilder {
             .expect("External HTTP Client build should not fail");
 
         let headers = build_default_headers(&HostPlatformInfo::from(&settings));
+        let device_identifier = settings.device_identifier.clone();
 
         let key_store = KeyStore::default();
         let state_registry = self
@@ -172,6 +173,7 @@ impl ClientBuilder {
                 user_id: OnceLock::new(),
                 token_handler: self.token_handler,
                 api_configurations,
+                device_identifier,
                 external_http_client,
                 key_store,
                 #[cfg(feature = "internal")]
