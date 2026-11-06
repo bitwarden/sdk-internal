@@ -31,6 +31,12 @@ pub enum WireError {
     /// A serde DTO did not convert to or from its `Ts<T>` form.
     #[error(transparent)]
     Serde(#[from] tsify::Error),
+    /// An untyped JavaScript value was not of the type it was read as.
+    #[error("Expected a JavaScript value of type `{expected}`")]
+    Type {
+        /// The type the value was read as.
+        expected: &'static str,
+    },
 }
 
 /// A type that can be received from JavaScript, crossing the ABI as [`Self::Wire`].
@@ -49,6 +55,43 @@ pub trait ToWasm {
 
     /// Converts the Rust value into the wire value.
     fn to_wire(self) -> Result<Self::Wire, WireError>;
+}
+
+/// A wire type read from an untyped [`JsValue`], such as the value a JavaScript promise resolves
+/// to.
+///
+/// An `async` import returns `JsValue` and its caller converts with this trait, because
+/// wasm-bindgen's glue for a typed promise such as `Promise<String>` mismatches the Rust ABI.
+pub trait FromJsValue: Sized {
+    /// Reads the wire value out of `js`.
+    fn from_js_value(js: JsValue) -> Result<Self, WireError>;
+}
+
+/// `null` and `undefined` read as `None`.
+impl<T: FromJsValue> FromJsValue for Option<T> {
+    fn from_js_value(js: JsValue) -> Result<Self, WireError> {
+        if js.is_null() || js.is_undefined() {
+            Ok(None)
+        } else {
+            T::from_js_value(js).map(Some)
+        }
+    }
+}
+
+/// Unchecked, like a `Ts<T>` parameter: a value of the wrong shape fails later, in `to_rust`.
+impl<T: Tsify> FromJsValue for Ts<T> {
+    fn from_js_value(js: JsValue) -> Result<Self, WireError> {
+        Ok(Ts::new_unchecked(js))
+    }
+}
+
+/// Runs an `impl_wire_object!` read through wasm-bindgen's own checked conversion.
+#[doc(hidden)]
+pub fn try_from_js_value<T: wasm_bindgen::convert::TryFromJsValue>(
+    expected: &'static str,
+    js: JsValue,
+) -> Result<T, WireError> {
+    T::try_from_js_value(js).map_err(|_| WireError::Type { expected })
 }
 
 /// Runs an `impl_wire_string!` parser. A function rather than inline macro code so the closure's

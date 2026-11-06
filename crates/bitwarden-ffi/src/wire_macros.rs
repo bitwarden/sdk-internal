@@ -34,8 +34,9 @@ macro_rules! impl_wire_record {
     };
 }
 
-/// Implements both traits for a type that crosses as itself: a `#[wasm_bindgen]` handle, an
-/// `extern "C"` type, or a primitive wasm_bindgen already understands.
+/// Implements both traits, and [`FromJsValue`](crate::FromJsValue), for a type that crosses as
+/// itself: a `#[wasm_bindgen]` handle, an `extern "C"` type, or a primitive wasm_bindgen already
+/// understands.
 ///
 /// `#[wasm_object]` and `#[wasm_import]` call this for the types they declare.
 #[macro_export]
@@ -57,6 +58,15 @@ macro_rules! impl_wire_object {
 
                 fn to_wire(self) -> ::core::result::Result<Self::Wire, $crate::WireError> {
                     ::core::result::Result::Ok(self)
+                }
+            }
+
+            #[cfg(feature = "wasm")]
+            impl $crate::FromJsValue for $ty {
+                fn from_js_value(
+                    js: $crate::_macro::wasm_bindgen::JsValue,
+                ) -> ::core::result::Result<Self, $crate::WireError> {
+                    $crate::try_from_js_value(stringify!($ty), js)
                 }
             }
         )*
