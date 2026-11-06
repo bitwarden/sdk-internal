@@ -26,6 +26,15 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SlackIntegrationApi: Send + Sync {
+    /// POST /organizations/{organizationId}/integrations/slack/complete
+    async fn complete<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        organization_integration_o_auth_complete_request_model: Option<
+            models::OrganizationIntegrationOAuthCompleteRequestModel,
+        >,
+    ) -> Result<models::OrganizationIntegrationOAuthCompleteResponseModel, Error>;
+
     /// GET /organizations/integrations/slack/create
     async fn create<'a>(
         &self,
@@ -54,6 +63,32 @@ impl SlackIntegrationApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SlackIntegrationApi for SlackIntegrationApiClient {
+    async fn complete<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        organization_integration_o_auth_complete_request_model: Option<
+            models::OrganizationIntegrationOAuthCompleteRequestModel,
+        >,
+    ) -> Result<models::OrganizationIntegrationOAuthCompleteResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/integrations/slack/complete",
+            local_var_configuration.base_path,
+            organizationId = organization_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&organization_integration_o_auth_complete_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
     async fn create<'a>(
         &self,
         code: Option<&'a str>,
