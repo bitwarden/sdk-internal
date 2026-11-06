@@ -11,13 +11,14 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{EncString, KeyStore};
-use bitwarden_organization_crypto::invite::{Invite, InviteSecret};
+use bitwarden_organization_crypto::invite::Invite;
 use http::StatusCode;
 
 use crate::{InviteLinkError, OrganizationInviteLink, OrganizationInviteLinkView};
 
 /// Client for organization invite link administrative (organization-key) operations: creating,
-/// refreshing, updating, deleting, and inspecting invite links, and recovering the invite secret.
+/// refreshing, updating, deleting, and inspecting invite links. Returned views carry the recovered
+/// invite secret in their URL fragment.
 #[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct InviteLinkAdminClient {
@@ -25,10 +26,6 @@ pub struct InviteLinkAdminClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-// The `create`/`refresh` methods delegate to the deprecated `create_invite_link`/
-// `refresh_invite_link`, and the `wasm_bindgen`-generated shims for those deprecated exports call
-// them; both would otherwise emit deprecation warnings from code we cannot annotate individually.
-#[allow(deprecated)]
 #[bitwarden_ffi::wasm_export]
 impl InviteLinkAdminClient {
     /// Get an existing invite link.
@@ -50,7 +47,7 @@ impl InviteLinkAdminClient {
 
         let mut ctx = self.key_store.context();
         OrganizationInviteLink::try_from(response)
-            .and_then(|link| link.to_view(&mut ctx))
+            .and_then(|link| link.into_view(&mut ctx))
             .map(Some)
     }
 
@@ -65,6 +62,10 @@ impl InviteLinkAdminClient {
     }
 
     /// Creates a new organization invite link.
+    ///
+    /// # Security
+    /// Only the sealed invite is posted to the server; the invite secret is never sent. It is
+    /// only carried in the returned view's URL fragment.
     pub async fn create(
         &self,
         organization_id: OrganizationId,
@@ -75,26 +76,58 @@ impl InviteLinkAdminClient {
             return Err(InviteLinkError::NoAllowedDomains);
         }
 
-        let link = self
-            .create_invite_link(organization_id, allowed_domains, supports_confirmation)
+        let invite = self
+            .make_invite(organization_id, supports_confirmation)
+            .await?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .create(
+                organization_id.into(),
+                Some(CreateOrganizationInviteLinkRequestModel {
+                    allowed_domains,
+                    invite: String::from(&invite),
+                    supports_confirmation: invite.supports_confirmation(),
+                }),
+            )
             .await?;
 
         let mut ctx = self.key_store.context();
-        link.to_view(&mut ctx)
+        OrganizationInviteLink::try_from(response)?.into_view(&mut ctx)
     }
 
     /// Refreshes an existing invite link.
+    /// This generates a new code and secret, invalidating any links already handed out.
+    ///
+    /// # Security
+    /// Only the sealed invite is posted to the server; the invite secret is never sent. It is
+    /// only carried in the returned view's URL fragment.
     pub async fn refresh(
         &self,
         organization_id: OrganizationId,
         supports_confirmation: bool,
     ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
-        let link = self
-            .refresh_invite_link(organization_id, supports_confirmation)
+        let invite = self
+            .make_invite(organization_id, supports_confirmation)
+            .await?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .refresh(
+                organization_id.into(),
+                Some(RefreshOrganizationInviteLinkRequestModel {
+                    invite: String::from(&invite),
+                    supports_confirmation: invite.supports_confirmation(),
+                }),
+            )
             .await?;
 
         let mut ctx = self.key_store.context();
-        link.to_view(&mut ctx)
+        OrganizationInviteLink::try_from(response)?.into_view(&mut ctx)
     }
 
     /// Updates the allowed domains for an existing organization invite link.
@@ -118,7 +151,7 @@ impl InviteLinkAdminClient {
             .await?;
 
         let mut ctx = self.key_store.context();
-        OrganizationInviteLink::try_from(response)?.to_view(&mut ctx)
+        OrganizationInviteLink::try_from(response)?.into_view(&mut ctx)
     }
 
     /// Updates whether an existing invite link supports confirmation.
@@ -126,7 +159,14 @@ impl InviteLinkAdminClient {
     /// If supports_confirmation is true, users gain immediate access to the organization.
     /// If supports_confirmation is false, admins need to confirm all new users.
     ///
-    /// Does not break the URL of the existing invite link.
+    /// Does not break the URL of the existing invite link: enabling confirmation re-seals the
+    /// organization key under the invite's existing invite key; disabling it strips that envelope.
+    /// Either way the invite key, code, and secret are left untouched, so links already handed out
+    /// stay valid. Use [`InviteLinkAdminClient::refresh`] instead when the code and secret must be
+    /// rotated.
+    ///
+    /// # Security
+    /// Only the re-sealed invite is posted to the server; the invite secret is never sent.
     pub async fn update_confirmation(
         &self,
         organization_id: OrganizationId,
@@ -141,35 +181,7 @@ impl InviteLinkAdminClient {
             .organization_invite_links_api()
             .get(organization_id.into())
             .await?;
-        let invite: Invite = require!(existing_link.invite).parse()?;
-
-        let result = self
-            .set_invite_confirmation(organization_id, invite, supports_confirmation)
-            .await?;
-        let mut ctx = self.key_store.context();
-        result.to_view(&mut ctx)
-    }
-
-    /// Updates whether an existing invite link supports confirmation, re-sealing the given invite
-    /// accordingly and persisting it to the server.
-    ///
-    /// Enabling confirmation re-seals the organization key under the invite's existing invite key;
-    /// disabling it strips that envelope. Either way the invite key, code, and secret are left
-    /// untouched, so links already handed out stay valid. Use
-    /// [`InviteLinkAdminClient::refresh`] instead when the code and secret must be rotated.
-    ///
-    /// # Security
-    /// Only the re-sealed invite is posted to the server; the invite secret is never sent.
-    #[deprecated(
-        note = "Use `update_confirmation`, which returns an `OrganizationInviteLinkView`, instead"
-    )]
-    pub async fn set_invite_confirmation(
-        &self,
-        organization_id: OrganizationId,
-        invite: Invite,
-        supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        let mut invite = invite;
+        let mut invite: Invite = require!(existing_link.invite).parse()?;
 
         // Confine the (non-Send) key store context to a synchronous scope; the re-sealed invite it
         // produces is consumed by the request posted after the `.await` below.
@@ -196,88 +208,8 @@ impl InviteLinkAdminClient {
             )
             .await?;
 
-        OrganizationInviteLink::try_from(response)
-    }
-
-    /// Creates a new organization invite and posts it to the server, returning the full
-    /// [`OrganizationInviteLink`] persisted by the server.
-    ///
-    /// # Security
-    /// Only the sealed invite is posted to the server; the invite secret is never sent. Use
-    /// [`InviteLinkAdminClient::get_invite_secret`] to recover the secret needed to reconstruct the
-    /// invite link.
-    #[deprecated(note = "Use `create`, which returns an `OrganizationInviteLinkView`, instead")]
-    pub async fn create_invite_link(
-        &self,
-        organization_id: OrganizationId,
-        allowed_domains: Vec<String>,
-        supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        let invite = self
-            .make_invite(organization_id, supports_confirmation)
-            .await?;
-
-        let response = self
-            .api_configurations
-            .api_client
-            .organization_invite_links_api()
-            .create(
-                organization_id.into(),
-                Some(CreateOrganizationInviteLinkRequestModel {
-                    allowed_domains,
-                    invite: String::from(&invite),
-                    supports_confirmation: invite.supports_confirmation(),
-                }),
-            )
-            .await?;
-
-        OrganizationInviteLink::try_from(response)
-    }
-
-    /// Refresh an existing invite link.
-    /// This generates a new code and secret.
-    #[deprecated(note = "Use `refresh`, which returns an `OrganizationInviteLinkView`, instead")]
-    pub async fn refresh_invite_link(
-        &self,
-        organization_id: OrganizationId,
-        supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        let invite = self
-            .make_invite(organization_id, supports_confirmation)
-            .await?;
-
-        let response = self
-            .api_configurations
-            .api_client
-            .organization_invite_links_api()
-            .refresh(
-                organization_id.into(),
-                Some(RefreshOrganizationInviteLinkRequestModel {
-                    invite: String::from(&invite),
-                    supports_confirmation: invite.supports_confirmation(),
-                }),
-            )
-            .await?;
-
-        OrganizationInviteLink::try_from(response)
-    }
-
-    /// Using the organization key, recovers the [`InviteSecret`] from the invite carried in the
-    /// given [`OrganizationInviteLink`] so an admin can reconstruct the invite link.
-    #[deprecated(
-        note = "Use `create` or `refresh`, which returns an `OrganizationInviteLinkView`, instead"
-    )]
-    #[cfg_attr(feature = "wasm", wasm_bindgen(unchecked_return_type = "InviteSecret"))]
-    pub fn get_invite_secret(
-        &self,
-        organization_id: OrganizationId,
-        invite: Invite,
-    ) -> Result<InviteSecret, InviteLinkError> {
         let mut ctx = self.key_store.context();
-        let org_key = SymmetricKeySlotId::Organization(organization_id);
-        let invite_key = invite.unseal_invite_key_with_organization_key(org_key, &mut ctx)?;
-        let invite_secret = invite.get_invite_secret(invite_key, &mut ctx)?;
-        Ok(invite_secret)
+        OrganizationInviteLink::try_from(response)?.into_view(&mut ctx)
     }
 
     /// Helper function to make a new Invite to be included in a request model.
@@ -311,10 +243,9 @@ impl InviteLinkAdminClient {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
     use bitwarden_api_api::{
-        apis::{ApiClient, ResponseContent},
+        apis::{ApiClient, ApiClientMock, ResponseContent},
         models::OrganizationInviteLinkResponseModel,
     };
     use bitwarden_core::{
@@ -324,6 +255,7 @@ mod tests {
         PublicKeyEncryptionAlgorithm, SymmetricCryptoKey, SymmetricKeyAlgorithm,
     };
     use bitwarden_encoding::B64;
+    use bitwarden_organization_crypto::invite::InviteSecret;
 
     use super::*;
     use crate::InviteLinkClientExt as _;
@@ -676,29 +608,55 @@ mod tests {
         assert!(matches!(result, Err(InviteLinkError::Api(_))));
     }
 
+    /// Mocks the invite-links `get` endpoint to serve the invite in `stored`, standing in for the
+    /// invite the server persisted. The slot is filled in after the client is built, since the
+    /// invite must be sealed under the client's own organization key.
+    fn expect_get_serving(mock: &mut ApiClientMock, stored: Arc<std::sync::Mutex<Option<String>>>) {
+        mock.organization_invite_links_api
+            .expect_get()
+            .returning(move |org| {
+                Ok(echo_link_response(
+                    org,
+                    vec![],
+                    stored.lock().unwrap().clone().unwrap(),
+                    false,
+                ))
+            })
+            .once();
+    }
+
+    /// Mocks the invite-links support-confirm endpoint to echo the posted invite back, recording it
+    /// in `posted` so it can be checked independently of the response.
+    fn expect_support_confirm_echo(
+        mock: &mut ApiClientMock,
+        posted: Arc<std::sync::Mutex<Option<String>>>,
+    ) {
+        mock.organization_invite_links_api
+            .expect_update_invite_support_confirm()
+            .returning(move |org, model| {
+                let model = model.unwrap();
+                *posted.lock().unwrap() = Some(model.invite.clone());
+                Ok(echo_link_response(
+                    org,
+                    vec![],
+                    model.invite,
+                    model.supports_confirmation,
+                ))
+            })
+            .once();
+    }
+
     #[tokio::test]
-    async fn set_invite_confirmation_enables_confirmation_on_an_existing_invite() {
+    async fn update_confirmation_enables_confirmation_on_an_existing_invite() {
         let org_id = OrganizationId::new_v4();
-        // Captures the invite posted to the server so it can be checked independently of the
-        // echoed response.
+        let stored = Arc::new(std::sync::Mutex::new(None::<String>));
         let posted = Arc::new(std::sync::Mutex::new(None::<String>));
-        let for_mock = posted.clone();
+        let (for_get, for_confirm) = (stored.clone(), posted.clone());
         let client = make_client(
             org_id,
             ApiClient::new_mocked(move |mock| {
-                mock.organization_invite_links_api
-                    .expect_update_invite_support_confirm()
-                    .returning(move |org, model| {
-                        let model = model.unwrap();
-                        *for_mock.lock().unwrap() = Some(model.invite.clone());
-                        Ok(echo_link_response(
-                            org,
-                            vec![],
-                            model.invite,
-                            model.supports_confirmation,
-                        ))
-                    })
-                    .once();
+                expect_get_serving(mock, for_get);
+                expect_support_confirm_echo(mock, for_confirm);
             }),
         );
 
@@ -707,108 +665,101 @@ mod tests {
         let (_secret, mut invite, _org_public_key) = build_invite(&client, org_id);
         invite.disable_confirmation();
         assert!(!invite.supports_confirmation());
+        *stored.lock().unwrap() = Some(String::from(&invite));
 
-        let link = client
-            .set_invite_confirmation(org_id, invite, true)
-            .await
-            .unwrap();
+        let link = client.update_confirmation(org_id, true).await.unwrap();
 
         assert!(link.supports_confirmation);
-        assert!(link.invite.supports_confirmation());
         let posted: Invite = posted.lock().unwrap().clone().unwrap().parse().unwrap();
         assert!(posted.supports_confirmation());
     }
 
     #[tokio::test]
-    async fn set_invite_confirmation_disables_confirmation_on_an_existing_invite() {
+    async fn update_confirmation_disables_confirmation_on_an_existing_invite() {
         let org_id = OrganizationId::new_v4();
+        let stored = Arc::new(std::sync::Mutex::new(None::<String>));
+        let posted = Arc::new(std::sync::Mutex::new(None::<String>));
+        let (for_get, for_confirm) = (stored.clone(), posted.clone());
         let client = make_client(
             org_id,
-            ApiClient::new_mocked(|mock| {
-                mock.organization_invite_links_api
-                    .expect_update_invite_support_confirm()
-                    .returning(|org, model| {
-                        let model = model.unwrap();
-                        Ok(echo_link_response(
-                            org,
-                            vec![],
-                            model.invite,
-                            model.supports_confirmation,
-                        ))
-                    })
-                    .once();
+            ApiClient::new_mocked(move |mock| {
+                expect_get_serving(mock, for_get);
+                expect_support_confirm_echo(mock, for_confirm);
             }),
         );
 
         let (_secret, invite, _org_public_key) = build_invite(&client, org_id);
         assert!(invite.supports_confirmation());
+        *stored.lock().unwrap() = Some(String::from(&invite));
 
-        let link = client
-            .set_invite_confirmation(org_id, invite, false)
-            .await
-            .unwrap();
+        let link = client.update_confirmation(org_id, false).await.unwrap();
 
         assert!(!link.supports_confirmation);
-        assert!(!link.invite.supports_confirmation());
+        let posted: Invite = posted.lock().unwrap().clone().unwrap().parse().unwrap();
+        assert!(!posted.supports_confirmation());
     }
 
     #[tokio::test]
-    async fn set_invite_confirmation_preserves_the_invite_secret() {
+    async fn update_confirmation_preserves_the_invite_secret() {
         let org_id = OrganizationId::new_v4();
+        let stored = Arc::new(std::sync::Mutex::new(None::<String>));
+        let posted = Arc::new(std::sync::Mutex::new(None::<String>));
+        let (for_get, for_confirm) = (stored.clone(), posted.clone());
         let client = make_client(
             org_id,
-            ApiClient::new_mocked(|mock| {
-                mock.organization_invite_links_api
-                    .expect_update_invite_support_confirm()
-                    .returning(|org, model| {
-                        let model = model.unwrap();
-                        Ok(echo_link_response(
-                            org,
-                            vec![],
-                            model.invite,
-                            model.supports_confirmation,
-                        ))
-                    })
-                    .once();
+            ApiClient::new_mocked(move |mock| {
+                expect_get_serving(mock, for_get);
+                expect_support_confirm_echo(mock, for_confirm);
             }),
         );
 
         // Toggling confirmation must not rotate the invite key, so already-distributed links (which
         // carry the secret) keep working.
         let (secret, invite, _org_public_key) = build_invite(&client, org_id);
-        let link = client
-            .set_invite_confirmation(org_id, invite, false)
-            .await
-            .unwrap();
+        *stored.lock().unwrap() = Some(String::from(&invite));
 
-        let recovered = client.get_invite_secret(org_id, link.invite).unwrap();
-        assert_eq!(String::from(&recovered), String::from(&secret));
+        let link = client.update_confirmation(org_id, false).await.unwrap();
+
+        let suffix = format!("?key={}", String::from(&secret));
+        assert!(
+            link.url_fragment.ends_with(&suffix),
+            "unexpected fragment: {}",
+            link.url_fragment
+        );
     }
 
     #[tokio::test]
-    async fn set_invite_confirmation_with_unknown_organization_id_fails() {
+    async fn update_confirmation_with_unknown_organization_id_fails() {
         let org_id = OrganizationId::new_v4();
         let other_org_id = OrganizationId::new_v4();
-        let client = make_client(org_id, ApiClient::new_mocked(|_| {}));
+        let stored = Arc::new(std::sync::Mutex::new(None::<String>));
+        let for_get = stored.clone();
+        // No support-confirm expectation: the request must never be sent.
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| expect_get_serving(mock, for_get)),
+        );
 
         // The invite key is sealed to the client's own org key; re-sealing under a different
-        // organization's key slot (which is absent from the store) must fail before any request.
+        // organization's key slot (which is absent from the store) must fail before any update.
         let (_secret, mut invite, _org_public_key) = build_invite(&client, org_id);
         invite.disable_confirmation();
+        *stored.lock().unwrap() = Some(String::from(&invite));
 
-        let result = client
-            .set_invite_confirmation(other_org_id, invite, true)
-            .await;
+        let result = client.update_confirmation(other_org_id, true).await;
 
         assert!(matches!(result, Err(InviteLinkError::Invite(_))));
     }
 
     #[tokio::test]
-    async fn set_invite_confirmation_surfaces_api_errors() {
+    async fn update_confirmation_surfaces_api_errors() {
         let org_id = OrganizationId::new_v4();
+        let stored = Arc::new(std::sync::Mutex::new(None::<String>));
+        let for_get = stored.clone();
         let client = make_client(
             org_id,
-            ApiClient::new_mocked(|mock| {
+            ApiClient::new_mocked(move |mock| {
+                expect_get_serving(mock, for_get);
                 mock.organization_invite_links_api
                     .expect_update_invite_support_confirm()
                     .returning(|_org, _model| Err(std::io::Error::other("boom").into()));
@@ -816,7 +767,9 @@ mod tests {
         );
 
         let (_secret, invite, _org_public_key) = build_invite(&client, org_id);
-        let result = client.set_invite_confirmation(org_id, invite, false).await;
+        *stored.lock().unwrap() = Some(String::from(&invite));
+
+        let result = client.update_confirmation(org_id, false).await;
 
         assert!(matches!(result, Err(InviteLinkError::Api(_))));
     }
