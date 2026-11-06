@@ -7,18 +7,24 @@ import { EmergencyAccessServer } from "./emergency-access-server";
 import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
 import type {
   AccountId,
+  OrganizationEntity,
+  OrganizationInviteLinkEntity,
   OrganizationMember,
+  OrganizationRole,
   StoredMasterPasswordUnlock,
   UserEntity,
 } from "./entities";
 import { installHttpMock, type HttpMock, type Routes } from "./http-mock";
 import { IdentityServer } from "./identity-server";
 import { KeyConnectorServer } from "./key-connector-server";
+import { OrganizationInviteLinkServer } from "./organization-invite-link-server";
 import { API_URL, IDENTITY_URL, KEY_CONNECTOR_URL } from "./urls";
 
 import { asAccountId, asEncString, fromUuid } from "../tests/type-assertion-helpers";
 import {
   toSeedAccount,
+  toSeedOrganization,
+  type OrganizationVector,
   type EmergencyAccessVector,
   type PrivateKey,
   type UserVector,
@@ -124,6 +130,26 @@ export interface SeedOrganization {
   vault?: SeedVault;
 }
 
+/**
+ * What a test sets on a seeded organization that the vectors do not record: member roles, and the
+ * plan's limits. Members default to plain users on an unlimited plan that includes invite links.
+ */
+export interface SeedOrganizationOptions {
+  roles?: Record<string, OrganizationRole>;
+  useInviteLinks?: boolean;
+  seats?: number | null;
+}
+
+/** A seeded organization, alongside its members and the vector it was seeded from. */
+export interface SeededOrganization {
+  organizationId: OrganizationId;
+  vector: OrganizationVector;
+  /** The seed, for the plaintext of the organization's ciphers. */
+  seed: SeedOrganization;
+  /** Each member's account, keyed by user vector name. */
+  members: Record<string, SeededTestVector>;
+}
+
 /** What {@link ApiServer.seedUser} hands back, so a test does not have to dig the account out again. */
 export interface SeededAccount {
   userId: AccountId;
@@ -168,6 +194,7 @@ export class ServerEmulator {
   readonly identity = new IdentityServer(this.db);
   readonly keyConnector = new KeyConnectorServer(this.db);
   readonly emergencyAccess = new EmergencyAccessServer(this.db);
+  readonly inviteLinks = new OrganizationInviteLinkServer(this.db);
 
   /** The seeded account with this email. Throws if there is none. */
   getUser(email: string): UserEntity {
@@ -247,13 +274,15 @@ export class ServerEmulator {
    * Members are named by email, as everything else in the harness is, and resolved against the
    * accounts already seeded.
    */
-  seedOrganization(vector: SeedOrganization): void {
+  seedOrganization(vector: SeedOrganization, options: SeedOrganizationOptions = {}): void {
     const members: OrganizationMember[] = [];
 
     for (const member of vector.members) {
       const user = this.getUser(member.userEmail);
       members.push({
         userId: user.userId,
+        role: options.roles?.[member.userEmail] ?? "user",
+        status: "confirmed",
         organizationKeySealedToMember: member.organizationKeySealedToMember,
         accountRecoveryKey: member.accountRecoveryKey,
       });
@@ -269,6 +298,9 @@ export class ServerEmulator {
       wrappedPrivateKey: vector.wrappedPrivateKey,
       organizationKeyId: vector.organizationKeyId ?? null,
       members,
+      enabled: true,
+      useInviteLinks: options.useInviteLinks ?? true,
+      seats: options.seats ?? null,
     });
 
     for (const cipher of vector.vault?.ciphers ?? []) {
@@ -279,6 +311,51 @@ export class ServerEmulator {
         cipher: { ...cipher.encrypted, organizationId: vector.organizationId },
       });
     }
+  }
+
+  /**
+   * Seeds a committed organization vector: each member's account from its user vector, then the
+   * organization holding the recorded keys and ciphers.
+   *
+   * `options.roles` is keyed by user vector name here, as the vector names its members.
+   */
+  seedOrganizationTestVector(
+    vector: OrganizationVector,
+    options: SeedOrganizationOptions = {},
+  ): SeededOrganization {
+    const users = testVectors.users.all();
+    const members: Record<string, SeededTestVector> = {};
+    const roles: Record<string, OrganizationRole> = {};
+
+    for (const member of vector.members) {
+      const seeded = this.seedUserTestVector(testVectors.users.get(member.userVectorName));
+      members[member.userVectorName] = seeded;
+
+      const role = options.roles?.[member.userVectorName];
+      if (role !== undefined) {
+        roles[seeded.email] = role;
+      }
+    }
+
+    const seed = toSeedOrganization(vector, users);
+    this.seedOrganization(seed, { ...options, roles });
+
+    return { organizationId: vector.organizationId, vector, seed, members };
+  }
+
+  /** The organization with this id. Throws if there is none. */
+  getOrganization(organizationId: OrganizationId | string): OrganizationEntity {
+    const organization = this.db.organizations.get(String(organizationId));
+    if (organization === undefined) {
+      throw new Error(`no seeded organization ${organizationId}`);
+    }
+
+    return organization;
+  }
+
+  /** The organization's invite link, or `undefined` while it has none. */
+  inviteLinkFor(organizationId: OrganizationId | string): OrganizationInviteLinkEntity | undefined {
+    return this.db.inviteLinks.get(String(organizationId));
   }
 
   /**
@@ -333,6 +410,7 @@ export class ServerEmulator {
     return installHttpMock({
       ...bindToOrigin(this.api.routes(), API_URL),
       ...bindToOrigin(this.emergencyAccess.routes(), API_URL),
+      ...bindToOrigin(this.inviteLinks.routes(), API_URL),
       ...bindToOrigin(this.identity.routes(), IDENTITY_URL),
       ...bindToOrigin(this.keyConnector.routes(), KEY_CONNECTOR_URL),
     });
