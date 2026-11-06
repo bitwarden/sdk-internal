@@ -1,9 +1,7 @@
-use bitwarden_core::{MissingFieldError, key_management::KeySlotIds, require};
-use bitwarden_crypto::KeyStore;
+use bitwarden_core::{MissingFieldError, require};
 use bitwarden_vault::{
-    CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView,
-    FolderView, IdentityView, LoginUriView, PasswordHistoryView, SecureNoteType, SecureNoteView,
-    SshKeyView,
+    CardView, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView, FolderView,
+    IdentityView, LoginUriView, PasswordHistoryView, SecureNoteType, SecureNoteView, SshKeyView,
 };
 
 impl TryFrom<FolderView> for crate::Folder {
@@ -17,13 +15,10 @@ impl TryFrom<FolderView> for crate::Folder {
     }
 }
 
-impl crate::Cipher {
-    pub(crate) fn from_cipher(
-        key_store: &KeyStore<KeySlotIds>,
-        cipher: Cipher,
-    ) -> Result<Self, crate::error::ExportError> {
-        let view: CipherView = key_store.decrypt(&cipher)?;
+impl TryFrom<CipherView> for crate::Cipher {
+    type Error = MissingFieldError;
 
+    fn try_from(view: CipherView) -> Result<Self, Self::Error> {
         let r = match view.r#type {
             CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view)?)),
             CipherType::SecureNote => {
@@ -375,7 +370,8 @@ mod tests {
         };
         let encrypted = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
 
-        let cipher: crate::Cipher = crate::Cipher::from_cipher(&key_store, encrypted).unwrap();
+        let view: CipherView = key_store.decrypt(&encrypted).unwrap();
+        let cipher = crate::Cipher::try_from(view).unwrap();
 
         assert_eq!(cipher.id, test_id);
         assert_eq!(cipher.folder_id, None);

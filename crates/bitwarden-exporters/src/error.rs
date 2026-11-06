@@ -23,4 +23,7 @@ pub enum ExportError {
     BitwardenCrypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     Cipher(#[from] bitwarden_vault::CipherError),
+    /// An item of the input list is not valid.
+    #[error(transparent)]
+    InvalidInput(#[from] bitwarden_ffi::LargeVecError),
 }

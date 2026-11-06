@@ -1,5 +1,6 @@
 use bitwarden_collections::collection::Collection;
 use bitwarden_core::Client;
+use bitwarden_ffi::LargeVec;
 use bitwarden_vault::{Cipher, EncryptionContext, Folder};
 
 use crate::{
@@ -19,11 +20,14 @@ impl ExporterClient {
         Self { client }
     }
 
-    #[allow(missing_docs)]
+    /// Export the user's vault.
+    ///
+    /// The ciphers are read a batch at a time, but the decrypted list and the exported output are
+    /// each built in full.
     pub async fn export_vault(
         &self,
         folders: Vec<Folder>,
-        ciphers: Vec<Cipher>,
+        ciphers: LargeVec<Cipher>,
         format: ExportFormat,
     ) -> Result<String, ExportError> {
         export_vault(&self.client, folders, ciphers, format).await
@@ -45,10 +49,13 @@ impl ExporterClient {
     ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally, the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
+    ///
+    /// The ciphers are read a batch at a time, but the decrypted list and the exported output are
+    /// each built in full.
     pub fn export_cxf(
         &self,
         account: Account,
-        ciphers: Vec<Cipher>,
+        ciphers: LargeVec<Cipher>,
     ) -> Result<String, ExportError> {
         export_cxf(&self.client, account, ciphers)
     }
