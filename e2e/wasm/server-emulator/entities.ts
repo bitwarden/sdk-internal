@@ -79,6 +79,8 @@ export interface DeviceEntity {
   encryptedUserKey: string | null;
   encryptedPublicKey: string | null;
   encryptedPrivateKey: string | null;
+  /** Set when the device reported holding a device key the server sent no keys for. */
+  lostTrustReported: boolean;
 }
 
 export interface FolderEntity {

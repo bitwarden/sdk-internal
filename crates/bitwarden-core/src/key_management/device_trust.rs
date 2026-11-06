@@ -8,9 +8,12 @@
 //!
 //! The user picks whether to trust the device before decryption. The choice is persisted and
 //! acted on once the user key is available, see [`DeviceTrustClient::trust_device_if_required`].
+//!
+//! Unlocking with a trusted device combines the stored device key with the wrapped keys the
+//! server returns at login, see [`TrustedDeviceOption`].
 
 use bitwarden_api_api::{apis::ApiClient, models::DeviceKeysRequestModel};
-use bitwarden_crypto::{DeviceKey, SymmetricCryptoKey};
+use bitwarden_crypto::{DeviceKey, EncString, SymmetricCryptoKey, UnsignedSharedKey};
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -37,6 +40,71 @@ pub enum TrustOutcome {
     Trusted,
     /// The user did not choose to trust the device. Nothing changed.
     NotRequested,
+}
+
+/// The trusted device keys the server returns with the login response, as received.
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
+pub struct TrustedDeviceOption {
+    /// The device private key, wrapped by the device key.
+    pub encrypted_private_key: Option<EncString>,
+    /// The user key, encapsulated to the device public key.
+    pub encrypted_user_key: Option<UnsignedSharedKey>,
+}
+
+/// Why a trusted device could not unlock.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum DeviceUnlockError {
+    /// No device key is stored: the device is not trusted.
+    NotTrusted,
+    /// A device key is stored but the server sent no keys. Reported to the server.
+    TrustLost,
+    /// The stored device key does not unwrap the server's keys. The key was removed.
+    KeyInvalid,
+}
+
+/// Recovers the user key from the stored device key and the server's trusted device keys.
+///
+/// Mirrors the clients' behavior: a device key without server keys is reported as lost trust, and
+/// a device key that fails to unwrap is deleted so the device stops claiming trust.
+pub(crate) async fn unlock_user_key(
+    client: &Client,
+    api_client: &ApiClient,
+    option: TrustedDeviceOption,
+) -> Result<SymmetricCryptoKey, DeviceUnlockError> {
+    let bridge = client.km_state_bridge();
+    if !bridge.is_bridge_registered() {
+        return Err(DeviceUnlockError::NotTrusted);
+    }
+
+    let Some(device_key) = bridge.get_device_key().await else {
+        return Err(DeviceUnlockError::NotTrusted);
+    };
+
+    let (Some(private_key), Some(user_key)) =
+        (option.encrypted_private_key, option.encrypted_user_key)
+    else {
+        if let Err(e) = api_client.devices_api().post_lost_trust().await {
+            tracing::warn!("Failed to report lost device trust: {e:?}");
+        }
+        return Err(DeviceUnlockError::TrustLost);
+    };
+
+    let device_key: DeviceKey = device_key
+        .to_base64()
+        .to_string()
+        .try_into()
+        .map_err(|_| DeviceUnlockError::KeyInvalid)?;
+    match device_key.decrypt_user_key(private_key, user_key) {
+        Ok(user_key) => Ok(user_key),
+        Err(_) => {
+            tracing::error!("Failed to decrypt using device key. Removing device key.");
+            bridge.clear_device_key().await;
+            Err(DeviceUnlockError::KeyInvalid)
+        }
+    }
 }
 
 /// Errors from trusting a device.
@@ -127,7 +195,10 @@ async fn trust_device_if_required(
     Ok(TrustOutcome::Trusted)
 }
 
-async fn trust_device(client: &Client, api_client: &ApiClient) -> Result<(), DeviceTrustError> {
+pub(crate) async fn trust_device(
+    client: &Client,
+    api_client: &ApiClient,
+) -> Result<(), DeviceTrustError> {
     let bridge = client.km_state_bridge();
     if !bridge.is_bridge_registered() {
         return Err(DeviceTrustError::StateBridgeNotRegistered);
@@ -410,6 +481,103 @@ mod tests {
             client.km_state_bridge().get_should_trust_device().await,
             Some(true)
         );
+    }
+
+    /// Trusts `client` and returns the keys the server would send back at login.
+    async fn trust_and_capture(client: &Client) -> TrustedDeviceOption {
+        let posted = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let captured = posted.clone();
+        let api = ApiClient::new_mocked(move |mock| {
+            mock.devices_api
+                .expect_put_keys()
+                .once()
+                .returning(move |_, body| {
+                    *captured.lock().unwrap() = body;
+                    Ok(device_response())
+                });
+        });
+        trust_device(client, &api).await.unwrap();
+
+        let body = posted.lock().unwrap().take().unwrap();
+        TrustedDeviceOption {
+            encrypted_private_key: Some(body.encrypted_private_key.parse().unwrap()),
+            encrypted_user_key: Some(body.encrypted_user_key.parse().unwrap()),
+        }
+    }
+
+    fn api_expecting_lost_trust(times: usize) -> ApiClient {
+        ApiClient::new_mocked(move |mock| {
+            mock.devices_api
+                .expect_post_lost_trust()
+                .times(times)
+                .returning(|| Ok(()));
+        })
+    }
+
+    #[tokio::test]
+    async fn unlock_user_key_recovers_the_user_key() {
+        let client = trusted_client();
+        let option = trust_and_capture(&client).await;
+
+        let user_key = unlock_user_key(&client, &api_expecting_lost_trust(0), option)
+            .await
+            .unwrap();
+
+        #[allow(deprecated)]
+        let expected = client
+            .internal
+            .get_key_store()
+            .context()
+            .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+            .unwrap()
+            .clone();
+        assert_eq!(user_key, expected);
+    }
+
+    #[tokio::test]
+    async fn unlock_user_key_fails_without_device_key() {
+        let client = trusted_client();
+        let option = TrustedDeviceOption {
+            encrypted_private_key: None,
+            encrypted_user_key: None,
+        };
+
+        let result = unlock_user_key(&client, &api_expecting_lost_trust(0), option).await;
+
+        assert_eq!(result.unwrap_err(), DeviceUnlockError::NotTrusted);
+    }
+
+    #[tokio::test]
+    async fn unlock_user_key_reports_lost_trust_when_server_sends_no_keys() {
+        let client = trusted_client();
+        trust_and_capture(&client).await;
+        let option = TrustedDeviceOption {
+            encrypted_private_key: None,
+            encrypted_user_key: None,
+        };
+
+        let result = unlock_user_key(&client, &api_expecting_lost_trust(1), option).await;
+
+        assert_eq!(result.unwrap_err(), DeviceUnlockError::TrustLost);
+        assert!(client.km_state_bridge().get_device_key().await.is_some());
+    }
+
+    #[tokio::test]
+    async fn unlock_user_key_removes_a_device_key_that_does_not_unwrap() {
+        let client = trusted_client();
+        let option = trust_and_capture(&client).await;
+        // A different device key, as if this device's key was replaced.
+        client
+            .km_state_bridge()
+            .set_device_key(&SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ))
+            .await;
+
+        let result = unlock_user_key(&client, &api_expecting_lost_trust(0), option).await;
+
+        assert_eq!(result.unwrap_err(), DeviceUnlockError::KeyInvalid);
+        assert!(client.km_state_bridge().get_device_key().await.is_none());
     }
 
     #[tokio::test]

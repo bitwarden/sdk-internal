@@ -24,6 +24,9 @@ const PBKDF2_MIN_ITERATIONS = 600_000;
 
 /** Key ids travel as a lowercase hex encoding of 16 bytes. */
 const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
+
+/** The header every client request names its device in. */
+const DEVICE_IDENTIFIER_HEADER = "Device-Identifier";
 import { Database } from "./database";
 import {
   KeysResponse,
@@ -106,6 +109,10 @@ export class ApiServer {
       "PUT /devices/:identifier/keys": authenticatedRoute(this.db, (user, request) =>
         this.trustDevice(user, request.params.identifier, request.json<DeviceKeysRequest>()),
       ),
+      // The device is the one in the `Device-Identifier` header, as on the real server.
+      "POST /devices/lost-trust": authenticatedRoute(this.db, (user, request) =>
+        this.recordLostTrust(user, request.headers.get(DEVICE_IDENTIFIER_HEADER)),
+      ),
 
       "POST /folders": authenticatedRoute(this.db, (user, request) =>
         this.createFolder(user, request.json<FolderRequest>()),
@@ -125,6 +132,21 @@ export class ApiServer {
       folders: this.db.folders.all(),
       devices: this.db.devices.all(),
     };
+  }
+
+  /** Records that a device holds a device key but received no trusted device keys. */
+  private recordLostTrust(user: UserEntity, identifier: string | null): MockReply {
+    const entry = this.db.devices.findEntry(
+      (device) => device.userId === user.userId && device.identifier === identifier,
+    );
+    if (entry === undefined) {
+      return error(HTTP_NOT_FOUND, `no device ${identifier} for ${user.email}`);
+    }
+
+    const [id, device] = entry;
+    this.db.devices.update(id, { ...device, lostTrustReported: true });
+
+    return {};
   }
 
   /**

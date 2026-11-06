@@ -2,7 +2,7 @@ use bitwarden_auth::{
     AuthClientExt,
     registration::{
         JitMasterPasswordRegistrationRequest, JitMasterPasswordRegistrationResponse,
-        KeyConnectorRegistrationResult, TdeRegistrationRequest, TdeRegistrationResponse,
+        KeyConnectorRegistrationResult, TdeRegistrationRequest,
         UserMasterPasswordRegistrationRequest, UserMasterPasswordRegistrationResponse,
     },
 };
@@ -15,11 +15,11 @@ pub struct RegistrationClient(pub(crate) bitwarden_core::Client);
 #[uniffi::export(async_runtime = "tokio")]
 impl RegistrationClient {
     /// Initializes a new cryptographic state for a user and posts it to the server; enrolls in
-    /// admin password reset and finally enrolls the user to TDE unlock.
+    /// admin password reset, unlocks the client and, if the user chose to, trusts this device.
     pub async fn post_keys_for_tde_registration(
         &self,
         request: TdeRegistrationRequest,
-    ) -> Result<TdeRegistrationResponse, BitwardenError> {
+    ) -> Result<(), BitwardenError> {
         Ok(self
             .0
             .auth_new()

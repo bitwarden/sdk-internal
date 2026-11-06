@@ -63,6 +63,18 @@ pub enum EncryptionSettingsError {
     /// The migration (re-wrap) of the local user data key failed after a user key upgrade
     #[error("Unable to migrate local user data key after user key upgrade")]
     LocalUserDataMigrationFailed,
+
+    /// No device key is stored: this device is not trusted.
+    #[error("This device is not trusted")]
+    DeviceNotTrusted,
+
+    /// A device key is stored but the server sent no trusted device keys.
+    #[error("Device trust was lost")]
+    DeviceTrustLost,
+
+    /// The stored device key does not unwrap the server's keys and was removed.
+    #[error("The device key is invalid")]
+    DeviceKeyInvalid,
 }
 
 #[allow(missing_docs)]

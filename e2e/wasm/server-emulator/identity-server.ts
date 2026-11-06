@@ -101,6 +101,7 @@ export class IdentityServer {
       encryptedUserKey: null,
       encryptedPublicKey: null,
       encryptedPrivateKey: null,
+      lostTrustReported: false,
     });
   }
 
