@@ -15,9 +15,10 @@ readme.workspace = true
 keywords.workspace = true
 
 [features]
-uniffi = ["bitwarden-core/uniffi", "dep:uniffi"]
+uniffi = ["bitwarden-core/uniffi", "bitwarden-crypto/uniffi", "dep:uniffi"]
 wasm = [
     "bitwarden-core/wasm",
+    "bitwarden-crypto/wasm",
     "bitwarden-ffi/wasm",
     "bitwarden-state/wasm",
     "dep:tsify",
@@ -26,6 +27,7 @@ wasm = [
 
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-crypto = { workspace = true }
 bitwarden-ffi = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-uuid = { workspace = true }
