@@ -22,9 +22,8 @@ impl ExporterClient {
 
     /// Export the user's vault.
     ///
-    /// An item of the input list that is not a valid cipher fails the call with
-    /// [`ExportError::InvalidInput`]. The ciphers are read a batch at a time, but the decrypted
-    /// list and the exported output are each built in full.
+    /// The ciphers are read a batch at a time, but the decrypted list and the exported output are
+    /// each built in full.
     pub async fn export_vault(
         &self,
         folders: Vec<Folder>,
@@ -51,9 +50,8 @@ impl ExporterClient {
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally, the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     ///
-    /// An item of the input list that is not a valid cipher fails the call with
-    /// [`ExportError::InvalidInput`]. The ciphers are read a batch at a time, but the decrypted
-    /// list and the exported output are each built in full.
+    /// The ciphers are read a batch at a time, but the decrypted list and the exported output are
+    /// each built in full.
     pub fn export_cxf(
         &self,
         account: Account,
