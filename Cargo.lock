@@ -1237,6 +1237,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-organization-crypto-management"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-error",
+ "bitwarden-ffi",
+ "bitwarden-organizations",
+ "bitwarden-state",
+ "bitwarden-test",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-organization-domains"
 version = "4.0.0"
 dependencies = [
@@ -1279,6 +1298,7 @@ name = "bitwarden-organizations"
 version = "4.0.0"
 dependencies = [
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-ffi",
  "bitwarden-state",
  "bitwarden-test",
@@ -1358,6 +1378,7 @@ dependencies = [
  "bitwarden-importers",
  "bitwarden-managed-settings",
  "bitwarden-member-administration",
+ "bitwarden-organization-crypto-management",
  "bitwarden-organization-domains",
  "bitwarden-organization-invite-link",
  "bitwarden-organizations",
