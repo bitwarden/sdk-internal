@@ -1,97 +1,178 @@
-import { PasswordManagerClient, type WasmStateBridge } from "@bitwarden/sdk-internal";
-import {
-  initializeUserCrypto,
-  makeInitializedPasswordmanagerClient,
-  makePasswordManagerClient,
-  makeStateBridge,
-  TEST_PIN,
-} from "../utils";
+import { isEncryptionSettingsError } from "@bitwarden/sdk-internal";
 
-describe("pin lock tests", () => {
-  let client: PasswordManagerClient;
-  let stateBridge: WasmStateBridge;
+import { validateVault } from "../../client-emulator/validate";
+import { testHarness, type TestHarness } from "../../test-harness";
+import { testVectors } from "../../vectors/test-vectors";
+import { rejection, TEST_PIN } from "../utils";
 
-  beforeAll(async () => {
-    stateBridge = makeStateBridge();
-    client = await makeInitializedPasswordmanagerClient(stateBridge);
-  });
+const TIMEOUT = 120_000;
 
-  it("enrolls a PIN with BeforeFirstUnlock lock type", async () => {
-    const pinSettings = client.user_crypto_management().pin_settings();
+const V2_VECTOR = testVectors.users.withMasterPassword().get("v2-pbkdf2-blob");
 
-    await pinSettings.set_pin(TEST_PIN, "BeforeFirstUnlock");
+const WRONG_PIN = "0000";
 
-    expect(await pinSettings.get_status()).toEqual("Available");
-    expect(await pinSettings.get_lock_type()).toBe("BeforeFirstUnlock");
-    expect(await stateBridge.get_encrypted_pin()).toBeDefined();
-    // BeforeFirstUnlock populates both envelopes
-    expect(await stateBridge.get_persistent_pin_envelope()).toBeDefined();
-    expect(await stateBridge.get_ephemeral_pin_envelope()).toBeDefined();
-  });
+describe("pin lock", () => {
+  let harness: TestHarness;
 
-  it("enrolls a PIN with AfterFirstUnlock lock type", async () => {
-    const pinSettings = client.user_crypto_management().pin_settings();
+  beforeEach(() => {
+    harness = testHarness();
+  }, TIMEOUT);
 
-    await pinSettings.set_pin(TEST_PIN, "AfterFirstUnlock");
+  afterEach(() => harness.restore());
 
-    expect(await pinSettings.get_status()).toEqual("Available");
-    expect(await pinSettings.get_lock_type()).toBe("AfterFirstUnlock");
-    expect(await stateBridge.get_encrypted_pin()).toBeDefined();
-    // AfterFirstUnlock populates only the ephemeral envelope
-    expect(await stateBridge.get_ephemeral_pin_envelope()).toBeDefined();
-    expect(await stateBridge.get_persistent_pin_envelope()).toBeNull();
-  });
+  /**
+   * A BeforeFirstUnlock PIN keeps a persistent envelope, so it unlocks straight after the app
+   * restarts, both from the encrypted PIN and from the envelope itself.
+   *
+   *   device ──unlock─▶ set_pin ─▶ restart ─▶ unlock(PIN state) ─▶ restart ─▶ unlock(envelope)
+   */
+  testVectors.users.each(
+    "$name unlocks with a BeforeFirstUnlock PIN after a restart",
+    async (vector) => {
+      const seeded = harness.server.seedUserTestVector(vector);
+      const device = await harness.newUnlockedClient(seeded);
 
-  it("validates the PIN", async () => {
-    const pinSettings = client.user_crypto_management().pin_settings();
+      // 1. Enroll the PIN
+      await device
+        .getPasswordManagerClient()
+        .user_crypto_management()
+        .pin_settings()
+        .set_pin(TEST_PIN, "BeforeFirstUnlock");
 
-    await pinSettings.set_pin(TEST_PIN, "BeforeFirstUnlock");
-    const validated = await pinSettings.validate_pin(TEST_PIN);
+      // 2. Verify the PIN unlocks after a restart
+      await device.restart();
+      await device.unlockWith({ pinState: { pin: TEST_PIN } });
+      await validateVault(device, seeded.seed, []);
 
-    expect(validated).toBe(true);
-  });
+      // 3. Verify the persistent envelope unlocks after a restart too
+      const envelope = await device.bridge.get_persistent_pin_envelope();
+      await device.restart();
+      await device.unlockWith({
+        pinEnvelope: { pin: TEST_PIN, pin_protected_user_key_envelope: envelope! },
+      });
+      await validateVault(device, seeded.seed, []);
+    },
+    TIMEOUT,
+  );
 
-  it("unsets the PIN", async () => {
-    const pinSettings = client.user_crypto_management().pin_settings();
+  /**
+   * An AfterFirstUnlock PIN keeps only an ephemeral envelope: it unlocks a locked app, but not a
+   * restarted one until another unlock method has run.
+   *
+   *   device ──unlock─▶ set_pin ─▶ lock ─▶ unlock(PIN) ─▶ restart ─▶ unlock(PIN) refused
+   */
+  testVectors.users.each(
+    "$name unlocks with an AfterFirstUnlock PIN until a restart",
+    async (vector) => {
+      const seeded = harness.server.seedUserTestVector(vector);
+      const device = await harness.newUnlockedClient(seeded);
 
-    await pinSettings.set_pin(TEST_PIN, "BeforeFirstUnlock");
-    await pinSettings.unset_pin();
+      // 1. Enroll the PIN
+      await device
+        .getPasswordManagerClient()
+        .user_crypto_management()
+        .pin_settings()
+        .set_pin(TEST_PIN, "AfterFirstUnlock");
 
-    expect(await pinSettings.get_status()).toEqual("NotSet");
-    expect(await stateBridge.get_encrypted_pin()).toBeNull();
-    expect(await stateBridge.get_persistent_pin_envelope()).toBeNull();
-    expect(await stateBridge.get_ephemeral_pin_envelope()).toBeNull();
-  });
+      // 2. Verify the PIN unlocks a locked app
+      await device.lock();
+      await device.unlockWith({ pinState: { pin: TEST_PIN } });
+      await validateVault(device, seeded.seed, []);
 
-  it("stores the PIN length on set and clears it on unset", async () => {
-    const pinSettings = client.user_crypto_management().pin_settings();
+      // 3. Verify the PIN is refused after a restart
+      await device.restart();
+      const error = await rejection(
+        device.unlockWith({ pinState: { pin: TEST_PIN } }),
+        isEncryptionSettingsError,
+      );
+      expect(error.variant).toBe("PinUnlockNotAvailable");
+    },
+    TIMEOUT,
+  );
 
-    await pinSettings.set_pin(TEST_PIN, "AfterFirstUnlock");
+  it(
+    "validates the PIN",
+    async () => {
+      const seeded = harness.server.seedUserTestVector(V2_VECTOR);
+      const device = await harness.newUnlockedClient(seeded);
+      const pinSettings = device.getPasswordManagerClient().user_crypto_management().pin_settings();
 
-    expect(await stateBridge.get_pin_length()).toBe(TEST_PIN.length);
-    expect(await pinSettings.get_pin_length()).toBe(TEST_PIN.length);
+      // 1. Enroll the PIN
+      await pinSettings.set_pin(TEST_PIN, "BeforeFirstUnlock");
 
-    await pinSettings.unset_pin();
+      // 2. Verify only the enrolled PIN validates
+      expect(await pinSettings.validate_pin(TEST_PIN)).toBe(true);
+      expect(await pinSettings.validate_pin(WRONG_PIN)).toBe(false);
+    },
+    TIMEOUT,
+  );
 
-    expect(await stateBridge.get_pin_length()).toBeNull();
-    expect(await pinSettings.get_pin_length()).toBeUndefined();
-  });
+  it(
+    "unsets the PIN",
+    async () => {
+      const seeded = harness.server.seedUserTestVector(V2_VECTOR);
+      const device = await harness.newUnlockedClient(seeded);
+      const pinSettings = device.getPasswordManagerClient().user_crypto_management().pin_settings();
 
-  it("stores the length of a PIN set before lengths were, on unlock", async () => {
-    const bridge = makeStateBridge();
-    const setupClient = await makeInitializedPasswordmanagerClient(bridge);
-    await setupClient
-      .user_crypto_management()
-      .pin_settings()
-      .set_pin(TEST_PIN, "BeforeFirstUnlock");
-    // Emulates a PIN set before lengths were stored.
-    await bridge.clear_pin_length();
+      // 1. Enroll the PIN, then unset it
+      await pinSettings.set_pin(TEST_PIN, "BeforeFirstUnlock");
+      await pinSettings.unset_pin();
 
-    const unlockedClient = makePasswordManagerClient(bridge);
-    await initializeUserCrypto(unlockedClient, { pinState: { pin: TEST_PIN } });
+      // 2. Verify the PIN no longer unlocks
+      await device.restart();
+      const error = await rejection(
+        device.unlockWith({ pinState: { pin: TEST_PIN } }),
+        isEncryptionSettingsError,
+      );
+      expect(error.variant).toBe("PinUnlockNotAvailable");
+    },
+    TIMEOUT,
+  );
 
-    expect(await unlockedClient.user_crypto_management().pin_settings().get_pin_length()).toBe(
-      TEST_PIN.length,
-    );
-  });
+  it(
+    "stores the PIN length on set and clears it on unset",
+    async () => {
+      const seeded = harness.server.seedUserTestVector(V2_VECTOR);
+      const device = await harness.newUnlockedClient(seeded);
+      const pinSettings = device.getPasswordManagerClient().user_crypto_management().pin_settings();
+
+      // 1. Enroll the PIN, and verify the length is stored
+      await pinSettings.set_pin(TEST_PIN, "AfterFirstUnlock");
+      expect(await pinSettings.get_pin_length()).toBe(TEST_PIN.length);
+
+      // 2. Unset the PIN, and verify the length is gone
+      await pinSettings.unset_pin();
+      expect(await pinSettings.get_pin_length()).toBeUndefined();
+    },
+    TIMEOUT,
+  );
+
+  /**
+   * A PIN set by a client that predates stored PIN lengths has none. The first PIN unlock
+   * records it.
+   */
+  it(
+    "stores the length of a PIN set before lengths were, on unlock",
+    async () => {
+      const seeded = harness.server.seedUserTestVector(V2_VECTOR);
+      const device = await harness.newUnlockedClient(seeded);
+
+      // 1. Enroll the PIN as an older client would have, with no length stored
+      await device
+        .getPasswordManagerClient()
+        .user_crypto_management()
+        .pin_settings()
+        .set_pin(TEST_PIN, "BeforeFirstUnlock");
+      await device.bridge.clear_pin_length();
+
+      // 2. Unlock with the PIN
+      await device.restart();
+      await device.unlockWith({ pinState: { pin: TEST_PIN } });
+
+      // 3. Verify the length was recorded
+      const pinSettings = device.getPasswordManagerClient().user_crypto_management().pin_settings();
+      expect(await pinSettings.get_pin_length()).toBe(TEST_PIN.length);
+    },
+    TIMEOUT,
+  );
 });

@@ -19,7 +19,7 @@ import {
   type SyncResponse,
 } from "../server-emulator/dto";
 import type { ServerEmulator } from "../server-emulator/server-emulator";
-import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
+import { asEncString, asKeyId, asUnsignedSharedKey } from "../tests/type-assertion-helpers";
 
 import { LocalState } from "./local-state";
 
@@ -90,7 +90,7 @@ export class ClientEmulator {
       synced.profile.organizations.map((organization) => [organization.id, organization.key]),
     );
     const unlock = synced.userDecryption.masterPasswordUnlock;
-    const { v2UpgradeToken, userKeyId } = synced.userDecryption;
+    const { v2UpgradeToken, webAuthnPrfOptions, userKeyId } = synced.userDecryption;
 
     const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
 
@@ -116,6 +116,12 @@ export class ClientEmulator {
                 wrapped_user_key_1: asEncString(v2UpgradeToken.wrappedUserKey1),
                 wrapped_user_key_2: asEncString(v2UpgradeToken.wrappedUserKey2),
               },
+        webAuthnPrfOptions: webAuthnPrfOptions?.map((option) => ({
+          encryptedPrivateKey: asEncString(option.encryptedPrivateKey),
+          encryptedUserKey: asUnsignedSharedKey(option.encryptedUserKey),
+          credentialId: option.credentialId ?? undefined,
+          transports: option.transports ?? undefined,
+        })),
         userKeyId: userKeyId === undefined ? undefined : asKeyId(userKeyId),
       },
     });

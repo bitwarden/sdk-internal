@@ -1,107 +1,88 @@
-import { ClientSettings, PasswordManagerClient } from "@bitwarden/sdk-internal";
+import { isOrganizationDomainsError } from "@bitwarden/sdk-internal";
 
-import { HttpMock, MockReply, installHttpMock } from "../../server-emulator/http-mock";
-import { TEST_ORGANIZATION_ID } from "../org-fixtures";
-import { makePasswordManagerClient, makeStateBridge } from "../utils";
+import { OrganizationRole } from "../../server-emulator/entities";
+import type { SeededOrganization } from "../../server-emulator/server-emulator";
+import { testHarness, type TestHarness } from "../../test-harness";
+import { testVectors } from "../../vectors/test-vectors";
+import { rejection } from "../utils";
 
-// Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
-// SDK's request URLs parseable and makes an unmocked route fail loudly rather than escape to
-// the network.
-const SETTINGS: ClientSettings = {
-  apiUrl: "http://localhost:4000",
-  identityUrl: "http://localhost:4000/identity",
-};
+const TIMEOUT = 120_000;
 
-const ORG = TEST_ORGANIZATION_ID as unknown as string;
-const GET_MINI = `GET /organizations/${ORG}/domain/mini`;
-/** The full endpoint requires Manage SSO; calling it without that permission logs the user out. */
-const GET_FULL = `GET /organizations/${ORG}/domain`;
+const ORG_VECTOR = testVectors.organizations.get("example-org");
 
-interface MiniDomain {
-  domainName?: string | null;
-  verifiedDate?: string | null;
-}
+/** Members of {@link ORG_VECTOR}, by user-vector name. */
+const ADMIN = "v1-pbkdf2-password";
+const USER = "v1-argon2id-password";
 
-/** The list the mini domains endpoint returns. */
-function miniList(rows: MiniDomain[]): MockReply {
-  return {
-    json: {
-      object: "list",
-      data: rows.map((row) => ({ object: "organizationDomainMini", ...row })),
-      continuationToken: null,
-    },
-  };
-}
-
-// The Rust unit tests cover the filtering in detail. These tests exist to prove the FFI-specific
-// concerns: the client is reachable, it calls the endpoint a Manage Users member is allowed to
-// call, the domains cross the boundary as plain strings, and failures surface as typed errors.
+// The Rust unit tests cover the filtering in detail. These tests prove the client calls the
+// endpoint a Manage Users member may call, and the domains cross the boundary as plain strings.
+// The full domains endpoint is not modeled: it needs Manage SSO, and a call to it would answer 501.
 describe("organization domains client", () => {
-  // Every command here is a plain API call with no crypto, so the client needs no unlock.
-  let client: PasswordManagerClient;
-  let mock: HttpMock;
+  let harness: TestHarness;
+  let organization: SeededOrganization;
 
-  beforeAll(() => {
-    client = makePasswordManagerClient(makeStateBridge(), SETTINGS);
-  });
+  beforeEach(() => {
+    harness = testHarness();
+    organization = harness.server.seedOrganizationTestVector(ORG_VECTOR, {
+      [ADMIN]: OrganizationRole.Admin,
+    });
+  }, TIMEOUT);
 
-  afterEach(() => {
-    expect(mock.unmatched.map((request) => request.route)).toEqual([]);
-    mock.restore();
-  });
+  afterEach(() => harness.restore());
 
-  describe("get_verified_domains", () => {
-    it("fetches the mini domains and returns only the verified domain names", async () => {
-      mock = installHttpMock({
-        [GET_MINI]: () =>
-          miniList([
-            { domainName: "verified.com", verifiedDate: "2026-09-15T00:00:00Z" },
-            { domainName: "unverified.com", verifiedDate: null },
-            { domainName: "also-verified.com", verifiedDate: "2026-09-16T00:00:00Z" },
-          ]),
-      });
+  it(
+    "lists only the verified domains to a member who manages users",
+    async () => {
+      // 1. The organization claims three domains and verifies two
+      harness.server.claimDomain(organization.organizationId, "verified.com", true);
+      harness.server.claimDomain(organization.organizationId, "unverified.com", false);
+      harness.server.claimDomain(organization.organizationId, "also-verified.com", true);
 
-      const domains = await client
+      // 2. Verify an admin sees the verified ones
+      const admin = await harness.newUnlockedClient(organization.members[ADMIN]);
+      const domains = await admin
+        .getPasswordManagerClient()
         .organization_domains()
-        .get_verified_domains(TEST_ORGANIZATION_ID);
-
-      expect(mock.routes()).toEqual([GET_MINI]);
-      // Must not fall through to the Manage SSO-only endpoint.
-      expect(mock.called(GET_FULL)).toBe(false);
-
+        .get_verified_domains(organization.organizationId);
       expect(domains).toEqual(["verified.com", "also-verified.com"]);
-    });
+    },
+    TIMEOUT,
+  );
 
-    it("returns an empty array when the organization has no verified domains", async () => {
-      mock = installHttpMock({
-        [GET_MINI]: () => miniList([{ domainName: "unverified.com", verifiedDate: null }]),
-      });
+  it(
+    "lists nothing when no domain is verified",
+    async () => {
+      // 1. The organization claims a domain it has not verified
+      harness.server.claimDomain(organization.organizationId, "unverified.com", false);
 
-      const domains = await client
+      // 2. Verify an admin sees none
+      const admin = await harness.newUnlockedClient(organization.members[ADMIN]);
+      const domains = await admin
+        .getPasswordManagerClient()
         .organization_domains()
-        .get_verified_domains(TEST_ORGANIZATION_ID);
-
+        .get_verified_domains(organization.organizationId);
       expect(domains).toEqual([]);
-    });
+    },
+    TIMEOUT,
+  );
 
-    it("rejects with a typed error when the server refuses the request", async () => {
-      mock = installHttpMock({
-        [GET_MINI]: () => ({ status: 404, json: { message: "Resource not found." } }),
-      });
+  it(
+    "refuses a member who cannot manage users",
+    async () => {
+      // 1. A plain member asks for the domains
+      harness.server.claimDomain(organization.organizationId, "verified.com", true);
+      const user = await harness.newUnlockedClient(organization.members[USER]);
 
-      await expect(
-        client.organization_domains().get_verified_domains(TEST_ORGANIZATION_ID),
-      ).rejects.toMatchObject({ name: "OrganizationDomainsError", variant: "Api" });
-    });
-
-    it("rejects with a typed error when a verified domain has no name", async () => {
-      mock = installHttpMock({
-        [GET_MINI]: () => miniList([{ domainName: null, verifiedDate: "2026-09-15T00:00:00Z" }]),
-      });
-
-      await expect(
-        client.organization_domains().get_verified_domains(TEST_ORGANIZATION_ID),
-      ).rejects.toMatchObject({ name: "OrganizationDomainsError", variant: "MissingField" });
-    });
-  });
+      // 2. Verify the request is refused
+      const error = await rejection(
+        user
+          .getPasswordManagerClient()
+          .organization_domains()
+          .get_verified_domains(organization.organizationId),
+        isOrganizationDomainsError,
+      );
+      expect(error.variant).toBe("Api");
+    },
+    TIMEOUT,
+  );
 });
