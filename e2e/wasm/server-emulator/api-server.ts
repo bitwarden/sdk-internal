@@ -1,6 +1,7 @@
 // An in-memory model of the Bitwarden's api server
 
 import type { Cipher, Folder } from "@bitwarden/sdk-internal";
+import { OrganizationUserType } from "@bitwarden/sdk-internal";
 
 import type { MockReply, Routes } from "./http-mock";
 
@@ -36,7 +37,8 @@ import {
   KeyRegenerationRequest,
   KeyRotationDataResponse,
   MasterPasswordUnlockDataModel,
-  type ProfileOrganizationResponse,
+  type OrganizationKeyIdRequest,
+  ProfileOrganizationResponse,
   RotateUserKeysRequest,
   UnlockMethod,
   SyncResponse,
@@ -44,7 +46,7 @@ import {
   type ChangeKdfRequest,
 } from "./dto";
 import type { CipherEntity, FolderEntity, UserEntity } from "./entities";
-import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_NOT_FOUND } from "./replies";
+import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_FORBIDDEN, HTTP_NOT_FOUND } from "./replies";
 
 export class ApiServer {
   constructor(readonly db: Database) {}
@@ -78,6 +80,16 @@ export class ApiServer {
       "POST /accounts/key-management/rotate-user-keys": authenticatedRoute(
         this.db,
         (user, request) => this.rotateUserKeys(user, request.json<RotateUserKeysRequest>()),
+      ),
+
+      "POST /organizations/:orgId/keys/organization-key-id": authenticatedRoute(
+        this.db,
+        (user, request) =>
+          this.recordOrganizationKeyId(
+            user,
+            request.params.orgId,
+            request.json<OrganizationKeyIdRequest>(),
+          ),
       ),
 
       "POST /ciphers": authenticatedRoute(this.db, (user, request) =>
@@ -143,7 +155,12 @@ export class ApiServer {
    * row wins, since it is the organization's own record of what it sealed.
    */
   private organizationsFor(user: UserEntity): ProfileOrganizationResponse[] {
-    const sealed = new Map(Object.entries(user.organizationKeys));
+    const organizations = new Map(
+      Object.entries(user.organizationKeys).map(([id, key]) => [
+        id,
+        ProfileOrganizationResponse.fromSealedKey(id, key),
+      ]),
+    );
 
     for (const organization of this.db.organizations.all()) {
       const member = organization.members.find((candidate) => candidate.userId === user.userId);
@@ -151,10 +168,13 @@ export class ApiServer {
         continue;
       }
 
-      sealed.set(organization.organizationId, member.organizationKeySealedToMember);
+      organizations.set(
+        organization.organizationId,
+        ProfileOrganizationResponse.fromMembership(organization, member),
+      );
     }
 
-    return [...sealed].map(([id, key]) => ({ object: "profileOrganization", id, key }));
+    return [...organizations.values()];
   }
 
   /** Whether `user` owns the cipher or is a member of the organization that does. */
@@ -337,6 +357,49 @@ export class ApiServer {
     }
 
     user.userKeyId = asKeyId(posted.userKeyId);
+    this.db.revisions.next();
+
+    return {};
+  }
+
+  /**
+   * Records the id of an organization's key, which only an Owner or Admin holding the key may do.
+   *
+   * The server never sees the key, so it cannot check the id: it keeps the first one it is given.
+   * The same id again is accepted, and a different one is refused.
+   */
+  private recordOrganizationKeyId(
+    user: UserEntity,
+    organizationId: string,
+    posted: OrganizationKeyIdRequest,
+  ): MockReply {
+    const organization = this.db.organizations.get(organizationId);
+    const member = organization?.members.find((candidate) => candidate.userId === user.userId);
+    if (
+      organization === undefined ||
+      member === undefined ||
+      (member.type !== OrganizationUserType.Owner && member.type !== OrganizationUserType.Admin)
+    ) {
+      return error(HTTP_FORBIDDEN, `not an owner or admin of organization ${organizationId}`);
+    }
+    if (!KEY_ID_PATTERN.test(posted.organizationKeyId)) {
+      return error(HTTP_BAD_REQUEST, `malformed key id ${posted.organizationKeyId}`);
+    }
+    if (member.organizationKeySealedToMember === "") {
+      return error(HTTP_BAD_REQUEST, "Organization key is not available.");
+    }
+
+    if (organization.organizationKeyId !== null) {
+      if (organization.organizationKeyId === posted.organizationKeyId) {
+        return {};
+      }
+      return error(
+        HTTP_CONFLICT,
+        `organization already has key id ${organization.organizationKeyId}`,
+      );
+    }
+
+    organization.organizationKeyId = posted.organizationKeyId;
     this.db.revisions.next();
 
     return {};
