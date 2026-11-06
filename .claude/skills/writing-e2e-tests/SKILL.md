@@ -35,22 +35,22 @@ instead.
              └──────────────── sync / unlock / lock / restart ◄──── Database (seeded from test-vectors/)
 ```
 
-| Path                                             | Role                                                                                                                                |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `test-harness.ts`                                | `testHarness()` → `{ server, newClientEmulator(), restore() }`; installs the fetch hook                                             |
-| `server-emulator/server-emulator.ts`             | `seedUserTestVector`, `seedOrganization`, `seedEmergencyAccessTestVector`, `getUser`, `db`                                          |
-| `server-emulator/api-server.ts`                  | Route model (`/sync`, kdf, rotation, ciphers, folders…) with real server rules (409, 400)                                           |
-| `server-emulator/*-server.ts`                    | One service per file (`api`, `emergency-access`, `identity`, `key-connector`); `routes()` bound to its origin in `installFetchHook` |
-| `server-emulator/dto.ts`                         | Server wire DTOs + converters (`SyncResponse.forUser`, `CipherRequest.toCipher`…)                                                   |
-| `server-emulator/http-mock.ts`                   | Fetch hook; records `requests`, `unmatched`, `bodyFor`, `called`                                                                    |
-| `client-emulator/client-emulator.ts`             | `ClientEmulator` (`login(email, LoginMethod, password?)`, `sync`, `unlock`, `unlockWith`, `lock`, `restart`, `reinit`)              |
-| `client-emulator/local-state.ts`                 | `LocalState`: state bridge + repositories; `locked()`, `unlock(method)`, `clearEphemeral`                                           |
-| `client-emulator/validate.ts`                    | `validateVault(client, seed, ignore)`, `validateCiphers`, `expectPlaintextEqual`                                                    |
-| `vectors/test-vectors.ts`                        | `testVectors.users` / `.emergencyAccess` selectors; `.each`, `.eachUnlockMethod`                                                    |
-| `test-vectors/**.json` (repo root, not this dir) | Committed accounts: keys, unlock methods, encrypted + decrypted vault                                                               |
-| `tests/utils.ts`                                 | `makeStateBridge`, `rejection`, IPC transport/biometrics mocks                                                                      |
-| `tests/type-assertion-helpers.ts`                | `asUserId`, `asEncString`, `asKeyId`… — branded-type casts                                                                          |
-| `perf/*.perf.ts`                                 | Benchmarks (`npm run perf`), not tests                                                                                              |
+| Path                                             | Role                                                                                                                                                                                                |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test-harness.ts`                                | `testHarness()` → `{ server, newClientEmulator(), requests, restore() }`; installs the fetch hook                                                                                                   |
+| `server-emulator/server-emulator.ts`             | `seedUserTestVector`, `seedOrganization(seed, options?)`, `seedOrganizationTestVector`, `seedEmergencyAccessTestVector`, `getUser`, `getOrganization`, `setOrganizationPlan`, `inviteLinkFor`, `db` |
+| `server-emulator/api-server.ts`                  | Route model (`/sync`, kdf, rotation, ciphers, folders…) with real server rules (409, 400)                                                                                                           |
+| `server-emulator/*-server.ts`                    | One service per file (`api`, `emergency-access`, `identity`, `key-connector`, `organization-invite-link`); `routes()` bound to its origin in `installFetchHook`                                     |
+| `server-emulator/dto.ts`                         | Server wire DTOs + converters (`SyncResponse.forUser`, `CipherRequest.toCipher`…)                                                                                                                   |
+| `server-emulator/http-mock.ts`                   | Fetch hook; records `requests`, `unmatched`, `bodyFor`, `called`                                                                                                                                    |
+| `client-emulator/client-emulator.ts`             | `ClientEmulator` (`login(email, LoginMethod, password?)`, `sync`, `unlock`, `unlockWith`, `lock`, `restart`, `reinit`)                                                                              |
+| `client-emulator/local-state.ts`                 | `LocalState`: state bridge + repositories; `locked()`, `unlock(method)`, `clearEphemeral`                                                                                                           |
+| `client-emulator/validate.ts`                    | `validateVault(client, seed, ignore)`, `validateCiphers`, `expectPlaintextEqual`                                                                                                                    |
+| `vectors/test-vectors.ts`                        | `testVectors.users` / `.emergencyAccess` / `.organizations` selectors; `.each`, `.eachUnlockMethod`                                                                                                 |
+| `test-vectors/**.json` (repo root, not this dir) | Committed accounts: keys, unlock methods, encrypted + decrypted vault                                                                                                                               |
+| `tests/utils.ts`                                 | `makeStateBridge`, `rejection`, IPC transport/biometrics mocks                                                                                                                                      |
+| `tests/type-assertion-helpers.ts`                | `asUserId`, `asEncString`, `asKeyId`… — branded-type casts                                                                                                                                          |
+| `perf/*.perf.ts`                                 | Benchmarks (`npm run perf`), not tests                                                                                                                                                              |
 
 Pick vectors by reading each JSON's `description` and `unlockMethods`.
 

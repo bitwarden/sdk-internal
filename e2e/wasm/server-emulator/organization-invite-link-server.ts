@@ -552,14 +552,6 @@ export class OrganizationInviteLinkServer {
       // The server names the member's default collection with this, so it is stored as posted.
       defaultCollectionName: posted.defaultUserCollectionName,
     });
-    // A sync hands an account the organization keys sealed to it, so the next unlock opens them.
-    this.db.users.update(user.userId, {
-      ...user,
-      organizationKeys: {
-        ...user.organizationKeys,
-        [eligible.org.organizationId]: posted.orgUserKey,
-      },
-    });
 
     return {};
   }
