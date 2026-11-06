@@ -240,9 +240,6 @@ impl CiphersClient {
     }
 
     /// Decrypt cipher list. Fails if any cipher fails to decrypt.
-    ///
-    /// An item of the input list that is not a valid cipher fails the call with
-    /// [`DecryptListError::InvalidInput`].
     pub async fn decrypt_list(
         &self,
         ciphers: LargeVec<Cipher>,
@@ -260,9 +257,6 @@ impl CiphersClient {
 
     /// Decrypt cipher list with failures
     /// Returns both successfully decrypted ciphers and any that failed to decrypt
-    ///
-    /// An item of the input list that is not a valid cipher fails the whole call with
-    /// [`DecryptListError::InvalidInput`].
     pub async fn decrypt_list_with_failures(
         &self,
         ciphers: LargeVec<Cipher>,
@@ -276,9 +270,6 @@ impl CiphersClient {
 
     /// Decrypt full cipher list
     /// Returns both successfully fully decrypted ciphers and any that failed to decrypt
-    ///
-    /// An item of the input list that is not a valid cipher fails the whole call with
-    /// [`DecryptListError::InvalidInput`].
     pub async fn decrypt_list_full_with_failures(
         &self,
         ciphers: LargeVec<Cipher>,
