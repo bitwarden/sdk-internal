@@ -73,6 +73,9 @@ crates/bitwarden-vault/** @bitwarden/team-vault-dev
 e2e/wasm/**
 test-vectors/**
 e2e/wasm/server-emulator/emergency-access-server.ts @bitwarden/team-auth-dev
+e2e/wasm/server-emulator/registration-server.ts @bitwarden/team-auth-dev
+e2e/wasm/server-emulator/dto/emergency-access.ts @bitwarden/team-auth-dev
+e2e/wasm/server-emulator/dto/registration.ts @bitwarden/team-auth-dev
 e2e/wasm/tests/emergency-access/** @bitwarden/team-auth-dev
 e2e/wasm/tests/auth/** @bitwarden/team-auth-dev
 e2e/wasm/tests/organizations/** @bitwarden/team-admin-console-dev
