@@ -169,7 +169,7 @@ jobs:
         run: ./build-schemas.sh
 
       - name: Setup gradle
-        uses: gradle/actions/setup-gradle@f29f5a9d7b09a7c6b29859002d29d24e1674c884 # v5.0.1
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       # The Gradle build cache lets tasks whose inputs are unchanged, such as compiling and linting
       # the generated bindings when the SDK's API is the same, reuse the output of an earlier run.
