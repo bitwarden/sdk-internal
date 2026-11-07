@@ -8,7 +8,7 @@ import {
   TokenResponse,
 } from "./dto";
 import type { MockReply, Routes } from "./http-mock";
-import type { UserEntity } from "./entities";
+import type { AccountId, UserEntity } from "./entities";
 import { HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from "./replies";
 
 /** The OAuth2 grant types the token endpoint answers. */
@@ -60,6 +60,7 @@ export class IdentityServer {
       return oauth2Error(HTTP_BAD_REQUEST, "invalid_grant", "invalid_username_or_password");
     }
 
+    this.registerDevice(user.userId, form.get("deviceIdentifier"));
     return { json: TokenResponse.forUser(user, this.issueToken(user.email)) };
   }
 
@@ -67,18 +68,47 @@ export class IdentityServer {
    * An access token for an account, without going through the password grant.
    *
    * For a test that drives an account real login cannot reach. A client against a real server has
-   * no equivalent, so this is emulator-only.
+   * no equivalent, so this is emulator-only. The account may be one that has no keys yet. A device
+   * identifier registers the device, as an SSO login does.
    */
-  issueToken(email: string): string {
-    const user = this.userFor(email);
-    if (user === undefined) {
+  issueToken(email: string, deviceIdentifier?: string): string {
+    const [pending] = this.db.pendingAccounts.filter((candidate) => candidate.email === email);
+    const userId = this.userFor(email)?.userId ?? pending?.userId;
+    if (userId === undefined) {
       throw new Error(`no seeded account with email ${email}`);
     }
 
+    if (deviceIdentifier !== undefined) {
+      this.registerDevice(userId, deviceIdentifier);
+    }
+
     const token = this.db.sessions.newId();
-    this.db.sessions.set(token, user.userId);
+    this.db.sessions.set(token, userId);
 
     return token;
+  }
+
+  /** Records the device a login came from, once per user and identifier. */
+  private registerDevice(userId: AccountId, identifier: string | null): void {
+    if (identifier === null) {
+      return;
+    }
+
+    const known = this.db.devices.filter(
+      (device) => device.userId === userId && device.identifier === identifier,
+    );
+    if (known.length > 0) {
+      return;
+    }
+
+    this.db.devices.set(this.db.devices.newId(), {
+      userId,
+      identifier,
+      encryptedUserKey: null,
+      encryptedPublicKey: null,
+      encryptedPrivateKey: null,
+      lostTrustReported: false,
+    });
   }
 
   private userFor(email: string): UserEntity | undefined {

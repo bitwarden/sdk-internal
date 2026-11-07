@@ -1,7 +1,10 @@
 extern crate console_error_panic_hook;
 use std::{fmt::Display, sync::Arc};
 
-use bitwarden_core::{ClientSettings, key_management::state_bridge::StateBridgeClient};
+use bitwarden_core::{
+    ClientSettings,
+    key_management::{DeviceTrustClient, state_bridge::StateBridgeClient},
+};
 use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
 use bitwarden_error::bitwarden_error;
 use bitwarden_managed_settings::ManagedSettingsClient;
@@ -93,6 +96,11 @@ impl PasswordManagerClient {
     /// Crypto related operations.
     pub fn crypto(&self) -> CryptoClient {
         self.0.0.crypto()
+    }
+
+    /// Trusted device encryption operations.
+    pub fn device_trust(&self) -> DeviceTrustClient {
+        self.0.device_trust()
     }
 
     /// Key management operations that run on every sync.

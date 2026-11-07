@@ -83,6 +83,10 @@ impl AuthClient {
     }
 
     #[allow(missing_docs)]
+    #[deprecated(
+        note = "Use `RegistrationClient::post_keys_for_tde_registration`, which persists the keys \
+                and trusts the device itself"
+    )]
     pub async fn make_register_tde_keys(
         &self,
         email: String,
@@ -183,6 +187,7 @@ impl AuthClient {
     }
 
     #[allow(missing_docs)]
+    #[deprecated(note = "Use `DeviceTrustClient::trust_device`, which posts and persists the keys")]
     pub fn trust_device(&self) -> Result<TrustDeviceResponse, TrustDeviceError> {
         trust_device(&self.client)
     }

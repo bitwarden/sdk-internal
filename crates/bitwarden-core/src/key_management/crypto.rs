@@ -38,10 +38,11 @@ use crate::{
         persisted_state::{ACCOUNT_CRYPTO_STATE, OrganizationSharedKey},
     },
     key_management::{
-        MasterPasswordError, SymmetricKeySlotId, V2UpgradeToken,
+        MasterPasswordError, SymmetricKeySlotId, TrustedDeviceOption, V2UpgradeToken,
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
         },
+        device_trust::{self, DeviceUnlockError},
         local_user_data_key_state::{
             get_local_user_data_key_from_state, initialize_local_user_data_key_into_state,
             migrate_local_user_data_key_for_user_key_upgrade,
@@ -147,7 +148,16 @@ pub enum InitUserCryptoMethod {
         /// The type of auth request
         method: AuthRequestMethod,
     },
+    /// Trusted device: the SDK reads the device key from state and combines it with the trusted
+    /// device keys the server returned at login.
+    TrustedDevice {
+        /// The trusted device keys from the login response.
+        option: TrustedDeviceOption,
+    },
     /// Device Key
+    ///
+    /// Deprecated: use [`InitUserCryptoMethod::TrustedDevice`], which reads the device key from
+    /// state instead of taking it from the caller.
     DeviceKey {
         /// The device's DeviceKey
         device_key: String,
@@ -330,6 +340,21 @@ pub(super) async fn initialize_user_crypto(
                     auth_request_key,
                 )?,
             };
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::TrustedDevice { option } => {
+            let api_client = &client.internal.get_api_configurations().api_client;
+            let user_key = device_trust::unlock_user_key(client, api_client, option)
+                .await
+                .map_err(|err| match err {
+                    DeviceUnlockError::NotTrusted => EncryptionSettingsError::DeviceNotTrusted,
+                    DeviceUnlockError::TrustLost => EncryptionSettingsError::DeviceTrustLost,
+                    DeviceUnlockError::KeyInvalid => EncryptionSettingsError::DeviceKeyInvalid,
+                })?;
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,

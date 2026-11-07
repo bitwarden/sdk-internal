@@ -8,9 +8,13 @@ import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto
 import type {
   AccountId,
   OrganizationMember,
+  PendingAccountEntity,
   StoredMasterPasswordUnlock,
   UserEntity,
 } from "./entities";
+
+/** The KDF SSO gives a new account. Never used to derive a key: the account has no password. */
+const PENDING_ACCOUNT_KDF = { pBKDF2: { iterations: 600_000 } } as const;
 import { installHttpMock, type HttpMock, type Routes } from "./http-mock";
 import { IdentityServer } from "./identity-server";
 import { KeyConnectorServer } from "./key-connector-server";
@@ -224,6 +228,21 @@ export class ServerEmulator {
       ciphers: () => this.api.vaultFor(user).ciphers,
       folders: () => this.api.vaultFor(user).folders,
     };
+  }
+
+  /**
+   * Seeds an account SSO provisioned but that has no keys yet, as a just-in-time trusted device
+   * user is before registration.
+   */
+  seedPendingAccount(email: string): PendingAccountEntity {
+    const account: PendingAccountEntity = {
+      userId: asAccountId(this.db.users.newId()),
+      email,
+      kdf: PENDING_ACCOUNT_KDF,
+    };
+    this.db.pendingAccounts.set(account.userId, account);
+
+    return account;
   }
 
   /**

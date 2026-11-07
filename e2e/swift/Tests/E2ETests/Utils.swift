@@ -67,6 +67,8 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     private var webauthnPrfUnlockData: WebAuthnPrfUnlockData?
     private var kdfConfig: Kdf?
     private var v2EncryptedMigrationsGracePeriodStart: V2EncryptedMigrationsGracePeriodStart?
+    private var deviceKey: SymmetricCryptoKey?
+    private var shouldTrustDevice: Bool?
 
     func setUserKey(value: SymmetricCryptoKey) { userKey = value }
     func getUserKey() -> SymmetricCryptoKey? { userKey }
@@ -115,6 +117,14 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     func setV2EncryptedMigrationsGracePeriodStart(value: V2EncryptedMigrationsGracePeriodStart) { v2EncryptedMigrationsGracePeriodStart = value }
     func getV2EncryptedMigrationsGracePeriodStart() -> V2EncryptedMigrationsGracePeriodStart? { v2EncryptedMigrationsGracePeriodStart }
     func clearV2EncryptedMigrationsGracePeriodStart() { v2EncryptedMigrationsGracePeriodStart = nil }
+
+    func setDeviceKey(value: SymmetricCryptoKey) { deviceKey = value }
+    func getDeviceKey() -> SymmetricCryptoKey? { deviceKey }
+    func clearDeviceKey() { deviceKey = nil }
+
+    func setShouldTrustDevice(value: Bool) { shouldTrustDevice = value }
+    func getShouldTrustDevice() -> Bool? { shouldTrustDevice }
+    func clearShouldTrustDevice() { shouldTrustDevice = nil }
 }
 
 final class MockTokenProvider: ClientManagedTokens {

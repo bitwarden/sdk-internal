@@ -109,6 +109,7 @@ zeroize = { workspace = true, features = ["derive", "aarch64"] }
 zxcvbn = { workspace = true, optional = true }
 
 [dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
 bitwarden-crypto = { workspace = true, features = ["test-utils"] }
 mockall = { workspace = true }
 rand_chacha = { workspace = true }

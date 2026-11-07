@@ -111,6 +111,10 @@ pub struct InternalClient {
 
     pub(super) api_configurations: Arc<ApiConfigurations>,
 
+    /// Identifies this installation to the server, e.g. for trusted device encryption.
+    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
+    pub(crate) device_identifier: Option<String>,
+
     /// Reqwest client useable for external integrations like email forwarders, HIBP.
     #[allow(unused)]
     pub(crate) external_http_client: reqwest::Client,

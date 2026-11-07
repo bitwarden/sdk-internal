@@ -39,4 +39,7 @@ pub enum RegistrationError {
     /// Caller-provided input failed validation (e.g. malformed UUID).
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+    /// The key-management state bridge is not registered, so the new account cannot be persisted.
+    #[error("The key-management state bridge is not registered")]
+    StateBridgeNotRegistered,
 }

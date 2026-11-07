@@ -31,7 +31,12 @@ import {
   asString,
 } from "../tests/type-assertion-helpers";
 
-import type { EmergencyAccessEntity, StoredMasterPasswordUnlock, UserEntity } from "./entities";
+import type {
+  DeviceEntity,
+  EmergencyAccessEntity,
+  StoredMasterPasswordUnlock,
+  UserEntity,
+} from "./entities";
 
 /** How long an issued access token stays valid, as the identity service reports it. */
 const TOKEN_LIFETIME_SECONDS = 3600;
@@ -632,6 +637,53 @@ export class FolderResponse {
       id: asFolderId(response.id),
       name: asEncString(response.name),
       revisionDate: response.revisionDate,
+    };
+  }
+}
+
+/** `AccountKeysRequestModel` — the V2 account state a registration posts. */
+export class AccountKeysRequest {
+  userKeyEncryptedAccountPrivateKey?: string;
+  accountPublicKey?: string;
+  publicKeyEncryptionKeyPair?: PublicKeyEncryptionKeyPairRequest;
+  signatureKeyPair?: SignatureKeyPairRequest;
+  securityState?: SecurityStateRequest;
+}
+
+/** `KeysRequestModel` — the body of `POST /accounts/keys`. */
+export class KeysRequest {
+  publicKey!: string;
+  encryptedPrivateKey!: string;
+  accountKeys?: AccountKeysRequest;
+  userKeyId?: string;
+}
+
+/** `OrganizationUserResetPasswordEnrollmentRequestModel`. */
+export class ResetPasswordEnrollmentRequest {
+  resetPasswordKey?: string;
+  masterPasswordHash?: string;
+}
+
+/** `DeviceKeysRequestModel` — the body of `PUT /devices/:identifier/keys`. */
+export class DeviceKeysRequest {
+  encryptedUserKey!: string;
+  encryptedPublicKey!: string;
+  encryptedPrivateKey!: string;
+}
+
+/** `DeviceResponseModel`. */
+export class DeviceResponse {
+  object!: "device";
+  id!: string;
+  identifier!: string;
+  isTrusted!: boolean;
+
+  static fromDevice(id: string, device: DeviceEntity): DeviceResponse {
+    return {
+      object: "device",
+      id,
+      identifier: device.identifier,
+      isTrusted: device.encryptedUserKey !== null,
     };
   }
 }

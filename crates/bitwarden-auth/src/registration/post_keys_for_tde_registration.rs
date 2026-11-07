@@ -1,12 +1,16 @@
 //! Initializes a new cryptographic state for a user and posts it to the server; enrolls in
-//! admin password reset and finally enrolls the user to TDE unlock.
+//! admin password reset, unlocks the client and, if the user chose to, trusts this device.
 use bitwarden_api_api::models::{
-    DeviceKeysRequestModel, KeysRequestModel, OrganizationUserResetPasswordEnrollmentRequestModel,
+    KeysRequestModel, OrganizationUserResetPasswordEnrollmentRequestModel,
 };
 use bitwarden_core::{
     OrganizationId, UserId,
-    key_management::account_cryptographic_state::WrappedAccountCryptographicState,
+    key_management::{
+        DeviceTrustError, TrustDeviceChoice,
+        crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
+    },
 };
+use bitwarden_crypto::Kdf;
 use bitwarden_encoding::B64;
 use tracing::info;
 
@@ -24,166 +28,163 @@ pub struct TdeRegistrationRequest {
     pub org_public_key: B64,
     /// User ID for the account being initialized
     pub user_id: UserId,
-    /// Device identifier for TDE enrollment
-    pub device_identifier: String,
+    /// The user's email address
+    pub email: String,
     /// Whether to trust this device for TDE
-    pub trust_device: bool,
-}
-
-/// Result of TDE registration process.
-#[bitwarden_ffi::wasm_record]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct TdeRegistrationResponse {
-    /// The account cryptographic state of the user
-    pub account_cryptographic_state: WrappedAccountCryptographicState,
-    /// The device key
-    pub device_key: B64,
-    /// The decrypted user key. This can be used to get the consuming client to an unlocked state.
-    pub user_key: B64,
+    pub trust: TrustDeviceChoice,
 }
 
 #[bitwarden_ffi::wasm_export]
 impl RegistrationClient {
     /// Initializes a new cryptographic state for a user and posts it to the server; enrolls in
-    /// admin password reset and finally enrolls the user to TDE unlock.
+    /// admin password reset, persists the account cryptographic state, unlocks the client and, if
+    /// the user chose to, trusts this device.
     pub async fn post_keys_for_tde_registration(
         &self,
         request: TdeRegistrationRequest,
-    ) -> Result<TdeRegistrationResponse, RegistrationError> {
-        let client = &self.client.internal;
-        let api_client = &client.get_api_configurations().api_client;
-        internal_post_keys_for_tde_registration(self, api_client, request).await
-    }
-}
+    ) -> Result<(), RegistrationError> {
+        let client = &self.client;
+        let bridge = client.km_state_bridge();
+        if !bridge.is_bridge_registered() {
+            return Err(RegistrationError::StateBridgeNotRegistered);
+        }
 
-async fn internal_post_keys_for_tde_registration(
-    registration_client: &RegistrationClient,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-    request: TdeRegistrationRequest,
-) -> Result<TdeRegistrationResponse, RegistrationError> {
-    // First call crypto API to get all keys
-    info!("Initializing account cryptography");
-    let tde_registration_crypto_result = registration_client
-        .client
-        .crypto()
-        .make_user_tde_registration(request.org_public_key.clone())
-        .map_err(|_| RegistrationError::Crypto)?;
+        // First call crypto API to get all keys
+        info!("Initializing account cryptography");
+        let tde_registration_crypto_result = client
+            .crypto()
+            .make_user_tde_registration(request.org_public_key.clone())
+            .map_err(|_| RegistrationError::Crypto)?;
 
-    // Post the generated keys to the API here. The user now has keys and is "registered", but
-    // has no unlock method.
-    let keys_request = KeysRequestModel {
-        account_keys: Some(Box::new(
-            tde_registration_crypto_result.account_keys_request.clone(),
-        )),
-        // Note: This property is deprecated and will be removed
-        public_key: tde_registration_crypto_result
-            .account_keys_request
-            .account_public_key
-            .ok_or(RegistrationError::Crypto)?,
-        // Note: This property is deprecated and will be removed
-        encrypted_private_key: tde_registration_crypto_result
-            .account_keys_request
-            .user_key_encrypted_account_private_key
-            .ok_or(RegistrationError::Crypto)?,
-        user_key_id: tde_registration_crypto_result
-            .user_key
-            .key_id()
-            .map(|id| id.to_string()),
-    };
-    info!("Posting user account cryptographic state to server");
-    api_client
-        .accounts_api()
-        .post_keys(Some(keys_request))
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to post account keys: {e:?}");
-            RegistrationError::Api
-        })?;
-
-    // Next, enroll the user for reset password using the reset password key generated above.
-    info!("Enrolling into admin account recovery");
-    api_client
-        .organization_users_api()
-        .put_reset_password_enrollment(
-            request.org_id.into(),
-            request.user_id.into(),
-            Some(OrganizationUserResetPasswordEnrollmentRequestModel {
-                reset_password_key: Some(
-                    tde_registration_crypto_result
-                        .reset_password_key
-                        .to_string(),
-                ),
-                master_password_hash: None,
-            }),
-        )
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to enroll for reset password: {e:?}");
-            RegistrationError::Api
-        })?;
-
-    if request.trust_device {
-        // Next, enroll the user for TDE unlock
-        info!("Enrolling into trusted device decryption");
+        // Post the generated keys to the API here. The user now has keys and is "registered", but
+        // has no unlock method.
+        let keys_request = KeysRequestModel {
+            account_keys: Some(Box::new(
+                tde_registration_crypto_result.account_keys_request.clone(),
+            )),
+            // Note: This property is deprecated and will be removed
+            public_key: tde_registration_crypto_result
+                .account_keys_request
+                .account_public_key
+                .ok_or(RegistrationError::Crypto)?,
+            // Note: This property is deprecated and will be removed
+            encrypted_private_key: tde_registration_crypto_result
+                .account_keys_request
+                .user_key_encrypted_account_private_key
+                .ok_or(RegistrationError::Crypto)?,
+            user_key_id: tde_registration_crypto_result
+                .user_key
+                .key_id()
+                .map(|id| id.to_string()),
+        };
+        let api_client = &client.internal.get_api_configurations().api_client;
+        info!("Posting user account cryptographic state to server");
         api_client
-            .devices_api()
-            .put_keys(
-                request.device_identifier.as_str(),
-                Some(DeviceKeysRequestModel {
-                    encrypted_user_key: tde_registration_crypto_result
-                        .trusted_device_keys
-                        .protected_user_key
-                        .to_string(),
-                    encrypted_public_key: tde_registration_crypto_result
-                        .trusted_device_keys
-                        .protected_device_public_key
-                        .to_string(),
-                    encrypted_private_key: tde_registration_crypto_result
-                        .trusted_device_keys
-                        .protected_device_private_key
-                        .to_string(),
+            .accounts_api()
+            .post_keys(Some(keys_request))
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to post account keys: {e:?}");
+                RegistrationError::Api
+            })?;
+
+        // Next, enroll the user for reset password using the reset password key generated above.
+        info!("Enrolling into admin account recovery");
+        api_client
+            .organization_users_api()
+            .put_reset_password_enrollment(
+                request.org_id.into(),
+                request.user_id.into(),
+                Some(OrganizationUserResetPasswordEnrollmentRequestModel {
+                    reset_password_key: Some(
+                        tde_registration_crypto_result
+                            .reset_password_key
+                            .to_string(),
+                    ),
+                    master_password_hash: None,
                 }),
             )
             .await
             .map_err(|e| {
-                tracing::error!("Failed to enroll device for TDE: {e:?}");
+                tracing::error!("Failed to enroll for reset password: {e:?}");
                 RegistrationError::Api
             })?;
-    }
 
-    info!("User initialized!");
-    // Note: This passing out of state and keys is temporary. Once SDK state management is more
-    // mature, the account cryptographic state and keys should be set directly here.
-    Ok(TdeRegistrationResponse {
-        account_cryptographic_state: tde_registration_crypto_result.account_cryptographic_state,
-        device_key: tde_registration_crypto_result
-            .trusted_device_keys
-            .device_key,
-        user_key: tde_registration_crypto_result
-            .user_key
-            .to_encoded()
-            .to_vec()
-            .into(),
-    })
+        // Persist the account state before unlocking: hosts initialize their user client from it.
+        bridge
+            .set_account_cryptographic_state(
+                &tde_registration_crypto_result.account_cryptographic_state,
+            )
+            .await;
+
+        info!("Unlocking the new account");
+        client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: Some(request.user_id),
+                // A TDE user has no master password, so the KDF is never used to derive a key.
+                kdf_params: Kdf::default_pbkdf2(),
+                email: request.email,
+                account_cryptographic_state: tde_registration_crypto_result
+                    .account_cryptographic_state,
+                method: InitUserCryptoMethod::DecryptedKey {
+                    decrypted_user_key: tde_registration_crypto_result
+                        .user_key
+                        .to_base64()
+                        .to_string(),
+                },
+                upgrade_token: None,
+            })
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to unlock the new account: {e:?}");
+                RegistrationError::Crypto
+            })?;
+
+        if request.trust == TrustDeviceChoice::Trust {
+            info!("Enrolling into trusted device decryption");
+            client
+                .device_trust()
+                .trust_device()
+                .await
+                .map_err(|e| match e {
+                    DeviceTrustError::Api => RegistrationError::Api,
+                    DeviceTrustError::StateBridgeNotRegistered => {
+                        RegistrationError::StateBridgeNotRegistered
+                    }
+                    DeviceTrustError::MissingDeviceIdentifier => {
+                        RegistrationError::InvalidInput("no device identifier".to_owned())
+                    }
+                    DeviceTrustError::Locked | DeviceTrustError::Crypto => {
+                        RegistrationError::Crypto
+                    }
+                })?;
+        }
+
+        info!("User initialized!");
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::sync::Arc;
 
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{DeviceResponseModel, KeysResponseModel},
     };
-    use bitwarden_core::Client;
-    use bitwarden_crypto::EncString;
+    use bitwarden_core::{
+        Client, ClientSettings, client::internal::ApiConfigurations,
+        key_management::state_bridge::test_support::InMemoryStateBridge,
+    };
 
     use super::*;
 
     const TEST_USER_ID: &str = "060000fb-0922-4dd3-b170-6e15cb5df8c8";
     const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
     const TEST_DEVICE_ID: &str = "test-device-id";
+    const TEST_EMAIL: &str = "tde@example.com";
 
     const TEST_ORG_PUBLIC_KEY: &[u8] = &[
         48, 130, 1, 34, 48, 13, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 1, 5, 0, 3, 130, 1, 15, 0,
@@ -203,268 +204,208 @@ mod tests {
         201, 41, 160, 81, 133, 171, 205, 221, 2, 3, 1, 0, 1,
     ];
 
-    #[tokio::test]
-    async fn test_post_keys_for_tde_registration_success() {
-        let client = Client::new(None);
-        let registration_client = RegistrationClient::new(client);
+    /// Which server calls a scenario expects, in order of the registration flow.
+    struct Expected {
+        post_keys: Result<(), ()>,
+        enrollment: Option<Result<(), ()>>,
+        device_keys: Option<Result<(), ()>>,
+    }
 
-        let api_client = ApiClient::new_mocked(|mock| {
+    fn api_error() -> bitwarden_api_api::apis::Error {
+        serde_json::Error::io(std::io::Error::other("API error")).into()
+    }
+
+    fn device_response() -> DeviceResponseModel {
+        DeviceResponseModel {
+            object: None,
+            id: None,
+            name: None,
+            r#type: None,
+            identifier: None,
+            creation_date: None,
+            last_activity_date: None,
+            is_trusted: None,
+            encrypted_user_key: None,
+            encrypted_public_key: None,
+        }
+    }
+
+    fn mocked_api(expected: Expected) -> ApiClient {
+        ApiClient::new_mocked(move |mock| {
+            let post_keys = expected.post_keys;
             mock.accounts_api
                 .expect_post_keys()
                 .once()
-                .returning(move |_body| {
-                    Ok(KeysResponseModel {
-                        object: None,
-                        key: None,
-                        public_key: None,
-                        private_key: None,
-                        account_keys: None,
-                    })
+                .returning(move |_| {
+                    post_keys
+                        .map(|()| KeysResponseModel {
+                            object: None,
+                            key: None,
+                            public_key: None,
+                            private_key: None,
+                            account_keys: None,
+                        })
+                        .map_err(|()| api_error())
                 });
-            mock.organization_users_api
-                .expect_put_reset_password_enrollment()
-                .once()
-                .returning(move |_org_id, _user_id, _body| Ok(()));
-            mock.devices_api
-                .expect_put_keys()
-                .once()
-                .returning(move |_device_id, body| {
-                    let body = body.unwrap();
-                    assert!(matches!(
-                        EncString::from_str(body.encrypted_private_key.as_str()).unwrap(),
-                        EncString::Aes256Cbc_HmacSha256_B64 { .. }
-                    ));
-                    assert!(matches!(
-                        EncString::from_str(body.encrypted_public_key.as_str()).unwrap(),
-                        EncString::Cose_Encrypt0_B64 { .. }
-                    ));
 
-                    Ok(DeviceResponseModel {
-                        object: None,
-                        id: None,
-                        name: None,
-                        r#type: None,
-                        identifier: None,
-                        creation_date: None,
-                        last_activity_date: None,
-                        is_trusted: None,
-                        encrypted_user_key: None,
-                        encrypted_public_key: None,
-                    })
-                });
-        });
+            match expected.enrollment {
+                Some(result) => {
+                    mock.organization_users_api
+                        .expect_put_reset_password_enrollment()
+                        .once()
+                        .returning(move |_, _, _| result.map_err(|()| api_error()));
+                }
+                None => {
+                    mock.organization_users_api
+                        .expect_put_reset_password_enrollment()
+                        .never();
+                }
+            }
 
-        let request = TdeRegistrationRequest {
+            match expected.device_keys {
+                Some(result) => {
+                    mock.devices_api
+                        .expect_put_keys()
+                        .once()
+                        .returning(move |identifier, _| {
+                            assert_eq!(identifier, TEST_DEVICE_ID);
+                            result.map(|()| device_response()).map_err(|()| api_error())
+                        });
+                }
+                None => {
+                    mock.devices_api.expect_put_keys().never();
+                }
+            }
+        })
+    }
+
+    fn registration_client(api: ApiClient) -> (Client, RegistrationClient) {
+        let client = Client::builder()
+            .with_settings(ClientSettings {
+                device_identifier: Some(TEST_DEVICE_ID.to_owned()),
+                ..Default::default()
+            })
+            .with_api_configurations(Arc::new(ApiConfigurations::from_api_client(api)))
+            .build();
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+        (client.clone(), RegistrationClient::new(client))
+    }
+
+    fn request(trust: TrustDeviceChoice) -> TdeRegistrationRequest {
+        TdeRegistrationRequest {
             org_id: TEST_ORG_ID.parse().unwrap(),
             org_public_key: TEST_ORG_PUBLIC_KEY.into(),
             user_id: TEST_USER_ID.parse().unwrap(),
-            device_identifier: TEST_DEVICE_ID.to_string(),
-            trust_device: true,
-        };
-
-        let result =
-            internal_post_keys_for_tde_registration(&registration_client, &api_client, request)
-                .await;
-
-        assert!(result.is_ok());
-        // Assert that the mock expectations were met
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.accounts_api.checkpoint();
-            mock.organization_users_api.checkpoint();
-            mock.devices_api.checkpoint();
+            email: TEST_EMAIL.to_owned(),
+            trust,
         }
     }
 
     #[tokio::test]
-    async fn test_post_keys_for_tde_registration_trust_device_false() {
-        let client = Client::new(None);
-        let registration_client = RegistrationClient::new(client);
+    async fn registration_unlocks_and_trusts_the_device() {
+        let (client, registration) = registration_client(mocked_api(Expected {
+            post_keys: Ok(()),
+            enrollment: Some(Ok(())),
+            device_keys: Some(Ok(())),
+        }));
 
-        let api_client = ApiClient::new_mocked(|mock| {
-            mock.accounts_api
-                .expect_post_keys()
-                .once()
-                .returning(move |_body| {
-                    Ok(KeysResponseModel {
-                        object: None,
-                        key: None,
-                        public_key: None,
-                        private_key: None,
-                        account_keys: None,
-                    })
-                });
-            mock.organization_users_api
-                .expect_put_reset_password_enrollment()
-                .once()
-                .returning(move |_org_id, _user_id, _body| Ok(()));
-            // Explicitly expect that put_keys is never called when trust_device is false
-            mock.devices_api.expect_put_keys().never();
-        });
+        registration
+            .post_keys_for_tde_registration(request(TrustDeviceChoice::Trust))
+            .await
+            .unwrap();
 
-        let request = TdeRegistrationRequest {
-            org_id: TEST_ORG_ID.parse().unwrap(),
-            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
-            user_id: TEST_USER_ID.parse().unwrap(),
-            device_identifier: TEST_DEVICE_ID.to_string(),
-            trust_device: false, // trust_device is false
-        };
-
-        let result =
-            internal_post_keys_for_tde_registration(&registration_client, &api_client, request)
-                .await;
-
-        assert!(result.is_ok());
-        // Assert that the mock expectations were met (put_keys should not have been called)
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.accounts_api.checkpoint();
-            mock.organization_users_api.checkpoint();
-            mock.devices_api.checkpoint();
-        }
+        assert!(client.crypto().get_user_encryption_key().await.is_ok());
+        let bridge = client.km_state_bridge();
+        assert!(bridge.get_account_cryptographic_state().await.is_some());
+        assert!(bridge.get_device_key().await.is_some());
     }
 
     #[tokio::test]
-    async fn test_post_keys_for_tde_registration_post_keys_failure() {
-        let client = Client::new(None);
-        let registration_client = RegistrationClient::new(client);
+    async fn registration_skips_device_trust_when_declined() {
+        let (client, registration) = registration_client(mocked_api(Expected {
+            post_keys: Ok(()),
+            enrollment: Some(Ok(())),
+            device_keys: None,
+        }));
 
-        let api_client = ApiClient::new_mocked(|mock| {
-            mock.accounts_api
-                .expect_post_keys()
-                .once()
-                .returning(move |_body| {
-                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
-                });
-            // Subsequent API calls should not be made if post_keys fails
-            mock.organization_users_api
-                .expect_put_reset_password_enrollment()
-                .never();
-            mock.devices_api.expect_put_keys().never();
-        });
+        registration
+            .post_keys_for_tde_registration(request(TrustDeviceChoice::DontTrust))
+            .await
+            .unwrap();
 
-        let request = TdeRegistrationRequest {
-            org_id: TEST_ORG_ID.parse().unwrap(),
-            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
-            user_id: TEST_USER_ID.parse().unwrap(),
-            device_identifier: TEST_DEVICE_ID.to_string(),
-            trust_device: true,
-        };
-
-        let result =
-            internal_post_keys_for_tde_registration(&registration_client, &api_client, request)
-                .await;
-
-        assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
-
-        // Assert that the mock expectations were met
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.accounts_api.checkpoint();
-            mock.organization_users_api.checkpoint();
-            mock.devices_api.checkpoint();
-        }
+        assert!(client.crypto().get_user_encryption_key().await.is_ok());
+        assert!(client.km_state_bridge().get_device_key().await.is_none());
     }
 
     #[tokio::test]
-    async fn test_post_keys_for_tde_registration_reset_password_enrollment_failure() {
-        let client = Client::new(None);
-        let registration_client = RegistrationClient::new(client);
+    async fn registration_fails_when_posting_keys_fails() {
+        let (client, registration) = registration_client(mocked_api(Expected {
+            post_keys: Err(()),
+            enrollment: None,
+            device_keys: None,
+        }));
 
-        let api_client = ApiClient::new_mocked(|mock| {
-            mock.accounts_api
-                .expect_post_keys()
-                .once()
-                .returning(move |_body| {
-                    Ok(KeysResponseModel {
-                        object: None,
-                        key: None,
-                        public_key: None,
-                        private_key: None,
-                        account_keys: None,
-                    })
-                });
-            mock.organization_users_api
-                .expect_put_reset_password_enrollment()
-                .once()
-                .returning(move |_org_id, _user_id, _body| {
-                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
-                });
-            // Device key enrollment should not be made if reset password enrollment fails
-            mock.devices_api.expect_put_keys().never();
-        });
+        let result = registration
+            .post_keys_for_tde_registration(request(TrustDeviceChoice::Trust))
+            .await;
 
-        let request = TdeRegistrationRequest {
-            org_id: TEST_ORG_ID.parse().unwrap(),
-            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
-            user_id: TEST_USER_ID.parse().unwrap(),
-            device_identifier: TEST_DEVICE_ID.to_string(),
-            trust_device: true,
-        };
-
-        let result =
-            internal_post_keys_for_tde_registration(&registration_client, &api_client, request)
-                .await;
-
-        assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
-
-        // Assert that the mock expectations were met
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.accounts_api.checkpoint();
-            mock.organization_users_api.checkpoint();
-            mock.devices_api.checkpoint();
-        }
+        assert!(matches!(result, Err(RegistrationError::Api)));
+        assert!(client.crypto().get_user_encryption_key().await.is_err());
     }
 
     #[tokio::test]
-    async fn test_post_keys_for_tde_registration_device_keys_failure() {
+    async fn registration_fails_when_enrollment_fails() {
+        let (client, registration) = registration_client(mocked_api(Expected {
+            post_keys: Ok(()),
+            enrollment: Some(Err(())),
+            device_keys: None,
+        }));
+
+        let result = registration
+            .post_keys_for_tde_registration(request(TrustDeviceChoice::Trust))
+            .await;
+
+        assert!(matches!(result, Err(RegistrationError::Api)));
+        assert!(
+            client
+                .km_state_bridge()
+                .get_account_cryptographic_state()
+                .await
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn registration_fails_when_device_keys_fail_but_stays_unlocked() {
+        let (client, registration) = registration_client(mocked_api(Expected {
+            post_keys: Ok(()),
+            enrollment: Some(Ok(())),
+            device_keys: Some(Err(())),
+        }));
+
+        let result = registration
+            .post_keys_for_tde_registration(request(TrustDeviceChoice::Trust))
+            .await;
+
+        assert!(matches!(result, Err(RegistrationError::Api)));
+        assert!(client.crypto().get_user_encryption_key().await.is_ok());
+        assert!(client.km_state_bridge().get_device_key().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn registration_requires_a_state_bridge() {
         let client = Client::new(None);
-        let registration_client = RegistrationClient::new(client);
+        let registration = RegistrationClient::new(client);
 
-        let api_client = ApiClient::new_mocked(|mock| {
-            mock.accounts_api
-                .expect_post_keys()
-                .once()
-                .returning(move |_body| {
-                    Ok(KeysResponseModel {
-                        object: None,
-                        key: None,
-                        public_key: None,
-                        private_key: None,
-                        account_keys: None,
-                    })
-                });
-            mock.organization_users_api
-                .expect_put_reset_password_enrollment()
-                .once()
-                .returning(move |_org_id, _user_id, _body| Ok(()));
-            mock.devices_api
-                .expect_put_keys()
-                .once()
-                .returning(move |_device_id, _body| {
-                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
-                });
-        });
+        let result = registration
+            .post_keys_for_tde_registration(request(TrustDeviceChoice::Trust))
+            .await;
 
-        let request = TdeRegistrationRequest {
-            org_id: TEST_ORG_ID.parse().unwrap(),
-            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
-            user_id: TEST_USER_ID.parse().unwrap(),
-            device_identifier: TEST_DEVICE_ID.to_string(),
-            trust_device: true, // trust_device is true, so device enrollment should be attempted
-        };
-
-        let result =
-            internal_post_keys_for_tde_registration(&registration_client, &api_client, request)
-                .await;
-
-        assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
-
-        // Assert that the mock expectations were met
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.accounts_api.checkpoint();
-            mock.organization_users_api.checkpoint();
-            mock.devices_api.checkpoint();
-        }
+        assert!(matches!(
+            result,
+            Err(RegistrationError::StateBridgeNotRegistered)
+        ));
     }
 }

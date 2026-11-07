@@ -270,9 +270,9 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
         let clear = format_ident!("clear_{}", f.name);
         let get_err = format!("State bridge `get_{n}` failed to deserialize value from JsValue");
 
-        // wasm-bindgen converts JS numbers to integers through `TryFromJsValue`, not
+        // wasm-bindgen converts JS numbers and booleans through `TryFromJsValue`, not
         // `TryFrom<JsValue>`.
-        let from_js = if is_js_integer(ty) {
+        let from_js = if is_js_primitive(ty) {
             quote! { <#ty as ::wasm_bindgen::convert::TryFromJsValue>::try_from_js_value(js) }
         } else {
             quote! { <#ty as ::core::convert::TryFrom<::wasm_bindgen::JsValue>>::try_from(js) }
@@ -388,8 +388,8 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
 }
 
 /// Whether `ty` is an integer that wasm-bindgen converts from a JS number, e.g. `u32`.
-fn is_js_integer(ty: &Type) -> bool {
-    const JS_INTEGERS: [&str; 6] = ["i8", "u8", "i16", "u16", "i32", "u32"];
+fn is_js_primitive(ty: &Type) -> bool {
+    const JS_PRIMITIVES: [&str; 7] = ["i8", "u8", "i16", "u16", "i32", "u32", "bool"];
 
     let Type::Path(path) = ty else {
         return false;
@@ -397,5 +397,5 @@ fn is_js_integer(ty: &Type) -> bool {
 
     path.path
         .get_ident()
-        .is_some_and(|ident| JS_INTEGERS.iter().any(|name| ident == name))
+        .is_some_and(|ident| JS_PRIMITIVES.iter().any(|name| ident == name))
 }

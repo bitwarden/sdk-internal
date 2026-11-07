@@ -1,5 +1,5 @@
 use bitwarden_core::key_management::{
-    V2UpgradeToken,
+    TrustDeviceChoice, TrustOutcome, V2UpgradeToken,
     crypto::{
         DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
         InitUserCryptoRequest, ReinitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
@@ -9,6 +9,28 @@ use bitwarden_crypto::{EncString, Kdf, RotateableKeySet, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 
 use crate::error::Result;
+
+/// Trusted device encryption operations.
+#[derive(uniffi::Object)]
+pub struct DeviceTrustClient(pub(crate) bitwarden_core::key_management::DeviceTrustClient);
+
+#[uniffi::export(async_runtime = "tokio")]
+impl DeviceTrustClient {
+    /// Trusts this device and persists the device key.
+    pub async fn trust_device(&self) -> Result<()> {
+        Ok(self.0.trust_device().await?)
+    }
+
+    /// Trusts this device if the user chose to, then clears the choice.
+    pub async fn trust_device_if_required(&self) -> Result<TrustOutcome> {
+        Ok(self.0.trust_device_if_required().await?)
+    }
+
+    /// Persists the user's choice whether to trust this device.
+    pub async fn set_trust_device_choice(&self, choice: TrustDeviceChoice) -> Result<()> {
+        Ok(self.0.set_trust_device_choice(choice).await?)
+    }
+}
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]

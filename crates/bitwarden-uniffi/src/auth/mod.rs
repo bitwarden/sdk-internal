@@ -80,6 +80,9 @@ impl AuthClient {
     }
 
     /// Generate keys needed for TDE process
+    ///
+    /// Deprecated: use `RegistrationClient::post_keys_for_tde_registration`.
+    #[allow(deprecated)]
     pub async fn make_register_tde_keys(
         &self,
         email: String,
@@ -177,6 +180,9 @@ impl AuthClient {
     }
 
     /// Trust the current device
+    ///
+    /// Deprecated: use `DeviceTrustClient::trust_device`.
+    #[allow(deprecated)]
     pub fn trust_device(&self) -> Result<TrustDeviceResponse> {
         Ok(self.0.auth().trust_device()?)
     }

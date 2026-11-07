@@ -14,8 +14,15 @@ import { makePasswordManagerClient, makeStateBridge } from "../tests/utils";
 
 import { API_URL, IDENTITY_URL } from "../server-emulator/urls";
 
+/** The installation a test runs as. Identity registers it at login. */
+export const DEVICE_IDENTIFIER = "integration-test-device";
+
 /** Points the SDK at the server emulator. Nothing listens; every request is served by the fetch mock. */
-export const SETTINGS: ClientSettings = { apiUrl: API_URL, identityUrl: IDENTITY_URL };
+export const SETTINGS: ClientSettings = {
+  apiUrl: API_URL,
+  identityUrl: IDENTITY_URL,
+  deviceIdentifier: DEVICE_IDENTIFIER,
+};
 
 /** A `Repository` backed by a `Map`, with a dump for assertions. */
 export class TestRepository<T extends { id?: unknown }> implements Repository<T> {
