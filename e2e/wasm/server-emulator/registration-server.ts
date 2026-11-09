@@ -118,11 +118,7 @@ export class RegistrationServer {
       return error(HTTP_BAD_REQUEST, "invalid master password hash");
     }
 
-    this.db.ciphers.removeWhere((cipher) => cipher.userId === user.userId);
-    this.db.folders.removeWhere((folder) => folder.userId === user.userId);
-    this.db.sessions.removeWhere((userId) => userId === user.userId);
-    this.db.users.remove(user.userId);
-    this.db.revisions.next();
+    this.db.removeUser(user.userId);
 
     return {};
   }

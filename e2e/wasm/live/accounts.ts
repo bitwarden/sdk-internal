@@ -3,18 +3,22 @@
 // Nothing depends on a long-lived account: files can run in parallel without sharing one, and a run
 // leaves nothing behind for the next to trip over.
 
-import { createHmac, pbkdf2Sync, randomBytes } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 
 import {
   isPasswordLoginError,
-  PureCrypto,
   type ClientSettings,
   type LoginRequest,
 } from "@bitwarden/sdk-internal";
 
-import { makePasswordManagerClient, makeStateBridge } from "../tests/utils";
+import {
+  makePasswordManagerClient,
+  makeStateBridge,
+  masterPasswordAuthenticationHash,
+} from "../tests/utils";
 
-import { ledgerServer, recordAccount } from "./state";
+import { Seeder, type SeederSettings } from "./seeder";
+import { ledgerServer, recordAccount, recordPlay } from "./state";
 
 /** A person on the environment under test. */
 export interface TestAccount {
@@ -22,12 +26,11 @@ export interface TestAccount {
   password: string;
 }
 
-/** The server's seeder API, which reads back the email-verification token a server mailed. */
-export interface SeederSettings {
-  url: string;
-  username: string;
-  password: string;
-}
+/**
+ * Where test accounts come from: the server's seeder, or registration as a client registers. See
+ * {@link TestAccounts}.
+ */
+export type AccountSource = "seeder" | "register";
 
 export interface AccountSettings {
   settings: ClientSettings;
@@ -36,6 +39,11 @@ export interface AccountSettings {
   secret: string;
   /** The domain test addresses use; `example.com` never delivers mail (RFC 2606). */
   emailDomain: string;
+  accountSource: AccountSource;
+  /**
+   * The server's seeder. Seeder accounts need it; registration needs it only on a server that mails
+   * the email-verification token, to read the token back.
+   */
   seeder?: SeederSettings;
   /** Whether to keep a ledger, so a later run can delete what a crashed one left. */
   ledger: boolean;
@@ -50,22 +58,68 @@ const NAME = "SDK Integration Tests";
  */
 export class RegistrationUnavailableError extends Error {}
 
-/** Creates accounts through registration, and deletes them through the server's API. */
+/**
+ * Creates accounts, and deletes them when the test ends, by the configured {@link AccountSource}:
+ *
+ * - `seeder`: the server's seeder writes each account under the test's play id, and destroys the
+ *   play when the test ends. The way to organizations and existing vault data too.
+ * - `register`: each account registers as a client does, so registration and the SDK's key making
+ *   are exercised as well, and is deleted through the server's API. The way that works where no
+ *   seeder is deployed, production included.
+ *
+ * A test calls {@link create} either way.
+ */
 export class TestAccounts {
   private readonly created: TestAccount[] = [];
 
   private readonly runTag = `${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${randomBytes(4).toString("hex")}`;
 
-  constructor(private readonly config: AccountSettings) {}
+  /** The play this instance seeds under, from its first seeded account until it is destroyed. */
+  private playId: string | undefined;
+
+  constructor(private readonly config: AccountSettings) {
+    if (config.accountSource === "seeder" && config.seeder === undefined) {
+      throw new Error("seeder accounts need the seeder's settings");
+    }
+  }
+
+  /** Creates a new account, by the configured source, that logs in with the password it carries. */
+  async create(): Promise<TestAccount> {
+    const requested = `sdk-it-${this.runTag}-${this.created.length + 1}@${this.config.emailDomain}`;
+    const password = passwordFor(this.config.secret, requested);
+
+    const email =
+      this.config.accountSource === "seeder"
+        ? await this.seed(requested, password)
+        : await this.register(requested, password);
+
+    const account = { email, password };
+    this.created.push(account);
+    return account;
+  }
+
+  /**
+   * Seeds an account under this instance's play id, answering the address it logs in with.
+   *
+   * The play is recorded before its first account is seeded, and left in place if seeding fails,
+   * for the same reason as a registered account: the seeder may have written the account first.
+   */
+  private async seed(email: string, password: string): Promise<string> {
+    if (this.playId === undefined) {
+      this.playId = randomUUID();
+      if (this.config.ledger) {
+        recordPlay(this.seeder().url, this.playId, "created");
+      }
+    }
+
+    return new Seeder(this.seeder()).seedUser(this.playId, email, password);
+  }
 
   /**
    * Registers a new account, as a client does: the server is told the address, the token that
    * proves it is read back, and the SDK finishes the registration with keys it makes on the device.
    */
-  async create(): Promise<TestAccount> {
-    const email = `sdk-it-${this.runTag}-${this.created.length + 1}@${this.config.emailDomain}`;
-    const account = { email, password: passwordFor(this.config.secret, email) };
-
+  private async register(email: string, password: string): Promise<string> {
     const token = await this.emailVerificationToken(email);
     // Recorded before registering, and left in place if registering fails: the server may have
     // created the account before the failure. The sweep deletes it if so, and records it absent if
@@ -80,7 +134,7 @@ export class TestAccounts {
       .post_keys_for_user_password_registration({
         email,
         salt: email,
-        master_password: account.password,
+        master_password: password,
         master_password_hint: undefined,
         email_verification_token: token,
         sales_assisted_token: undefined,
@@ -94,15 +148,21 @@ export class TestAccounts {
         open_org_invite: undefined,
       });
 
-    this.created.push(account);
-    return account;
+    return email;
   }
 
   /**
-   * Deletes every account this instance created, newest first. Tries them all, then throws if any
-   * failed, so a teardown problem is reported rather than hidden.
+   * Deletes every account this instance created.
+   *
+   * Seeded accounts go together, with their play. Registered ones go one by one, newest first: all
+   * are tried, then this throws if any failed, so a teardown problem is reported rather than hidden.
    */
   async deleteAll(): Promise<void> {
+    if (this.config.accountSource === "seeder") {
+      await this.destroyPlay();
+      return;
+    }
+
     const failures: string[] = [];
     for (const account of this.created.splice(0).reverse()) {
       try {
@@ -120,7 +180,33 @@ export class TestAccounts {
   }
 
   /**
-   * Deletes an account by its address alone, as the sweep does for a crashed run's.
+   * Destroys this instance's play, and with it every account seeded under it. A play that fails to
+   * go stays in the ledger as created, for the sweep.
+   */
+  private async destroyPlay(): Promise<void> {
+    const playId = this.playId;
+    if (playId === undefined) {
+      return;
+    }
+
+    this.created.splice(0);
+    this.playId = undefined;
+    await new Seeder(this.seeder()).destroyPlay(playId);
+    if (this.config.ledger) {
+      recordPlay(this.seeder().url, playId, "deleted");
+    }
+  }
+
+  private seeder(): SeederSettings {
+    if (this.config.seeder === undefined) {
+      throw new Error("no seeder is configured");
+    }
+
+    return this.config.seeder;
+  }
+
+  /**
+   * Deletes a registered account by its address alone, as the sweep does for a crashed run's.
    *
    * Answers `absent`, and records it, when the server rejects the account's credentials: then there
    * is no account this secret can delete, and retrying on every later run would only fail again.
@@ -165,7 +251,11 @@ export class TestAccounts {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        masterPasswordHash: masterPasswordHash(account.password, prelogin.salt, prelogin.kdf),
+        masterPasswordHash: masterPasswordAuthenticationHash(
+          account.password,
+          prelogin.salt,
+          prelogin.kdf,
+        ),
       }),
     });
     if (!deleted.ok) {
@@ -211,24 +301,7 @@ export class TestAccounts {
       );
     }
 
-    const queried = await fetch(`${seeder.url}/query`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(`${seeder.username}:${seeder.password}`).toString("base64")}`,
-      },
-      body: JSON.stringify({
-        template: "UserEmailVerificationQuery",
-        arguments: { email, name: NAME },
-      }),
-    });
-    if (!queried.ok) {
-      throw new Error(`the seeder's verification query answered ${queried.status}`);
-    }
-
-    // The link is the one the email carries, relative and with its parameters in the fragment:
-    // `/redirect-connector.html#finish-signup?token=…&email=…`.
-    const { url } = (await queried.json()) as { url: string };
+    const url = await new Seeder(seeder).emailVerificationLink(email, NAME);
     const token = /[?&]token=([^&]+)/.exec(url)?.[1];
     if (token === undefined) {
       throw new Error("the seeder's verification link carries no token");
@@ -245,31 +318,6 @@ export class TestAccounts {
 function passwordFor(secret: string, email: string): string {
   const mac = createHmac("sha256", secret).update(email.toLowerCase()).digest("base64url");
   return `Sdk!${mac.slice(0, 28)}`;
-}
-
-/**
- * The master password's authentication hash, as the server stores it: the master key from the
- * SDK's KDF, then one round of PBKDF2 over the password.
- */
-function masterPasswordHash(
-  password: string,
-  salt: string,
-  kdf: Parameters<typeof PureCrypto.derive_kdf_material>[2],
-): string {
-  const encoder = new TextEncoder();
-  const masterKey = PureCrypto.derive_kdf_material(
-    encoder.encode(password),
-    encoder.encode(salt),
-    kdf,
-  );
-
-  return pbkdf2Sync(
-    Buffer.from(masterKey),
-    Buffer.from(password, "utf8"),
-    1,
-    32,
-    "sha256",
-  ).toString("base64");
 }
 
 /** The token, whether the server sent it as JSON or as plain text. */

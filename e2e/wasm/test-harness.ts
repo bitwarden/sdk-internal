@@ -4,9 +4,10 @@ import type { ClientSettings, LoginRequest } from "@bitwarden/sdk-internal";
 
 import { ClientEmulator, LOGIN_REQUEST } from "./client-emulator/client-emulator";
 import { SETTINGS } from "./client-emulator/local-state";
-import { TestAccounts } from "./live/accounts";
+import { TestAccounts, type AccountSource } from "./live/accounts";
 import type { LiveConfig } from "./live/config";
 import { ServerEmulator } from "./server-emulator/server-emulator";
+import { SEEDER_URL } from "./server-emulator/urls";
 
 import type { HttpMock } from "./server-emulator/http-mock";
 
@@ -20,8 +21,8 @@ export class TestHarness {
   private readonly hook: HttpMock | undefined;
 
   /**
-   * Accounts this test creates through registration and deletes in {@link dispose}, on either
-   * backend.
+   * Accounts this test creates, through the seeder or registration, and deletes in {@link dispose},
+   * on either backend.
    */
   readonly accounts: TestAccounts;
 
@@ -29,6 +30,7 @@ export class TestHarness {
     private readonly settings: ClientSettings,
     private readonly loginRequest: LoginRequest,
     live: LiveConfig | undefined,
+    accountSource: AccountSource = "seeder",
   ) {
     this.accounts = new TestAccounts(
       live === undefined
@@ -37,6 +39,12 @@ export class TestHarness {
             loginRequest,
             secret: randomBytes(32).toString("base64"),
             emailDomain: "example.com",
+            accountSource,
+            seeder: {
+              url: SEEDER_URL,
+              username: "seeder",
+              password: randomBytes(16).toString("hex"),
+            },
             ledger: false,
           }
         : { ...live, ledger: true },
@@ -50,9 +58,9 @@ export class TestHarness {
     this.hook = this.emulator.installFetchHook();
   }
 
-  /** A harness over the server emulator. */
-  static emulated(): TestHarness {
-    return new TestHarness(SETTINGS, LOGIN_REQUEST, undefined);
+  /** A harness over the server emulator, whose accounts come from `accountSource`. */
+  static emulated(accountSource?: AccountSource): TestHarness {
+    return new TestHarness(SETTINGS, LOGIN_REQUEST, undefined, accountSource);
   }
 
   /** A harness over a real server, reached over the network. */
@@ -96,9 +104,13 @@ export class TestHarness {
   }
 }
 
-/** A fresh harness over the server emulator. Call in `beforeEach`. */
-export function testHarness(): TestHarness {
-  return TestHarness.emulated();
+/**
+ * A fresh harness over the server emulator. Call in `beforeEach`. Its accounts come from the
+ * emulated seeder unless `accountSource` says otherwise; live runs take theirs from
+ * `BW_LIVE_ACCOUNTS`.
+ */
+export function testHarness(accountSource?: AccountSource): TestHarness {
+  return TestHarness.emulated(accountSource);
 }
 
 /** A fresh harness over a real server. Call in `beforeEach`. */

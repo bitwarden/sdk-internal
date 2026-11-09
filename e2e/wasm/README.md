@@ -49,19 +49,29 @@ npm run test:live
 
 ### Test accounts
 
-There are no long-lived test accounts. Each test creates the accounts it needs through registration,
-as a client does, and `harness.dispose()` deletes them when it ends, pass or fail. Tests can run in
-parallel without sharing an account, and a run leaves nothing behind. The same `harness.accounts`
-works on the emulator, which is how a default run covers it.
+There are no long-lived test accounts. Each test creates the accounts it needs, and
+`harness.dispose()` deletes them when it ends, pass or fail. Tests can run in parallel without
+sharing an account, and a run leaves nothing behind. `BW_LIVE_ACCOUNTS` sets where accounts come
+from; a test calls `harness.accounts.create()` either way:
+
+- `seeder`, the default: the server's seeder API writes each account under the test's play id, and
+  destroys the play when the test ends. It needs `BW_LIVE_SEEDER_URL`, `BW_LIVE_SEEDER_USERNAME` and
+  `BW_LIVE_SEEDER_PASSWORD`.
+- `register`: each account registers as a client does, so registration and the SDK's key making run
+  too, and is deleted through the server's API. This is the way for a server without a seeder.
+
+The source is configured, never detected: with `seeder` set, a seeder that is down fails the run
+rather than switching to registration. Both sources work on the emulator, which is how a default run
+covers them.
 
 Registration needs the email-verification token. A server with email verification off returns it.
-One with it on mails it, and the tests read it back through the server's seeder API, named by
-`BW_LIVE_SEEDER_URL`, `BW_LIVE_SEEDER_USERNAME` and `BW_LIVE_SEEDER_PASSWORD`.
+One with it on mails it, and the tests read it back through the seeder, so registering on such a
+server needs the seeder settings too.
 
 Passwords are derived from the address and a secret: `BW_LIVE_SECRET`, or one generated once per
-machine in `.live/` (gitignored). Every account created and deleted is recorded in
-`.live/ledger.jsonl`, so before each live run, accounts a crashed run left behind for over an hour
-are deleted.
+machine in `.live/` (gitignored). Every registered account and seeder play created and deleted is
+recorded in `.live/ledger.jsonl`, so before each live run, whatever a crashed run left behind for
+over an hour is deleted.
 
 Also optional:
 

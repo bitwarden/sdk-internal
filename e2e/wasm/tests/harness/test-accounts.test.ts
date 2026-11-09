@@ -1,4 +1,5 @@
 import { LoginMethod } from "../../client-emulator/client-emulator";
+import type { AccountSource } from "../../live/accounts";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { rejection } from "../utils";
 
@@ -7,15 +8,17 @@ import { isPasswordLoginError } from "@bitwarden/sdk-internal";
 /** Registration and deletion each derive a master key, and a test logs in more than once. */
 const TIMEOUT = 60_000;
 
+const SOURCES: AccountSource[] = ["seeder", "register"];
+
 /**
- * The accounts a test creates for itself: registered as a client registers, usable at once, and
- * gone when the test ends.
+ * The accounts a test creates for itself: seeded or registered, usable at once, and gone when the
+ * test ends. Tests behave the same whichever source made the account.
  */
-describe("test accounts", () => {
+describe.each(SOURCES)("test accounts from %s", (source) => {
   let harness: TestHarness;
 
   beforeEach(() => {
-    harness = testHarness();
+    harness = testHarness(source);
   });
 
   afterEach(() => harness.dispose(), TIMEOUT);
@@ -78,6 +81,17 @@ describe("test accounts", () => {
     },
     TIMEOUT,
   );
+});
+
+/** Deleting by address alone, which only registered accounts need: seeded ones go with their play. */
+describe("registered test accounts", () => {
+  let harness: TestHarness;
+
+  beforeEach(() => {
+    harness = testHarness("register");
+  });
+
+  afterEach(() => harness.dispose(), TIMEOUT);
 
   it(
     "reports an account that doesn't exist as absent, so a sweep stops retrying it",
