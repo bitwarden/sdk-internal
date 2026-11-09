@@ -1,24 +1,18 @@
 import { LoginMethod } from "../../client-emulator/client-emulator";
-import type { AccountSource } from "../../live/accounts";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { rejection } from "../utils";
 
 import { isPasswordLoginError } from "@bitwarden/sdk-internal";
 
-/** Registration and deletion each derive a master key, and a test logs in more than once. */
+/** Each login derives a master key, and a test logs in more than once. */
 const TIMEOUT = 60_000;
 
-const SOURCES: AccountSource[] = ["seeder", "register"];
-
-/**
- * The accounts a test creates for itself: seeded or registered, usable at once, and gone when the
- * test ends. Tests behave the same whichever source made the account.
- */
-describe.each(SOURCES)("test accounts from %s", (source) => {
+/** The accounts a test seeds for itself: usable at once, and gone when the test ends. */
+describe("test accounts", () => {
   let harness: TestHarness;
 
   beforeEach(() => {
-    harness = testHarness(source);
+    harness = testHarness();
   });
 
   afterEach(() => harness.dispose(), TIMEOUT);
@@ -78,30 +72,6 @@ describe.each(SOURCES)("test accounts from %s", (source) => {
         isPasswordLoginError,
       );
       expect(thrown.variant).toBe("InvalidUsernameOrPassword");
-    },
-    TIMEOUT,
-  );
-});
-
-/** Deleting by address alone, which only registered accounts need: seeded ones go with their play. */
-describe("registered test accounts", () => {
-  let harness: TestHarness;
-
-  beforeEach(() => {
-    harness = testHarness("register");
-  });
-
-  afterEach(() => harness.dispose(), TIMEOUT);
-
-  it(
-    "reports an account that doesn't exist as absent, so a sweep stops retrying it",
-    async () => {
-      // 1. Create an account, then delete the test's accounts
-      const account = await harness.accounts.create();
-      await harness.accounts.deleteAll();
-
-      // 2. Verify a second deletion finds no account and says so
-      expect(await harness.accounts.deleteByEmail(account.email)).toBe("absent");
     },
     TIMEOUT,
   );

@@ -12,7 +12,8 @@
 
     The connector's exit code is passed through, so the task's LastTaskResult is the
     connector's own: 0 clean shutdown, 1 startup error, 2 credential refused, 3 not
-    eligible for the rotation endpoints.
+    eligible for the rotation endpoints, 4 startup sign-in failed, 5 another bwac is
+    running with the same token.
 #>
 param(
     [Parameter(Mandatory = $true)][string] $Exe,

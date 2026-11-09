@@ -11,9 +11,6 @@ export interface SeederSettings {
 /** The scene the seeder creates a standalone account with. */
 const SINGLE_USER_SCENE = "SingleUserScene";
 
-/** The query that reads back the email-verification link a server mailed. */
-const EMAIL_VERIFICATION_QUERY = "UserEmailVerificationQuery";
-
 interface SeedResponse {
   /**
    * The values the seeder replaced so seeded data cannot collide, keyed by the value asked for: an
@@ -46,7 +43,7 @@ export class Seeder {
     if (!mangled) {
       throw new Error(
         "the seeder does not track play ids (globalSettings:testPlayIdTrackingEnabled is off), so " +
-          "it could not destroy what it seeds; turn tracking on, or set BW_LIVE_ACCOUNTS=register",
+          "it could not destroy what it seeds; turn tracking on",
       );
     }
 
@@ -56,20 +53,6 @@ export class Seeder {
   /** Destroys everything seeded under `playId`. One the seeder has no record of is a no-op. */
   async destroyPlay(playId: string): Promise<void> {
     await this.send("DELETE", `/seed/${encodeURIComponent(playId)}`, playId);
-  }
-
-  /**
-   * The email-verification link a registration for `email` was mailed, relative and with its
-   * parameters in the fragment: `/redirect-connector.html#finish-signup?token=…&email=…`.
-   */
-  async emailVerificationLink(email: string, name: string): Promise<string> {
-    const response = await this.send("POST", "/query", undefined, {
-      template: EMAIL_VERIFICATION_QUERY,
-      arguments: { email, name },
-    });
-    const { url } = (await response.json()) as { url: string };
-
-    return url;
   }
 
   private async send(
