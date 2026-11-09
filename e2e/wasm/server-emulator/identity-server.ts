@@ -6,7 +6,7 @@ import {
   PasswordPreloginRequest,
   PasswordPreloginResponse,
   TokenResponse,
-} from "./dto";
+} from "./dto/identity";
 import type { MockReply, Routes } from "./http-mock";
 import type { UserEntity } from "./entities";
 import { HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from "./replies";
