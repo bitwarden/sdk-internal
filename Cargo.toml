@@ -138,7 +138,6 @@ rustls = { version = "0.23.27", default-features = false, features = [
     "logging",
     "ring",
 ] }
-rustls-native-certs = "0.8.4"
 rustls-platform-verifier = "0.7.0"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }

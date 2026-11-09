@@ -339,11 +339,13 @@ plaintext LDAP path, no StartTLS fallback, and no flag to skip certificate valid
 A domain controller refuses a `unicodePwd` write on an unencrypted connection anyway, answering
 `confidentialityRequired` (LDAP result code 13).
 
-The domain controller's certificate is validated against the host's native trust store. A deployment
-whose DC uses a private or self-signed certificate can name a PEM file of extra trust anchors with
-`ca_certificate` — see [Trusting a private CA](#trusting-a-private-ca). A validation failure ends
-the attempt at once, with no backoff and no second connection inside it; the job itself is still
-re-claimed on later polls until its attempt budget is spent.
+The domain controller's certificate is validated by the host's platform verifier, the same one the
+connector uses for HTTPS (Security.framework on macOS, CryptoAPI on Windows, the system trust store
+with webpki on Linux). On macOS and Windows the OS's trust settings and revocation checks apply. A
+deployment whose DC uses a private or self-signed certificate can name a PEM file of extra trust
+anchors with `ca_certificate` — see [Trusting a private CA](#trusting-a-private-ca). A validation
+failure ends the attempt at once, with no backoff and no second connection inside it; the job itself
+is still re-claimed on later polls until its attempt budget is spent.
 
 `ldap_host` is a bare host name, optionally with a `:port` suffix — never a URL. Anything containing
 a scheme, a path, userinfo, or whitespace is rejected at rotation time so that a mistyped host
@@ -369,11 +371,11 @@ ca_certificate = "/etc/bwac/ad-ca.pem"
 
 Or set `<TARGET_ID>_CA_CERTIFICATE` in the environment.
 
-The file's anchors are added to the platform trust store, for that target's connections only. The
-chain and host name are checked as they are for a public certificate, so `ldap_host` must match a
-SAN on the DC's certificate. A missing or unreadable file, a malformed PEM, or a PEM with no
+The file's anchors are trusted in addition to the platform's, for that target's connections only.
+The chain and host name are checked as they are for a public certificate, so `ldap_host` must match
+a SAN on the DC's certificate. A missing or unreadable file, a malformed PEM, or a PEM with no
 certificate fails the rotation with `credentials_unresolved` instead of falling back to the platform
-roots. Without `ca_certificate`, the connection trusts the platform store alone.
+roots. Without `ca_certificate`, the connection trusts the platform alone.
 
 To export a DC's current LDAPS certificate, on the DC:
 

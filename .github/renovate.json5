@@ -98,7 +98,7 @@
     },
     {
       matchManagers: ["cargo"],
-      matchPackageNames: ["ldap3", "rustls-native-certs"],
+      matchPackageNames: ["ldap3"],
       commitMessagePrefix: "[deps] PAM:",
       reviewers: ["team:team-pam-dev"],
     },
