@@ -131,7 +131,9 @@ describeLive("rotate user keys (live server)", () => {
    *
    *   K0 ──rotate──▶ K1 ──rotate──▶ K2 ──rotate──▶ K3 ──▶ vault still decrypts, fresh login reads it
    *
-   * The account is new, so each run starts from what registration makes today.
+   * The account is new and seeded V1, so the first round upgrades it to V2.
+   *
+   * TODO: seed the account V2 once the seeder can, so the rounds are V2 to V2 throughout.
    */
   it(
     `survives ${ROTATION_COUNT} consecutive rotations`,

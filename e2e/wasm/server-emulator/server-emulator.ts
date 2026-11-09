@@ -15,7 +15,8 @@ import { installHttpMock, type HttpMock, type Routes } from "./http-mock";
 import { IdentityServer } from "./identity-server";
 import { KeyConnectorServer } from "./key-connector-server";
 import { RegistrationServer } from "./registration-server";
-import { API_URL, IDENTITY_URL, KEY_CONNECTOR_URL } from "./urls";
+import { SeederServer } from "./seeder-server";
+import { API_URL, IDENTITY_URL, KEY_CONNECTOR_URL, SEEDER_URL } from "./urls";
 
 import { asAccountId, asEncString, fromUuid } from "../tests/type-assertion-helpers";
 import {
@@ -170,6 +171,7 @@ export class ServerEmulator {
   readonly keyConnector = new KeyConnectorServer(this.db);
   readonly emergencyAccess = new EmergencyAccessServer(this.db);
   readonly registration = new RegistrationServer(this.db, this.identity);
+  readonly seeder = new SeederServer(this.db, this.identity);
 
   /** The seeded account with this email. Throws if there is none. */
   getUser(email: string): UserEntity {
@@ -339,6 +341,7 @@ export class ServerEmulator {
       ...bindToOrigin(this.identity.routes(), IDENTITY_URL),
       ...bindToOrigin(this.registration.identityRoutes(), IDENTITY_URL),
       ...bindToOrigin(this.keyConnector.routes(), KEY_CONNECTOR_URL),
+      ...bindToOrigin(this.seeder.routes(), SEEDER_URL),
     });
   }
 }

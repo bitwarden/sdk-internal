@@ -33,7 +33,11 @@ since it answers whatever it was written to answer. They are named `*.live.test.
 unless configured, and never run in CI.
 
 ```sh
-BW_LIVE_SERVER_URL=https://vault.example.com npm run test:live
+BW_LIVE_SERVER_URL=https://vault.example.com \
+BW_LIVE_SEEDER_URL=https://seeder.example.com \
+BW_LIVE_SEEDER_USERNAME=... \
+BW_LIVE_SEEDER_PASSWORD=... \
+npm run test:live
 ```
 
 `BW_LIVE_SERVER_URL` is expanded to `<url>/api` and `<url>/identity`, which is how a self-hosted
@@ -44,35 +48,32 @@ install is laid out. A deployment that gives each service its own origin needs t
 BW_LIVE_SERVER_URL=https://vault.usdev.bitwarden.pw \
 BW_LIVE_API_URL=https://api.usdev.bitwarden.pw \
 BW_LIVE_IDENTITY_URL=https://identity.usdev.bitwarden.pw \
-npm run test:live
+BW_LIVE_SEEDER_URL=... BW_LIVE_SEEDER_USERNAME=... BW_LIVE_SEEDER_PASSWORD=... npm run test:live
 ```
+
+Also optional: `BW_LIVE_DEVICE_IDENTIFIER`, which defaults to a fixed value so repeat runs look like
+one returning device rather than a new one each time — a new device is what triggers new-device
+verification — and `BW_LIVE_CLIENT_VERSION`, the version reported to the server, which a real server
+requires and the emulator does not ask for.
 
 ### Test accounts
 
-There are no long-lived test accounts. Each test creates the accounts it needs through registration,
-as a client does, and `harness.dispose()` deletes them when it ends, pass or fail. Tests can run in
-parallel without sharing an account, and a run leaves nothing behind. The same `harness.accounts`
-works on the emulator, which is how a default run covers it.
+Each test seeds the accounts it needs, through the server's seeder API (`util/SeederApi`), with
+`harness.accounts.create()`, and `harness.dispose()` destroys them when the test ends. Accounts are
+seeded under one play id per harness, and destroyed by it, so a run leaves nothing behind; if a run
+crashes before it can, the seeder's own cleanup removes plays older than a day. Live mode therefore
+needs a server that runs the seeder with play-id tracking on, which no production server does.
 
-Registration needs the email-verification token. A server with email verification off returns it.
-One with it on mails it, and the tests read it back through the server's seeder API, named by
-`BW_LIVE_SEEDER_URL`, `BW_LIVE_SEEDER_USERNAME` and `BW_LIVE_SEEDER_PASSWORD`.
+The seeder stores each address with a random prefix (`1854b016+sdk-it-…@example.com`), and
+`create()` answers the address the account logs in with. Test addresses use `example.com`, which
+never delivers mail; `BW_LIVE_EMAIL_DOMAIN` changes it.
 
-Passwords are derived from the address and a secret: `BW_LIVE_SECRET`, or one generated once per
-machine in `.live/` (gitignored). Every account created and deleted is recorded in
-`.live/ledger.jsonl`, so before each live run, accounts a crashed run left behind for over an hour
-are deleted.
+Seeded accounts are V1: the seeder doesn't make V2 accounts yet.
 
-Also optional:
-
-- `BW_LIVE_EMAIL_DOMAIN`, the domain of test addresses, by default `example.com`, which never
-  delivers mail.
-- `BW_LIVE_DEVICE_IDENTIFIER`, which defaults to a fixed value so repeat runs look like one
-  returning device rather than a new one each time.
-- `BW_LIVE_CLIENT_VERSION`, the version reported to the server, which a real server requires and the
-  emulator does not ask for.
-
-A new account must be able to log in without two-factor, a captcha or new-device verification.
+The tests of registration itself (`tests/registration/password-registration*.test.ts`) register
+their account as a client does instead, through `tests/registration/password-registration.ts`, and
+delete it with `DELETE /accounts` when they end. On a server that mails the email-verification
+token, they read it back through the seeder.
 
 ## Test vectors
 

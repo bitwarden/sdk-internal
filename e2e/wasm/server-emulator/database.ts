@@ -129,4 +129,15 @@ export class Database {
   readonly emailVerificationTokens = new Table<string>(
     new SequentialUuidGenerator("email-verification-tokens"),
   );
+  /** The accounts the seeder wrote under each play id, keyed by play id. */
+  readonly playItems = new Table<string[]>(new SequentialUuidGenerator("play-items"));
+
+  /** Removes an account with its vault and sessions, as deleting it does. */
+  removeUser(userId: string): void {
+    this.ciphers.removeWhere((cipher) => cipher.userId === userId);
+    this.folders.removeWhere((folder) => folder.userId === userId);
+    this.sessions.removeWhere((sessionUserId) => sessionUserId === userId);
+    this.users.remove(userId);
+    this.revisions.next();
+  }
 }

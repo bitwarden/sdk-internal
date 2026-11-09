@@ -2,8 +2,7 @@
 
 import type { ClientSettings, LoginRequest } from "@bitwarden/sdk-internal";
 
-import type { SeederSettings } from "./accounts";
-import { liveSecret } from "./state";
+import type { SeederSettings } from "./seeder";
 
 /** The server URL. Its presence is what puts the harness in live mode. */
 const SERVER_URL = "BW_LIVE_SERVER_URL";
@@ -16,7 +15,7 @@ const SERVER_URL = "BW_LIVE_SERVER_URL";
  */
 const API_URL = "BW_LIVE_API_URL";
 const IDENTITY_URL = "BW_LIVE_IDENTITY_URL";
-/** The server's seeder API, for a server that mails the email-verification token. */
+/** The server's seeder API, which every test account is seeded through. */
 const SEEDER_URL = "BW_LIVE_SEEDER_URL";
 const SEEDER_USERNAME = "BW_LIVE_SEEDER_USERNAME";
 const SEEDER_PASSWORD = "BW_LIVE_SEEDER_PASSWORD";
@@ -30,10 +29,8 @@ const DEFAULT_CLIENT_VERSION = "2026.9.0";
 export interface LiveConfig {
   settings: ClientSettings;
   loginRequest: LoginRequest;
+  seeder: SeederSettings;
   emailDomain: string;
-  seeder?: SeederSettings;
-  /** The secret test-account passwords derive from. */
-  secret: string;
 }
 
 /**
@@ -68,32 +65,22 @@ export function requireLiveConfig(): LiveConfig {
         devicePushToken: undefined,
       },
     },
+    seeder: {
+      url: trimTrailingSlash(required(SEEDER_URL)),
+      username: required(SEEDER_USERNAME),
+      password: required(SEEDER_PASSWORD),
+    },
     emailDomain: process.env[EMAIL_DOMAIN] || DEFAULT_EMAIL_DOMAIN,
-    seeder: seederSettings(),
-    secret: liveSecret(),
   };
 }
 
 export function describeLoginFailure(error: unknown): string {
   return [
     `live login failed: ${String(error)}`,
-    "a new account fails to log in when the server requires two-factor, a captcha, or new-device",
-    `verification for device ${process.env[DEVICE_IDENTIFIER] ?? DEFAULT_DEVICE_IDENTIFIER}.`,
+    "a seeded account fails to log in when the server requires two-factor, a captcha, or",
+    `new-device verification for device ${process.env[DEVICE_IDENTIFIER] ?? DEFAULT_DEVICE_IDENTIFIER}.`,
     "The SDK reports all three as the same unknown error, so none can be told apart here.",
   ].join(" ");
-}
-
-function seederSettings(): SeederSettings | undefined {
-  const url = process.env[SEEDER_URL];
-  if (url === undefined || url === "") {
-    return undefined;
-  }
-
-  return {
-    url: trimTrailingSlash(url),
-    username: required(SEEDER_USERNAME),
-    password: required(SEEDER_PASSWORD),
-  };
 }
 
 function originOr(name: string, fallback: string): string {
@@ -105,7 +92,10 @@ function originOr(name: string, fallback: string): string {
 function required(name: string): string {
   const value = process.env[name];
   if (value === undefined || value === "") {
-    throw new Error(`${name} is not set`);
+    throw new Error(
+      `${name} is not set; live mode needs ${SERVER_URL}, ${SEEDER_URL}, ${SEEDER_USERNAME} and ` +
+        `${SEEDER_PASSWORD}`,
+    );
   }
 
   return value;

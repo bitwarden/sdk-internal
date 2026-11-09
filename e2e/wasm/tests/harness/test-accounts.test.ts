@@ -4,13 +4,10 @@ import { rejection } from "../utils";
 
 import { isPasswordLoginError } from "@bitwarden/sdk-internal";
 
-/** Registration and deletion each derive a master key, and a test logs in more than once. */
+/** Each login derives a master key, and a test logs in more than once. */
 const TIMEOUT = 60_000;
 
-/**
- * The accounts a test creates for itself: registered as a client registers, usable at once, and
- * gone when the test ends.
- */
+/** The accounts a test seeds for itself: usable at once, and gone when the test ends. */
 describe("test accounts", () => {
   let harness: TestHarness;
 
@@ -75,19 +72,6 @@ describe("test accounts", () => {
         isPasswordLoginError,
       );
       expect(thrown.variant).toBe("InvalidUsernameOrPassword");
-    },
-    TIMEOUT,
-  );
-
-  it(
-    "reports an account that doesn't exist as absent, so a sweep stops retrying it",
-    async () => {
-      // 1. Create an account, then delete the test's accounts
-      const account = await harness.accounts.create();
-      await harness.accounts.deleteAll();
-
-      // 2. Verify a second deletion finds no account and says so
-      expect(await harness.accounts.deleteByEmail(account.email)).toBe("absent");
     },
     TIMEOUT,
   );

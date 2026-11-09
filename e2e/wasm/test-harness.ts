@@ -7,6 +7,7 @@ import { SETTINGS } from "./client-emulator/local-state";
 import { TestAccounts } from "./live/accounts";
 import type { LiveConfig } from "./live/config";
 import { ServerEmulator } from "./server-emulator/server-emulator";
+import { SEEDER_URL } from "./server-emulator/urls";
 
 import type { HttpMock } from "./server-emulator/http-mock";
 
@@ -19,10 +20,7 @@ export class TestHarness {
   // Patches `fetch` to route requests to the server emulator globally. Absent in live mode.
   private readonly hook: HttpMock | undefined;
 
-  /**
-   * Accounts this test creates through registration and deletes in {@link dispose}, on either
-   * backend.
-   */
+  /** Accounts this test seeds, and destroys in {@link dispose}, on either backend. */
   readonly accounts: TestAccounts;
 
   private constructor(
@@ -31,15 +29,10 @@ export class TestHarness {
     live: LiveConfig | undefined,
   ) {
     this.accounts = new TestAccounts(
-      live === undefined
-        ? {
-            settings,
-            loginRequest,
-            secret: randomBytes(32).toString("base64"),
-            emailDomain: "example.com",
-            ledger: false,
-          }
-        : { ...live, ledger: true },
+      live ?? {
+        seeder: { url: SEEDER_URL, username: "seeder", password: randomBytes(16).toString("hex") },
+        emailDomain: "example.com",
+      },
     );
 
     if (live !== undefined) {
@@ -84,7 +77,7 @@ export class TestHarness {
   }
 
   /**
-   * Deletes the accounts this test created, then unpatches `fetch`. Call in `afterEach` in place of
+   * Destroys the accounts this test seeded, then unpatches `fetch`. Call in `afterEach` in place of
    * {@link restore} once a test creates accounts.
    */
   async dispose(): Promise<void> {
