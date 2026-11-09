@@ -937,6 +937,28 @@ BWAC_TOKEN="…" cargo run -p bitwarden-access-connector -- run \
   --config bitwarden_license/bitwarden-access-connector/dev-config.toml
 ```
 
+### End-to-end tests
+
+The `e2e` tests run the connector against a live server, seeding state through the Seeder API.
+`cargo test` skips them. To run them:
+
+1. Start the server stack and the SeederApi, with the `pm-42354-rotation-daemon` feature flag on.
+2. Point the tests at it:
+
+   ```sh
+   export BITWARDEN_API_URL=https://localhost:8080/api
+   export BITWARDEN_IDENTITY_URL=https://localhost:8080/identity
+   export BITWARDEN_SEEDER_URL=http://localhost:5047
+   ```
+
+3. Run `cargo test -p bitwarden-access-connector --test e2e`.
+
+The server must run with `globalSettings:selfHosted` true (or with IP rate limiting otherwise off).
+The tests poll every 50 ms and request a token per connector, which the cloud rate limits throttle.
+
+The failure tests assume the default `globalSettings:pam:rotation` retry options (`MaxAttempts` 5,
+`RetryBaseDelay` 1 s). Don't override them on the server under test.
+
 Test scripts used by the integration tests are in `tests/fixtures/`. The build workflow in
 `.github/workflows/build-access-connector.yml` produces release binaries for each supported
 platform.
