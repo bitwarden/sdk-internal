@@ -72,6 +72,13 @@ pub trait OrganizationSubscriptionsApi: Send + Sync {
         organization_id: uuid::Uuid,
         purchase_privileged_controls_request: models::PurchasePrivilegedControlsRequest,
     ) -> Result<(), Error>;
+
+    /// DELETE /organizations/{organizationId}/billing/subscription/privileged-controls
+    /// Removes Privileged Controls from the organization's subscription.
+    async fn remove_privileged_controls<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<(), Error>;
 }
 
 pub struct OrganizationSubscriptionsApiClient {
@@ -226,6 +233,28 @@ impl OrganizationSubscriptionsApi for OrganizationSubscriptionsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&purchase_privileged_controls_request);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    /// Removes Privileged Controls from the organization's subscription.
+    async fn remove_privileged_controls<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/billing/subscription/privileged-controls",
+            local_var_configuration.base_path,
+            organizationId = organization_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
