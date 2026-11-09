@@ -82,6 +82,11 @@ pub struct AccessConnectorConfig {
 }
 
 impl AccessConnectorConfig {
+    /// The token's API key ID, which identifies the access connector without the secret.
+    pub fn api_key_id(&self) -> Uuid {
+        self.token.api_key_id()
+    }
+
     /// Builds a config for integration tests, bypassing validation.
     #[doc(hidden)]
     pub fn new_for_test(
