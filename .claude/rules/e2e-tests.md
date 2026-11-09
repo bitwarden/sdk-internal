@@ -7,7 +7,7 @@ paths:
 
 Each folder under `e2e/` tests the SDK through one of its bindings: `e2e/wasm` through the WASM
 package, and the other folders through the UniFFI bindings for one mobile language. They test the
-same SDK, so a behavior tested through one binding is tested through all of them.
+same SDK, so a new test goes into every suite.
 
 - A PR that adds a test to one binding's suite adds the matching test to every other suite in the
   same PR. Give the matching tests the same name, in each language's naming style, so the
