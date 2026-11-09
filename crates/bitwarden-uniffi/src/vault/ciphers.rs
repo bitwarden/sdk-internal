@@ -3,10 +3,10 @@ use bitwarden_core::OrganizationId;
 use bitwarden_vault::{
     Cipher, CipherCreateRequest, CipherEditRequest, CipherId, CipherListView,
     CipherPartialEditRequest, CipherView, DecryptCipherListResult, DecryptCipherResult,
-    DecryptError, DecryptListError, EncryptionContext, FolderId,
+    EncryptionContext, FolderId,
 };
 
-use crate::{Result, error::BitwardenError};
+use crate::Result;
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
@@ -26,18 +26,7 @@ impl CiphersClient {
 
     /// Decrypt cipher list
     pub async fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>> {
-        self.0
-            .decrypt_list(ciphers.into())
-            .await
-            .map_err(|error| match error {
-                DecryptListError::Crypto(error) => DecryptError::Crypto(error).into(),
-                // `InvalidInput` only comes from items converted from JavaScript, so a `Vec` from
-                // UniFFI never reaches this arm. It exists because the WASM binding shares the
-                // error type.
-                DecryptListError::InvalidInput(error) => {
-                    BitwardenError::Conversion(error.to_string())
-                }
-            })
+        Ok(self.0.decrypt_list(ciphers.into()).await?)
     }
 
     /// Encrypt a list of cipher views. Fails if any cipher fails to encrypt.
@@ -56,13 +45,7 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> Result<DecryptCipherListResult> {
-        // The only error, `InvalidInput`, comes from items converted from JavaScript, so it never
-        // occurs for a `Vec` from UniFFI. It is mapped because the WASM binding shares the error
-        // type.
-        self.0
-            .decrypt_list_with_failures(ciphers.into())
-            .await
-            .map_err(|error| BitwardenError::Conversion(error.to_string()))
+        Ok(self.0.decrypt_list_with_failures(ciphers.into()).await?)
     }
 
     /// Move a cipher to an organization, reencrypting the cipher key if necessary
@@ -95,13 +78,10 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> Result<DecryptCipherResult> {
-        // The only error, `InvalidInput`, comes from items converted from JavaScript, so it never
-        // occurs for a `Vec` from UniFFI. It is mapped because the WASM binding shares the error
-        // type.
-        self.0
+        Ok(self
+            .0
             .decrypt_list_full_with_failures(ciphers.into())
-            .await
-            .map_err(|error| BitwardenError::Conversion(error.to_string()))
+            .await?)
     }
 
     /// Create a new cipher and save it to the server and local state

@@ -157,6 +157,23 @@ pub enum BitwardenError {
     #[error("A conversion error occurred: {0}")]
     Conversion(String),
 }
+
+impl From<bitwarden_vault::DecryptListError> for BitwardenError {
+    fn from(error: bitwarden_vault::DecryptListError) -> Self {
+        match error {
+            bitwarden_vault::DecryptListError::Crypto(error) => {
+                bitwarden_vault::DecryptError::Crypto(error).into()
+            }
+            // `InvalidInput` only comes from items converted from JavaScript, so a `Vec` from
+            // UniFFI never reaches this arm. It exists because the WASM binding shares the error
+            // type.
+            bitwarden_vault::DecryptListError::InvalidInput(error) => {
+                Self::Conversion(error.to_string())
+            }
+        }
+    }
+}
+
 /// Required From implementation for UNIFFI callback error handling
 /// Converts unexpected mobile exceptions into BitwardenError
 impl From<uniffi::UnexpectedUniFFICallbackError> for BitwardenError {
