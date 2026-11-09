@@ -2,6 +2,8 @@
 // the database under a play id, and destroyed by it. A test environment may run one; production
 // never does.
 
+import { randomBytes } from "node:crypto";
+
 import { PureCrypto, type Kdf } from "@bitwarden/sdk-internal";
 
 import { asAccountId, asEncString } from "../tests/type-assertion-helpers";
@@ -63,7 +65,9 @@ export class SeederServer {
       return refusal(HTTP_BAD_REQUEST, `email ${email} is already taken`);
     }
 
-    const user = seededUser(this.db.users.newId(), email, password, {
+    // Stored under a mangled address, as a seeder that tracks play ids stores every seeded one.
+    const mangled = mangle(email);
+    const user = seededUser(this.db.users.newId(), mangled, password, {
       pBKDF2: { iterations: kdfIterations ?? DEFAULT_KDF_ITERATIONS },
     });
     this.db.users.set(user.userId, user);
@@ -77,7 +81,7 @@ export class SeederServer {
     // emulator answers with the id and KDF only, so nothing in the suite can come to depend on them.
     return {
       json: {
-        mangleMap: {},
+        mangleMap: { [email]: mangled },
         result: {
           userId: user.userId,
           kdf: "PBKDF2_SHA256",
@@ -96,6 +100,11 @@ export class SeederServer {
 
     return { json: {} };
   }
+}
+
+/** An address with the seeder's random prefix: `1854b016+name@example.com`. */
+function mangle(email: string): string {
+  return `${randomBytes(4).toString("hex")}+${email}`;
 }
 
 /**

@@ -16,8 +16,8 @@ const EMAIL_VERIFICATION_QUERY = "UserEmailVerificationQuery";
 
 interface SeedResponse {
   /**
-   * The values the seeder replaced so seeded data cannot collide, keyed by the value asked for. A
-   * seeder with mangling on stores an address with a prefix; one with it off leaves it out.
+   * The values the seeder replaced so seeded data cannot collide, keyed by the value asked for: an
+   * address gains a random prefix, `1854b016+name@example.com`.
    */
   mangleMap?: Record<string, string | null>;
 }
@@ -29,6 +29,10 @@ export class Seeder {
    * Seeds an account with a master password under `playId`, and answers the address it was stored
    * under, which is the one it logs in with.
    *
+   * The seeder mangles addresses exactly when it tracks play ids (`testPlayIdTrackingEnabled`), so
+   * an address it left alone means a play it cannot destroy. That refuses here, rather than leaving
+   * every seeded account behind.
+   *
    * The seeder makes the account's keys itself. Its response also carries the account's decrypted
    * user key, which is never read: a test reaches the vault only by logging in, as a client does.
    */
@@ -38,8 +42,15 @@ export class Seeder {
       arguments: { email, password, emailVerified: true },
     });
     const { mangleMap } = (await response.json()) as SeedResponse;
+    const mangled = mangleMap?.[email];
+    if (!mangled) {
+      throw new Error(
+        "the seeder does not track play ids (globalSettings:testPlayIdTrackingEnabled is off), so " +
+          "it could not destroy what it seeds; turn tracking on, or set BW_LIVE_ACCOUNTS=register",
+      );
+    }
 
-    return mangleMap?.[email] ?? email;
+    return mangled;
   }
 
   /** Destroys everything seeded under `playId`. One the seeder has no record of is a no-op. */
