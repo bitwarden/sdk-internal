@@ -13,26 +13,17 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PasswordManagerUpdateSelections {
+pub struct PrivilegedControlsSelections {
     #[serde(
         rename = "seats",
         alias = "Seats",
         skip_serializing_if = "Option::is_none"
     )]
     pub seats: Option<i32>,
-    #[serde(
-        rename = "additionalStorage",
-        alias = "AdditionalStorage",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub additional_storage: Option<i32>,
 }
 
-impl PasswordManagerUpdateSelections {
-    pub fn new() -> PasswordManagerUpdateSelections {
-        PasswordManagerUpdateSelections {
-            seats: None,
-            additional_storage: None,
-        }
+impl PrivilegedControlsSelections {
+    pub fn new() -> PrivilegedControlsSelections {
+        PrivilegedControlsSelections { seats: None }
     }
 }

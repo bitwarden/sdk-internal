@@ -231,6 +231,14 @@ pub struct ProfileOrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub has_public_and_private_keys: Option<bool>,
+    /// Key id of the organization key, or null when it is not recorded yet. An Owner or Admin
+    /// client reports it through `POST organizations/{orgId}/keys/organization-key-id`.
+    #[serde(
+        rename = "organizationKeyId",
+        alias = "OrganizationKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub organization_key_id: Option<String>,
     #[serde(
         rename = "ssoBound",
         alias = "SsoBound",
@@ -438,6 +446,7 @@ impl ProfileOrganizationResponseModel {
             max_storage_gb: None,
             key: None,
             has_public_and_private_keys: None,
+            organization_key_id: None,
             sso_bound: None,
             reset_password_enrolled: None,
             limit_collection_creation: None,

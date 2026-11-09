@@ -13,25 +13,22 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PasswordManagerPurchaseSelections {
+pub struct PurchasePrivilegedControlsRequest {
     #[serde(rename = "seats", alias = "Seats")]
     pub seats: i32,
-    #[serde(rename = "additionalStorage", alias = "AdditionalStorage")]
-    pub additional_storage: i32,
     #[serde(
-        rename = "sponsored",
-        alias = "Sponsored",
+        rename = "maxAutoscaleSeats",
+        alias = "MaxAutoscaleSeats",
         skip_serializing_if = "Option::is_none"
     )]
-    pub sponsored: Option<bool>,
+    pub max_autoscale_seats: Option<i32>,
 }
 
-impl PasswordManagerPurchaseSelections {
-    pub fn new(seats: i32, additional_storage: i32) -> PasswordManagerPurchaseSelections {
-        PasswordManagerPurchaseSelections {
+impl PurchasePrivilegedControlsRequest {
+    pub fn new(seats: i32) -> PurchasePrivilegedControlsRequest {
+        PurchasePrivilegedControlsRequest {
             seats,
-            additional_storage,
-            sponsored: None,
+            max_autoscale_seats: None,
         }
     }
 }

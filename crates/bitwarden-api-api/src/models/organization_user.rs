@@ -138,6 +138,22 @@ pub struct OrganizationUser {
         skip_serializing_if = "Option::is_none"
     )]
     pub revocation_reason: Option<models::RevocationReason>,
+    /// When the next invite reminder is due. Null when no reminders are scheduled. A revoke keeps
+    /// this value for a later restore.
+    #[serde(
+        rename = "inviteReminderDueDate",
+        alias = "InviteReminderDueDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub invite_reminder_due_date: Option<String>,
+    /// The number of invite reminders claimed in the current sequence. Null when no reminders are
+    /// scheduled.
+    #[serde(
+        rename = "inviteRemindersSentCount",
+        alias = "InviteRemindersSentCount",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub invite_reminders_sent_count: Option<i32>,
 }
 
 impl OrganizationUser {
@@ -163,6 +179,8 @@ impl OrganizationUser {
             access_secrets_manager: None,
             access_pam: None,
             revocation_reason: None,
+            invite_reminder_due_date: None,
+            invite_reminders_sent_count: None,
         }
     }
 }

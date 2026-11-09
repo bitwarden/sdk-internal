@@ -10,7 +10,7 @@ pub use error::{AcceptInviteLinkError, InviteLinkError};
 pub use invite_link_admin_client::InviteLinkAdminClient;
 pub use invite_link_client::{InviteLinkClient, InviteLinkClientExt};
 pub use invite_link_user_client::InviteLinkUserClient;
+pub(crate) use organization_invite_link::OrganizationInviteLink;
 pub use organization_invite_link::{
-    OrganizationInviteLink, OrganizationInviteLinkSsoView, OrganizationInviteLinkStatusView,
-    OrganizationInviteLinkView,
+    OrganizationInviteLinkSsoView, OrganizationInviteLinkStatusView, OrganizationInviteLinkView,
 };
