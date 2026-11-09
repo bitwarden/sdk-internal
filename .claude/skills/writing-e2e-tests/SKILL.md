@@ -27,9 +27,10 @@ instead.
   before writing scenarios.
 - Single-function logic stays in Rust unit tests.
 
-An e2e test that goes through a binding has a counterpart in every other suite under `e2e/` (for
-example `e2e/swift` for the Swift UniFFI bindings). Write those in the same PR, with the same test
-name, or say in the PR why a binding cannot have one. `.claude/rules/e2e-tests.md` has the rule.
+A new e2e test that goes through a binding gets a counterpart in every other suite under `e2e/`, for
+example `e2e/swift` for the Swift UniFFI bindings (run it with `npm run e2e:swift`; see
+`e2e/swift/README.md`). `.claude/rules/e2e-tests.md` has the rule: matching names, changed tests,
+when a counterpart can be skipped, and how to document it.
 
 ## WASM harness
 
