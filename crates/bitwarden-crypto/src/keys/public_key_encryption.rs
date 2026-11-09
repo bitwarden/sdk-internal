@@ -3,10 +3,7 @@ use std::{fmt::Display, pin::Pin, str::FromStr};
 use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::{Value, value::Integer};
 use coset::iana::{EnumI64, KeyParameter, KeyType, RsaKeyParameter};
-use rsa::{
-    PrivateKey as RsaPrivateKey, PublicKey as RsaPublicKey, pkcs8::DecodePublicKey,
-    traits::PublicKeyParts,
-};
+use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey, traits::PublicKeyParts};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 

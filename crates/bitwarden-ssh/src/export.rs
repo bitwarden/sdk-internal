@@ -1,5 +1,5 @@
 use pkcs8::EncodePrivateKey;
-use rsa::PrivateKey as RsaPrivateKey;
+use rsa::RsaPrivateKey;
 use ssh_key::{EcdsaCurve, PrivateKey};
 
 use crate::error::SshKeyExportError;

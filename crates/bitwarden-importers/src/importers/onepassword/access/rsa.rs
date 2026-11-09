@@ -3,7 +3,7 @@
 //! This module shares its name with the external `rsa` crate, so inside the crate the dependency is
 //! reached as `::rsa`.
 
-use ::rsa::{BoxedUint, Oaep, PrivateKey as RsaPrivateKey};
+use ::rsa::{BoxedUint, Oaep, RsaPrivateKey};
 use sha1::Sha1;
 use sha2::Sha256;
 
