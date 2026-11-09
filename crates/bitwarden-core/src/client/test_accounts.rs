@@ -67,6 +67,7 @@ impl Client {
             .unwrap();
 
         if let Some(org) = account.org {
+            #[allow(deprecated)]
             client.crypto().initialize_org_crypto(org).await.unwrap();
         }
 
@@ -85,7 +86,7 @@ impl Client {
 /// dumps.
 #[cfg(feature = "test-fixtures")]
 pub struct TestAccount {
-    user: InitUserCryptoRequest,
+    pub(crate) user: InitUserCryptoRequest,
     org: Option<InitOrgCryptoRequest>,
 }
 

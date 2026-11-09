@@ -4,23 +4,20 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{
-    EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
-};
+use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, safe::PasswordProtectedKeyEnvelope};
 use bitwarden_managed_settings_types::ManagementProfile;
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info};
 
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::client::login_method::LoginMethod;
 use crate::{
     DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
     key_management::KeySlotIds,
 };
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::{
-    OrganizationId, client::encryption_settings::EncryptionSettings,
-    client::login_method::LoginMethod,
-};
+#[cfg(feature = "secrets")]
+use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
 #[cfg(feature = "internal")]
 use crate::{
     client::{
@@ -390,15 +387,6 @@ impl InternalClient {
         key: SymmetricCryptoKey,
     ) {
         EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
-    }
-
-    #[allow(missing_docs)]
-    #[cfg(feature = "internal")]
-    pub fn initialize_org_crypto(
-        &self,
-        org_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
-    ) -> Result<(), EncryptionSettingsError> {
-        EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
 
     #[cfg(feature = "internal")]

@@ -1023,6 +1023,7 @@ mod tests {
             .initialize_user_crypto(user_request)
             .await
             .unwrap();
+        #[allow(deprecated)]
         client
             .crypto()
             .initialize_org_crypto(org_request)

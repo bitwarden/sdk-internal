@@ -35,7 +35,7 @@ use crate::{
     client::{
         LoginMethod, UserLoginMethod,
         encryption_settings::EncryptionSettingsError,
-        persisted_state::{ACCOUNT_CRYPTO_STATE, OrganizationSharedKey},
+        persisted_state::{ACCOUNT_CRYPTO_STATE, OrganizationKeyEnvelope, OrganizationSharedKey},
     },
     key_management::{
         MasterPasswordError, SymmetricKeySlotId, V2UpgradeToken,
@@ -47,6 +47,10 @@ use crate::{
             migrate_local_user_data_key_for_user_key_upgrade,
         },
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
+        organization_keys::{
+            OrganizationKeysError, load_organization_keys, read_organization_keys,
+            set_organization_keys,
+        },
         pin_lock_system::{PinLockSystem, UnlockError},
     },
 };
@@ -426,31 +430,61 @@ pub struct InitOrgCryptoRequest {
 }
 
 /// Initialize the user's organizational cryptographic state.
+///
+/// Persists the given keys, replacing all persisted organization keys, then loads them into the
+/// key store. If persisting fails, the given keys are loaded directly instead. A key that fails to
+/// load is logged and skipped.
 pub(super) async fn initialize_org_crypto(
     client: &Client,
     req: InitOrgCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
-    let organization_keys: Vec<_> = req.organization_keys.into_iter().collect();
-    client
-        .internal
-        .initialize_org_crypto(organization_keys.clone())?;
+    let organizations: Vec<OrganizationSharedKey> = req
+        .organization_keys
+        .into_iter()
+        .map(|(org_id, key)| OrganizationSharedKey {
+            org_id,
+            key: OrganizationKeyEnvelope::Organization { key },
+        })
+        .collect();
 
-    // Persist org keys for rehydration
-    if let Ok(repo) = client
-        .internal
-        .state_registry
-        .get::<OrganizationSharedKey>()
-    {
-        for (org_id, key) in organization_keys {
-            if let Err(e) = repo
-                .set(org_id, OrganizationSharedKey { org_id, key })
-                .await
-            {
-                tracing::warn!("Failed to persist org key for {org_id}: {e}");
+    match persist_organization_keys(client, &organizations).await {
+        Ok(()) => {
+            if let Err(e) = load_organization_keys(client).await {
+                tracing::warn!(error = ?e, "Failed to load organization keys");
             }
+        }
+        Err(e) => {
+            tracing::warn!(error = ?e, "Failed to persist organization keys, loading them directly");
+            let providers = match read_organization_keys(client).await {
+                Ok((providers, _)) => providers,
+                Err(e) => {
+                    tracing::warn!(error = ?e, "Failed to read provider keys");
+                    Vec::new()
+                }
+            };
+            let mut ctx = client.internal.get_key_store().context_mut();
+            set_organization_keys(&providers, &organizations, &mut ctx);
         }
     }
 
+    Ok(())
+}
+
+async fn persist_organization_keys(
+    client: &Client,
+    organizations: &[OrganizationSharedKey],
+) -> Result<(), OrganizationKeysError> {
+    client
+        .platform()
+        .state()
+        .get::<OrganizationSharedKey>()?
+        .replace_all(
+            organizations
+                .iter()
+                .map(|o| (o.org_id, o.clone()))
+                .collect(),
+        )
+        .await?;
     Ok(())
 }
 
@@ -919,6 +953,12 @@ async fn initialize_user_local_data_key(client: &Client) -> Result<(), Encryptio
 /// can use the session.
 async fn on_unlock_handler(client: &Client) -> Result<(), EncryptionSettingsError> {
     initialize_user_local_data_key(client).await?;
+
+    // Organization keys must not fail an unlock. A key that fails to load is logged and reported
+    // in the status instead.
+    if let Err(e) = load_organization_keys(client).await {
+        tracing::warn!(error = ?e, "Failed to load organization keys");
+    }
 
     // A browser extension's background unlocks along with each open popup. Concurrent PIN
     // migrations race on the PIN state, and each envelope reseal runs a full KDF, so only one
@@ -2048,6 +2088,65 @@ mod tests {
 
         let entry = persisted.expect("org key should be persisted after initialize_org_crypto");
         assert_eq!(entry.org_id, org_id);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_org_crypto_replaces_organization_keys() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let org_id: OrganizationId = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap();
+        assert!(
+            client
+                .internal
+                .get_key_store()
+                .context()
+                .has_symmetric_key(SymmetricKeySlotId::Organization(org_id))
+        );
+
+        initialize_org_crypto(
+            &client,
+            InitOrgCryptoRequest {
+                organization_keys: HashMap::new(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            !client
+                .internal
+                .get_key_store()
+                .context()
+                .has_symmetric_key(SymmetricKeySlotId::Organization(org_id))
+        );
+        let persisted = client
+            .platform()
+            .state()
+            .get::<OrganizationSharedKey>()
+            .unwrap()
+            .list()
+            .await
+            .unwrap();
+        assert!(persisted.is_empty());
+    }
+
+    /// Unlock loads the organization keys persisted by an earlier session.
+    #[tokio::test]
+    async fn test_initialize_user_crypto_loads_organization_keys_from_state() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let org_id: OrganizationId = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap();
+        client.internal.get_key_store().clear();
+
+        initialize_user_crypto(&client, test_bitwarden_com_account().user)
+            .await
+            .unwrap();
+
+        assert!(
+            client
+                .internal
+                .get_key_store()
+                .context()
+                .has_symmetric_key(SymmetricKeySlotId::Organization(org_id))
+        );
     }
 
     #[tokio::test]

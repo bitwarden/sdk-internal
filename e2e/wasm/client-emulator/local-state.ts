@@ -184,6 +184,7 @@ export class LocalState {
       send: null,
       policy: this.policies,
       organization: null,
+      provider_shared_key: null,
     });
 
     return client;

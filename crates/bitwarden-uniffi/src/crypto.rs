@@ -1,5 +1,5 @@
 use bitwarden_core::key_management::{
-    V2UpgradeToken,
+    OrganizationKeysStatus, V2UpgradeToken,
     crypto::{
         DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
         InitUserCryptoRequest, ReinitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
@@ -24,8 +24,25 @@ impl CryptoClient {
 
     /// Initialization method for the organization crypto. Needs to be called after
     /// `initialize_user_crypto` but before any other crypto operations.
+    ///
+    /// Deprecated: pass organization keys to `CryptoSyncHandlerClient::on_sync` instead; unlock
+    /// loads them from state.
     pub async fn initialize_org_crypto(&self, req: InitOrgCryptoRequest) -> Result<()> {
+        #[allow(deprecated)]
         Ok(self.0.initialize_org_crypto(req).await?)
+    }
+
+    /// Re-derives the user's provider and organization keys from state and loads them into the
+    /// key store. See
+    /// [`bitwarden_core::key_management::CryptoClient::load_organization_keys`].
+    pub async fn load_organization_keys(&self) -> Result<OrganizationKeysStatus> {
+        Ok(self.0.load_organization_keys().await?)
+    }
+
+    /// Reports which of the user's provider and organization keys are loaded into the key store.
+    /// See [`bitwarden_core::key_management::CryptoClient::organization_keys_status`].
+    pub async fn organization_keys_status(&self) -> Result<OrganizationKeysStatus> {
+        Ok(self.0.organization_keys_status().await?)
     }
 
     /// Re-initialize the user's cryptographic state during an unlock session for handling a synced
