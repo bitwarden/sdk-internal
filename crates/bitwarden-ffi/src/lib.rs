@@ -16,10 +16,10 @@ pub use large_vec::{LargeVec, LargeVecError};
 #[cfg(feature = "wasm")]
 pub use tsify::Ts;
 #[cfg(feature = "wasm")]
-pub use wire::{FromJsValue, FromWasm, Never, ToWasm, TsError, WireError};
+pub use wire::{FromWasm, Never, ToWasm, TsError, WireError};
 #[cfg(feature = "wasm")]
 #[doc(hidden)]
-pub use wire::{format_wire_string, import_conversion_error, parse_wire_string, try_from_js_value};
+pub use wire::{format_wire_string, import_conversion_error, parse_wire_string};
 
 /// What the macro expansions name, so a call site imports nothing and names only this crate.
 ///

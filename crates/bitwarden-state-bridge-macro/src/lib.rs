@@ -191,7 +191,7 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
             #[wasm_bindgen(method)]
             pub async fn #get(
                 this: &crate::key_management::state_bridge::RawWasmStateBridge,
-            ) -> ::wasm_bindgen::JsValue;
+            ) -> Option<<#ty as ::bitwarden_ffi::FromWasm>::Wire>;
             #[doc = #clear_doc]
             #[wasm_bindgen(method)]
             pub async fn #clear(
@@ -285,9 +285,7 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
             async fn #get(&self) -> Option<#ty> {
                 self.0
                     .run_in_thread(|state| async move {
-                        let wire = <Option<<#ty as ::bitwarden_ffi::FromWasm>::Wire>
-                            as ::bitwarden_ffi::FromJsValue>::from_js_value(state.#get().await)
-                            .expect(#get_err)?;
+                        let wire = state.#get().await?;
                         Some(<#ty as ::bitwarden_ffi::FromWasm>::from_wire(wire).expect(#get_err))
                     })
                     .await
