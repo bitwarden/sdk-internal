@@ -224,9 +224,8 @@ mod wasm {
         /// the items only when they are read.
         ///
         /// The generated JavaScript copies the handles when the call is made, as for a
-        /// `Vec<JsValue>`. wasm_bindgen converts the arguments of an `async` function inside the
-        /// returned promise, so a single handle to the array would see changes the caller makes
-        /// after the call returns.
+        /// `Vec<JsValue>`, so changes the caller makes to the array after the call do not reach
+        /// the items, which an `async` function reads later.
         unsafe fn from_abi(js: Self::Abi) -> Self {
             // SAFETY: `js` is the ABI form of a `Box<[JsValue]>`, as `describe` declares, so it is
             // taken over as wasm_bindgen takes over a `Vec<JsValue>` parameter.
