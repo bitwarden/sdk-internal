@@ -89,6 +89,9 @@ pub enum TargetSystemKind {
     Entra,
     /// An operator-supplied script run by the connector.
     CustomScript,
+    /// On-premises Active Directory account password rotation. Distinct from
+    /// [`Entra`](TargetSystemKind::Entra), which is Entra ID / Azure AD.
+    ActiveDirectory,
     /// A kind this SDK version does not recognize.
     Unknown,
 }
@@ -107,6 +110,7 @@ impl From<SealedTargetSystemKind> for TargetSystemKind {
         match kind {
             SealedTargetSystemKind::Entra => Self::Entra,
             SealedTargetSystemKind::CustomScript => Self::CustomScript,
+            SealedTargetSystemKind::ActiveDirectory => Self::ActiveDirectory,
         }
     }
 }
@@ -118,6 +122,7 @@ impl TryFrom<TargetSystemKind> for SealedTargetSystemKind {
         match kind {
             TargetSystemKind::Entra => Ok(Self::Entra),
             TargetSystemKind::CustomScript => Ok(Self::CustomScript),
+            TargetSystemKind::ActiveDirectory => Ok(Self::ActiveDirectory),
             TargetSystemKind::Unknown => Err(RotationError::UnrecognizedVariant),
         }
     }
@@ -751,5 +756,41 @@ mod tests {
     fn attempt_failure_code_none_without_reason() {
         let attempt = RotationAttempt::try_from(attempt_response(None)).unwrap();
         assert_eq!(attempt.failure_code, None);
+    }
+
+    #[test]
+    fn every_named_kind_round_trips_through_the_sealed_kind() {
+        for kind in [
+            TargetSystemKind::Entra,
+            TargetSystemKind::CustomScript,
+            TargetSystemKind::ActiveDirectory,
+        ] {
+            let sealed = SealedTargetSystemKind::try_from(kind).unwrap();
+            assert_eq!(TargetSystemKind::from(sealed), kind);
+        }
+    }
+
+    #[test]
+    fn unknown_kind_cannot_be_sealed() {
+        assert!(matches!(
+            SealedTargetSystemKind::try_from(TargetSystemKind::Unknown),
+            Err(RotationError::UnrecognizedVariant)
+        ));
+    }
+
+    #[test]
+    fn kinds_serialize_to_snake_case_names() {
+        for (kind, name) in [
+            (TargetSystemKind::Entra, "entra"),
+            (TargetSystemKind::CustomScript, "custom_script"),
+            (TargetSystemKind::ActiveDirectory, "active_directory"),
+            (TargetSystemKind::Unknown, "unknown"),
+        ] {
+            assert_eq!(serde_json::to_value(kind).unwrap(), name);
+            assert_eq!(
+                serde_json::from_value::<TargetSystemKind>(name.into()).unwrap(),
+                kind
+            );
+        }
     }
 }
