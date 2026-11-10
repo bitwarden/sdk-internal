@@ -31,7 +31,12 @@ import {
   asString,
 } from "../tests/type-assertion-helpers";
 
-import type { EmergencyAccessEntity, StoredMasterPasswordUnlock, UserEntity } from "./entities";
+import type {
+  EmergencyAccessEntity,
+  OrganizationDomain,
+  StoredMasterPasswordUnlock,
+  UserEntity,
+} from "./entities";
 
 /** How long an issued access token stays valid, as the identity service reports it. */
 const TOKEN_LIFETIME_SECONDS = 3600;
@@ -727,16 +732,23 @@ export class V2UpgradeTokenResponse {
   wrappedUserKey2!: string;
 }
 
+/** `WebAuthnPrfDecryptionOption` — a passkey that can unlock the account. */
+export class WebAuthnPrfDecryptionOptionResponse {
+  encryptedPrivateKey!: string;
+  encryptedUserKey!: string;
+  credentialId!: string | null;
+  transports!: string[] | null;
+}
+
 /**
  * `UserDecryptionResponseModel` — how an account can be unlocked, as `GET /sync` reports it.
- *
- * `webAuthnPrfOptions` is omitted until an account vector has any.
  */
 export class UserDecryptionResponse {
   /** `null` for an account without a master password. */
   masterPasswordUnlock!: MasterPasswordUnlockResponse | null;
   /** Omitted, not `null`, when absent, as is {@link userKeyId}. */
   v2UpgradeToken?: V2UpgradeTokenResponse;
+  webAuthnPrfOptions?: WebAuthnPrfDecryptionOptionResponse[];
   userKeyId?: string;
 
   static fromUser(user: UserEntity): UserDecryptionResponse {
@@ -753,6 +765,12 @@ export class UserDecryptionResponse {
               wrappedUserKey2: String(user.upgradeToken.wrapped_user_key_2),
             },
           }),
+      webAuthnPrfOptions: user.webAuthnPrfOptions?.map((option) => ({
+        encryptedPrivateKey: String(option.encryptedPrivateKey),
+        encryptedUserKey: String(option.encryptedUserKey),
+        credentialId: option.credentialId ?? null,
+        transports: option.transports ?? null,
+      })),
       userKeyId: user.userKeyId ?? undefined,
     };
   }
@@ -1007,4 +1025,35 @@ export class EmergencyAccessPasswordRequest {
   key?: string | null;
   unlockData?: MasterPasswordUnlockDataModel | null;
   authenticationData?: MasterPasswordAuthenticationDataModel | null;
+}
+
+/** `OrganizationUserBulkRequestModel` — the body of the bulk member endpoints. */
+export interface OrganizationUserBulkRequest {
+  ids: string[];
+}
+
+/** `OrganizationUserBulkResponseModel` — one member's outcome; an empty error is a success. */
+export class OrganizationUserBulkResponse {
+  object!: "organizationUserBulkResponseModel";
+  id!: string;
+  error!: string;
+
+  static of(id: string, error: string): OrganizationUserBulkResponse {
+    return { object: "organizationUserBulkResponseModel", id, error };
+  }
+}
+
+/** `OrganizationDomainSsoDetailsResponseModel`'s slim sibling, served by `GET …/domain/mini`. */
+export class OrganizationDomainMiniResponse {
+  object!: "organizationDomainMini";
+  domainName!: string;
+  verifiedDate!: string | null;
+
+  static fromDomain(domain: OrganizationDomain): OrganizationDomainMiniResponse {
+    return {
+      object: "organizationDomainMini",
+      domainName: domain.domainName,
+      verifiedDate: domain.verifiedDate,
+    };
+  }
 }

@@ -24,7 +24,6 @@ import {
   Source,
   BiometricsUnlock,
   BiometricsStatus,
-  InitUserCryptoMethod,
   ClientSettings,
 } from "@bitwarden/sdk-internal";
 import {
@@ -220,42 +219,6 @@ export function makePasswordManagerClient(
   return client;
 }
 
-/**
- * Builds a default master-password [`InitUserCryptoRequest`] using the shared test fixtures.
- */
-export function initializeCryptoDefault(client: PasswordManagerClient) {
-  return client.crypto().initialize_user_crypto({
-    userId: TEST_USER_ID,
-    kdfParams: TEST_KDF_PARAMS,
-    email: TEST_EMAIL,
-    accountCryptographicState: { V1: { private_key: encstring(PRIVATE_KEY) } },
-    method: {
-      masterPasswordUnlock: {
-        password: TEST_PASSWORD,
-        master_password_unlock: {
-          masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
-          salt: TEST_EMAIL,
-          kdf: TEST_KDF_PARAMS,
-        },
-      },
-    },
-  });
-}
-
-export function initializeUserCrypto(
-  client: PasswordManagerClient,
-  initUserCryptoMethod: InitUserCryptoMethod,
-  kdfParams: Kdf = TEST_KDF_PARAMS,
-) {
-  return client.crypto().initialize_user_crypto({
-    userId: TEST_USER_ID,
-    kdfParams,
-    email: TEST_EMAIL,
-    accountCryptographicState: { V1: { private_key: encstring(PRIVATE_KEY) } },
-    method: initUserCryptoMethod,
-  });
-}
-
 export function seedMasterPasswordUnlockData(
   stateBridge: WasmStateBridge,
   kdf: Kdf = TEST_KDF_PARAMS,
@@ -265,18 +228,6 @@ export function seedMasterPasswordUnlockData(
     masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
     salt: TEST_EMAIL,
   });
-}
-
-/**
- * Makes a password manager client with an initialized crypto state for testing.
- */
-export async function makeInitializedPasswordmanagerClient(
-  stateBridge: WasmStateBridge,
-  settings?: ClientSettings,
-): Promise<PasswordManagerClient> {
-  const client = makePasswordManagerClient(stateBridge, settings);
-  await initializeCryptoDefault(client);
-  return client;
 }
 
 /**

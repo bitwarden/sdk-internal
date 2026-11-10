@@ -116,4 +116,6 @@ export class Database {
     new SequentialUuidGenerator("emergency-access"),
   );
   readonly sessions = new Table<string>(new SequentialUuidGenerator("sessions"));
+  /** Ids for organization memberships, which live on their organization's row. */
+  readonly organizationUserIds = new SequentialUuidGenerator("organization-users");
 }
