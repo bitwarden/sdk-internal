@@ -1,10 +1,10 @@
 # Local development configuration for bwac.
 #
 # Points at the dev proxy on https://localhost:8080; the daemon token is env-only via
-# BWRD_TOKEN.
+# BWAC_TOKEN.
 #
 # Run with:
-#   BWRD_TOKEN="<token>" cargo run -p bitwarden-access-connector -- run \
+#   BWAC_TOKEN="<token>" cargo run -p bitwarden-access-connector -- run \
 #     --config bitwarden_license/bitwarden-access-connector/dev-config.toml
 
 # All remaining fields are optional (built-in defaults apply).
@@ -31,13 +31,13 @@ base = "https://localhost:8080"
 # are env-only and cannot be set here.
 #
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
-script = "/tmp/bwrd-dev-rotate.sh"
+script = "/tmp/bwac-dev-rotate.sh"
 
 [targets.9375152d-7684-4d27-a09c-b48000ce83b4]
-script = "/tmp/bwrd-dev-rotate.sh"
+script = "/tmp/bwac-dev-rotate.sh"
 
 [targets.88fd2942-ffa0-471a-ae83-b48000cfa5e7]
-script = "/tmp/bwrd-dev-rotate.sh"
+script = "/tmp/bwac-dev-rotate.sh"
 
 #
 # [targets.00000000-0000-0000-0000-000000000001]
@@ -47,5 +47,5 @@ script = "/tmp/bwrd-dev-rotate.sh"
 # A .ps1 needs no extra configuration; script_type is only for a script whose
 # filename cannot say what it is.
 # [targets.00000000-0000-0000-0000-000000000002]
-# script      = "/tmp/bwrd-dev-rotate"
+# script      = "/tmp/bwac-dev-rotate"
 # script_type = "powershell"

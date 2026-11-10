@@ -176,7 +176,7 @@ mod tests {
         let host = PathBuf::from("/usr/local/bin/pwsh");
         let spec = build_command(
             Some(&host),
-            Path::new("/opt/bwrd/rotate.ps1"),
+            Path::new("/opt/bwac/rotate.ps1"),
             "rotate",
             "Bypass",
             &Platform::blank(),
@@ -192,7 +192,7 @@ mod tests {
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "/opt/bwrd/rotate.ps1",
+                "/opt/bwac/rotate.ps1",
                 "rotate",
             ]
         );
@@ -203,7 +203,7 @@ mod tests {
         let host = PathBuf::from("/usr/local/bin/pwsh");
         let spec = build_command(
             Some(&host),
-            Path::new("/opt/bwrd/rotate.ps1"),
+            Path::new("/opt/bwac/rotate.ps1"),
             "verify",
             "AllSigned",
             &Platform::blank(),
@@ -217,7 +217,7 @@ mod tests {
         let configured = PathBuf::from("/nonexistent/pwsh");
         let spec = build_command(
             Some(&configured),
-            Path::new("/opt/bwrd/rotate.ps1"),
+            Path::new("/opt/bwac/rotate.ps1"),
             "rotate",
             "Bypass",
             &Platform::blank(),
@@ -230,7 +230,7 @@ mod tests {
     fn build_command_without_a_host_reports_host_not_found() {
         let err = build_command(
             None,
-            Path::new("/opt/bwrd/rotate.ps1"),
+            Path::new("/opt/bwac/rotate.ps1"),
             "rotate",
             "Bypass",
             &Platform::blank(),
@@ -244,7 +244,7 @@ mod tests {
         let env = FakeEnv::from([
             ("PATH", "/usr/bin"),
             ("SystemRoot", r"C:\Windows"),
-            ("BWRD_TOKEN", "SENTINEL_TOKEN"),
+            ("BWAC_TOKEN", "SENTINEL_TOKEN"),
             (
                 "A1B2C3D4_0000_0000_0000_000000000001_CLIENT_SECRET",
                 "SENTINEL_SECRET",
@@ -277,8 +277,8 @@ mod tests {
     #[test]
     fn strip_verbatim_prefix_unwraps_a_verbatim_disk_path() {
         assert_eq!(
-            strip_verbatim_path_prefix(Path::new(r"\\?\C:\bwrd\rotate.ps1")),
-            PathBuf::from(r"C:\bwrd\rotate.ps1")
+            strip_verbatim_path_prefix(Path::new(r"\\?\C:\bwac\rotate.ps1")),
+            PathBuf::from(r"C:\bwac\rotate.ps1")
         );
     }
 
@@ -286,8 +286,8 @@ mod tests {
     fn strip_verbatim_prefix_leaves_unc_and_plain_paths_alone() {
         for untouched in [
             r"\\?\UNC\server\share\rotate.ps1",
-            r"C:\bwrd\rotate.ps1",
-            "/opt/bwrd/rotate.ps1",
+            r"C:\bwac\rotate.ps1",
+            "/opt/bwac/rotate.ps1",
         ] {
             assert_eq!(
                 strip_verbatim_path_prefix(Path::new(untouched)),
@@ -301,7 +301,7 @@ mod tests {
     fn env_allowlist_contains_no_credential_or_daemon_names() {
         for name in ENV_ALLOWLIST {
             assert!(
-                !name.starts_with("BWRD"),
+                !name.starts_with("BWAC"),
                 "daemon variable {name} must never be forwarded"
             );
             for suffix in [

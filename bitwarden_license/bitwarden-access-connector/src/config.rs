@@ -1,6 +1,6 @@
 //! Configuration loading and validation for the rotation daemon.
 //!
-//! [`crate::config::Config::from_cli`] resolves URLs from `BWRD_API_URL` / `BWRD_IDENTITY_URL`,
+//! [`crate::config::Config::from_cli`] resolves URLs from `BWAC_API_URL` / `BWAC_IDENTITY_URL`,
 //! then `[environment]`, then derivation from `[environment].base`, or a hard startup error.
 //! Unknown TOML keys are also a hard startup error.
 //!
@@ -11,7 +11,7 @@
 //!
 //! # Token intake
 //!
-//! `BWRD_TOKEN` is the only way to supply the daemon token; never echoed, and not settable
+//! `BWAC_TOKEN` is the only way to supply the daemon token; never echoed, and not settable
 //! via the config file.
 
 use std::{collections::HashMap, path::PathBuf, time::Duration};
@@ -65,10 +65,10 @@ impl EnvironmentConfig {
     }
 }
 
-/// On-disk daemon configuration (TOML). Every key is optional; `BWRD_API_URL` /
-/// `BWRD_IDENTITY_URL` override the `[environment]` section's URLs.
+/// On-disk daemon configuration (TOML). Every key is optional; `BWAC_API_URL` /
+/// `BWAC_IDENTITY_URL` override the `[environment]` section's URLs.
 ///
-/// A `token` key is rejected at parse time; use `BWRD_TOKEN` instead.
+/// A `token` key is rejected at parse time; use `BWAC_TOKEN` instead.
 #[derive(Debug, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct FileConfig {
@@ -167,7 +167,7 @@ impl std::fmt::Debug for Config {
 impl Config {
     /// Build a validated [`Config`] from the parsed CLI arguments.
     ///
-    /// `BWRD_API_URL` / `BWRD_IDENTITY_URL` env vars override file-level URL settings; other
+    /// `BWAC_API_URL` / `BWAC_IDENTITY_URL` env vars override file-level URL settings; other
     /// settings fall back to built-in defaults.
     ///
     /// # Errors
@@ -176,11 +176,11 @@ impl Config {
     /// [`RotationDaemonError::InvalidToken`] for an unparseable token; never echoes secrets.
     pub fn from_cli(args: RunArgs) -> Result<Self, RotationDaemonError> {
         // SAFETY: single-threaded startup; no other thread can observe or mutate
-        // BWRD_TOKEN. Removed immediately after reading so child processes don't inherit it.
-        let env_token = std::env::var("BWRD_TOKEN").ok();
+        // BWAC_TOKEN. Removed immediately after reading so child processes don't inherit it.
+        let env_token = std::env::var("BWAC_TOKEN").ok();
         if env_token.is_some() {
             unsafe {
-                std::env::remove_var("BWRD_TOKEN");
+                std::env::remove_var("BWAC_TOKEN");
             }
         }
 
@@ -189,7 +189,7 @@ impl Config {
             Some(t) => t,
             None => {
                 return Err(RotationDaemonError::InvalidConfig(
-                    "daemon token must be supplied via the BWRD_TOKEN environment variable".into(),
+                    "daemon token must be supplied via the BWAC_TOKEN environment variable".into(),
                 ));
             }
         };
@@ -210,21 +210,21 @@ impl Config {
 
         let env_url = |name: &str| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
 
-        let api_url = env_url("BWRD_API_URL")
+        let api_url = env_url("BWAC_API_URL")
             .or_else(|| file.environment.derive_api())
             .ok_or_else(|| {
                 RotationDaemonError::InvalidConfig(
-                    "api URL must be supplied via the BWRD_API_URL environment variable, \
+                    "api URL must be supplied via the BWAC_API_URL environment variable, \
                      [environment].api, or [environment].base in the config file"
                         .into(),
                 )
             })?;
 
-        let identity_url = env_url("BWRD_IDENTITY_URL")
+        let identity_url = env_url("BWAC_IDENTITY_URL")
             .or_else(|| file.environment.derive_identity())
             .ok_or_else(|| {
                 RotationDaemonError::InvalidConfig(
-                    "identity URL must be supplied via the BWRD_IDENTITY_URL environment \
+                    "identity URL must be supplied via the BWAC_IDENTITY_URL environment \
                      variable, [environment].identity, or [environment].base in the config file"
                         .into(),
                 )
@@ -309,26 +309,26 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWRD_API_URL", "https://api.example.com");
-            std::env::set_var("BWRD_IDENTITY_URL", "https://identity.example.com");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_API_URL", "https://api.example.com");
+            std::env::set_var("BWAC_IDENTITY_URL", "https://identity.example.com");
         }
         let result = Config::from_cli(empty_args());
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_TOKEN");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
         assert!(result.is_ok(), "expected Ok, got {result:?}");
     }
 
     #[test]
-    fn missing_bwrd_token_is_invalid_config() {
+    fn missing_bwac_token_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
         let result = Config::from_cli(empty_args());
         assert!(
@@ -338,20 +338,20 @@ mod tests {
     }
 
     #[test]
-    fn empty_bwrd_token_is_invalid_config() {
+    fn empty_bwac_token_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", "  ");
+            std::env::set_var("BWAC_TOKEN", "  ");
         }
         let result = Config::from_cli(empty_args());
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
         assert!(
             matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
-            "expected InvalidConfig for whitespace-only BWRD_TOKEN, got {result:?}"
+            "expected InvalidConfig for whitespace-only BWAC_TOKEN, got {result:?}"
         );
     }
 
@@ -361,12 +361,12 @@ mod tests {
         let bad_token = "not-a-valid-token-string";
         // SAFETY: protected by ENV_LOCK.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", bad_token);
+            std::env::set_var("BWAC_TOKEN", bad_token);
         }
         let result = Config::from_cli(empty_args());
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         match result {
@@ -385,26 +385,26 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWRD_API_URL", "https://api.example.com");
-            std::env::set_var("BWRD_IDENTITY_URL", "https://identity.example.com");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_API_URL", "https://api.example.com");
+            std::env::set_var("BWAC_IDENTITY_URL", "https://identity.example.com");
         }
         // Verify the var is present before the call.
         assert!(
-            std::env::var("BWRD_TOKEN").is_ok(),
-            "BWRD_TOKEN must be present before from_cli"
+            std::env::var("BWAC_TOKEN").is_ok(),
+            "BWAC_TOKEN must be present before from_cli"
         );
         let result = Config::from_cli(empty_args());
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
         assert!(result.is_ok(), "expected Ok, got {result:?}");
-        // BWRD_TOKEN must have been removed inside from_cli.
+        // BWAC_TOKEN must have been removed inside from_cli.
         assert!(
-            std::env::var("BWRD_TOKEN").is_err(),
-            "BWRD_TOKEN must be absent from environment after from_cli consumes it"
+            std::env::var("BWAC_TOKEN").is_err(),
+            "BWAC_TOKEN must be absent from environment after from_cli consumes it"
         );
     }
 
@@ -413,10 +413,10 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: leaked URL env vars must not override the config file under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         // poll_interval is below the 15 s minimum.
@@ -431,7 +431,7 @@ identity = "https://identity.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         assert!(
@@ -445,10 +445,10 @@ identity = "https://identity.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: leaked URL env vars must not override the config file under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let toml = r#"
@@ -462,7 +462,7 @@ identity = "https://identity.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
         assert!(
             result.is_ok(),
@@ -475,10 +475,10 @@ identity = "https://identity.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: leaked URL env vars must not override the config file under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         // heartbeat_interval must be STRICTLY less than 120.
@@ -493,7 +493,7 @@ identity = "https://identity.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         assert!(
@@ -507,10 +507,10 @@ identity = "https://identity.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: leaked URL env vars must not override the config file under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let toml = r#"
@@ -524,7 +524,7 @@ identity = "https://identity.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
         assert!(
             result.is_ok(),
@@ -537,16 +537,16 @@ identity = "https://identity.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWRD_API_URL", "https://api.env.example.com");
-            std::env::set_var("BWRD_IDENTITY_URL", "https://identity.env.example.com");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_API_URL", "https://api.env.example.com");
+            std::env::set_var("BWAC_IDENTITY_URL", "https://identity.env.example.com");
         }
         let result = Config::from_cli(empty_args());
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_TOKEN");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let inner = result.expect("expected Ok").into_daemon_config();
@@ -559,9 +559,9 @@ identity = "https://identity.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWRD_API_URL", "https://api.env.example.com");
-            std::env::set_var("BWRD_IDENTITY_URL", "https://identity.env.example.com");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_API_URL", "https://api.env.example.com");
+            std::env::set_var("BWAC_IDENTITY_URL", "https://identity.env.example.com");
         }
 
         let toml = r#"
@@ -574,9 +574,9 @@ identity = "https://identity.file.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_TOKEN");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let inner = result.expect("expected Ok").into_daemon_config();
@@ -590,10 +590,10 @@ identity = "https://identity.file.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWRD_API_URL", "  ");
-            // Defensive: a leaked BWRD_IDENTITY_URL would override the file value under test.
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_API_URL", "  ");
+            // Defensive: a leaked BWAC_IDENTITY_URL would override the file value under test.
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let toml = r#"
@@ -606,12 +606,12 @@ identity = "https://identity.file.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
-            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWAC_TOKEN");
+            std::env::remove_var("BWAC_API_URL");
         }
 
         let inner = result.expect("expected Ok").into_daemon_config();
-        // Whitespace-only BWRD_API_URL is treated as unset.
+        // Whitespace-only BWAC_API_URL is treated as unset.
         assert_eq!(inner.api_url, "https://api.file.example.com");
         assert_eq!(inner.identity_url, "https://identity.file.example.com");
     }
@@ -621,10 +621,10 @@ identity = "https://identity.file.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: a leaked URL env var would satisfy the requirement under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         // File only has identity; api is missing from all layers.
@@ -637,7 +637,7 @@ identity = "https://identity.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         match result {
@@ -656,10 +656,10 @@ identity = "https://identity.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: a leaked URL env var would satisfy the requirement under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         // File only has api; identity is missing from all layers.
@@ -672,7 +672,7 @@ api = "https://api.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         match result {
@@ -691,10 +691,10 @@ api = "https://api.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: leaked URL env vars must not override the config file under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let toml = r#"
@@ -715,7 +715,7 @@ identity = "https://identity.file.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         let cfg = result.expect("expected Ok from file-only config");
@@ -736,10 +736,10 @@ identity = "https://identity.file.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: leaked URL env vars must not override the config file under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         // Only the required fields are set here; the rest use defaults.
@@ -753,7 +753,7 @@ identity = "https://identity.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         let cfg = result.expect("expected Ok with defaults");
@@ -789,9 +789,9 @@ identity = "https://identity.example.com"
     #[test]
     fn token_in_file_is_denied_by_unknown_fields() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates BWRD_TOKEN concurrently.
+        // SAFETY: protected by ENV_LOCK; no other thread mutates BWAC_TOKEN concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
         }
 
         let token_value = "0.x.y:z";
@@ -809,7 +809,7 @@ identity = "https://identity.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         match result {
@@ -828,9 +828,9 @@ identity = "https://identity.example.com"
     #[test]
     fn nonexistent_config_path_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates BWRD_TOKEN concurrently.
+        // SAFETY: protected by ENV_LOCK; no other thread mutates BWAC_TOKEN concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
         }
 
         let args = RunArgs {
@@ -840,7 +840,7 @@ identity = "https://identity.example.com"
         let result = Config::from_cli(args);
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         assert!(
@@ -854,10 +854,10 @@ identity = "https://identity.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: leaked URL env vars must not override the config file under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let toml = r#"
@@ -872,7 +872,7 @@ identity = "https://identity.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         let cfg = result.expect("expected Ok");
@@ -888,10 +888,10 @@ identity = "https://identity.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Defensive: leaked URL env vars must not override the config file under test.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let toml = r#"
@@ -903,7 +903,7 @@ base = "https://bitwarden.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         let inner = result
@@ -918,9 +918,9 @@ base = "https://bitwarden.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let toml = r#"
@@ -932,7 +932,7 @@ base = "https://bitwarden.example.com/"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         let inner = result
@@ -947,9 +947,9 @@ base = "https://bitwarden.example.com/"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         // Mixed case: explicit api, identity falls back to base derivation.
@@ -963,7 +963,7 @@ api  = "https://custom-api.example.com/v2"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         let inner = result
@@ -978,10 +978,10 @@ api  = "https://custom-api.example.com/v2"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWRD_API_URL", "https://override.env.example.com/api");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_API_URL", "https://override.env.example.com/api");
             std::env::set_var(
-                "BWRD_IDENTITY_URL",
+                "BWAC_IDENTITY_URL",
                 "https://override.env.example.com/identity",
             );
         }
@@ -998,9 +998,9 @@ identity = "https://identity.file.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_TOKEN");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         let inner = result
@@ -1018,9 +1018,9 @@ identity = "https://identity.file.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         // Old-format top-level key; must be rejected as unknown field.
@@ -1033,7 +1033,7 @@ identity_url = "https://identity.example.com"
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         assert!(
@@ -1047,10 +1047,10 @@ identity_url = "https://identity.example.com"
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             // Ensure no URL env vars are set.
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
         // Config file with no [environment] section and no URL env vars.
@@ -1062,14 +1062,14 @@ poll_interval = 15
         let result = Config::from_cli(file_args(&f));
         // SAFETY: same guard.
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
 
         match result {
             Err(RotationDaemonError::InvalidConfig(msg)) => {
                 // Error message should name the supply methods for api URL.
                 assert!(
-                    msg.contains("BWRD_API_URL") && msg.contains("[environment]"),
+                    msg.contains("BWAC_API_URL") && msg.contains("[environment]"),
                     "error should name how to supply the api URL; got: {msg}"
                 );
             }
@@ -1084,9 +1084,9 @@ poll_interval = 15
         // Parse a [targets.<uuid>] with a script key.
         let _guard = ENV_LOCK.lock().unwrap();
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
         let toml = r#"
 [environment]
@@ -1099,7 +1099,7 @@ script = "/opt/scripts/rotate.sh"
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
         let cfg = result
             .expect("targets section should parse")
@@ -1116,9 +1116,9 @@ script = "/opt/scripts/rotate.sh"
     fn targets_entra_entry_parsed() {
         let _guard = ENV_LOCK.lock().unwrap();
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
         let toml = r#"
 [environment]
@@ -1132,7 +1132,7 @@ client_id = "my-client"
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
         let cfg = result
             .expect("entra target entry should parse")
@@ -1146,9 +1146,9 @@ client_id = "my-client"
     fn targets_client_secret_in_file_is_rejected_and_does_not_echo_value() {
         let _guard = ENV_LOCK.lock().unwrap();
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
         let secret_value = "supersecret";
         let toml = format!(
@@ -1164,7 +1164,7 @@ client_secret = "{secret_value}"
         let f = write_toml(&toml);
         let result = Config::from_cli(file_args(&f));
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
         match result {
             Err(RotationDaemonError::InvalidConfig(msg)) => {
@@ -1183,9 +1183,9 @@ client_secret = "{secret_value}"
     fn targets_invalid_uuid_key_is_rejected() {
         let _guard = ENV_LOCK.lock().unwrap();
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
         let toml = r#"
 [environment]
@@ -1198,7 +1198,7 @@ script = "/some/script.sh"
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
         assert!(
             matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
@@ -1210,9 +1210,9 @@ script = "/some/script.sh"
     fn targets_absent_defaults_to_empty_map() {
         let _guard = ENV_LOCK.lock().unwrap();
         unsafe {
-            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWRD_API_URL");
-            std::env::remove_var("BWRD_IDENTITY_URL");
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
         }
         let toml = r#"
 [environment]
@@ -1222,7 +1222,7 @@ identity = "https://identity.example.com"
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
         unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWAC_TOKEN");
         }
         let cfg = result
             .expect("no targets section should be fine")
