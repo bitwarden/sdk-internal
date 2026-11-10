@@ -36,8 +36,11 @@ bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["env"] }
 http = { workspace = true }
+ldap3 = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -52,6 +55,11 @@ uuid = { workspace = true }
 tempfile = ">=3.27.0, <4"
 tokio = { workspace = true, features = ["rt", "test-util"] }
 wiremock = { workspace = true }
+
+# Needs a live domain controller, so `cargo test` skips it unless the target is named.
+[[test]]
+name = "active_directory_integration"
+test = false
 
 [lints]
 workspace = true

@@ -33,6 +33,7 @@ use crate::{
     error::SafeDetail,
     integrations::{
         IntegrationRegistry,
+        active_directory::ActiveDirectoryIntegration,
         entra::EntraIntegration,
         scripting::{CustomScriptIntegration, PowershellConfig, ProcessScriptRunner},
     },
@@ -430,6 +431,9 @@ fn build_integrations(cfg: &AccessConnectorConfig) -> Arc<IntegrationRegistry> {
 
     let entra = Arc::new(EntraIntegration::new(cfg.entra_verify_probe));
     registry.register(SealedTargetSystemKind::Entra, entra);
+
+    let active_directory = Arc::new(ActiveDirectoryIntegration::new());
+    registry.register(SealedTargetSystemKind::ActiveDirectory, active_directory);
 
     Arc::new(registry)
 }
