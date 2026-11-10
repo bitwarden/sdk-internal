@@ -9,6 +9,7 @@ use bitwarden_core::{FromClient, client::ApiConfigurations, key_management::KeyS
 use bitwarden_crypto::KeyStore;
 
 mod actions;
+mod cipher;
 mod claim;
 mod configs;
 mod connectors;
@@ -20,6 +21,7 @@ mod target_systems;
 mod validate;
 
 pub use actions::{RotationConfigActions, rotation_config_actions};
+pub use cipher::{RotationCipherError, decrypt_cipher_for_rotation, rotate_cipher_password};
 pub use claim::{SealRejection, VerifiedJob, WorkSnapshot, WorkSnapshotError};
 pub use configs::{
     RotationConfigCreateRequest, RotationConfigDetailView, RotationConfigSealedFields,
