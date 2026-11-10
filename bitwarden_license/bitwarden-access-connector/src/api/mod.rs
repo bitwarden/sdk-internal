@@ -617,8 +617,9 @@ mod tests {
         assert!(matches!(err, ApiError::Protocol(_)), "got: {err:?}");
     }
 
-    /// The vault parses an unparseable field leniently; the strict pre-flight decrypt rejects it
-    /// (see `bitwarden_pam::rotation::cipher`'s tests), so parsing must not drop or echo the value.
+    /// The vault parses an unparseable field leniently; the strict decrypt in the rotation write
+    /// rejects it (see `bitwarden_pam::rotation::cipher`'s tests), so parsing must not drop or
+    /// echo the value.
     #[test]
     fn parse_cipher_keeps_garbage_enc_string_for_strict_decryption() {
         let store = crate::test_support::org_store();
@@ -629,7 +630,7 @@ mod tests {
         let cipher = parse_cipher(model).expect("lenient parse");
         assert!(cipher.name.is_some());
         let org_id = crate::test_support::test_org_id();
-        assert!(bitwarden_pam::decrypt_cipher_for_rotation(&store, org_id, cipher).is_err());
+        assert!(bitwarden_pam::rotate_cipher_password(&store, org_id, cipher, "new-pw").is_err());
     }
 
     #[tokio::test]
@@ -1136,10 +1137,11 @@ mod tests {
 
         let access_connector = client.access_connector();
         assert!(
-            bitwarden_pam::decrypt_cipher_for_rotation(
+            bitwarden_pam::rotate_cipher_password(
                 &access_connector.key_store,
                 org_id,
-                cipher.clone()
+                cipher.clone(),
+                "new-pw"
             )
             .is_err(),
             "no key yet"
@@ -1155,13 +1157,8 @@ mod tests {
 
         // The key reached a client handed out earlier and one handed out later.
         for c in [access_connector, client.access_connector()] {
-            let (view, _key) =
-                bitwarden_pam::decrypt_cipher_for_rotation(&c.key_store, org_id, cipher.clone())
-                    .expect("decrypts with the shared store");
-            assert_eq!(
-                view.login.unwrap().password.as_deref(),
-                Some("old-password")
-            );
+            bitwarden_pam::rotate_cipher_password(&c.key_store, org_id, cipher.clone(), "new-pw")
+                .expect("rotates with the shared store");
         }
     }
 

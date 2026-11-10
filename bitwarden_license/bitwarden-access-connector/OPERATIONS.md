@@ -209,10 +209,11 @@ The cipher read returns the standard encrypted cipher and the write takes the st
 request, with `lastKnownRevisionDate` as the concurrency check. The connector decrypts the cipher
 with the organization key, replaces only the login password (the old one moves into the password
 history), and re-encrypts all of it. It refuses, before touching the target, a cipher that is not a
-login in its own organization, that the server restricted, or that does not fully decrypt. The write
-sends the cipher's wrapped item key back unchanged, and never creates or changes it. A cipher
-without an item key is refused, and so is one that is not fully decryptable. A normal edit of the
-item in a current client gives it a key.
+login in its own organization, that the server restricted, or that does not fully decrypt. That
+check is a dry run of the write itself, with a placeholder password. The write sends the cipher's
+wrapped item key back unchanged, and never creates or changes it. A cipher without an item key is
+refused, and so is one that is not fully decryptable. A normal edit of the item in a current client
+gives it a key.
 
 ---
 
