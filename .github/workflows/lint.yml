@@ -59,6 +59,8 @@ jobs:
             needs_node: true
           - check: cargo-lock
             needs_rust: true
+          - check: bans
+            needs_rust: true
 
     steps:
       - name: Checkout
@@ -175,3 +177,50 @@ jobs:
       - name: Run lint --only ${{ matrix.check }}
         if: matrix.check != 'clippy'
         run: ./scripts/lint.sh --only ${{ matrix.check }}
+
+  # A newly published RustSec advisory can make this check fail on an unchanged tree, so it is kept
+  # out of the `check` gate and does not block merging.
+  rust-advisories:
+    name: Rust advisories
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set Rust toolchain version
+        id: toolchain
+        shell: bash
+        run: |
+          RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
+          echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          cache-targets: false
+
+      - name: Cache cargo-run-bin tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .bin
+          key: cargo-bin-${{ runner.os }}-advisories-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
+          restore-keys: |
+            cargo-bin-${{ runner.os }}-advisories-
+
+      - name: Install cargo-run-bin
+        run: cargo install cargo-run-bin --locked --version 1.7.4
+
+      - name: Check cargo-binstall is not configured
+        run: ./scripts/check-no-binstall.sh
+
+      - name: Run lint --only advisories
+        run: ./scripts/lint.sh --only advisories

@@ -129,7 +129,7 @@ pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyData, SshKeyImpo
             ssh_key::private::PrivateKey::from(Ed25519Keypair::from(&private_key.secret_key.into()))
         }
         rsa::pkcs1::ALGORITHM_OID => {
-            let private_key: rsa::RsaPrivateKey = private_key_info
+            let private_key: rsa::PrivateKey = private_key_info
                 .try_into()
                 .map_err(|_| SshKeyImportError::Parsing)?;
 

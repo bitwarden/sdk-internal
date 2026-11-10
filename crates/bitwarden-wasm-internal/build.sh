@@ -113,10 +113,14 @@ cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target nodej
 # Format TypeScript definition files only (skip generated .wasm.js files)
 npx prettier --write "./crates/bitwarden-wasm-internal/${NPM_FOLDER}/**/*.ts"
 
+# The MVP .wasm shares the SIMD glue, so it shares its type definitions too
+cp ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.d.ts ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.mvp.wasm.d.ts
+
 # Optimize size, then build the MVP binary and transpile it to JS. Debug builds skip this to save
-# build time, and write a stub instead so bundlers importing the fallback still resolve it.
+# build time, and write stubs instead so bundlers importing the fallbacks still resolve them.
 if [ -z "$RELEASE_FLAG" ]; then
   echo "${WASM2JS_STUB}" > ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
+  cp ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.mvp.wasm
 else
   # The bundler and nodejs targets usually get the same .wasm file, which only needs optimizing once
   if cmp -s ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_internal_bg.wasm; then
@@ -141,6 +145,9 @@ else
   fi
 
   cp ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm.js ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
+
+  # Shipped for engines that run WebAssembly but not SIMD
+  cp ${MVP_BINDGEN_DIR}/bitwarden_wasm_internal_bg.wasm ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.mvp.wasm
 fi
 
 # Typecheck the generated TypeScript definitions

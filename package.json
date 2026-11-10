@@ -20,11 +20,13 @@
     "lint:dep-ownership": "tsx scripts/dep-ownership.ts",
     "prettier": "prettier --write .",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "e2e:wasm": "npm ci --prefix e2e/wasm && npm run build:test --prefix e2e/wasm",
+    "e2e:swift": "bash crates/bitwarden-uniffi/swift/build.sh && bash e2e/swift/test.sh",
     "prepare": "husky"
   },
   "devDependencies": {
-    "@openapitools/openapi-generator-cli": "2.41.0",
-    "@types/node": "25.9.1",
+    "@openapitools/openapi-generator-cli": "2.42.0",
+    "@types/node": "26.6.6",
     "husky": "9.1.7",
     "json5": "2.2.3",
     "lint-staged": "17.6.0",

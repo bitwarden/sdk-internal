@@ -110,8 +110,8 @@ jobs:
           path: crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
           if-no-files-found: error
 
-  integration-tests:
-    name: Integration tests
+  e2e-tests:
+    name: E2E tests
     runs-on: macos-26
     needs: [version, build]
     permissions:
@@ -137,14 +137,8 @@ jobs:
           name: BitwardenSdk-${{ env._VERSION }}-${{ env._SHORT_SHA }}-sources
           path: crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
 
-      - name: Run integration tests
-        working-directory: crates/bitwarden-uniffi/swift/integration-tests
-        run: |
-          DEVICE_ID=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $2; exit}')
-          xcodebuild test \
-            -scheme IntegrationTests-Package \
-            -destination "id=$DEVICE_ID" \
-            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+      - name: Run e2e tests
+        run: ./e2e/swift/test.sh
 
   trigger-swift-release:
     name: Trigger Swift release

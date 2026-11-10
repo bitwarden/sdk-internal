@@ -9,6 +9,11 @@
 mod common;
 use common::*;
 
+/// How long a PowerShell test waits for the connector to report. A rotation can start the host up
+/// to three times (rotate, verify and terminate), and each start-up can take several seconds on a
+/// busy runner. The wait ends as soon as a report arrives, so this only slows down failing tests.
+const PWSH_DEADLINE: Duration = Duration::from_secs(60);
+
 /// Mounts a rotation exchange. The poll mock keeps offering the same job; assert with
 /// [`assert_outcome`], which ignores the count.
 #[allow(clippy::too_many_arguments)]
@@ -138,58 +143,6 @@ async fn assert_outcome(api: &MockServer, expect_success: bool) {
     }
 }
 
-/// Runs the connector against `api`/`identity` with `vars` set until it reports an outcome or
-/// `deadline` passes, then shuts it down. The deadline is generous because PowerShell start-up is
-/// slow.
-async fn run_access_connector_with_env(
-    api: &MockServer,
-    identity: &MockServer,
-    script_root: Option<std::path::PathBuf>,
-    vars: Vec<(String, String)>,
-    deadline: Duration,
-) {
-    {
-        let _guard = lock_env();
-        // SAFETY: guarded by ENV_LOCK.
-        unsafe {
-            for (k, v) in &vars {
-                std::env::set_var(k, v);
-            }
-        }
-    }
-
-    let cancel = CancellationToken::new();
-    let cancel_clone = cancel.clone();
-    let cfg = make_cfg(api.uri(), identity.uri(), script_root);
-    let handle =
-        tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
-
-    let give_up = tokio::time::Instant::now() + deadline;
-    while tokio::time::Instant::now() < give_up {
-        let requests = api.received_requests().await.expect("recording is on");
-        if requests.iter().any(|r| {
-            let p = r.url.path();
-            p.ends_with("/success") || p.ends_with("/failure")
-        }) {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-    cancel.cancel();
-    let exit = handle.await.expect("task panicked");
-    assert_eq!(exit, RunExit::Shutdown);
-
-    {
-        let _guard = lock_env();
-        // SAFETY: guarded by ENV_LOCK.
-        unsafe {
-            for (k, _) in &vars {
-                std::env::remove_var(k);
-            }
-        }
-    }
-}
-
 #[tokio::test]
 #[ignore = "Integration test requires PowerShell (pwsh) on PATH"]
 async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
@@ -235,8 +188,7 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
                 out.to_string_lossy().into_owned(),
             ),
         ],
-        // Three host start-ups: rotate, verify and terminate.
-        Duration::from_millis(30_000),
+        PWSH_DEADLINE,
     )
     .await;
 
@@ -308,8 +260,7 @@ async fn a_transient_exit_code_survives_a_real_powershell_host() {
             // Exit 4 is a transient failure that leaves the target untouched.
             (format!("{prefix}EXIT_CODE"), "4".to_string()),
         ],
-        // The test config allows two tries, so this needs two host start-ups.
-        Duration::from_millis(30_000),
+        PWSH_DEADLINE,
     )
     .await;
 
@@ -376,7 +327,7 @@ async fn a_failing_terminate_step_is_reported_but_the_rotation_succeeds() {
                 .to_string_lossy()
                 .into_owned(),
         )],
-        Duration::from_millis(20_000),
+        PWSH_DEADLINE,
     )
     .await;
 
@@ -455,7 +406,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
                 "SENTINEL_TOKEN_MUST_NOT_LEAK".to_string(),
             ),
         ],
-        Duration::from_millis(30_000),
+        PWSH_DEADLINE,
     )
     .await;
 
@@ -520,8 +471,7 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
         // 32,767 characters.
         .chain((0..36).map(|i| (format!("{prefix}BULK_{i:02}"), "x".repeat(30_000))))
         .collect(),
-        // The test config's script_timeout is 10s; allow it to fire and be reported.
-        Duration::from_millis(20_000),
+        PWSH_DEADLINE,
     )
     .await;
 
