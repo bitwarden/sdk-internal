@@ -52,7 +52,7 @@ use async_trait::async_trait;
 use bitwarden_pam::RotationFailureCode;
 use serde::Serialize;
 
-pub(crate) use self::command::ScriptType;
+pub(crate) use self::{command::ScriptType, runner::ProcessScriptRunner};
 use self::{
     command::{build_command, resolve_script_path, resolve_script_type},
     outcome::classify_outcome,

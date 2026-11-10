@@ -205,7 +205,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
     };
 
     let new_password = match ctx.client.generator().password(gen_req) {
-        Ok(p) => zeroize::Zeroizing::new(p),
+        Ok(p) => p,
         Err(_) => {
             report_failure_absorb(
                 &api,
@@ -935,39 +935,21 @@ mod tests {
     impl Integration for MockIntegration {
         async fn rotate(&self, _ctx: &RotateContext) -> Result<(), IntegrationError> {
             *self.rotate_calls.lock().unwrap() += 1;
-            self.rotate_result
-                .as_ref()
-                .map(|_| ())
-                .map_err(|e| IntegrationError {
-                    retry: e.retry,
-                    effect: e.effect,
-                    code: e.code,
-                    detail: SafeDetail::from_kind("mock"),
-                })
+            self.rotate_result.as_ref().map(|_| ()).map_err(|e| {
+                IntegrationError::new(e.retry, e.effect, e.code, SafeDetail::from_kind("mock"))
+            })
         }
 
         async fn verify(&self, _ctx: &RotateContext) -> Result<(), IntegrationError> {
-            self.verify_result
-                .as_ref()
-                .map(|_| ())
-                .map_err(|e| IntegrationError {
-                    retry: e.retry,
-                    effect: e.effect,
-                    code: e.code,
-                    detail: SafeDetail::from_kind("mock"),
-                })
+            self.verify_result.as_ref().map(|_| ()).map_err(|e| {
+                IntegrationError::new(e.retry, e.effect, e.code, SafeDetail::from_kind("mock"))
+            })
         }
 
         async fn terminate_sessions(&self, _ctx: &RotateContext) -> Result<(), IntegrationError> {
-            self.terminate_result
-                .as_ref()
-                .map(|_| ())
-                .map_err(|e| IntegrationError {
-                    retry: e.retry,
-                    effect: e.effect,
-                    code: e.code,
-                    detail: SafeDetail::from_kind("mock"),
-                })
+            self.terminate_result.as_ref().map(|_| ()).map_err(|e| {
+                IntegrationError::new(e.retry, e.effect, e.code, SafeDetail::from_kind("mock"))
+            })
         }
     }
 
@@ -992,7 +974,7 @@ mod tests {
         let ctx = RotateContext {
             target_system_id: uuid::Uuid::nil(),
             account_identity: "user@example.com".to_string(),
-            new_password: zeroize::Zeroizing::new("super-secret".to_string()),
+            new_password: "super-secret".to_string(),
             creds: ResolvedCredentials::new(),
             rotation_started_at: Utc::now(),
         };
