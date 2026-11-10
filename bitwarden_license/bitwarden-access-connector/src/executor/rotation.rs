@@ -25,7 +25,7 @@ use super::retry::{GatedOutcome, RetryCfg, with_retries, with_retries_gated};
 use crate::{
     api::{AccessConnectorClient, AccessConnectorClientExt as _, models::ApiError},
     auth::session::{SessionLost, SessionManager, SessionPhase},
-    error::{ErrorClass, SafeDetail},
+    error::{Retry, SafeDetail},
     integrations::{Integration, IntegrationRegistry, RotateContext},
     resolver::{CredentialResolver, ResolveError},
 };
@@ -263,7 +263,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             async move {
                 match integration.rotate(&rotate_ctx_ref).await {
                     Ok(()) => Ok(()),
-                    Err(e) => Err((e.class, e)),
+                    Err(e) => Err((e.retry, e)),
                 }
             }
         })
@@ -306,7 +306,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             async move {
                 match integration.verify(&rotate_ctx_ref).await {
                     Ok(()) => Ok(()),
-                    Err(e) => Err((e.class, e)),
+                    Err(e) => Err((e.retry, e)),
                 }
             }
         })
@@ -422,12 +422,12 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                     match api.put_cipher(attempt_id, request).await {
                         Ok(()) => Ok(()),
                         Err(ApiError::Transient(s)) => {
-                            Err((ErrorClass::Transient, ApiError::Transient(s)))
+                            Err((Retry::Transient, ApiError::Transient(s)))
                         }
                         Err(ApiError::SessionLost(l)) => {
-                            Err((ErrorClass::Fatal, ApiError::SessionLost(l)))
+                            Err((Retry::Permanent, ApiError::SessionLost(l)))
                         }
-                        Err(e) => Err((ErrorClass::Fatal, e)),
+                        Err(e) => Err((Retry::Permanent, e)),
                     }
                 }
             },
@@ -495,7 +495,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             async move {
                 match integration.terminate_sessions(&rotate_ctx_ref).await {
                     Ok(()) => Ok(()),
-                    Err(e) => Err((e.class, e)),
+                    Err(e) => Err((e.retry, e)),
                 }
             }
         })
@@ -568,8 +568,8 @@ async fn report_success_inner(
         async move {
             match api_ref.report_success(attempt_id, termination).await {
                 Ok(()) => Ok(()),
-                Err(ApiError::Transient(s)) => Err((ErrorClass::Transient, ApiError::Transient(s))),
-                Err(ApiError::SessionLost(l)) => Err((ErrorClass::Fatal, ApiError::SessionLost(l))),
+                Err(ApiError::Transient(s)) => Err((Retry::Transient, ApiError::Transient(s))),
+                Err(ApiError::SessionLost(l)) => Err((Retry::Permanent, ApiError::SessionLost(l))),
                 // 409/404 on report is final; treat as reported.
                 Err(ApiError::Rejected { .. }) | Err(ApiError::UnknownAttempt) => {
                     tracing::warn!(
@@ -578,7 +578,7 @@ async fn report_success_inner(
                     );
                     Ok(())
                 }
-                Err(e) => Err((ErrorClass::Fatal, ApiError::Transient(e.to_string()))),
+                Err(e) => Err((Retry::Permanent, ApiError::Transient(e.to_string()))),
             }
         }
     })
@@ -706,9 +706,9 @@ async fn fetch_cipher(
     with_retries(retry_cfg, None, move || async move {
         match api.get_cipher(attempt_id).await {
             Ok(c) => Ok(c),
-            Err(ApiError::Transient(s)) => Err((ErrorClass::Transient, ApiError::Transient(s))),
-            Err(ApiError::SessionLost(l)) => Err((ErrorClass::Fatal, ApiError::SessionLost(l))),
-            Err(e) => Err((ErrorClass::Fatal, e)),
+            Err(ApiError::Transient(s)) => Err((Retry::Transient, ApiError::Transient(s))),
+            Err(ApiError::SessionLost(l)) => Err((Retry::Permanent, ApiError::SessionLost(l))),
+            Err(e) => Err((Retry::Permanent, e)),
         }
     })
     .await
@@ -939,7 +939,7 @@ mod tests {
                 .as_ref()
                 .map(|_| ())
                 .map_err(|e| IntegrationError {
-                    class: e.class,
+                    retry: e.retry,
                     effect: e.effect,
                     code: e.code,
                     detail: SafeDetail::from_kind("mock"),
@@ -951,7 +951,7 @@ mod tests {
                 .as_ref()
                 .map(|_| ())
                 .map_err(|e| IntegrationError {
-                    class: e.class,
+                    retry: e.retry,
                     effect: e.effect,
                     code: e.code,
                     detail: SafeDetail::from_kind("mock"),
@@ -963,7 +963,7 @@ mod tests {
                 .as_ref()
                 .map(|_| ())
                 .map_err(|e| IntegrationError {
-                    class: e.class,
+                    retry: e.retry,
                     effect: e.effect,
                     code: e.code,
                     detail: SafeDetail::from_kind("mock"),
