@@ -312,14 +312,37 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let handle =
         tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
-    // Let it poll a few times, then cancel.
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    // Wait until the connector has attempted the claim at least twice, i.e. it kept polling after
+    // losing the race.
+    let claim_path = format!("/access-connectors/rotation/jobs/{job_id}/claim");
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        let claims = api
+            .received_requests()
+            .await
+            .expect("requests")
+            .iter()
+            .filter(|r| r.url.path() == claim_path)
+            .count();
+        if claims >= 2 || std::time::Instant::now() >= deadline {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
     cancel.cancel();
 
     let exit = handle.await.expect("task panicked");
     assert_eq!(exit, RunExit::Shutdown, "should exit Shutdown after cancel");
 
     let all_reqs = api.received_requests().await.expect("requests");
+    let claim_attempts = all_reqs
+        .iter()
+        .filter(|r| r.url.path() == claim_path)
+        .count();
+    assert!(
+        claim_attempts >= 2,
+        "connector must keep claiming after a lost race, saw {claim_attempts} claim attempts"
+    );
     let report_reqs: Vec<_> = all_reqs
         .iter()
         .filter(|r| r.url.path().contains("/success") || r.url.path().contains("/failure"))
