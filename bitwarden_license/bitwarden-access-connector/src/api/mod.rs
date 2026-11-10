@@ -15,7 +15,7 @@ use bitwarden_api_api::{
     },
 };
 use bitwarden_api_base::Configuration;
-use models::{ApiError, JobRef, RotationCipher, TargetKind, WorkSnapshot};
+use models::{ApiError, JobRef, RotationCipher, WorkSnapshot};
 use reqwest_middleware::{ClientBuilder, Middleware, Next};
 use tokio::sync::watch;
 use uuid::Uuid;
@@ -390,29 +390,22 @@ fn parse_work_snapshot(
     let job_id = required!(model.job_id, "jobId");
     let target_system_id = required!(model.target_system_id, "targetSystemId");
     let target_system_name = required!(model.target_system_name, "targetSystemName");
-    let kind = TargetKind::from(required!(model.kind, "kind"));
     let cipher_id = required!(model.cipher_id, "cipherId");
-    let account_identity = required!(model.account_identity, "accountIdentity");
-    let terminate_sessions = model.terminate_sessions.unwrap_or(false);
-
-    let raw_policy = required!(model.password_policy, "passwordPolicy");
-    let password_policy = crate::policy::PasswordPolicy::from(*raw_policy);
 
     let execute_by_str = required!(model.execute_by, "executeBy");
     let execute_by = execute_by_str
         .parse::<chrono::DateTime<chrono::Utc>>()
         .map_err(|_| ApiError::Protocol("invalid executeBy timestamp".to_owned()))?;
 
+    // The sealed blobs are not `required!`: a missing one is rejected by `executor::verify`.
     Ok(WorkSnapshot {
         attempt_id,
         job_id,
         target_system_id,
         target_system_name,
-        kind,
-        password_policy,
         cipher_id,
-        account_identity,
-        terminate_sessions,
+        target_system_sealed_data: model.target_system_sealed_data,
+        rotation_config_sealed_data: model.rotation_config_sealed_data,
         execute_by,
     })
 }
@@ -461,7 +454,6 @@ fn failure_code_string(code: FailureCode) -> String {
 mod tests {
     use std::{sync::Arc, time::Instant};
 
-    use bitwarden_api_api::models::PamPasswordPolicyResponseModel;
     use bitwarden_api_base::Configuration;
     use reqwest_middleware::ClientBuilder;
     use tokio::sync::watch;
@@ -578,6 +570,10 @@ mod tests {
             failure_code_string(FailureCode::CipherWriteRejected),
             "cipher_write_rejected"
         );
+        assert_eq!(
+            failure_code_string(FailureCode::SealedDataRejected),
+            "sealed_data_rejected"
+        );
     }
 
     #[test]
@@ -594,6 +590,7 @@ mod tests {
             FailureCode::ScriptTimeout,
             FailureCode::CipherWriteRejected,
             FailureCode::CipherEncryptFailed,
+            FailureCode::SealedDataRejected,
             FailureCode::Internal,
         ] {
             let s = failure_code_string(code);
@@ -606,7 +603,7 @@ mod tests {
 
     #[test]
     fn parse_work_snapshot_converts_correctly() {
-        use bitwarden_api_api::models::{PamTargetSystemKind, RotationClaimResponseModel};
+        use bitwarden_api_api::models::RotationClaimResponseModel;
         use chrono::Utc;
 
         let model = RotationClaimResponseModel {
@@ -615,27 +612,43 @@ mod tests {
             source: None,
             target_system_id: Some(Uuid::new_v4()),
             target_system_name: Some("test-system".to_owned()),
-            kind: Some(PamTargetSystemKind::CustomScript),
-            password_policy: Some(Box::new(PamPasswordPolicyResponseModel {
-                min_length: Some(8),
-                max_length: Some(64),
-                include_uppercase: Some(true),
-                include_lowercase: Some(true),
-                include_digits: Some(true),
-                include_symbols: Some(false),
-            })),
+            target_system_sealed_data: Some("opaque-target-blob".to_owned()),
             cipher_id: Some(Uuid::new_v4()),
-            account_identity: Some("user@example.com".to_owned()),
-            terminate_sessions: Some(true),
+            rotation_config_sealed_data: Some("opaque-config-blob".to_owned()),
             execute_by: Some(Utc::now().to_rfc3339()),
         };
 
         let snap = parse_work_snapshot(model).expect("parse_work_snapshot");
-        assert_eq!(snap.kind, TargetKind::CustomScript);
-        assert_eq!(snap.account_identity, "user@example.com");
-        assert!(snap.terminate_sessions);
-        assert_eq!(snap.password_policy.min_length, Some(8));
-        assert_eq!(snap.password_policy.max_length, Some(64));
+        assert_eq!(
+            snap.target_system_sealed_data.as_deref(),
+            Some("opaque-target-blob")
+        );
+        assert_eq!(
+            snap.rotation_config_sealed_data.as_deref(),
+            Some("opaque-config-blob")
+        );
+    }
+
+    #[test]
+    fn parse_work_snapshot_missing_sealed_blobs_still_parses() {
+        use bitwarden_api_api::models::RotationClaimResponseModel;
+        use chrono::Utc;
+
+        let model = RotationClaimResponseModel {
+            attempt_id: Some(Uuid::new_v4()),
+            job_id: Some(Uuid::new_v4()),
+            source: None,
+            target_system_id: Some(Uuid::new_v4()),
+            target_system_name: Some("test-system".to_owned()),
+            target_system_sealed_data: None,
+            cipher_id: Some(Uuid::new_v4()),
+            rotation_config_sealed_data: None,
+            execute_by: Some(Utc::now().to_rfc3339()),
+        };
+
+        let snap = parse_work_snapshot(model).expect("parse_work_snapshot");
+        assert!(snap.target_system_sealed_data.is_none());
+        assert!(snap.rotation_config_sealed_data.is_none());
     }
 
     #[test]
@@ -649,7 +662,7 @@ mod tests {
 
     #[test]
     fn parse_work_snapshot_bad_execute_by_is_protocol_error() {
-        use bitwarden_api_api::models::{PamTargetSystemKind, RotationClaimResponseModel};
+        use bitwarden_api_api::models::RotationClaimResponseModel;
 
         let model = RotationClaimResponseModel {
             attempt_id: Some(Uuid::new_v4()),
@@ -657,18 +670,9 @@ mod tests {
             source: None,
             target_system_id: Some(Uuid::new_v4()),
             target_system_name: Some("ts".to_owned()),
-            kind: Some(PamTargetSystemKind::Entra),
-            password_policy: Some(Box::new(PamPasswordPolicyResponseModel {
-                min_length: None,
-                max_length: None,
-                include_uppercase: Some(true),
-                include_lowercase: Some(true),
-                include_digits: Some(true),
-                include_symbols: Some(true),
-            })),
+            target_system_sealed_data: Some("opaque-target-blob".to_owned()),
             cipher_id: Some(Uuid::new_v4()),
-            account_identity: Some("user".to_owned()),
-            terminate_sessions: Some(false),
+            rotation_config_sealed_data: Some("opaque-config-blob".to_owned()),
             execute_by: Some("NOT-A-DATE".to_owned()),
         };
 
@@ -843,18 +847,9 @@ mod tests {
                         "jobId": job_id,
                         "targetSystemId": target_system_id,
                         "targetSystemName": "my-script",
-                        "kind": 2,  // CustomScript
-                        "passwordPolicy": {
-                            "minLength": 12,
-                            "maxLength": 64,
-                            "includeUppercase": true,
-                            "includeLowercase": true,
-                            "includeDigits": true,
-                            "includeSymbols": false
-                        },
+                        "targetSystemSealedData": "opaque-target-blob",
                         "cipherId": cipher_id,
-                        "accountIdentity": "svc_account",
-                        "terminateSessions": true,
+                        "rotationConfigSealedData": "opaque-config-blob",
                         "executeBy": execute_by
                     }))
                     .insert_header("content-type", "application/json"),
@@ -868,13 +863,14 @@ mod tests {
             .expect("claim")
             .expect("some snapshot");
         assert_eq!(snap.attempt_id, attempt_id);
-        assert_eq!(snap.kind, TargetKind::CustomScript);
-        assert_eq!(snap.account_identity, "svc_account");
-        assert!(snap.terminate_sessions);
-        assert_eq!(snap.password_policy.min_length, Some(12));
-        assert_eq!(snap.password_policy.max_length, Some(64));
-        assert!(snap.password_policy.include_uppercase);
-        assert!(!snap.password_policy.include_symbols);
+        assert_eq!(
+            snap.target_system_sealed_data.as_deref(),
+            Some("opaque-target-blob")
+        );
+        assert_eq!(
+            snap.rotation_config_sealed_data.as_deref(),
+            Some("opaque-config-blob")
+        );
     }
 
     #[tokio::test]
