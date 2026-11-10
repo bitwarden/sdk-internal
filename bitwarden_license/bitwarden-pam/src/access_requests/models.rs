@@ -5,8 +5,7 @@ use bitwarden_api_api::models::{
     AccessDecisionVerdict as ApiAccessDecisionVerdict, AccessPreCheckResponseModel,
     AccessRequestCreateRequestModel, AccessRequestDecisionResponseModel,
     AccessRequestDetailsResponseModel, AccessRequestResultResponseModel,
-    AccessRequestRevokeRequestModel, AccessRequestStatus as ApiAccessRequestStatus,
-    CipherAccessStateResponseModel,
+    AccessRequestStatus as ApiAccessRequestStatus, CipherAccessStateResponseModel,
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{OrganizationId, UserId, require};
@@ -530,25 +529,6 @@ impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
                 .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
             reason: request.reason,
         })
-    }
-}
-
-/// Request to cancel an access request that has not been activated.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
-#[bitwarden_ffi::wasm_record]
-#[serde(rename_all = "camelCase")]
-pub struct AccessRequestRevokeRequest {
-    /// Why the request is being cancelled. Required by the server when a managing approver
-    /// withdraws an approval; recorded with their decision and shown to the requester. `None` when
-    /// the requester cancels their own request.
-    pub reason: Option<String>,
-}
-
-impl From<AccessRequestRevokeRequest> for AccessRequestRevokeRequestModel {
-    fn from(request: AccessRequestRevokeRequest) -> Self {
-        Self {
-            reason: request.reason,
-        }
     }
 }
 
@@ -1241,14 +1221,5 @@ mod tests {
         let view = AccessRequestView::try_from(response).unwrap();
 
         assert!(view.human_decision.is_none());
-    }
-
-    #[test]
-    fn access_request_revoke_request_converts_to_model() {
-        let model = AccessRequestRevokeRequestModel::from(AccessRequestRevokeRequest {
-            reason: Some("Approved by mistake".to_string()),
-        });
-
-        assert_eq!(model.reason.as_deref(), Some("Approved by mistake"));
     }
 }
