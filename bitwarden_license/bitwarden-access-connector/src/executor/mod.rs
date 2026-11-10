@@ -28,7 +28,10 @@ use crate::{
     },
     auth::session::{SessionLost, SessionManager},
     error::SafeDetail,
-    integrations::IntegrationRegistry,
+    integrations::{
+        IntegrationRegistry,
+        scripting::{CustomScriptIntegration, PowershellConfig, ProcessScriptRunner},
+    },
     resolver::CredentialResolver,
     sys::SystemEnv,
 };
@@ -195,16 +198,16 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
 
     let mut registry = IntegrationRegistry::new();
 
-    let custom_script = Arc::new(
-        crate::integrations::scripting::custom_script::CustomScriptIntegration::new(
-            cfg.script_root.clone(),
-            cfg.script_timeout,
-            cfg.powershell_path.clone(),
-            cfg.powershell_execution_policy.clone(),
-            crate::sys::Platform::system(),
-            Arc::new(crate::integrations::scripting::ProcessScriptRunner),
-        ),
-    );
+    let custom_script = Arc::new(CustomScriptIntegration {
+        script_root: cfg.script_root.clone(),
+        timeout: cfg.script_timeout,
+        powershell: PowershellConfig {
+            host: cfg.powershell_path.clone(),
+            execution_policy: cfg.powershell_execution_policy.clone(),
+        },
+        platform: crate::sys::Platform::system(),
+        runner: Arc::new(ProcessScriptRunner),
+    });
     registry.register(
         bitwarden_pam_sealed::SealedTargetSystemKind::CustomScript,
         custom_script,
