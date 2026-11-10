@@ -23,7 +23,7 @@ use crate::{
     auth::session::{SessionLost, SessionManager, SessionPhase},
     crypto::{AccessConnectorKeyStore, cipher_key_unwraps, encrypt_cipher_password},
     error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
-    integrations::{Integration, IntegrationRegistry, RotateContext, TargetEffect},
+    integrations::{Integration, IntegrationRegistry, RotateContext},
     policy,
     resolver::{CredentialResolver, ResolveError},
 };
@@ -272,11 +272,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 return ExecutionResult::Unreported(reason);
             }
             GatedOutcome::Failed(err) => {
-                let sync_state = match err.effect {
-                    TargetEffect::NotApplied => SyncState::TargetUnchanged,
-                    TargetEffect::Unknown => SyncState::Indeterminate,
-                    TargetEffect::Applied => SyncState::TargetUpdated,
-                };
+                let sync_state = SyncState::from(err.effect);
                 report_failure_absorb(&ctx.api, attempt_id, err.code, Some(err.detail), sync_state)
                     .await;
                 return ExecutionResult::Reported;
@@ -925,25 +921,17 @@ mod tests {
     #[test]
     fn target_effect_to_sync_state_mapping() {
         assert_eq!(
-            effect_to_sync_state(TargetEffect::NotApplied),
+            SyncState::from(TargetEffect::NotApplied),
             SyncState::TargetUnchanged
         );
         assert_eq!(
-            effect_to_sync_state(TargetEffect::Unknown),
+            SyncState::from(TargetEffect::Unknown),
             SyncState::Indeterminate
         );
         assert_eq!(
-            effect_to_sync_state(TargetEffect::Applied),
+            SyncState::from(TargetEffect::Applied),
             SyncState::TargetUpdated
         );
-    }
-
-    fn effect_to_sync_state(e: TargetEffect) -> SyncState {
-        match e {
-            TargetEffect::NotApplied => SyncState::TargetUnchanged,
-            TargetEffect::Unknown => SyncState::Indeterminate,
-            TargetEffect::Applied => SyncState::TargetUpdated,
-        }
     }
 
     #[test]
