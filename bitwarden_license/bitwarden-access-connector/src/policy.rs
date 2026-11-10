@@ -1,7 +1,5 @@
-//! Rotation policy models and evaluation logic.
-//!
-//! Converts the server-supplied [`PasswordPolicy`] snapshot from a claimed rotation job
-//! into a [`PasswordGeneratorRequest`] that the generators crate can execute.
+//! Converts a claim's [`PasswordPolicy`] into a [`PasswordGeneratorRequest`] for the generators
+//! crate.
 
 use bitwarden_generators::{
     MAXIMUM_PASSWORD_LENGTH, MINIMUM_PASSWORD_LENGTH, PasswordGeneratorRequest,
@@ -12,50 +10,35 @@ use thiserror::Error;
 /// Errors from converting a [`PasswordPolicy`] into a generator request.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub(crate) enum PolicyError {
-    /// All character-class flags (`include_uppercase`, `include_lowercase`,
-    /// `include_digits`, `include_symbols`) are `false`. At least one must be enabled.
+    /// Every `include_*` flag is `false`.
     #[error("password policy requires at least one character class to be enabled")]
     NoCharacterClasses,
-    /// `min_length` exceeds `max_length`, or the effective floor (after clamping to the
-    /// generator minimum of {MINIMUM_PASSWORD_LENGTH}) exceeds the generator maximum of
-    /// {MAXIMUM_PASSWORD_LENGTH}.
+    /// `min_length` exceeds `max_length` or the generator's `MAXIMUM_PASSWORD_LENGTH`.
     #[error("password policy has invalid length bounds")]
     InvalidBounds,
 }
 
 /// Password-policy snapshot delivered inside a rotation claim.
-///
-/// Field names use the wire casing from the server's OpenAPI spec; both camelCase and
-/// snake_case are accepted via `#[serde(alias)]`.
-///
-/// `include_digits`/`include_symbols` map to `numbers`/`special` in
-/// `PasswordGeneratorRequest`, which uses its own naming.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PasswordPolicy {
-    /// Minimum password length enforced by the policy.  `None` means unconstrained
-    /// (the generator minimum of 5 is still applied).
+    /// `None` means unconstrained, though the generator minimum still applies.
     #[serde(alias = "min_length")]
     pub(crate) min_length: Option<u32>,
 
-    /// Maximum password length enforced by the policy.  `None` means the default
-    /// target length of 64 characters is used.
+    /// The generated length, clamped to the generator's range; `None` means 64.
     #[serde(alias = "max_length")]
     pub(crate) max_length: Option<u32>,
 
-    /// Whether uppercase letters (A–Z) must be included.
     #[serde(alias = "include_uppercase")]
     pub(crate) include_uppercase: bool,
 
-    /// Whether lowercase letters (a–z) must be included.
     #[serde(alias = "include_lowercase")]
     pub(crate) include_lowercase: bool,
 
-    /// Whether decimal digits (0–9) must be included.
     #[serde(alias = "include_digits")]
     pub(crate) include_digits: bool,
 
-    /// Whether special/symbol characters must be included.
     #[serde(alias = "include_symbols")]
     pub(crate) include_symbols: bool,
 }
@@ -64,16 +47,9 @@ pub(crate) struct PasswordPolicy {
 const DEFAULT_POLICY_PASSWORD_LENGTH: u32 = 64;
 
 /// Convert a [`PasswordPolicy`] into a [`PasswordGeneratorRequest`].
-///
-/// # Errors
-///
-/// [`PolicyError::NoCharacterClasses`] for all four `include_*` flags `false`;
-/// [`PolicyError::InvalidBounds`] for `min_length > max_length`, or a floor exceeding the
-/// generator maximum of 128.
 pub(crate) fn to_generator_request(
     policy: &PasswordPolicy,
 ) -> Result<PasswordGeneratorRequest, PolicyError> {
-    // At least one character class must be enabled.
     if !policy.include_uppercase
         && !policy.include_lowercase
         && !policy.include_digits
@@ -82,7 +58,6 @@ pub(crate) fn to_generator_request(
         return Err(PolicyError::NoCharacterClasses);
     }
 
-    // Validate explicit bounds before computing the target length.
     if let (Some(min), Some(max)) = (policy.min_length, policy.max_length)
         && min > max
     {
@@ -94,16 +69,14 @@ pub(crate) fn to_generator_request(
 
     let floor = policy.min_length.unwrap_or(0).max(gen_min);
 
-    // The floor itself must not exceed the generator maximum.
     if floor > gen_max {
         return Err(PolicyError::InvalidBounds);
     }
 
-    // Target length: clamp(max_length.unwrap_or(64), floor, 128).
     let raw_max = policy.max_length.unwrap_or(DEFAULT_POLICY_PASSWORD_LENGTH);
     let length_u32 = raw_max.clamp(floor, gen_max);
 
-    // Safety: length_u32 is in [floor, 128] ⊆ [0, 128] which fits in u8.
+    // length_u32 is at most MAXIMUM_PASSWORD_LENGTH, a u8, so the cast cannot truncate.
     #[allow(clippy::cast_possible_truncation)]
     let length = length_u32 as u8;
 
@@ -131,14 +104,12 @@ mod tests {
 
     use super::*;
 
-    /// Helper: run a request through the SDK's password generator.
     fn password(
         req: PasswordGeneratorRequest,
     ) -> Result<String, bitwarden_generators::PasswordError> {
         Client::new(None).generator().password(req)
     }
 
-    /// Helper: build a maximally permissive policy and override individual fields.
     fn all_classes(min: Option<u32>, max: Option<u32>) -> PasswordPolicy {
         PasswordPolicy {
             min_length: min,
@@ -152,7 +123,6 @@ mod tests {
 
     #[test]
     fn test_defaults_produce_length_64() {
-        // No bounds → length = clamp(64, 5, 128) = 64.
         let req = to_generator_request(&all_classes(None, None)).unwrap();
         assert_eq!(req.length, 64);
     }
@@ -190,7 +160,6 @@ mod tests {
 
     #[test]
     fn test_max_length_above_128_clamps_to_128() {
-        // max_length > 128 → clamp to 128.
         let req = to_generator_request(&all_classes(None, Some(200))).unwrap();
         assert_eq!(req.length, 128);
     }
@@ -279,7 +248,6 @@ mod tests {
         assert!(!req.lowercase);
         assert!(req.numbers);
         assert!(!req.special);
-        // Minimums and custom fields left as None.
         assert!(req.min_uppercase.is_none());
         assert!(req.min_lowercase.is_none());
         assert!(req.min_number.is_none());
@@ -290,11 +258,8 @@ mod tests {
         assert!(req.max_consecutive.is_none());
     }
 
-    // End-to-end: generated request passes validate_options and produces a password.
-
     #[test]
     fn test_generated_request_produces_valid_password() {
-        // Verify that to_generator_request output passes through the generator without error.
         let req = to_generator_request(&all_classes(Some(12), Some(32))).unwrap();
         let result = password(req);
         assert!(result.is_ok(), "expected password() to succeed: {result:?}");
@@ -308,7 +273,6 @@ mod tests {
 
     #[test]
     fn test_generated_password_uses_only_enabled_charset() {
-        // Only digits: all characters in output must be ASCII digit.
         let policy = PasswordPolicy {
             min_length: Some(10),
             max_length: Some(10),
@@ -328,7 +292,6 @@ mod tests {
 
     #[test]
     fn test_generated_password_at_maximum_length() {
-        // max = 128 → length = 128 → generator should succeed.
         let req = to_generator_request(&all_classes(None, Some(128))).unwrap();
         assert_eq!(req.length, 128);
         let pwd = password(req).unwrap();

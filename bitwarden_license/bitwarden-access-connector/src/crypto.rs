@@ -1,8 +1,4 @@
 //! Cryptographic helpers used by the access connector.
-//!
-//! Owns [`AccessConnectorKeyStore`]'s slot definitions, [`unwrap_org_key`] (installs the
-//! auth-payload org key), and [`encrypt_cipher_password`] (writes a new password into the cipher's
-//! data blob).
 
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, EncString, KeyDecryptable, KeyStore, PrimitiveEncryptable,
@@ -12,8 +8,7 @@ use bitwarden_encoding::B64;
 use serde::Deserialize;
 use thiserror::Error;
 
-// Symmetric slots: Organization (global) and Local (ephemeral per-operation). Private and
-// signing slots are stubs; the macro requires all three slot enum types.
+// Private and signing slots are stubs; the macro requires all three slot enum types.
 key_slot_ids! {
     #[symmetric]
     pub enum AccessConnectorSymmSlotId {
@@ -44,7 +39,7 @@ pub type AccessConnectorKeyStore = KeyStore<AccessConnectorKeySlotIds>;
 /// Errors produced by the cryptographic helpers in this module.
 #[derive(Debug, Error)]
 pub enum CryptoModuleError {
-    /// The encrypted payload could not be decoded or decrypted.
+    /// An encrypted payload or wrapped cipher key could not be decoded or decrypted.
     #[error("org-key payload is invalid")]
     InvalidPayload,
 
@@ -52,9 +47,7 @@ pub enum CryptoModuleError {
     #[error("org-key payload does not contain a valid encryption key")]
     InvalidOrgKey,
 
-    /// The cipher's `data` JSON blob is not a JSON object (CONTRACT ITEM C2).
-    ///
-    /// The error carries **no** blob content to avoid echoing cipher data.
+    /// The cipher's `data` JSON is not an object. Carries no content, to avoid echoing cipher data.
     #[error("cipher data JSON is not a JSON object")]
     CipherDataShape,
 
@@ -67,11 +60,8 @@ pub enum CryptoModuleError {
     Json(#[from] serde_json::Error),
 }
 
-/// Install the organisation encryption key into `store`.
-///
-/// `token_key` is the access connector token's derived key; `encrypted_payload` is the
-/// identity server's `encrypted_payload` EncString. The plaintext org-key bytes are
-/// transient and never returned; errors carry no payload content.
+/// Decrypt the identity server's `encrypted_payload` with `token_key` and install the org key into
+/// `store`. The key bytes are never returned, and errors carry no payload content.
 pub fn unwrap_org_key(
     store: &AccessConnectorKeyStore,
     token_key: &SymmetricCryptoKey,
@@ -81,12 +71,10 @@ pub fn unwrap_org_key(
         .parse()
         .map_err(|_| CryptoModuleError::InvalidPayload)?;
 
-    // Decrypt with the token's local encryption key
     let decrypted: Vec<u8> = payload_enc
         .decrypt_with_key(token_key)
         .map_err(|_| CryptoModuleError::InvalidPayload)?;
 
-    // JSON decode to extract the org encryption key
     #[derive(Deserialize)]
     struct Payload {
         #[serde(rename = "encryptionKey")]
@@ -96,7 +84,6 @@ pub fn unwrap_org_key(
     let payload: Payload =
         serde_json::from_slice(&decrypted).map_err(|_| CryptoModuleError::InvalidPayload)?;
 
-    // Convert the raw bytes to a SymmetricCryptoKey
     let encryption_key = BitwardenLegacyKeyBytes::from(&payload.encryption_key);
     let org_key = SymmetricCryptoKey::try_from(&encryption_key)
         .map_err(|_| CryptoModuleError::InvalidOrgKey)?;
@@ -110,24 +97,19 @@ pub fn unwrap_org_key(
     Ok(())
 }
 
-/// Top-level key name for the login-password field inside the server's cipher `data` blob.
-///
-/// The server's `CipherLoginData` serializes as a flat PascalCase object; `"Password"` is
-/// absent (not null) until the first rotation, then inserted or replaced.
+/// The server's `CipherLoginData` serializes as a flat PascalCase object that omits `Password`
+/// while it is null.
 const CIPHER_PASSWORD_KEY: &str = "Password";
 
-/// Encrypt `new_password` and insert-or-replace the password field in `data`.
-///
-/// A `Some(cipher_key)` is unwrapped from the org key into a local slot; `None` uses the org
-/// key directly. Other fields are preserved byte-for-byte; a non-object `data` errors with
-/// `CipherDataShape` rather than echoing content.
+/// Encrypt `new_password` with the per-item `cipher_key` when present (unwrapped by the org key),
+/// else the org key, and insert or replace the password field in `data`. Other fields are
+/// untouched.
 pub fn encrypt_cipher_password(
     store: &AccessConnectorKeyStore,
     cipher_key: Option<&str>,
     data: &mut serde_json::Value,
     new_password: &str,
 ) -> Result<(), CryptoModuleError> {
-    // Obtain a mutable context (kept entirely within this sync fn).
     let mut ctx = store.context_mut();
 
     let encrypt_slot = if let Some(wrapped_key_str) = cipher_key {
@@ -135,7 +117,6 @@ pub fn encrypt_cipher_password(
             .parse()
             .map_err(|_| CryptoModuleError::InvalidPayload)?;
 
-        // Unwrap the per-item cipher key under the org key into a fresh local slot.
         ctx.unwrap_symmetric_key(AccessConnectorSymmSlotId::Organization, &wrapped_enc)
             .map_err(CryptoModuleError::Crypto)?
     } else {
@@ -148,7 +129,6 @@ pub fn encrypt_cipher_password(
 
     let encrypted_str = encrypted.to_string();
 
-    // A `None` match here means a real shape violation, not a normal case.
     match data.as_object_mut() {
         Some(obj) => {
             obj.insert(
@@ -171,13 +151,10 @@ mod tests {
 
     use super::*;
 
-    /// Build a fresh Aes256CbcHmac org key and return it alongside the store
-    /// with the key installed at the Organization slot.
     fn make_store_with_org_key() -> (AccessConnectorKeyStore, SymmetricCryptoKey) {
         let store: AccessConnectorKeyStore = KeyStore::default();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
-        // Install directly for setup purposes.
         #[allow(deprecated)]
         store
             .context_mut()
@@ -187,8 +164,7 @@ mod tests {
         (store, org_key)
     }
 
-    /// Derive a token key from a 16-byte secret (mirrors the C1 derivation in
-    /// `token.rs`; constants kept local so tests don't depend on that module).
+    /// Mirrors the derivation in `token.rs`, with the constants kept local.
     fn derive_token_key(secret: Zeroizing<[u8; 16]>) -> SymmetricCryptoKey {
         SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
             secret,
@@ -197,21 +173,18 @@ mod tests {
         ))
     }
 
-    /// Encrypt `{"encryptionKey": <b64(org_key_bytes)>}` under `token_key` to
-    /// produce the `encryptedPayload` that the identity server would return.
+    /// The identity server's `encrypted_payload`: `{"encryptionKey": <b64 org key>}` encrypted
+    /// under `token_key`.
     fn make_encrypted_payload(
         token_key: &SymmetricCryptoKey,
         org_key: &SymmetricCryptoKey,
     ) -> String {
-        // Encode the org key bytes to base64 for the JSON payload.
         let org_key_bytes = org_key.to_encoded();
         let org_key_b64 = bitwarden_encoding::B64::from(org_key_bytes.as_ref());
         let org_key_b64_str: String = org_key_b64.into();
 
         let payload_json = format!(r#"{{"encryptionKey":"{org_key_b64_str}"}}"#);
 
-        // Encrypt the JSON under the token key.
-        // `&str` implements `KeyEncryptable<SymmetricCryptoKey, EncString>`.
         use bitwarden_crypto::KeyEncryptable;
         let enc: EncString = payload_json
             .as_str()
@@ -222,15 +195,12 @@ mod tests {
 
     #[test]
     fn unwrap_org_key_round_trip() {
-        // Build a token key from a known 16-byte secret.
         let secret = Zeroizing::new([0x42u8; 16]);
         let token_key = derive_token_key(secret);
 
-        // Build an org key and produce the encrypted payload.
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let encrypted_payload = make_encrypted_payload(&token_key, &org_key);
 
-        // Start with an empty store.
         let store: AccessConnectorKeyStore = KeyStore::default();
         assert!(
             !store
@@ -240,8 +210,7 @@ mod tests {
 
         unwrap_org_key(&store, &token_key, &encrypted_payload).expect("unwrap_org_key");
 
-        // Verify the org key is now installed by encrypting and decrypting a
-        // probe string.
+        // Probe that the org key is installed.
         let probe = "probe value";
         let encrypted_probe = {
             let mut ctx = store.context();
@@ -251,7 +220,6 @@ mod tests {
                 .expect("encrypt probe")
         };
 
-        // Decrypt using the original org_key directly to confirm they match.
         let decrypted: String = encrypted_probe
             .decrypt_with_key(&org_key)
             .expect("decrypt probe");
@@ -278,19 +246,16 @@ mod tests {
         let mut data = json!({ "Password": "old", "Username": "alice" });
         encrypt_cipher_password(&store, None, &mut data, "new-secret").expect("encrypt");
 
-        // The Password field must have been replaced with an EncString.
         let password_field = data["Password"].as_str().expect("Password is a string");
         assert!(
             password_field.contains('.'),
             "expected EncString format, got: {password_field}",
         );
 
-        // Decrypt with the org key and confirm the plaintext.
         let enc: EncString = password_field.parse().expect("parse EncString");
         let plaintext: String = enc.decrypt_with_key(&org_key).expect("decrypt");
         assert_eq!(plaintext, "new-secret");
 
-        // Sibling field must be untouched.
         assert_eq!(data["Username"].as_str(), Some("alice"));
     }
 
@@ -298,11 +263,9 @@ mod tests {
     fn encrypt_cipher_password_per_item_key_path() {
         let (store, _org_key) = make_store_with_org_key();
 
-        // Generate a fresh per-item key and wrap it under the org key.
         let item_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let wrapped_cipher_key_str = {
             let mut ctx = store.context_mut();
-            // Store item_key as a local slot so we can wrap it.
             let item_key_slot = ctx.add_local_symmetric_key(item_key.clone());
             let wrapped = ctx
                 .wrap_symmetric_key(AccessConnectorSymmSlotId::Organization, item_key_slot)
@@ -322,7 +285,6 @@ mod tests {
         let password_field = data["Password"].as_str().expect("Password is a string");
         let enc: EncString = password_field.parse().expect("parse EncString");
 
-        // Must decrypt under the item key, not the org key.
         let plaintext: String = enc
             .decrypt_with_key(&item_key)
             .expect("decrypt with item key");
@@ -343,23 +305,18 @@ mod tests {
 
         encrypt_cipher_password(&store, None, &mut data, "new").expect("encrypt");
 
-        // All siblings must be byte-for-byte identical.
         assert_eq!(data["Username"], original["Username"]);
         assert_eq!(data["Uri"], original["Uri"]);
         assert_eq!(data["Totp"], original["Totp"]);
 
-        // Only the Password key changed.
         assert_ne!(data["Password"], original["Password"]);
     }
 
-    /// A cipher data blob that has never had a password (server omits null fields)
-    /// must have the key inserted rather than erroring.  Sibling fields must be
-    /// byte-identical after the call.
+    /// The server omits a null `Password`, so a missing key is inserted rather than an error.
     #[test]
     fn encrypt_cipher_password_inserts_missing_password_key() {
         let (store, org_key) = make_store_with_org_key();
 
-        // Real-world shape: flat PascalCase object, no Password key.
         let mut data = json!({
             "Uris": [],
             "Username": "2.abc==|def==|ghi==",
@@ -374,19 +331,16 @@ mod tests {
         encrypt_cipher_password(&store, None, &mut data, "first-rotation-secret")
             .expect("insert must succeed even when Password key is absent");
 
-        // The Password key must now be present and parseable as an EncString.
         let password_field = data["Password"].as_str().expect("Password is a string");
         assert!(
             password_field.contains('.'),
             "expected EncString format, got: {password_field}",
         );
 
-        // Must decrypt to the plaintext we passed in.
         let enc: EncString = password_field.parse().expect("parse EncString");
         let plaintext: String = enc.decrypt_with_key(&org_key).expect("decrypt");
         assert_eq!(plaintext, "first-rotation-secret");
 
-        // All siblings must be byte-for-byte identical.
         assert_eq!(
             data["Username"], original_username,
             "Username must be untouched"
@@ -396,8 +350,6 @@ mod tests {
         assert_eq!(data["Fields"], original_fields, "Fields must be untouched");
     }
 
-    /// A `data` value that is not a JSON object (string, array, null, …) is a
-    /// genuine shape violation and must return `CipherDataShape`.
     #[test]
     fn encrypt_cipher_password_non_object_root_returns_cipher_data_shape() {
         let (store, _) = make_store_with_org_key();
