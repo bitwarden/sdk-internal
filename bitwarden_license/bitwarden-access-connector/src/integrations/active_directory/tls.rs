@@ -5,44 +5,43 @@ use rustls::{
     ClientConfig, RootCertStore,
     pki_types::{CertificateDer, pem::PemObject as _},
 };
+use rustls_platform_verifier::Verifier;
 
-use super::classify::Phase;
+use super::classify::{Phase, target_unreachable};
 use crate::{
     error::{Retry, SafeDetail},
     integrations::IntegrationError,
 };
 
-/// Trusts the platform roots plus the PEM file's anchors, never the file alone. Failing to load the
-/// file is fatal rather than a quiet fallback to platform roots, and the error carries a fixed
-/// kind, never the path.
-pub(super) fn tls_config_with_extra_anchors(
-    path: &str,
+/// Verifies the DC's certificate with the platform verifier, the same one the connector's HTTPS
+/// uses, plus the PEM file's anchors if given, never the file alone. Failing to load the file is
+/// fatal rather than a quiet fallback to platform trust, and the error carries a fixed kind, never
+/// the path.
+pub(super) fn tls_config(
+    ca_certificate: Option<&str>,
     phase: Phase,
 ) -> Result<Arc<ClientConfig>, IntegrationError> {
-    let roots = root_store_with_extra_anchors(path, phase)?;
-    let config =
-        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .map_err(|_| anchor_failure(phase, "TlsProviderUnavailable"))?
-            .with_root_certificates(roots)
-            .with_no_client_auth();
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let verifier = match ca_certificate {
+        Some(path) => Verifier::new_with_extra_roots(read_anchors(path, phase)?, provider.clone()),
+        None => Verifier::new(provider.clone()),
+    }
+    .map_err(|_| target_unreachable(Retry::Permanent, phase.settled(), "TlsVerifierUnavailable"))?;
+    let config = ClientConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .map_err(|_| anchor_failure(phase, "TlsProviderUnavailable"))?
+        // rustls gates any non-default verifier behind `dangerous()`. This one is the platform
+        // verifier, so the OS (or webpki over system roots on Linux) still checks chain and host.
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(verifier))
+        .with_no_client_auth();
     Ok(Arc::new(config))
 }
 
-/// Skips certificates rustls can't add one by one, unlike ldap3's default, which drops the whole
-/// native store on any load error.
-fn platform_roots() -> RootCertStore {
-    let mut roots = RootCertStore::empty();
-    for cert in rustls_native_certs::load_native_certs().certs {
-        let _ = roots.add(cert);
-    }
-    roots
-}
-
-fn root_store_with_extra_anchors(
+fn read_anchors(
     path: &str,
     phase: Phase,
-) -> Result<RootCertStore, IntegrationError> {
+) -> Result<Vec<CertificateDer<'static>>, IntegrationError> {
     let anchors: Vec<CertificateDer<'static>> = CertificateDer::pem_file_iter(Path::new(path))
         .map_err(|_| anchor_failure(phase, "CaCertificateUnreadable"))?
         .collect::<Result<Vec<_>, _>>()
@@ -51,13 +50,14 @@ fn root_store_with_extra_anchors(
         return Err(anchor_failure(phase, "CaCertificateEmpty"));
     }
 
-    let mut roots = platform_roots();
-    for anchor in anchors {
-        roots
-            .add(anchor)
+    // Reject an unusable anchor here, as `CaCertificateInvalid`, not as a generic verifier error.
+    let mut scratch = RootCertStore::empty();
+    for anchor in &anchors {
+        scratch
+            .add(anchor.clone())
             .map_err(|_| anchor_failure(phase, "CaCertificateInvalid"))?;
     }
-    Ok(roots)
+    Ok(anchors)
 }
 
 fn anchor_failure(phase: Phase, kind: &'static str) -> IntegrationError {
@@ -105,33 +105,21 @@ D2kYx4ka5O/dEuqcrMf/qd6GW5H2PJcrdc4PtRJeIBDR0TgweD2xjJ0=\n\
     }
 
     #[test]
-    fn extra_anchor_is_added_to_platform_roots_not_substituted() {
-        let f = write_temp(TEST_CA_PEM);
-        let path = f.path().to_str().expect("utf8 path");
-
-        let baseline = platform_roots().len();
-        let widened = root_store_with_extra_anchors(path, Phase::BeforeWrite)
-            .expect("valid PEM should build a root store")
-            .len();
-
-        assert_eq!(
-            widened,
-            baseline + 1,
-            "the anchor must be added to the platform roots, not replace them"
-        );
-    }
-
-    #[test]
     fn valid_ca_certificate_builds_a_client_config() {
         let f = write_temp(TEST_CA_PEM);
         let path = f.path().to_str().expect("utf8 path");
-        assert!(tls_config_with_extra_anchors(path, Phase::BeforeWrite).is_ok());
+        assert!(tls_config(Some(path), Phase::BeforeWrite).is_ok());
+    }
+
+    #[test]
+    fn no_ca_certificate_builds_a_client_config() {
+        assert!(tls_config(None, Phase::BeforeWrite).is_ok());
     }
 
     #[test]
     fn missing_ca_certificate_file_is_fatal() {
-        let err = root_store_with_extra_anchors(
-            "/nonexistent/path/to/ca-bundle-2f8a1c.pem",
+        let err = tls_config(
+            Some("/nonexistent/path/to/ca-bundle-2f8a1c.pem"),
             Phase::BeforeWrite,
         )
         .expect_err("a missing PEM must not fall back to platform roots");
@@ -145,7 +133,7 @@ D2kYx4ka5O/dEuqcrMf/qd6GW5H2PJcrdc4PtRJeIBDR0TgweD2xjJ0=\n\
         let truncated = "-----BEGIN CERTIFICATE-----\nMIIDJTCCAg2gAwIBAgIUP9bWk\n";
         let f = write_temp(truncated);
         let path = f.path().to_str().expect("utf8 path");
-        let err = root_store_with_extra_anchors(path, Phase::BeforeWrite)
+        let err = tls_config(Some(path), Phase::BeforeWrite)
             .expect_err("a malformed PEM must not fall back to platform roots");
         assert_eq!(err.retry, Retry::Permanent);
         assert_eq!(err.detail.as_str(), "error kind: CaCertificateInvalid");
@@ -155,7 +143,7 @@ D2kYx4ka5O/dEuqcrMf/qd6GW5H2PJcrdc4PtRJeIBDR0TgweD2xjJ0=\n\
     fn ca_certificate_without_a_certificate_is_fatal() {
         let f = write_temp("# no PEM sections here\n");
         let path = f.path().to_str().expect("utf8 path");
-        let err = root_store_with_extra_anchors(path, Phase::BeforeWrite)
+        let err = tls_config(Some(path), Phase::BeforeWrite)
             .expect_err("a PEM with no certificate must not fall back to platform roots");
         assert_eq!(err.retry, Retry::Permanent);
         assert_eq!(err.detail.as_str(), "error kind: CaCertificateEmpty");
@@ -164,8 +152,7 @@ D2kYx4ka5O/dEuqcrMf/qd6GW5H2PJcrdc4PtRJeIBDR0TgweD2xjJ0=\n\
     #[test]
     fn ca_certificate_path_never_reaches_the_error_detail() {
         let path = "/etc/secrets/ad-ca-9f3b2e.pem";
-        let err =
-            root_store_with_extra_anchors(path, Phase::BeforeWrite).expect_err("missing file");
+        let err = tls_config(Some(path), Phase::BeforeWrite).expect_err("missing file");
         assert!(
             !err.to_string().contains("9f3b2e"),
             "the configured path must not appear in the error: {err}"
@@ -174,8 +161,8 @@ D2kYx4ka5O/dEuqcrMf/qd6GW5H2PJcrdc4PtRJeIBDR0TgweD2xjJ0=\n\
 
     #[test]
     fn ca_certificate_failure_after_rotation_reports_applied() {
-        let err = root_store_with_extra_anchors("/nonexistent/ca.pem", Phase::AfterWrite)
-            .expect_err("missing file");
+        let err =
+            tls_config(Some("/nonexistent/ca.pem"), Phase::AfterWrite).expect_err("missing file");
         assert_eq!(err.effect, TargetEffect::Applied);
     }
 }
