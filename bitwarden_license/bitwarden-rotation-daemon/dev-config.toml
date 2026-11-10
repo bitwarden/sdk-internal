@@ -1,14 +1,13 @@
 # Local development configuration for bw-rotation-daemon.
 #
-# Points at the local Bitwarden server behind the web vault dev proxy on
-# https://localhost:8080 (webpack forwards /api and /identity to the backend).
-# The daemon token is env-only: supply it via BWRD_TOKEN, never in this file.
+# Points at the dev proxy on https://localhost:8080; the daemon token is env-only via
+# BWRD_TOKEN.
 #
 # Run with:
 #   BWRD_TOKEN="<token>" cargo run -p bitwarden-rotation-daemon -- run \
 #     --config bitwarden_license/bitwarden-rotation-daemon/dev-config.toml
 
-# All remaining fields are optional; omitted fields use built-in defaults.
+# All remaining fields are optional (built-in defaults apply).
 # poll_interval      = 15    # seconds; minimum 15
 # heartbeat_interval = 30    # seconds; must be < 120
 # offline_grace      = 60    # seconds
@@ -23,9 +22,9 @@ base = "https://localhost:8080"
 # api      = "https://localhost:8080/api"       # optional, overrides base-derived
 # identity = "https://localhost:8080/identity"  # optional, overrides base-derived
 
-# Per-target credential overrides (optional). UUID keys; bare TOML allows hyphens.
-# Config values take precedence over env vars on a per-key basis; env is the fallback.
-# Secrets (client_secret) are env-only and cannot be set here.
+# Per-target credential overrides (optional); UUID keys, bare TOML allows hyphens.
+# Config values take precedence over env vars per key; secrets like client_secret
+# are env-only and cannot be set here.
 #
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
 script = "/tmp/bwrd-dev-rotate.sh"

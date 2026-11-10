@@ -1,45 +1,17 @@
 //! # TEST-ONLY: Daemon registration payload generator
 //!
-//! **WARNING — TEST-ONLY tool. This binary handles a plaintext organisation key
-//! and is intended solely for local end-to-end testing before the web-client
-//! registration UI exists. Never use it in production.**
+//! WARNING: handles a plaintext organisation key, for local end-to-end testing before the
+//! web-client UI exists. Never use in production.
 //!
-//! ## What it does
-//!
-//! Emulates the ADMIN-side wrap that the web client will eventually perform when
-//! registering a new rotation daemon. It:
-//!
-//! 1. Reads the organisation key from `BWRD_ORG_KEY_B64` or stdin (never argv — command-line
-//!    arguments are visible in process listings).
-//! 2. Generates a fresh random 16-byte `encryption_key` seed.
-//! 3. Derives the full symmetric key via the C1 constants (same derivation as the daemon token
-//!    parser — `DERIVE_NAME` / `DERIVE_INFO`).
-//! 4. Builds `encryptedPayload` — `{"encryptionKey":"<org-key-b64>"}` encrypted under the derived
-//!    key (mirrors the identity-server's auth response).
-//! 5. Builds `key` (CONTRACT C4) — the raw 16-byte seed's base64 string, encrypted under the
-//!    organisation key as an EncString.  The server stores this opaquely alongside the daemon
-//!    registration.
-//! 6. Prints a JSON object to **stdout only** (`name`, `encryptedPayload`, `key`) ready to paste
-//!    into the register API call, plus a `token template` line showing where the operator must
-//!    substitute the API-response values.
-//!
-//! The organisation key and the generated `encryption_key` seed are **never**
-//! written to any log or trace output.
-//!
-//! ## Usage
+//! Reads the org key from `BWRD_ORG_KEY_B64` or stdin (never argv), derives a fresh daemon
+//! key, and prints the registration payload as JSON to stdout only.
 //!
 //! ```text
-//! # Set the org key in the environment:
 //! export BWRD_ORG_KEY_B64="<base64-encoded-org-key>"
 //! cargo run -p bitwarden-rotation-daemon --example register -- --name my-daemon
-//!
-//! # Or pipe the key from stdin:
-//! echo "<base64-encoded-org-key>" | \
-//!   cargo run -p bitwarden-rotation-daemon --example register -- --name my-daemon
 //! ```
 
-// This is a CLI tool whose entire purpose is to emit the registration payload to stdout and
-// operator guidance to stderr, so print macros are expected here.
+// CLI tool: prints the payload to stdout and operator guidance to stderr by design.
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 use std::io::{self, BufRead};
@@ -53,14 +25,10 @@ use bitwarden_rotation_daemon::token::{DERIVE_INFO, DERIVE_NAME};
 use clap::Parser;
 use zeroize::Zeroizing;
 
-// ---------------------------------------------------------------------------
-// CLI
-// ---------------------------------------------------------------------------
-
 /// TEST-ONLY daemon registration payload generator.
 ///
 /// Prints a JSON registration payload and token template to stdout.
-/// The organisation key is read from BWRD_ORG_KEY_B64 or stdin — never argv.
+/// The organisation key is read from BWRD_ORG_KEY_B64 or stdin, never argv.
 #[derive(Parser)]
 #[command(
     name = "register",
@@ -72,15 +40,10 @@ struct Cli {
     name: String,
 }
 
-// ---------------------------------------------------------------------------
-// Core logic (pure function, tested independently)
-// ---------------------------------------------------------------------------
-
 /// The output of a successful registration payload generation.
 ///
-/// `Debug` is manually implemented so that `encryption_key_b64` — the raw seed
-/// that forms the `:` suffix of the daemon token — is never emitted in debug
-/// output.
+/// `Debug` is manually implemented, so `encryption_key_b64` (the raw seed that
+/// forms the `:` suffix of the daemon token) is never emitted in debug output.
 pub struct RegisterPayload {
     /// The daemon display name.
     pub name: String,
@@ -93,7 +56,7 @@ pub struct RegisterPayload {
     pub encryption_key_b64: Zeroizing<String>,
 }
 
-// Manual Debug — redacts the encryption_key_b64 to prevent accidental logging.
+// Manual Debug: redacts the encryption_key_b64 to prevent accidental logging.
 impl std::fmt::Debug for RegisterPayload {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RegisterPayload")
@@ -107,21 +70,15 @@ impl std::fmt::Debug for RegisterPayload {
 
 /// Generate the registration payload for a new rotation daemon.
 ///
-/// # Parameters
-///
-/// - `org_key_b64`: the organisation's symmetric key encoded as standard base64. This is the
-///   crown-jewel key — it must never appear in logs.
-/// - `name`: the daemon display name.
+/// `org_key_b64` is the organisation's crown-jewel symmetric key; it must never appear in logs.
 ///
 /// # Errors
 ///
-/// Returns a descriptive error string when the org key cannot be decoded or is
-/// the wrong size.  Error messages never echo the key material.
+/// A descriptive string for a malformed or wrong-size org key; never echoes key material.
 pub fn generate_registration_payload(
     org_key_b64: &str,
     name: &str,
 ) -> Result<RegisterPayload, String> {
-    // --- Parse the org key ---
     let org_key_b64_parsed: B64 = org_key_b64
         .trim()
         .parse()
@@ -131,21 +88,18 @@ pub fn generate_registration_payload(
     let org_key = SymmetricCryptoKey::try_from(&org_key_bytes)
         .map_err(|_| "org key bytes have the wrong length for a symmetric key".to_string())?;
 
-    // --- Generate the 16-byte encryption_key seed ---
     let seed: Zeroizing<[u8; 16]> = generate_random_bytes();
 
-    // Encode the raw seed to base64 — this is the `:` suffix of the daemon token.
+    // Encode the raw seed to base64: this is the `:` suffix of the daemon token.
     let seed_b64 = B64::from(seed.as_slice());
     let encryption_key_b64 = Zeroizing::new(seed_b64.to_string());
 
-    // --- Derive the full symmetric key (C1 constants) ---
-    // This mirrors DaemonToken::from_str's derivation exactly.
+    // Mirrors DaemonToken::from_str's derivation exactly (C1 constants).
     let derived = derive_shareable_key(seed, DERIVE_NAME, Some(DERIVE_INFO));
     let derived_key = SymmetricCryptoKey::Aes256CbcHmacKey(derived);
 
-    // --- Build encryptedPayload ---
-    // The identity server returns this to the daemon after authentication.
-    // The daemon decrypts it (using derived_key) to recover the org key.
+    // The identity server returns this after authentication; the daemon
+    // decrypts it (using derived_key) to recover the org key.
     let org_key_b64_str = org_key_b64_parsed.to_string();
     let payload_json = format!(r#"{{"encryptionKey":"{org_key_b64_str}"}}"#);
 
@@ -154,9 +108,7 @@ pub fn generate_registration_payload(
         .encrypt_with_key(&derived_key)
         .map_err(|e| format!("failed to encrypt payload: {e}"))?;
 
-    // --- Build key (CONTRACT C4) ---
-    // The 16-byte seed's base64 string, encrypted under the org key.
-    // Parallel to SM's AccessTokenCreateRequestModel.Key semantics.
+    // CONTRACT C4: parallel to SM's AccessTokenCreateRequestModel.Key semantics.
     let key_enc: EncString = encryption_key_b64
         .as_str()
         .encrypt_with_key(&org_key)
@@ -169,10 +121,6 @@ pub fn generate_registration_payload(
         encryption_key_b64,
     })
 }
-
-// ---------------------------------------------------------------------------
-// main
-// ---------------------------------------------------------------------------
 
 fn main() {
     let cli = Cli::parse();
@@ -226,12 +174,8 @@ fn main() {
         })
     );
 
-    // Print the token template so the operator knows how to assemble the
-    // daemon token after they receive the apiKeyId and clientSecret from the
-    // register response.
-    //
-    // The encryption_key_b64 IS printed here because the operator must embed
-    // it in the token string — but it goes to stdout only, not logs.
+    // encryption_key_b64 is printed here (stdout only, not logs) since the
+    // operator must embed it in the token string.
     println!();
     println!(
         "token template: 0.daemon.<apiKeyId>.<clientSecret>:{}",
@@ -240,9 +184,7 @@ fn main() {
     println!("(substitute <apiKeyId> and <clientSecret> from the register API response)");
 }
 
-// ---------------------------------------------------------------------------
-// Tests (kept in the example for discoverability; run via `cargo test --example register`)
-// ---------------------------------------------------------------------------
+// Tests kept in the example for discoverability; run via `cargo test --example register`.
 
 #[cfg(test)]
 mod tests {
@@ -272,9 +214,8 @@ mod tests {
         let payload = generate_registration_payload(&org_key_b64, "round-trip-daemon")
             .expect("generate_registration_payload should succeed");
 
-        // Assemble a synthetic token string (apiKeyId and clientSecret are
-        // arbitrary for this test — the token parser only cares about the
-        // encryption_key_b64 suffix).
+        // apiKeyId and clientSecret are arbitrary; the token parser only cares
+        // about the encryption_key_b64 suffix.
         let fake_api_key_id = "00000000-0000-0000-0000-000000000001";
         let fake_client_secret = "testsecret";
         let token_str = format!(
@@ -284,7 +225,7 @@ mod tests {
             payload.encryption_key_b64.as_str()
         );
 
-        // Parse the token — this re-derives the full symmetric key from the seed.
+        // Parsing re-derives the full symmetric key from the seed.
         let token: DaemonToken = token_str
             .parse()
             .expect("synthetic token must parse successfully");
