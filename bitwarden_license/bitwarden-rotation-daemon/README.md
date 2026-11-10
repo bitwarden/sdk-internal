@@ -81,6 +81,41 @@ base     = "https://bitwarden.example.com"
 # identity = "https://identity.bitwarden.com"
 ```
 
+### Per-target credential configuration (`[targets]`)
+
+The optional `[targets]` TOML section accepts UUID keys, each configuring per-target credential
+overrides. Config-file values take precedence over environment variables **on a per-key basis**; the
+environment variable is the fallback for any key not set in the config file.
+
+```toml
+[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
+script = "/opt/scripts/rotate-thing.sh"
+
+[targets.00000000-0000-0000-0000-000000000001]
+tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+client_id  = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+```
+
+#### Accepted keys per target entry
+
+| Key         | Overrides env suffix | Applicable kinds |
+| ----------- | -------------------- | ---------------- |
+| `script`    | `SCRIPT`             | `CustomScript`   |
+| `tenant_id` | `TENANT_ID`          | `Entra`          |
+| `client_id` | `CLIENT_ID`          | `Entra`          |
+
+#### `client_secret` is env-only
+
+The `client_secret` key is not accepted in `[targets]` entries. The config file is typically checked
+into a repository and must not hold secrets. Supply client secrets via environment variables only
+(e.g. `<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET`). Any `client_secret` key in a `[targets]` entry
+is a hard startup error (`deny_unknown_fields`).
+
+#### Missing-key error messages
+
+Missing-key errors always report the **env var name** as the actionable hint, regardless of which
+source (config or env) was expected to provide the value.
+
 ### Logging
 
 Log output is written to stderr. The log level is controlled by the `RUST_LOG` environment variable
@@ -90,6 +125,39 @@ Log output is written to stderr. The log level is controlled by the `RUST_LOG` e
 RUST_LOG=debug bw-rotation-daemon run --config /etc/bwrd/config.toml
 RUST_LOG=bitwarden_rotation_daemon=trace,info bw-rotation-daemon run --config /etc/bwrd/config.toml
 ```
+
+The default level (`info`) produces one log line per lifecycle milestone; `RUST_LOG=debug` adds
+per-tick and per-substep chatter.
+
+#### Operator-visible events at `info` / `warn` / `error`
+
+| Level   | Event                                          | Key fields                                                                 |
+| ------- | ---------------------------------------------- | -------------------------------------------------------------------------- |
+| `info`  | Daemon starting                                | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs` |
+| `info`  | Session established / renewed                  | `retry` (on renewal)                                                       |
+| `info`  | Shutdown signal received                       | —                                                                          |
+| `info`  | Rotation job claimed                           | `job_id`, `target_system_name`                                             |
+| `info`  | Starting rotation execution                    | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                  |
+| `info`  | Step 1: credentials resolved                   | `attempt_id`                                                               |
+| `info`  | Step 2: password generated                     | `attempt_id`                                                               |
+| `info`  | Step 3: target rotate succeeded                | `attempt_id`, `kind`                                                       |
+| `info`  | Step 4: verify succeeded                       | `attempt_id`                                                               |
+| `info`  | Step 5: cipher written                         | `attempt_id`, `cipher_id`                                                  |
+| `info`  | Step 6: session termination succeeded          | `attempt_id`                                                               |
+| `info`  | Step 7: rotation succeeded and reported        | `attempt_id`, `termination`                                                |
+| `info`  | Daemon shut down cleanly                       | —                                                                          |
+| `warn`  | Session renewal failed (transient / protocol)  | `retry`, `sleep_ms`                                                        |
+| `warn`  | Session entered Revoked phase                  | —                                                                          |
+| `warn`  | Rotation failed (any step)                     | `attempt_id`, `failure_code`, `sync_state`, `detail`                       |
+| `warn`  | Step 6: session termination aborted / failed   | `attempt_id`, `abort_reason`                                               |
+| `warn`  | Transient poll error / backoff                 | backoff duration                                                           |
+| `warn`  | Success report rejected/unknown by server      | `attempt_id`                                                               |
+| `error` | Daemon credential refused (startup or mid-run) | —                                                                          |
+| `error` | Daemon not eligible for rotation endpoints     | —                                                                          |
+
+At `RUST_LOG=debug` the following additional events appear: poll ticks (with claimable job count),
+heartbeat ticks, claim-race losses (409 per job), registered integration kinds, cipher-fetch
+sub-step, and session-renewal details.
 
 ### Exit codes
 
@@ -105,9 +173,57 @@ RUST_LOG=bitwarden_rotation_daemon=trace,info bw-rotation-daemon run --config /e
 
 ---
 
+## Per-target credential configuration (`[targets]`)
+
+The optional `[targets]` TOML section lets you supply per-target credentials directly in the config
+file, alongside or instead of environment variables. Each key must be a valid UUID (the target
+system ID).
+
+```toml
+[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
+script = "/opt/scripts/rotate-thing.sh"
+
+[targets.00000000-0000-0000-0000-000000000001]
+tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+client_id  = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+```
+
+### Per-key precedence (highest to lowest)
+
+1. **Config file** (`[targets.<uuid>]`) — wins unconditionally for any key that is set.
+2. **Environment variable** — fallback for any key absent from the config file.
+
+Missing-key errors always report the **env var name** as the actionable hint, regardless of which
+source was expected to provide the value.
+
+### Accepted keys per target kind
+
+| Kind           | Accepted config keys     |
+| -------------- | ------------------------ |
+| `CustomScript` | `script`                 |
+| `Entra`        | `tenant_id`, `client_id` |
+
+### `client_secret` is env-only
+
+`client_secret` is deliberately not accepted in the `[targets]` section. Config files are typically
+committed to version control; storing a secret there would expose it. Always supply `client_secret`
+via the environment variable (`<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET`).
+
+An unknown field (including `client_secret`) inside a `[targets.<uuid>]` block is a hard startup
+error; the daemon will refuse to start.
+
+### POSIX shell limitation
+
+Environment variable names derived from a UUID that starts with a digit (e.g.
+`85808642_BABA_4B8E_8C34_B48000D60A0A_SCRIPT`) cannot be `export`ed from a POSIX `/bin/sh` script —
+names must start with a letter or underscore. The `[targets]` config section sidesteps this
+restriction for `script`, `tenant_id`, and `client_id`; only `client_secret` remains env-only.
+
+---
+
 ## Resolver: environment variable shape
 
-The `EnvCredentialResolver` reads credentials from environment variables with the naming convention:
+The credential resolver reads credentials from environment variables with the naming convention:
 
 ```
 <TARGET_SYSTEM_ID_UPPER_UNDERSCORE>_<SUFFIX>
