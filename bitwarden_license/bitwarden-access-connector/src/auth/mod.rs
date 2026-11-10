@@ -1,5 +1,4 @@
-//! Authentication logic for the access connector.
+//! Authentication logic for the rotation daemon.
 
 pub(crate) mod identity;
 pub(crate) mod session;
-pub(crate) mod token_handler;

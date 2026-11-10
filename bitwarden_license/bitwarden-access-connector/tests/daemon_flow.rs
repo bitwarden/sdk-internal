@@ -1,7 +1,7 @@
 //! Black-box integration tests for the rotation daemon end-to-end flow.
 //!
 //! Each test starts a wiremock MockServer for the identity and API servers, then drives
-//! `bitwarden_rotation_daemon::run(cfg, cancel)` against them using self-consistent token,
+//! `bitwarden_access_connector::run(cfg, cancel)` against them using self-consistent token,
 //! payload, and cipher fixtures.
 //!
 //! The env resolver reads vars as `{TARGET_ID_UPPER_UNDERSCORE}_<SUFFIX>`; each test that
@@ -106,7 +106,7 @@ async fn happy_path_rotate_and_report_success() {
     let cfg = make_cfg(api.uri(), identity.uri(), None);
 
     let handle =
-        tokio::spawn(async move { bitwarden_rotation_daemon::run(cfg, cancel_clone).await });
+        tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
     // Wait for the success report, then cancel.
     tokio::time::sleep(Duration::from_millis(3000)).await;
@@ -232,7 +232,7 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let cfg = make_cfg(api.uri(), identity.uri(), None);
 
     let handle =
-        tokio::spawn(async move { bitwarden_rotation_daemon::run(cfg, cancel_clone).await });
+        tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
     // Wait for failure report, then cancel.
     tokio::time::sleep(Duration::from_millis(3000)).await;
@@ -323,7 +323,7 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let cfg = make_cfg(api.uri(), identity.uri(), None);
 
     let handle =
-        tokio::spawn(async move { bitwarden_rotation_daemon::run(cfg, cancel_clone).await });
+        tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
     // Let it poll a few times, then cancel.
     tokio::time::sleep(Duration::from_millis(300)).await;
@@ -362,7 +362,7 @@ async fn invalid_client_at_startup_returns_credential_refused() {
     let cancel = CancellationToken::new();
     let cfg = make_cfg(api.uri(), identity.uri(), None);
 
-    let exit = bitwarden_rotation_daemon::run(cfg, cancel).await;
+    let exit = bitwarden_access_connector::run(cfg, cancel).await;
     assert_eq!(
         exit,
         RunExit::CredentialRefused,
@@ -484,7 +484,7 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     let cfg = make_cfg(api.uri(), identity.uri(), None);
 
     let handle =
-        tokio::spawn(async move { bitwarden_rotation_daemon::run(cfg, cancel_clone).await });
+        tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
     tokio::time::sleep(Duration::from_millis(4000)).await;
     cancel.cancel();
