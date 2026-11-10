@@ -11,7 +11,7 @@ use bitwarden_crypto::{
 };
 use rand::RngExt;
 use rsa::{
-    Oaep, RsaPrivateKey, RsaPublicKey,
+    Oaep,
     pkcs8::{DecodePrivateKey, DecodePublicKey},
 };
 use sha1::Sha1;
@@ -332,7 +332,7 @@ impl PureCrypto {
         private_key: Vec<u8>,
     ) -> Result<Vec<u8>, RsaError> {
         let _span = tracing::info_span!("PureCrypto::rsa_decrypt_data").entered();
-        let private_key = RsaPrivateKey::from_pkcs8_der(private_key.as_slice())
+        let private_key = rsa::PrivateKey::from_pkcs8_der(private_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
         let padding = Oaep::<Sha1>::new();
         private_key
@@ -344,7 +344,7 @@ impl PureCrypto {
     /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_encrypt_data(plain_data: Vec<u8>, public_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
         let _span = tracing::info_span!("PureCrypto::rsa_encrypt_data").entered();
-        let public_key = RsaPublicKey::from_public_key_der(public_key.as_slice())
+        let public_key = rsa::PublicKey::from_public_key_der(public_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
         let padding = Oaep::<Sha1>::new();
         let mut rng = bitwarden_random::rng();

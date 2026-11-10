@@ -3,7 +3,7 @@
 //! This module shares its name with the external `rsa` crate, so inside the crate the dependency is
 //! reached as `::rsa`.
 
-use ::rsa::{BoxedUint, Oaep, RsaPrivateKey};
+use ::rsa::{BoxedUint, Oaep};
 use sha1::Sha1;
 use sha2::Sha256;
 
@@ -19,7 +19,7 @@ const OAEP_SHA256: &str = "RSA-OAEP-256";
 /// An RSA private key identified by its kid.
 pub(super) struct RsaKey {
     pub id: String,
-    key: RsaPrivateKey,
+    key: ::rsa::PrivateKey,
 }
 
 impl RsaKey {
@@ -29,7 +29,7 @@ impl RsaKey {
             Ok(BoxedUint::from_be_slice_vartime(&decode64_loose(s)?))
         };
 
-        let key = RsaPrivateKey::from_components(
+        let key = ::rsa::PrivateKey::from_components(
             uint(&jwk.n)?,
             uint(&jwk.e)?,
             uint(&jwk.d)?,

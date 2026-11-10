@@ -1,6 +1,6 @@
 use bitwarden_encoding::B64;
 use rsa::{
-    Oaep, RsaPrivateKey, RsaPublicKey,
+    Oaep,
     pkcs8::{EncodePrivateKey, EncodePublicKey},
 };
 use sha1::Sha1;
@@ -27,9 +27,9 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
     let mut rng = bitwarden_random::rng();
     let bits = 2048;
     let priv_key = measure(SlowCryptoOp::RsaKeyGeneration, || {
-        RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key")
+        rsa::PrivateKey::new(&mut rng, bits).expect("failed to generate a key")
     });
-    let pub_key = RsaPublicKey::from(&priv_key);
+    let pub_key = rsa::PublicKey::from(&priv_key);
 
     let spki = pub_key
         .to_public_key_der()
@@ -64,7 +64,10 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
 }
 
 /// Encrypt data using RSA-OAEP-SHA1 with a 2048 bit key
-pub(super) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) -> Result<Vec<u8>> {
+pub(super) fn encrypt_rsa2048_oaep_sha1(
+    public_key: &rsa::PublicKey,
+    data: &[u8],
+) -> Result<Vec<u8>> {
     let _span = SlowCryptoSpan::start(SlowCryptoOp::RsaEncrypt);
     let mut rng = bitwarden_random::rng();
 
