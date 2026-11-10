@@ -607,6 +607,13 @@ export class CipherResponse {
   }
 }
 
+/** `CipherBulkMoveRequestModel` — the body of `PUT /ciphers/move`. */
+export interface CipherBulkMoveRequest {
+  ids: string[];
+  /** `null` takes the ciphers out of any folder. */
+  folderId?: string | null;
+}
+
 /** `FolderRequestModel` — the body of `POST /folders` and `PUT /folders/:id`. */
 export class FolderRequest {
   name!: string;
