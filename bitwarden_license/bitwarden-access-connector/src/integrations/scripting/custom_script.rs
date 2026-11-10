@@ -10,8 +10,8 @@ use async_trait::async_trait;
 
 use super::{
     super::{Integration, IntegrationError, RotateContext},
-    CommandSpec, InvokeError, ScriptRunner, ScriptType, classify_outcome, payload_json, powershell,
-    resolve_script_path, resolve_script_type,
+    CommandSpec, InvokeError, ScriptExit, ScriptRunner, ScriptType, classify_outcome, payload_json,
+    powershell, resolve_script_path, resolve_script_type,
 };
 use crate::sys::Platform;
 
@@ -74,7 +74,7 @@ impl CustomScriptIntegration {
         operation: &str,
         ctx: &RotateContext,
         new_password: Option<&str>,
-    ) -> Result<Option<i32>, InvokeError> {
+    ) -> Result<ScriptExit, InvokeError> {
         let payload = payload_json(operation, ctx, new_password)?;
         let spec = self.build_command(script_path, script_type, operation)?;
         self.runner.run(spec, &payload, self.timeout).await

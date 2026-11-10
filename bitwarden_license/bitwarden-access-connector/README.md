@@ -337,7 +337,7 @@ Notes:
 | `3`       | Fatal failure — unknown whether applied                            |
 | `4`       | Transient failure — retry may succeed                              |
 | other     | Fatal; rotate → unknown sync state, verify/terminate → not applied |
-| signal    | Treated as `other` above                                           |
+| signal    | Treated as `other`; the failure detail names it, e.g. `signal 9`   |
 
 ### Timeout behaviour
 
