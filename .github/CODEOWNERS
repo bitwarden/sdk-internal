@@ -67,6 +67,7 @@ crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
 crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
+protocols/** @bitwarden/team-key-management-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
 # E2E tests and test vectors are shared between teams; only team folders have an owner.
@@ -99,6 +100,7 @@ crates/bw/src/vault/** @bitwarden/team-vault-dev
 
 ## Multiple owners
 .github/workflows/build-* @bitwarden/team-platform-dev
+.github/workflows/verifpal.yml @bitwarden/team-key-management-dev
 .github/workflows/build-access-connector.yml @bitwarden/team-pam-dev
 .github/workflows/version-bump.yml @bitwarden/team-platform-dev
 
