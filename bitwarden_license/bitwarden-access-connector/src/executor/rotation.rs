@@ -16,7 +16,7 @@ use bitwarden_core::{Client, OrganizationId};
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_pam::{
     RotationCipherError, RotationFailureCode, RotationSyncState, SessionTerminationOutcome,
-    VerifiedJob, decrypt_cipher_for_rotation, rotate_cipher_password,
+    VerifiedJob, rotate_cipher_password,
 };
 use bitwarden_vault::Cipher;
 use chrono::Utc;
@@ -141,8 +141,14 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             return ExecutionResult::Reported;
         }
 
-        // The decrypted view is dropped right away; only the verdict matters here.
-        if let Err(e) = decrypt_cipher_for_rotation(&api.key_store, ctx.organization_id, cipher) {
+        // A dry run of the write in step 5: the new password does not exist yet, so a placeholder
+        // stands in, and the request is discarded. Only the verdict matters here.
+        if let Err(e) = rotate_cipher_password(
+            &api.key_store,
+            ctx.organization_id,
+            cipher,
+            PRE_FLIGHT_PLACEHOLDER_PASSWORD,
+        ) {
             report_failure_absorb(
                 &api,
                 attempt_id,
@@ -370,39 +376,39 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
 
         tracing::debug!(attempt_id = %attempt_id, cipher_id = %job.cipher_id(), "cipher fetched");
 
-        // The plaintext view lives only inside this block.
-        let request = {
-            let (view, original_key) =
-                match decrypt_cipher_for_rotation(&api.key_store, ctx.organization_id, cipher) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        report_failure_absorb(
-                            &api,
-                            attempt_id,
-                            RotationFailureCode::SealedDataRejected,
-                            Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
-                                &e, false,
-                            ))),
-                            RotationSyncState::TargetUpdated,
-                        )
-                        .await;
-                        return ExecutionResult::Reported;
-                    }
-                };
-
-            match rotate_cipher_password(&api.key_store, &view, &original_key, &new_password) {
-                Ok(r) => r,
-                Err(_) => {
-                    report_failure_absorb(
-                        &api,
-                        attempt_id,
-                        RotationFailureCode::CipherEncryptFailed,
-                        None,
-                        RotationSyncState::TargetUpdated,
-                    )
-                    .await;
-                    return ExecutionResult::Reported;
-                }
+        let request = match rotate_cipher_password(
+            &api.key_store,
+            ctx.organization_id,
+            cipher,
+            &new_password,
+        ) {
+            Ok(r) => r,
+            // The vault re-encrypted the cipher, but the request built from it is unusable.
+            Err(RotationCipherError::CipherDataPresent | RotationCipherError::Json(_)) => {
+                report_failure_absorb(
+                    &api,
+                    attempt_id,
+                    RotationFailureCode::CipherEncryptFailed,
+                    None,
+                    RotationSyncState::TargetUpdated,
+                )
+                .await;
+                return ExecutionResult::Reported;
+            }
+            // A `Crypto` error cannot be split into decrypt vs encrypt; the pre-flight dry run
+            // already exercised encryption, so treat it as a rejected cipher.
+            Err(e) => {
+                report_failure_absorb(
+                    &api,
+                    attempt_id,
+                    RotationFailureCode::SealedDataRejected,
+                    Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
+                        &e, false,
+                    ))),
+                    RotationSyncState::TargetUpdated,
+                )
+                .await;
+                return ExecutionResult::Reported;
             }
         };
 
@@ -708,6 +714,9 @@ async fn fetch_cipher(
     .await
 }
 
+/// Stands in for the new password in the pre-flight dry run of the cipher write.
+const PRE_FLIGHT_PLACEHOLDER_PASSWORD: &str = "pre-flight-placeholder";
+
 /// A fixed, content-free reason for a rejected cipher, for the failure report.
 fn cipher_rejection_reason(err: &RotationCipherError, pre_flight: bool) -> &'static str {
     match (err, pre_flight) {
@@ -719,6 +728,9 @@ fn cipher_rejection_reason(err: &RotationCipherError, pre_flight: bool) -> &'sta
         (RotationCipherError::CipherRestricted, false) => "pre_write_cipher_restricted",
         (RotationCipherError::CipherWithoutItemKey, true) => "pre_flight_cipher_without_item_key",
         (RotationCipherError::CipherWithoutItemKey, false) => "pre_write_cipher_without_item_key",
+        (RotationCipherError::CipherDataPresent | RotationCipherError::Json(_), true) => {
+            "pre_flight_cipher_write_invalid"
+        }
         (_, true) => "pre_flight_cipher_decrypt_failed",
         (_, false) => "pre_write_cipher_decrypt_failed",
     }
