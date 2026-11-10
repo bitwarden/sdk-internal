@@ -50,7 +50,9 @@ pub(crate) struct WorkSnapshot {
     pub(crate) target_system_name: String,
     pub(crate) cipher_id: Uuid,
     pub(crate) target_system_sealed_data: Option<String>,
+    pub(crate) target_system_wrapped_key: Option<String>,
     pub(crate) rotation_config_sealed_data: Option<String>,
+    pub(crate) rotation_config_wrapped_key: Option<String>,
     /// Lease deadline: no target-side step starts after it.
     pub(crate) execute_by: DateTime<Utc>,
 }

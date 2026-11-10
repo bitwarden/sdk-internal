@@ -397,7 +397,7 @@ fn parse_work_snapshot(
         .parse::<chrono::DateTime<chrono::Utc>>()
         .map_err(|_| ApiError::Protocol("invalid executeBy timestamp".to_owned()))?;
 
-    // The sealed blobs are not `required!`: a missing one is rejected by `executor::verify`.
+    // The sealed halves are not `required!`: a missing one is rejected by `executor::verify`.
     Ok(WorkSnapshot {
         attempt_id,
         job_id,
@@ -405,7 +405,9 @@ fn parse_work_snapshot(
         target_system_name,
         cipher_id,
         target_system_sealed_data: model.target_system_sealed_data,
+        target_system_wrapped_key: model.target_system_wrapped_key,
         rotation_config_sealed_data: model.rotation_config_sealed_data,
+        rotation_config_wrapped_key: model.rotation_config_wrapped_key,
         execute_by,
     })
 }
@@ -576,8 +578,10 @@ mod tests {
             target_system_id: Some(Uuid::new_v4()),
             target_system_name: Some("test-system".to_owned()),
             target_system_sealed_data: Some("opaque-target-blob".to_owned()),
+            target_system_wrapped_key: Some("opaque-target-key".to_owned()),
             cipher_id: Some(Uuid::new_v4()),
             rotation_config_sealed_data: Some("opaque-config-blob".to_owned()),
+            rotation_config_wrapped_key: Some("opaque-config-key".to_owned()),
             execute_by: Some(Utc::now().to_rfc3339()),
         };
 
@@ -587,8 +591,16 @@ mod tests {
             Some("opaque-target-blob")
         );
         assert_eq!(
+            snap.target_system_wrapped_key.as_deref(),
+            Some("opaque-target-key")
+        );
+        assert_eq!(
             snap.rotation_config_sealed_data.as_deref(),
             Some("opaque-config-blob")
+        );
+        assert_eq!(
+            snap.rotation_config_wrapped_key.as_deref(),
+            Some("opaque-config-key")
         );
     }
 
@@ -604,14 +616,18 @@ mod tests {
             target_system_id: Some(Uuid::new_v4()),
             target_system_name: Some("test-system".to_owned()),
             target_system_sealed_data: None,
+            target_system_wrapped_key: None,
             cipher_id: Some(Uuid::new_v4()),
             rotation_config_sealed_data: None,
+            rotation_config_wrapped_key: None,
             execute_by: Some(Utc::now().to_rfc3339()),
         };
 
         let snap = parse_work_snapshot(model).expect("parse_work_snapshot");
         assert!(snap.target_system_sealed_data.is_none());
+        assert!(snap.target_system_wrapped_key.is_none());
         assert!(snap.rotation_config_sealed_data.is_none());
+        assert!(snap.rotation_config_wrapped_key.is_none());
     }
 
     #[test]
@@ -634,8 +650,10 @@ mod tests {
             target_system_id: Some(Uuid::new_v4()),
             target_system_name: Some("ts".to_owned()),
             target_system_sealed_data: Some("opaque-target-blob".to_owned()),
+            target_system_wrapped_key: Some("opaque-target-key".to_owned()),
             cipher_id: Some(Uuid::new_v4()),
             rotation_config_sealed_data: Some("opaque-config-blob".to_owned()),
+            rotation_config_wrapped_key: Some("opaque-config-key".to_owned()),
             execute_by: Some("NOT-A-DATE".to_owned()),
         };
 
@@ -811,8 +829,10 @@ mod tests {
                         "targetSystemId": target_system_id,
                         "targetSystemName": "my-script",
                         "targetSystemSealedData": "opaque-target-blob",
+                        "targetSystemWrappedKey": "opaque-target-key",
                         "cipherId": cipher_id,
                         "rotationConfigSealedData": "opaque-config-blob",
+                        "rotationConfigWrappedKey": "opaque-config-key",
                         "executeBy": execute_by
                     }))
                     .insert_header("content-type", "application/json"),
@@ -831,8 +851,16 @@ mod tests {
             Some("opaque-target-blob")
         );
         assert_eq!(
+            snap.target_system_wrapped_key.as_deref(),
+            Some("opaque-target-key")
+        );
+        assert_eq!(
             snap.rotation_config_sealed_data.as_deref(),
             Some("opaque-config-blob")
+        );
+        assert_eq!(
+            snap.rotation_config_wrapped_key.as_deref(),
+            Some("opaque-config-key")
         );
     }
 
