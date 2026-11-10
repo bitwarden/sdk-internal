@@ -281,7 +281,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
                 "SENTINEL_SECRET_MUST_NOT_LEAK".to_string(),
             ),
             (
-                "BWRD_TOKEN".to_string(),
+                "BWAC_TOKEN".to_string(),
                 "SENTINEL_TOKEN_MUST_NOT_LEAK".to_string(),
             ),
         ],
