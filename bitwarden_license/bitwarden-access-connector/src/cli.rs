@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn cli_rejects_unknown_token_arg() {
-        // A token flag would expose the value through `ps`.
+        // `--token` must not be accepted as a clap arg (would expose value via ps).
         let result = Cli::try_parse_from([
             "bwac",
             "run",
@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn cli_rejects_unknown_token_file_arg() {
-        // The token is env-only.
+        // `--token-file` must not be accepted either; the token is env-only.
         let result = Cli::try_parse_from(["bwac", "run", "--token-file", "/etc/bwac/token"]);
         assert!(
             result.is_err(),

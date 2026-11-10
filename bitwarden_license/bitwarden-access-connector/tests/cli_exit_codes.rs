@@ -1,5 +1,5 @@
-//! Pins the `bwac` binary's exit codes for command-line argument errors: they must not collide with
-//! the credential-refused code (2), and `--help` / `--version` must still exit 0.
+//! Argument errors must not exit with the credential-refused code (2); `--help` and `--version`
+//! must exit 0.
 
 use std::process::{Command, Output};
 
