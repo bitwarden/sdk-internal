@@ -33,6 +33,7 @@ use crate::{
     crypto::DaemonKeyStore,
     integrations::IntegrationRegistry,
     resolver::CredentialResolver,
+    sys::SystemEnv,
 };
 
 /// Watches the `connectivity_tx` channel for the daemon's last successful server contact.
@@ -101,6 +102,10 @@ pub struct DaemonConfig {
     pub(crate) script_root: Option<std::path::PathBuf>,
     /// Script execution timeout for the `CustomScript` integration (default: 60 s).
     pub(crate) script_timeout: Duration,
+    /// Explicit PowerShell host path; `None` discovers one on `PATH`.
+    pub(crate) powershell_path: Option<std::path::PathBuf>,
+    /// `-ExecutionPolicy` value passed to the PowerShell host (default: `Bypass`).
+    pub(crate) powershell_execution_policy: String,
     /// Whether to enable the Entra verify probe (ROPC-based; off by default).
     pub(crate) entra_verify_probe: bool,
     /// Per-target credential overrides from the `[targets]` config section.
@@ -133,6 +138,8 @@ impl DaemonConfig {
             },
             script_root,
             script_timeout: Duration::from_secs(10),
+            powershell_path: None,
+            powershell_execution_policy: "Bypass".to_string(),
             entra_verify_probe: false,
             targets: std::collections::HashMap::new(),
         }
@@ -198,9 +205,13 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     let mut registry = IntegrationRegistry::new();
 
     let custom_script = Arc::new(
-        crate::integrations::custom_script::CustomScriptIntegration::new(
+        crate::integrations::scripting::custom_script::CustomScriptIntegration::new(
             cfg.script_root.clone(),
             cfg.script_timeout,
+            cfg.powershell_path.clone(),
+            cfg.powershell_execution_policy.clone(),
+            crate::sys::Platform::system(),
+            Arc::new(crate::integrations::scripting::ProcessScriptRunner),
         ),
     );
     registry.register(crate::api::models::TargetKind::CustomScript, custom_script);
@@ -220,7 +231,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     );
 
     let resolver: Arc<dyn CredentialResolver> = Arc::new(
-        crate::resolver::config::ConfigCredentialResolver::new(cfg.targets),
+        crate::resolver::config::ConfigCredentialResolver::new(cfg.targets, Arc::new(SystemEnv)),
     );
 
     let key_store: Arc<DaemonKeyStore> = session.key_store().await;

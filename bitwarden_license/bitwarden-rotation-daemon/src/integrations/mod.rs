@@ -4,8 +4,8 @@
 //! types: [`TargetEffect`], [`IntegrationError`], [`RotateContext`], and [`IntegrationRegistry`].
 //! [`TargetKind`] lives in [`crate::api::models`], re-exported here for the resolver.
 
-pub(crate) mod custom_script;
 pub(crate) mod entra;
+pub(crate) mod scripting;
 
 use std::{collections::HashMap, sync::Arc};
 
