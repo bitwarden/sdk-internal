@@ -4,29 +4,27 @@
 #   BWAC_TOKEN="<token>" cargo run -p bitwarden-access-connector -- run \
 #     --config bitwarden_license/bitwarden-access-connector/dev-config.toml
 
-# All remaining fields are optional (built-in defaults apply).
-# poll_interval      = 15    # seconds; minimum 15
-# heartbeat_interval = 30    # seconds; must be < 120
+# Every key below is optional; the values shown are the defaults.
+# poll_interval      = 15    # seconds, minimum 15
+# heartbeat_interval = 30    # seconds, must be below 120
 # offline_grace      = 60    # seconds
 # max_retry_attempts = 5     # total attempts per retryable step
-# retry_base_delay   = 1     # seconds (exponential backoff base)
+# retry_base_delay   = 1     # seconds, exponential backoff base
 # script_timeout     = 60    # seconds
 # script_root        = "/opt/scripts"
 # entra_verify_probe = false
 #
-# PowerShell host, used for any .ps1 script (or script_type = "powershell").
+# PowerShell host for .ps1 scripts and script_type = "powershell".
 # powershell_execution_policy = "Bypass"
 # powershell_path             = "/usr/local/bin/pwsh"   # else discovered on PATH
 
 [environment]
 base = "https://localhost:8080"
-# api      = "https://localhost:8080/api"       # optional, overrides base-derived
-# identity = "https://localhost:8080/identity"  # optional, overrides base-derived
+# api      = "https://localhost:8080/api"       # overrides base
+# identity = "https://localhost:8080/identity"  # overrides base
 
-# Per-target credential overrides (optional); UUID keys, bare TOML allows hyphens.
-# Config values take precedence over env vars per key; secrets like client_secret
-# are env-only and cannot be set here.
-#
+# Per-target credential overrides, keyed by target system UUID (bare TOML keys allow hyphens).
+# A value here wins over the matching env var; client_secret is env-only.
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
 script = "/tmp/bwac-dev-rotate.sh"
 
@@ -41,8 +39,7 @@ script = "/tmp/bwac-dev-rotate.sh"
 # tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 # client_id = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
 #
-# A .ps1 needs no extra configuration; script_type is only for a script whose
-# filename cannot say what it is.
+# script_type overrides the type implied by the file extension.
 # [targets.00000000-0000-0000-0000-000000000002]
 # script      = "/tmp/bwac-dev-rotate"
 # script_type = "powershell"
