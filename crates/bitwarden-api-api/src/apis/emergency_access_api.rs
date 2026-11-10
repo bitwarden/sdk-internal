@@ -116,8 +116,6 @@ pub trait EmergencyAccessApi: Send + Sync {
     ) -> Result<models::EmergencyAccessTakeoverResponseModel, Error>;
 
     /// POST /emergency-access/{id}/view
-    /// Emergency access exposes the grantor's personal vault only, and a user-owned cipher is never
-    /// leasing-gated, so the gate authorizes all of them.
     async fn view_ciphers<'a>(
         &self,
         id: uuid::Uuid,
@@ -472,8 +470,6 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    /// Emergency access exposes the grantor's personal vault only, and a user-owned cipher is never
-    /// leasing-gated, so the gate authorizes all of them.
     async fn view_ciphers<'a>(
         &self,
         id: uuid::Uuid,
