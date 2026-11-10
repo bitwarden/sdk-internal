@@ -1,6 +1,5 @@
-//! End-to-end tests for the script launchers, against real files and real child processes. The
-//! crate's unit tests cover everything a fake runner or environment can.
-//! They are `#[ignore]`d (most need `pwsh` on `PATH`); run with:
+//! Tests for the script launchers, against real files and child processes. The unit tests cover
+//! what a fake runner or environment can.
 //! They are `#[ignore]`d, as most need `pwsh` on `PATH`; run them with:
 //!
 //! ```text
@@ -10,7 +9,7 @@
 mod common;
 use common::*;
 
-/// Mounts a full rotation exchange. The poll mock keeps offering the same job; assert via
+/// Mounts a rotation exchange. The poll mock keeps offering the same job; assert with
 /// [`assert_outcome`], which ignores the count.
 #[allow(clippy::too_many_arguments)]
 async fn mount_rotation(
@@ -151,7 +150,7 @@ async fn run_access_connector_with_env(
 ) {
     {
         let _guard = lock_env();
-        // SAFETY: protected by the env lock; no concurrent env mutation.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             for (k, v) in &vars {
                 std::env::set_var(k, v);
@@ -182,7 +181,7 @@ async fn run_access_connector_with_env(
 
     {
         let _guard = lock_env();
-        // SAFETY: protected by the env lock.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             for (k, _) in &vars {
                 std::env::remove_var(k);
