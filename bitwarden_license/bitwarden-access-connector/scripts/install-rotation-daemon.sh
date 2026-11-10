@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 #
-# Installs bw-rotation-daemon as a system service. A URL, and an optional name.
+# Installs bwac as a system service. A URL, and an optional name.
 #
 #   sudo -E ./install-rotation-daemon.sh https://bitwarden.example.com
 #   sudo -E ./install-rotation-daemon.sh https://bitwarden.example.com acme
 #
-#   Linux  -> systemd unit    /etc/systemd/system/bw-rotation-daemon.service
-#   macOS  -> launchd daemon  /Library/LaunchDaemons/com.bitwarden.bw-rotation-daemon.plist
+#   Linux  -> systemd unit    /etc/systemd/system/bwac.service
+#   macOS  -> launchd daemon  /Library/LaunchDaemons/com.bitwarden.bwac.plist
 #
 # The binary is the one sitting next to this script, which is how the release archive
 # is laid out. The layout it installs is fixed, and is the one OPERATIONS.md documents:
 #
-#   /usr/local/bin/bw-rotation-daemon   binary            root  0755  (shared)
+#   /usr/local/bin/bwac   binary            root  0755  (shared)
 #   /etc/bwrd/config.toml               settings          root  0644  (never secrets)
 #   /etc/bwrd/env                       token + creds     root  0400  (Linux only)
 #   /opt/bwrd/scripts                   rotation scripts  root  0755  (shared, daemon cannot write)
@@ -24,8 +24,8 @@
 # level down, and leaves the shared pieces alone:
 #
 #   /etc/bwrd/<name>/config.toml, /etc/bwrd/<name>/env, /var/lib/bwrd/<name>,
-#   /var/log/bwrd/<name>, and the service becomes bw-rotation-daemon-<name>.service
-#   or com.bitwarden.bw-rotation-daemon.<name>.
+#   /var/log/bwrd/<name>, and the service becomes bwac-<name>.service
+#   or com.bitwarden.bwac.<name>.
 #
 # The binary, the service account and /opt/bwrd/scripts stay shared: the daemon cannot
 # write to the script directory, so there is nothing to keep apart there, and one script
@@ -54,15 +54,15 @@
 #
 # To remove it, on Linux:
 #
-#   systemctl disable --now bw-rotation-daemon
-#   rm /etc/systemd/system/bw-rotation-daemon.service /usr/local/bin/bw-rotation-daemon
+#   systemctl disable --now bwac
+#   rm /etc/systemd/system/bwac.service /usr/local/bin/bwac
 #   rm -rf /etc/bwrd /var/lib/bwrd && userdel bwrd
 #
 # and on macOS:
 #
-#   launchctl bootout system/com.bitwarden.bw-rotation-daemon
-#   rm /Library/LaunchDaemons/com.bitwarden.bw-rotation-daemon.plist
-#   rm -rf /etc/bwrd /var/lib/bwrd /var/log/bwrd /usr/local/bin/bw-rotation-daemon
+#   launchctl bootout system/com.bitwarden.bwac
+#   rm /Library/LaunchDaemons/com.bitwarden.bwac.plist
+#   rm -rf /etc/bwrd /var/lib/bwrd /var/log/bwrd /usr/local/bin/bwac
 #   dscl . -delete /Users/_bwrd; dscl . -delete /Groups/_bwrd
 #
 # A named daemon comes off the same way, with -<name> on the unit or .<name> on the
@@ -75,8 +75,8 @@
 set -euo pipefail
 
 readonly PROGRAM="${0##*/}"
-readonly BINARY_NAME="bw-rotation-daemon"
-readonly LABEL_PREFIX="com.bitwarden.bw-rotation-daemon"
+readonly BINARY_NAME="bwac"
+readonly LABEL_PREFIX="com.bitwarden.bwac"
 
 readonly BINARY_PATH="/usr/local/bin/$BINARY_NAME"
 readonly SCRIPT_ROOT="/opt/bwrd/scripts"
@@ -149,7 +149,7 @@ render() {
 
 usage() {
     cat <<HELP
-Installs bw-rotation-daemon as a system service.
+Installs bwac as a system service.
 
     $PROGRAM <bitwarden-url> [name]
 
@@ -385,7 +385,7 @@ install_systemd_unit() {
     if [ -f "$UNIT_FILE" ]; then
         info "$UNIT_FILE exists; left alone (edit it to change the hardening)"
     else
-        render bw-rotation-daemon.service.in | write_file "$UNIT_FILE" 0644
+        render bwac.service.in | write_file "$UNIT_FILE" 0644
         info "$UNIT_FILE"
     fi
 

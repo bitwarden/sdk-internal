@@ -1,8 +1,8 @@
 # Bitwarden PAM Rotation Daemon
 
-`bw-rotation-daemon` automatically rotates the passwords of privileged accounts (domain admins,
-service accounts, appliance root logins, database roles) and stores each new password in your
-Bitwarden organisation vault.
+`bwac` automatically rotates the passwords of privileged accounts (domain admins, service accounts,
+appliance root logins, database roles) and stores each new password in your Bitwarden organisation
+vault.
 
 You run it inside your own network. Bitwarden's server decides _what_ should be rotated and _when_;
 the daemon does the actual rotating, because only it can reach the systems being rotated. The server
@@ -38,7 +38,7 @@ work.
 ```
    your network                                  Bitwarden server
   ┌──────────────────────────┐                  ┌──────────────────┐
-  │  bw-rotation-daemon      │  ── poll ──────▶ │  rotation jobs   │
+  │  bwac      │  ── poll ──────▶ │  rotation jobs   │
   │                          │  ◀─ job ───────  │                  │
   │                          │                  │                  │
   │      │ rotate            │  ── cipher ────▶ │  org vault       │
@@ -182,7 +182,7 @@ The token is shown once. Copy the whole string, including everything after the `
 
 ### 2. Install the binary
 
-Place `bw-rotation-daemon` somewhere on the daemon host, for example `/usr/local/bin/`.
+Place `bwac` somewhere on the daemon host, for example `/usr/local/bin/`.
 
 ### 3. Write a config file
 
@@ -211,7 +211,7 @@ See [Per-target credentials](#per-target-credentials) for the target entries tha
 
 ```sh
 set -a; . /etc/bwrd/env; set +a
-bw-rotation-daemon run --config /etc/bwrd/config.toml
+bwac run --config /etc/bwrd/config.toml
 ```
 
 You should see:
@@ -230,7 +230,7 @@ For a real deployment use the [systemd unit](#systemd) instead.
 ### Command line
 
 ```
-bw-rotation-daemon run [--config <PATH>]
+bwac run [--config <PATH>]
 ```
 
 There is exactly one subcommand and one flag. Every other setting lives in the config file, so that
@@ -689,7 +689,7 @@ exit 0
 
 ### systemd
 
-`/etc/systemd/system/bw-rotation-daemon.service`:
+`/etc/systemd/system/bwac.service`:
 
 ```ini
 [Unit]
@@ -703,7 +703,7 @@ User=bwrd
 Group=bwrd
 
 EnvironmentFile=/etc/bwrd/env
-ExecStart=/usr/local/bin/bw-rotation-daemon run --config /etc/bwrd/config.toml
+ExecStart=/usr/local/bin/bwac run --config /etc/bwrd/config.toml
 
 Restart=always
 RestartSec=10s
@@ -748,11 +748,11 @@ BWRD_TOKEN='0.access-connector.…:…' \
 ```
 
 The name keeps that daemon's config, token, state, log and service to itself:
-`/etc/bwrd/acme/config.toml` and `bw-rotation-daemon-acme.service` on Linux,
-`com.bitwarden.bw-rotation-daemon.acme` on macOS, `C:\ProgramData\Bitwarden\bwrd\acme\` and the task
-`Bitwarden PAM rotation daemon (acme)` on Windows. Leave it out and the daemon installs to the
-single-daemon layout instead. The binary, the service account and the script directory stay shared
-either way; a daemon that wants scripts of its own points `script_root` elsewhere.
+`/etc/bwrd/acme/config.toml` and `bwac-acme.service` on Linux, `com.bitwarden.bwac.acme` on macOS,
+`C:\ProgramData\Bitwarden\bwrd\acme\` and the task `Bitwarden PAM rotation daemon (acme)` on
+Windows. Leave it out and the daemon installs to the single-daemon layout instead. The binary, the
+service account and the script directory stay shared either way; a daemon that wants scripts of its
+own points `script_root` elsewhere.
 
 Windows locks a running image, so the binary there cannot be replaced while another daemon is
 running from it: upgrading means stopping the other tasks first. On Linux and macOS the running
@@ -765,8 +765,8 @@ daemons keep the binary they started with until they are restarted.
 Logs go to stderr, filtered by `RUST_LOG` (default `info`):
 
 ```sh
-RUST_LOG=debug bw-rotation-daemon run --config /etc/bwrd/config.toml
-RUST_LOG=bitwarden_access_connector=trace,info bw-rotation-daemon run --config /etc/bwrd/config.toml
+RUST_LOG=debug bwac run --config /etc/bwrd/config.toml
+RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwrd/config.toml
 ```
 
 At `info` you get one line per lifecycle milestone. At `debug` you additionally get poll ticks,
