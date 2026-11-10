@@ -70,11 +70,11 @@ struct FileConfig {
     script_root: Option<PathBuf>,
     /// Custom-script timeout in seconds.
     script_timeout: u64,
-    /// Explicit PowerShell host path. `None` discovers `pwsh`, then `powershell.exe`, on `PATH`.
+    /// PowerShell host path. `None` discovers `pwsh`, then `powershell.exe`, on `PATH`.
     powershell_path: Option<PathBuf>,
-    /// `-ExecutionPolicy` for the PowerShell host. Defaults to `Bypass`, since Windows Server
-    /// ships `RemoteSigned`, which refuses an unsigned `.ps1`, and `script_root` already pins
-    /// the path. Sites that sign their scripts should set `AllSigned`.
+    /// `-ExecutionPolicy` for the PowerShell host. Defaults to `Bypass` because Windows Server's
+    /// `RemoteSigned` refuses unsigned `.ps1` and `script_root` already pins the path; sites that
+    /// sign scripts should set `AllSigned`.
     powershell_execution_policy: String,
     /// Whether the Entra ROPC verify probe is enabled.
     entra_verify_probe: bool,
@@ -147,8 +147,8 @@ impl Config {
     /// [`AccessConnectorError::InvalidConfig`] or [`AccessConnectorError::InvalidToken`], never
     /// echoing secrets.
     pub fn from_cli(args: RunArgs) -> Result<Self, AccessConnectorError> {
-        // SAFETY: single-threaded startup; no other thread can observe or mutate
-        // BWAC_TOKEN. Removed immediately after reading so child processes don't inherit it.
+        // SAFETY: single-threaded startup. Removed right after reading so child processes don't
+        // inherit it.
         let env_token = std::env::var("BWAC_TOKEN").ok();
         if env_token.is_some() {
             unsafe {
@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn env_token_path_succeeds() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://api.example.com");
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn env_token_removed_from_environment_after_config_load() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://api.example.com");
@@ -372,10 +372,10 @@ mod tests {
     #[test]
     fn poll_interval_below_minimum_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would override the config file under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -403,10 +403,10 @@ identity = "https://identity.example.com"
     #[test]
     fn poll_interval_at_minimum_is_valid() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would override the config file under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -433,10 +433,10 @@ identity = "https://identity.example.com"
     #[test]
     fn heartbeat_interval_at_120_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would override the config file under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -465,10 +465,10 @@ identity = "https://identity.example.com"
     #[test]
     fn heartbeat_interval_at_119_is_valid() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would override the config file under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -495,7 +495,7 @@ identity = "https://identity.example.com"
     #[test]
     fn env_urls_without_file_are_used() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://api.env.example.com");
@@ -517,7 +517,7 @@ identity = "https://identity.example.com"
     #[test]
     fn env_urls_override_file() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://api.env.example.com");
@@ -547,11 +547,11 @@ identity = "https://identity.file.example.com"
     #[test]
     fn whitespace_env_url_is_treated_as_unset() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "  ");
-            // A leaked BWAC_IDENTITY_URL would override the file value under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
 
@@ -577,10 +577,10 @@ identity = "https://identity.file.example.com"
     #[test]
     fn missing_api_url_from_all_layers_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // A leaked URL env var would satisfy the requirement under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -611,10 +611,10 @@ identity = "https://identity.example.com"
     #[test]
     fn missing_identity_url_from_all_layers_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // A leaked URL env var would satisfy the requirement under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -645,10 +645,10 @@ api = "https://api.example.com"
     #[test]
     fn file_only_values_are_used() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would override the config file under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -690,10 +690,10 @@ identity = "https://identity.file.example.com"
     #[test]
     fn defaults_apply_when_file_omits_tunables() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would override the config file under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -744,7 +744,7 @@ identity = "https://identity.example.com"
     #[test]
     fn token_in_file_is_denied_by_unknown_fields() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates BWAC_TOKEN concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
         }
@@ -783,7 +783,7 @@ identity = "https://identity.example.com"
     #[test]
     fn nonexistent_config_path_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates BWAC_TOKEN concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
         }
@@ -807,10 +807,10 @@ identity = "https://identity.example.com"
     #[test]
     fn file_entra_verify_probe_true_is_used() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would override the config file under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -841,10 +841,10 @@ identity = "https://identity.example.com"
     #[test]
     fn base_only_derives_api_and_identity() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would override the config file under test.
+            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
@@ -871,7 +871,7 @@ base = "https://bitwarden.example.com"
     #[test]
     fn base_with_trailing_slash_derives_clean_urls() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::remove_var("BWAC_API_URL");
@@ -900,7 +900,7 @@ base = "https://bitwarden.example.com/"
     #[test]
     fn explicit_api_overrides_base_while_identity_derives() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::remove_var("BWAC_API_URL");
@@ -930,7 +930,7 @@ api  = "https://custom-api.example.com/v2"
     #[test]
     fn env_vars_override_explicit_environment_section() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://override.env.example.com/api");
@@ -969,7 +969,7 @@ identity = "https://identity.file.example.com"
     #[test]
     fn old_top_level_api_url_key_is_rejected() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::remove_var("BWAC_API_URL");
@@ -997,7 +997,7 @@ identity_url = "https://identity.example.com"
     #[test]
     fn no_environment_section_and_no_env_vars_is_invalid_config() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        // SAFETY: protected by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::remove_var("BWAC_API_URL");
