@@ -1,9 +1,10 @@
 # Bitwarden Access Connector
 
 The archive contains `bwac` (`bwac.exe` on Windows), the access connector, and a `templates/` folder
-with the files you copy and fill in while installing it. The steps below install the connector as a
-service on Linux, macOS or Windows. Their paths are a suggested layout, so change them to suit your
-host.
+with the files you copy and fill in while installing it. The Windows archive also contains
+`Install-AccessConnector.ps1`, which does the Windows steps for you. The steps below install the
+connector as a service on Linux, macOS or Windows. Their paths are a suggested layout, so change
+them to suit your host.
 
 ## Before you start
 
@@ -174,6 +175,25 @@ service manager and so can't run as a service. The task starts the launcher,
 only and writes the connector's output to a log file, which a scheduled task would otherwise throw
 away.
 
+### With the install script
+
+Run this in an elevated PowerShell window, from the unpacked archive:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-AccessConnector.ps1 https://bitwarden.example.com
+```
+
+The script prompts for the token, installs the connector in the layout the manual steps use,
+registers the task and starts it. It then waits up to 20 seconds for the connector to sign in. If
+the connector stops instead, the script prints the end of the log and what the exit code means.
+`-ExecutionPolicy Bypass` lets the unsigned script run without changing the machine's execution
+policy.
+
+Run it again from a newer archive to upgrade. It replaces the binary and the launcher and leaves
+`config.toml` and `env` as they are, so you only pass the URL the first time.
+
+### By hand
+
 Run these commands in an elevated PowerShell window, from the unpacked archive. Use the same window
 for all three steps, since later steps reuse `$install` and `$data`.
 
@@ -305,9 +325,11 @@ sudo install -m 0755 -o root -g wheel bwac /usr/local/bin/bwac
 sudo launchctl kickstart -k system/com.bitwarden.bwac
 ```
 
-On Windows, stop every connector task on the host first, since Windows can't replace a running
-program. Then copy the new `bwac.exe` over `C:\Program Files\Bitwarden\bwac\bwac.exe` and start the
-tasks again.
+On Windows, run `Install-AccessConnector.ps1` from the new archive, with the same `-Name` if you
+gave one. Windows can't replace a running program, so if another connector on the host runs the same
+`bwac.exe`, stop its task first. The script tells you if one is in the way. To upgrade by hand, stop
+every connector task on the host, copy the new `bwac.exe` over
+`C:\Program Files\Bitwarden\bwac\bwac.exe` and start the tasks again.
 
 ## More than one connector
 
@@ -316,6 +338,11 @@ connector per organization. Give each its own config file, environment file, sta
 service, for example `/etc/bwac/acme/config.toml`, `/etc/bwac/acme/env`, `/var/lib/bwac/acme` and
 `bwac-acme.service`. The connectors can share the binary, the service account and the scripts
 directory.
+
+On Windows, pass `-Name acme` to `Install-AccessConnector.ps1`. The connector gets its own
+`C:\ProgramData\Bitwarden\bwac\acme` folder for `config.toml`, `env` and `logs`, and a task named
+`Bitwarden PAM access connector (acme)`. It shares the binary and the scripts folder with the other
+connectors on the host.
 
 ## Uninstalling
 
@@ -350,3 +377,6 @@ Remove-Item -Recurse 'C:\ProgramData\Bitwarden\bwac'
 
 This also deletes `C:\ProgramData\Bitwarden\bwac\scripts`, so move your scripts out first if you
 want to keep them.
+
+To remove one named connector and keep the others, unregister its task,
+`Bitwarden PAM access connector (acme)`, and delete only `C:\ProgramData\Bitwarden\bwac\acme`.
