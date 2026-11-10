@@ -96,7 +96,7 @@ clap = { version = ">=4.5.4, <5", features = ["derive"] }
 crypto-bigint = { version = "0.7.5", features = ["alloc"], default-features = false }
 curve25519-dalek = { version = "5.0.0", features = ["zeroize"], default-features = false }
 data-encoding = ">=2.0, <3"
-ed25519-dalek = { version = "3.0.0-pre.7" }
+ed25519-dalek = { version = "3.0.0" }
 futures = ">=0.3.31, <0.4"
 hkdf = "0.13.0"
 hmac = "0.13.0"
@@ -107,9 +107,12 @@ icu_normalizer = { version = "2.2.0", features = [
 ], default-features = false }
 js-sys = { version = ">=0.3.72, <0.4" }
 keepass = { version = ">=0.13.7, <0.16", default-features = false }
+ldap3 = { version = "=0.12.1", default-features = false, features = [
+    "tls-rustls-ring",
+] }
 mockall = { version = ">=0.13.1, <0.16" }
 password-rules-parser = ">=1.1.0, <2"
-pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
+pbkdf2 = { version = "0.13.0", default-features = false }
 proc-macro2 = ">=1.0.89, <2"
 prost = "0.14.4"
 quote = ">=1.0.37, <2"
@@ -128,7 +131,7 @@ reqwest-middleware = { version = "0.5.1", features = [
     "form",
     "query",
 ] }
-rsa = "0.10.0-rc.17"
+rsa = "0.10.0"
 rustls = { version = "0.23.27", default-features = false, features = [
     "std",
     "tls12",
