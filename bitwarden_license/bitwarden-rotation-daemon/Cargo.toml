@@ -1,0 +1,46 @@
+[package]
+name = "bitwarden-rotation-daemon"
+description = "Bitwarden PAM credential rotation daemon."
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE_SDK.txt"
+keywords.workspace = true
+
+[[bin]]
+name = "bw-rotation-daemon"
+path = "src/main.rs"
+
+[dependencies]
+bitwarden-api-api = { workspace = true }
+bitwarden-api-base = { workspace = true }
+bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
+bitwarden-generators = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
+bitwarden-threading = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+clap = { version = "4.5", features = ["derive", "env"] }
+reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros", "process", "time", "signal", "sync"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "test-util"] }
+wiremock = { workspace = true }
+
+[lints]
+workspace = true

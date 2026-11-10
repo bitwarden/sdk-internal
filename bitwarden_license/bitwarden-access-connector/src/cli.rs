@@ -1,8 +1,12 @@
-//! Command-line arguments for the access connector.
+//! Command-line interface argument parsing for the access connector.
 //!
-//! Settings live in the TOML config file, not flags; see [`crate::config::Config::from_cli`]. The
-//! token comes only from `BWAC_TOKEN`, since `argv` is visible through `ps` and
-//! `/proc/<pid>/cmdline`.
+//! Minimal by design: connector settings live in the TOML config file (`--config <PATH>` or
+//! `BWAC_CONFIG`), not CLI flags. `BWAC_API_URL`/`BWAC_IDENTITY_URL` override the file's URLs;
+//! `BWAC_TOKEN` supplies the token. Configuration loading, which resolves that precedence,
+//! arrives with the connector's config module.
+//!
+//! The connector token is never a CLI argument, since `argv` is visible via `ps` and
+//! `/proc/<pid>/cmdline`, and never accepted in the config file; only `BWAC_TOKEN`.
 
 use std::path::PathBuf;
 
@@ -29,7 +33,7 @@ pub enum Command {
 pub struct RunArgs {
     /// Path to the TOML configuration file.
     #[arg(long, env = "BWAC_CONFIG", value_name = "PATH")]
-    pub(crate) config: Option<PathBuf>,
+    pub config: Option<PathBuf>,
 }
 
 #[cfg(test)]
@@ -83,7 +87,7 @@ mod tests {
 
     #[test]
     fn cli_rejects_removed_settings_flags() {
-        // Settings live in the config file only.
+        // Per-setting flags were removed; settings live in the config file only.
         for args in [
             ["bwac", "run", "--poll-interval", "30"].as_slice(),
             ["bwac", "run", "--api-url", "https://api.example.com"].as_slice(),

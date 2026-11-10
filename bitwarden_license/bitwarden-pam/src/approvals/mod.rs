@@ -6,7 +6,4 @@ mod models;
 
 pub use client::ApprovalsClient;
 pub use error::ApprovalError;
-pub use models::{
-    AccessDecisionRequest, AccessRequestHistoryPage, AccessRequestHistoryQuery,
-    AccessRequestHistoryRequester, AccessRequestHistoryStatus, AccessRequestRevokeRequest,
-};
+pub use models::AccessDecisionRequest;

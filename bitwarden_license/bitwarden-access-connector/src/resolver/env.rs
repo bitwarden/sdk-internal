@@ -3,23 +3,11 @@
 use bitwarden_pam_sealed::SealedTargetSystemKind;
 use uuid::Uuid;
 
-pub(crate) const LDAP_HOST_SUFFIX: &str = "LDAP_HOST";
-pub(crate) const BIND_DN_SUFFIX: &str = "BIND_DN";
-pub(crate) const BASE_DN_SUFFIX: &str = "BASE_DN";
-pub(crate) const BIND_PASSWORD_SUFFIX: &str = "BIND_PASSWORD";
-pub(crate) const CA_CERTIFICATE_SUFFIX: &str = "CA_CERTIFICATE";
-
 /// Environment variable suffixes required per target kind.
 pub(crate) fn required_suffixes(kind: SealedTargetSystemKind) -> &'static [&'static str] {
     match kind {
         SealedTargetSystemKind::Entra => &["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"],
         SealedTargetSystemKind::CustomScript => &["SCRIPT"],
-        SealedTargetSystemKind::ActiveDirectory => &[
-            LDAP_HOST_SUFFIX,
-            BIND_DN_SUFFIX,
-            BASE_DN_SUFFIX,
-            BIND_PASSWORD_SUFFIX,
-        ],
     }
 }
 
