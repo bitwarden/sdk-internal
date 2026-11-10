@@ -38,7 +38,7 @@ pub use change_login_password::ChangeLoginPasswordError;
 pub use cipher::{
     Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,
     CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptMode,
-    EncryptionContext, ListOrganizationCiphersResult, StrictDecrypt,
+    EncryptionContext, ListOrganizationCiphersResult,
 };
 pub use cipher_client::{
     BulkUpdateCollectionsCipherError, CipherCreateRequest, CipherEditRequest,
