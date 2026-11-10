@@ -198,16 +198,16 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
 }
 ```
 
-## Settings
+## Persisted values
 
-This crate also provides a type-safe settings API for storing application configuration and state.
-The settings system uses type-safe keys to ensure compile-time type checking when getting and
-setting values.
+This crate also provides a type-safe persisted values API for storing application configuration and
+state. The persisted values system uses type-safe keys to ensure compile-time type checking when
+getting and setting values.
 
 ### Usage
 
 ```rust
-use bitwarden_state::{register_setting_key, Setting};
+use bitwarden_state::{register_persisted_value, PersistedValue};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -217,34 +217,37 @@ struct AppConfig {
 }
 
 // Register a type-safe key
-register_setting_key!(const CONFIG: AppConfig = "app_config");
+register_persisted_value!(CONFIG: AppConfig = "app_config");
 
 struct TestClient {
-    // Access settings via bitwarden_core::Client.platform().state().setting()
-    app_config: Setting<AppConfig>,
+    // Access persisted values via bitwarden_core::Client.platform().state().value(), or inject
+    // them with `#[derive(FromClient)]`
+    app_config: PersistedValue<CONFIG>,
 }
 
 async fn example(client: &TestClient) -> Result<(), Box<dyn std::error::Error>> {
     // Get value
-    let config: Option<AppConfig> = client.app_config.get().await?;
+    let config: Option<AppConfig> = client.app_config.try_get().await?;
 
     // Update value
     let new_config = AppConfig {
         theme: "dark".to_string(),
         auto_save: true,
     };
-    client.app_config.update(new_config).await?;
+    client.app_config.set(new_config).await?;
 
-    // Delete setting
-    client.app_config.delete().await?;
+    // Delete value
+    client.app_config.remove().await?;
 
     Ok(())
 }
 ```
 
-The `Key<T>` type associates a string key name with a value type at compile time, preventing type
-mismatches while maintaining ergonomic usage. The `Setting<T>` handle provides async methods to get,
-update, and delete the setting value.
+The key type created by `register_persisted_value!` associates a string key name with a value type
+at compile time, preventing type mismatches while maintaining ergonomic usage. The
+`PersistedValue<K>` handle provides async methods to get, update, and delete the value: `get()`
+fails if the value is absent, and `try_get()` returns `None` instead. The handle logs every failed
+operation with `tracing::error!`, so callers that discard an error don't need to log it.
 
 ## Testing
 

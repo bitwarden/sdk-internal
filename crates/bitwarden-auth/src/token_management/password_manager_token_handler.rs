@@ -5,14 +5,11 @@ use std::sync::{Arc, RwLock};
 use bitwarden_core::{
     NotAuthenticatedError,
     auth::{TokenHandler, login::LoginError},
-    client::{
-        login_method::UserLoginMethod,
-        persisted_state::{AUTHENTICATION_TOKENS, AuthenticationTokens, USER_LOGIN_METHOD},
-    },
+    client::persisted_state::{AUTHENTICATION_TOKENS, AuthenticationTokens, USER_LOGIN_METHOD},
     key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
-use bitwarden_state::{registry::StateRegistry, settings::Setting};
+use bitwarden_state::{PersistedValue, registry::StateRegistry};
 use chrono::Utc;
 
 use super::middleware::{MiddlewareExt, MiddlewareWrapper};
@@ -26,8 +23,8 @@ pub struct PasswordManagerTokenHandler {
 #[derive(Clone, Default)]
 struct PasswordManagerTokenHandlerInner {
     // Filled in by initialize_middleware.
-    tokens: Option<Setting<AuthenticationTokens>>,
-    login_method: Option<Setting<UserLoginMethod>>,
+    tokens: Option<PersistedValue<AUTHENTICATION_TOKENS>>,
+    login_method: Option<PersistedValue<USER_LOGIN_METHOD>>,
     identity_config: Option<bitwarden_api_api::Configuration>,
 }
 
@@ -41,8 +38,8 @@ impl TokenHandler for PasswordManagerTokenHandler {
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         {
             let mut inner = self.inner.write().expect("RwLock is not poisoned");
-            inner.tokens = state_registry.setting(AUTHENTICATION_TOKENS).ok();
-            inner.login_method = state_registry.setting(USER_LOGIN_METHOD).ok();
+            inner.tokens = Some(state_registry.value::<AUTHENTICATION_TOKENS>());
+            inner.login_method = Some(state_registry.value::<USER_LOGIN_METHOD>());
             inner.identity_config = Some(identity_config);
         }
         Arc::new(MiddlewareWrapper::new(self.clone()))
@@ -63,7 +60,7 @@ impl TokenHandler for PasswordManagerTokenHandler {
 
         if let Some(tokens) = tokens {
             tokens
-                .update(AuthenticationTokens {
+                .set(AuthenticationTokens {
                     access_token,
                     refresh_token,
                     expires_on: Utc::now().timestamp() + expires_in as i64,
@@ -79,7 +76,7 @@ impl TokenHandler for PasswordManagerTokenHandler {
 impl MiddlewareExt for PasswordManagerTokenHandler {
     async fn current_token(&self) -> Option<(String, i64)> {
         let inner = self.inner.read().expect("RwLock is not poisoned").clone();
-        let tokens = inner.tokens?.get().await.ok().flatten()?;
+        let tokens = inner.tokens?.try_get().await.ok().flatten()?;
         Some((tokens.access_token, tokens.expires_on))
     }
 
@@ -91,9 +88,7 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
             .ok_or(NotAuthenticatedError)?
             .get()
             .await
-            .ok()
-            .flatten()
-            .ok_or(NotAuthenticatedError)?;
+            .map_err(|_| NotAuthenticatedError)?;
 
         let login_method = inner.login_method.ok_or(NotAuthenticatedError)?;
         let identity_config = inner.identity_config.ok_or(NotAuthenticatedError)?;
@@ -101,9 +96,7 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
         let login_method = login_method
             .get()
             .await
-            .ok()
-            .flatten()
-            .ok_or(NotAuthenticatedError)?;
+            .map_err(|_| NotAuthenticatedError)?;
 
         let (access_token, refresh_token, expires_in) =
             bitwarden_core::auth::renew::renew_pm_token_sdk_managed(
@@ -136,9 +129,8 @@ mod tests {
     async fn registry_with_api_key_login() -> StateRegistry {
         let registry = StateRegistry::new_with_memory_db();
         registry
-            .setting(USER_LOGIN_METHOD)
-            .unwrap()
-            .update(UserLoginMethod::ApiKey {
+            .value::<USER_LOGIN_METHOD>()
+            .set(UserLoginMethod::ApiKey {
                 client_id: "test-client".to_string(),
                 client_secret: "test-secret".to_string(),
                 email: "test@test.com".to_string(),
@@ -156,9 +148,8 @@ mod tests {
         expires_in: i64,
     ) {
         registry
-            .setting(AUTHENTICATION_TOKENS)
-            .unwrap()
-            .update(AuthenticationTokens {
+            .value::<AUTHENTICATION_TOKENS>()
+            .set(AuthenticationTokens {
                 access_token: access_token.to_string(),
                 refresh_token: refresh_token.map(str::to_string),
                 expires_on: Utc::now().timestamp() + expires_in,
