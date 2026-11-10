@@ -197,7 +197,7 @@ impl std::fmt::Display for SafeDetail {
 /// These are printed to stderr and result in a non-zero exit code. No
 /// `#[bitwarden_error]` attribute is needed — the daemon has no language bindings.
 #[derive(Debug, Error)]
-pub(crate) enum RotationDaemonError {
+pub enum RotationDaemonError {
     /// The configuration supplied is invalid (bad URL, conflicting options, etc.).
     #[error("invalid configuration: {0}")]
     InvalidConfig(String),
