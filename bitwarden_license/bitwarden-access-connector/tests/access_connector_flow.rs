@@ -4,6 +4,7 @@
 mod common;
 use common::*;
 
+#[cfg(unix)]
 #[tokio::test]
 async fn happy_path_rotate_and_report_success() {
     let identity = MockServer::start().await;
@@ -138,6 +139,7 @@ async fn happy_path_rotate_and_report_success() {
     );
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let identity = MockServer::start().await;
@@ -360,6 +362,7 @@ async fn invalid_client_at_startup_returns_credential_refused() {
     );
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     let identity = MockServer::start().await;
@@ -383,15 +386,12 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     )
     .expect("write wrapper script");
 
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = std::fs::metadata(&wrapper_path)
-            .expect("metadata")
-            .permissions();
-        perms.set_mode(0o755);
-        std::fs::set_permissions(&wrapper_path, perms).expect("chmod");
-    }
+    use std::os::unix::fs::PermissionsExt;
+    let mut perms = std::fs::metadata(&wrapper_path)
+        .expect("metadata")
+        .permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&wrapper_path, perms).expect("chmod");
 
     Mock::given(method("GET"))
         .and(path("/access-connectors/rotation/jobs"))
