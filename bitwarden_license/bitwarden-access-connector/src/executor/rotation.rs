@@ -15,7 +15,8 @@ use std::{
 use bitwarden_core::{Client, OrganizationId};
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_pam::{
-    RotationCipherError, VerifiedJob, decrypt_cipher_for_rotation, rotate_cipher_password,
+    RotationCipherError, RotationFailureCode, RotationSyncState, SessionTerminationOutcome,
+    VerifiedJob, decrypt_cipher_for_rotation, rotate_cipher_password,
 };
 use bitwarden_vault::Cipher;
 use chrono::Utc;
@@ -24,7 +25,7 @@ use super::retry::{GatedOutcome, RetryCfg, with_retries, with_retries_gated};
 use crate::{
     api::{AccessConnectorClient, AccessConnectorClientExt as _, models::ApiError},
     auth::session::{SessionLost, SessionManager, SessionPhase},
-    error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
+    error::{ErrorClass, SafeDetail},
     integrations::{Integration, IntegrationRegistry, RotateContext},
     resolver::{CredentialResolver, ResolveError},
 };
@@ -93,9 +94,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             report_failure_absorb(
                 &api,
                 attempt_id,
-                FailureCode::NoActiveSession,
+                RotationFailureCode::NoActiveSession,
                 None,
-                SyncState::TargetUnchanged,
+                RotationSyncState::TargetUnchanged,
             )
             .await;
             return ExecutionResult::Reported;
@@ -117,9 +118,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 report_failure_absorb(
                     &api,
                     attempt_id,
-                    FailureCode::Internal,
+                    RotationFailureCode::Internal,
                     None,
-                    SyncState::TargetUnchanged,
+                    RotationSyncState::TargetUnchanged,
                 )
                 .await;
                 return ExecutionResult::Reported;
@@ -130,11 +131,11 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             report_failure_absorb(
                 &api,
                 attempt_id,
-                FailureCode::SealedDataRejected,
+                RotationFailureCode::SealedDataRejected,
                 Some(SafeDetail::from_seal_rejection(
                     "pre_flight_cipher_id_mismatch",
                 )),
-                SyncState::TargetUnchanged,
+                RotationSyncState::TargetUnchanged,
             )
             .await;
             return ExecutionResult::Reported;
@@ -145,11 +146,11 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             report_failure_absorb(
                 &api,
                 attempt_id,
-                FailureCode::SealedDataRejected,
+                RotationFailureCode::SealedDataRejected,
                 Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
                     &e, true,
                 ))),
-                SyncState::TargetUnchanged,
+                RotationSyncState::TargetUnchanged,
             )
             .await;
             return ExecutionResult::Reported;
@@ -171,9 +172,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             report_failure_absorb(
                 &api,
                 attempt_id,
-                FailureCode::CredentialsUnresolved,
+                RotationFailureCode::CredentialsUnresolved,
                 Some(detail),
-                SyncState::TargetUnchanged,
+                RotationSyncState::TargetUnchanged,
             )
             .await;
             return ExecutionResult::Reported;
@@ -188,9 +189,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             report_failure_absorb(
                 &api,
                 attempt_id,
-                FailureCode::InvalidPolicy,
+                RotationFailureCode::InvalidPolicy,
                 None,
-                SyncState::TargetUnchanged,
+                RotationSyncState::TargetUnchanged,
             )
             .await;
             return ExecutionResult::Reported;
@@ -203,9 +204,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             report_failure_absorb(
                 &api,
                 attempt_id,
-                FailureCode::InvalidPolicy,
+                RotationFailureCode::InvalidPolicy,
                 None,
-                SyncState::TargetUnchanged,
+                RotationSyncState::TargetUnchanged,
             )
             .await;
             return ExecutionResult::Reported;
@@ -222,9 +223,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             report_failure_absorb(
                 &api,
                 attempt_id,
-                FailureCode::UnsupportedKind,
+                RotationFailureCode::UnsupportedKind,
                 None,
-                SyncState::TargetUnchanged,
+                RotationSyncState::TargetUnchanged,
             )
             .await;
             return ExecutionResult::Reported;
@@ -274,7 +275,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 return ExecutionResult::Unreported(reason);
             }
             GatedOutcome::Failed(err) => {
-                let sync_state = SyncState::from(err.effect);
+                let sync_state = RotationSyncState::from(err.effect);
                 report_failure_absorb(&api, attempt_id, err.code, Some(err.detail), sync_state)
                     .await;
                 return ExecutionResult::Reported;
@@ -320,7 +321,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                     attempt_id,
                     err.code,
                     Some(err.detail),
-                    SyncState::TargetUpdated,
+                    RotationSyncState::TargetUpdated,
                 )
                 .await;
                 return ExecutionResult::Reported;
@@ -343,9 +344,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 report_failure_absorb(
                     &api,
                     attempt_id,
-                    FailureCode::Internal,
+                    RotationFailureCode::Internal,
                     None,
-                    SyncState::TargetUpdated,
+                    RotationSyncState::TargetUpdated,
                 )
                 .await;
                 return ExecutionResult::Reported;
@@ -357,11 +358,11 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
             report_failure_absorb(
                 &api,
                 attempt_id,
-                FailureCode::SealedDataRejected,
+                RotationFailureCode::SealedDataRejected,
                 Some(SafeDetail::from_seal_rejection(
                     "pre_write_cipher_id_mismatch",
                 )),
-                SyncState::TargetUpdated,
+                RotationSyncState::TargetUpdated,
             )
             .await;
             return ExecutionResult::Reported;
@@ -378,11 +379,11 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                         report_failure_absorb(
                             &api,
                             attempt_id,
-                            FailureCode::SealedDataRejected,
+                            RotationFailureCode::SealedDataRejected,
                             Some(SafeDetail::from_seal_rejection(cipher_rejection_reason(
                                 &e, false,
                             ))),
-                            SyncState::TargetUpdated,
+                            RotationSyncState::TargetUpdated,
                         )
                         .await;
                         return ExecutionResult::Reported;
@@ -395,9 +396,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                     report_failure_absorb(
                         &api,
                         attempt_id,
-                        FailureCode::CipherEncryptFailed,
+                        RotationFailureCode::CipherEncryptFailed,
                         None,
-                        SyncState::TargetUpdated,
+                        RotationSyncState::TargetUpdated,
                     )
                     .await;
                     return ExecutionResult::Reported;
@@ -440,9 +441,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 report_failure_absorb(
                     &api,
                     attempt_id,
-                    FailureCode::CipherWriteRejected,
+                    RotationFailureCode::CipherWriteRejected,
                     None,
-                    SyncState::TargetUpdated,
+                    RotationSyncState::TargetUpdated,
                 )
                 .await;
                 return ExecutionResult::Reported;
@@ -458,9 +459,9 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                 report_failure_absorb(
                     &api,
                     attempt_id,
-                    FailureCode::Internal,
+                    RotationFailureCode::Internal,
                     None,
-                    SyncState::TargetUpdated,
+                    RotationSyncState::TargetUpdated,
                 )
                 .await;
                 return ExecutionResult::Reported;
@@ -469,8 +470,8 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
     };
 
     // Termination never fails the rotation, but a lost session blocks the success report.
-    let termination_result: SessionTermination = if !job.terminate_sessions() {
-        SessionTermination::NotRequested
+    let termination_result: SessionTerminationOutcome = if !job.terminate_sessions() {
+        SessionTerminationOutcome::NotRequested
     } else {
         let gate = make_gate(
             Arc::clone(&ctx.session),
@@ -497,7 +498,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         match outcome {
             GatedOutcome::Ok(()) => {
                 tracing::info!(attempt_id = %attempt_id, "step 6: session termination succeeded");
-                SessionTermination::Terminated
+                SessionTerminationOutcome::Terminated
             }
             GatedOutcome::Aborted(AbortReason::SessionLost(l)) => {
                 return ExecutionResult::Unreported(AbortReason::SessionLost(l));
@@ -509,14 +510,14 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                     abort_reason = ?reason,
                     "step 6: session termination aborted (reporting term_failed)"
                 );
-                SessionTermination::TermFailed
+                SessionTerminationOutcome::TermFailed
             }
             GatedOutcome::Failed(err) => {
                 tracing::warn!(
                     attempt_id = %attempt_id,
                     "step 6: session termination failed: {err}; reporting term_failed"
                 );
-                SessionTermination::TermFailed
+                SessionTerminationOutcome::TermFailed
             }
         }
     };
@@ -552,7 +553,7 @@ async fn report_success_inner(
     api: &AccessConnectorClient,
     retry_cfg: &super::retry::RetryCfg,
     attempt_id: uuid::Uuid,
-    termination: crate::error::SessionTermination,
+    termination: SessionTerminationOutcome,
     _verified: Verified,
     _cipher_written: CipherWritten,
 ) -> Result<(), ApiError> {
@@ -728,9 +729,9 @@ fn cipher_rejection_reason(err: &RotationCipherError, pre_flight: bool) -> &'sta
 pub(crate) async fn report_failure_absorb(
     api: &AccessConnectorClient,
     attempt_id: uuid::Uuid,
-    code: FailureCode,
+    code: RotationFailureCode,
     detail: Option<SafeDetail>,
-    sync_state: SyncState,
+    sync_state: RotationSyncState,
 ) {
     tracing::warn!(
         attempt_id = %attempt_id,
@@ -764,7 +765,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        error::{FailureCode, SafeDetail},
+        error::SafeDetail,
         integrations::{Integration, IntegrationError, RotateContext, TargetEffect},
         resolver::ResolvedCredentials,
         test_support::{
@@ -961,16 +962,16 @@ mod tests {
     #[test]
     fn target_effect_to_sync_state_mapping() {
         assert_eq!(
-            SyncState::from(TargetEffect::NotApplied),
-            SyncState::TargetUnchanged
+            RotationSyncState::from(TargetEffect::NotApplied),
+            RotationSyncState::TargetUnchanged
         );
         assert_eq!(
-            SyncState::from(TargetEffect::Unknown),
-            SyncState::Indeterminate
+            RotationSyncState::from(TargetEffect::Unknown),
+            RotationSyncState::Indeterminate
         );
         assert_eq!(
-            SyncState::from(TargetEffect::Applied),
-            SyncState::TargetUpdated
+            RotationSyncState::from(TargetEffect::Applied),
+            RotationSyncState::TargetUpdated
         );
     }
 
@@ -996,7 +997,7 @@ mod tests {
 
     #[test]
     fn failure_code_for_unsupported_kind_is_correct() {
-        let code = FailureCode::UnsupportedKind;
+        let code = RotationFailureCode::UnsupportedKind;
         let s = serde_json::to_string(&code).unwrap();
         assert_eq!(s, r#""unsupported_kind""#);
     }
