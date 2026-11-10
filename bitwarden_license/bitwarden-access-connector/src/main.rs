@@ -1,7 +1,7 @@
 //! Entry point for the `bwac` binary.
 //!
 //! Exit codes: 0 clean shutdown (SIGTERM or Ctrl-C), 1 invalid configuration or token, 2 credential
-//! refused or first authentication failed, 3 not eligible for the rotation endpoints.
+//! refused, 3 not eligible for the rotation endpoints, 4 startup authentication failed transiently.
 
 use bitwarden_access_connector::{
     cli::{Cli, Command},
@@ -59,6 +59,13 @@ async fn main() {
                  ReissueConnectorCredential, then restart the connector with the new token."
             );
             std::process::exit(2);
+        }
+        RunExit::StartupFailed => {
+            tracing::error!(
+                "Access connector could not authenticate at startup. Check network connectivity \
+                 and the identity URL; restarting may succeed."
+            );
+            std::process::exit(4);
         }
         RunExit::NotEligible => {
             tracing::error!(
