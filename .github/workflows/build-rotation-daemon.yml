@@ -1,0 +1,114 @@
+# Builds the `bw-rotation-daemon` binary (bitwarden_license/bitwarden-rotation-daemon) in release
+# mode for each supported platform and uploads it as a workflow artifact, so the daemon can be
+# picked up for QA / self-hosted testing without a local Rust toolchain.
+#
+# Unit and integration tests for the crate already run in rust-test.yml as part of
+# `cargo test --workspace`; this workflow only produces the binaries.
+
+name: Build rotation daemon
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - "main"
+      - "pam/uat"
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build bw-rotation-daemon - ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            binary: bw-rotation-daemon
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            binary: bw-rotation-daemon
+          - os: macos-14
+            target: aarch64-apple-darwin
+            binary: bw-rotation-daemon
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            binary: bw-rotation-daemon.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Pin to the toolchain in rust-toolchain.toml so the shipped binary is reproducible.
+      # (sed rather than `grep -P` so it also works with BSD grep on the macOS runner.)
+      - name: Set Rust toolchain version
+        id: toolchain
+        run: |
+          RUST_TOOLCHAIN="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
+          if [ -z "${RUST_TOOLCHAIN}" ]; then
+            echo "::error::could not parse channel from rust-toolchain.toml"
+            exit 1
+          fi
+          echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: rotation-daemon-${{ matrix.target }}
+
+      - name: Build
+        run: cargo build -p bitwarden-rotation-daemon --release --locked --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: "-D warnings"
+
+      - name: Smoke test binary
+        env:
+          BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
+        run: |
+          "${BINARY}" --version
+          "${BINARY}" run --help
+
+      # actions/upload-artifact drops file permissions, so a bare binary would come back
+      # without its executable bit. Archive it first to keep the download runnable as-is.
+      - name: Package binary
+        env:
+          BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          ARCHIVE: bw-rotation-daemon-${{ matrix.target }}.tar.gz
+        run: tar -czf "${ARCHIVE}" -C "$(dirname "${BINARY}")" "$(basename "${BINARY}")"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bw-rotation-daemon-${{ matrix.target }}
+          path: bw-rotation-daemon-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  ci-pass:
+    name: Check if build passed
+    runs-on: ubuntu-24.04
+    needs: build
+    if: always()
+    steps:
+      - name: Verify all builds passed
+        if: ${{ needs.build.result != 'success' }}
+        run: exit 1
