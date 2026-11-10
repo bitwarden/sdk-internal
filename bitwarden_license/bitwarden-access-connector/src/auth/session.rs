@@ -1,7 +1,7 @@
-//! Session state machine for the rotation daemon.
+//! Session state machine for the access connector.
 //!
-//! [`SessionManager`] encodes the spec's `DaemonSession` state machine
-//! (rotation-daemon.allium §DaemonSession):
+//! [`SessionManager`] encodes the spec's `ConnectorSession` state machine
+//! (access-connector.allium §ConnectorSession):
 //!
 //! ```text
 //! authenticating → active → expired → authenticating  (refresh cycle)
@@ -21,8 +21,8 @@ use tokio::sync::{Mutex, watch};
 
 use crate::{
     auth::identity::{AuthError, AuthSuccess, IdentityClient},
-    crypto::{DaemonKeySlotIds, DaemonKeyStore, unwrap_org_key},
-    token::DaemonToken,
+    crypto::{AccessConnectorKeySlotIds, AccessConnectorKeyStore, unwrap_org_key},
+    token::AccessConnectorToken,
 };
 
 /// 5-minute proactive renewal margin (mirrors `TOKEN_RENEW_MARGIN_SECONDS` in
@@ -38,7 +38,7 @@ const BACKOFF_CAP: Duration = Duration::from_secs(30);
 /// Renewal attempt count for a `None` deadline.
 const NO_DEADLINE_MAX_TRIES: u32 = 3;
 
-/// Observable phases of the daemon session.
+/// Observable phases of the connector session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SessionPhase {
     /// Credential exchange in progress.
@@ -88,7 +88,7 @@ struct SessionState {
     /// Monotonic instant at which the bearer expires (`Active` only).
     expires_at: Option<Instant>,
     /// Key store.  Replaced with a fresh empty store on terminal entry.
-    key_store: Arc<DaemonKeyStore>,
+    key_store: Arc<AccessConnectorKeyStore>,
     /// Sender for the phase watch channel.
     phase_tx: watch::Sender<SessionPhase>,
 }
@@ -118,7 +118,11 @@ impl SessionState {
     }
 
     /// Apply a successful auth response: install bearer + expiry + org key.
-    fn apply_success(&mut self, success: AuthSuccess, token: &DaemonToken) -> Result<(), String> {
+    fn apply_success(
+        &mut self,
+        success: AuthSuccess,
+        token: &AccessConnectorToken,
+    ) -> Result<(), String> {
         use bitwarden_sensitive_value::ExposeSensitive as _;
 
         let expires_at = Instant::now() + Duration::from_secs(success.expires_in);
@@ -151,15 +155,15 @@ impl SessionState {
     }
 }
 
-/// Manages the daemon session lifecycle.
+/// Manages the connector session lifecycle.
 ///
-/// Wraps an [`IdentityClient`] and a [`DaemonToken`]; all mutable state is behind an
+/// Wraps an [`IdentityClient`] and a [`AccessConnectorToken`]; all mutable state is behind an
 /// async `Mutex`, so at most one renewal is in flight at a time. `Debug` is
 /// implemented manually to avoid leaking the token or bearer.
 pub(crate) struct SessionManager {
     state: Mutex<SessionState>,
     identity: IdentityClient,
-    token: DaemonToken,
+    token: AccessConnectorToken,
 }
 
 impl std::fmt::Debug for SessionManager {
@@ -174,9 +178,9 @@ impl SessionManager {
     /// which callers should treat as a fatal startup failure.
     pub(crate) async fn new(
         identity: IdentityClient,
-        token: DaemonToken,
+        token: AccessConnectorToken,
     ) -> Result<Arc<Self>, SessionError> {
-        let key_store = Arc::new(KeyStore::<DaemonKeySlotIds>::default());
+        let key_store = Arc::new(KeyStore::<AccessConnectorKeySlotIds>::default());
         let (phase_tx, _phase_rx) = watch::channel(SessionPhase::Authenticating);
 
         let state = SessionState {
@@ -205,7 +209,7 @@ impl SessionManager {
     }
 
     /// The shared key store.
-    pub(crate) async fn key_store(&self) -> Arc<DaemonKeyStore> {
+    pub(crate) async fn key_store(&self) -> Arc<AccessConnectorKeyStore> {
         Arc::clone(&self.state.lock().await.key_store)
     }
 
@@ -454,13 +458,16 @@ mod tests {
     use zeroize::Zeroizing;
 
     use super::*;
-    use crate::{auth::identity::IdentityClient, crypto::DaemonSymmSlotId, token::DaemonToken};
+    use crate::{
+        auth::identity::IdentityClient, crypto::AccessConnectorSymmSlotId,
+        token::AccessConnectorToken,
+    };
 
     const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    fn test_token() -> DaemonToken {
+    fn test_token() -> AccessConnectorToken {
         use std::str::FromStr;
-        DaemonToken::from_str(VALID_TOKEN_STR).expect("valid token")
+        AccessConnectorToken::from_str(VALID_TOKEN_STR).expect("valid token")
     }
 
     /// Derive the token's encryption key (C1 constants).
@@ -542,7 +549,7 @@ mod tests {
         let probe_enc = {
             let mut ctx = store.context();
             "probe-value"
-                .encrypt(&mut ctx, DaemonSymmSlotId::Organization)
+                .encrypt(&mut ctx, AccessConnectorSymmSlotId::Organization)
                 .expect("encrypt probe")
         };
         let decrypted: String = probe_enc.decrypt_with_key(&org_key).expect("decrypt probe");
@@ -756,7 +763,7 @@ mod tests {
         assert!(
             !store
                 .context()
-                .has_symmetric_key(DaemonSymmSlotId::Organization),
+                .has_symmetric_key(AccessConnectorSymmSlotId::Organization),
             "org key slot must be cleared after revocation"
         );
     }
@@ -785,7 +792,7 @@ mod tests {
         assert!(
             !store
                 .context()
-                .has_symmetric_key(DaemonSymmSlotId::Organization),
+                .has_symmetric_key(AccessConnectorSymmSlotId::Organization),
             "org key slot must be cleared after close"
         );
     }
@@ -858,7 +865,7 @@ mod tests {
         let probe_enc = {
             let mut ctx = store.context();
             "check-key"
-                .encrypt(&mut ctx, DaemonSymmSlotId::Organization)
+                .encrypt(&mut ctx, AccessConnectorSymmSlotId::Organization)
                 .expect("encrypt")
         };
 

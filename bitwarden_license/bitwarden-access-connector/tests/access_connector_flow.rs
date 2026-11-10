@@ -1,4 +1,4 @@
-//! Black-box integration tests for the rotation daemon end-to-end flow.
+//! Black-box integration tests for the access connector end-to-end flow.
 //!
 //! Each test starts a wiremock MockServer for the identity and API servers, then drives
 //! `bitwarden_access_connector::run(cfg, cancel)` against them using self-consistent token,
