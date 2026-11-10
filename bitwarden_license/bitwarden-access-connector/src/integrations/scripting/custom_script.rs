@@ -149,7 +149,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        error::ErrorClass,
+        error::Retry,
         integrations::{TargetEffect, scripting::RecordingRunner},
         resolver::ResolvedCredentials,
         sys::{FakeEnv, FakeFs, Platform},
@@ -375,17 +375,17 @@ mod tests {
             .await
             .unwrap();
 
-        for (code, class, effect) in [
-            (1, ErrorClass::Fatal, TargetEffect::NotApplied),
-            (2, ErrorClass::Fatal, TargetEffect::Applied),
-            (3, ErrorClass::Fatal, TargetEffect::Unknown),
-            (4, ErrorClass::Transient, TargetEffect::NotApplied),
-            (99, ErrorClass::Fatal, TargetEffect::Unknown),
+        for (code, retry, effect) in [
+            (1, Retry::Permanent, TargetEffect::NotApplied),
+            (2, Retry::Permanent, TargetEffect::Applied),
+            (3, Retry::Permanent, TargetEffect::Unknown),
+            (4, Retry::Transient, TargetEffect::NotApplied),
+            (99, Retry::Permanent, TargetEffect::Unknown),
         ] {
             let err = outcome_of(RecordingRunner::exiting(code), "rotate")
                 .await
                 .unwrap_err();
-            assert_eq!(err.class, class, "exit {code}");
+            assert_eq!(err.retry, retry, "exit {code}");
             assert_eq!(err.effect, effect, "exit {code}");
         }
 
