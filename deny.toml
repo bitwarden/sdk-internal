@@ -1,5 +1,5 @@
-# cargo-deny configuration. Only the advisories check is used, through
-# `scripts/lint.sh --only advisories`.
+# cargo-deny configuration. The advisories and bans checks are used, through
+# `scripts/lint.sh --only advisories` and `scripts/lint.sh --only bans`.
 
 # https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html
 [advisories]
@@ -13,4 +13,18 @@ ignore = [
   # bitwarden-fido (directly and through passkey-rs) and snow 0.10 (bitwarden-ipc, bitwarden-random) depend on.
   # This entry stays until those move to elliptic-curve 0.14.
   { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5.x has no fix (via p256 0.13 in bitwarden-fido, passkey-rs and snow)." },
+]
+
+# https://embarkstudios.github.io/cargo-deny/checks/bans/cfg.html
+[bans]
+multiple-versions = "allow"
+# AppSec approvals with conditions. Each is written as a ban on what the approval doesn't cover, because `allow`
+# would ban every crate it doesn't list. Use `name:req`: `name@req` matches one exact version.
+deny = [
+  { crate = "ldap3:>0.12.1", reason = "VULN-1401 approves 0.12.1. Review the new version's source diff, then raise this." },
+  { crate = "lber:>0.5.1", reason = "VULN-1401 approves 0.5.1. Review the new version's source diff, then raise this." },
+]
+features = [
+  # VULN-1401: rustls with ring only. No default features, gssapi or ntlm.
+  { crate = "ldap3", allow = ["tls-rustls", "tls-rustls-ring", "rustls-provider"], exact = true },
 ]
