@@ -31,7 +31,7 @@ pub(crate) enum PolicyError {
 ///
 /// Note: `include_digits` maps to `numbers` in `PasswordGeneratorRequest` and
 /// `include_symbols` maps to `special` — the generator crate uses its own naming.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PasswordPolicy {
     /// Minimum password length enforced by the policy.  `None` means unconstrained
