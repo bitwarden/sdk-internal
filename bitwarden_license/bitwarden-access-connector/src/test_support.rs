@@ -13,7 +13,12 @@ use bitwarden_crypto::{
     SymmetricCryptoKey, SymmetricKeyAlgorithm,
 };
 use bitwarden_encoding::{B64, B64Url};
+use bitwarden_pam_sealed::{
+    RotationConfigSealedV1, Sealed, SealedPasswordPolicy, SealedTargetSystemKind,
+    SealedTargetSystemMethod, TargetSystemSealedV1,
+};
 use bitwarden_vault::CipherView;
+use uuid::Uuid;
 
 use crate::api::{
     AccessConnectorClient, AccessConnectorClientExt as _, REQUEST_TIMEOUT, build_sdk_client,
@@ -189,6 +194,62 @@ pub(crate) fn client_with_store(store: &KeyStore<KeySlotIds>) -> AccessConnector
         key_store: store.clone(),
         ..client.access_connector()
     }
+}
+
+/// `(sealedData, wrappedKey)` as sent over the wire.
+pub(crate) type SealedStrings = (String, String);
+
+pub(crate) fn strong_policy() -> SealedPasswordPolicy {
+    SealedPasswordPolicy {
+        min_length: 20,
+        max_length: 20,
+        include_uppercase: true,
+        include_lowercase: true,
+        include_digits: true,
+        include_symbols: true,
+    }
+}
+
+pub(crate) fn sample_target(target_system_id: Uuid) -> TargetSystemSealedV1 {
+    TargetSystemSealedV1 {
+        target_system_id,
+        method: SealedTargetSystemMethod::Automatic,
+        kind: Some(SealedTargetSystemKind::CustomScript),
+        password_policy: strong_policy(),
+        supports_session_termination: Some(true),
+    }
+}
+
+pub(crate) fn sample_config(target_system_id: Uuid, cipher_id: Uuid) -> RotationConfigSealedV1 {
+    RotationConfigSealedV1 {
+        target_system_id,
+        cipher_id,
+        account_identity: "svc-rotation@example.com".to_owned(),
+        terminate_sessions: true,
+    }
+}
+
+pub(crate) fn sealed_pair(
+    store: &KeyStore<KeySlotIds>,
+    target: TargetSystemSealedV1,
+    config: RotationConfigSealedV1,
+) -> (SealedStrings, SealedStrings) {
+    let mut ctx = store.context_mut();
+    let target_blob =
+        bitwarden_pam_sealed::seal_target_system::<KeySlotIds>(target, &test_org_slot(), &mut ctx)
+            .expect("seal target");
+    let config_blob = bitwarden_pam_sealed::seal_rotation_config::<KeySlotIds>(
+        config,
+        &test_org_slot(),
+        &mut ctx,
+    )
+    .expect("seal config");
+    (strings(target_blob), strings(config_blob))
+}
+
+/// Wire form of a [`Sealed`]: `(sealedData, wrappedKey)`.
+pub(crate) fn strings(sealed: Sealed) -> SealedStrings {
+    (sealed.envelope.to_string(), sealed.wrapped_key.to_string())
 }
 
 /// Pins the recorded cipher vectors: the GET response shape the connector must keep accepting.
