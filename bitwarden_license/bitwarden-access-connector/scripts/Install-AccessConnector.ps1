@@ -361,7 +361,7 @@ function Write-AccessConnectorConfig {
         '# up in repositories. Unknown keys are a startup error too, so a typo is loud.'
         '#'
         '# Defaults not shown: poll_interval 15, heartbeat_interval 30, offline_grace 60,'
-        '# max_retry_attempts 5, retry_base_delay 1, script_timeout 60. See OPERATIONS.md.'
+        '# max_retry_attempts 5, retry_base_delay 1, script_timeout 60.'
         ''
         "script_root = '$ScriptDir'"
         ''
