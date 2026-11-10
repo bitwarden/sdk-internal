@@ -22,8 +22,9 @@ use std::{
 };
 
 use bitwarden_ipc::{
-    Endpoint, IpcClient, IpcClientExt, IpcClientTypedSubscription, PayloadTypeName, RpcHandler,
-    RpcRequest, RpcRequestInfo, Source, SubscribeError, TypedReceiveError, discover::wait_for_peer,
+    Endpoint, IpcClient, IpcClientExt, IpcClientTypedSubscription, PayloadTypeName, RequestError,
+    RpcHandler, RpcRequest, RpcRequestInfo, Source, SubscribeError, TypedReceiveError,
+    discover::wait_for_peer,
 };
 use bitwarden_threading::{
     cancellation_token::CancellationToken,
@@ -49,6 +50,9 @@ const DEFAULT_READ_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// How long a forwarder waits for its collector to answer discover before it keeps events local.
 const COLLECTOR_WAIT: Duration = Duration::from_secs(30);
+
+/// How long a forwarder waits before asking again when the collector's discover answer is an error.
+const DISCOVER_RETRY_DELAY: Duration = Duration::from_millis(250);
 
 /// Events sent from a forwarder to its collector.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -290,10 +294,10 @@ pub fn enable_flight_recorder_forwarding(client: Arc<dyn IpcClient>, destination
         let state = &sink.0;
         let ready = without_flight_recorder(timeout(
             COLLECTOR_WAIT,
-            wait_for_peer(state.client.as_ref(), state.destination.clone(), None),
+            wait_for_collector(state.client.as_ref(), state.destination.clone()),
         ))
         .await;
-        if !matches!(ready, Ok(Ok(_))) {
+        if !matches!(ready, Ok(true)) {
             return;
         }
 
@@ -304,6 +308,21 @@ pub fn enable_flight_recorder_forwarding(client: Arc<dyn IpcClient>, destination
         }
         sink.schedule_flush();
     });
+}
+
+/// Wait until the collector at `destination` answers discover. Returns false if the local client
+/// cannot subscribe.
+///
+/// An error answer is retried, since a collector answers `NoHandlerFound` between starting its IPC
+/// client and registering its discover handler.
+async fn wait_for_collector(client: &dyn IpcClient, destination: Endpoint) -> bool {
+    loop {
+        match wait_for_peer(client, destination.clone(), None).await {
+            Ok(_) => return true,
+            Err(RequestError::Rpc(_)) => sleep(DISCOVER_RETRY_DELAY).await,
+            Err(_) => return false,
+        }
+    }
 }
 
 static COLLECTING: AtomicBool = AtomicBool::new(false);
@@ -430,6 +449,7 @@ mod tests {
     use bitwarden_ipc::{
         InMemorySessionRepository, IncomingMessage, IpcClientImpl, NoEncryptionCryptoProvider,
         OutgoingMessage, TestCommunicationBackend, TypedIncomingMessage, TypedOutgoingMessage,
+        discover::{DiscoverHandler, DiscoverResponse},
     };
 
     use super::*;
@@ -771,5 +791,39 @@ mod tests {
         assert_eq!(batches.len(), 1);
         assert_eq!(messages(&batches[0].events), ["late"]);
         assert!(!state.flushing.load(Ordering::Acquire));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_wait_for_collector_retries_until_the_discover_handler_is_registered() {
+        let collector_backend = TestCommunicationBackend::new();
+        let collector = start_client(&collector_backend).await;
+        let backend = TestCommunicationBackend::new();
+        let client = start_client(&backend).await;
+
+        let wait = tokio::spawn({
+            let client = Arc::clone(&client);
+            async move { wait_for_collector(client.as_ref(), background().to_endpoint()).await }
+        });
+
+        // Without a discover handler, the collector answers with an error.
+        settle().await;
+        relay(&backend, &collector_backend, popup()).await;
+        settle().await;
+        relay(&collector_backend, &backend, background()).await;
+        settle().await;
+        assert!(!wait.is_finished());
+
+        collector
+            .register_rpc_handler(DiscoverHandler::new(DiscoverResponse {
+                version: "test".to_string(),
+            }))
+            .await;
+        tokio::time::sleep(DISCOVER_RETRY_DELAY).await;
+        settle().await;
+        relay(&backend, &collector_backend, popup()).await;
+        settle().await;
+        relay(&collector_backend, &backend, background()).await;
+
+        assert!(wait.await.expect("task joins"));
     }
 }
