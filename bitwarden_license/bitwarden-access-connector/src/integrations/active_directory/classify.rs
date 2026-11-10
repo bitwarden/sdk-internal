@@ -125,7 +125,11 @@ pub(super) fn target_rejected(effect: TargetEffect, kind: &'static str) -> Integ
     )
 }
 
-fn target_unreachable(retry: Retry, effect: TargetEffect, kind: &'static str) -> IntegrationError {
+pub(super) fn target_unreachable(
+    retry: Retry,
+    effect: TargetEffect,
+    kind: &'static str,
+) -> IntegrationError {
     IntegrationError::new(
         retry,
         effect,

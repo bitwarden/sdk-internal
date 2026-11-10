@@ -557,7 +557,7 @@ dependencies = [
  "reqwest",
  "reqwest-middleware",
  "rustls",
- "rustls-native-certs",
+ "rustls-platform-verifier",
  "serde",
  "serde_json",
  "tempfile",

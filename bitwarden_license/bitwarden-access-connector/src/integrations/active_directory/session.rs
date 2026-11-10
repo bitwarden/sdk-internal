@@ -11,7 +11,7 @@ use super::{
     Credentials,
     classify::{Phase, classify_ldap_error, target_rejected},
     password_write::PasswordWriter,
-    tls::tls_config_with_extra_anchors,
+    tls::tls_config,
 };
 use crate::{
     error::{Retry, SafeDetail},
@@ -64,10 +64,10 @@ impl LdapSession {
         timeouts: Timeouts,
         phase: Phase,
     ) -> Result<Self, IntegrationError> {
-        let mut settings = LdapConnSettings::new().set_conn_timeout(timeouts.connect);
-        if let Some(path) = ca_certificate {
-            settings = settings.set_config(tls_config_with_extra_anchors(path, phase)?);
-        }
+        // Always set: ldap3's own root store drops every native root if any one fails to load.
+        let settings = LdapConnSettings::new()
+            .set_conn_timeout(timeouts.connect)
+            .set_config(tls_config(ca_certificate, phase)?);
         let (conn, ldap) = LdapConnAsync::with_settings(settings, url)
             .await
             .map_err(|e| classify_ldap_error(&e, phase))?;
