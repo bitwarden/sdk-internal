@@ -288,6 +288,10 @@ environment).
 5. **verify has no v0 opt-out** — `verify` is mandatory. A script that cannot
    round-trip-authenticate must still implement `verify` with its best available applied-check (e.g.
    querying a last-password-change timestamp or testing service reachability).
+6. **`accountIdentity` is untrusted input** — it comes from a blob the admin client sealed, so the
+   server cannot read or change it, but it is still chosen by whoever saved the rotation config.
+   Never interpolate it unsanitized into a shell command, SQL query, or API path. See
+   [OPERATIONS.md](OPERATIONS.md#sealed-rotation-data) for the full trust model.
 
 ### Operations
 
