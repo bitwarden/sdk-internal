@@ -43,6 +43,22 @@ impl CipherRiskClient {
         PasswordReuseMap::new(login_details)
     }
 
+    /// Find login ciphers whose site supports passkeys, according to the passkey directory.
+    ///
+    /// A candidate is eligible when it is a login, has at least one URI, has no FIDO2 credential,
+    /// is not deleted, and the user can view its password. Each non-empty URI is matched against
+    /// the directory by host first, then by registrable domain, after removing the first
+    /// occurrence of `www.` (case-sensitive, anywhere in the string, as the web vault does). The
+    /// first matching URI wins. Returns one [`super::PasskeyOpportunity`] per matching
+    /// candidate, in input order.
+    pub fn find_passkey_opportunities(
+        &self,
+        candidates: Vec<super::PasskeyCandidate>,
+        directory: Vec<super::PasskeyDirectoryEntry>,
+    ) -> Vec<super::PasskeyOpportunity> {
+        super::passkey::find_passkey_opportunities(&candidates, &directory)
+    }
+
     /// Convert a single login details to CipherRisk.
     ///
     /// For the cipher:
