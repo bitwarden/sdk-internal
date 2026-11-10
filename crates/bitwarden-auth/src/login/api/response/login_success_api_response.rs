@@ -30,10 +30,7 @@ pub(crate) struct LoginSuccessApiResponse {
     // we add aliases for deserialization flexibility.
     /// The user key wrapped user private key
     /// Deprecated in favor of the `AccountKeys` field but still present for backward
-    /// compatibility. and we can't expose AccountKeys in our LoginSuccessResponse until we get
-    /// a PrivateKeysResponseModel SDK response model from KM with WASM / uniffi support.
-    /// TODO: PM-30222 - clean up the comment about not being able to expose AccountKeys once
-    /// we have a trait to convert PrivateKeysResponseModel to WrappedAccountCryptographicState
+    /// compatibility.
     #[serde(rename = "PrivateKey", alias = "privateKey")]
     pub private_key: Option<String>,
 

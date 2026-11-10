@@ -467,8 +467,8 @@ impl SymmetricCryptoKey {
 
     /// Encodes the key to a byte array representation, that is separated by size.
     /// [SymmetricCryptoKey::Aes256CbcHmacKey] and [SymmetricCryptoKey::Aes256CbcKey] are
-    /// encoded as 64 and 32 bytes respectively. [SymmetricCryptoKey::XChaCha20Poly1305Key]
-    /// is encoded as at least 65 bytes, using padding.
+    /// encoded as 64 and 32 bytes respectively. COSE-serialized variants are encoded as at least
+    /// 65 bytes using padding.
     ///
     /// This can be used for storage and transmission in the old byte array format.
     /// When the wrapping key is a COSE key, and the wrapped key is a COSE key, then this should
@@ -838,11 +838,10 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: u8) {
 /// The last N bytes of the padded bytes all have the value N.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 ///
-/// Keys that have the type [SymmetricCryptoKey::XChaCha20Poly1305Key] must be distinguishable
-/// from [SymmetricCryptoKey::Aes256CbcHmacKey] keys, when both are encoded as byte arrays
-/// with no additional content format included in the encoding message. For this reason, the
-/// padding is used to make sure that the byte representation uniquely separates the keys by
-/// size of the byte array the previous key types [SymmetricCryptoKey::Aes256CbcHmacKey] and
+/// COSE-serialized keys must be distinguishable from
+/// [SymmetricCryptoKey::Aes256CbcHmacKey] keys when encoded as byte arrays with no additional
+/// content format. Padding ensures that the byte representation uniquely separates keys by size.
+/// The previous key types [SymmetricCryptoKey::Aes256CbcHmacKey] and
 /// [SymmetricCryptoKey::Aes256CbcKey] are 64 and 32 bytes long respectively.
 fn unpad_key(key_bytes: &[u8]) -> Result<&[u8], CryptoError> {
     crate::keys::utils::unpad_bytes(key_bytes).map_err(|_| CryptoError::InvalidKey)
