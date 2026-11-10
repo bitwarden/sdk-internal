@@ -1,5 +1,5 @@
 [Unit]
-Description=Bitwarden PAM rotation daemon
+Description=Bitwarden PAM access connector
 After=network-online.target
 Wants=network-online.target
 
