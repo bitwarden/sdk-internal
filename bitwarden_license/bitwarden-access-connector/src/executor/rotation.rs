@@ -14,7 +14,9 @@ use std::{
 
 use bitwarden_core::{Client, OrganizationId};
 use bitwarden_generators::GeneratorClientsExt as _;
-use bitwarden_pam::VerifiedJob;
+use bitwarden_pam::{
+    RotationCipherError, VerifiedJob, decrypt_cipher_for_rotation, rotate_cipher_password,
+};
 use bitwarden_vault::Cipher;
 use chrono::Utc;
 
@@ -22,7 +24,6 @@ use super::retry::{GatedOutcome, RetryCfg, with_retries, with_retries_gated};
 use crate::{
     api::{AccessConnectorClient, AccessConnectorClientExt as _, models::ApiError},
     auth::session::{SessionLost, SessionManager, SessionPhase},
-    crypto::CryptoModuleError,
     error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
     integrations::{Integration, IntegrationRegistry, RotateContext},
     resolver::{CredentialResolver, ResolveError},
@@ -140,7 +141,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         }
 
         // The decrypted view is dropped right away; only the verdict matters here.
-        if let Err(e) = api.decrypt_cipher_for_rotation(ctx.organization_id, cipher) {
+        if let Err(e) = decrypt_cipher_for_rotation(&api.key_store, ctx.organization_id, cipher) {
             report_failure_absorb(
                 &api,
                 attempt_id,
@@ -371,7 +372,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
         // The plaintext view lives only inside this block.
         let request = {
             let (view, original_key) =
-                match api.decrypt_cipher_for_rotation(ctx.organization_id, cipher) {
+                match decrypt_cipher_for_rotation(&api.key_store, ctx.organization_id, cipher) {
                     Ok(v) => v,
                     Err(e) => {
                         report_failure_absorb(
@@ -388,7 +389,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
                     }
                 };
 
-            match api.rotate_cipher_password(&view, &original_key, &new_password) {
+            match rotate_cipher_password(&api.key_store, &view, &original_key, &new_password) {
                 Ok(r) => r,
                 Err(_) => {
                     report_failure_absorb(
@@ -707,16 +708,16 @@ async fn fetch_cipher(
 }
 
 /// A fixed, content-free reason for a rejected cipher, for the failure report.
-fn cipher_rejection_reason(err: &CryptoModuleError, pre_flight: bool) -> &'static str {
+fn cipher_rejection_reason(err: &RotationCipherError, pre_flight: bool) -> &'static str {
     match (err, pre_flight) {
-        (CryptoModuleError::CipherOrganizationMismatch, true) => "pre_flight_cipher_org_mismatch",
-        (CryptoModuleError::CipherOrganizationMismatch, false) => "pre_write_cipher_org_mismatch",
-        (CryptoModuleError::CipherNotLogin, true) => "pre_flight_cipher_not_login",
-        (CryptoModuleError::CipherNotLogin, false) => "pre_write_cipher_not_login",
-        (CryptoModuleError::CipherRestricted, true) => "pre_flight_cipher_restricted",
-        (CryptoModuleError::CipherRestricted, false) => "pre_write_cipher_restricted",
-        (CryptoModuleError::CipherWithoutItemKey, true) => "pre_flight_cipher_without_item_key",
-        (CryptoModuleError::CipherWithoutItemKey, false) => "pre_write_cipher_without_item_key",
+        (RotationCipherError::CipherOrganizationMismatch, true) => "pre_flight_cipher_org_mismatch",
+        (RotationCipherError::CipherOrganizationMismatch, false) => "pre_write_cipher_org_mismatch",
+        (RotationCipherError::CipherNotLogin, true) => "pre_flight_cipher_not_login",
+        (RotationCipherError::CipherNotLogin, false) => "pre_write_cipher_not_login",
+        (RotationCipherError::CipherRestricted, true) => "pre_flight_cipher_restricted",
+        (RotationCipherError::CipherRestricted, false) => "pre_write_cipher_restricted",
+        (RotationCipherError::CipherWithoutItemKey, true) => "pre_flight_cipher_without_item_key",
+        (RotationCipherError::CipherWithoutItemKey, false) => "pre_write_cipher_without_item_key",
         (_, true) => "pre_flight_cipher_decrypt_failed",
         (_, false) => "pre_write_cipher_decrypt_failed",
     }

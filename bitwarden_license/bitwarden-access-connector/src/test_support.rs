@@ -20,10 +20,6 @@ use bitwarden_pam_sealed::{
 use bitwarden_vault::CipherView;
 use uuid::Uuid;
 
-use crate::api::{
-    AccessConnectorClient, AccessConnectorClientExt as _, REQUEST_TIMEOUT, build_sdk_client,
-};
-
 /// The organisation every unit test authenticates into.
 pub(crate) fn test_org_id() -> OrganizationId {
     "3f1a5c4e-7b2d-4f8a-9c6e-1d2b3a4c5d6e"
@@ -178,22 +174,6 @@ pub(crate) fn decrypt_body_field(
         .parse()
         .expect("field parses");
     enc.decrypt(&mut ctx, item_key).expect("field decrypts")
-}
-
-/// An [`AccessConnectorClient`] over `store` with an unreachable API address, so only the crypto
-/// methods work.
-pub(crate) fn client_with_store(store: &KeyStore<KeySlotIds>) -> AccessConnectorClient {
-    let (tx, _rx) = tokio::sync::watch::channel(std::time::Instant::now());
-    let (client, _handler) = build_sdk_client(
-        "http://127.0.0.1:1".to_owned(),
-        "http://127.0.0.1:1".to_owned(),
-        REQUEST_TIMEOUT,
-        tx,
-    );
-    AccessConnectorClient {
-        key_store: store.clone(),
-        ..client.access_connector()
-    }
 }
 
 /// `(sealedData, wrappedKey)` as sent over the wire.
