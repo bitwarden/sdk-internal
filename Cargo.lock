@@ -1721,6 +1721,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-uniffi-server"
+version = "0.1.0"
+dependencies = [
+ "bitwarden-crypto",
+ "thiserror",
+ "uniffi",
+]
+
+[[package]]
 name = "bitwarden-unlock"
 version = "4.0.0"
 dependencies = [
