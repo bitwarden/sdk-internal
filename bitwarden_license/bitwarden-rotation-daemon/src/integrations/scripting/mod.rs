@@ -307,12 +307,26 @@ pub(crate) fn classify_outcome(
             code: FailureCode::CredentialsUnresolved,
             detail: SafeDetail::from_kind("PowerShellHostNotFound"),
         }),
+        Err(InvokeError::StdinWrite) => Err(script_io_error(operation, "ScriptStdinWriteFailed")),
+        Err(InvokeError::Wait) => Err(script_io_error(operation, "ScriptWaitFailed")),
         Err(_) => Err(IntegrationError {
             class: ErrorClass::Fatal,
             effect: TargetEffect::NotApplied,
             code: FailureCode::Internal,
             detail: SafeDetail::from_kind("ScriptSpawnError"),
         }),
+    }
+}
+
+fn script_io_error(operation: &str, kind: &'static str) -> IntegrationError {
+    IntegrationError {
+        class: ErrorClass::Fatal,
+        effect: match operation {
+            "rotate" => TargetEffect::Unknown,
+            _ => TargetEffect::NotApplied,
+        },
+        code: FailureCode::Internal,
+        detail: SafeDetail::from_kind(kind),
     }
 }
 
@@ -670,6 +684,32 @@ mod tests {
             assert_eq!(err.code, FailureCode::ScriptTimeout, "{operation}");
             assert_eq!(err.effect, effect, "{operation}");
         }
+    }
+
+    #[test]
+    fn classify_outcome_does_not_claim_rotate_left_the_target_alone() {
+        for err in [InvokeError::StdinWrite, InvokeError::Wait] {
+            let rotate = classify_outcome(Err(err.clone()), "rotate", 60).unwrap_err();
+            assert_eq!(rotate.effect, TargetEffect::Unknown, "{err:?}");
+
+            for operation in ["verify", "terminate"] {
+                let other = classify_outcome(Err(err.clone()), operation, 60).unwrap_err();
+                assert_eq!(
+                    other.effect,
+                    TargetEffect::NotApplied,
+                    "{err:?}/{operation}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn classify_outcome_names_the_failing_stage() {
+        let write = classify_outcome(Err(InvokeError::StdinWrite), "rotate", 60).unwrap_err();
+        assert_eq!(write.detail.as_str(), "error kind: ScriptStdinWriteFailed");
+
+        let wait = classify_outcome(Err(InvokeError::Wait), "rotate", 60).unwrap_err();
+        assert_eq!(wait.detail.as_str(), "error kind: ScriptWaitFailed");
     }
 
     #[test]
