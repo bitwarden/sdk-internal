@@ -12,8 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// TwoFactorAuthenticatorResponseModel : Response model carrying Authenticator provider details and
-/// the user-verification token minted by the read step of two-factor enrollment.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorAuthenticatorResponseModel {
     #[serde(

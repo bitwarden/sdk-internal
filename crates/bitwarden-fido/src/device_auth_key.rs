@@ -446,9 +446,6 @@ fn convert_creation_options(
     let authenticator_options = authenticator_selection
         .as_ref()
         .map(|o| Options {
-            // TODO: Consider deriving `rk` from `resident_key` instead. Fido2NetLib marks
-            // `RequireResidentKey` obsolete in favor of `ResidentKey`. The device auth key must
-            // be discoverable, so options that carry only `residentKey` would leave `rk` false.
             rk: o.require_resident_key.unwrap_or_default(),
             uv: !matches!(
                 o.user_verification,

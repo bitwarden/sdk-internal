@@ -6,7 +6,7 @@
 //!
 //! V1 users have only a private key protected by an AES256-CBC-HMAC user key.
 //! V2 users have a private key, a signing key, a signed public key and a signed security state,
-//! all protected by a COSE-serialized XAES-256-GCM key.
+//! all protected by a Cose serialized AEAD key, currently XChaCha20-Poly1305.
 
 use std::sync::RwLock;
 

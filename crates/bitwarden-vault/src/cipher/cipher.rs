@@ -414,7 +414,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
     /// Structural mapping from an encrypted [`Cipher`] to the API's expected
     /// [`CipherRequestModel`]. No crypto — all encryption happened upstream in
     /// `CipherView::encrypt_composite`. Callers are responsible for setting
-    /// `encrypted_for` and `encrypted_by_key_id` after the conversion.
+    /// `encrypted_for` after the conversion.
     ///
     /// Fails with [`CryptoError::MissingField`] if any attachment has no `id`
     fn try_from(c: Cipher) -> Result<Self, Self::Error> {
