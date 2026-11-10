@@ -1,17 +1,14 @@
 //! # TEST-ONLY: Access connector registration payload generator
 //!
-//! WARNING: handles a plaintext organisation key, for local end-to-end testing before the
-//! web-client UI exists. Never use in production.
-//!
-//! Reads the org key from `BWAC_ORG_KEY_B64` or stdin (never argv), derives a fresh connector
-//! key, and prints the registration payload as JSON to stdout only.
+//! WARNING: handles a plaintext organisation key; never use in production. Reads it from
+//! `BWAC_ORG_KEY_B64` or stdin, never argv, and prints the payload as JSON to stdout only.
 //!
 //! ```text
 //! export BWAC_ORG_KEY_B64="<base64-encoded-org-key>"
 //! cargo run -p bitwarden-access-connector --example register -- --name my-connector
 //! ```
 
-// CLI tool: prints the payload to stdout and operator guidance to stderr by design.
+// Prints the payload to stdout and operator guidance to stderr.
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 use std::io::{self, BufRead};
@@ -40,23 +37,19 @@ struct Cli {
     name: String,
 }
 
-/// The output of a successful registration payload generation.
-///
-/// `Debug` is manually implemented, so `encryption_key_b64` (the raw seed that
-/// forms the `:` suffix of the access connector token) is never emitted in debug output.
+/// A generated registration payload. `Debug` redacts `encryption_key_b64`.
 pub struct RegisterPayload {
     /// The connector display name.
     pub name: String,
     /// The `encryptedPayload` field for the register API call.
     pub encrypted_payload: String,
-    /// CONTRACT C4: the 16-byte seed b64, encrypted under the org key.
+    /// The 16-byte seed's base64, encrypted under the org key.
     pub key: String,
     /// The raw 16-byte seed encoded as base64 (the `:` suffix of the token).
     /// Never log this value.
     pub encryption_key_b64: Zeroizing<String>,
 }
 
-// Manual Debug: redacts the encryption_key_b64 to prevent accidental logging.
 impl std::fmt::Debug for RegisterPayload {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RegisterPayload")
@@ -68,9 +61,8 @@ impl std::fmt::Debug for RegisterPayload {
     }
 }
 
-/// Generate the registration payload for a new access connector.
-///
-/// `org_key_b64` is the organisation's crown-jewel symmetric key; it must never appear in logs.
+/// Generate the registration payload for a new access connector. `org_key_b64` must never appear
+/// in logs.
 ///
 /// # Errors
 ///
@@ -90,11 +82,10 @@ pub fn generate_registration_payload(
 
     let seed: Zeroizing<[u8; 16]> = generate_random_bytes();
 
-    // Encode the raw seed to base64: this is the `:` suffix of the access connector token.
     let seed_b64 = B64::from(seed.as_slice());
     let encryption_key_b64 = Zeroizing::new(seed_b64.to_string());
 
-    // Mirrors AccessConnectorToken::from_str's derivation exactly (C1 constants).
+    // Must match AccessConnectorToken::from_str.
     let derived = derive_shareable_key(seed, DERIVE_NAME, Some(DERIVE_INFO));
     let derived_key = SymmetricCryptoKey::Aes256CbcHmacKey(derived);
 
@@ -108,7 +99,6 @@ pub fn generate_registration_payload(
         .encrypt_with_key(&derived_key)
         .map_err(|e| format!("failed to encrypt payload: {e}"))?;
 
-    // CONTRACT C4: parallel to SM's AccessTokenCreateRequestModel.Key semantics.
     let key_enc: EncString = encryption_key_b64
         .as_str()
         .encrypt_with_key(&org_key)
@@ -125,17 +115,15 @@ pub fn generate_registration_payload(
 fn main() {
     let cli = Cli::parse();
 
-    // Print the TEST-ONLY banner to stderr so it doesn't pollute the JSON
-    // output that callers parse from stdout.
+    // The banner goes to stderr, so it stays out of the JSON callers parse from stdout.
     eprintln!();
-    eprintln!("╔══════════════════════════════════════════════════════════╗");
-    eprintln!("║  TEST-ONLY: access connector registration payload generator        ║");
-    eprintln!("║  This binary handles a plaintext org key.                ║");
-    eprintln!("║  Do NOT use in production.                               ║");
-    eprintln!("╚══════════════════════════════════════════════════════════╝");
+    eprintln!("╔══════════════════════════════════════════════════════════════╗");
+    eprintln!("║  TEST-ONLY: access connector registration payload generator  ║");
+    eprintln!("║  This binary handles a plaintext org key.                    ║");
+    eprintln!("║  Do NOT use in production.                                   ║");
+    eprintln!("╚══════════════════════════════════════════════════════════════╝");
     eprintln!();
 
-    // Read the org key from the environment or stdin (never argv).
     let org_key_b64 = match std::env::var("BWAC_ORG_KEY_B64") {
         Ok(val) if !val.trim().is_empty() => val,
         _ => {
@@ -163,8 +151,7 @@ fn main() {
         }
     };
 
-    // Print the registration JSON to stdout only.
-    // The org key and encryption_key are never included here.
+    // The register request body, which must never carry the plaintext org key or seed.
     println!(
         "{}",
         serde_json::json!({
@@ -174,8 +161,7 @@ fn main() {
         })
     );
 
-    // encryption_key_b64 is printed here (stdout only, not logs) since the
-    // operator must embed it in the token string.
+    // The seed goes to stdout, never a log, because the operator embeds it in the token.
     println!();
     println!(
         "token template: 0.access-connector.<apiKeyId>.<clientSecret>:{}",
@@ -204,9 +190,6 @@ mod tests {
     }
 
     /// Full round-trip: generate payload → parse token → unwrap org key → probe.
-    ///
-    /// This exercises both the registration helper and the connector's key-unwrap
-    /// path end-to-end using a synthetic token.
     #[test]
     fn register_round_trip() {
         let (org_key, org_key_b64) = make_test_org_key_b64();
@@ -214,8 +197,7 @@ mod tests {
         let payload = generate_registration_payload(&org_key_b64, "round-trip-connector")
             .expect("generate_registration_payload should succeed");
 
-        // apiKeyId and clientSecret are arbitrary; the token parser only cares
-        // about the encryption_key_b64 suffix.
+        // Placeholder apiKeyId and clientSecret; only the seed suffix feeds the derived key.
         let fake_api_key_id = "00000000-0000-0000-0000-000000000001";
         let fake_client_secret = "testsecret";
         let token_str = format!(
@@ -230,12 +212,11 @@ mod tests {
             .parse()
             .expect("synthetic token must parse successfully");
 
-        // Unwrap the org key from encryptedPayload using the token's derived key.
         let store: AccessConnectorKeyStore = KeyStore::default();
         unwrap_org_key(&store, &token.encryption_key, &payload.encrypted_payload)
             .expect("unwrap_org_key must succeed with the correct derived key");
 
-        // Verify the recovered org key encrypts/decrypts a probe correctly.
+        // Encrypt under the recovered org key and decrypt under the original one.
         let probe = "access-connector-register-round-trip-probe";
         let encrypted_probe = {
             use bitwarden_crypto::PrimitiveEncryptable;
@@ -245,7 +226,6 @@ mod tests {
                 .expect("encrypt probe under recovered org key")
         };
 
-        // Decrypt using the original org_key to confirm they are the same.
         let decrypted: String = encrypted_probe
             .decrypt_with_key(&org_key)
             .expect("decrypt probe under original org key");
@@ -256,20 +236,17 @@ mod tests {
         );
     }
 
-    /// Confirm a bad org key b64 yields a friendly error.
     #[test]
     fn bad_org_key_b64_errors() {
         let result = generate_registration_payload("!!!not-base64!!!", "test");
         assert!(result.is_err(), "expected error for invalid base64");
         let msg = result.unwrap_err();
-        // Must not echo the key material.
         assert!(
             !msg.contains("!!!"),
             "error message echoed key material: {msg}"
         );
     }
 
-    /// Confirm generating two payloads produces different encryption_key seeds.
     #[test]
     fn seeds_are_distinct() {
         let (_org_key, org_key_b64) = make_test_org_key_b64();

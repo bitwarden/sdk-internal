@@ -1,7 +1,4 @@
-# Local development configuration for bwac.
-#
-# Points at the dev proxy on https://localhost:8080; the access connector token is env-only via
-# BWAC_TOKEN.
+# Local development configuration for bwac, against the dev proxy on https://localhost:8080.
 #
 # Run with:
 #   BWAC_TOKEN="<token>" cargo run -p bitwarden-access-connector -- run \

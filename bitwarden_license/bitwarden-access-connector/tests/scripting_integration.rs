@@ -1,16 +1,7 @@
-//! End-to-end tests for the script launchers, against real files and real child processes.
+//! End-to-end tests for the script launchers, against real files and real child processes. The
+//! crate's unit tests cover everything a fake runner or environment can.
 //!
-//! Everything that can be asserted against a fake runner or a fake environment lives in the
-//! crate's unit tests, which spawn nothing. What is left here is the handful of properties a
-//! test double cannot establish:
-//!
-//! - a `.ps1` really is dispatched to a PowerShell host and really receives the payload;
-//! - the environment allowlist really keeps credentials out of a real child process;
-//! - the `script_root` restriction really rejects a real symlink pointing outside it;
-//! - the stdin write really is bounded when a real script never drains the pipe.
-//!
-//! Mocking any of those would leave the test asserting against its own stub. They are
-//! `#[ignore]`d because they need `pwsh` on `PATH`; run them with:
+//! They are `#[ignore]`d, as most need `pwsh` on `PATH`; run them with:
 //!
 //! ```text
 //! cargo test -p bitwarden-access-connector --all-features -- --ignored
@@ -19,12 +10,8 @@
 mod common;
 use common::*;
 
-/// Mounts a full rotation exchange: poll, claim, cipher read, cipher write, and both outcome
-/// endpoints.
-///
-/// The poll mock keeps offering the same job, so the connector rotates repeatedly for as long as
-/// the test lets it run. Assertions therefore go through [`assert_outcome`], which asks which
-/// outcomes were reported rather than how many times.
+/// Mounts a full rotation exchange. The poll mock keeps offering the same job, so the connector
+/// rotates repeatedly; assert through [`assert_outcome`], which ignores the count.
 async fn mount_rotation(
     api: &MockServer,
     cipher_data: String,
@@ -99,7 +86,6 @@ async fn mount_rotation(
         .await;
 }
 
-/// The body of the first failure report the connector sent.
 async fn failure_detail(api: &MockServer) -> String {
     let requests = api
         .received_requests()
@@ -235,7 +221,6 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
 #[tokio::test]
 #[ignore = "Integration test requires PowerShell (pwsh) on PATH"]
 async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
-    // The one property no test double can establish: what a real child actually inherits.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
     let (org_key, encrypted_payload) = make_org_key_and_payload();
@@ -274,8 +259,8 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
                 format!("{prefix}OUT_PATH"),
                 out.to_string_lossy().into_owned(),
             ),
-            // A per-target credential and the access connector token, both live in the connector's
-            // own environment at this point.
+            // A per-target credential and the access connector token, both in the connector's own
+            // environment at this point.
             (
                 format!("{prefix}CLIENT_SECRET"),
                 "SENTINEL_SECRET_MUST_NOT_LEAK".to_string(),
@@ -300,8 +285,8 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
         !dumped.contains("SENTINEL_TOKEN_MUST_NOT_LEAK"),
         "access connector token reached the child"
     );
-    // And the other half: a launcher that simply cleared everything would pass the two checks
-    // above and then fail to start a host on Windows.
+    // A launcher that cleared everything would pass the two checks above, then fail to start a
+    // host on Windows.
     let env: serde_json::Value = serde_json::from_str(&dumped).expect("env dump must be JSON");
     assert!(
         env.get("PATH").is_some(),
@@ -312,9 +297,8 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
 #[tokio::test]
 #[ignore = "Integration test requires PowerShell (pwsh) on PATH"]
 async fn a_script_that_never_reads_stdin_is_still_killed() {
-    // Regression: the stdin write once sat outside the timeout, so a script that never drains
-    // stdin hung the rotation forever once the payload cleared the pipe buffer. Only a real
-    // blocked pipe reproduces it.
+    // The stdin write must sit inside the timeout, because a script that never drains stdin
+    // blocks it once the payload exceeds the pipe buffer. Only a real blocked pipe shows that.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
     let (org_key, encrypted_payload) = make_org_key_and_payload();
@@ -357,15 +341,12 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
     assert_outcome(&api, false).await;
 }
 
-// Unix only: creating a symlink on Windows needs Developer Mode or admin rights. Without the
-// gate the test still passed there, but for the wrong reason -- no link got created, so the
-// script simply did not exist and the connector failed with ScriptNotFound instead.
+// Unix only: creating a symlink on Windows needs Developer Mode or admin rights.
 #[cfg(unix)]
 #[tokio::test]
 #[ignore = "Integration test resolves real symlinks on disk"]
 async fn a_symlink_pointing_outside_script_root_is_rejected() {
-    // The containment check is `canonicalize` plus `starts_with`. Against a fake filesystem
-    // this would only prove that `starts_with` compares two strings the test chose itself.
+    // The containment check is `canonicalize` plus `starts_with`, so only a real link tests it.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
     let (org_key, encrypted_payload) = make_org_key_and_payload();
@@ -402,8 +383,7 @@ async fn a_symlink_pointing_outside_script_root_is_rejected() {
     .await;
 
     assert_outcome(&api, false).await;
-    // Specifically the containment check, not merely some failure: ScriptNotFound would mean
-    // the link was never followed.
+    // ScriptNotFound would mean the link was never followed.
     let detail = failure_detail(&api).await;
     assert!(
         detail.contains("ScriptOutsideRoot"),

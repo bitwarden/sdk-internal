@@ -1,8 +1,5 @@
-//! Identity server interaction for obtaining access tokens.
-//!
-//! Implements the OAuth2 client-credentials grant against
-//! `{identity_url}/connect/token`, the same endpoint the SM daemon uses,
-//! but with `scope=api.pam.rotation` and a 4-part access connector token format.
+//! OAuth2 client-credentials grant against `{identity_url}/connect/token`, requesting
+//! `scope=api.pam.rotation`.
 
 use std::time::Duration;
 
@@ -13,19 +10,15 @@ use thiserror::Error;
 
 use crate::token::AccessConnectorToken;
 
-/// How long to wait for the identity server before giving up on a single request.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// The OAuth2 scope requested from the identity server.
 const SCOPE: &str = "api.pam.rotation";
 
-/// A successful authentication response from the identity server.
-///
-/// `Debug` is implemented manually to redact `access_token`.
+/// A successful authentication response from the identity server. `Debug` is hand-written to
+/// redact `access_token`.
 pub(crate) struct AuthSuccess {
-    /// The short-lived bearer access token.  Redacted in `Debug`.
     pub(crate) access_token: SensitiveString,
-    /// Token lifetime in seconds as reported by the server.
+    /// Token lifetime in seconds.
     pub(crate) expires_in: u64,
     /// The organisation key wrapped under the connector's encryption key (EncString).
     pub(crate) encrypted_payload: String,
@@ -42,19 +35,16 @@ impl std::fmt::Debug for AuthSuccess {
 /// Errors returned by [`IdentityClient::authenticate`].
 #[derive(Debug, Error)]
 pub(crate) enum AuthError {
-    /// The identity server explicitly rejected the credential (e.g. `invalid_client`,
-    /// `invalid_grant`, `unauthorized_client`). This is a terminal condition; the
-    /// connector must not retry with the same credential.
+    /// The identity server rejected the credential (`invalid_client`, `invalid_grant`,
+    /// `unauthorized_client`). Terminal: do not retry with the same credential.
     #[error("credential rejected by identity server")]
     Rejected,
 
-    /// A transient network or server error (5xx, 429, connection failure).  The caller
-    /// may retry after a delay.
+    /// A connection failure, 429, 5xx or other unexpected status; retryable after a delay.
     #[error("transient error contacting identity server: {0}")]
     Transient(String),
 
-    /// The server returned a response that could not be parsed as the expected JSON.
-    /// Indicates a server-side contract violation.
+    /// The response was not the expected JSON, or carried an unrecognised OAuth error.
     #[error("identity server returned an unexpected response")]
     Protocol,
 }
@@ -66,39 +56,31 @@ pub(crate) struct IdentityClient {
 }
 
 impl IdentityClient {
-    /// Build a new client targeting `identity_url`.
-    ///
-    /// Uses [`new_http_client_builder`] (rustls + platform verifier + `https_only`
-    /// in release); the workspace `reqwest` has no TLS backend built in.
+    /// Uses [`new_http_client_builder`] because the workspace `reqwest` has no TLS backend of its
+    /// own.
     pub(crate) fn new(identity_url: String) -> Result<Self, reqwest::Error> {
         let http = new_http_client_builder()
             .timeout(REQUEST_TIMEOUT)
-            // Disable automatic redirect following: the identity server never
-            // legitimately redirects credential posts; following a redirect would
-            // send the client_secret to an unexpected endpoint.
+            // Never follow redirects: a redirected credential post would send the client_secret to
+            // an unexpected endpoint.
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
         Ok(Self { http, identity_url })
     }
 
-    /// POST `{identity_url}/connect/token` with a `client_credentials` grant.
-    ///
-    /// On success returns the bearer token, expiry, and the wrapped org-key payload.
-    /// The request form body and raw response body are never logged.
+    /// POST `{identity_url}/connect/token` with a `client_credentials` grant. Neither the form body
+    /// nor the raw response body is ever logged.
     pub(crate) async fn authenticate(
         &self,
         token: &AccessConnectorToken,
     ) -> Result<AuthSuccess, AuthError> {
         let url = format!("{}/connect/token", self.identity_url.trim_end_matches('/'));
 
-        // The client_secret is exposed to place it in the form as a short-lived local
-        // borrow; it never enters any log or error message.
+        // Copied out only to build the form; the secret never enters a log or error message.
         use bitwarden_sensitive_value::ExposeSensitive as _;
         let secret_value = token.client_secret.expose().to_owned();
         let client_id = token.client_id();
 
-        // Built as a vec so all fields, including the sensitive secret, are assembled
-        // in one place and discarded immediately after the send call.
         let form: Vec<(&str, &str)> = vec![
             ("grant_type", "client_credentials"),
             ("client_id", &client_id),
@@ -122,8 +104,8 @@ impl IdentityClient {
 
         if status == reqwest::StatusCode::BAD_REQUEST || status == reqwest::StatusCode::UNAUTHORIZED
         {
-            // Parse the OAuth error field to distinguish rejected vs. protocol.
-            // We do NOT log the raw body.
+            // The OAuth `error` field separates Rejected from Protocol. The raw body is never
+            // logged.
             let body_bytes = response.bytes().await.map_err(|_| AuthError::Protocol)?;
 
             #[derive(Deserialize)]
@@ -146,7 +128,7 @@ impl IdentityClient {
             return Err(AuthError::Transient(format!("HTTP {}", status.as_u16())));
         }
 
-        // Parse the success body.  We do NOT log it.
+        // The success body carries the bearer token; never log it.
         let body_bytes = response.bytes().await.map_err(|_| AuthError::Protocol)?;
 
         #[derive(Deserialize)]
@@ -371,9 +353,8 @@ mod tests {
         );
     }
 
-    /// Regression guard: the old camelCase field name (`encryptedPayload`) must no
-    /// longer be accepted, since the real identity server now emits `encrypted_payload`.
-    /// A response that only carries the camelCase variant must yield `Protocol`.
+    /// The identity server emits snake_case `encrypted_payload`; a camelCase field alone must not
+    /// parse.
     #[tokio::test]
     async fn camel_case_encrypted_payload_gives_protocol() {
         let server = MockServer::start().await;

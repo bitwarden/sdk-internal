@@ -1,6 +1,6 @@
 #!/bin/sh
 # Fixture: reads stdin's JSON, extracts "EXIT_CODE" from the credentials map, and exits with
-# that code (invoked as `exit_code.sh <operation>`), letting tests drive any exit path.
+# that code (invoked as `exit_code.sh <operation>`), so tests can drive any exit path.
 
 set -e
 

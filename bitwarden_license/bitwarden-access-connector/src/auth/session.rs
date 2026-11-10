@@ -1,8 +1,5 @@
 //! Session state machine for the access connector.
 //!
-//! [`SessionManager`] encodes the spec's `ConnectorSession` state machine
-//! (access-connector.allium §ConnectorSession):
-//!
 //! ```text
 //! authenticating → active → expired → authenticating  (refresh cycle)
 //!                         → revoked  (terminal: rejected credential)
@@ -25,14 +22,11 @@ use crate::{
     token::AccessConnectorToken,
 };
 
-/// 5-minute proactive renewal margin (mirrors `TOKEN_RENEW_MARGIN_SECONDS` in
-/// `crates/bitwarden-auth/src/token_management/middleware.rs:8`).
+/// Proactive renewal margin, matching bitwarden-auth's `TOKEN_RENEW_MARGIN_SECONDS`.
 const TOKEN_RENEW_MARGIN_SECS: u64 = 5 * 60;
 
-/// Base delay for renewal backoff (1 s, doubled each attempt, capped at 30 s).
 const BACKOFF_BASE: Duration = Duration::from_secs(1);
 
-/// Maximum single backoff sleep.
 const BACKOFF_CAP: Duration = Duration::from_secs(30);
 
 /// Renewal attempt count for a `None` deadline.
@@ -45,9 +39,9 @@ pub(crate) enum SessionPhase {
     Authenticating,
     /// Access token valid; org key installed in the key store.
     Active,
-    /// Token expired; a refresh is pending.
+    /// A renewal attempt failed without a rejection; renewal will be retried.
     Expired,
-    /// Terminal: credential was rejected.  No further auth attempts will be made.
+    /// Terminal: the credential was rejected, so no further auth attempts are made.
     Revoked,
     /// Terminal: [`SessionManager::close`] was called.
     Closed,
@@ -67,7 +61,7 @@ pub(crate) enum SessionLost {
 pub(crate) enum SessionError {
     /// The session is terminally lost (revoked or closed).
     Lost(SessionLost),
-    /// A transient error prevented renewal (network, 5xx, etc.).
+    /// Renewal failed without a rejection (network, 5xx, malformed response); retryable.
     Transient(String),
 }
 
@@ -80,16 +74,13 @@ impl std::fmt::Display for SessionError {
     }
 }
 
-/// The mutable state protected by the session mutex.
 struct SessionState {
     phase: SessionPhase,
-    /// Bearer token present while `Active`.
+    /// The last issued bearer, kept through renewals and cleared only on terminal entry.
     bearer: Option<String>,
-    /// Monotonic instant at which the bearer expires (`Active` only).
+    /// Monotonic expiry of `bearer`.
     expires_at: Option<Instant>,
-    /// Key store.  Replaced with a fresh empty store on terminal entry.
     key_store: Arc<AccessConnectorKeyStore>,
-    /// Sender for the phase watch channel.
     phase_tx: watch::Sender<SessionPhase>,
 }
 
@@ -108,7 +99,6 @@ impl SessionState {
         }
     }
 
-    /// Set the phase and broadcast it on the watch channel.
     fn set_phase(&mut self, phase: SessionPhase) {
         self.phase = phase;
         self.phase_tx.send_if_modified(|p| {
@@ -117,7 +107,6 @@ impl SessionState {
         });
     }
 
-    /// Apply a successful auth response: install bearer + expiry + org key.
     fn apply_success(
         &mut self,
         success: AuthSuccess,
@@ -134,14 +123,14 @@ impl SessionState {
         )
         .map_err(|e| e.to_string())?;
 
-        // Bearer is exposed here only to store it internally; never logged.
+        // Exposed only to store it; never logged.
         self.bearer = Some(success.access_token.expose().to_owned());
         self.expires_at = Some(expires_at);
         self.set_phase(SessionPhase::Active);
         Ok(())
     }
 
-    /// Transition to a terminal state, dropping all secrets.
+    /// Enter a terminal phase, dropping the bearer and the org key.
     fn enter_terminal(&mut self, lost: SessionLost) {
         let phase = match lost {
             SessionLost::Revoked => SessionPhase::Revoked,
@@ -155,11 +144,8 @@ impl SessionState {
     }
 }
 
-/// Manages the connector session lifecycle.
-///
-/// Wraps an [`IdentityClient`] and a [`AccessConnectorToken`]; all mutable state is behind an
-/// async `Mutex`, so at most one renewal is in flight at a time. `Debug` is
-/// implemented manually to avoid leaking the token or bearer.
+/// Manages the connector session lifecycle. All mutable state sits behind one async `Mutex`, so at
+/// most one renewal is in flight. `Debug` is hand-written to avoid leaking the token or bearer.
 pub(crate) struct SessionManager {
     state: Mutex<SessionState>,
     identity: IdentityClient,
@@ -173,9 +159,8 @@ impl std::fmt::Debug for SessionManager {
 }
 
 impl SessionManager {
-    /// Build a new `SessionManager` and perform the initial authentication; an
-    /// immediately rejected credential returns `Err(SessionError::Lost(Revoked))`,
-    /// which callers should treat as a fatal startup failure.
+    /// Build the manager and authenticate. A rejected credential returns
+    /// `Err(SessionError::Lost(Revoked))`, which callers treat as a fatal startup failure.
     pub(crate) async fn new(
         identity: IdentityClient,
         token: AccessConnectorToken,
@@ -197,18 +182,16 @@ impl SessionManager {
             token,
         });
 
-        // Perform the initial authentication (force=true: no stored token to coalesce on).
+        // force=true: there is no stored token to coalesce on.
         mgr.renew_with_backoff(None, true).await?;
 
         Ok(mgr)
     }
 
-    /// The current session phase.
     pub(crate) async fn phase(&self) -> SessionPhase {
         self.state.lock().await.phase
     }
 
-    /// The shared key store.
     pub(crate) async fn key_store(&self) -> Arc<AccessConnectorKeyStore> {
         Arc::clone(&self.state.lock().await.key_store)
     }
@@ -219,8 +202,7 @@ impl SessionManager {
     /// caps a `None` deadline); a rejected credential clears secrets and returns
     /// `Err(Lost(Revoked))`.
     pub(crate) async fn bearer(&self, deadline: Option<Instant>) -> Result<String, SessionError> {
-        // Fast-path: check current state without holding the mutex across a
-        // potential network call.
+        // Fast path, without holding the mutex across a network call.
         {
             let guard = self.state.lock().await;
             match guard.phase {
@@ -246,8 +228,8 @@ impl SessionManager {
 
     /// Force a session refresh on the 401 path.
     ///
-    /// A bearer already differing from `stale` means a concurrent task already renewed it (the
-    /// `resolve_retry` pattern) and is returned as-is; a match forces an unconditional renewal.
+    /// A bearer that no longer matches `stale` was already renewed by a concurrent task and is
+    /// returned as-is, as in bitwarden-auth's `resolve_retry`.
     pub(crate) async fn force_refresh(
         &self,
         stale: &str,
@@ -260,7 +242,6 @@ impl SessionManager {
                 SessionPhase::Closed => return Err(SessionError::Lost(SessionLost::Closed)),
                 _ => {}
             }
-            // resolve_retry pattern: reuse a token already changed by a concurrent task.
             if let Some(current) = &guard.bearer
                 && current != stale
             {
@@ -275,7 +256,7 @@ impl SessionManager {
         Ok(guard.bearer.clone().unwrap_or_default())
     }
 
-    /// Transition to `Closed`, dropping all secrets.
+    /// Transition to `Closed`, dropping the bearer and the org key.
     pub(crate) async fn close(&self) {
         let mut guard = self.state.lock().await;
         if !matches!(guard.phase, SessionPhase::Revoked | SessionPhase::Closed) {
@@ -283,10 +264,8 @@ impl SessionManager {
         }
     }
 
-    /// Attempt to renew the session with backoff, serialised via the mutex.
-    ///
-    /// The mutex is held across the network call, so at most one identity call runs at a time;
-    /// it releases during the backoff sleep so `close()` can still run.
+    /// Renew the session with backoff. The mutex is held across the identity call, so only one runs
+    /// at a time, and released during the backoff sleep so `close()` can still run.
     async fn renew_with_backoff(
         &self,
         deadline: Option<Instant>,
@@ -299,7 +278,6 @@ impl SessionManager {
         loop {
             let mut guard = self.state.lock().await;
 
-            // Terminal checks and coalescing short-circuits.
             match guard.phase {
                 SessionPhase::Revoked => return Err(SessionError::Lost(SessionLost::Revoked)),
                 SessionPhase::Closed => return Err(SessionError::Lost(SessionLost::Closed)),
@@ -321,9 +299,6 @@ impl SessionManager {
                     guard
                         .apply_success(success, &self.token)
                         .map_err(SessionError::Transient)?;
-                    // Log successful auth/refresh.  `force` on the first attempt
-                    // distinguishes a forced 401-driven refresh from a proactive
-                    // renewal; the difference is cosmetic to the operator.
                     if tries == 0 {
                         tracing::info!("session established (authentication succeeded)");
                     } else {
@@ -336,8 +311,7 @@ impl SessionManager {
                 }
                 Err(AuthError::Rejected) => {
                     guard.enter_terminal(SessionLost::Revoked);
-                    // Terminal; the executor logs the actionable message, this logs
-                    // the phase transition.
+                    // The executor logs the actionable message; this logs the transition.
                     tracing::warn!(
                         "session entered Revoked phase (credential rejected by identity server)"
                     );
@@ -402,7 +376,6 @@ impl SessionManager {
 
                     // Set Expired so phase-watchers see a transient stall.
                     guard.set_phase(SessionPhase::Expired);
-                    // Release the lock before sleeping.
                     drop(guard);
 
                     let sleep_dur = compute_sleep(delay, deadline);
@@ -428,8 +401,7 @@ impl SessionManager {
     }
 }
 
-/// Compute the sleep duration: `delay` capped by time remaining until `deadline`, or
-/// `Duration::ZERO` after the deadline passes.
+/// `delay` capped by the time left until `deadline`, or `Duration::ZERO` once it has passed.
 fn compute_sleep(delay: Duration, deadline: Option<Instant>) -> Duration {
     match deadline {
         None => delay.min(BACKOFF_CAP),
@@ -470,7 +442,6 @@ mod tests {
         AccessConnectorToken::from_str(VALID_TOKEN_STR).expect("valid token")
     }
 
-    /// Derive the token's encryption key (C1 constants).
     fn token_encryption_key() -> SymmetricCryptoKey {
         use bitwarden_encoding::B64;
         let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().expect("valid b64");
@@ -483,7 +454,6 @@ mod tests {
         ))
     }
 
-    /// Build the `encryptedPayload` value an identity server would return.
     fn make_encrypted_payload(
         token_key: &SymmetricCryptoKey,
         org_key: &SymmetricCryptoKey,
@@ -539,12 +509,11 @@ mod tests {
 
         assert_eq!(mgr.phase().await, SessionPhase::Active);
 
-        // bearer() must return the token without a second identity hit.
         let bearer = mgr.bearer(None).await.expect("bearer");
         assert_eq!(bearer, "my-bearer");
         assert_eq!(server.received_requests().await.unwrap().len(), 1);
 
-        // The org key must be installed: probe encrypt under the store.
+        // Probe that the org key is installed.
         let store = mgr.key_store().await;
         let probe_enc = {
             let mut ctx = store.context();
@@ -558,8 +527,7 @@ mod tests {
 
     #[tokio::test]
     async fn expiry_margin_triggers_renewal() {
-        // expires_in=0 → token is immediately past the renewal margin → renewal on
-        // the first bearer() call.
+        // expires_in=0 puts the first token inside the renewal margin at once.
         let token_key = token_encryption_key();
         let org_key1 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let payload1 = make_encrypted_payload(&token_key, &org_key1);
@@ -606,7 +574,7 @@ mod tests {
 
         let org_key2 = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let payload2 = make_encrypted_payload(&token_key, &org_key2);
-        // The single renewal: add a 50 ms delay so concurrent callers overlap.
+        // The delay makes the concurrent callers overlap.
         Mock::given(method("POST"))
             .and(path("/connect/token"))
             .respond_with(
@@ -623,7 +591,6 @@ mod tests {
                 .expect("SessionManager::new"),
         );
 
-        // Spawn 5 concurrent bearer() calls; all tokens are expired → all need renewal.
         let handles: Vec<_> = (0..5)
             .map(|_| {
                 let m = Arc::clone(&mgr);
@@ -635,7 +602,7 @@ mod tests {
             assert_eq!(h.await.expect("spawn").expect("bearer"), "renewed-tok");
         }
 
-        // Exactly 2 identity hits: initial auth + exactly 1 renewal.
+        // Initial auth plus one renewal.
         assert_eq!(server.received_requests().await.unwrap().len(), 2);
     }
 
@@ -664,14 +631,12 @@ mod tests {
         let payload = make_encrypted_payload(&token_key, &org_key);
 
         let server = MockServer::start().await;
-        // Initial auth succeeds.
         Mock::given(method("POST"))
             .and(path("/connect/token"))
             .respond_with(success_response("tok", 3600, &payload))
             .up_to_n_times(1)
             .mount(&server)
             .await;
-        // After that: rejected.
         Mock::given(method("POST"))
             .and(path("/connect/token"))
             .respond_with(rejected_response())
@@ -692,7 +657,6 @@ mod tests {
         let err = mgr.bearer(None).await.expect_err("should be lost");
         assert!(matches!(err, SessionError::Lost(SessionLost::Revoked)));
 
-        // No new identity hits after revocation.
         assert_eq!(
             server.received_requests().await.unwrap().len(),
             count_before
@@ -799,8 +763,6 @@ mod tests {
 
     #[tokio::test]
     async fn force_refresh_reuses_token_if_already_renewed() {
-        // resolve_retry pattern: force_refresh compares the stored token against `stale` and
-        // skips the identity call on a mismatch.
         let token_key = token_encryption_key();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let payload = make_encrypted_payload(&token_key, &org_key);
@@ -869,7 +831,6 @@ mod tests {
                 .expect("encrypt")
         };
 
-        // Must decrypt under org_key2 (new key), not org_key1 (old key).
         let ok: Result<String, _> = probe_enc.decrypt_with_key(&org_key2);
         assert!(ok.is_ok(), "probe must decrypt under the new org key");
         let fail: Result<String, _> = probe_enc.decrypt_with_key(&org_key1);

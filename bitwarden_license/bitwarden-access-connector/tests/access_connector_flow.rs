@@ -1,11 +1,5 @@
-//! Black-box integration tests for the access connector end-to-end flow.
-//!
-//! Each test starts a wiremock MockServer for the identity and API servers, then drives
-//! `bitwarden_access_connector::run(cfg, cancel)` against them using self-consistent token,
-//! payload, and cipher fixtures.
-//!
-//! The env resolver reads vars as `{TARGET_ID_UPPER_UNDERSCORE}_<SUFFIX>`; each test that
-//! mutates them acquires the process-wide `ENV_LOCK` mutex first.
+//! Black-box integration tests for the access connector end-to-end flow, run against wiremock
+//! identity and API servers.
 
 mod common;
 use common::*;
@@ -26,7 +20,6 @@ async fn happy_path_rotate_and_report_success() {
 
     let script_path = fixtures_dir().join("exit_code.sh");
 
-    // Poll: return one job.
     Mock::given(method("GET"))
         .and(path("/access-connectors/rotation/jobs"))
         .respond_with(
@@ -39,7 +32,6 @@ async fn happy_path_rotate_and_report_success() {
         .mount(&api)
         .await;
 
-    // Claim: succeed.
     Mock::given(method("POST"))
         .and(path(format!(
             "/access-connectors/rotation/jobs/{job_id}/claim"
@@ -52,7 +44,6 @@ async fn happy_path_rotate_and_report_success() {
         .mount(&api)
         .await;
 
-    // Cipher read.
     let cipher_data = make_cipher_data(&org_key, "old-password");
     Mock::given(method("GET"))
         .and(path(format!(
@@ -71,7 +62,6 @@ async fn happy_path_rotate_and_report_success() {
         .mount(&api)
         .await;
 
-    // Cipher PUT.
     Mock::given(method("PUT"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"
@@ -80,7 +70,6 @@ async fn happy_path_rotate_and_report_success() {
         .mount(&api)
         .await;
 
-    // Success report.
     Mock::given(method("POST"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/success"
@@ -89,7 +78,6 @@ async fn happy_path_rotate_and_report_success() {
         .mount(&api)
         .await;
 
-    // Set env vars: SCRIPT=exit_code.sh, EXIT_CODE=0.
     let script_key = format!("{prefix}SCRIPT");
     let exit_code_key = format!("{prefix}EXIT_CODE");
     {
@@ -115,7 +103,6 @@ async fn happy_path_rotate_and_report_success() {
     let exit = handle.await.expect("task panicked");
     assert_eq!(exit, RunExit::Shutdown);
 
-    // Cleanup.
     {
         let _guard = ENV_LOCK.lock().expect("env lock");
         unsafe {
@@ -124,7 +111,6 @@ async fn happy_path_rotate_and_report_success() {
         }
     }
 
-    // Verify PUT was called.
     let all_reqs = api.received_requests().await.expect("requests");
     let put_reqs: Vec<_> = all_reqs
         .iter()
@@ -132,7 +118,6 @@ async fn happy_path_rotate_and_report_success() {
         .collect();
     assert!(!put_reqs.is_empty(), "PUT cipher must have been called");
 
-    // Verify success report was sent with sessionTermination=0 (NotRequested).
     let success_reqs: Vec<_> = all_reqs
         .iter()
         .filter(|r| r.url.path().contains("/success"))
@@ -222,7 +207,7 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         let _guard = ENV_LOCK.lock().expect("env lock");
         unsafe {
             std::env::set_var(&script_key, script_path.to_str().expect("utf8 path"));
-            // Exit 4 = transient failure.
+            // Exit 4 is a transient failure that leaves the target untouched.
             std::env::set_var(&exit_code_key, "4");
         }
     }
@@ -251,7 +236,6 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
 
     let all_reqs = api.received_requests().await.expect("requests");
 
-    // No PUT cipher — rotation never completed.
     let put_reqs: Vec<_> = all_reqs
         .iter()
         .filter(|r| r.method.as_str() == "PUT")
@@ -261,7 +245,6 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         "PUT cipher must NOT be called when rotate fails"
     );
 
-    // Failure report must have been sent.
     let failure_reqs: Vec<_> = all_reqs
         .iter()
         .filter(|r| r.url.path().contains("/failure"))
@@ -278,7 +261,6 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         serde_json::json!("script_failed"),
         "errorCode must be script_failed: {body}"
     );
-    // syncState=0 = TargetUnchanged (rotate step failed before touching target).
     assert_eq!(
         body["syncState"],
         serde_json::json!(0),
@@ -309,7 +291,6 @@ async fn claim_race_409_does_not_error_keeps_polling() {
         .mount(&api)
         .await;
 
-    // Claim always 409.
     Mock::given(method("POST"))
         .and(path(format!(
             "/access-connectors/rotation/jobs/{job_id}/claim"
@@ -332,7 +313,6 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let exit = handle.await.expect("task panicked");
     assert_eq!(exit, RunExit::Shutdown, "should exit Shutdown after cancel");
 
-    // No report sent, no cipher PUT.
     let all_reqs = api.received_requests().await.expect("requests");
     let report_reqs: Vec<_> = all_reqs
         .iter()
@@ -369,7 +349,6 @@ async fn invalid_client_at_startup_returns_credential_refused() {
         "invalid_client must yield CredentialRefused"
     );
 
-    // No API calls at all.
     let api_reqs = api.received_requests().await.expect("requests");
     assert!(
         api_reqs.is_empty(),
@@ -501,7 +480,6 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
 
     let all_reqs = api.received_requests().await.expect("requests");
 
-    // PUT cipher must have been called (rotation succeeded).
     let put_reqs: Vec<_> = all_reqs
         .iter()
         .filter(|r| r.method.as_str() == "PUT")
@@ -511,7 +489,6 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
         "PUT cipher must be called (rotation succeeded even when terminate fails)"
     );
 
-    // Success report must be sent with sessionTermination=2 (TermFailed).
     let success_reqs: Vec<_> = all_reqs
         .iter()
         .filter(|r| r.url.path().contains("/success"))

@@ -1,7 +1,7 @@
 # Fixture: reads stdin's JSON, extracts "OUT_PATH" from the credentials map, and writes the
 # full stdin payload there. Invoked as: copy_stdin.ps1 <operation>
 #
-# The PowerShell mirror of copy_stdin.sh, so both launchers are held to the same contract.
+# The PowerShell mirror of copy_stdin.sh.
 
 param([string]$Operation)
 
