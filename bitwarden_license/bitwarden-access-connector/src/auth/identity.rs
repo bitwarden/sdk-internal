@@ -70,12 +70,10 @@ impl IdentityClient {
         Ok(Self { http, identity_url })
     }
 
-    /// POST `{identity_url}/connect/token` with a `client_credentials` grant. Neither the form body
-    /// nor the raw response body is ever logged.
+    /// POST `{identity_url}/connect/token` with a `client_credentials` grant.
     pub(crate) async fn authenticate(&self, token: &AccessToken) -> Result<AuthSuccess, AuthError> {
         let url = format!("{}/connect/token", self.identity_url.trim_end_matches('/'));
 
-        // Copied out only to build the form; the secret never enters a log or error message.
         use bitwarden_sensitive_value::ExposeSensitive as _;
         let secret_value = token.client_secret().expose().to_owned();
         let client_id = token.client_id();
@@ -103,8 +101,7 @@ impl IdentityClient {
 
         if status == reqwest::StatusCode::BAD_REQUEST || status == reqwest::StatusCode::UNAUTHORIZED
         {
-            // The OAuth `error` field separates Rejected from Protocol. The raw body is never
-            // logged.
+            // The OAuth `error` field separates Rejected from Protocol.
             let body_bytes = response.bytes().await.map_err(|_| AuthError::Protocol)?;
 
             #[derive(Deserialize)]
@@ -127,7 +124,6 @@ impl IdentityClient {
             return Err(AuthError::Transient(format!("HTTP {}", status.as_u16())));
         }
 
-        // The success body carries the bearer token; never log it.
         let body_bytes = response.bytes().await.map_err(|_| AuthError::Protocol)?;
 
         #[derive(Deserialize)]
