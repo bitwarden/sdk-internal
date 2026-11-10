@@ -8,7 +8,7 @@ use crate::chunked::chunked_encode;
 
 /// Base64URL encoded data
 ///
-/// Is indifferent about padding when decoding, but always produces padding when encoding.
+/// Is indifferent about padding when decoding, and never produces padding when encoding.
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 #[serde(try_from = "&str", into = "String")]
 pub struct B64Url(Vec<u8>);

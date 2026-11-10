@@ -12,6 +12,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// CipherMiniResponseModel : The shape shared by every cipher response. Abstract because a response
+/// has to say which data it carries: a `Partial*` subclass emits the reduced
+/// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.PartialData envelope for a leasing-gated
+/// cipher, and a `Full*` subclass emits the secret
+/// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.Data blob and can only be constructed with
+/// a Bit.Core.Vault.Authorization.FullCipherAccess witness. Both properties are declared here so
+/// either shape serializes to the same contract.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherMiniResponseModel {
     #[serde(
@@ -164,6 +171,13 @@ pub struct CipherMiniResponseModel {
 }
 
 impl CipherMiniResponseModel {
+    /// The shape shared by every cipher response. Abstract because a response has to say which data
+    /// it carries: a `Partial*` subclass emits the reduced
+    /// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.PartialData envelope for a
+    /// leasing-gated cipher, and a `Full*` subclass emits the secret
+    /// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.Data blob and can only be constructed
+    /// with a Bit.Core.Vault.Authorization.FullCipherAccess witness. Both properties are declared
+    /// here so either shape serializes to the same contract.
     pub fn new() -> CipherMiniResponseModel {
         CipherMiniResponseModel {
             object: None,

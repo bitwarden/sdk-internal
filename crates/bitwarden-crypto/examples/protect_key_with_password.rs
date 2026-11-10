@@ -32,6 +32,7 @@ fn main() {
     let envelope = PasswordProtectedKeyEnvelope::seal(
         vault_key,
         pin,
+        // The namespace must be replaced with an appropriate namespace for the use-case
         PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
         &ctx,
     )
@@ -50,6 +51,7 @@ fn main() {
     let _unsealed_vault_key = deserialized
         .unseal(
             pin,
+            // The namespace must be replaced with an appropriate namespace for the use-case
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
             &mut ctx,
         )
@@ -61,6 +63,7 @@ fn main() {
         .reseal(
             pin,
             "0000",
+            // The namespace must be replaced with an appropriate namespace for the use-case
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
         )
         .expect("The password should be valid");
@@ -71,6 +74,7 @@ fn main() {
     let envelope = PasswordProtectedKeyEnvelope::seal(
         vault_key,
         "0000",
+        // The namespace must be replaced with an appropriate namespace for the use-case
         PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
         &ctx,
     )
@@ -81,6 +85,7 @@ fn main() {
     assert!(matches!(
         envelope.unseal(
             "9999",
+            // The namespace must be replaced with an appropriate namespace for the use-case
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
             &mut ctx
         ),

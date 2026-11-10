@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// DeviceAuthRequestResponseModelListResponseModel : A paginated list response wrapper.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceAuthRequestResponseModelListResponseModel {
     #[serde(
@@ -35,6 +36,7 @@ pub struct DeviceAuthRequestResponseModelListResponseModel {
 }
 
 impl DeviceAuthRequestResponseModelListResponseModel {
+    /// A paginated list response wrapper.
     pub fn new() -> DeviceAuthRequestResponseModelListResponseModel {
         DeviceAuthRequestResponseModelListResponseModel {
             object: None,
