@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// EmailRequestModel : This model is used in the second step of self service email change after the
+/// master password hash has been verified. The token is used to verify ownership of the new email.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmailRequestModel {
     #[serde(

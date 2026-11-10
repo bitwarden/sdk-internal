@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// AccessTokenResponseModelListResponseModel : A paginated list response wrapper.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessTokenResponseModelListResponseModel {
     #[serde(
@@ -35,6 +36,7 @@ pub struct AccessTokenResponseModelListResponseModel {
 }
 
 impl AccessTokenResponseModelListResponseModel {
+    /// A paginated list response wrapper.
     pub fn new() -> AccessTokenResponseModelListResponseModel {
         AccessTokenResponseModelListResponseModel {
             object: None,

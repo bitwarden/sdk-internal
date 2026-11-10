@@ -482,6 +482,7 @@ pub struct UpdateKdfResponse {
     old_master_password_authentication_data: MasterPasswordAuthenticationData,
 }
 
+// Note: This is deprecated and will be removed after key-connector fully uses sdk
 pub(super) async fn make_update_kdf(
     client: &Client,
     password: &str,
