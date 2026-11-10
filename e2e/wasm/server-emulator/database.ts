@@ -125,6 +125,10 @@ export class Database {
     new SequentialUuidGenerator("emergency-access"),
   );
   readonly sessions = new Table<string>(new SequentialUuidGenerator("sessions"));
+  /** Email-verification tokens a registration may finish with, mapped to the address they verify. */
+  readonly emailVerificationTokens = new Table<string>(
+    new SequentialUuidGenerator("email-verification-tokens"),
+  );
   /** The accounts the seeder wrote under each play id, keyed by play id. */
   readonly playItems = new Table<string[]>(new SequentialUuidGenerator("play-items"));
 

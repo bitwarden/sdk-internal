@@ -70,6 +70,11 @@ never delivers mail; `BW_LIVE_EMAIL_DOMAIN` changes it.
 
 Seeded accounts are V1: the seeder doesn't make V2 accounts yet.
 
+The tests of registration itself (`tests/registration/password-registration*.test.ts`) register
+their account as a client does instead, through `tests/registration/password-registration.ts`, and
+delete it with `DELETE /accounts` when they end. On a server that mails the email-verification
+token, they read it back through the seeder.
+
 ## Test vectors
 
 `test-vectors/` records recorded test vectors. These can be loaded and tested against to ensure
