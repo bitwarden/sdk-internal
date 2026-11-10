@@ -1,7 +1,7 @@
 //! Shared harness for the daemon's integration tests.
 //!
 //! Stands up wiremock identity and API servers with self-consistent token, payload, and cipher
-//! fixtures, so each test file drives the real `bitwarden_rotation_daemon::run` rather than
+//! fixtures, so each test file drives the real `bitwarden_access_connector::run` rather than
 //! reaching into crate internals.
 //!
 //! These tests do mutate the real process environment: the daemon resolves per-target
@@ -15,10 +15,10 @@
 pub use std::time::Duration;
 use std::{path::PathBuf, str::FromStr, sync::Mutex};
 
+pub use bitwarden_access_connector::executor::RunExit;
+use bitwarden_access_connector::{executor::DaemonConfig, token::DaemonToken};
 use bitwarden_crypto::{KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 use bitwarden_encoding::B64;
-pub use bitwarden_rotation_daemon::executor::RunExit;
-use bitwarden_rotation_daemon::{executor::DaemonConfig, token::DaemonToken};
 pub use bitwarden_threading::cancellation_token::CancellationToken;
 pub use uuid::Uuid;
 pub use wiremock::{

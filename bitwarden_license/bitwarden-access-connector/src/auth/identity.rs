@@ -1,29 +1,34 @@
-//! OAuth2 client-credentials grant against `{identity_url}/connect/token`, requesting
-//! `scope=api.pam.rotation`.
+//! Identity server interaction for obtaining access tokens.
+//!
+//! Implements the OAuth2 client-credentials grant against
+//! `{identity_url}/connect/token`, the same endpoint the SM daemon uses,
+//! but with `scope=api.pam.rotation` and a 4-part daemon token format.
 
 use std::time::Duration;
 
-use bitwarden_access_token::AccessToken;
 use bitwarden_api_base::new_http_client_builder;
-use bitwarden_core::{OrganizationId, auth::JwtToken};
 use bitwarden_sensitive_value::SensitiveString;
 use serde::Deserialize;
 use thiserror::Error;
 
+use crate::token::DaemonToken;
+
+/// How long to wait for the identity server before giving up on a single request.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// The OAuth2 scope requested from the identity server.
 const SCOPE: &str = "api.pam.rotation";
 
-/// A successful authentication response from the identity server. `Debug` is hand-written to
-/// redact `access_token`.
+/// A successful authentication response from the identity server.
+///
+/// `Debug` is implemented manually to redact `access_token`.
 pub(crate) struct AuthSuccess {
+    /// The short-lived bearer access token.  Redacted in `Debug`.
     pub(crate) access_token: SensitiveString,
-    /// Token lifetime in seconds.
+    /// Token lifetime in seconds as reported by the server.
     pub(crate) expires_in: u64,
-    /// The organisation key wrapped under the connector's encryption key (EncString).
+    /// The organisation key wrapped under the daemon's encryption key (EncString).
     pub(crate) encrypted_payload: String,
-    /// The organisation the connector belongs to, from the access token's `organization` claim.
-    pub(crate) organization_id: OrganizationId,
 }
 
 impl std::fmt::Debug for AuthSuccess {
@@ -37,16 +42,19 @@ impl std::fmt::Debug for AuthSuccess {
 /// Errors returned by [`IdentityClient::authenticate`].
 #[derive(Debug, Error)]
 pub(crate) enum AuthError {
-    /// The identity server rejected the credential (`invalid_client`, `invalid_grant`,
-    /// `unauthorized_client`). Terminal: do not retry with the same credential.
+    /// The identity server explicitly rejected the credential (e.g. `invalid_client`,
+    /// `invalid_grant`, `unauthorized_client`). This is a terminal condition; the
+    /// daemon must not retry with the same credential.
     #[error("credential rejected by identity server")]
     Rejected,
 
-    /// A connection failure, 429, 5xx or other unexpected status; retryable after a delay.
+    /// A transient network or server error (5xx, 429, connection failure).  The caller
+    /// may retry after a delay.
     #[error("transient error contacting identity server: {0}")]
     Transient(String),
 
-    /// The response was not the expected JSON, or carried an unrecognised OAuth error.
+    /// The server returned a response that could not be parsed as the expected JSON.
+    /// Indicates a server-side contract violation.
     #[error("identity server returned an unexpected response")]
     Protocol,
 }
@@ -58,26 +66,36 @@ pub(crate) struct IdentityClient {
 }
 
 impl IdentityClient {
-    /// Uses [`new_http_client_builder`] because the workspace `reqwest` has no TLS backend of its
-    /// own.
+    /// Build a new client targeting `identity_url`.
+    ///
+    /// Uses [`new_http_client_builder`] (rustls + platform verifier + `https_only`
+    /// in release); the workspace `reqwest` has no TLS backend built in.
     pub(crate) fn new(identity_url: String) -> Result<Self, reqwest::Error> {
         let http = new_http_client_builder()
             .timeout(REQUEST_TIMEOUT)
-            // Never follow redirects: a redirected credential post would send the client_secret to
-            // an unexpected endpoint.
+            // Disable automatic redirect following: the identity server never
+            // legitimately redirects credential posts; following a redirect would
+            // send the client_secret to an unexpected endpoint.
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
         Ok(Self { http, identity_url })
     }
 
     /// POST `{identity_url}/connect/token` with a `client_credentials` grant.
-    pub(crate) async fn authenticate(&self, token: &AccessToken) -> Result<AuthSuccess, AuthError> {
+    ///
+    /// On success returns the bearer token, expiry, and the wrapped org-key payload.
+    /// The request form body and raw response body are never logged.
+    pub(crate) async fn authenticate(&self, token: &DaemonToken) -> Result<AuthSuccess, AuthError> {
         let url = format!("{}/connect/token", self.identity_url.trim_end_matches('/'));
 
+        // The client_secret is exposed to place it in the form as a short-lived local
+        // borrow; it never enters any log or error message.
         use bitwarden_sensitive_value::ExposeSensitive as _;
-        let secret_value = token.client_secret().expose().to_owned();
+        let secret_value = token.client_secret.expose().to_owned();
         let client_id = token.client_id();
 
+        // Built as a vec so all fields, including the sensitive secret, are assembled
+        // in one place and discarded immediately after the send call.
         let form: Vec<(&str, &str)> = vec![
             ("grant_type", "client_credentials"),
             ("client_id", &client_id),
@@ -101,7 +119,8 @@ impl IdentityClient {
 
         if status == reqwest::StatusCode::BAD_REQUEST || status == reqwest::StatusCode::UNAUTHORIZED
         {
-            // The OAuth `error` field separates Rejected from Protocol.
+            // Parse the OAuth error field to distinguish rejected vs. protocol.
+            // We do NOT log the raw body.
             let body_bytes = response.bytes().await.map_err(|_| AuthError::Protocol)?;
 
             #[derive(Deserialize)]
@@ -124,6 +143,7 @@ impl IdentityClient {
             return Err(AuthError::Transient(format!("HTTP {}", status.as_u16())));
         }
 
+        // Parse the success body.  We do NOT log it.
         let body_bytes = response.bytes().await.map_err(|_| AuthError::Protocol)?;
 
         #[derive(Deserialize)]
@@ -137,53 +157,38 @@ impl IdentityClient {
         let parsed: TokenResponse =
             serde_json::from_slice(&body_bytes).map_err(|_| AuthError::Protocol)?;
 
-        let organization_id = organization_claim(&parsed.access_token)?;
-
         Ok(AuthSuccess {
             access_token: SensitiveString::from(parsed.access_token),
             expires_in: parsed.expires_in,
             encrypted_payload: parsed.encrypted_payload,
-            organization_id,
         })
     }
 }
 
-/// Reads the `organization` claim, which the server emits unprefixed. Its absence is a server
-/// contract violation: without an organisation there is no org slot to key.
-fn organization_claim(access_token: &str) -> Result<OrganizationId, AuthError> {
-    let jwt: JwtToken = access_token.parse().map_err(|_| AuthError::Protocol)?;
-
-    jwt.organization
-        .as_deref()
-        .and_then(|o| o.parse().ok())
-        .ok_or(AuthError::Protocol)
-}
-
 #[cfg(test)]
 mod tests {
-    use bitwarden_access_token::AccessTokenKind;
+    use std::str::FromStr;
+
     use bitwarden_sensitive_value::ExposeSensitive as _;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{body_string_contains, method, path},
     };
 
-    use super::{AccessToken, AuthError, IdentityClient};
-    use crate::test_support::{access_token_tagged, test_org_id};
+    use super::{AuthError, IdentityClient};
+    use crate::token::DaemonToken;
 
     const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    fn test_token() -> AccessToken {
-        AccessToken::parse(VALID_TOKEN_STR, AccessTokenKind::AccessConnector).expect("valid token")
+    fn test_token() -> DaemonToken {
+        DaemonToken::from_str(VALID_TOKEN_STR).expect("valid token")
     }
 
     fn client(server: &MockServer) -> IdentityClient {
         IdentityClient::new(server.uri()).expect("client build")
     }
 
-    /// `tag` is expanded to a real JWT so the `organization` claim parses.
-    fn success_body(tag: &str, expires_in: u64) -> String {
-        let access_token = access_token_tagged(test_org_id(), tag);
+    fn success_body(access_token: &str, expires_in: u64) -> String {
         format!(
             r#"{{"access_token":"{access_token}","expires_in":{expires_in},"encrypted_payload":"2.abc==|def==|ghi=="}}"#
         )
@@ -207,11 +212,7 @@ mod tests {
             .await
             .expect("authenticate");
 
-        assert_eq!(
-            result.access_token.expose(),
-            &access_token_tagged(test_org_id(), "test-bearer")
-        );
-        assert_eq!(result.organization_id, test_org_id());
+        assert_eq!(result.access_token.expose(), "test-bearer");
         assert_eq!(result.expires_in, 3600);
         assert_eq!(result.encrypted_payload, "2.abc==|def==|ghi==");
     }
@@ -262,74 +263,6 @@ mod tests {
             matches!(err, AuthError::Rejected),
             "expected Rejected, got {err:?}"
         );
-    }
-
-    /// A token whose claims segment is `claims`, so a test can omit or corrupt the organisation.
-    fn token_with_claims(claims: serde_json::Value) -> String {
-        let payload = bitwarden_encoding::B64Url::from(claims.to_string().as_bytes());
-        format!("header.{payload}.signature")
-    }
-
-    #[tokio::test]
-    async fn access_token_without_organization_claim_is_protocol_error() {
-        let token = token_with_claims(serde_json::json!({
-            "exp": 1_900_000_000u64,
-            "sub": "access-connector",
-            "scope": ["api.pam.rotation"],
-        }));
-
-        let err = authenticate_against(&token).await;
-        assert!(
-            matches!(err, AuthError::Protocol),
-            "expected Protocol, got {err:?}"
-        );
-    }
-
-    #[tokio::test]
-    async fn unparseable_organization_claim_is_protocol_error() {
-        let token = token_with_claims(serde_json::json!({
-            "exp": 1_900_000_000u64,
-            "sub": "access-connector",
-            "scope": ["api.pam.rotation"],
-            "organization": "not-a-uuid",
-        }));
-
-        let err = authenticate_against(&token).await;
-        assert!(
-            matches!(err, AuthError::Protocol),
-            "expected Protocol, got {err:?}"
-        );
-    }
-
-    #[tokio::test]
-    async fn access_token_that_is_not_a_jwt_is_protocol_error() {
-        let err = authenticate_against("opaque-token").await;
-        assert!(
-            matches!(err, AuthError::Protocol),
-            "expected Protocol, got {err:?}"
-        );
-    }
-
-    /// Serve `access_token` from a 200 identity response and return the resulting error.
-    async fn authenticate_against(access_token: &str) -> AuthError {
-        let server = MockServer::start().await;
-        let body = format!(
-            r#"{{"access_token":"{access_token}","expires_in":3600,"encrypted_payload":"2.abc==|def==|ghi=="}}"#
-        );
-        Mock::given(method("POST"))
-            .and(path("/connect/token"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_string(body)
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&server)
-            .await;
-
-        client(&server)
-            .authenticate(&test_token())
-            .await
-            .expect_err("authentication must fail")
     }
 
     #[tokio::test]
@@ -435,8 +368,9 @@ mod tests {
         );
     }
 
-    /// The identity server emits snake_case `encrypted_payload`; a camelCase field alone must not
-    /// parse.
+    /// Regression guard: the old camelCase field name (`encryptedPayload`) must no
+    /// longer be accepted, since the real identity server now emits `encrypted_payload`.
+    /// A response that only carries the camelCase variant must yield `Protocol`.
     #[tokio::test]
     async fn camel_case_encrypted_payload_gives_protocol() {
         let server = MockServer::start().await;
