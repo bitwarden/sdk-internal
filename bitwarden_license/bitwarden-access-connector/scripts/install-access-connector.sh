@@ -156,7 +156,7 @@ connector's config, token, state, log and service separate from the others. Leav
 the connector installs to the single-connector layout.
 
 There are no other options. The comments at the top of this script list the layout it
-installs and how to remove it; OPERATIONS.md covers everything else.
+installs and how to remove it.
 HELP
 }
 
