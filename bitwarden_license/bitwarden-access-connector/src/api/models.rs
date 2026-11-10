@@ -3,47 +3,12 @@
 
 use uuid::Uuid;
 
-use crate::{
-    auth::session::SessionLost,
-    error::{SessionTermination, SyncState},
-};
+use crate::auth::session::SessionLost;
 
 /// A claimable rotation job returned by the poll endpoint.
 #[derive(Debug, Clone)]
 pub(crate) struct JobRef {
     pub(crate) id: Uuid,
-}
-
-impl From<SessionTermination> for bitwarden_api_api::models::PamSessionTerminationOutcome {
-    fn from(t: SessionTermination) -> Self {
-        match t {
-            SessionTermination::NotRequested => {
-                bitwarden_api_api::models::PamSessionTerminationOutcome::NotRequested
-            }
-            SessionTermination::Terminated => {
-                bitwarden_api_api::models::PamSessionTerminationOutcome::Terminated
-            }
-            SessionTermination::TermFailed => {
-                bitwarden_api_api::models::PamSessionTerminationOutcome::TermFailed
-            }
-        }
-    }
-}
-
-impl From<SyncState> for bitwarden_api_api::models::PamRotationSyncState {
-    fn from(s: SyncState) -> Self {
-        match s {
-            SyncState::TargetUnchanged => {
-                bitwarden_api_api::models::PamRotationSyncState::TargetUnchanged
-            }
-            SyncState::TargetUpdated => {
-                bitwarden_api_api::models::PamRotationSyncState::TargetUpdated
-            }
-            SyncState::Indeterminate => {
-                bitwarden_api_api::models::PamRotationSyncState::Indeterminate
-            }
-        }
-    }
 }
 
 /// Errors returned by the [`super::AccessConnectorClient`] wrapper. They never include response
@@ -89,76 +54,5 @@ impl std::fmt::Display for ApiError {
             Self::Transient(s) => write!(f, "transient error: {s}"),
             Self::Protocol(s) => write!(f, "protocol error: {s}"),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn session_termination_not_requested() {
-        let out = bitwarden_api_api::models::PamSessionTerminationOutcome::from(
-            SessionTermination::NotRequested,
-        );
-        assert_eq!(
-            out,
-            bitwarden_api_api::models::PamSessionTerminationOutcome::NotRequested
-        );
-        assert_eq!(out.as_i64(), 0);
-    }
-
-    #[test]
-    fn session_termination_terminated() {
-        let out = bitwarden_api_api::models::PamSessionTerminationOutcome::from(
-            SessionTermination::Terminated,
-        );
-        assert_eq!(
-            out,
-            bitwarden_api_api::models::PamSessionTerminationOutcome::Terminated
-        );
-        assert_eq!(out.as_i64(), 1);
-    }
-
-    #[test]
-    fn session_termination_term_failed() {
-        let out = bitwarden_api_api::models::PamSessionTerminationOutcome::from(
-            SessionTermination::TermFailed,
-        );
-        assert_eq!(
-            out,
-            bitwarden_api_api::models::PamSessionTerminationOutcome::TermFailed
-        );
-        assert_eq!(out.as_i64(), 2);
-    }
-
-    #[test]
-    fn sync_state_target_unchanged() {
-        let out = bitwarden_api_api::models::PamRotationSyncState::from(SyncState::TargetUnchanged);
-        assert_eq!(
-            out,
-            bitwarden_api_api::models::PamRotationSyncState::TargetUnchanged
-        );
-        assert_eq!(out.as_i64(), 0);
-    }
-
-    #[test]
-    fn sync_state_target_updated() {
-        let out = bitwarden_api_api::models::PamRotationSyncState::from(SyncState::TargetUpdated);
-        assert_eq!(
-            out,
-            bitwarden_api_api::models::PamRotationSyncState::TargetUpdated
-        );
-        assert_eq!(out.as_i64(), 1);
-    }
-
-    #[test]
-    fn sync_state_indeterminate() {
-        let out = bitwarden_api_api::models::PamRotationSyncState::from(SyncState::Indeterminate);
-        assert_eq!(
-            out,
-            bitwarden_api_api::models::PamRotationSyncState::Indeterminate
-        );
-        assert_eq!(out.as_i64(), 2);
     }
 }
