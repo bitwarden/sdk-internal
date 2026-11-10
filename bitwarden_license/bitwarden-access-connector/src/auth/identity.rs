@@ -3,12 +3,11 @@
 
 use std::time::Duration;
 
+use bitwarden_access_token::AccessToken;
 use bitwarden_api_base::new_http_client_builder;
 use bitwarden_sensitive_value::SensitiveString;
 use serde::Deserialize;
 use thiserror::Error;
-
-use crate::token::AccessConnectorToken;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -70,15 +69,12 @@ impl IdentityClient {
 
     /// POST `{identity_url}/connect/token` with a `client_credentials` grant. Neither the form body
     /// nor the raw response body is ever logged.
-    pub(crate) async fn authenticate(
-        &self,
-        token: &AccessConnectorToken,
-    ) -> Result<AuthSuccess, AuthError> {
+    pub(crate) async fn authenticate(&self, token: &AccessToken) -> Result<AuthSuccess, AuthError> {
         let url = format!("{}/connect/token", self.identity_url.trim_end_matches('/'));
 
         // Copied out only to build the form; the secret never enters a log or error message.
         use bitwarden_sensitive_value::ExposeSensitive as _;
-        let secret_value = token.client_secret.expose().to_owned();
+        let secret_value = token.client_secret().expose().to_owned();
         let client_id = token.client_id();
 
         let form: Vec<(&str, &str)> = vec![
@@ -152,21 +148,19 @@ impl IdentityClient {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
+    use bitwarden_access_token::AccessTokenKind;
     use bitwarden_sensitive_value::ExposeSensitive as _;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{body_string_contains, method, path},
     };
 
-    use super::{AuthError, IdentityClient};
-    use crate::token::AccessConnectorToken;
+    use super::{AccessToken, AuthError, IdentityClient};
 
     const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    fn test_token() -> AccessConnectorToken {
-        AccessConnectorToken::from_str(VALID_TOKEN_STR).expect("valid token")
+    fn test_token() -> AccessToken {
+        AccessToken::parse(VALID_TOKEN_STR, AccessTokenKind::AccessConnector).expect("valid token")
     }
 
     fn client(server: &MockServer) -> IdentityClient {
