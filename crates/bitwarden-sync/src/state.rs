@@ -1,9 +1,9 @@
-//! Persisted state setting keys for the sync domain.
+//! Persisted values for the sync domain.
 
-use bitwarden_state::register_setting_key;
+use bitwarden_state::register_persisted_value;
 use chrono::{DateTime, Utc};
 
-register_setting_key!(
-    /// Setting key for the timestamp of the last successful sync (or skip).
-    pub(crate) const LAST_SYNC: DateTime<Utc> = "last_sync"
+register_persisted_value!(
+    /// Persisted value key for the timestamp of the last successful sync (or skip).
+    pub(crate) LAST_SYNC: DateTime<Utc> = "last_sync"
 );

@@ -21,7 +21,7 @@ impl PasswordManagerClient {
     pub fn debug(&self) -> DebugClient {
         // The wasm and mobile bindings build a memory-backed registry that never
         // runs the SDK-managed migrations, so their debug index would otherwise
-        // omit SDK-managed types (e.g. `Setting`). Registering here (idempotent)
+        // omit SDK-managed types (e.g. `PersistedValue`). Registering here (idempotent)
         // makes the browse cover them wherever the tree is reachable.
         self.0
             .internal
