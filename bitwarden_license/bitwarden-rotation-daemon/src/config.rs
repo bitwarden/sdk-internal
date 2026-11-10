@@ -90,8 +90,8 @@ impl Config {
 
         // Validate file permissions after we know token-file was the source.
         #[cfg(unix)]
-        if args.token_file.is_some() {
-            check_token_file_permissions(args.token_file.as_ref().unwrap());
+        if let Some(tf) = args.token_file.as_ref() {
+            check_token_file_permissions(tf);
         }
 
         // Parse the token — error message must not echo the token string.
