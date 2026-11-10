@@ -1,63 +1,95 @@
 # bitwarden-access-connector
 
-Bitwarden PAM access connector.
+Bitwarden PAM credential rotation daemon.
 
-This crate provides the `bwac` binary, which rotates PAM-managed credentials in external target
-systems. For each rotation job it resolves the target's credentials, rotates the password in the
-target system, verifies the change and, when requested, terminates the account's active sessions.
-Two integrations are provided: operator-supplied scripts (including PowerShell) and Microsoft Entra
-ID.
+This crate provides the `bw-rotation-daemon` binary. It continuously rotates PAM-managed credentials
+by polling the Bitwarden server for claimable rotation jobs, executing each job (resolve credentials
+→ generate password → rotate in the target system → verify → write re-encrypted vault cipher →
+optionally terminate sessions → report outcome), and then returning to the poll loop.
 
-## Credential resolution
-
-Credentials for a target system are read from environment variables, optionally overridden per key
-from the `[targets]` section of the connector's TOML configuration file.
-
-### Environment variable shape
+## Usage
 
 ```
-<TARGET_SYSTEM_ID_UPPER_UNDERSCORE>_<SUFFIX>
+bw-rotation-daemon run [--config <PATH>]
 ```
 
-The prefix is the target system UUID, uppercased, with hyphens replaced by underscores, followed by
-an underscore.
+All daemon settings live in the TOML configuration file (see
+[Configuration file](#configuration-file)); they are **not** individual CLI flags.
 
-**Example** for target system id `ec2c1d46-6a4b-4751-a310-af9601317f2d`:
+### Environment variables
 
+| Variable            | Purpose                                                        |
+| ------------------- | -------------------------------------------------------------- |
+| `BWRD_TOKEN`        | Daemon access token (required)                                 |
+| `BWRD_CONFIG`       | Path to the TOML configuration file (equivalent to `--config`) |
+| `BWRD_API_URL`      | Bitwarden API server URL (overrides the config file)           |
+| `BWRD_IDENTITY_URL` | Bitwarden identity server URL (overrides the config file)      |
+| `RUST_LOG`          | Log filter directives; default `info` (e.g. `RUST_LOG=debug`)  |
+
+### Flags and options
+
+| Flag / option     | Description                         |
+| ----------------- | ----------------------------------- |
+| `--config <PATH>` | Path to the TOML configuration file |
+
+### Token security
+
+The daemon token contains the org-key encryption key. It is **never** accepted as a plain `--token`
+argument — argv is visible via `ps`/`/proc/<pid>/cmdline`. Supply it via the `BWRD_TOKEN`
+environment variable only.
+
+After reading `BWRD_TOKEN` at startup, the daemon removes it from the process environment so that
+child processes (e.g. custom scripts) cannot inherit the token value.
+
+### Configuration file
+
+The daemon is configured from a TOML file. Specify the file with `--config <PATH>` or the
+`BWRD_CONFIG` environment variable. The server URLs may additionally be overridden with the
+`BWRD_API_URL` / `BWRD_IDENTITY_URL` environment variables.
+
+**Precedence** (highest to lowest):
+
+1. `BWRD_API_URL` / `BWRD_IDENTITY_URL` environment variables
+2. `[environment].api` / `[environment].identity` in the config file
+3. Derived from `[environment].base` as `{base}/api` / `{base}/identity`
+4. Error — startup fails with a message naming all three supply methods
+
+The daemon token **cannot** be supplied via the config file. Any config file that contains a `token`
+key is rejected at startup. Use `BWRD_TOKEN` only.
+
+#### Example configuration file
+
+```toml
+# All fields are optional; omitted fields fall back to built-in defaults.
+
+poll_interval      = 15   # seconds; minimum 15
+heartbeat_interval = 30   # seconds; must be < 120
+offline_grace      = 60   # seconds
+max_retry_attempts = 5    # total attempts per retryable step
+retry_base_delay   = 1    # seconds (exponential backoff base)
+script_timeout     = 60   # seconds
+
+# script_root = "/opt/scripts"   # uncomment to restrict custom script paths
+
+# PowerShell host, used for any script the daemon launches through PowerShell.
+powershell_execution_policy = "Bypass"   # set "AllSigned" if you sign your scripts
+# powershell_path = "C:\\Program Files\\PowerShell\\7\\pwsh.exe"   # else discovered on PATH
+
+entra_verify_probe = false   # set true only with MFA exemption for the service principal
+
+[environment]
+# Supply a base URL and let the daemon derive /api and /identity automatically:
+base     = "https://bitwarden.example.com"
+# Or override individual URLs (takes precedence over base-derived values):
+# api      = "https://api.bitwarden.com"
+# identity = "https://identity.bitwarden.com"
 ```
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_TENANT_ID=...
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_ID=...
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_SECRET=...
-```
 
-Any additional variable matching the prefix is collected and forwarded to the integration as an
-extra credential. For example, a custom script may read `OUT_PATH` from the `credentials` map in the
-stdin payload.
+### Per-target credential configuration (`[targets]`)
 
-#### Required suffixes per target kind
-
-| Kind           | Required env-var suffixes                 |
-| -------------- | ----------------------------------------- |
-| `Entra`        | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET` |
-| `CustomScript` | `SCRIPT` (`SCRIPT_TYPE` optional)         |
-
-A target kind with no registered integration fails with `unsupported_kind`.
-
-If a required value is absent from both sources, resolution fails with the full environment variable
-names (names only, never values), and the rotation is aborted with failure code
-`credentials_unresolved`.
-
-#### POSIX shell limitation
-
-Variable names derived from a UUID that starts with a digit (for example
-`85808642_BABA_4B8E_8C34_B48000D60A0A_SCRIPT`) cannot be `export`ed from a POSIX `/bin/sh`: names
-must start with a letter or underscore. The `[targets]` section sidesteps this for `script`,
-`script_type`, `tenant_id` and `client_id`; only `client_secret` remains env-only.
-
-### Per-target overrides (`[targets]`)
-
-The optional `[targets]` TOML section is keyed by target system UUID. Each entry overrides
-individual credentials.
+The optional `[targets]` TOML section accepts UUID keys, each configuring per-target credential
+overrides. Config-file values take precedence over environment variables **on a per-key basis**; the
+environment variable is the fallback for any key not set in the config file.
 
 ```toml
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
@@ -65,11 +97,8 @@ script = "/opt/scripts/rotate-thing.sh"
 
 [targets.00000000-0000-0000-0000-000000000001]
 tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-client_id = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+client_id  = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
 ```
-
-**Precedence** is per key: a value set in `[targets.<uuid>]` wins; the environment variable is the
-fallback for any key the entry does not set.
 
 #### Accepted keys per target entry
 
@@ -82,56 +111,192 @@ fallback for any key the entry does not set.
 
 #### `client_secret` is env-only
 
-`client_secret` is deliberately not accepted in `[targets]` entries: configuration files are
-typically committed to version control and must not hold secrets. Supply it through the
-`<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET` environment variable. Entries reject unknown keys
-(`deny_unknown_fields`), so a `client_secret` key is a configuration error.
+The `client_secret` key is not accepted in `[targets]` entries. The config file is typically checked
+into a repository and must not hold secrets. Supply client secrets via environment variables only
+(e.g. `<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET`). Any `client_secret` key in a `[targets]` entry
+is a hard startup error (`deny_unknown_fields`).
 
-Missing-value errors always name the **environment variable**, regardless of which source was
-expected to supply it.
+#### Missing-key error messages
+
+Missing-key errors always report the **env var name** as the actionable hint, regardless of which
+source (config or env) was expected to provide the value.
+
+### Logging
+
+Log output is written to stderr. The log level is controlled by the `RUST_LOG` environment variable
+(same syntax as `tracing-subscriber`'s `EnvFilter`):
+
+```sh
+RUST_LOG=debug bw-rotation-daemon run --config /etc/bwrd/config.toml
+RUST_LOG=bitwarden_access_connector=trace,info bw-rotation-daemon run --config /etc/bwrd/config.toml
+```
+
+The default level (`info`) produces one log line per lifecycle milestone; `RUST_LOG=debug` adds
+per-tick and per-substep chatter.
+
+#### Operator-visible events at `info` / `warn` / `error`
+
+| Level   | Event                                          | Key fields                                                                 |
+| ------- | ---------------------------------------------- | -------------------------------------------------------------------------- |
+| `info`  | Daemon starting                                | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs` |
+| `info`  | Session established / renewed                  | `retry` (on renewal)                                                       |
+| `info`  | Shutdown signal received                       | —                                                                          |
+| `info`  | Rotation job claimed                           | `job_id`, `target_system_name`                                             |
+| `info`  | Starting rotation execution                    | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                  |
+| `info`  | Step 1: credentials resolved                   | `attempt_id`                                                               |
+| `info`  | Step 2: password generated                     | `attempt_id`                                                               |
+| `info`  | Step 3: target rotate succeeded                | `attempt_id`, `kind`                                                       |
+| `info`  | Step 4: verify succeeded                       | `attempt_id`                                                               |
+| `info`  | Step 5: cipher written                         | `attempt_id`, `cipher_id`                                                  |
+| `info`  | Step 6: session termination succeeded          | `attempt_id`                                                               |
+| `info`  | Step 7: rotation succeeded and reported        | `attempt_id`, `termination`                                                |
+| `info`  | Daemon shut down cleanly                       | —                                                                          |
+| `warn`  | Session renewal failed (transient / protocol)  | `retry`, `sleep_ms`                                                        |
+| `warn`  | Session entered Revoked phase                  | —                                                                          |
+| `warn`  | Rotation failed (any step)                     | `attempt_id`, `failure_code`, `sync_state`, `detail`                       |
+| `warn`  | Step 6: session termination aborted / failed   | `attempt_id`, `abort_reason`                                               |
+| `warn`  | Transient poll error / backoff                 | backoff duration                                                           |
+| `warn`  | Success report rejected/unknown by server      | `attempt_id`                                                               |
+| `error` | Daemon credential refused (startup or mid-run) | —                                                                          |
+| `error` | Daemon not eligible for rotation endpoints     | —                                                                          |
+
+At `RUST_LOG=debug` the following additional events appear: poll ticks (with claimable job count),
+heartbeat ticks, claim-race losses (409 per job), registered integration kinds, cipher-fetch
+sub-step, and session-renewal details.
+
+### Exit codes
+
+| Code | Meaning                                                              |
+| ---- | -------------------------------------------------------------------- |
+| `0`  | Clean shutdown (SIGTERM or Ctrl-C received).                         |
+| `1`  | Startup error: invalid configuration, I/O error, or parse failure.   |
+| `2`  | Daemon credential refused. An admin must reissue the credential      |
+|      | server-side (via `ReissueDaemonCredential`) and restart the daemon   |
+|      | with the new token.                                                  |
+| `3`  | Daemon not eligible for rotation endpoints. Check: daemon record not |
+|      | revoked or disabled, organisation license active, `UsePam` enabled.  |
+
+---
+
+## Per-target credential configuration (`[targets]`)
+
+The optional `[targets]` TOML section lets you supply per-target credentials directly in the config
+file, alongside or instead of environment variables. Each key must be a valid UUID (the target
+system ID).
+
+```toml
+[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
+script = "/opt/scripts/rotate-thing.sh"
+
+[targets.00000000-0000-0000-0000-000000000001]
+tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+client_id  = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+```
+
+### Per-key precedence (highest to lowest)
+
+1. **Config file** (`[targets.<uuid>]`) — wins unconditionally for any key that is set.
+2. **Environment variable** — fallback for any key absent from the config file.
+
+Missing-key errors always report the **env var name** as the actionable hint, regardless of which
+source was expected to provide the value.
+
+### Accepted keys per target kind
+
+| Kind           | Accepted config keys     |
+| -------------- | ------------------------ |
+| `CustomScript` | `script`, `script_type`  |
+| `Entra`        | `tenant_id`, `client_id` |
+
+### `client_secret` is env-only
+
+`client_secret` is deliberately not accepted in the `[targets]` section. Config files are typically
+committed to version control; storing a secret there would expose it. Always supply `client_secret`
+via the environment variable (`<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET`).
+
+An unknown field (including `client_secret`) inside a `[targets.<uuid>]` block is a hard startup
+error; the daemon will refuse to start.
+
+### POSIX shell limitation
+
+Environment variable names derived from a UUID that starts with a digit (e.g.
+`85808642_BABA_4B8E_8C34_B48000D60A0A_SCRIPT`) cannot be `export`ed from a POSIX `/bin/sh` script —
+names must start with a letter or underscore. The `[targets]` config section sidesteps this
+restriction for `script`, `tenant_id`, and `client_id`; only `client_secret` remains env-only.
+
+---
+
+## Resolver: environment variable shape
+
+The credential resolver reads credentials from environment variables with the naming convention:
+
+```
+<TARGET_SYSTEM_ID_UPPER_UNDERSCORE>_<SUFFIX>
+```
+
+where `<TARGET_SYSTEM_ID_UPPER_UNDERSCORE>` is the target system UUID string, uppercased and with
+hyphens replaced by underscores, plus a trailing underscore.
+
+**Example** — target system id `abc-1234-5678-abcd-000000000001`:
+
+```
+ABC_1234_5678_ABCD_000000000001_TENANT_ID=...
+ABC_1234_5678_ABCD_000000000001_CLIENT_ID=...
+ABC_1234_5678_ABCD_000000000001_CLIENT_SECRET=...
+```
+
+### Required suffixes per target kind
+
+| Kind           | Required env-var suffixes                         |
+| -------------- | ------------------------------------------------- |
+| `Entra`        | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`         |
+| `CustomScript` | `SCRIPT` (`SCRIPT_TYPE` optional)                 |
+| `Mssql`        | `HOST`, `USER`, `SECRET` (unsupported this build) |
+
+Any additional variables matching the prefix are collected and forwarded to the integration as extra
+credentials. For example, a custom script may read `OUT_PATH` or `EXIT_CODE` from the `credentials`
+map in the stdin payload.
+
+If any required variable is absent the resolver returns `ResolveError::Missing` carrying the full
+variable names (safe to log — names only, never values), and the rotation is aborted with failure
+code `credentials_unresolved`.
 
 ---
 
 ## Custom-script integration
 
-The `CustomScript` target kind invokes an operator-supplied script for each rotation operation. The
-script is identified by the `SCRIPT` credential (`<ID>_SCRIPT` in the environment, or `script` in
-`[targets]`).
+The `CustomScript` target kind invokes an operator-supplied executable for each rotation operation.
+The binary is identified by the `SCRIPT` credential (resolved from `<ID>_SCRIPT` in the
+environment).
 
 ### Security invariants
 
-1. **Secrets via stdin only.** Credentials are never passed through argv or the process environment,
-   so `ps`, `/proc/<pid>/cmdline` and child process inheritance cannot expose them. A directly
-   executed script starts with an empty environment.
-2. **stdout and stderr are discarded.** Both go to the null device. Script output can echo
-   credentials, and unread piped output would deadlock a chatty script.
-3. **Script-root restriction.** When the connector has a script root configured, the canonicalised
-   script path must lie under the canonicalised root. `../` traversal and symlink escapes are
-   rejected before the script runs. A script that cannot be found, or a root that cannot be
-   resolved, fails with `credentials_unresolved`.
-4. **Administrative reset.** The stdin payload never contains the current password, so scripts
-   **must** perform an administrative (force) reset. A change-password script is incompatible with
-   retry convergence: if the first attempt changes the target credential but the vault write fails,
-   the connector retries with a new `newPassword`, and the change-password script would fail because
-   the "old" password it was given is no longer valid.
-5. **`verify` is mandatory.** A script that cannot round-trip-authenticate must still implement
-   `verify` with its best available applied-check, such as reading a last-password-change timestamp
-   or testing service reachability.
-6. **`accountIdentity` is untrusted input.** It comes from a blob the admin client sealed, so the
-   server cannot read or change it, but it is still chosen by whoever saved the rotation config.
-   Never interpolate it unsanitised into a shell command, SQL query or API path.
+1. **Secrets via stdin only** — credentials are never passed via argv or process environment. `ps`,
+   `/proc/<pid>/cmdline`, and child process inheritance cannot expose them.
+2. **stdout/stderr suppressed** — both are redirected to `/dev/null`. Script output can echo
+   credentials; piping unread output would also deadlock a chatty script.
+3. **Script-root restriction** — if `script_root` is set in the config file, the canonicalized
+   script path must be under the canonicalized root. `../` traversal and symlink escapes are
+   rejected before the script is executed.
+4. **RotationByAdministrativeReset** — the stdin payload never contains the current password.
+   Scripts **must** perform an administrative (force) reset. A change-password script is
+   incompatible with retry convergence: if the first attempt successfully changes the target
+   credential but the vault write fails, the daemon retries with a new `newPassword`; a
+   change-password script would then fail because the "old" password it was given is no longer
+   valid.
+5. **verify has no v0 opt-out** — `verify` is mandatory. A script that cannot
+   round-trip-authenticate must still implement `verify` with its best available applied-check (e.g.
+   querying a last-password-change timestamp or testing service reachability).
 
 ### Operations
 
-The connector invokes the script with a single argument: the operation name.
+The daemon invokes the script with a single argument: the operation name.
 
-| Argument    | When called                                                      |
-| ----------- | ---------------------------------------------------------------- |
-| `rotate`    | Immediately after password generation                            |
-| `verify`    | After a successful `rotate`                                      |
-| `terminate` | After a successful `verify`, if session termination is requested |
-
-A failed `terminate` does not fail the rotation.
+| Argument    | When called                                              |
+| ----------- | -------------------------------------------------------- |
+| `rotate`    | Immediately after password generation                    |
+| `verify`    | After a successful `rotate`                              |
+| `terminate` | After a successful `verify`, if `terminate_sessions` set |
 
 ### Stdin payload
 
@@ -153,36 +318,34 @@ the script can read to EOF. No further input is sent.
 
 Notes:
 
-- Field names are camelCase.
-- `newPassword` is **absent** for the `terminate` operation. The script has no need for it, and
+- `newPassword` is **absent** for the `terminate` operation. The script has no need for it and
   withholding it prevents accidental echo in script-side logging.
-- `credentials` contains every resolved suffix for the target **except** `SCRIPT` and `SCRIPT_TYPE`.
-  Those two configure how the connector launches the script, not the target.
+- `credentials` contains all resolved env-var suffixes for this target, **excluding** `SCRIPT` (the
+  script already knows its own path).
+- Field names are camelCase.
 
 ### Exit codes
 
-| Exit code | Meaning                                                          |
-| --------- | ---------------------------------------------------------------- |
-| `0`       | Success                                                          |
-| `1`       | Fatal failure: credential not applied (target unchanged)         |
-| `2`       | Fatal failure: credential was applied (target updated)           |
-| `3`       | Fatal failure: unknown whether applied                           |
-| `4`       | Transient failure: retry may succeed (target unchanged)          |
-| other     | Fatal; rotate: unknown sync state, verify/terminate: not applied |
-| signal    | Treated as `other`; the failure detail names it, e.g. `signal 9` |
-
-Failures from a non-zero exit report failure code `script_failed`.
+| Exit code | Meaning                                                            |
+| --------- | ------------------------------------------------------------------ |
+| `0`       | Success                                                            |
+| `1`       | Fatal failure — credential not applied (target unchanged)          |
+| `2`       | Fatal failure — credential was applied (target updated)            |
+| `3`       | Fatal failure — unknown whether applied                            |
+| `4`       | Transient failure — retry may succeed                              |
+| other     | Fatal; rotate → unknown sync state, verify/terminate → not applied |
+| signal    | Treated as `other` above                                           |
 
 ### Timeout behaviour
 
-If the script does not exit within the connector's script timeout, the connector kills it and fails
-the operation with failure code `script_timeout`. The sync state depends on the operation:
+If the script does not exit within `script_timeout` (default 60 s) the daemon kills it (`SIGKILL`)
+and maps the outcome per operation:
 
-| Operation   | Sync state on timeout                                            |
-| ----------- | ---------------------------------------------------------------- |
-| `rotate`    | Indeterminate: it is not known whether the target was updated    |
-| `verify`    | Target updated: the password is conservatively assumed to be set |
-| `terminate` | Target unchanged: no credential was changed                      |
+| Operation   | Timeout outcome (failure code `script_timeout`)                   |
+| ----------- | ----------------------------------------------------------------- |
+| `rotate`    | `Unknown` sync state — we don't know if the target was updated    |
+| `verify`    | `Applied` sync state — conservatively assume the password was set |
+| `terminate` | `NotApplied` sync state — no credential was changed               |
 
 ### Example script skeleton
 
@@ -198,7 +361,7 @@ account="$(printf '%s' "$payload" | jq -r '.accountIdentity')"
 
 case "$operation" in
   rotate)
-    # Perform an administrative reset, never a change-password call.
+    # Perform an administrative reset — never a change-password call.
     my_admin_reset "$account" "$new_password" || exit 1
     ;;
   verify)
@@ -217,9 +380,9 @@ exit 0
 
 ## PowerShell scripts
 
-A `.ps1` is not an executable; it needs a PowerShell host to interpret it. The connector launches
-one for you. Everything else about the integration is unchanged, so the contract above (stdin
-payload, exit codes, timeouts, script root) applies verbatim.
+A `.ps1` is not an executable; it needs a PowerShell host to interpret it. The daemon launches one
+for you. Everything else about the integration is unchanged, so the contract above (stdin payload,
+exit codes, timeouts, `script_root`) applies verbatim.
 
 ### When PowerShell is used
 
@@ -230,12 +393,11 @@ payload, exit codes, timeouts, script root) applies verbatim.
 | `powershell`  | any           | PowerShell host   |
 | `direct`      | any           | executed directly |
 
-The extension (matched case-insensitively) decides by default, so the common case needs no
-configuration:
+The extension decides by default, so the common case needs no configuration:
 
 ```toml
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
-script = 'C:\bwac\rotate-sqlsa.ps1'
+script = 'C:\bwrd\rotate-sqlsa.ps1'
 ```
 
 Set `script_type` only when the filename cannot say what the file is: an extensionless script that
@@ -243,26 +405,25 @@ needs PowerShell, or a `.ps1` that must run some other way:
 
 ```toml
 [targets.00000000-0000-0000-0000-000000000003]
-script      = "/opt/bwac/rotate-appliance"
+script      = "/opt/bwrd/rotate-appliance"
 script_type = "powershell"
 ```
 
-An explicit `script_type` (or `SCRIPT_TYPE` environment variable) always wins over the extension.
-The file decides rather than the host OS, so a `.ps1` rotates from a Linux or macOS connector
-running PowerShell 7, and a native `.exe` target on Windows keeps executing directly.
+The file decides rather than the host OS, so a `.ps1` rotates from a Linux or macOS daemon running
+PowerShell 7, and a native `.exe` target on Windows keeps executing directly.
 
 An unrecognised `script_type` fails the rotation with `credentials_unresolved` rather than falling
 back to direct execution.
 
 ### Host discovery
 
-In order: the connector's configured PowerShell path, then `pwsh` / `pwsh.exe` on `PATH`, then
+In order: the `powershell_path` config key, then `pwsh` / `pwsh.exe` on `PATH`, then
 `powershell.exe` on `PATH`. PowerShell 7 is preferred over Windows PowerShell 5.1.
 
-A configured path is used exactly as given and never falls back to a discovered host, so a mistyped
+`powershell_path` is used exactly as given and never falls back to a discovered host; a mistyped
 path fails loudly instead of silently running your script under a different interpreter. If no host
-is found at all, the rotation fails with `credentials_unresolved`; targets that do not use
-PowerShell are unaffected.
+is found at all, the rotation fails with `credentials_unresolved`; the daemon still starts, so a box
+with no PowerShell can serve non-PowerShell targets.
 
 ### Invocation
 
@@ -279,22 +440,23 @@ extensionless script forced to PowerShell therefore works only under `pwsh`.
 
 ### Execution policy
 
-The execution policy is a connector setting passed to the host verbatim. Windows Server ships
-`RemoteSigned`, which refuses to run an unsigned `.ps1`; a policy that does not permit your scripts
-makes the first rotation on a fresh host fail with a bare exit 1. If you sign your rotation scripts,
-use `AllSigned`.
+`powershell_execution_policy` defaults to `Bypass`. Windows Server ships `RemoteSigned`, which
+refuses to run an unsigned `.ps1`; without the flag the first rotation on a fresh host fails with a
+bare exit 1. The script is one you installed at a path already pinned by `script_root`, so the
+policy check is largely redundant here. If you sign your rotation scripts, set `AllSigned`.
 
 ### Environment
 
 Directly executed scripts get a completely empty environment. A PowerShell host cannot start that
 way. On Windows it needs `SystemRoot` to locate system assemblies and `PSModulePath` to find
-modules, so it receives a fixed allowlist instead: `SystemRoot`, `windir`, `PATHEXT`, `COMSPEC`,
-`PSModulePath`, `PROGRAMFILES`, `PROGRAMFILES(X86)`, `PROGRAMDATA`, `APPDATA`, `LOCALAPPDATA`,
-`USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `PATH`, `TEMP`, `TMP`, `HOME`, `TMPDIR`, `LANG`. Variables
-not set in the connector's environment are omitted.
+modules, so it receives a fixed allowlist instead: `SystemRoot`, `windir`, `PATH`, `PATHEXT`,
+`COMSPEC`, `PSModulePath`, `PROGRAMFILES`, `PROGRAMFILES(X86)`, `PROGRAMDATA`, `APPDATA`,
+`LOCALAPPDATA`, `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `TEMP`, `TMP`, and on Unix `HOME`, `TMPDIR`,
+`LANG`.
 
-Nothing else is forwarded. Per-target credentials and the new password are absent from the child
-environment; secrets still reach your script only through the stdin payload.
+Nothing else is forwarded. The daemon token, every per-target credential, and the new password are
+all absent from the child environment; secrets still reach your script only through the stdin
+payload.
 
 ### Example script skeleton
 
@@ -355,25 +517,33 @@ makes it easier to get wrong than a shell script does:
 
 ### Troubleshooting
 
-The connector discards script stdout and stderr, because either can echo the credentials it just
-handed you. That also means a host-level failure (an execution-policy block, an unsigned script, a
-parse error, a module that will not load) arrives as `script_failed` with nothing but `exit code 1`.
+The daemon discards script stdout and stderr, because either can echo the credentials it just handed
+you. That also means a host-level failure (an execution-policy block, an unsigned script, a parse
+error, a module that will not load) arrives as `script_failed` with nothing but `exit code 1`.
 
-To see the actual error, run the script by hand as the account the connector runs under, which also
+To see the actual error, run the script by hand as the account the daemon runs under, which also
 reproduces the environment allowlist:
 
 ```
-runas /user:svc_bwac "pwsh -NoProfile -NonInteractive -File C:\bwac\rotate-sqlsa.ps1 rotate"
+runas /user:svc_bwrd "pwsh -NoProfile -NonInteractive -File C:\bwrd\rotate-sqlsa.ps1 rotate"
 ```
 
 ---
 
 ## Microsoft Entra ID integration
 
-The `Entra` target kind rotates a user's password through Microsoft Graph, authenticating as a
-service principal with the client-credentials flow.
+### Required permissions (app registration / service principal)
 
-### Credentials
+| Permission                           | Why needed                                   |
+| ------------------------------------ | -------------------------------------------- |
+| `User-PasswordProfile.ReadWrite.All` | Force-reset the user's password              |
+| `User.Read.All`                      | Read `lastPasswordChangeDateTime` for verify |
+| `User.RevokeSessions.All`            | Revoke active sessions (step 6)              |
+
+The target user must not hold a higher-privileged directory role than the service principal
+performing the rotation.
+
+### Resolver env shape (Entra)
 
 | Suffix          | Value                                            |
 | --------------- | ------------------------------------------------ |
@@ -381,32 +551,18 @@ service principal with the client-credentials flow.
 | `CLIENT_ID`     | Application (client) ID of the service principal |
 | `CLIENT_SECRET` | Client secret of the service principal           |
 
+Example (target id `abc-1234-…`):
+
 ```
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_ID=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_SECRET=<secret>
+ABC_1234_…_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ABC_1234_…_CLIENT_ID=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+ABC_1234_…_CLIENT_SECRET=<secret>
 ```
 
-### Required permissions (app registration / service principal)
+---
 
-| Permission                           | Graph call                                                | Why needed                                   |
-| ------------------------------------ | --------------------------------------------------------- | -------------------------------------------- |
-| `User-PasswordProfile.ReadWrite.All` | `PATCH /v1.0/users/{id}` (`passwordProfile`)              | Force-reset the user's password              |
-| `User.Read.All`                      | `GET /v1.0/users/{id}?$select=lastPasswordChangeDateTime` | Read `lastPasswordChangeDateTime` for verify |
-| `User.RevokeSessions.All`            | `POST /v1.0/users/{id}/revokeSignInSessions`              | Revoke active sessions                       |
+## References
 
-The account identity is the user's object id or user principal name. The reset sets
-`forceChangePasswordNextSignIn` to `false`.
-
-### Verification
-
-`verify` polls Graph for the user's `lastPasswordChangeDateTime` and succeeds once it is no older
-than the start of the rotation (minus five minutes of clock slack). It polls every 5 seconds for up
-to 60 seconds to tolerate Graph replication lag, and fails with `verification_failed` if the
-timestamp stays stale.
-
-An optional sign-in probe runs first when enabled. It attempts a resource-owner password grant
-(ROPC) with the new password: success, or an MFA challenge (`AADSTS50076`, `AADSTS50079`), counts as
-verified; a wrong-password response (`AADSTS50126`) fails the verification; any other outcome falls
-through to the directory check. The probe is off unless enabled, because MFA or Conditional Access
-blocks ROPC in most tenants.
+- Plan: `~/.claude/plans/let-s-explore-implementing-the-spicy-sun.md`
+- Spec: `rotation-daemon/rotation-daemon.allium`
+- Architecture: https://contributing.bitwarden.com/architecture/sdk/
