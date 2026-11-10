@@ -502,14 +502,15 @@ The three operations are separate process invocations of the same script:
 The exit code tells the connector two things: whether to retry, and whether the target system was
 changed. If the second is wrong, the vault and the target diverge and nothing flags it.
 
-| Code  | Retry?  | Target state                       | Use when                                        |
-| ----- | ------- | ---------------------------------- | ----------------------------------------------- |
-| `0`   | —       | —                                  | Success                                         |
-| `1`   | No      | Unchanged                          | Rejected before anything was modified           |
-| `2`   | No      | **Updated**                        | The password was set, but a later step failed   |
-| `3`   | No      | Unknown                            | You cannot tell whether it applied              |
-| `4`   | **Yes** | Unchanged                          | Network blip, rate limit, 5xx; a retry may work |
-| other | No      | `rotate` → unknown; else unchanged | Unexpected                                      |
+| Code   | Retry?  | Target state                       | Use when                                                         |
+| ------ | ------- | ---------------------------------- | ---------------------------------------------------------------- |
+| `0`    | —       | —                                  | Success                                                          |
+| `1`    | No      | Unchanged                          | Rejected before anything was modified                            |
+| `2`    | No      | **Updated**                        | The password was set, but a later step failed                    |
+| `3`    | No      | Unknown                            | You cannot tell whether it applied                               |
+| `4`    | **Yes** | Unchanged                          | Network blip, rate limit, 5xx; a retry may work                  |
+| other  | No      | `rotate` → unknown; else unchanged | Unexpected                                                       |
+| signal | No      | `rotate` → unknown; else unchanged | Killed by a signal; the failure detail names it, e.g. `signal 9` |
 
 On timeout the connector assumes conservatively: `rotate` → unknown, `verify` → applied, `terminate`
 → unchanged.
@@ -833,12 +834,13 @@ variable names.
 
 ### Exit codes
 
-| Code | Meaning                                                    | What to do                                                                                |
-| ---- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `0`  | Clean shutdown                                             | Nothing                                                                                   |
-| `1`  | Startup error (bad config, unreadable file, missing token) | Fix the config; the log line names the problem                                            |
-| `2`  | Access connector credential refused                        | Have an admin reissue the credential, then restart with the new token                     |
-| `3`  | Not eligible for rotation endpoints                        | Check the connector is not revoked or disabled, the licence is active, and PAM is enabled |
+| Code | Meaning                                                                 | What to do                                                                                |
+| ---- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `0`  | Clean shutdown                                                          | Nothing                                                                                   |
+| `1`  | Startup error (bad config or arguments, unreadable file, missing token) | Fix the config; the log line names the problem                                            |
+| `2`  | Access connector credential refused                                     | Have an admin reissue the credential, then restart with the new token                     |
+| `3`  | Not eligible for rotation endpoints                                     | Check the connector is not revoked or disabled, the licence is active, and PAM is enabled |
+| `4`  | Could not authenticate at startup (e.g. identity server unreachable)    | Check network connectivity and the identity URL; a restart may succeed                    |
 
 `Restart=always` is safe: codes `2` and `3` need human action, and the connector will keep
 restarting and re-logging the reason until someone fixes it.
@@ -923,16 +925,6 @@ BWAC_TOKEN="…" cargo run -p bitwarden-access-connector -- run \
 ```
 
 `dev-config.toml` points at the dev proxy on `https://localhost:8080`.
-
-### Test-only registration helper
-
-Until the admin console flow ships, `examples/register.rs` generates a registration payload and
-token template locally. It handles a plaintext organisation key and is **not for production use**:
-
-```sh
-export BWAC_ORG_KEY_B64="<base64 org key>"
-cargo run -p bitwarden-access-connector --example register -- --name my-connector
-```
 
 ### References
 
