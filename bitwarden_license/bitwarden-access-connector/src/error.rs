@@ -103,6 +103,11 @@ impl SafeDetail {
         Self(Self::truncate(format!("exit code {code}")))
     }
 
+    /// The signal number of a script ended by a signal.
+    pub(crate) fn from_signal(signal: i32) -> Self {
+        Self(Self::truncate(format!("signal {signal}")))
+    }
+
     /// Variable names are safe to report; values never are.
     pub(crate) fn from_missing_vars(names: &[String]) -> Self {
         let joined = names.join(", ");
@@ -184,6 +189,12 @@ mod tests {
     fn safe_detail_from_exit_code() {
         let d = SafeDetail::from_exit_code(2);
         assert_eq!(d.as_str(), "exit code 2");
+    }
+
+    #[test]
+    fn safe_detail_from_signal() {
+        let d = SafeDetail::from_signal(9);
+        assert_eq!(d.as_str(), "signal 9");
     }
 
     #[test]

@@ -84,8 +84,8 @@ async fn happy_path_rotate_and_report_success() {
     let script_key = format!("{prefix}SCRIPT");
     let exit_code_key = format!("{prefix}EXIT_CODE");
     {
-        let _guard = ENV_LOCK.lock().expect("env lock");
-        // SAFETY: protected by ENV_LOCK; no concurrent env mutation.
+        let _guard = lock_env();
+        // SAFETY: protected by the env lock; no concurrent env mutation.
         unsafe {
             std::env::set_var(&script_key, script_path.to_str().expect("utf8 path"));
             std::env::set_var(&exit_code_key, "0");
@@ -107,7 +107,7 @@ async fn happy_path_rotate_and_report_success() {
     assert_eq!(exit, RunExit::Shutdown);
 
     {
-        let _guard = ENV_LOCK.lock().expect("env lock");
+        let _guard = lock_env();
         unsafe {
             std::env::remove_var(&script_key);
             std::env::remove_var(&exit_code_key);
@@ -210,7 +210,7 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let script_key = format!("{prefix}SCRIPT");
     let exit_code_key = format!("{prefix}EXIT_CODE");
     {
-        let _guard = ENV_LOCK.lock().expect("env lock");
+        let _guard = lock_env();
         unsafe {
             std::env::set_var(&script_key, script_path.to_str().expect("utf8 path"));
             // Exit 4 is a transient failure that leaves the target untouched.
@@ -233,7 +233,7 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     assert_eq!(exit, RunExit::Shutdown);
 
     {
-        let _guard = ENV_LOCK.lock().expect("env lock");
+        let _guard = lock_env();
         unsafe {
             std::env::remove_var(&script_key);
             std::env::remove_var(&exit_code_key);
@@ -485,7 +485,7 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
 
     let script_key = format!("{prefix}SCRIPT");
     {
-        let _guard = ENV_LOCK.lock().expect("env lock");
+        let _guard = lock_env();
         unsafe {
             std::env::set_var(&script_key, wrapper_path.to_str().expect("utf8 path"));
         }
@@ -505,7 +505,7 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     assert_eq!(exit, RunExit::Shutdown);
 
     {
-        let _guard = ENV_LOCK.lock().expect("env lock");
+        let _guard = lock_env();
         unsafe {
             std::env::remove_var(&script_key);
         }

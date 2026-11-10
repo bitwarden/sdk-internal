@@ -1,7 +1,7 @@
 //! Shared harness for the connector's integration tests: wiremock identity and API servers with
 //! self-consistent token, payload and cipher fixtures.
 //!
-//! Tests set per-target credentials in the real process environment, so each takes [`ENV_LOCK`]
+//! Tests set per-target credentials in the real process environment, so each takes [`lock_env`]
 //! first.
 
 #![allow(dead_code)]
@@ -37,6 +37,14 @@ pub use wiremock::{
 
 /// Serialises tests that mutate env vars.
 pub static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+/// Takes [`ENV_LOCK`], ignoring poison so a test that panics while holding it does not fail every
+/// other test.
+pub fn lock_env() -> std::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 /// A real token and its derived key, minted once via `make_access_token_secrets` so the two
 /// always agree.
