@@ -5,14 +5,14 @@
 
 pub(crate) mod models;
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use bitwarden_api_api::{
     apis::AuthRequired,
-    models::{
-        CipherMiniResponseModel, CipherRequestModel, ReportRotationFailedRequestModel,
-        ReportRotationSucceededRequestModel,
-    },
+    models::{ReportRotationFailedRequestModel, ReportRotationSucceededRequestModel},
 };
 use bitwarden_core::{
     Client, ClientBuilder, ClientSettings, FromClient, client::internal::ApiConfigurations,
@@ -22,10 +22,9 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_pam::{
     RotationFailureCode, RotationSyncState, SessionTerminationOutcome, WorkSnapshot,
 };
-use bitwarden_vault::Cipher;
 use models::{ApiError, JobRef};
 use reqwest_middleware::{Middleware, Next};
-use tokio::{sync::watch, time::Instant};
+use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::{
@@ -296,41 +295,6 @@ impl AccessConnectorClient {
         }
     }
 
-    /// Fetch the encrypted cipher for an attempt. A 404 maps to [`ApiError::UnknownAttempt`].
-    pub(crate) async fn get_cipher(&self, attempt_id: Uuid) -> Result<Cipher, ApiError> {
-        let result = self
-            .api_configurations
-            .api_client
-            .pam_access_connector_rotation_attempts_api()
-            .get_cipher(attempt_id)
-            .await;
-
-        match result {
-            Ok(model) => parse_cipher(model),
-            Err(e) => Err(classify_error(e, Route::Attempt)),
-        }
-    }
-
-    /// Write the re-encrypted cipher back. `lastKnownRevisionDate` is the optimistic-concurrency
-    /// check; a 409 means revision drift or capability lost, a 404 an unknown attempt.
-    pub(crate) async fn put_cipher(
-        &self,
-        attempt_id: Uuid,
-        body: CipherRequestModel,
-    ) -> Result<(), ApiError> {
-        let result = self
-            .api_configurations
-            .api_client
-            .pam_access_connector_rotation_attempts_api()
-            .put_cipher(attempt_id, body)
-            .await;
-
-        match result {
-            Ok(()) => Ok(()),
-            Err(e) => Err(classify_error(e, Route::Attempt)),
-        }
-    }
-
     /// Report a successful rotation attempt. A 409 or 404 is final: do not retry.
     pub(crate) async fn report_success(
         &self,
@@ -440,13 +404,6 @@ fn safe_middleware_description(err: &reqwest_middleware::Error) -> &'static str 
     }
 }
 
-/// Parse the cipher response into a vault [`Cipher`]. A conversion failure is a protocol error that
-/// never includes the payload.
-fn parse_cipher(model: CipherMiniResponseModel) -> Result<Cipher, ApiError> {
-    Cipher::try_from(model)
-        .map_err(|_| ApiError::Protocol("cipher response could not be parsed".to_owned()))
-}
-
 /// The connector never constructs an `Unknown` variant, so this guard failure is a bug rather than
 /// a server response.
 fn unrecognized_variant(_: bitwarden_pam::RotationError) -> ApiError {
@@ -455,11 +412,11 @@ fn unrecognized_variant(_: bitwarden_pam::RotationError) -> ApiError {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{sync::Arc, time::Instant};
 
     use bitwarden_crypto::KeyStore;
     use reqwest_middleware::ClientBuilder;
-    use tokio::{sync::watch, time::Instant};
+    use tokio::sync::watch;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{header, method, path},
@@ -563,47 +520,6 @@ mod tests {
         let err: bitwarden_api_base::Error = bitwarden_api_base::Error::Response(rc);
         let api_err = classify_error(err, Route::AccessConnectorOrJob);
         assert!(matches!(api_err, ApiError::Rejected { status: 409 }));
-    }
-
-    #[test]
-    fn parse_cipher_parses_a_login() {
-        let json = crate::test_support::keyed_login_json();
-        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
-
-        let cipher = parse_cipher(model).expect("parse_cipher");
-        assert_eq!(
-            Uuid::from(cipher.id.expect("id")),
-            crate::test_support::KEYED_LOGIN_ID
-        );
-        assert_eq!(cipher.r#type, bitwarden_vault::CipherType::Login);
-        assert!(cipher.key.is_some());
-        assert!(cipher.login.is_some());
-    }
-
-    #[test]
-    fn parse_cipher_missing_type_is_protocol_error() {
-        let mut json = crate::test_support::keyed_login_json();
-        json.as_object_mut().unwrap().remove("type");
-        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
-
-        let err = parse_cipher(model).expect_err("should fail");
-        assert!(matches!(err, ApiError::Protocol(_)), "got: {err:?}");
-    }
-
-    /// The vault parses an unparseable field leniently; the strict decrypt in the rotation write
-    /// rejects it (see `bitwarden_pam::rotation::cipher`'s tests), so parsing must not drop or
-    /// echo the value.
-    #[test]
-    fn parse_cipher_keeps_garbage_enc_string_for_strict_decryption() {
-        let store = crate::test_support::org_store();
-        let mut json = crate::test_support::keyed_login_json();
-        json["name"] = "2.secret!|garbage!|payload!".into();
-        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
-
-        let cipher = parse_cipher(model).expect("lenient parse");
-        assert!(cipher.name.is_some());
-        let org_id = crate::test_support::test_org_id();
-        assert!(bitwarden_pam::rotate_cipher_password(&store, org_id, cipher, "new-pw").is_err());
     }
 
     #[tokio::test]
@@ -745,95 +661,6 @@ mod tests {
 
         let result = api.claim(job_id).await.expect("no error");
         assert!(result.is_none(), "409 should map to Ok(None)");
-    }
-
-    #[tokio::test]
-    async fn get_cipher_parses_the_cipher_response() {
-        let identity_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-
-        let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_access_connector_client(&api_server, session);
-
-        let attempt_id = Uuid::new_v4();
-        let json = crate::test_support::keyed_login_json();
-
-        Mock::given(method("GET"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
-            )))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(json)
-                    .insert_header("content-type", "application/json"),
-            )
-            .mount(&api_server)
-            .await;
-
-        let cipher = api.get_cipher(attempt_id).await.expect("get_cipher");
-        assert_eq!(
-            Uuid::from(cipher.id.expect("id")),
-            crate::test_support::KEYED_LOGIN_ID
-        );
-        assert_eq!(
-            cipher.revision_date,
-            crate::test_support::CIPHER_REVISION_DATE
-                .parse::<chrono::DateTime<chrono::Utc>>()
-                .unwrap()
-        );
-    }
-
-    #[tokio::test]
-    async fn put_cipher_409_maps_to_rejected() {
-        let identity_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-
-        let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_access_connector_client(&api_server, session);
-
-        let attempt_id = Uuid::new_v4();
-        Mock::given(method("PUT"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
-            )))
-            .respond_with(ResponseTemplate::new(409))
-            .mount(&api_server)
-            .await;
-
-        let err = api
-            .put_cipher(attempt_id, CipherRequestModel::default())
-            .await
-            .expect_err("should fail");
-
-        assert!(
-            matches!(err, ApiError::Rejected { status: 409 }),
-            "got: {err:?}"
-        );
-    }
-
-    #[tokio::test]
-    async fn put_cipher_404_maps_to_unknown_attempt() {
-        let identity_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-
-        let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_access_connector_client(&api_server, session);
-
-        let attempt_id = Uuid::new_v4();
-        Mock::given(method("PUT"))
-            .and(path(format!(
-                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
-            )))
-            .respond_with(ResponseTemplate::new(404))
-            .mount(&api_server)
-            .await;
-
-        let err = api
-            .put_cipher(attempt_id, CipherRequestModel::default())
-            .await
-            .expect_err("should fail");
-
-        assert!(matches!(err, ApiError::UnknownAttempt), "got: {err:?}");
     }
 
     #[tokio::test]
@@ -1092,6 +919,7 @@ mod tests {
     #[tokio::test]
     async fn the_client_exposes_access_connector_sharing_its_key_store() {
         use bitwarden_core::key_management::SymmetricKeySlotId;
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
         let (tx, _rx) = watch::channel(Instant::now());
         let (client, handler) = build_sdk_client(
@@ -1101,37 +929,23 @@ mod tests {
             tx,
         );
 
-        // The cipher is encrypted under the vectors' org key; only the handler's store gets the
-        // key.
-        let json = crate::test_support::keyed_login_json();
-        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
-        let cipher = parse_cipher(model).expect("parse");
         let org_id = crate::test_support::test_org_id();
+        let slot = SymmetricKeySlotId::Organization(org_id);
 
         let access_connector = client.access_connector();
-        assert!(
-            bitwarden_pam::rotate_cipher_password(
-                &access_connector.key_store,
-                org_id,
-                cipher.clone(),
-                "new-pw"
-            )
-            .is_err(),
-            "no key yet"
-        );
+        assert!(!access_connector.key_store.context().has_symmetric_key(slot));
 
-        let org_key = crate::test_support::fixture_org_key();
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let store = handler.key_store().expect("key store");
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(SymmetricKeySlotId::Organization(org_id), org_key)
+            .set_symmetric_key(slot, org_key)
             .expect("set key");
 
         // The key reached a client handed out earlier and one handed out later.
         for c in [access_connector, client.access_connector()] {
-            bitwarden_pam::rotate_cipher_password(&c.key_store, org_id, cipher.clone(), "new-pw")
-                .expect("rotates with the shared store");
+            assert!(c.key_store.context().has_symmetric_key(slot));
         }
     }
 
