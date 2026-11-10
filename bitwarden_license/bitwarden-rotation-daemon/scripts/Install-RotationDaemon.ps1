@@ -45,9 +45,8 @@
       that can call Get-CimInstance Win32_Process -- the same reason the daemon itself
       refuses --token.
 
-    OPERATIONS.md lists Linux and macOS as the supported platforms and says custom
-    scripts require a Unix host. Entra ID targets work here; treat CustomScript targets
-    on Windows as unsupported.
+    OPERATIONS.md lists Windows among the supported platforms. Entra ID targets work
+    here, and a CustomScript target runs a .ps1 through a PowerShell host.
 
     Re-running replaces the binary and the launcher and leaves config.toml and the env
     file alone, so upgrading cannot lose credentials you added.
@@ -140,6 +139,21 @@ function Write-TextFile {
 
 # ---------------------------------------------------------------------------
 
+# Windows locks a running image, and Stop-ScheduledTask returns before the process is gone.
+# -MultipleInstances IgnoreNew then makes a too-early Start-ScheduledTask a silent no-op, so
+# both callers wait for the task to leave Running.
+function Stop-DaemonTask {
+    if (-not (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)) { return }
+
+    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    foreach ($attempt in 1..50) {
+        $state = (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue).State
+        if ($state -ne 'Running') { return }
+        Start-Sleep -Milliseconds 200
+    }
+    Fail "'$TaskName' is still running after 10s. Stop it and re-run the installer."
+}
+
 # Copies the bundled binary into place after checking it runs here. Those are the two
 # checks CI runs after building, and they catch an archive for the wrong architecture
 # now rather than as a task that will not stay running.
@@ -160,6 +174,11 @@ function Install-DaemonBinary {
     $version = (& $bundled --version 2>&1 | Select-Object -First 1)
     & $bundled run --help 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "$bundled does not accept 'run --help'; is it really $BinaryName?" }
+
+    Stop-DaemonTask
+    if (-not (Test-Path -LiteralPath $InstallDir)) {
+        New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    }
 
     Copy-Item -LiteralPath $bundled -Destination $ExePath -Force
     Write-Item "$ExePath ($version)"
@@ -335,7 +354,7 @@ function Register-DaemonTask {
             -ExecutionTimeLimit ([TimeSpan]::Zero)) `
         -Description 'Bitwarden PAM credential rotation daemon.' | Out-Null
 
-    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    Stop-DaemonTask
     Start-ScheduledTask -TaskName $TaskName
     Write-Item "registered '$TaskName' as $RunAsUser, started, and set to start at boot"
 }
