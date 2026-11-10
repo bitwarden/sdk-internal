@@ -1,4 +1,10 @@
 //! Keeps a second `bwac` from running with the same access connector token on one host.
+//!
+//! The lock lives where every account on the host can reach it, so it also catches a `bwac` started
+//! from a console under another account. The cost is that any local account can take the lock for a
+//! token first, since the API key ID is not secret, and keep the connector exiting with code 5. The
+//! lock only saves wasted work: the server hands each job to one connector, so two processes on one
+//! token can't both rotate it.
 
 use uuid::Uuid;
 
@@ -28,12 +34,12 @@ fn lock_name(api_key_id: Uuid) -> String {
     format!("bwac-{api_key_id}")
 }
 
-/// A lock file opened for exclusive access. It is never removed, since a process could be opening
+/// A lock file, locked with `File::try_lock`. It is never removed, since a process could be opening
 /// it at that moment.
 #[cfg(any(windows, target_os = "macos"))]
 mod platform {
     use std::{
-        fs::{File, OpenOptions},
+        fs::{File, OpenOptions, TryLockError},
         io,
         path::PathBuf,
     };
@@ -47,17 +53,25 @@ mod platform {
     pub(super) fn acquire(name: &str) -> Result<Guard, InstanceLockError> {
         let path = path(name).map_err(InstanceLockError::Unavailable)?;
         let mut options = OpenOptions::new();
-        exclusive(&mut options);
+        #[cfg(target_os = "macos")]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            // `/var/tmp` is world-writable, so a planted symlink would otherwise make the connector
+            // create a file wherever it points.
+            const O_NOFOLLOW: i32 = 0x100;
+            options.custom_flags(O_NOFOLLOW);
+        }
 
-        // Another account's file can't be opened for writing, but read access is enough.
+        // Another account's file can't be opened for writing, but read access is enough to lock it.
         let opened = match options.clone().write(true).create(true).open(&path) {
             Err(e) if e.kind() == io::ErrorKind::PermissionDenied => options.read(true).open(&path),
             result => result,
         };
-        match opened {
-            Ok(file) => Ok(Guard { _file: file }),
-            Err(e) if held_elsewhere(&e) => Err(InstanceLockError::AlreadyRunning),
-            Err(e) => Err(InstanceLockError::Unavailable(e)),
+        let file = opened.map_err(InstanceLockError::Unavailable)?;
+        match file.try_lock() {
+            Ok(()) => Ok(Guard { _file: file }),
+            Err(TryLockError::WouldBlock) => Err(InstanceLockError::AlreadyRunning),
+            Err(TryLockError::Error(e)) => Err(InstanceLockError::Unavailable(e)),
         }
     }
 
@@ -69,41 +83,16 @@ mod platform {
         Ok(PathBuf::from(dir).join(format!("{name}.lock")))
     }
 
-    #[cfg(windows)]
-    fn exclusive(options: &mut OpenOptions) {
-        use std::os::windows::fs::OpenOptionsExt;
-        options.share_mode(0);
-    }
-
-    #[cfg(windows)]
-    fn held_elsewhere(e: &io::Error) -> bool {
-        const ERROR_SHARING_VIOLATION: i32 = 32;
-        e.raw_os_error() == Some(ERROR_SHARING_VIOLATION)
-    }
-
     /// Every account shares `/var/tmp`, and periodic cleanup sweeps only `/tmp`.
     #[cfg(target_os = "macos")]
     pub(super) fn path(name: &str) -> io::Result<PathBuf> {
         Ok(PathBuf::from("/var/tmp").join(format!("{name}.lock")))
     }
-
-    #[cfg(target_os = "macos")]
-    fn exclusive(options: &mut OpenOptions) {
-        use std::os::unix::fs::OpenOptionsExt;
-        // O_EXLOCK takes an exclusive flock with the open; O_NONBLOCK fails rather than waits.
-        const O_NONBLOCK: i32 = 0x4;
-        const O_EXLOCK: i32 = 0x20;
-        options.custom_flags(O_EXLOCK | O_NONBLOCK);
-    }
-
-    #[cfg(target_os = "macos")]
-    fn held_elsewhere(e: &io::Error) -> bool {
-        e.kind() == io::ErrorKind::WouldBlock
-    }
 }
 
 /// An abstract socket. It has no file, so the systemd unit's PrivateTmp and ProtectSystem can't
-/// hide it from a console run.
+/// hide it from a console run. Abstract sockets are per network namespace, so a process in another
+/// namespace (a container, for example) doesn't see the lock.
 #[cfg(target_os = "linux")]
 mod platform {
     use std::{
@@ -169,6 +158,23 @@ mod tests {
 
         drop(acquire(id).expect("lock after release"));
         remove_lock_file(id);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_symlink_at_the_lock_path_is_not_followed() {
+        let id = Uuid::new_v4();
+        let target = std::env::temp_dir().join(format!("bwac-symlink-target-{id}"));
+        let link = platform::path(&lock_name(id)).expect("lock path");
+        std::os::unix::fs::symlink(&target, &link).expect("plant symlink");
+
+        let result = acquire(id);
+
+        let created = target.exists();
+        let _ = std::fs::remove_file(&link);
+        let _ = std::fs::remove_file(&target);
+        assert!(matches!(result, Err(InstanceLockError::Unavailable(_))));
+        assert!(!created);
     }
 
     #[cfg(any(windows, target_os = "macos"))]
