@@ -195,12 +195,12 @@ pub fn test_bitwarden_com_account() -> TestAccount {
 
 /// ### V2 `test@bitwarden.com`
 ///
-/// A V2 upgrade of the `test@bitwarden.com` account above, using a XChaCha20Poly1305 user key
-/// provided directly via `DecryptedKey`.
+/// A V2 upgrade of the `test@bitwarden.com` account above, using an XAES-256-GCM user key provided
+/// directly via `DecryptedKey`.
 ///
 /// - Email: `test@bitwarden.com`
 /// - KDF: Argon2id 6 iterations, 32MB memory, parallelism 4
-/// - User key: XChaCha20Poly1305 (DecryptedKey method)
+/// - User key: XAES-256-GCM (DecryptedKey method)
 #[cfg(feature = "test-fixtures")]
 pub fn test_bitwarden_com_account_v2() -> TestAccount {
     TestAccount {

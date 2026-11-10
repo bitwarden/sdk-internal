@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// TwoFactorEmailResponseModel : Response model carrying Email provider details and the
+/// user-verification token minted by the read step of two-factor enrollment.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorEmailResponseModel {
     #[serde(

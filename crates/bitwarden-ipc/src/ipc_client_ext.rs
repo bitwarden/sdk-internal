@@ -103,6 +103,11 @@ pub trait IpcClientExt: IpcClient {
     /// Send a request to the specified destination and wait for a response.
     /// The destination must have a registered RPC handler for the request type, otherwise
     /// an error will be returned by the remote endpoint.
+    ///
+    /// The response is accepted only from `destination`, as identified by the source the
+    /// transport reports for each incoming message (the SDK trusts the transport, and any relay
+    /// in between, to label sources correctly). A response from any other source is ignored, so a
+    /// caller that needs a bound on the wait should pass a `cancellation_token`.
     fn request<Request>(
         &self,
         request: Request,

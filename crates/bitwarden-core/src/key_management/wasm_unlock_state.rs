@@ -1,7 +1,7 @@
 //! The WASM sdk currently does not hold persistent SDK instances and instead re-createds SDK
 //! instances frequently. The unlock-state is lost, since the user-key is only held in the SDK. This
-//! file implements setting the user-key to WASM client-managed ephemeral state, so that
-//! SDK-re-creations have access to the user-key.
+//! file implements setting the user-key into the KM state bridge, so that SDK-re-creations have
+//! access to the user-key.
 //!
 //! This is not required on UNIFFI since there SDK instances live as long as the client is unlocked.
 //! Eventually, the WASM sdk will also hold SDK instances like described above.

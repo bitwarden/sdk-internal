@@ -71,7 +71,7 @@ where
 /// It uses a crypto provider to encrypt and decrypt messages, a communication backend to send and
 /// receive messages, and a session repository to persist sessions.
 ///
-/// This is the concrete implementation of the [`IpcClient`](crate::IpcClient) trait.
+/// This is the concrete implementation of the [`IpcClient`] trait.
 pub struct IpcClientImpl<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
