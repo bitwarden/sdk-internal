@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// WebAuthnCredentialResponseModelListResponseModel : A paginated list response wrapper.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WebAuthnCredentialResponseModelListResponseModel {
     #[serde(
@@ -36,7 +35,6 @@ pub struct WebAuthnCredentialResponseModelListResponseModel {
 }
 
 impl WebAuthnCredentialResponseModelListResponseModel {
-    /// A paginated list response wrapper.
     pub fn new() -> WebAuthnCredentialResponseModelListResponseModel {
         WebAuthnCredentialResponseModelListResponseModel {
             object: None,

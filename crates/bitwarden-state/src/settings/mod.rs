@@ -1,7 +1,7 @@
-//! Type-safe settings API for storing application configuration and state.
+//! Type-safe settings repository for storing application configuration and state.
 //!
-//! This module provides a type-safe key-value API for storing settings. Each setting resolves to
-//! its own backend, defaulting to the SDK-managed database.
+//! This module provides a type-safe key-value API for storing settings, backed by
+//! the SDK's repository pattern.
 //!
 //! # Usage
 //!

@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// PendingAuthRequestResponseModelListResponseModel : A paginated list response wrapper.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PendingAuthRequestResponseModelListResponseModel {
     #[serde(
@@ -36,7 +35,6 @@ pub struct PendingAuthRequestResponseModelListResponseModel {
 }
 
 impl PendingAuthRequestResponseModelListResponseModel {
-    /// A paginated list response wrapper.
     pub fn new() -> PendingAuthRequestResponseModelListResponseModel {
         PendingAuthRequestResponseModelListResponseModel {
             object: None,
