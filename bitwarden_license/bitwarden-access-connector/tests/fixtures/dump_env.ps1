@@ -1,6 +1,5 @@
-# Fixture: writes the child's entire environment to OUT_PATH as JSON, so the test can assert
-# both halves of the allowlist: that credentials are absent, and that the host essentials
-# survived. A launcher bug that cleared everything would pass a leak-only check.
+# Fixture: writes the child's entire environment to OUT_PATH as JSON, so the test can check both
+# that credentials are absent and that host essentials survive.
 
 param([string]$Operation)
 

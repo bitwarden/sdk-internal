@@ -1,15 +1,7 @@
 //! Core rotation execution pipeline.
 //!
-//! [`execute`] runs a single rotation attempt through the seven-step `ExecuteRotation`
-//! spec rule, producing an [`ExecutionResult`].
-//!
-//! # Divergences from the spec
-//!
-//! **D1**: unlike `ExecuteRotationWithoutSession`, only terminal `Revoked`/`Closed` phases fail
-//! fast; `Expired`-at-start refreshes in place instead of wasting the retry budget.
-//!
-//! **D4**: `execute_by` bounds only target-side steps (3, 4, 6); server-side steps (5, 7)
-//! continue past it under the transient budget while the session is alive.
+//! A `Revoked` or `Closed` session fails the attempt up front; an `Expired` one is refreshed by
+//! the gate. `execute_by` bounds only target-side steps (3, 4, 6), not server-side 5 and 7.
 
 use std::{
     sync::Arc,
@@ -33,10 +25,8 @@ use crate::{
     resolver::{CredentialResolver, ResolveError},
 };
 
-/// Why a step-boundary gate aborted the rotation.
-///
-/// An abort means the attempt goes unreported; the server's `ReleaseJob` / `JobTimesOut`
-/// machinery abandons it instead.
+/// Why a step-boundary gate aborted the rotation. The attempt goes unreported, and the server's
+/// release sweep reclaims the job.
 #[derive(Debug, Clone)]
 pub(crate) enum AbortReason {
     /// The claim's `execute_by` lease deadline has passed.
@@ -47,60 +37,39 @@ pub(crate) enum AbortReason {
     Cancelled,
 }
 
-/// Proof that step 4 (verify) completed successfully.
-///
-/// Constructible only within this module; passed to the success-report helper
-/// to enforce the `VerifiedBeforeSuccess` spec guarantee at compile time.
+/// Proof that step 4 (verify) succeeded, required by `report_success_inner`.
 pub(crate) struct Verified(());
 
-/// Proof that step 5 (cipher write) completed successfully.
-///
-/// Constructible only within this module; passed to the success-report helper
-/// to enforce the `VerifiedBeforeSuccess` spec guarantee at compile time.
+/// Proof that step 5 (cipher write) succeeded, required by `report_success_inner`.
 pub(crate) struct CipherWritten(());
 
 /// The outcome of a single [`execute`] call.
 #[derive(Debug)]
 pub(crate) enum ExecutionResult {
-    /// The rotation completed and an outcome (success or failure) was reported
-    /// to the server.
+    /// An outcome (success or failure) was reported to the server.
     Reported,
-    /// The rotation was aborted before an outcome could be reported (session
-    /// lost or execute_by expired).  The attempt goes unreported; the server's
-    /// `ReleaseJob` / `JobTimesOut` machinery will handle it.
+    /// Aborted before an outcome could be reported; the server's release sweep reclaims the job.
     Unreported(AbortReason),
 }
 
 /// Everything [`execute`] needs to run a rotation attempt.
 pub(crate) struct ExecutionContext {
-    /// The API wrapper used for cipher read/write and outcome reports.
     pub(crate) api: Arc<RotationApi>,
-    /// The session manager (for phase checks in the gate).
     pub(crate) session: Arc<SessionManager>,
-    /// The integration registry (maps `TargetKind` → driver).
     pub(crate) integrations: Arc<IntegrationRegistry>,
-    /// The credential resolver (maps target id → connection details).
     pub(crate) resolver: Arc<dyn CredentialResolver>,
-    /// The generator client used to produce the new password at step 2.
     pub(crate) generator: GeneratorClient,
-    /// The shared key store (for cipher encryption at step 5).
     pub(crate) key_store: Arc<AccessConnectorKeyStore>,
-    /// Retry configuration.
     pub(crate) retry_cfg: RetryCfg,
-    /// Maximum time without a successful server contact before the connector
-    /// considers itself offline (the connectivity-pause threshold).
+    /// How long without a successful server contact before the gate pauses target-side steps.
     pub(crate) offline_grace: Duration,
-    /// A function that returns the most recent successful-API-contact instant.
+    /// Returns the instant of the last successful server contact.
     pub(crate) last_ok: Arc<dyn Fn() -> Instant + Send + Sync>,
-    /// The cancellation token for clean shutdown.
     pub(crate) cancel: bitwarden_threading::cancellation_token::CancellationToken,
 }
 
-/// Execute a single rotation attempt and return the [`ExecutionResult`].
-///
-/// Runs the seven-step `ExecuteRotation` pipeline: resolve credentials, generate and
-/// rotate the target credential, verify, write the cipher, terminate sessions, then
-/// report the outcome.
+/// Run one rotation attempt through its seven steps: resolve credentials, generate a password,
+/// rotate the target, verify, write the cipher, terminate sessions, and report.
 pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> ExecutionResult {
     let attempt_id = snapshot.attempt_id;
 
@@ -128,7 +97,6 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         }
     }
 
-    // Convert execute_by (UTC DateTime) to a monotonic Instant.
     let execute_by_instant = datetime_to_instant(snapshot.execute_by);
 
     let creds = match ctx
@@ -289,7 +257,7 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
                 return ExecutionResult::Unreported(reason);
             }
             GatedOutcome::Failed(err) => {
-                // Verify failure: target was updated (rotation applied), vault not written.
+                // The rotation applied but the vault was not written.
                 report_failure_absorb(
                     &ctx.api,
                     attempt_id,
@@ -303,15 +271,13 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         }
     };
 
-    // execute_by does NOT bound this step (D4); relies on the session's
-    // bearer-refresh to handle token expiry.
+    // execute_by does not bound this step; the session's bearer refresh handles token expiry.
     let cipher_written = {
-        // Sub-step 5a: get cipher (with retries).
         let cipher = {
             let api = Arc::clone(&ctx.api);
             let result = with_retries(
                 &ctx.retry_cfg,
-                None, // D4: no deadline
+                None, // no deadline
                 || {
                     let api = Arc::clone(&api);
                     async move {
@@ -341,8 +307,7 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
                     return ExecutionResult::Unreported(AbortReason::SessionLost(l));
                 }
                 Err(_) => {
-                    // Any other fatal error here is reported as target_updated: step 3
-                    // already changed the target credential, so the server must know.
+                    // Step 3 already changed the target credential, so report target_updated.
                     report_failure_absorb(
                         &ctx.api,
                         attempt_id,
@@ -358,7 +323,6 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
 
         tracing::debug!(attempt_id = %attempt_id, cipher_id = %cipher.cipher_id, "cipher fetched");
 
-        // Sub-step 5b: encrypt new password into cipher data.
         let mut data = cipher.data.clone();
         let store = Arc::clone(&ctx.key_store);
         let encrypt_result =
@@ -376,7 +340,6 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
             return ExecutionResult::Reported;
         }
 
-        // Serialise the updated data value back to a JSON string.
         let data_str = match serde_json::to_string(&data) {
             Ok(s) => s,
             Err(_) => {
@@ -392,12 +355,11 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
             }
         };
 
-        // Sub-step 5c: put cipher (with retries).
         let api = Arc::clone(&ctx.api);
         let revision_date = cipher.revision_date.clone();
         let result = with_retries(
             &ctx.retry_cfg,
-            None, // D4: no deadline
+            None, // no deadline
             || {
                 let api = Arc::clone(&api);
                 let data_str = data_str.clone();
@@ -445,8 +407,7 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
                 return ExecutionResult::Unreported(AbortReason::SessionLost(l));
             }
             Err(_) => {
-                // Unexpected put_cipher error after the rotation succeeded.
-                // Report target_updated so the server knows the credential was changed.
+                // The target credential already changed, so report target_updated.
                 report_failure_absorb(
                     &ctx.api,
                     attempt_id,
@@ -460,8 +421,8 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         }
     };
 
-    // This step cannot fail the rotation, except that a SessionLost abort here
-    // means the success report itself cannot be sent.
+    // Termination never fails the rotation, but a lost session means the success report cannot be
+    // sent.
     let termination_result: SessionTermination = if !snapshot.terminate_sessions {
         SessionTermination::NotRequested
     } else {
@@ -493,12 +454,10 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
                 SessionTermination::Terminated
             }
             GatedOutcome::Aborted(AbortReason::SessionLost(l)) => {
-                // Session is lost; the success report cannot be sent.
                 return ExecutionResult::Unreported(AbortReason::SessionLost(l));
             }
             GatedOutcome::Aborted(reason) => {
-                // Lease expired or cancelled during termination (D3 widening):
-                // report success with term_failed.
+                // Lease expired or cancelled during termination: report success with term_failed.
                 tracing::warn!(
                     attempt_id = %attempt_id,
                     abort_reason = ?reason,
@@ -541,10 +500,8 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
     }
 }
 
-/// Report a successful rotation. Requires proof that steps 4 and 5 completed.
-///
-/// `_verified` and `_cipher_written` are zero-size tokens constructible only in this
-/// module, so passing them by value makes it a compile-time error to skip either step.
+/// Report a successful rotation. `_verified` and `_cipher_written` are tokens only this module can
+/// construct, so skipping step 4 or 5 is a compile error.
 async fn report_success_inner(
     api: &RotationApi,
     retry_cfg: &super::retry::RetryCfg,
@@ -575,9 +532,8 @@ async fn report_success_inner(
     .await
 }
 
-/// Build a gate closure for the gated-retry steps (3, 4, 6): implements the five arms
-/// from plan §6 (lease expiry, cancellation, session loss, paused re-auth, and stale
-/// connectivity).
+/// Build the gate for the gated-retry steps (3, 4, 6). Its five arms check lease expiry,
+/// cancellation and session loss, and pause for re-authentication or stale connectivity.
 fn make_gate(
     session: Arc<SessionManager>,
     execute_by: Instant,
@@ -602,7 +558,6 @@ fn make_gate(
                     return Err(AbortReason::Cancelled);
                 }
 
-                // Get current phase (async).
                 let phase = session.phase().await;
 
                 // Arm 3: terminal session.
@@ -618,11 +573,9 @@ fn make_gate(
 
                 // Arm 4: expired/authenticating → pause waiting for refresh.
                 if matches!(phase, SessionPhase::Expired | SessionPhase::Authenticating) {
-                    // bearer() will renew the token; we pass execute_by as the
-                    // deadline so we don't wait indefinitely.
+                    // bearer() renews the token, bounded by execute_by.
                     match session.bearer(Some(execute_by)).await {
                         Ok(_) => {
-                            // Re-loop to re-check all arms.
                             continue;
                         }
                         Err(crate::auth::session::SessionError::Lost(l)) => {
@@ -639,10 +592,8 @@ fn make_gate(
                 if phase == SessionPhase::Active {
                     let stale = (last_ok)();
                     if stale.elapsed() > offline_grace {
-                        // Wait until either: connectivity recovered (last_ok advances)
-                        // OR execute_by passes OR cancellation.
-                        //
-                        // Poll every 1 s up to execute_by.
+                        // Poll every second until connectivity recovers, execute_by passes, or
+                        // shutdown is requested.
                         loop {
                             if Instant::now() >= execute_by {
                                 return Err(AbortReason::LeaseExpired);
@@ -652,10 +603,8 @@ fn make_gate(
                             }
                             let fresh = (last_ok)();
                             if fresh.elapsed() <= offline_grace {
-                                // Recovered; re-check all arms from the top.
                                 break;
                             }
-                            // Sleep 1 s or until execute_by, whichever is sooner.
                             let remaining = execute_by.saturating_duration_since(Instant::now());
                             let sleep = Duration::from_secs(1).min(remaining);
                             if sleep == Duration::ZERO {
@@ -668,21 +617,18 @@ fn make_gate(
                                 }
                             }
                         }
-                        // Recovered; continue the outer loop to re-check all arms.
                         continue;
                     }
                 }
 
-                // All arms passed → proceed.
                 return Ok(());
             }
         })
     }
 }
 
-/// Convert a UTC `DateTime` to a monotonic [`std::time::Instant`], saturating: a
-/// past `DateTime` maps to an already-elapsed `Instant`, and a far-future one is
-/// capped at `now + 24h` to avoid overflow.
+/// Convert a UTC `DateTime` to a monotonic [`std::time::Instant`]. A past time maps to now, and a
+/// far-future one is capped at `now + 24h` to avoid overflow.
 fn datetime_to_instant(dt: chrono::DateTime<chrono::Utc>) -> Instant {
     use chrono::Utc;
     let now_utc = Utc::now();
@@ -690,19 +636,15 @@ fn datetime_to_instant(dt: chrono::DateTime<chrono::Utc>) -> Instant {
     let mono_now = Instant::now();
 
     if delta.num_seconds() <= 0 {
-        // Already expired.
         mono_now
     } else {
-        // Saturate at 24 h to avoid Duration overflow.
         let secs = delta.num_seconds().min(86400) as u64;
         mono_now + Duration::from_secs(secs)
     }
 }
 
-/// Report a rotation failure, logging the outcome and absorbing any report error.
-///
-/// Emits one `warn` per failure, plus a second `warn` on a failed report; the rotation still
-/// counts as `Reported`.
+/// Report a rotation failure, logging it and absorbing any report error; the rotation still counts
+/// as `Reported`.
 async fn report_failure_absorb(
     api: &RotationApi,
     attempt_id: uuid::Uuid,
@@ -710,7 +652,6 @@ async fn report_failure_absorb(
     detail: Option<SafeDetail>,
     sync_state: SyncState,
 ) {
-    // One warn per failure, regardless of whether the network report succeeds.
     tracing::warn!(
         attempt_id = %attempt_id,
         failure_code = ?code,
@@ -726,7 +667,7 @@ async fn report_failure_absorb(
     }
 }
 
-// Re-export Future for use in make_gate's return type.
+// Used in make_gate's return type.
 use std::future::Future;
 
 #[cfg(test)]
@@ -749,7 +690,6 @@ mod tests {
     fn past_datetime_maps_to_now_or_earlier() {
         let past = Utc::now() - chrono::Duration::minutes(5);
         let instant = datetime_to_instant(past);
-        // Past deadline; the gate should fire immediately.
         assert!(instant <= std::time::Instant::now() + Duration::from_millis(100));
     }
 
@@ -757,12 +697,11 @@ mod tests {
     fn future_datetime_maps_to_future_instant() {
         let future = Utc::now() + chrono::Duration::minutes(5);
         let instant = datetime_to_instant(future);
-        // Should be in the future.
         assert!(instant > std::time::Instant::now());
     }
 
-    // execute_by is in the past, so arm 1 fires before session.phase() is called. A
-    // SessionManager is needed for the Arc, but phase() is never awaited.
+    // execute_by is in the past, so arm 1 fires before phase() is awaited; the session only fills
+    // the Arc.
 
     #[tokio::test]
     async fn gate_lease_expired_aborts() {
@@ -785,7 +724,7 @@ mod tests {
 
         let server = MockServer::start().await;
 
-        // Token key derived from the client secret after the colon in the token string.
+        // The token's encryption key, from the part after the colon.
         let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
         let key_bytes: Zeroizing<[u8; 16]> = Zeroizing::new(b64.as_bytes().try_into().unwrap());
         let token_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
@@ -820,7 +759,6 @@ mod tests {
         let last_ok: Arc<dyn Fn() -> std::time::Instant + Send + Sync> =
             Arc::new(std::time::Instant::now);
 
-        // Set execute_by to 1 ms in the past.
         let execute_by = std::time::Instant::now()
             .checked_sub(Duration::from_millis(1))
             .unwrap_or_else(std::time::Instant::now);
@@ -860,7 +798,7 @@ mod tests {
 
         let server = MockServer::start().await;
 
-        // Same key derivation as the token's actual client secret.
+        // The token's encryption key, from the part after the colon.
         let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
         let key_bytes: Zeroizing<[u8; 16]> = Zeroizing::new(b64.as_bytes().try_into().unwrap());
         let token_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
@@ -892,7 +830,7 @@ mod tests {
         let session = SessionManager::new(identity, token).await.unwrap();
 
         let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
-        cancel.cancel(); // Already cancelled.
+        cancel.cancel();
 
         let execute_by = std::time::Instant::now() + Duration::from_secs(300);
         let last_ok: Arc<dyn Fn() -> std::time::Instant + Send + Sync> =
@@ -970,7 +908,6 @@ mod tests {
 
     #[test]
     fn target_effect_to_sync_state_mapping() {
-        // Verify the explicit mappings specified by the plan.
         assert_eq!(
             effect_to_sync_state(TargetEffect::NotApplied),
             SyncState::TargetUnchanged
@@ -1015,15 +952,12 @@ mod tests {
 
     #[test]
     fn failure_code_for_unsupported_kind_is_correct() {
-        // Regression: make sure the FailureCode we use for unsupported_kind
-        // serialises as expected.
         let code = FailureCode::UnsupportedKind;
         let s = serde_json::to_string(&code).unwrap();
         assert_eq!(s, r#""unsupported_kind""#);
     }
 
-    /// A Protocol error from get_cipher after a successful rotate must still report
-    /// `target_updated`, not be dropped silently.
+    /// A get_cipher Protocol error after a successful rotate must still report `target_updated`.
     #[tokio::test]
     async fn get_cipher_protocol_error_after_rotate_reports_target_updated() {
         use std::str::FromStr;
@@ -1086,7 +1020,6 @@ mod tests {
             .mount(&identity_server)
             .await;
 
-        // get_cipher returns malformed body → Protocol error.
         let attempt_id = uuid::Uuid::new_v4();
         let job_id = uuid::Uuid::new_v4();
         let target_system_id = uuid::Uuid::new_v4();
@@ -1103,7 +1036,6 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        // Failure report endpoint; capture it.
         Mock::given(method("POST"))
             .and(path(format!(
                 "/access-connectors/rotation/attempts/{attempt_id}/failure"
@@ -1181,13 +1113,11 @@ mod tests {
 
         let result = execute(snapshot, &exec_ctx).await;
 
-        // Must be Reported, not Unreported: a failure was reported.
         assert!(
             matches!(result, ExecutionResult::Reported),
             "expected Reported, got {result:?}"
         );
 
-        // Verify the failure report was sent with syncState = 1 (TargetUpdated).
         let requests = api_server.received_requests().await.unwrap();
         let failure_reqs: Vec<_> = requests
             .iter()
