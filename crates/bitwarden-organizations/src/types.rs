@@ -1,9 +1,9 @@
+pub use bitwarden_core::ProviderId;
 use bitwarden_uuid::uuid_newtype;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 uuid_newtype!(pub OrganizationUserId);
-uuid_newtype!(pub ProviderId);
 
 /// The membership status of a user within an organization.
 #[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]

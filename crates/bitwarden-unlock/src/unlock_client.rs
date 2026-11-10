@@ -1,9 +1,7 @@
 //! Client for unlocking a rehydrated Bitwarden SDK client.
 
 #[cfg(feature = "cli")]
-use bitwarden_core::client::persisted_state::{
-    ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, SESSION_PROTECTED_USER_KEY,
-};
+use bitwarden_core::client::persisted_state::{ACCOUNT_CRYPTO_STATE, SESSION_PROTECTED_USER_KEY};
 use bitwarden_core::{
     Client,
     client::encryption_settings::EncryptionSettingsError,
@@ -184,26 +182,11 @@ impl UnlockClient {
                 UnlockError::Unknown
             })?;
 
-        let org_keys = state
-            .get::<OrganizationSharedKey>()
-            .map_err(|e| {
-                tracing::error!("Failed to read organization keys repository: {e}");
-                UnlockError::Unknown
-            })?
-            .list()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to list organization keys: {e}");
-                UnlockError::Unknown
-            })?;
-
-        self.client
-            .internal
-            .initialize_org_crypto(org_keys.into_iter().map(|k| (k.org_id, k.key)).collect())
-            .map_err(|e| {
-                tracing::error!("Failed to decrypt organization keys: {e}");
-                UnlockError::Unknown
-            })?;
+        // Organization keys must not fail an unlock. A key that fails to load is logged and
+        // reported in the status instead.
+        if let Err(e) = self.client.crypto().load_organization_keys().await {
+            tracing::warn!(error = ?e, "Failed to load organization keys");
+        }
 
         Ok(())
     }

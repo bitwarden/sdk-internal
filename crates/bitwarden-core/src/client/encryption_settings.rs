@@ -1,17 +1,13 @@
-#[cfg(any(feature = "internal", feature = "secrets"))]
+#[cfg(feature = "secrets")]
 use bitwarden_crypto::KeyStore;
 #[cfg(feature = "secrets")]
 use bitwarden_crypto::SymmetricCryptoKey;
-#[cfg(feature = "internal")]
-use bitwarden_crypto::UnsignedSharedKey;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "internal")]
-use tracing::info;
 
-#[cfg(any(feature = "secrets", feature = "internal"))]
+#[cfg(feature = "secrets")]
 use crate::OrganizationId;
-#[cfg(any(feature = "internal", feature = "secrets"))]
+#[cfg(feature = "secrets")]
 use crate::key_management::{KeySlotIds, SymmetricKeySlotId};
 use crate::{MissingPrivateKeyError, error::UserIdAlreadySetError};
 
@@ -83,59 +79,5 @@ impl EncryptionSettings {
             .context_mut()
             .set_symmetric_key(SymmetricKeySlotId::Organization(organization_id), key)
             .expect("Mutable context");
-    }
-
-    #[cfg(feature = "internal")]
-    #[bitwarden_logging::instrument(err)]
-    pub(crate) fn set_org_keys(
-        org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
-        store: &KeyStore<KeySlotIds>,
-    ) -> Result<(), EncryptionSettingsError> {
-        use crate::key_management::PrivateKeySlotId;
-
-        let mut ctx = store.context_mut();
-
-        // FIXME: [PM-11690] - Early abort to handle private key being corrupt
-        if org_enc_keys.is_empty() {
-            info!("No organization keys to set");
-            return Ok(());
-        }
-
-        if !ctx.has_private_key(PrivateKeySlotId::UserPrivateKey) {
-            info!("User private key is missing, cannot set organization keys");
-            return Err(MissingPrivateKeyError.into());
-        }
-
-        // Make sure we only keep the keys given in the arguments and not any of the previous
-        // ones, which might be from organizations that the user is no longer a part of anymore
-        ctx.retain_symmetric_keys(|key_ref| {
-            !matches!(key_ref, SymmetricKeySlotId::Organization(_))
-        });
-
-        info!("Decrypting organization keys");
-        // Decrypt the org keys with the private key
-        for (org_id, org_enc_key) in org_enc_keys {
-            let _span =
-                tracing::span!(tracing::Level::INFO, "decapsulate_org_key", org_id = %org_id)
-                    .entered();
-            match org_enc_key.decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx) {
-                Err(e) => {
-                    tracing::error!("Failed to decapsulate organization key: {}", e);
-                    return Err(e.into());
-                }
-                Ok(org_symmetric_key) => {
-                    tracing::info!(
-                        org_id = %org_id,
-                        "Successfully decapsulated organization key for org",
-                    );
-                    ctx.persist_symmetric_key(
-                        org_symmetric_key,
-                        SymmetricKeySlotId::Organization(org_id),
-                    )?;
-                }
-            }
-        }
-
-        Ok(())
     }
 }

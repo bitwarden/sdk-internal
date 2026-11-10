@@ -70,11 +70,18 @@ mod local_user_data_key;
 #[cfg(feature = "internal")]
 mod local_user_data_key_state;
 
+#[cfg(feature = "internal")]
+mod organization_keys;
+#[cfg(feature = "internal")]
+pub use organization_keys::{
+    OrganizationKeysError, OrganizationKeysResponse, OrganizationKeysStatus, ProviderKeysResponse,
+};
+
 /// A temporary bridge to access KM-related state from within the SDK.
 #[cfg(feature = "internal")]
 pub mod state_bridge;
 
-use crate::{OrganizationId, UserId};
+use crate::{OrganizationId, ProviderId, UserId};
 
 /// Represents the local user data key, wrapped by user key.
 /// This key is used to encrypt local user data (e.g., password generator history).
@@ -93,6 +100,7 @@ key_slot_ids! {
         Master,
         User,
         Organization(OrganizationId),
+        Provider(ProviderId),
         LocalUserData,
         #[local]
         Local(LocalId),

@@ -19,11 +19,16 @@ use crate::key_management::crypto::{
 };
 #[cfg(feature = "internal")]
 use crate::key_management::{
+    OrganizationKeysError, OrganizationKeysResponse, OrganizationKeysStatus, ProviderKeysResponse,
     SymmetricKeySlotId,
     crypto::{
         DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
         derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
         initialize_org_crypto, initialize_user_crypto, make_prf_user_key_set,
+    },
+    organization_keys::{
+        dangerous_get_organization_keys, dangerous_get_provider_keys, get_organization_keys_status,
+        load_organization_keys,
     },
 };
 use crate::{
@@ -55,15 +60,6 @@ impl CryptoClient {
         req: InitUserCryptoRequest,
     ) -> Result<(), EncryptionSettingsError> {
         initialize_user_crypto(&self.client, req).await
-    }
-
-    /// Initialization method for the organization crypto. Needs to be called after
-    /// `initialize_user_crypto` but before any other crypto operations.
-    pub async fn initialize_org_crypto(
-        &self,
-        req: InitOrgCryptoRequest,
-    ) -> Result<(), EncryptionSettingsError> {
-        initialize_org_crypto(&self.client, req).await
     }
 
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
@@ -314,6 +310,27 @@ impl CryptoClient {
 #[cfg(feature = "internal")]
 #[bitwarden_ffi::wasm_export]
 impl CryptoClient {
+    /// Re-derives the user's provider and organization keys from state and loads them into the
+    /// key store, replacing the previously loaded ones.
+    ///
+    /// Unlock and sync already do this. Call it when another SDK instance has updated the
+    /// persisted keys, e.g. a sync that ran in another window.
+    ///
+    /// A key that fails to load does not fail the call. It is listed in the returned status.
+    pub async fn load_organization_keys(
+        &self,
+    ) -> Result<OrganizationKeysStatus, OrganizationKeysError> {
+        load_organization_keys(&self.client).await
+    }
+
+    /// Reports which of the user's provider and organization keys are loaded into the key store,
+    /// without loading anything.
+    pub async fn organization_keys_status(
+        &self,
+    ) -> Result<OrganizationKeysStatus, OrganizationKeysError> {
+        get_organization_keys_status(&self.client).await
+    }
+
     /// Stops unlock from running local state migrations: the V1 to V2 PIN migration and the
     /// ephemeral PIN envelope reseal.
     ///
@@ -325,6 +342,53 @@ impl CryptoClient {
             .internal
             .crypto_settings
             .disable_local_unlock_migrations();
+    }
+}
+
+// wasm_bindgen generates glue that calls the deprecated methods below, which would otherwise
+// warn.
+#[cfg(feature = "internal")]
+#[allow(deprecated)]
+#[bitwarden_ffi::wasm_export]
+impl CryptoClient {
+    /// Initialization method for the organization crypto. Needs to be called after
+    /// `initialize_user_crypto` but before any other crypto operations.
+    ///
+    /// Replaces the persisted organization keys with the given ones and loads them into the key
+    /// store. A key that fails to load is logged and skipped.
+    #[deprecated(
+        note = "Pass organization keys to `CryptoSyncHandlerClient::on_sync` instead; unlock loads them from state"
+    )]
+    pub async fn initialize_org_crypto(
+        &self,
+        req: InitOrgCryptoRequest,
+    ) -> Result<(), EncryptionSettingsError> {
+        initialize_org_crypto(&self.client, req).await
+    }
+
+    /// ⚠️⚠️⚠️ HAZMAT WARNING: DO NOT USE THIS ⚠️⚠️⚠️
+    ///
+    /// Get the decrypted keys of the organizations whose keys are loaded. It is only permitted
+    /// for a transition period, until the clients' consumers of organization keys move to SDK
+    /// operations.
+    // TODO: PM-XXXXX remove once no client consumes raw organization keys
+    #[deprecated(note = "Use SDK operations that read the organization key slots instead")]
+    pub async fn dangerous_get_organization_keys(
+        &self,
+    ) -> Result<OrganizationKeysResponse, OrganizationKeysError> {
+        dangerous_get_organization_keys(&self.client).await
+    }
+
+    /// ⚠️⚠️⚠️ HAZMAT WARNING: DO NOT USE THIS ⚠️⚠️⚠️
+    ///
+    /// Get the decrypted keys of the providers whose keys are loaded. It is only permitted for a
+    /// transition period, until the clients' provider operations move to the SDK.
+    // TODO: PM-XXXXX remove once no client consumes raw provider keys
+    #[deprecated(note = "Use SDK operations that read the provider key slots instead")]
+    pub async fn dangerous_get_provider_keys(
+        &self,
+    ) -> Result<ProviderKeysResponse, OrganizationKeysError> {
+        dangerous_get_provider_keys(&self.client).await
     }
 }
 

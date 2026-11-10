@@ -1,24 +1,31 @@
 //! Key management work that runs on every sync.
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::collections::HashMap;
+
 #[cfg(any(feature = "uniffi", feature = "wasm"))]
 use bitwarden_core::key_management::crypto::{ReinitUserCryptoError, ReinitUserCryptoRequest};
-#[cfg(not(target_arch = "wasm32"))]
-use bitwarden_core::key_management::{
-    MasterPasswordError, V2UpgradeTokenError, WebAuthnPrfError,
-    account_cryptographic_state::AccountKeysResponseParseError,
-};
 use bitwarden_core::{
     Client,
+    client::persisted_state::{OrganizationSharedKey, ProviderSharedKey},
     key_management::{
-        MasterPasswordUnlockData, V2UpgradeToken, WebAuthnPrfUnlockData, WebAuthnPrfUnlockOption,
-        account_cryptographic_state::WrappedAccountCryptographicState,
+        MasterPasswordUnlockData, OrganizationKeysError, V2UpgradeToken, WebAuthnPrfUnlockData,
+        WebAuthnPrfUnlockOption, account_cryptographic_state::WrappedAccountCryptographicState,
+    },
+};
+#[cfg(not(target_arch = "wasm32"))]
+use bitwarden_core::{
+    OrganizationId, ProviderId,
+    client::persisted_state::OrganizationKeyEnvelope,
+    key_management::{
+        MasterPasswordError, V2UpgradeTokenError, WebAuthnPrfError,
+        account_cryptographic_state::AccountKeysResponseParseError,
     },
 };
 use bitwarden_crypto::KeyId;
+use bitwarden_state::repository::{RepositoryError, RepositoryItem};
 use serde::{Deserialize, Serialize};
-#[cfg(any(feature = "uniffi", feature = "wasm"))]
-use tracing::debug;
-use tracing::warn;
+use tracing::{debug, warn};
 
 /// The parts of a sync response the key management sync handler needs.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -34,6 +41,20 @@ pub struct CryptoSyncData {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub account_cryptographic_state: Option<WrappedAccountCryptographicState>,
+    /// The keys of the organizations the user is a member of, directly or through a provider.
+    ///
+    /// `None` leaves the persisted organization keys untouched. `Some` replaces them, so an empty
+    /// list removes all of them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub organization_keys: Option<Vec<OrganizationSharedKey>>,
+    /// The keys of the providers the user is a member of.
+    ///
+    /// `None` leaves the persisted provider keys untouched. `Some` replaces them, so an empty list
+    /// removes all of them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub provider_keys: Option<Vec<ProviderSharedKey>>,
 }
 
 /// The user decryption options a sync response carries, narrowed to the parts key management owns.
@@ -82,6 +103,12 @@ pub enum CryptoSyncDataParseError {
     /// The sync response carried account cryptographic state that could not be parsed.
     #[error("Sync response carried unparseable account cryptographic state")]
     AccountCryptographicState(#[source] AccountKeysResponseParseError),
+    /// The sync response carried an organization key that could not be parsed.
+    #[error("Sync response carried an unparseable organization key")]
+    OrganizationKey(#[source] bitwarden_crypto::CryptoError),
+    /// The sync response carried a provider key that could not be parsed.
+    #[error("Sync response carried an unparseable provider key")]
+    ProviderKey(#[source] bitwarden_crypto::CryptoError),
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -104,8 +131,97 @@ impl TryFrom<&bitwarden_api_api::models::SyncResponseModel> for CryptoSyncData {
                 .map(WrappedAccountCryptographicState::try_from)
                 .transpose()
                 .map_err(CryptoSyncDataParseError::AccountCryptographicState)?,
+            organization_keys: response
+                .profile
+                .as_deref()
+                .map(parse_organization_keys)
+                .transpose()?,
+            provider_keys: response
+                .profile
+                .as_deref()
+                .map(parse_provider_keys)
+                .transpose()?,
         })
     }
+}
+
+/// Parses the keys of the organizations the user is a member of, directly or through a provider.
+///
+/// Memberships without a key, e.g. an invited but unconfirmed member, are skipped. An
+/// organization the user is a member of both directly and through a provider uses the provider
+/// key, matching the clients.
+#[cfg(not(target_arch = "wasm32"))]
+fn parse_organization_keys(
+    profile: &bitwarden_api_api::models::ProfileResponseModel,
+) -> Result<Vec<OrganizationSharedKey>, CryptoSyncDataParseError> {
+    let direct = profile.organizations.iter().flatten().filter_map(|org| {
+        let (Some(id), Some(key)) = (org.id, org.key.as_deref()) else {
+            return None;
+        };
+        Some(key.parse().map(|key| {
+            (
+                OrganizationId::new(id),
+                OrganizationKeyEnvelope::Organization { key },
+            )
+        }))
+    });
+
+    let through_provider = profile
+        .provider_organizations
+        .iter()
+        .flatten()
+        .filter_map(|org| {
+            let (Some(id), Some(key)) = (org.id, org.key.as_deref()) else {
+                return None;
+            };
+            let Some(provider_id) = org.provider_id else {
+                warn!(org_id = %id, "Skipping provider organization key without a provider id");
+                return None;
+            };
+            Some(key.parse().map(|key| {
+                (
+                    OrganizationId::new(id),
+                    OrganizationKeyEnvelope::Provider {
+                        provider_id: ProviderId::new(provider_id),
+                        key,
+                    },
+                )
+            }))
+        });
+
+    // Later entries win, so a provider key replaces a direct one for the same organization.
+    let keys = direct
+        .chain(through_provider)
+        .collect::<Result<HashMap<_, _>, _>>()
+        .map_err(CryptoSyncDataParseError::OrganizationKey)?;
+
+    Ok(keys
+        .into_iter()
+        .map(|(org_id, key)| OrganizationSharedKey { org_id, key })
+        .collect())
+}
+
+/// Parses the keys of the providers the user is a member of. Memberships without a key are
+/// skipped.
+#[cfg(not(target_arch = "wasm32"))]
+fn parse_provider_keys(
+    profile: &bitwarden_api_api::models::ProfileResponseModel,
+) -> Result<Vec<ProviderSharedKey>, CryptoSyncDataParseError> {
+    profile
+        .providers
+        .iter()
+        .flatten()
+        .filter_map(|provider| {
+            let (Some(id), Some(key)) = (provider.id, provider.key.as_deref()) else {
+                return None;
+            };
+            Some(key.parse().map(|key| ProviderSharedKey {
+                provider_id: ProviderId::new(id),
+                key,
+            }))
+        })
+        .collect::<Result<_, _>>()
+        .map_err(CryptoSyncDataParseError::ProviderKey)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -162,6 +278,8 @@ async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
     handle_v2_upgrade(client, data).await;
+    // After the V2 upgrade, so organization keys are unwrapped with the current private key.
+    handle_organization_keys(client, data).await;
 
     // Further key management sync handlers go here.
 }
@@ -269,6 +387,60 @@ async fn handle_v2_upgrade(client: &Client, data: &CryptoSyncData) {
 
 #[cfg(not(any(feature = "uniffi", feature = "wasm")))]
 async fn handle_v2_upgrade(_client: &Client, _data: &CryptoSyncData) {}
+
+/// Persists the provider and organization keys the server reported, and reloads them into an
+/// unlocked client.
+///
+///   unlocked client ── sync(keys) ──▶ persist ──▶ reload into the key store
+///   locked client   ── sync(keys) ──▶ persist      the next unlock loads them
+async fn handle_organization_keys(client: &Client, data: &CryptoSyncData) {
+    if data.organization_keys.is_none() && data.provider_keys.is_none() {
+        return;
+    }
+
+    // Providers first, since provider-wrapped organization keys depend on them.
+    if let Some(provider_keys) = data.provider_keys.as_ref() {
+        let values = provider_keys
+            .iter()
+            .map(|p| (p.provider_id, p.clone()))
+            .collect();
+        if let Err(e) = replace_all::<ProviderSharedKey>(client, values).await {
+            // Handlers MUST NOT fail, to avoid partial state writes
+            warn!(error = ?e, "Failed to persist provider keys");
+        }
+    }
+
+    if let Some(organization_keys) = data.organization_keys.as_ref() {
+        let values = organization_keys
+            .iter()
+            .map(|o| (o.org_id, o.clone()))
+            .collect();
+        if let Err(e) = replace_all::<OrganizationSharedKey>(client, values).await {
+            // Handlers MUST NOT fail, to avoid partial state writes
+            warn!(error = ?e, "Failed to persist organization keys");
+        }
+    }
+
+    match client.crypto().load_organization_keys().await {
+        Ok(_) => {}
+        Err(OrganizationKeysError::NotUnlocked) => {
+            debug!("Locked, skipping organization key reload")
+        }
+        Err(e) => warn!(error = ?e, "Failed to reload organization keys"),
+    }
+}
+
+async fn replace_all<T: RepositoryItem>(
+    client: &Client,
+    values: Vec<(T::Key, T)>,
+) -> Result<(), RepositoryError> {
+    client
+        .platform()
+        .state()
+        .get::<T>()?
+        .replace_all(values)
+        .await
+}
 
 /// Whether the sync carries a state that constitutes a cryptographic downgrade
 ///
@@ -383,12 +555,18 @@ impl bitwarden_sync::SyncHandler for CryptoSyncHandler {
 mod tests {
     use bitwarden_api_api::models::{
         KdfType, MasterPasswordUnlockKdfResponseModel, MasterPasswordUnlockResponseModel,
-        SyncResponseModel, UserDecryptionResponseModel, WebAuthnPrfDecryptionOption,
+        ProfileOrganizationResponseModel, ProfileProviderOrganizationResponseModel,
+        ProfileProviderResponseModel, ProfileResponseModel, SyncResponseModel,
+        UserDecryptionResponseModel, WebAuthnPrfDecryptionOption,
     };
     use bitwarden_core::key_management::{
-        KeySlotIds, state_bridge::test_support::InMemoryStateBridge,
+        KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId,
+        state_bridge::test_support::InMemoryStateBridge,
     };
-    use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{
+        KeyStore, PublicKey, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm, UnsignedSharedKey,
+    };
+    use uuid::Uuid;
 
     use super::*;
 
@@ -425,6 +603,153 @@ mod tests {
 
         assert!(data.user_decryption.is_none());
         assert!(data.account_cryptographic_state.is_none());
+        assert!(data.organization_keys.is_none());
+        assert!(data.provider_keys.is_none());
+    }
+
+    const TEST_UNSIGNED_SHARED_KEY: &str = "4.rY01mZFXHOsBAg5Fq4gyXuklWfm6mQASm42DJpx05a+e2mmp+P5W6r54WU2hlREX0uoTxyP91bKKwickSPdCQQ58J45LXHdr9t2uzOYyjVzpzebFcdMw1eElR9W2DW8wEk9+mvtWvKwu7yTebzND+46y1nRMoFydi5zPVLSlJEf81qZZ4Uh1UUMLwXz+NRWfixnGXgq2wRq1bH0n3mqDhayiG4LJKgGdDjWXC8W8MMXDYx24SIJrJu9KiNEMprJE+XVF9nQVNijNAjlWBqkDpsfaWTUfeVLRLctfAqW1blsmIv4RQ91PupYJZDNc8nO9ZTF3TEVM+2KHoxzDJrLs2Q==";
+    const ORG_ID: Uuid = Uuid::from_u128(1);
+    const PROVIDER_ORG_ID: Uuid = Uuid::from_u128(2);
+    const PROVIDER_ID: Uuid = Uuid::from_u128(3);
+
+    fn profile_response(profile: ProfileResponseModel) -> SyncResponseModel {
+        SyncResponseModel {
+            profile: Some(Box::new(profile)),
+            ..Default::default()
+        }
+    }
+
+    fn member_organization(id: Uuid, key: Option<&str>) -> ProfileOrganizationResponseModel {
+        ProfileOrganizationResponseModel {
+            id: Some(id),
+            key: key.map(str::to_owned),
+            ..Default::default()
+        }
+    }
+
+    fn provider_organization(
+        id: Uuid,
+        key: Option<&str>,
+    ) -> ProfileProviderOrganizationResponseModel {
+        ProfileProviderOrganizationResponseModel {
+            id: Some(id),
+            provider_id: Some(PROVIDER_ID),
+            key: key.map(str::to_owned),
+            ..Default::default()
+        }
+    }
+
+    fn provider(key: Option<&str>) -> ProfileProviderResponseModel {
+        ProfileProviderResponseModel {
+            id: Some(PROVIDER_ID),
+            key: key.map(str::to_owned),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_try_from_parses_organization_and_provider_keys() {
+        let response = profile_response(ProfileResponseModel {
+            organizations: Some(vec![member_organization(
+                ORG_ID,
+                Some(TEST_UNSIGNED_SHARED_KEY),
+            )]),
+            provider_organizations: Some(vec![provider_organization(
+                PROVIDER_ORG_ID,
+                Some(TEST_USER_KEY),
+            )]),
+            providers: Some(vec![provider(Some(TEST_UNSIGNED_SHARED_KEY))]),
+            ..Default::default()
+        });
+
+        let data = CryptoSyncData::try_from(&response).unwrap();
+
+        let mut organization_keys = data.organization_keys.unwrap();
+        organization_keys.sort_by_key(|o| o.org_id);
+        let [direct, through_provider] = organization_keys.as_slice() else {
+            panic!("expected two organization keys");
+        };
+        assert_eq!(direct.org_id, OrganizationId::new(ORG_ID));
+        assert!(matches!(
+            direct.key,
+            OrganizationKeyEnvelope::Organization { .. }
+        ));
+        assert_eq!(
+            through_provider.org_id,
+            OrganizationId::new(PROVIDER_ORG_ID)
+        );
+        assert!(matches!(
+            through_provider.key,
+            OrganizationKeyEnvelope::Provider { provider_id, .. }
+                if provider_id == ProviderId::new(PROVIDER_ID)
+        ));
+
+        let provider_keys = data.provider_keys.unwrap();
+        assert_eq!(provider_keys.len(), 1);
+        assert_eq!(provider_keys[0].provider_id, ProviderId::new(PROVIDER_ID));
+    }
+
+    /// An invited but unconfirmed member has no key yet.
+    #[test]
+    fn test_try_from_skips_memberships_without_a_key() {
+        let response = profile_response(ProfileResponseModel {
+            organizations: Some(vec![member_organization(ORG_ID, None)]),
+            provider_organizations: Some(vec![provider_organization(PROVIDER_ORG_ID, None)]),
+            providers: Some(vec![provider(None)]),
+            ..Default::default()
+        });
+
+        let data = CryptoSyncData::try_from(&response).unwrap();
+
+        assert!(data.organization_keys.unwrap().is_empty());
+        assert!(data.provider_keys.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_try_from_prefers_the_provider_key_for_an_organization() {
+        let response = profile_response(ProfileResponseModel {
+            organizations: Some(vec![member_organization(
+                ORG_ID,
+                Some(TEST_UNSIGNED_SHARED_KEY),
+            )]),
+            provider_organizations: Some(vec![provider_organization(ORG_ID, Some(TEST_USER_KEY))]),
+            ..Default::default()
+        });
+
+        let data = CryptoSyncData::try_from(&response).unwrap();
+
+        let organization_keys = data.organization_keys.unwrap();
+        assert_eq!(organization_keys.len(), 1);
+        assert!(matches!(
+            organization_keys[0].key,
+            OrganizationKeyEnvelope::Provider { .. }
+        ));
+    }
+
+    #[test]
+    fn test_try_from_malformed_organization_key_errors() {
+        let response = profile_response(ProfileResponseModel {
+            organizations: Some(vec![member_organization(ORG_ID, Some("not a key"))]),
+            ..Default::default()
+        });
+
+        assert!(matches!(
+            CryptoSyncData::try_from(&response),
+            Err(CryptoSyncDataParseError::OrganizationKey(_))
+        ));
+    }
+
+    #[test]
+    fn test_try_from_malformed_provider_key_errors() {
+        let response = profile_response(ProfileResponseModel {
+            providers: Some(vec![provider(Some("not a key"))]),
+            ..Default::default()
+        });
+
+        assert!(matches!(
+            CryptoSyncData::try_from(&response),
+            Err(CryptoSyncDataParseError::ProviderKey(_))
+        ));
     }
 
     #[test]
@@ -633,5 +958,133 @@ mod tests {
         let stored = sync_account_cryptographic_state(&client, &make_v1_state()).await;
 
         assert_eq!(stored.as_ref(), Some(&local));
+    }
+
+    /// A client unlocked with a fresh user key and private key. Returns the user's public key.
+    fn unlocked_client() -> (Client, PublicKey) {
+        let client = Client::new(None);
+        let public_key = {
+            let mut ctx = client.internal.get_key_store().context_mut();
+            let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
+                .expect("persisting the user key succeeds");
+            let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+            ctx.persist_private_key(private_key, PrivateKeySlotId::UserPrivateKey)
+                .expect("persisting the private key succeeds");
+            ctx.get_public_key(PrivateKeySlotId::UserPrivateKey)
+                .expect("the private key is present")
+        };
+        (client, public_key)
+    }
+
+    /// A fresh organization key, encapsulated to `public_key`.
+    fn organization_key(id: Uuid, public_key: &PublicKey) -> OrganizationSharedKey {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        OrganizationSharedKey {
+            org_id: OrganizationId::new(id),
+            key: OrganizationKeyEnvelope::Organization {
+                key: UnsignedSharedKey::encapsulate(key, public_key, &ctx)
+                    .expect("encapsulation succeeds"),
+            },
+        }
+    }
+
+    async fn sync_organization_keys(client: &Client, keys: Option<Vec<OrganizationSharedKey>>) {
+        let data = CryptoSyncData {
+            organization_keys: keys,
+            ..Default::default()
+        };
+        handle_crypto_sync(client, &data).await;
+    }
+
+    async fn persisted_organization_ids(client: &Client) -> Vec<OrganizationId> {
+        let mut ids: Vec<_> = client
+            .platform()
+            .state()
+            .get::<OrganizationSharedKey>()
+            .expect("repository is registered")
+            .list()
+            .await
+            .expect("listing succeeds")
+            .into_iter()
+            .map(|o| o.org_id)
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    fn has_organization_key(client: &Client, id: Uuid) -> bool {
+        client
+            .internal
+            .get_key_store()
+            .context()
+            .has_symmetric_key(SymmetricKeySlotId::Organization(OrganizationId::new(id)))
+    }
+
+    #[tokio::test]
+    async fn test_organization_keys_absent_leaves_state_alone() {
+        let (client, public_key) = unlocked_client();
+        sync_organization_keys(&client, Some(vec![organization_key(ORG_ID, &public_key)])).await;
+
+        sync_organization_keys(&client, None).await;
+
+        assert_eq!(
+            persisted_organization_ids(&client).await,
+            vec![OrganizationId::new(ORG_ID)]
+        );
+        assert!(has_organization_key(&client, ORG_ID));
+    }
+
+    #[tokio::test]
+    async fn test_organization_keys_empty_clears_state_and_key_store() {
+        let (client, public_key) = unlocked_client();
+        sync_organization_keys(&client, Some(vec![organization_key(ORG_ID, &public_key)])).await;
+
+        sync_organization_keys(&client, Some(vec![])).await;
+
+        assert!(persisted_organization_ids(&client).await.is_empty());
+        assert!(!has_organization_key(&client, ORG_ID));
+    }
+
+    #[tokio::test]
+    async fn test_organization_keys_drop_organizations_the_user_left() {
+        let (client, public_key) = unlocked_client();
+        let kept = organization_key(ORG_ID, &public_key);
+        let left = organization_key(PROVIDER_ORG_ID, &public_key);
+        sync_organization_keys(&client, Some(vec![kept.clone(), left])).await;
+
+        sync_organization_keys(&client, Some(vec![kept])).await;
+
+        assert_eq!(
+            persisted_organization_ids(&client).await,
+            vec![OrganizationId::new(ORG_ID)]
+        );
+        assert!(has_organization_key(&client, ORG_ID));
+        assert!(!has_organization_key(&client, PROVIDER_ORG_ID));
+    }
+
+    #[tokio::test]
+    async fn test_organization_keys_reload_into_an_unlocked_client() {
+        let (client, public_key) = unlocked_client();
+
+        sync_organization_keys(&client, Some(vec![organization_key(ORG_ID, &public_key)])).await;
+
+        assert!(has_organization_key(&client, ORG_ID));
+    }
+
+    #[tokio::test]
+    async fn test_organization_keys_persist_without_loading_into_a_locked_client() {
+        let client = Client::new(None);
+        let (_, public_key) = unlocked_client();
+
+        sync_organization_keys(&client, Some(vec![organization_key(ORG_ID, &public_key)])).await;
+
+        assert_eq!(
+            persisted_organization_ids(&client).await,
+            vec![OrganizationId::new(ORG_ID)]
+        );
+        assert!(!has_organization_key(&client, ORG_ID));
     }
 }
