@@ -647,7 +647,7 @@ esac
 - [ ] Nothing logs `newPassword`, and there's no `set -x`.
 - [ ] The script finishes well within `script_timeout`.
 
-There are minimal shell and PowerShell examples in `scripts/examples/`.
+There are minimal shell and PowerShell examples in `bundle/examples/`.
 
 ## PowerShell scripts
 
