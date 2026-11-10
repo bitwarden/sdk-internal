@@ -33,13 +33,13 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
+      # No restore keys: cargo-run-bin stores Verifpal under its version only, not its git rev,
+      # so an older cache would keep an old Verifpal after the rev in Cargo.toml changes.
       - name: Cache cargo-run-bin tools
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .bin
           key: cargo-bin-${{ runner.os }}-verifpal-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
-          restore-keys: |
-            cargo-bin-${{ runner.os }}-verifpal-
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
