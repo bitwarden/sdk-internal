@@ -1,13 +1,14 @@
 //! The vault cipher half of a rotation.
 //!
-//! [`decrypt_cipher_for_rotation`] vets and strictly decrypts the cipher the server returned, and
-//! [`rotate_cipher_password`] builds the write that replaces its password. Both go through the
-//! vault's typed models.
+//! [`rotate_cipher_password`] vets the cipher the server returned and builds the write that
+//! replaces its password. The vault owns the strict decryption, the password history and the
+//! encryption ([`Cipher::change_login_password`]); this module adds the PAM vetting and the
+//! original-item-key rule. It goes through the vault's typed models.
 
 use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
-use bitwarden_crypto::{EncString, KeyStore};
-use bitwarden_vault::{Cipher, CipherType, CipherView, EncryptMode, StrictDecrypt};
+use bitwarden_crypto::KeyStore;
+use bitwarden_vault::{ChangeLoginPasswordError, Cipher, CipherType};
 use thiserror::Error;
 
 /// Errors from the cipher half of a rotation. They never include cipher content.
@@ -34,7 +35,7 @@ pub enum RotationCipherError {
     #[error("re-encrypted cipher carries a data blob")]
     CipherDataPresent,
 
-    /// A generic cryptographic operation failed.
+    /// Strict decryption or re-encryption failed.
     #[error("cryptographic operation failed")]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 
@@ -43,18 +44,35 @@ pub enum RotationCipherError {
     Json(#[from] serde_json::Error),
 }
 
-/// Decrypts the fetched cipher for a rotation. Before decrypting, rejects a cipher outside the
-/// connector's organization, a non-login, a restricted one (re-encrypting would wipe the
-/// withheld fields), or one without an item key (a rotation would make the vault generate one).
-/// Decryption is strict: a field that fails to decrypt is an error, not silently dropped.
+impl From<ChangeLoginPasswordError> for RotationCipherError {
+    fn from(err: ChangeLoginPasswordError) -> Self {
+        match err {
+            ChangeLoginPasswordError::PartialCipher => Self::CipherRestricted,
+            ChangeLoginPasswordError::NotLogin => Self::CipherNotLogin,
+            ChangeLoginPasswordError::Crypto(e) => Self::Crypto(e),
+        }
+    }
+}
+
+/// Builds the cipher write rotating `cipher`'s password to `new_password`. Before touching it,
+/// rejects a cipher outside the connector's organization, a non-login, a restricted one
+/// (re-encrypting would wipe the withheld fields), or one without an item key (a rotation would
+/// make the vault generate one). The vault then decrypts strictly (a field that fails to decrypt
+/// is an error, not silently dropped), moves the old password into the password history and
+/// re-encrypts; the rest carries over.
 ///
-/// Returns the view together with the cipher's original wrapped item key, which the rotation
-/// write must send back unchanged.
-pub fn decrypt_cipher_for_rotation(
+/// Uses field-level encryption, since the server rejects `data` on an organization cipher.
+///
+/// The request's `key` is the item key as fetched, never the one the vault emits. Encryption
+/// re-wraps the decrypted item key under the org key with a fresh IV, so the emitted string
+/// differs but wraps the same key the new fields are encrypted under; the original therefore
+/// unwraps to the right key, and the server requires it unchanged.
+pub fn rotate_cipher_password(
     key_store: &KeyStore<KeySlotIds>,
     organization_id: OrganizationId,
     cipher: Cipher,
-) -> Result<(CipherView, EncString), RotationCipherError> {
+    new_password: &str,
+) -> Result<CipherRequestModel, RotationCipherError> {
     if cipher.organization_id != Some(organization_id) {
         return Err(RotationCipherError::CipherOrganizationMismatch);
     }
@@ -69,38 +87,8 @@ pub fn decrypt_cipher_for_rotation(
         .clone()
         .ok_or(RotationCipherError::CipherWithoutItemKey)?;
 
-    let view: CipherView = key_store.decrypt(&StrictDecrypt(cipher))?;
-    if view.login.is_none() {
-        return Err(RotationCipherError::CipherNotLogin);
-    }
-    Ok((view, original_key))
-}
-
-/// Builds the cipher write rotating `original`'s password to `new_password`: the old password
-/// moves into the password history and the revision date is set; the rest carries over.
-///
-/// Uses field-level encryption (`EncryptMode::Legacy`), since the server rejects `data` on an
-/// organization cipher.
-///
-/// The request's `key` is `original_key`, the item key as fetched, never the one the vault
-/// emits. Encryption re-wraps the view's decrypted item key under the org key with a fresh IV,
-/// so the emitted string differs but wraps the same key the new fields are encrypted under;
-/// the original therefore unwraps to the right key, and the server requires it unchanged.
-pub fn rotate_cipher_password(
-    key_store: &KeyStore<KeySlotIds>,
-    original: &CipherView,
-    original_key: &EncString,
-    new_password: &str,
-) -> Result<CipherRequestModel, RotationCipherError> {
-    let mut view = original.clone();
-    view.login
-        .as_mut()
-        .ok_or(RotationCipherError::CipherNotLogin)?
-        .password = Some(new_password.to_owned());
-    view.update_password_history(original);
-
-    let cipher = key_store.encrypt(EncryptMode::Legacy(view))?;
-    let mut request = CipherRequestModel::try_from(cipher)?;
+    let rotated = cipher.change_login_password(key_store, new_password)?;
+    let mut request = CipherRequestModel::try_from(rotated)?;
     request.key = Some(original_key.to_string());
     if request.data.is_some() {
         return Err(RotationCipherError::CipherDataPresent);
@@ -111,7 +99,7 @@ pub fn rotate_cipher_password(
 /// Fixture builders for the tests below.
 #[cfg(test)]
 mod test_support {
-    use bitwarden_crypto::{Decryptable, SymmetricCryptoKey};
+    use bitwarden_crypto::{Decryptable, EncString, SymmetricCryptoKey};
 
     use super::*;
 
@@ -213,27 +201,15 @@ mod tests {
         Cipher::try_from(model).expect("cipher")
     }
 
-    #[test]
-    fn decrypt_cipher_for_rotation_round_trips_and_returns_original_key() {
-        let store = org_store();
-        let json = keyed_login_json();
-        let original_key = json["key"].as_str().expect("key").to_owned();
+    const NEW_PW: &str = "new-pw";
 
-        let (view, key) =
-            decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json)).expect("decrypt");
-        assert_eq!(key.to_string(), original_key);
-        let login = view.login.as_ref().expect("login");
-        assert_eq!(login.password.as_deref(), Some("old-password"));
-        assert_eq!(login.username.as_deref(), Some("svc-account"));
-        assert_eq!(view.name, "Prod database");
+    fn rotate(json: serde_json::Value) -> Result<CipherRequestModel, RotationCipherError> {
+        rotate_cipher_password(&org_store(), org_id(), cipher_from(json), NEW_PW)
     }
 
     #[test]
-    fn decrypt_cipher_for_rotation_rejects_cipher_without_item_key() {
-        let store = org_store();
-        let json = vector_json(KEYLESS_LOGIN);
-
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+    fn rotate_cipher_password_rejects_cipher_without_item_key() {
+        let result = rotate(vector_json(KEYLESS_LOGIN));
         assert!(matches!(
             result,
             Err(RotationCipherError::CipherWithoutItemKey)
@@ -241,86 +217,74 @@ mod tests {
     }
 
     #[test]
-    fn decrypt_cipher_for_rotation_rejects_other_organization() {
-        let store = org_store();
+    fn rotate_cipher_password_rejects_other_organization() {
         let mut json = keyed_login_json();
         json["organizationId"] = uuid::Uuid::new_v4().to_string().into();
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
         assert!(matches!(
-            result,
+            rotate(json),
             Err(RotationCipherError::CipherOrganizationMismatch)
         ));
     }
 
     #[test]
-    fn decrypt_cipher_for_rotation_rejects_missing_organization() {
-        let store = org_store();
+    fn rotate_cipher_password_rejects_missing_organization() {
         let mut json = keyed_login_json();
         json.as_object_mut().unwrap().remove("organizationId");
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
         assert!(matches!(
-            result,
+            rotate(json),
             Err(RotationCipherError::CipherOrganizationMismatch)
         ));
     }
 
     #[test]
-    fn decrypt_cipher_for_rotation_rejects_non_login_type() {
-        let store = org_store();
+    fn rotate_cipher_password_rejects_non_login_type() {
         let mut json = keyed_login_json();
         json["type"] = 2.into();
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
-        assert!(matches!(result, Err(RotationCipherError::CipherNotLogin)));
+        assert!(matches!(
+            rotate(json),
+            Err(RotationCipherError::CipherNotLogin)
+        ));
     }
 
     #[test]
-    fn decrypt_cipher_for_rotation_rejects_keyless_cipher_with_attachments() {
-        let store = org_store();
+    fn rotate_cipher_password_rejects_keyless_cipher_with_attachments() {
         // The keyless vector with the attachments of the keyed one grafted on.
         let mut json = vector_json(KEYLESS_LOGIN);
         json["attachments"] = attachments_json();
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
         assert!(matches!(
-            result,
+            rotate(json),
             Err(RotationCipherError::CipherWithoutItemKey)
         ));
     }
 
     #[test]
-    fn decrypt_cipher_for_rotation_accepts_attachments_with_item_key() {
-        let store = org_store();
-        let json = vector_json(KEYED_LOGIN_WITH_ATTACHMENT);
-
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
+    fn rotate_cipher_password_accepts_attachments_with_item_key() {
+        let result = rotate(vector_json(KEYED_LOGIN_WITH_ATTACHMENT));
         assert!(result.is_ok(), "{result:?}");
     }
 
     #[test]
-    fn decrypt_cipher_for_rotation_rejects_restricted_cipher() {
-        let store = org_store();
-        let json = vector_json(RESTRICTED_LOGIN);
-
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
-        assert!(matches!(result, Err(RotationCipherError::CipherRestricted)));
+    fn rotate_cipher_password_rejects_restricted_cipher() {
+        assert!(matches!(
+            rotate(vector_json(RESTRICTED_LOGIN)),
+            Err(RotationCipherError::CipherRestricted)
+        ));
     }
 
     #[test]
-    fn decrypt_cipher_for_rotation_rejects_login_without_login_data() {
-        let store = org_store();
+    fn rotate_cipher_password_rejects_login_without_login_data() {
         let mut json = keyed_login_json();
         json.as_object_mut().unwrap().remove("login");
 
-        let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
-        assert!(result.is_err());
+        assert!(rotate(json).is_err());
     }
 
     #[test]
-    fn decrypt_cipher_for_rotation_rejects_undecryptable_field() {
-        let store = org_store();
+    fn rotate_cipher_password_rejects_undecryptable_field() {
         let other_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let foreign = "x"
             .encrypt_with_key(&other_key)
@@ -331,8 +295,7 @@ mod tests {
             let mut json = keyed_login_json();
             *json.pointer_mut(field).expect("field present") = foreign.clone().into();
 
-            let result = decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json));
-            assert!(result.is_err(), "{field}: must not decrypt");
+            assert!(rotate(json).is_err(), "{field}: must not decrypt");
         }
     }
 
@@ -358,10 +321,8 @@ mod tests {
             let label = "item key";
             let json = keyed_login_json();
             let original_key = json["key"].as_str().expect("key").to_owned();
-            let (view, key) =
-                decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json)).expect("decrypt");
-
-            let request = rotate_cipher_password(&store, &view, &key, "new-pw").expect("rotate");
+            let request = rotate_cipher_password(&store, org_id(), cipher_from(json), "new-pw")
+                .expect("rotate");
 
             assert!(request.data.is_none(), "{label}");
             assert_eq!(
@@ -415,10 +376,8 @@ mod tests {
             let label = "item key";
             let mut json = keyed_login_json();
             json["login"]["password"] = serde_json::Value::Null;
-            let (view, key) =
-                decrypt_cipher_for_rotation(&store, org_id(), cipher_from(json)).expect("decrypt");
-
-            let request = rotate_cipher_password(&store, &view, &key, "first-pw").expect("rotate");
+            let request = rotate_cipher_password(&store, org_id(), cipher_from(json), "first-pw")
+                .expect("rotate");
             let body = serde_json::to_value(&request).expect("serialize");
 
             assert_eq!(
