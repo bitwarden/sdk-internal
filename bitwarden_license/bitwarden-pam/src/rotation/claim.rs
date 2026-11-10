@@ -1,8 +1,7 @@
 //! A claimed rotation job and its verification.
 //!
 //! [`WorkSnapshot::verify`] cross-checks a claim's two sealed values against each other and the
-//! plaintext claim (checks 1–7). Check 8, the pre-flight cipher read, needs the network and lives
-//! in the access connector's executor.
+//! plaintext claim. The pre-flight cipher read needs the network, so the access connector does it.
 //!
 //! Only [`WorkSnapshot::verify`] can construct a [`VerifiedJob`], so the connector never reads an
 //! unchecked claim field.
@@ -95,24 +94,23 @@ impl TryFrom<RotationClaimResponseModel> for WorkSnapshot {
 /// check failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SealRejection {
-    /// Check 1: the target system's sealed data or wrapped key is absent.
+    /// The target system's sealed data or wrapped key is absent.
     MissingTargetBlob,
-    /// Check 1: the rotation config's sealed data or wrapped key is absent.
+    /// The rotation config's sealed data or wrapped key is absent.
     MissingConfigBlob,
     /// The target system blob did not parse or unseal.
     TargetBlobInvalid,
     /// The rotation config blob did not parse or unseal.
     ConfigBlobInvalid,
-    /// Check 2.
+    /// The claimed target system differs from one of the sealed blobs.
     TargetSystemIdMismatch,
-    /// Check 3.
+    /// The claimed cipher differs from the sealed config.
     CipherIdMismatch,
-    /// Check 4.
+    /// The sealed target system is not set to automatic rotation.
     TargetMethodNotAutomatic,
-    /// A legitimate `Automatic` target always seals a kind.
-    /// Check 5.
+    /// The sealed target system has no kind, which an `Automatic` target always seals.
     TargetKindMissing,
-    /// Check 6.
+    /// The sealed password policy is invalid.
     PolicyRejected,
 }
 
@@ -180,7 +178,7 @@ impl VerifiedJob {
         self.kind
     }
 
-    /// The sealed password policy, validated by check 6.
+    /// The sealed password policy, already validated.
     pub fn password_policy(&self) -> &SealedPasswordPolicy {
         &self.password_policy
     }
@@ -200,7 +198,7 @@ impl VerifiedJob {
         self.execute_by
     }
 
-    /// Convert the sealed password policy into a [`PasswordGeneratorRequest`] of length
+    /// Converts the sealed password policy into a [`PasswordGeneratorRequest`] of length
     /// `max_length`.
     ///
     /// Re-validates although [`WorkSnapshot::verify`] already did, so any call site that skips it
@@ -236,13 +234,14 @@ impl VerifiedJob {
 }
 
 impl WorkSnapshot {
-    /// Runs checks 1–7 on a claim, rejecting it with a [`SealRejection`] on the first failure.
+    /// Cross-checks the claim against its sealed values, rejecting it with a [`SealRejection`] on
+    /// the first failure.
     pub fn verify(
         self,
         key_store: &KeyStore<KeySlotIds>,
         organization_id: OrganizationId,
     ) -> Result<VerifiedJob, SealRejection> {
-        // Check 1: both halves of each sealed value must be present and parse.
+        // Both halves of each sealed value must be present and parse.
         let (target_envelope, target_key) = self
             .target_system_sealed_data
             .as_deref()
@@ -280,33 +279,30 @@ impl WorkSnapshot {
         )
         .map_err(|_| SealRejection::ConfigBlobInvalid)?;
 
-        // Check 2.
         if self.target_system_id != target.target_system_id
             || self.target_system_id != config.target_system_id
         {
             return Err(SealRejection::TargetSystemIdMismatch);
         }
 
-        // Check 3.
         if self.cipher_id != config.cipher_id {
             return Err(SealRejection::CipherIdMismatch);
         }
 
-        // Check 4: reads the sealed method only; the server's plaintext copy is advisory.
+        // Trust only the sealed method; the server's plaintext copy is advisory.
         if target.method != SealedTargetSystemMethod::Automatic {
             return Err(SealRejection::TargetMethodNotAutomatic);
         }
 
-        // Check 5: kind, policy, and account identity come from the blobs only.
+        // Kind, policy and account identity come from the blobs only.
         let kind = target.kind.ok_or(SealRejection::TargetKindMissing)?;
 
-        // Check 6.
         target
             .password_policy
             .validate()
             .map_err(|_| SealRejection::PolicyRejected)?;
 
-        // Check 7: unsupported termination is ANDed to false, not a rejection.
+        // Unsupported termination is ANDed to false, not a rejection.
         let terminate_sessions =
             config.terminate_sessions && target.supports_session_termination == Some(true);
 
