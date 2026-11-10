@@ -1,364 +1,479 @@
-# bitwarden-access-connector
+# Bitwarden Access Connector
 
-Bitwarden PAM access connector.
+`bwac` rotates the passwords of privileged accounts, such as domain admins, service accounts,
+appliance root logins and database roles, and saves each new password to your Bitwarden organization
+vault.
 
-This crate provides the `bwac` binary. It polls the Bitwarden server for claimable rotation jobs and
-runs each one: resolve credentials, generate a password, rotate it in the target system, verify,
-write the re-encrypted vault cipher, optionally terminate sessions, and report the outcome.
+It runs on your own network. The Bitwarden server decides what to rotate and when, and the connector
+does the rotating, since only it can reach your systems. The server never sees a plaintext password.
 
-## Usage
+The access connector is a commercial feature. It needs an active organization license with PAM
+enabled.
 
-| Command                    | Description                                            |
-| -------------------------- | ------------------------------------------------------ |
-| `bwac run`                 | Start the connector poll loop                          |
-| `bwac run --config <PATH>` | Use this configuration file, also set by `BWAC_CONFIG` |
-| `bwac --version`           | Print the version                                      |
-| `bwac --help`              | Print help; `bwac run --help` for the run options      |
+For the security model and hardening advice, see [SECURITY.md](SECURITY.md).
 
-Connector settings live in the [configuration file](#configuration-file), not in command-line flags.
+## Contents
+
+- [How it works](#how-it-works)
+- [Requirements](#requirements)
+- [Getting started](#getting-started)
+- [Configuration](#configuration)
+- [Target credentials](#target-credentials)
+- [Microsoft Entra ID](#microsoft-entra-id)
+- [Custom scripts](#custom-scripts)
+- [PowerShell scripts](#powershell-scripts)
+- [Running in production](#running-in-production)
+- [Logs and exit codes](#logs-and-exit-codes)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+
+## How it works
+
+The connector only makes outbound connections and doesn't listen on any port. Run it somewhere that
+can reach both your target systems and Bitwarden.
+
+```
+   your network                                  Bitwarden server
+  ┌──────────────────────────┐                  ┌──────────────────┐
+  │  bwac                    │  ── poll ──────▶ │  rotation jobs   │
+  │    │                     │  ◀─ job ───────  │                  │
+  │    │ rotate              │  ── cipher ────▶ │  org vault       │
+  │    ▼                     │  ── report ────▶ │  audit log       │
+  │  target systems          │                  └──────────────────┘
+  │  (Entra, servers, DBs…)  │
+  └──────────────────────────┘
+```
+
+Every `poll_interval` seconds (15 by default), the connector asks the server for jobs and tries to
+claim one. It first checks that the vault item can be updated, then runs the rotation:
+
+1. Look up the credentials for the target system.
+2. Generate a password using the policy set on the target system in Bitwarden.
+3. Reset the account's password on the target system.
+4. Verify the new password took effect.
+5. Encrypt the new password and save it to the vault item.
+6. End the account's active sessions, if the job asks for it. A failure here doesn't fail the
+   rotation.
+7. Report the result to the server.
+
+Temporary failures, such as a network error or rate limit, are retried with exponential backoff, up
+to `max_retry_attempts` tries in total. Before each attempt at a step that touches the target, the
+connector checks that it still has a valid session and that the job's time window hasn't closed. The
+vault write and the report aren't bound by that window, so a rotation that changed the target is
+always recorded.
+
+A connector runs one rotation at a time. To rotate more accounts in parallel, run more connectors.
+If two connectors try to claim the same job, one gets it and the other moves on. You can also put
+connectors in different network segments to reach targets that no single host can reach. Each one
+only needs credentials for its own targets.
+
+## Requirements
+
+- Linux (x86-64 or ARM64), macOS (ARM64) or Windows (x86-64).
+- No root access for the connector itself. Your scripts may need their own privileges.
+- No inbound network access.
+- A registered access connector that hasn't been revoked, in an organization with an active license
+  and PAM enabled.
+
+The connector needs outbound access to:
+
+| Destination                 | Used for                                              |
+| --------------------------- | ----------------------------------------------------- |
+| Your Bitwarden identity URL | Signing in and renewing the connector's session       |
+| Your Bitwarden API URL      | Fetching and claiming jobs, the vault item, reporting |
+| `login.microsoftonline.com` | Getting Graph tokens (Entra targets only)             |
+| `graph.microsoft.com`       | Resetting passwords and ending sessions (Entra only)  |
+| Your target systems         | Whatever your scripts connect to                      |
+
+## Getting started
+
+### 1. Register the connector
+
+An organization admin registers an access connector in the Admin Console and gets a token that looks
+like this:
+
+```
+0.access-connector.<api-key-id>.<client-secret>:<encryption-key>
+```
+
+The token is only shown once. Copy all of it, including the part after the `:`.
+
+### 2. Install the binary
+
+Copy `bwac` to the connector host, for example to `/usr/local/bin/`.
+
+### 3. Write a config file
+
+Create `/etc/bwac/config.toml`:
+
+```toml
+script_root = "/opt/bwac/scripts"
+
+[environment]
+base = "https://bitwarden.com"
+```
+
+Set `base` to your server's URL if you self-host. For the EU cloud, set it to
+`https://bitwarden.eu`. For the US cloud, you can leave `[environment]` out.
+
+### 4. Add the token and target credentials
+
+Create `/etc/bwac/env`, owned by root with mode `0400`:
+
+```sh
+BWAC_TOKEN=0.access-connector.…:…
+```
+
+Target credentials go in the same file. See [Target credentials](#target-credentials).
+
+### 5. Run it
+
+```sh
+set -a; . /etc/bwac/env; set +a
+bwac run --config /etc/bwac/config.toml
+```
+
+You should see:
+
+```
+INFO access connector starting api_url=… identity_url=… poll_interval_secs=15 …
+INFO session authenticated
+```
+
+This is fine for a first test, but a shell can't load variables whose names start with a digit,
+which most target credentials have. For a real deployment, use the [systemd unit](#systemd).
+
+## Configuration
+
+| Command                    | Description                                       |
+| -------------------------- | ------------------------------------------------- |
+| `bwac run`                 | Start the connector                               |
+| `bwac run --config <PATH>` | Use this config file. `BWAC_CONFIG` does the same |
+| `bwac --version`           | Print the version                                 |
+| `bwac --help`              | Print help                                        |
+
+Everything else is set in the config file or the environment.
 
 ### Environment variables
 
-| Variable            | Purpose                                                  |
-| ------------------- | -------------------------------------------------------- |
-| `BWAC_TOKEN`        | Access connector token (required)                        |
-| `BWAC_CONFIG`       | Path to the TOML configuration file, same as `--config`  |
-| `BWAC_API_URL`      | Bitwarden API server URL, overrides the config file      |
-| `BWAC_IDENTITY_URL` | Bitwarden identity server URL, overrides the config file |
-| `RUST_LOG`          | Log filter directives, default `info`                    |
+| Variable               | Purpose                                                           |
+| ---------------------- | ----------------------------------------------------------------- |
+| `BWAC_TOKEN`           | Required. The access connector token                              |
+| `BWAC_CONFIG`          | Path to the config file                                           |
+| `BWAC_API_URL`         | Bitwarden API URL. Overrides the config file                      |
+| `BWAC_IDENTITY_URL`    | Bitwarden identity URL. Overrides the config file                 |
+| `RUST_LOG`             | Log filter. Defaults to `info`                                    |
+| `<TARGET_ID>_<SUFFIX>` | Target credentials. See [Target credentials](#target-credentials) |
 
-### Token security
+The token can only be set with `BWAC_TOKEN`. A `token` key in the config file fails at startup.
 
-The token contains the org-key encryption key, so it is only read from `BWAC_TOKEN`, never from a
-flag, since argv is visible in `ps` and `/proc/<pid>/cmdline`. The connector removes it from its
-environment after reading it, so custom scripts and other child processes do not inherit it.
+### Config file
 
-### Configuration file
-
-Pass the file with `--config <PATH>` or `BWAC_CONFIG`. Unknown keys are a startup error, and so is a
-`token` key; see [Token security](#token-security).
-
-Server URLs resolve in this order, highest first. If none is set, startup fails with an error naming
-all three.
-
-1. `BWAC_API_URL` / `BWAC_IDENTITY_URL` environment variables
-2. `[environment].api` / `[environment].identity` in the config file
-3. Derived from `[environment].base` as `{base}/api` / `{base}/identity`
-
-#### Example configuration file
+Every key is optional. Unknown keys fail at startup, so a typo doesn't go unnoticed.
 
 ```toml
-# All fields are optional; omitted fields fall back to built-in defaults.
-
-poll_interval      = 15   # seconds; minimum 15
-heartbeat_interval = 30   # seconds; must be < 120
+poll_interval      = 15   # seconds between polls
+heartbeat_interval = 30   # seconds
 offline_grace      = 60   # seconds
-max_retry_attempts = 5    # total attempts per retryable step
-retry_base_delay   = 1    # seconds (exponential backoff base)
+max_retry_attempts = 5    # tries per retryable step
+retry_base_delay   = 1    # seconds
 script_timeout     = 60   # seconds
 
-# script_root = "/opt/scripts"   # uncomment to restrict custom script paths
+script_root = "/opt/bwac/scripts"
 
-# PowerShell host, used for any script the connector launches through PowerShell.
-powershell_execution_policy = "Bypass"   # set "AllSigned" if you sign your scripts
-# powershell_path = "C:\\Program Files\\PowerShell\\7\\pwsh.exe"   # else discovered on PATH
+powershell_execution_policy = "Bypass"
+# powershell_path = 'C:\Program Files\PowerShell\7\pwsh.exe'
 
-entra_verify_probe = false   # set true only with MFA exemption for the service principal
+entra_verify_probe = false
 
 [environment]
-# Supply a base URL and let the connector derive /api and /identity automatically:
-base     = "https://bitwarden.example.com"
-# Or override individual URLs (takes precedence over base-derived values):
+base = "https://bitwarden.example.com"
 # api      = "https://api.bitwarden.com"
 # identity = "https://identity.bitwarden.com"
+
+[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
+script = "/opt/bwac/scripts/rotate-appliance.sh"
 ```
 
-Per-target credential overrides go in the `[targets]` section; see
-[Per-target overrides](#per-target-overrides-targets).
+| Key                           | Default  | Notes                                                                                          |
+| ----------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `poll_interval`               | `15`     | Seconds between polls. The minimum is 15.                                                      |
+| `heartbeat_interval`          | `30`     | Seconds between heartbeats during a rotation. Must be between 1 and 119.                       |
+| `offline_grace`               | `60`     | Seconds a rotation can continue without reaching the server. Must be at least 1.               |
+| `max_retry_attempts`          | `5`      | Tries per retryable step, including the first. `5` means up to 4 retries.                      |
+| `retry_base_delay`            | `1`      | Seconds before the first retry. Doubles with each retry, up to 32 times the base.              |
+| `script_timeout`              | `60`     | Seconds before a script is killed. Must be at least 1.                                         |
+| `script_root`                 | none     | If set, scripts must be inside this directory. Recommended.                                    |
+| `powershell_path`             | none     | PowerShell host to use. If unset, `pwsh` and then `powershell.exe` are looked up on `PATH`.    |
+| `powershell_execution_policy` | `Bypass` | Passed to the PowerShell host as `-ExecutionPolicy`. Use `AllSigned` if you sign your scripts. |
+| `entra_verify_probe`          | `false`  | Also verify Entra rotations by signing in. See [Verification](#verification).                  |
 
-### Logging
+The API and identity URLs are each taken from the first of these that is set:
 
-Log output is written to stderr. The log level is controlled by the `RUST_LOG` environment variable
-(same syntax as `tracing-subscriber`'s `EnvFilter`):
+1. `BWAC_API_URL` and `BWAC_IDENTITY_URL`
+2. `api` and `identity` in `[environment]`
+3. `base` in `[environment]`
 
-```sh
-RUST_LOG=debug bwac run --config /etc/bwac/config.toml
-RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwac/config.toml
-```
+A `base` of `https://bitwarden.com` or `https://vault.bitwarden.com` means the US cloud, and
+`https://bitwarden.eu` or `https://vault.bitwarden.eu` means the EU cloud. Any other `base` is
+treated as a self-hosted server, with the URLs `{base}/api` and `{base}/identity`.
 
-#### Operator-visible events at `info` / `warn` / `error`
+If none of these is set, the connector uses the US cloud. If only some are set and one URL is still
+missing, for example `api` without `identity`, the connector fails at startup.
 
-| Level   | Event                                                | Key fields                                                                                       |
-| ------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `info`  | Access connector starting                            | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs`, `configured_targets` |
-| `info`  | Session authenticated                                | `retry`                                                                                          |
-| `info`  | Shutdown signal received                             |                                                                                                  |
-| `info`  | Rotation job claimed                                 | `job_id`, `target_system_name`                                                                   |
-| `info`  | Starting rotation execution                          | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                                        |
-| `info`  | Pre-flight cipher check passed                       | `attempt_id`                                                                                     |
-| `info`  | Step 1: credentials resolved                         | `attempt_id`                                                                                     |
-| `info`  | Step 2: password generated                           | `attempt_id`                                                                                     |
-| `info`  | Step 3: target rotate succeeded                      | `attempt_id`, `kind`                                                                             |
-| `info`  | Step 4: verify succeeded                             | `attempt_id`                                                                                     |
-| `info`  | Step 5: cipher written                               | `attempt_id`, `cipher_id`                                                                        |
-| `info`  | Step 6: session termination succeeded                | `attempt_id`                                                                                     |
-| `info`  | Step 7: rotation succeeded and reported              | `attempt_id`, `termination`                                                                      |
-| `info`  | Access connector shut down cleanly                   |                                                                                                  |
-| `warn`  | Session renewal failed (transient / protocol)        | `retry`, `sleep_ms`                                                                              |
-| `warn`  | Session entered Revoked phase                        |                                                                                                  |
-| `warn`  | Rotation failed (any step)                           | `attempt_id`, `failure_code`, `sync_state`, `detail`                                             |
-| `warn`  | Step 6: session termination aborted / failed         | `attempt_id`, `abort_reason`                                                                     |
-| `warn`  | Transient poll error / backoff                       |                                                                                                  |
-| `warn`  | Success report rejected/unknown by server            | `attempt_id`                                                                                     |
-| `error` | Access connector credential refused                  |                                                                                                  |
-| `error` | Access connector could not authenticate at startup   |                                                                                                  |
-| `error` | Access connector not eligible for rotation endpoints |                                                                                                  |
+## Target credentials
 
-`RUST_LOG=debug` adds: poll ticks (with claimable job count), heartbeat ticks, claim-race losses
-(409 per job), cipher fetches and reported attempts.
+Each target system needs credentials the connector can use to reset passwords on it. They're keyed
+by the target system's UUID, which is shown in the Admin Console.
 
-### Exit codes
+The connector supports Microsoft Entra ID and custom script targets. Other target kinds, such as
+Microsoft SQL Server, aren't available in this build and fail with `unsupported_kind`.
 
-| Code | Meaning                                                                                                                     |
-| ---- | --------------------------------------------------------------------------------------------------------------------------- |
-| `0`  | Clean shutdown (SIGTERM or Ctrl-C)                                                                                          |
-| `1`  | Startup error: invalid configuration, token or arguments, I/O error, or parse failure                                       |
-| `2`  | Credential refused. Check `BWAC_TOKEN`; if current, get a new token from an admin and restart                               |
-| `3`  | Not eligible. Check the connector isn't revoked or disabled, the license is active and the organization's plan includes PAM |
-| `4`  | Startup authentication failed transiently. Check connectivity and the identity URL, then restart                            |
+### Environment variables
 
-## Credential resolution
-
-Credentials for a target system are read from environment variables, optionally overridden per key
-from the `[targets]` section of the connector's TOML configuration file.
-
-### Environment variable shape
+Take the UUID, make it uppercase, replace the hyphens with underscores, and add `_` and a suffix:
 
 ```
-<TARGET_SYSTEM_ID_UPPER_UNDERSCORE>_<SUFFIX>
+85808642_BABA_4B8E_8C34_B48000D60A0A_SCRIPT=/opt/bwac/scripts/rotate.sh
+85808642_BABA_4B8E_8C34_B48000D60A0A_API_URL=https://appliance.internal/api
+85808642_BABA_4B8E_8C34_B48000D60A0A_ADMIN_TOKEN=…
 ```
 
-The prefix is the target system UUID, uppercased, with hyphens replaced by underscores, followed by
-an underscore.
+| Target kind   | Required suffixes                         |
+| ------------- | ----------------------------------------- |
+| Entra         | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET` |
+| Custom script | `SCRIPT`                                  |
 
-**Example** for target system id `ec2c1d46-6a4b-4751-a310-af9601317f2d`:
+Any other variable with the same prefix is passed to the integration. That's how a script gets its
+own settings: `…_API_URL` above reaches the script as `credentials.API_URL`.
 
-```
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_TENANT_ID=...
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_ID=...
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_SECRET=...
-```
+If a required value is missing, the rotation fails with `credentials_unresolved` and the error names
+the environment variable to set.
 
-Any additional variable matching the prefix is collected and forwarded to the integration as an
-extra credential. For example, a custom script may read `OUT_PATH` from the `credentials` map in the
-stdin payload.
+### The `[targets]` section
 
-#### Required suffixes per target kind
-
-| Kind           | Required env-var suffixes                 |
-| -------------- | ----------------------------------------- |
-| `Entra`        | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET` |
-| `CustomScript` | `SCRIPT` (`SCRIPT_TYPE` optional)         |
-
-A target kind with no registered integration fails with `unsupported_kind`.
-
-If a required value is absent from both sources, resolution fails with the full environment variable
-names (names only, never values), and the rotation is aborted with failure code
-`credentials_unresolved`.
-
-#### POSIX shell limitation
-
-Variable names derived from a UUID that starts with a digit (for example
-`85808642_BABA_4B8E_8C34_B48000D60A0A_SCRIPT`) cannot be `export`ed from a POSIX `/bin/sh`: names
-must start with a letter or underscore. The `[targets]` section sidesteps this for `script`,
-`script_type`, `tenant_id` and `client_id`; only `client_secret` remains env-only.
-
-### Per-target overrides (`[targets]`)
-
-The optional `[targets]` TOML section is keyed by target system UUID. Each entry overrides
-individual credentials.
+Values that aren't secret can go in the config file instead:
 
 ```toml
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
-script = "/opt/scripts/rotate-thing.sh"
+script = "/opt/bwac/scripts/rotate-appliance.sh"
 
 [targets.00000000-0000-0000-0000-000000000001]
 tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 client_id = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
 ```
 
-**Precedence** is per key: a value set in `[targets.<uuid>]` wins; the environment variable is the
-fallback for any key the entry does not set.
+Only `script`, `script_type`, `tenant_id` and `client_id` are accepted here. Everything else,
+including `client_secret` and any extra values your script needs, has to come from the environment.
+If a key is set in both places, the `[targets]` value wins.
 
-#### Accepted keys per target entry
+`script_type` is only needed for scripts whose file extension doesn't say how to run them. See
+[PowerShell scripts](#powershell-scripts).
 
-| Key           | Overrides env suffix | Applicable kinds |
-| ------------- | -------------------- | ---------------- |
-| `script`      | `SCRIPT`             | `CustomScript`   |
-| `script_type` | `SCRIPT_TYPE`        | `CustomScript`   |
-| `tenant_id`   | `TENANT_ID`          | `Entra`          |
-| `client_id`   | `CLIENT_ID`          | `Entra`          |
+### UUIDs that start with a digit
 
-#### `client_secret` is env-only
+A POSIX shell can't `export` a variable whose name starts with a digit, and most target UUIDs do.
+The `[targets]` section avoids this for the four keys it accepts. For everything else, load the
+variables without going through a shell: systemd's `Environment=` and `EnvironmentFile=` both work,
+as does Docker's `--env-file`.
 
-`client_secret` is deliberately not accepted in `[targets]` entries: configuration files are
-typically committed to version control and must not hold secrets. Supply it through the
-`<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET` environment variable. Entries reject unknown keys
-(`deny_unknown_fields`), so a `client_secret` key is a configuration error.
+## Microsoft Entra ID
 
-Missing-value errors always name the **environment variable**, regardless of which source was
-expected to supply it.
+The connector resets Entra passwords through Microsoft Graph, signing in as a service principal.
 
----
+Create an app registration and grant it these application permissions, with admin consent:
 
-## Custom-script integration
+| Permission                           | Used for                                       |
+| ------------------------------------ | ---------------------------------------------- |
+| `User-PasswordProfile.ReadWrite.All` | Resetting the user's password                  |
+| `User.Read.All`                      | Reading `lastPasswordChangeDateTime` to verify |
+| `User.RevokeSessions.All`            | Ending the user's sessions                     |
 
-The `CustomScript` target kind invokes an operator-supplied script for each rotation operation. The
-script is identified by the `SCRIPT` credential (`<ID>_SCRIPT` in the environment, or `script` in
-`[targets]`).
+Entra won't let the service principal reset a user who holds a higher-privileged directory role. To
+limit which accounts it can reach, see
+[Scope the target credentials](SECURITY.md#scope-the-target-credentials).
 
-### Security invariants
+Set `TENANT_ID`, `CLIENT_ID` and `CLIENT_SECRET` for the target. `CLIENT_SECRET` can only come from
+the environment.
 
-1. **Secrets via stdin only.** Credentials are never passed through argv or the process environment,
-   so `ps`, `/proc/<pid>/cmdline` and child process inheritance cannot expose them. A directly
-   executed script starts with an empty environment.
-2. **stdout and stderr are discarded.** Both go to the null device. Script output can echo
-   credentials, and unread piped output would deadlock a chatty script.
-3. **Script-root restriction.** When the connector has a script root configured, the canonicalised
-   script path must lie under the canonicalised root. `../` traversal and symlink escapes are
-   rejected before the script runs. A script that cannot be found, or a root that cannot be
-   resolved, fails with `credentials_unresolved`.
-4. **Administrative reset.** The stdin payload never contains the current password, so scripts
-   **must** perform an administrative (force) reset. A change-password script is incompatible with
-   retry convergence: if the first attempt changes the target credential but the vault write fails,
-   the connector retries with a new `newPassword`, and the change-password script would fail because
-   the "old" password it was given is no longer valid.
-5. **`verify` is mandatory.** A script that cannot round-trip-authenticate must still implement
-   `verify` with its best available applied-check, such as reading a last-password-change timestamp
-   or testing service reachability.
-6. **`accountIdentity` is untrusted input.** It comes from a blob the admin client sealed, so the
-   server cannot read or change it, but it is still chosen by whoever saved the rotation config.
-   Never interpolate it unsanitised into a shell command, SQL query or API path.
+The account identity on the target system is the user's object ID or user principal name. The user
+isn't asked to change the password at next sign-in.
 
-### Operations
+### Verification
 
-The connector invokes the script with a single argument: the operation name.
+The connector reads the user's `lastPasswordChangeDateTime` from Graph and checks that it's no older
+than the start of the rotation, allowing five minutes for clock differences. It checks every 5
+seconds for up to 60 seconds, to allow for replication delay, and fails with `verification_failed`
+if the timestamp doesn't update.
 
-| Argument    | When called                                                      |
-| ----------- | ---------------------------------------------------------------- |
-| `rotate`    | Immediately after password generation                            |
-| `verify`    | After a successful `rotate`                                      |
-| `terminate` | After a successful `verify`, if session termination is requested |
+With `entra_verify_probe = true`, the connector first tries to sign in as the user with the new
+password. A successful sign-in or an MFA prompt counts as verified, and a wrong-password response
+fails verification. Any other response falls back to the timestamp check. The probe is off by
+default because MFA or Conditional Access blocks this kind of sign-in in most tenants.
 
-A failed `terminate` does not fail the rotation.
+## Custom scripts
 
-### Stdin payload
+For anything else, such as Linux and Windows servers, network appliances, databases or SaaS admin
+APIs, write a script.
 
-One JSON document is written to stdin immediately after the process starts; stdin is then closed so
-the script can read to EOF. No further input is sent.
+The connector runs the script once per operation. It passes the operation name as the only argument,
+writes a JSON document to stdin, and reads the result from the exit code:
+
+| Operation   | When it runs                                    |
+| ----------- | ----------------------------------------------- |
+| `rotate`    | After the new password is generated             |
+| `verify`    | After `rotate` succeeds. Always runs            |
+| `terminate` | After `verify`, if the job asks to end sessions |
+
+The script runs with:
+
+- an empty environment, with no `PATH` or `HOME`
+- stdout and stderr discarded
+- a time limit of `script_timeout` seconds, after which it's killed without a chance to clean up
+
+`SCRIPT` must be the path to a single file, with no arguments. The file must be executable with a
+shebang line, or a `.ps1` file.
+
+### Input
 
 ```json
 {
   "operation": "rotate",
-  "targetSystemId": "…uuid…",
-  "accountIdentity": "…opaque identity string…",
-  "newPassword": "…new plaintext password…",
+  "targetSystemId": "85808642-baba-4b8e-8c34-b48000d60a0a",
+  "accountIdentity": "svc-backup@corp.example.com",
+  "newPassword": "hK9$mQ2vTx8pLw4nZr6E",
   "credentials": {
-    "EXTRA_KEY": "value",
-    "ANOTHER_KEY": "value"
+    "API_URL": "https://appliance.internal/api",
+    "ADMIN_TOKEN": "…"
   }
 }
 ```
 
-Notes:
-
-- Field names are camelCase.
-- `newPassword` is **absent** for the `terminate` operation. The script has no need for it, and
-  withholding it prevents accidental echo in script-side logging.
-- `credentials` contains every resolved suffix for the target **except** `SCRIPT` and `SCRIPT_TYPE`.
-  Those two configure how the connector launches the script, not the target.
+- `newPassword` isn't included for `terminate`.
+- `credentials` has every value configured for the target except `SCRIPT` and `SCRIPT_TYPE`.
+- The account's current password is never included. The script has to reset the password as an admin
+  rather than change it. See
+  [Rotation is an administrative reset](SECURITY.md#rotation-is-an-administrative-reset).
+- `accountIdentity` is untrusted input. Don't put it unescaped into a shell command, SQL query or
+  API path.
 
 ### Exit codes
 
-| Exit code | Meaning                                                          |
-| --------- | ---------------------------------------------------------------- |
-| `0`       | Success                                                          |
-| `1`       | Fatal failure: credential not applied (target unchanged)         |
-| `2`       | Fatal failure: credential was applied (target updated)           |
-| `3`       | Fatal failure: unknown whether applied                           |
-| `4`       | Transient failure: retry may succeed (target unchanged)          |
-| other     | Fatal; rotate: unknown sync state, verify/terminate: not applied |
-| signal    | Treated as `other`; the failure detail names it, e.g. `signal 9` |
+The exit code tells the connector whether to retry and whether the target's password changed. If it
+reports the wrong state, the vault and the target can end up with different passwords and nothing
+will flag it.
 
-Failures from a non-zero exit report failure code `script_failed`.
+| Code   | Retried | Target password                      | Use when                                            |
+| ------ | ------- | ------------------------------------ | --------------------------------------------------- |
+| `0`    |         |                                      | The operation succeeded                             |
+| `1`    | No      | Unchanged                            | It was rejected before anything changed             |
+| `2`    | No      | Changed                              | The password was set, then a later step failed      |
+| `3`    | No      | Unknown                              | You can't tell whether it was set                   |
+| `4`    | Yes     | Unchanged                            | A retry might work: network error, rate limit, 5xx  |
+| other  | No      | Unknown for `rotate`, else unchanged | Anything unexpected                                 |
+| signal | No      | Unknown for `rotate`, else unchanged | The script was killed. The failure names the signal |
 
-### Timeout behaviour
+If the script times out, the connector assumes the password state is unknown for `rotate`, changed
+for `verify`, and unchanged for `terminate`.
 
-If the script does not exit within the connector's script timeout, the connector kills it and fails
-the operation with failure code `script_timeout`. The sync state depends on the operation:
-
-| Operation   | Sync state on timeout                                            |
-| ----------- | ---------------------------------------------------------------- |
-| `rotate`    | Indeterminate: it is not known whether the target was updated    |
-| `verify`    | Target updated: the password is conservatively assumed to be set |
-| `terminate` | Target unchanged: no credential was changed                      |
-
-### Example script skeleton
+### Example
 
 ```sh
 #!/bin/sh
-set -e
+# Rotate a service account on an appliance admin API.
+set -eu
 
-operation="$1"          # rotate | verify | terminate
-payload="$(cat)"        # full JSON payload
+# The environment is empty, so set PATH or use absolute paths.
+PATH=/usr/local/bin:/usr/bin:/bin
+export PATH
 
-new_password="$(printf '%s' "$payload" | jq -r '.newPassword // empty')"
-account="$(printf '%s' "$payload" | jq -r '.accountIdentity')"
+operation="$1"
+payload="$(cat)"
+
+field() { printf '%s' "$payload" | jq -r "$1 // empty"; }
+
+account="$(field '.accountIdentity')"
+api="$(field '.credentials.API_URL')"
+token="$(field '.credentials.ADMIN_TOKEN')"
+new_password="$(field '.newPassword')"   # empty for terminate
+
+# Keep secrets out of curl's arguments: the token goes in a header file, the body on stdin.
+hdr="$(mktemp)"; trap 'rm -f "$hdr"' EXIT
+printf 'Authorization: Bearer %s\n' "$token" > "$hdr"
+
+call() {  # call METHOD PATH [send-body-from-stdin]
+    curl -sS -o /dev/null -w '%{http_code}' \
+        -X "$1" -H @"$hdr" -H 'Content-Type: application/json' \
+        ${3:+--data @-} "$api$2" 2>/dev/null || echo 000
+}
 
 case "$operation" in
   rotate)
-    # Perform an administrative reset, never a change-password call.
-    my_admin_reset "$account" "$new_password" || exit 1
+    # An admin reset, which doesn't need the current password.
+    body="$(jq -nc --arg p "$new_password" '{password: $p, mustChange: false}')"
+    status="$(printf '%s' "$body" | call PUT "/users/$account/password" body)"
+    case "$status" in
+      2??)     exit 0 ;;
+      000|5??) exit 4 ;;   # try again
+      409)     exit 3 ;;   # unclear whether it applied
+      *)       exit 1 ;;   # rejected, nothing changed
+    esac
     ;;
+
   verify)
-    # Check the target system accepted the new credential.
-    my_admin_verify "$account" "$new_password" || exit 1
+    # Sign in as the account with the new password.
+    body="$(jq -nc --arg u "$account" --arg p "$new_password" \
+              '{username: $u, password: $p}')"
+    status="$(printf '%s' "$body" | call POST "/auth/token" body)"
+    case "$status" in
+      2??)     exit 0 ;;
+      000|5??) exit 4 ;;
+      *)       exit 1 ;;
+    esac
     ;;
+
   terminate)
-    # Revoke active sessions (newPassword is absent in the payload).
-    my_revoke_sessions "$account" || exit 1
+    status="$(call DELETE "/users/$account/sessions")"
+    case "$status" in
+      2??|404) exit 0 ;;
+      000|5??) exit 4 ;;
+      *)       exit 1 ;;
+    esac
     ;;
+
+  *) exit 1 ;;
 esac
-exit 0
 ```
 
----
+### Checklist
+
+- [ ] `PATH` is set, or every tool is called by its full path.
+- [ ] `rotate` resets the password without needing the current one.
+- [ ] Running `rotate` twice with the same password succeeds. Retries reuse the password.
+- [ ] `verify` really checks. If you can't sign in as the account, check a last-changed timestamp or
+      similar.
+- [ ] Secrets aren't passed as command-line arguments inside the script either.
+- [ ] Nothing logs `newPassword`, and there's no `set -x`.
+- [ ] The script finishes well within `script_timeout`.
+
+There are minimal shell and PowerShell examples in `scripts/examples/`.
 
 ## PowerShell scripts
 
-A `.ps1` is not an executable; it needs a PowerShell host to interpret it. The connector launches
-one for you. Everything else about the integration is unchanged, so the contract above (stdin
-payload, exit codes, timeouts, script root) applies verbatim.
+A `.ps1` script runs through a PowerShell host. Everything in [Custom scripts](#custom-scripts)
+still applies.
 
-### When PowerShell is used
-
-| `script_type` | Script path   | Launcher          |
-| ------------- | ------------- | ----------------- |
-| _unset_       | `*.ps1`       | PowerShell host   |
-| _unset_       | anything else | executed directly |
-| `powershell`  | any           | PowerShell host   |
-| `direct`      | any           | executed directly |
-
-The extension (matched case-insensitively) decides by default, so the common case needs no
-configuration:
+The file extension decides how a script runs, not the operating system. A `.ps1` runs through
+PowerShell, including on Linux or macOS with PowerShell 7, and anything else runs directly. No extra
+configuration is needed:
 
 ```toml
 [targets.85808642-baba-4b8e-8c34-b48000d60a0a]
 script = 'C:\bwac\rotate-sqlsa.ps1'
 ```
 
-Set `script_type` only when the filename cannot say what the file is: an extensionless script that
-needs PowerShell, or a `.ps1` that must run some other way:
+If the extension doesn't match how the script should run, set `script_type` to `powershell` or
+`direct`:
 
 ```toml
 [targets.00000000-0000-0000-0000-000000000003]
@@ -366,72 +481,69 @@ script      = "/opt/bwac/rotate-appliance"
 script_type = "powershell"
 ```
 
-An explicit `script_type` (or `SCRIPT_TYPE` environment variable) always wins over the extension.
-The file decides rather than the host OS, so a `.ps1` rotates from a Linux or macOS connector
-running PowerShell 7, and a native `.exe` target on Windows keeps executing directly.
+Any other `script_type` value fails the rotation. Windows PowerShell 5.1 can only run files ending
+in `.ps1`, so an extensionless PowerShell script needs `pwsh`.
 
-An unrecognised `script_type` fails the rotation with `credentials_unresolved` rather than falling
-back to direct execution.
+### Which host runs it
 
-### Host discovery
+The connector uses `powershell_path` if it's set. Otherwise it looks for `pwsh` on `PATH`, then
+`powershell.exe`. If `powershell_path` is set but wrong, the rotation fails rather than falling back
+to another host. If there's no host at all, PowerShell rotations fail with `credentials_unresolved`,
+but the connector still runs your other targets.
 
-In order: the connector's configured PowerShell path, then `pwsh` / `pwsh.exe` on `PATH`, then
-`powershell.exe` on `PATH`. PowerShell 7 is preferred over Windows PowerShell 5.1.
-
-A configured path is used exactly as given and never falls back to a discovered host, so a mistyped
-path fails loudly instead of silently running your script under a different interpreter. If no host
-is found at all, the rotation fails with `credentials_unresolved`; targets that do not use
-PowerShell are unaffected.
-
-### Invocation
+The host is started as:
 
 ```
 <host> -NoProfile -NonInteractive -ExecutionPolicy <policy> -File <script> <operation>
 ```
 
-`-NoProfile` keeps an operator profile from changing rotation behaviour and `-NonInteractive` stops
-the host blocking on a prompt. `-File` is used rather than `-Command` so the operation arrives as a
-real argument instead of being interpolated into a command string.
+`powershell_execution_policy` defaults to `Bypass`. Windows Server defaults to `RemoteSigned`, which
+won't run unsigned scripts, and the rotation would fail with just `exit code 1`. If you sign your
+scripts, set it to `AllSigned`.
 
-Windows PowerShell 5.1 requires a `.ps1` extension for `-File`; PowerShell 7 does not. An
-extensionless script forced to PowerShell therefore works only under `pwsh`.
+### What the script inherits
 
-### Execution policy
-
-The execution policy is a connector setting passed to the host verbatim. Windows Server ships
-`RemoteSigned`, which refuses to run an unsigned `.ps1`; a policy that does not permit your scripts
-makes the first rotation on a fresh host fail with a bare exit 1. If you sign your rotation scripts,
-use `AllSigned`.
-
-### Environment
-
-Directly executed scripts get a completely empty environment. A PowerShell host cannot start that
-way. On Windows it needs `SystemRoot` to locate system assemblies and `PSModulePath` to find
-modules, so it receives a fixed allowlist instead: `SystemRoot`, `windir`, `PATHEXT`, `COMSPEC`,
+A PowerShell host can't start with an empty environment, so it gets these variables from the
+connector's environment, where set: `SystemRoot`, `windir`, `PATH`, `PATHEXT`, `COMSPEC`,
 `PSModulePath`, `PROGRAMFILES`, `PROGRAMFILES(X86)`, `PROGRAMDATA`, `APPDATA`, `LOCALAPPDATA`,
-`USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `PATH`, `TEMP`, `TMP`, `HOME`, `TMPDIR`, `LANG`. Variables
-not set in the connector's environment are omitted.
+`USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `TEMP`, `TMP`, `HOME`, `TMPDIR` and `LANG`. Nothing else is
+passed, and secrets still only arrive on stdin.
 
-Nothing else is forwarded. Per-target credentials and the new password are absent from the child
-environment; secrets still reach your script only through the stdin payload.
+### Getting the exit code right
 
-### Example script skeleton
+Set `$ErrorActionPreference = 'Stop'` at the top of the script. With the default, `Continue`, a
+failing cmdlet writes an error and the script carries on to `exit 0`. The connector would record a
+failed rotation as a success.
+
+An uncaught exception exits with `1`, which tells the connector the password didn't change. If the
+reset succeeded and something after it fails, exit with `2` instead:
 
 ```powershell
-# rotate.ps1, invoked as: rotate.ps1 <rotate|verify|terminate>
+Reset-MyAccountPassword -Identity $account -NewPassword $password
+try {
+    Confirm-MyReset -Identity $account
+} catch {
+    exit 2      # the password was changed
+}
+```
+
+Exit with `4` for anything worth retrying, such as throttling, a timeout, or an endpoint that's
+briefly unreachable.
+
+### Example
+
+```powershell
+# rotate.ps1 <rotate|verify|terminate>
 param([Parameter(Mandatory)][string]$Operation)
 
-# Required. PowerShell's default is 'Continue', which would let a failed reset fall through to
-# `exit 0` and be reported as a success. See "Reporting the right exit code" below.
 $ErrorActionPreference = 'Stop'
 
 $payload  = [Console]::In.ReadToEnd() | ConvertFrom-Json
 $account  = $payload.accountIdentity
-$password = $payload.newPassword          # absent for 'terminate'
+$password = $payload.newPassword          # not set for 'terminate'
 
 switch ($Operation) {
     'rotate' {
-        # An administrative reset, never a change-password call.
         Reset-MyAccountPassword -Identity $account -NewPassword $password
     }
     'verify' {
@@ -447,85 +559,186 @@ switch ($Operation) {
 exit 0
 ```
 
-### Reporting the right exit code
+## Running in production
 
-The exit-code table is what tells Bitwarden whether the target actually changed, and PowerShell
-makes it easier to get wrong than a shell script does:
+### systemd
 
-- **Set `$ErrorActionPreference = 'Stop'` as the first line.** Under the default `Continue`, a
-  cmdlet that fails writes an error and execution carries on to your `exit 0`, reporting a failed
-  rotation as a success.
-- **Anything that throws after the password was already reset must exit 2, not 1.** An uncaught
-  exception exits 1, which means "target unchanged". If the reset succeeded and a later step blew
-  up, the target has changed, and reporting otherwise leaves the vault out of sync with it. Wrap the
-  post-reset work:
+Create `/etc/systemd/system/bwac.service`:
 
-  ```powershell
-  Reset-MyAccountPassword -Identity $account -NewPassword $password
-  try {
-      Confirm-MyReset -Identity $account
-  } catch {
-      exit 2      # target updated, but we could not finish
-  }
-  ```
+```ini
+[Unit]
+Description=Bitwarden PAM access connector
+After=network-online.target
+Wants=network-online.target
 
-- **Use exit 4 for anything worth retrying**: a timeout, a throttling response, an unreachable
-  endpoint.
+[Service]
+Type=simple
+User=bwac
+Group=bwac
 
-### Troubleshooting
+EnvironmentFile=/etc/bwac/env
+ExecStart=/usr/local/bin/bwac run --config /etc/bwac/config.toml
 
-The connector discards script stdout and stderr, because either can echo the credentials it just
-handed you. That also means a host-level failure (an execution-policy block, an unsigned script, a
-parse error, a module that will not load) arrives as `script_failed` with nothing but `exit code 1`.
+Restart=always
+RestartSec=10s
 
-To see the actual error, run the script by hand as the account the connector runs under, which also
-reproduces the environment allowlist:
+# Hardening. Check each line against what your scripts need.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+# ReadWritePaths=/var/lib/bwac   # only if your scripts write there
+RestrictSUIDSGID=yes
+# NoNewPrivileges=yes            # leave out if your scripts use sudo
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`/etc/bwac/env` holds `BWAC_TOKEN` and the target credentials, owned by root with mode `0400`.
+systemd reads it directly, so variable names starting with a digit work.
+
+`Restart=always` is fine to use. If the token is refused or the connector isn't eligible, it keeps
+restarting and logging the reason until someone fixes it.
+
+### Stopping and restarting
+
+On `SIGTERM` or Ctrl-C, the connector stops taking new jobs, closes its session and exits with `0`.
+A rotation in progress is abandoned without a report, and the server deals with the unreported
+attempt. Where you can, restart between rotations. The logs show when one is running.
+
+The connector keeps no state on disk and writes no log file.
+
+### More than one organization
+
+An access connector token belongs to one organization, so a host that rotates for several
+organizations runs one connector per organization. Give each one its own:
+
+- environment file with its token and target credentials
+- config file, passed with `--config`, for example `/etc/bwac/acme/config.toml`
+- systemd unit, for example `bwac-acme.service`, pointing at those two files
+
+If the connectors need their own scripts, point each `script_root` at a different directory. They
+can share the binary. Each unit's logs are separate in the journal.
+
+## Logs and exit codes
+
+Logs go to stderr. Set the level with `RUST_LOG`, which defaults to `info`:
+
+```sh
+RUST_LOG=debug bwac run --config /etc/bwac/config.toml
+RUST_LOG=bitwarden_access_connector=trace,info bwac run --config /etc/bwac/config.toml
+```
+
+At `info` you get a line for each step of a rotation. `debug` adds poll ticks with the number of
+available jobs, heartbeats, jobs another connector claimed first, and more detail per step.
+
+| Level   | Event                                                        | Fields                                                                                           |
+| ------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `info`  | Access connector starting                                    | `api_url`, `identity_url`, `poll_interval_secs`, `heartbeat_interval_secs`, `configured_targets` |
+| `info`  | Session authenticated                                        | `retry`                                                                                          |
+| `info`  | Rotation job claimed                                         | `job_id`, `target_system_name`                                                                   |
+| `info`  | Starting rotation execution                                  | `attempt_id`, `job_id`, `cipher_id`, `target_system_name`                                        |
+| `info`  | Pre-flight cipher check passed, steps 1–7                    | `attempt_id`, and `kind`, `cipher_id` or `termination`                                           |
+| `info`  | Shutdown signal received, access connector shut down cleanly |                                                                                                  |
+| `warn`  | Session renewal failed                                       | `retry`, `sleep_ms`                                                                              |
+| `warn`  | Session revoked                                              |                                                                                                  |
+| `warn`  | Rotation failed                                              | `attempt_id`, `failure_code`, `sync_state`, `detail`                                             |
+| `warn`  | Session termination aborted or failed                        | `attempt_id`, `abort_reason`                                                                     |
+| `warn`  | Success report rejected or unknown                           | `attempt_id`                                                                                     |
+| `warn`  | Transient poll error                                         | backoff duration                                                                                 |
+| `error` | Access connector credential refused                          |                                                                                                  |
+| `error` | Access connector could not authenticate at startup           |                                                                                                  |
+| `error` | Access connector not eligible for rotation endpoints         |                                                                                                  |
+
+Logs never contain passwords, tokens or other credential values.
+
+### Exit codes
+
+| Code | Meaning                                                                      | What to do                                                                              |
+| ---- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `0`  | Clean shutdown                                                               | Nothing                                                                                 |
+| `1`  | Startup error, such as bad config, arguments or a missing token              | Fix what the log line names                                                             |
+| `2`  | The token was refused                                                        | Have an admin issue a new token, then restart with it                                   |
+| `3`  | The connector isn't allowed to rotate                                        | Check the connector isn't revoked or disabled, the license is active and PAM is enabled |
+| `4`  | Couldn't sign in at startup, for example the identity server was unreachable | Check the network and the identity URL, then restart                                    |
+
+## Troubleshooting
+
+### The connector won't start
+
+| Log message                                                                       | Cause                                                                 |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `access connector token must be supplied via the BWAC_TOKEN environment variable` | `BWAC_TOKEN` is missing or empty                                      |
+| `Has the wrong number of parts` or `Has the wrong prefix`                         | The token was cut off when copied. Include the part after the `:`     |
+| `api URL must be supplied via …`                                                  | `identity` or `BWAC_IDENTITY_URL` is set without an API URL or `base` |
+| `config file … is invalid TOML: unknown field`                                    | A typo, or `client_secret` in a `[targets]` block                     |
+| `poll_interval must be >= 15 seconds`                                             | `poll_interval` is below 15                                           |
+
+### Nothing gets rotated
+
+Set `RUST_LOG=debug` and watch the poll ticks. If every tick shows `claimable_jobs=0`, the server
+has no work for the connector, so check the rotation schedule on the target system in the Admin
+Console. Frequent `claim race lost (409)` lines mean another connector is claiming the jobs first,
+which is normal when you run several.
+
+### Rotations fail
+
+Each failure is logged at `warn` with a `failure_code` and a `sync_state`, and the same pair is
+recorded in Bitwarden.
+
+| `failure_code`           | Meaning                                                                        | Where to look                                                    |
+| ------------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `credentials_unresolved` | A required value is missing, or the script is missing or outside `script_root` | `detail` names the variable or the reason                        |
+| `unsupported_kind`       | This build doesn't support the target kind                                     | [Target credentials](#target-credentials)                        |
+| `target_rejected`        | The target system refused the reset                                            | The rotation identity's permissions, or Entra role hierarchy     |
+| `target_unreachable`     | The connector couldn't reach the target                                        | Firewall, DNS or TLS from the connector host                     |
+| `verification_failed`    | The reset seemed to work, but verification didn't confirm it                   | Replication delay, or a `rotate` that silently does nothing      |
+| `script_failed`          | The script exited with a non-zero code                                         | `detail` has the exit code                                       |
+| `script_timeout`         | The script ran longer than `script_timeout`                                    | Raise the timeout or speed up the script                         |
+| `cipher_write_rejected`  | The vault item changed while the connector was updating it                     | Usually fixes itself on the next attempt                         |
+| `cipher_encrypt_failed`  | The updated vault item couldn't be encrypted                                   | The item must be a login that fully decrypts and has an item key |
+| `sealed_data_rejected`   | The job's sealed settings failed a check, and nothing was changed              | `detail` names the check                                         |
+| `no_active_session`      | The connector's session had already ended when the job started                 | An earlier credential-refused warning in the log                 |
+| `invalid_policy`         | The password policy can't be satisfied                                         | The policy on the target system                                  |
+| `internal`               | An unexpected error in the connector                                           | `detail`                                                         |
+
+`sync_state` tells you whether the target and the vault still agree:
+
+- `target_unchanged`: nothing changed.
+- `target_updated`: the target has a new password that the vault doesn't. Fix this by hand.
+- `indeterminate`: the connector can't tell. Check the target by hand.
+
+### Debugging scripts
+
+Script output is thrown away, so have the script write to its own log file instead, without logging
+`newPassword`. You can also point a test target at `tests/fixtures/copy_stdin.sh` (or
+`copy_stdin.ps1`), which saves the payload it receives to a file.
+
+The most common script problem is `PATH`. The environment is empty, so tools in `/usr/local/bin` or
+`/opt/homebrew/bin` aren't found unless the script sets `PATH`.
+
+For a PowerShell script, `script_failed` with `exit code 1` and nothing else usually means the host
+failed before your code ran. Common causes are an execution policy block, an unsigned script, a
+syntax error, or a module that won't load. To see the error, run the script by hand as the
+connector's user:
 
 ```
 runas /user:svc_bwac "pwsh -NoProfile -NonInteractive -File C:\bwac\rotate-sqlsa.ps1 rotate"
 ```
 
----
+## Development
 
-## Microsoft Entra ID integration
+```sh
+cargo test -p bitwarden-access-connector --all-features
 
-The `Entra` target kind rotates a user's password through Microsoft Graph, authenticating as a
-service principal with the client-credentials flow.
-
-### Credentials
-
-| Suffix          | Value                                            |
-| --------------- | ------------------------------------------------ |
-| `TENANT_ID`     | Azure AD tenant identifier                       |
-| `CLIENT_ID`     | Application (client) ID of the service principal |
-| `CLIENT_SECRET` | Client secret of the service principal           |
-
-```
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_ID=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
-EC2C1D46_6A4B_4751_A310_AF9601317F2D_CLIENT_SECRET=<secret>
+# Run against a local server through the dev proxy on https://localhost:8080
+BWAC_TOKEN="…" cargo run -p bitwarden-access-connector -- run \
+  --config bitwarden_license/bitwarden-access-connector/dev-config.toml
 ```
 
-### Required permissions (app registration / service principal)
+Test scripts used by the integration tests are in `tests/fixtures/`. The build workflow in
+`.github/workflows/build-access-connector.yml` produces release binaries for each supported
+platform.
 
-| Permission                           | Graph call                                                | Why needed                                   |
-| ------------------------------------ | --------------------------------------------------------- | -------------------------------------------- |
-| `User-PasswordProfile.ReadWrite.All` | `PATCH /v1.0/users/{id}` (`passwordProfile`)              | Force-reset the user's password              |
-| `User.Read.All`                      | `GET /v1.0/users/{id}?$select=lastPasswordChangeDateTime` | Read `lastPasswordChangeDateTime` for verify |
-| `User.RevokeSessions.All`            | `POST /v1.0/users/{id}/revokeSignInSessions`              | Revoke active sessions                       |
-
-The account identity is the user's object id or user principal name. The reset sets
-`forceChangePasswordNextSignIn` to `false`.
-
-### Verification
-
-`verify` polls Graph for the user's `lastPasswordChangeDateTime` and succeeds once it is no older
-than the start of the rotation (minus five minutes of clock slack). It polls every 5 seconds for up
-to 60 seconds to tolerate Graph replication lag, and fails with `verification_failed` if the
-timestamp stays stale.
-
-An optional sign-in probe runs first when enabled. It attempts a resource-owner password grant
-(ROPC) with the new password: success, or an MFA challenge (`AADSTS50076`, `AADSTS50079`), counts as
-verified; a wrong-password response (`AADSTS50126`) fails the verification; any other outcome falls
-through to the directory check. The probe is off unless enabled, because MFA or Conditional Access
-blocks ROPC in most tenants.
+See also the [SDK architecture](https://contributing.bitwarden.com/architecture/sdk/) and
+[security definitions](https://contributing.bitwarden.com/architecture/security/definitions).
