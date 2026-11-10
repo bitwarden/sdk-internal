@@ -65,7 +65,8 @@ pub(crate) struct EntraIntegration {
     login_base: String,
     /// Base URL for the Graph API.  Overrideable in tests.
     graph_base: String,
-    /// Maximum time to wait for Graph to replicate the new `lastPasswordChangeDateTime`; zero in tests.
+    /// Maximum time to wait for Graph to replicate the new `lastPasswordChangeDateTime`; zero in
+    /// tests.
     verify_max_wait: Duration,
     /// Interval between directory poll retries inside `verify`; zero in tests (single-shot).
     verify_poll_interval: Duration,
@@ -114,7 +115,8 @@ impl EntraIntegration {
         }
     }
 
-    /// Build an `EntraIntegration` with injectable base URLs and custom settle timing (test helper).
+    /// Build an `EntraIntegration` with injectable base URLs and custom settle timing (test
+    /// helper).
     ///
     /// For testing `verify`'s polling behavior with non-zero `verify_max_wait` /
     /// `verify_poll_interval`.
