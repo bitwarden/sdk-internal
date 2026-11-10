@@ -62,8 +62,11 @@ pub enum RunExit {
     /// The cancellation token was cancelled (clean shutdown).
     Shutdown,
     /// The credential was rejected, by the identity server or a revocation on a connector route;
-    /// the operator must reissue it and restart. Startup failures also exit this way.
+    /// the operator must reissue it and restart.
     CredentialRefused,
+    /// The connector could not authenticate or start up for a reason other than a refused
+    /// credential (e.g. the identity server was unreachable). Restarting may succeed.
+    StartupFailed,
     /// The connector is not eligible to use the rotation endpoints. The operator should check the
     /// server configuration.
     NotEligible,
@@ -128,7 +131,8 @@ impl AccessConnectorConfig {
 }
 
 /// Run the connector poll loop until a clean exit condition is reached. A revoked session maps to
-/// [`RunExit::CredentialRefused`]; a 404 that survives a refresh probe maps to
+/// [`RunExit::CredentialRefused`]; a startup failure other than a rejection maps to
+/// [`RunExit::StartupFailed`]; a 404 that survives a refresh probe maps to
 /// [`RunExit::NotEligible`].
 pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -> RunExit {
     let identity_client = match crate::auth::identity::IdentityClient::new(cfg.identity_url.clone())
@@ -136,7 +140,7 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
         Ok(c) => c,
         Err(e) => {
             tracing::error!("failed to build identity client: {e}");
-            return RunExit::CredentialRefused;
+            return RunExit::StartupFailed;
         }
     };
 
@@ -167,8 +171,10 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
                     return RunExit::CredentialRefused;
                 }
                 Err(e) => {
-                    tracing::error!("transient startup error: {e}");
-                    return RunExit::CredentialRefused;
+                    // Transient failures that outlast the startup retries; `Lost(Closed)` cannot
+                    // occur here since nothing has closed the session yet.
+                    tracing::error!("startup authentication failed: {e}");
+                    return RunExit::StartupFailed;
                 }
             }
         }
@@ -482,6 +488,23 @@ mod tests {
         test_support::{encrypted_payload_for, test_token},
     };
 
+    /// Polls until `server` has received a request whose path ends with `suffix`. A fixed sleep
+    /// is flaky on slow (instrumented) builds.
+    async fn wait_for_request(server: &MockServer, suffix: &str) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let reqs = server.received_requests().await.unwrap();
+            if reqs.iter().any(|r| r.url.path().ends_with(suffix)) {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "no request ending with {suffix} arrived within 10s: {reqs:?}"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    }
+
     fn identity_ok(bearer: &str, encrypted_payload: &str) -> ResponseTemplate {
         ResponseTemplate::new(200)
             .set_body_string(format!(
@@ -705,6 +728,7 @@ mod tests {
     fn run_exit_variants_exist() {
         let _ = RunExit::Shutdown;
         let _ = RunExit::CredentialRefused;
+        let _ = RunExit::StartupFailed;
         let _ = RunExit::NotEligible;
     }
 
@@ -813,7 +837,7 @@ mod tests {
         let cancel_clone = cancel.clone();
         let handle = tokio::spawn(async move { run(cfg, cancel_clone).await });
 
-        tokio::time::sleep(Duration::from_millis(300)).await;
+        wait_for_request(&api_server, "/failure").await;
         cancel.cancel();
         let exit = handle.await.expect("task panicked");
         assert_eq!(exit, RunExit::Shutdown);
