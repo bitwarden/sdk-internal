@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - "main"
+      - "pam/uat"
     paths:
       - "bitwarden_license/bitwarden-access-connector/**"
       - ".github/workflows/build-access-connector.yml"
