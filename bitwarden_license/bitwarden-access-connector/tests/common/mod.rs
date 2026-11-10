@@ -1,10 +1,10 @@
-//! Shared harness for the daemon's integration tests.
+//! Shared harness for the connector's integration tests.
 //!
 //! Stands up wiremock identity and API servers with self-consistent token, payload, and cipher
 //! fixtures, so each test file drives the real `bitwarden_access_connector::run` rather than
 //! reaching into crate internals.
 //!
-//! These tests do mutate the real process environment: the daemon resolves per-target
+//! These tests do mutate the real process environment: the connector resolves per-target
 //! credentials from it, and exercising that is the point. Every test that does so takes
 //! [`ENV_LOCK`] first.
 
@@ -16,7 +16,7 @@ pub use std::time::Duration;
 use std::{path::PathBuf, str::FromStr, sync::Mutex};
 
 pub use bitwarden_access_connector::executor::RunExit;
-use bitwarden_access_connector::{executor::DaemonConfig, token::DaemonToken};
+use bitwarden_access_connector::{executor::AccessConnectorConfig, token::AccessConnectorToken};
 use bitwarden_crypto::{KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 use bitwarden_encoding::B64;
 pub use bitwarden_threading::cancellation_token::CancellationToken;
@@ -30,11 +30,11 @@ use zeroize::Zeroizing;
 /// Serialises tests that mutate env vars, for safe concurrent mutation.
 pub static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-/// The test daemon token (SM test vector, adapted to the 4-part daemon format).
+/// The test access connector token (SM test vector, adapted to the 4-part connector format).
 pub const TEST_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-pub fn test_token() -> DaemonToken {
-    DaemonToken::from_str(TEST_TOKEN_STR).expect("test token must parse")
+pub fn test_token() -> AccessConnectorToken {
+    AccessConnectorToken::from_str(TEST_TOKEN_STR).expect("test token must parse")
 }
 
 /// Derive the token's encryption key (mirrors token.rs C1 derivation).
@@ -97,7 +97,7 @@ pub fn fixtures_dir() -> PathBuf {
 }
 
 /// Convert a target_system_id UUID into the env-var prefix used by the
-/// daemon's `EnvCredentialResolver`.
+/// connector's `EnvCredentialResolver`.
 pub fn env_prefix(target_id: Uuid) -> String {
     let mut s = target_id.to_string().to_uppercase();
     s = s.replace('-', "_");
@@ -105,13 +105,13 @@ pub fn env_prefix(target_id: Uuid) -> String {
     s
 }
 
-/// Build a minimal fast `DaemonConfig` for integration tests.
+/// Build a minimal fast `AccessConnectorConfig` for integration tests.
 pub fn make_cfg(
     api_url: String,
     identity_url: String,
     script_root: Option<PathBuf>,
-) -> DaemonConfig {
-    DaemonConfig::new_for_test(
+) -> AccessConnectorConfig {
+    AccessConnectorConfig::new_for_test(
         api_url,
         identity_url,
         test_token(),

@@ -9,7 +9,7 @@
 //! |------|-------------------------------------------------------------------|
 //! | `0`  | Clean shutdown (SIGTERM / Ctrl-C)                                |
 //! | `1`  | Startup error (invalid config, I/O error, parse failure)         |
-//! | `2`  | Credential refused; reissue via `ReissueDaemonCredential` and restart |
+//! | `2`  | Credential refused; reissue via `ReissueConnectorCredential` and restart |
 //! | `3`  | Not eligible for rotation endpoints (record, license, `UsePam`)  |
 
 use bitwarden_access_connector::{
@@ -39,8 +39,8 @@ async fn main() {
     let cli = Cli::parse();
     let Command::Run(run_args) = cli.command;
 
-    let daemon_cfg = match Config::from_cli(run_args) {
-        Ok(cfg) => cfg.into_daemon_config(),
+    let connector_cfg = match Config::from_cli(run_args) {
+        Ok(cfg) => cfg.into_access_connector_config(),
         Err(e) => {
             tracing::error!("startup error: {e}");
             std::process::exit(1);
@@ -57,23 +57,23 @@ async fn main() {
         watcher_cancel.cancel();
     });
 
-    let exit = bitwarden_access_connector::run(daemon_cfg, cancel).await;
+    let exit = bitwarden_access_connector::run(connector_cfg, cancel).await;
 
     match exit {
         RunExit::Shutdown => {
-            tracing::info!("daemon shut down cleanly");
+            tracing::info!("access connector shut down cleanly");
             std::process::exit(0);
         }
         RunExit::CredentialRefused => {
             tracing::error!(
-                "Daemon credential refused. Have an admin reissue the credential via \
-                 ReissueDaemonCredential, then restart the daemon with the new token."
+                "Access connector credential refused. Have an admin reissue the credential via \
+                 ReissueConnectorCredential, then restart the connector with the new token."
             );
             std::process::exit(2);
         }
         RunExit::NotEligible => {
             tracing::error!(
-                "Daemon not eligible for rotation endpoints. Check: daemon record not \
+                "Access connector not eligible for rotation endpoints. Check: connector record not \
                  revoked or disabled, organisation license active, UsePam enabled."
             );
             std::process::exit(3);

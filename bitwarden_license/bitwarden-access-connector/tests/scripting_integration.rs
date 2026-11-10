@@ -22,7 +22,7 @@ use common::*;
 /// Mounts a full rotation exchange: poll, claim, cipher read, cipher write, and both outcome
 /// endpoints.
 ///
-/// The poll mock keeps offering the same job, so the daemon rotates repeatedly for as long as
+/// The poll mock keeps offering the same job, so the connector rotates repeatedly for as long as
 /// the test lets it run. Assertions therefore go through [`assert_outcome`], which asks which
 /// outcomes were reported rather than how many times.
 async fn mount_rotation(
@@ -99,7 +99,7 @@ async fn mount_rotation(
         .await;
 }
 
-/// The body of the first failure report the daemon sent.
+/// The body of the first failure report the connector sent.
 async fn failure_detail(api: &MockServer) -> String {
     let requests = api
         .received_requests()
@@ -114,7 +114,7 @@ async fn failure_detail(api: &MockServer) -> String {
     String::from_utf8(body).expect("the failure report is utf-8")
 }
 
-/// Asserts which outcome the daemon reported, ignoring how many rotations it got through.
+/// Asserts which outcome the connector reported, ignoring how many rotations it got through.
 async fn assert_outcome(api: &MockServer, expect_success: bool) {
     let requests = api
         .received_requests()
@@ -132,9 +132,9 @@ async fn assert_outcome(api: &MockServer, expect_success: bool) {
     }
 }
 
-/// Runs the daemon against `api`/`identity` for `settle`, with `vars` in the environment, then
+/// Runs the connector against `api`/`identity` for `settle`, with `vars` in the environment, then
 /// shuts it down cleanly.
-async fn run_daemon_with_env(
+async fn run_access_connector_with_env(
     api: &MockServer,
     identity: &MockServer,
     script_root: Option<std::path::PathBuf>,
@@ -199,7 +199,7 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
     )
     .await;
 
-    run_daemon_with_env(
+    run_access_connector_with_env(
         &api,
         &identity,
         None,
@@ -258,7 +258,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
     )
     .await;
 
-    run_daemon_with_env(
+    run_access_connector_with_env(
         &api,
         &identity,
         None,
@@ -274,8 +274,8 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
                 format!("{prefix}OUT_PATH"),
                 out.to_string_lossy().into_owned(),
             ),
-            // A per-target credential and the daemon token, both live in the daemon's own
-            // environment at this point.
+            // A per-target credential and the access connector token, both live in the connector's
+            // own environment at this point.
             (
                 format!("{prefix}CLIENT_SECRET"),
                 "SENTINEL_SECRET_MUST_NOT_LEAK".to_string(),
@@ -298,7 +298,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
     );
     assert!(
         !dumped.contains("SENTINEL_TOKEN_MUST_NOT_LEAK"),
-        "daemon token reached the child"
+        "access connector token reached the child"
     );
     // And the other half: a launcher that simply cleared everything would pass the two checks
     // above and then fail to start a host on Windows.
@@ -334,7 +334,7 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
     )
     .await;
 
-    run_daemon_with_env(
+    run_access_connector_with_env(
         &api,
         &identity,
         None,
@@ -359,7 +359,7 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
 
 // Unix only: creating a symlink on Windows needs Developer Mode or admin rights. Without the
 // gate the test still passed there, but for the wrong reason -- no link got created, so the
-// script simply did not exist and the daemon failed with ScriptNotFound instead.
+// script simply did not exist and the connector failed with ScriptNotFound instead.
 #[cfg(unix)]
 #[tokio::test]
 #[ignore = "Integration test resolves real symlinks on disk"]
@@ -389,7 +389,7 @@ async fn a_symlink_pointing_outside_script_root_is_rejected() {
     )
     .await;
 
-    run_daemon_with_env(
+    run_access_connector_with_env(
         &api,
         &identity,
         Some(root.path().to_path_buf()),

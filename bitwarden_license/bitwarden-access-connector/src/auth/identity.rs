@@ -2,7 +2,7 @@
 //!
 //! Implements the OAuth2 client-credentials grant against
 //! `{identity_url}/connect/token`, the same endpoint the SM daemon uses,
-//! but with `scope=api.pam.rotation` and a 4-part daemon token format.
+//! but with `scope=api.pam.rotation` and a 4-part access connector token format.
 
 use std::time::Duration;
 
@@ -11,7 +11,7 @@ use bitwarden_sensitive_value::SensitiveString;
 use serde::Deserialize;
 use thiserror::Error;
 
-use crate::token::DaemonToken;
+use crate::token::AccessConnectorToken;
 
 /// How long to wait for the identity server before giving up on a single request.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -27,7 +27,7 @@ pub(crate) struct AuthSuccess {
     pub(crate) access_token: SensitiveString,
     /// Token lifetime in seconds as reported by the server.
     pub(crate) expires_in: u64,
-    /// The organisation key wrapped under the daemon's encryption key (EncString).
+    /// The organisation key wrapped under the connector's encryption key (EncString).
     pub(crate) encrypted_payload: String,
 }
 
@@ -44,7 +44,7 @@ impl std::fmt::Debug for AuthSuccess {
 pub(crate) enum AuthError {
     /// The identity server explicitly rejected the credential (e.g. `invalid_client`,
     /// `invalid_grant`, `unauthorized_client`). This is a terminal condition; the
-    /// daemon must not retry with the same credential.
+    /// connector must not retry with the same credential.
     #[error("credential rejected by identity server")]
     Rejected,
 
@@ -85,7 +85,10 @@ impl IdentityClient {
     ///
     /// On success returns the bearer token, expiry, and the wrapped org-key payload.
     /// The request form body and raw response body are never logged.
-    pub(crate) async fn authenticate(&self, token: &DaemonToken) -> Result<AuthSuccess, AuthError> {
+    pub(crate) async fn authenticate(
+        &self,
+        token: &AccessConnectorToken,
+    ) -> Result<AuthSuccess, AuthError> {
         let url = format!("{}/connect/token", self.identity_url.trim_end_matches('/'));
 
         // The client_secret is exposed to place it in the form as a short-lived local
@@ -176,12 +179,12 @@ mod tests {
     };
 
     use super::{AuthError, IdentityClient};
-    use crate::token::DaemonToken;
+    use crate::token::AccessConnectorToken;
 
     const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    fn test_token() -> DaemonToken {
-        DaemonToken::from_str(VALID_TOKEN_STR).expect("valid token")
+    fn test_token() -> AccessConnectorToken {
+        AccessConnectorToken::from_str(VALID_TOKEN_STR).expect("valid token")
     }
 
     fn client(server: &MockServer) -> IdentityClient {

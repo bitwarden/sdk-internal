@@ -26,7 +26,7 @@ use crate::{
         models::{ApiError, WorkSnapshot},
     },
     auth::session::{SessionLost, SessionManager, SessionPhase},
-    crypto::{DaemonKeyStore, encrypt_cipher_password},
+    crypto::{AccessConnectorKeyStore, encrypt_cipher_password},
     error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
     integrations::{Integration, IntegrationRegistry, RotateContext, TargetEffect},
     policy,
@@ -43,7 +43,7 @@ pub(crate) enum AbortReason {
     LeaseExpired,
     /// The session was terminally lost (revoked or closed).
     SessionLost(SessionLost),
-    /// The `CancellationToken` was cancelled (daemon is shutting down).
+    /// The `CancellationToken` was cancelled (connector is shutting down).
     Cancelled,
 }
 
@@ -84,10 +84,10 @@ pub(crate) struct ExecutionContext {
     /// The generator client used to produce the new password at step 2.
     pub(crate) generator: GeneratorClient,
     /// The shared key store (for cipher encryption at step 5).
-    pub(crate) key_store: Arc<DaemonKeyStore>,
+    pub(crate) key_store: Arc<AccessConnectorKeyStore>,
     /// Retry configuration.
     pub(crate) retry_cfg: RetryCfg,
-    /// Maximum time without a successful server contact before the daemon
+    /// Maximum time without a successful server contact before the connector
     /// considers itself offline (the connectivity-pause threshold).
     pub(crate) offline_grace: Duration,
     /// A function that returns the most recent successful-API-contact instant.
@@ -780,7 +780,7 @@ mod tests {
 
         use crate::{
             auth::{identity::IdentityClient, session::SessionManager},
-            token::DaemonToken,
+            token::AccessConnectorToken,
         };
 
         let server = MockServer::start().await;
@@ -810,7 +810,7 @@ mod tests {
             )
             .mount(&server).await;
 
-        let token = DaemonToken::from_str(
+        let token = AccessConnectorToken::from_str(
             "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
         ).unwrap();
         let identity = IdentityClient::new(server.uri()).unwrap();
@@ -855,7 +855,7 @@ mod tests {
 
         use crate::{
             auth::{identity::IdentityClient, session::SessionManager},
-            token::DaemonToken,
+            token::AccessConnectorToken,
         };
 
         let server = MockServer::start().await;
@@ -885,7 +885,7 @@ mod tests {
             )
             .mount(&server).await;
 
-        let token = DaemonToken::from_str(
+        let token = AccessConnectorToken::from_str(
             "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
         ).unwrap();
         let identity = IdentityClient::new(server.uri()).unwrap();
@@ -1047,11 +1047,11 @@ mod tests {
                 models::{TargetKind, WorkSnapshot},
             },
             auth::{identity::IdentityClient, session::SessionManager},
-            crypto::DaemonKeyStore,
+            crypto::AccessConnectorKeyStore,
             integrations::IntegrationRegistry,
             policy::PasswordPolicy,
             resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
-            token::DaemonToken,
+            token::AccessConnectorToken,
         };
 
         let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
@@ -1112,7 +1112,7 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        let token = DaemonToken::from_str(
+        let token = AccessConnectorToken::from_str(
             "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
         ).unwrap();
         let identity = IdentityClient::new(identity_server.uri()).unwrap();
@@ -1139,7 +1139,7 @@ mod tests {
         let mut registry = IntegrationRegistry::new();
         registry.register(TargetKind::CustomScript, Arc::new(integ));
 
-        let key_store = Arc::new(DaemonKeyStore::default());
+        let key_store = Arc::new(AccessConnectorKeyStore::default());
 
         let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
         let last_ok_clone = Arc::clone(&last_ok_time);
