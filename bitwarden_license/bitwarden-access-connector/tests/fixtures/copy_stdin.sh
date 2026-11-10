@@ -1,6 +1,7 @@
 #!/bin/sh
 # Fixture: reads stdin's JSON, extracts "OUT_PATH" from the credentials map, and writes the
-# full stdin payload there. Invoked as: copy_stdin.sh <operation>
+# full stdin payload to "<OUT_PATH>.<operation>", one file per step. Invoked as:
+# copy_stdin.sh <operation>
 
 set -e
 
@@ -16,5 +17,5 @@ if [ -z "$out_path" ]; then
     exit 1
 fi
 
-printf '%s' "$payload" > "$out_path"
+printf '%s' "$payload" > "$out_path.$1"
 exit 0
