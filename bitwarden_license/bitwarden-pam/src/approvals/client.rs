@@ -1,12 +1,9 @@
 use std::sync::Arc;
 
-use bitwarden_api_api::models::{AccessDecisionRequestModel, AccessRequestRevokeRequestModel};
+use bitwarden_api_api::models::AccessDecisionRequestModel;
 use bitwarden_core::{FromClient, client::ApiConfigurations};
 
-use super::{
-    error::ApprovalError,
-    models::{AccessDecisionRequest, AccessRequestRevokeRequest},
-};
+use super::{error::ApprovalError, models::AccessDecisionRequest};
 use crate::{AccessRequestId, access_requests::AccessRequestView};
 
 /// Client for a PAM approver's queue. The requester side is
@@ -75,25 +72,6 @@ impl ApprovalsClient {
             .await?;
 
         Ok(AccessRequestView::try_from(response)?)
-    }
-
-    /// Revokes an approved access request the requester has not started. The server records it as
-    /// the approver's deny decision, with the reason shown to the requester.
-    pub async fn revoke(
-        &self,
-        id: AccessRequestId,
-        request: AccessRequestRevokeRequest,
-    ) -> Result<(), ApprovalError> {
-        self.api_configurations
-            .api_client
-            .access_requests_api()
-            .revoke(
-                id.into(),
-                Some(AccessRequestRevokeRequestModel::from(request)),
-            )
-            .await?;
-
-        Ok(())
     }
 }
 
@@ -290,56 +268,6 @@ mod tests {
         };
 
         let result = client(api_client).decide(request_id(), request).await;
-
-        assert!(matches!(result, Err(ApprovalError::Api(_))));
-    }
-
-    #[tokio::test]
-    async fn revoke_sends_the_reason() {
-        let api_client = ApiClient::new_mocked(move |mock| {
-            mock.access_requests_api
-                .expect_revoke()
-                .returning(move |id, body| {
-                    assert_eq!(id, uuid::Uuid::from(request_id()));
-                    assert_eq!(
-                        body.and_then(|b| b.reason).as_deref(),
-                        Some("Approved by mistake")
-                    );
-                    Ok(())
-                })
-                .once();
-        });
-
-        let request = AccessRequestRevokeRequest {
-            reason: "Approved by mistake".to_string(),
-        };
-
-        let result = client(api_client).revoke(request_id(), request).await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn revoke_surfaces_api_error() {
-        let api_client = ApiClient::new_mocked(move |mock| {
-            mock.access_requests_api
-                .expect_revoke()
-                .returning(move |_id, _body| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
-                            status: reqwest::StatusCode::CONFLICT,
-                            message: "This request has already been resolved.".to_string(),
-                        },
-                    ))
-                })
-                .once();
-        });
-
-        let request = AccessRequestRevokeRequest {
-            reason: "Approved by mistake".to_string(),
-        };
-
-        let result = client(api_client).revoke(request_id(), request).await;
 
         assert!(matches!(result, Err(ApprovalError::Api(_))));
     }
