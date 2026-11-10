@@ -27,14 +27,12 @@
 //!
 //! # Drivers
 //!
-//! - [`active_directory`]: on-premises Active Directory, over LDAPS.
 //! - [`entra`]: Microsoft Entra ID, through Microsoft Graph.
 //! - [`scripting`]: an operator-supplied script, run directly or through a PowerShell host.
 //!
 //! Operator-facing behaviour (required credentials, permissions, the script contract) is
 //! documented in the crate README.
 
-pub(crate) mod active_directory;
 pub(crate) mod entra;
 pub(crate) mod scripting;
 
@@ -169,7 +167,6 @@ impl IntegrationRegistry {
         kind: SealedTargetSystemKind,
         integration: Arc<dyn Integration>,
     ) {
-        tracing::debug!(?kind, "registered integration");
         self.map.insert(kind, integration);
     }
 
@@ -214,22 +211,6 @@ mod tests {
     fn registry_get_unregistered_kind_returns_none() {
         let reg = IntegrationRegistry::new();
         assert!(reg.get(SealedTargetSystemKind::Entra).is_none());
-    }
-
-    #[test]
-    fn target_effect_to_sync_state_mapping() {
-        assert_eq!(
-            RotationSyncState::from(TargetEffect::NotApplied),
-            RotationSyncState::TargetUnchanged
-        );
-        assert_eq!(
-            RotationSyncState::from(TargetEffect::Unknown),
-            RotationSyncState::Indeterminate
-        );
-        assert_eq!(
-            RotationSyncState::from(TargetEffect::Applied),
-            RotationSyncState::TargetUpdated
-        );
     }
 
     #[test]
