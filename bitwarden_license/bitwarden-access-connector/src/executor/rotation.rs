@@ -1117,8 +1117,10 @@ mod tests {
             target_system_id,
             target_system_name: "test".to_owned(),
             cipher_id,
-            target_system_sealed_data: Some(target_blob),
-            rotation_config_sealed_data: Some(config_blob),
+            target_system_sealed_data: Some(target_blob.0),
+            target_system_wrapped_key: Some(target_blob.1),
+            rotation_config_sealed_data: Some(config_blob.0),
+            rotation_config_wrapped_key: Some(config_blob.1),
             execute_by: Utc::now() + chrono::Duration::minutes(5),
         };
         let job = verify::verify(snapshot, &exec_ctx.key_store).expect("well-formed claim");
@@ -1281,8 +1283,10 @@ mod tests {
             target_system_id,
             target_system_name: "test".to_owned(),
             cipher_id,
-            target_system_sealed_data: Some(target_blob),
-            rotation_config_sealed_data: Some(config_blob),
+            target_system_sealed_data: Some(target_blob.0),
+            target_system_wrapped_key: Some(target_blob.1),
+            rotation_config_sealed_data: Some(config_blob.0),
+            rotation_config_wrapped_key: Some(config_blob.1),
             execute_by: Utc::now() + chrono::Duration::minutes(5),
         };
         let job = verify::verify(snapshot, &exec_ctx.key_store).expect("well-formed claim");
