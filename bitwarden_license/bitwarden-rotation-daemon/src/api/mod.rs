@@ -518,7 +518,6 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
         Error::Reqwest(_) => ApiError::Transient("transport error".to_owned()),
         Error::Serde(_) => ApiError::Protocol("response decode failed".to_owned()),
         Error::Io(_) => ApiError::Transient("I/O error".to_owned()),
-        Error::_Phantom(_, _) => unreachable!(),
     }
 }
 
