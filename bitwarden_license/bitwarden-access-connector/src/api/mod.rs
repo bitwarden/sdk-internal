@@ -1,4 +1,7 @@
 //! HTTP API client wrappers for the Bitwarden server's PAM rotation endpoints.
+//!
+//! [`build_sdk_client`] assembles the client the connector runs on; [`AccessConnectorClient`]
+//! reaches through its configurations, mapping calls into domain types.
 
 pub(crate) mod models;
 
@@ -8,20 +11,28 @@ use std::{
 };
 
 use bitwarden_api_api::{
-    apis::{ApiClient, AuthRequired},
+    apis::AuthRequired,
     models::{
-        ReportRotationFailedRequestModel, ReportRotationSucceededRequestModel,
-        SubmitCipherUpdateRequestModel,
+        CipherMiniResponseModel, CipherRequestModel, ReportRotationFailedRequestModel,
+        ReportRotationSucceededRequestModel,
     },
 };
-use bitwarden_api_base::Configuration;
-use models::{ApiError, JobRef, RotationCipher, WorkSnapshot};
-use reqwest_middleware::{ClientBuilder, Middleware, Next};
+use bitwarden_core::{
+    Client, ClientBuilder, ClientSettings, FromClient, client::internal::ApiConfigurations,
+    key_management::KeySlotIds,
+};
+use bitwarden_crypto::KeyStore;
+use bitwarden_vault::Cipher;
+use models::{ApiError, JobRef, WorkSnapshot};
+use reqwest_middleware::{Middleware, Next};
 use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::{
-    auth::session::{SessionError, SessionManager},
+    auth::{
+        session::{SessionError, SessionManager},
+        token_handler::AccessConnectorTokenHandler,
+    },
     error::{FailureCode, SafeDetail, SessionTermination, SyncState},
 };
 
@@ -29,28 +40,49 @@ use crate::{
 /// after a forced refresh. Unlike bitwarden-auth's middleware, it fails on session loss instead of
 /// sending the request without a token.
 pub(crate) struct AccessConnectorAuthMiddleware {
-    session: Arc<SessionManager>,
+    handler: AccessConnectorTokenHandler,
 }
 
 impl AccessConnectorAuthMiddleware {
-    pub(crate) fn new(session: Arc<SessionManager>) -> Self {
-        Self { session }
+    pub(crate) fn new(handler: AccessConnectorTokenHandler) -> Self {
+        Self { handler }
+    }
+
+    /// Core builds this middleware before startup has a session; a request in that window fails
+    /// rather than going out unauthenticated.
+    fn session(&self) -> Result<Arc<SessionManager>, reqwest_middleware::Error> {
+        self.handler.session().ok_or_else(|| {
+            tracing::error!("authenticated request issued before the session was installed");
+            reqwest_middleware::Error::Middleware(anyhow::Error::new(SessionNotInstalledError))
+        })
     }
 
     async fn get_bearer(&self) -> Result<String, reqwest_middleware::Error> {
-        self.session
+        self.session()?
             .bearer(None)
             .await
             .map_err(|e| reqwest_middleware::Error::Middleware(anyhow::Error::new(e)))
     }
 
     async fn force_refresh_bearer(&self, stale: &str) -> Result<String, reqwest_middleware::Error> {
-        self.session
+        self.session()?
             .force_refresh(stale, None)
             .await
             .map_err(|e| reqwest_middleware::Error::Middleware(anyhow::Error::new(e)))
     }
 }
+
+/// A request needed a bearer before [`AccessConnectorTokenHandler::set_session`] ran.
+#[derive(Debug)]
+pub(crate) struct SessionNotInstalledError;
+
+impl std::fmt::Display for SessionNotInstalledError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "session not installed")
+    }
+}
+
+impl std::error::Error for SessionNotInstalledError {}
 
 #[async_trait::async_trait]
 impl Middleware for AccessConnectorAuthMiddleware {
@@ -107,65 +139,149 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
     req.headers_mut().insert(http::header::AUTHORIZATION, value);
 }
 
-/// Build the generated [`ApiClient`] with authentication middleware.
-///
-/// The 30 s per-request timeout keeps a black-holed connection from starving the heartbeat past
-/// the server's `AccessConnectorOfflineAfter`.
-pub(crate) fn build_api_client(
-    base_url: impl Into<String>,
-    session: Arc<SessionManager>,
-) -> ApiClient {
-    // Do not follow redirects: a cross-host redirect could leak the bearer token.
-    let http_client = bitwarden_api_base::new_http_client_builder()
-        .timeout(Duration::from_secs(30))
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .expect("HTTP client build should not fail");
+/// Keeps a black-holed connection from starving the heartbeat past `AccessConnectorOfflineAfter`.
+pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-    let middleware_client = ClientBuilder::new(http_client)
-        .with(AccessConnectorAuthMiddleware::new(session))
+/// Applies [`REQUEST_TIMEOUT`] to a whole request; core sets none.
+pub(crate) struct TimeoutMiddleware {
+    timeout: Duration,
+}
+
+impl TimeoutMiddleware {
+    pub(crate) fn new(timeout: Duration) -> Self {
+        Self { timeout }
+    }
+}
+
+#[async_trait::async_trait]
+impl Middleware for TimeoutMiddleware {
+    async fn handle(
+        &self,
+        req: reqwest::Request,
+        ext: &mut http::Extensions,
+        next: Next<'_>,
+    ) -> Result<reqwest::Response, reqwest_middleware::Error> {
+        tokio::time::timeout(self.timeout, next.run(req, ext))
+            .await
+            .unwrap_or_else(|_| {
+                Err(reqwest_middleware::Error::Middleware(anyhow::Error::new(
+                    RequestTimedOutError,
+                )))
+            })
+    }
+}
+
+/// A request exceeded [`REQUEST_TIMEOUT`].
+#[derive(Debug)]
+pub(crate) struct RequestTimedOutError;
+
+impl std::fmt::Display for RequestTimedOutError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "request timed out")
+    }
+}
+
+impl std::error::Error for RequestTimedOutError {}
+
+/// Records the last successful server contact, which the rotation gate reads to pause target-side
+/// steps while the server is unreachable.
+///
+/// Any 2xx status counts, even if the body later fails to parse: the server answered. Redirects,
+/// client errors and server errors, and transport failures, do not.
+pub(crate) struct ConnectivityMiddleware {
+    last_ok_tx: watch::Sender<Instant>,
+}
+
+impl ConnectivityMiddleware {
+    pub(crate) fn new(last_ok_tx: watch::Sender<Instant>) -> Self {
+        Self { last_ok_tx }
+    }
+}
+
+#[async_trait::async_trait]
+impl Middleware for ConnectivityMiddleware {
+    async fn handle(
+        &self,
+        req: reqwest::Request,
+        ext: &mut http::Extensions,
+        next: Next<'_>,
+    ) -> Result<reqwest::Response, reqwest_middleware::Error> {
+        let response = next.run(req, ext).await?;
+        if response.status().is_success() {
+            self.last_ok_tx.send_modify(|t| *t = Instant::now());
+        }
+        Ok(response)
+    }
+}
+
+/// Builds the SDK client the connector runs against, plus the handler that carries its session
+/// once startup has one.
+///
+/// [`TimeoutMiddleware`] is load-bearing twice: core sets no per-request timeout, and it disables
+/// redirect-following only when the extra-middleware vec is non-empty (the auth middleware does not
+/// count). `request_times_out_rather_than_hanging` and `does_not_follow_a_cross_host_redirect`
+/// guard both.
+///
+/// Redirects are refused because these endpoints never legitimately redirect, not because the
+/// bearer would leak (reqwest strips `Authorization` on a host change): following one would read
+/// another host's reply as the API's and, on a 307, forward the encrypted cipher body.
+///
+/// Chained outermost, the timeout also bounds token renewal. [`ConnectivityMiddleware`] sits
+/// outside the auth middleware, so a 401 retried into a 2xx counts once and a persistent 401 not.
+pub(crate) fn build_sdk_client(
+    api_url: String,
+    identity_url: String,
+    timeout: Duration,
+    last_ok_tx: watch::Sender<Instant>,
+) -> (Client, AccessConnectorTokenHandler) {
+    let handler = AccessConnectorTokenHandler::default();
+
+    let client = ClientBuilder::new()
+        .with_settings(ClientSettings {
+            api_url,
+            identity_url,
+            ..Default::default()
+        })
+        .with_token_handler(Arc::new(handler.clone()))
+        .with_middleware(vec![
+            Arc::new(TimeoutMiddleware::new(timeout)),
+            Arc::new(ConnectivityMiddleware::new(last_ok_tx)),
+        ])
         .build();
 
-    let config = Arc::new(Configuration {
-        base_path: base_url.into(),
-        client: middleware_client,
-    });
-
-    ApiClient::new(&config)
+    (client, handler)
 }
 
 /// Domain-typed wrapper around the generated PAM rotation API clients.
-///
-/// Every successful response bumps `connectivity_tx`, which the rotation gate reads to pause
-/// target-side steps while the server is unreachable.
-pub(crate) struct RotationApi {
-    client: ApiClient,
-    connectivity_tx: watch::Sender<Instant>,
+#[derive(FromClient)]
+pub(crate) struct AccessConnectorClient {
+    pub(crate) key_store: KeyStore<KeySlotIds>,
+    pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-impl RotationApi {
-    pub(crate) fn new(client: ApiClient, connectivity_tx: watch::Sender<Instant>) -> Self {
-        Self {
-            client,
-            connectivity_tx,
-        }
-    }
+/// Extension trait that exposes [`AccessConnectorClient`] on [`Client`].
+pub(crate) trait AccessConnectorClientExt {
+    fn access_connector(&self) -> AccessConnectorClient;
+}
 
-    fn mark_ok(&self) {
-        self.connectivity_tx.send_modify(|t| *t = Instant::now());
+impl AccessConnectorClientExt for Client {
+    fn access_connector(&self) -> AccessConnectorClient {
+        AccessConnectorClient::from_client(self)
     }
+}
 
+impl AccessConnectorClient {
     /// Poll for claimable rotation jobs. A 404 maps to [`ApiError::NotEligible`].
     pub(crate) async fn poll_jobs(&self) -> Result<Vec<JobRef>, ApiError> {
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_jobs_api()
             .get_all()
             .await;
 
         match result {
             Ok(list_model) => {
-                self.mark_ok();
                 let jobs = list_model
                     .data
                     .unwrap_or_default()
@@ -174,7 +290,7 @@ impl RotationApi {
                     .collect();
                 Ok(jobs)
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::AccessConnectorOrJob)),
+            Err(e) => Err(classify_error(e, Route::AccessConnectorOrJob)),
         }
     }
 
@@ -184,75 +300,60 @@ impl RotationApi {
     /// [`ApiError::NotEligible`].
     pub(crate) async fn claim(&self, job_id: Uuid) -> Result<Option<WorkSnapshot>, ApiError> {
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_jobs_api()
             .claim(job_id)
             .await;
 
         match result {
             Ok(model) => {
-                self.mark_ok();
                 let snapshot = parse_work_snapshot(model)?;
                 Ok(Some(snapshot))
             }
             Err(bitwarden_api_base::Error::Response(ref rc)) if rc.status.as_u16() == 409 => {
                 Ok(None)
             }
-            Err(e) => Err(classify_error(e, &self.client, Route::AccessConnectorOrJob)),
+            Err(e) => Err(classify_error(e, Route::AccessConnectorOrJob)),
         }
     }
 
-    /// Fetch the encrypted cipher for an executing attempt. A 404 maps to
-    /// [`ApiError::UnknownAttempt`].
-    pub(crate) async fn get_cipher(&self, attempt_id: Uuid) -> Result<RotationCipher, ApiError> {
+    /// Fetch the encrypted cipher for an attempt. A 404 maps to [`ApiError::UnknownAttempt`].
+    pub(crate) async fn get_cipher(&self, attempt_id: Uuid) -> Result<Cipher, ApiError> {
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_attempts_api()
             .get_cipher(attempt_id)
             .await;
 
         match result {
-            Ok(model) => {
-                self.mark_ok();
-                parse_rotation_cipher(model)
-            }
-            Err(e) => Err(classify_error(e, &self.client, Route::Attempt)),
+            Ok(model) => parse_cipher(model),
+            Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
 
-    /// Write the re-encrypted cipher data back to the server.
-    ///
-    /// A 409 means revision-drift or capability-lost; a 404 means the attempt is unknown.
+    /// Write the re-encrypted cipher back. `lastKnownRevisionDate` is the optimistic-concurrency
+    /// check; a 409 means revision drift or capability lost, a 404 an unknown attempt.
     pub(crate) async fn put_cipher(
         &self,
         attempt_id: Uuid,
-        data_json_string: String,
-        last_known_revision_date: String,
+        body: CipherRequestModel,
     ) -> Result<(), ApiError> {
-        let body = SubmitCipherUpdateRequestModel {
-            data: data_json_string,
-            last_known_revision_date,
-        };
-
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_attempts_api()
             .put_cipher(attempt_id, body)
             .await;
 
         match result {
-            Ok(()) => {
-                self.mark_ok();
-                Ok(())
-            }
-            Err(e) => Err(classify_error(e, &self.client, Route::Attempt)),
+            Ok(()) => Ok(()),
+            Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
 
-    /// Report a successful rotation attempt.
-    ///
-    /// A 409 or 404 here is final: the server rejected or abandoned the attempt.
-    /// Do not retry; log at warn-level and move on.
+    /// Report a successful rotation attempt. A 409 or 404 is final: do not retry.
     pub(crate) async fn report_success(
         &self,
         attempt_id: Uuid,
@@ -263,22 +364,19 @@ impl RotationApi {
         };
 
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_attempts_api()
             .success(attempt_id, body)
             .await;
 
         match result {
-            Ok(()) => {
-                self.mark_ok();
-                Ok(())
-            }
-            Err(e) => Err(classify_error(e, &self.client, Route::Attempt)),
+            Ok(()) => Ok(()),
+            Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
 
-    /// Report a failed rotation attempt. A 409 or 404 here is final, as in
-    /// [`Self::report_success`].
+    /// Report a failed rotation attempt. A 409 or 404 is final, as in [`Self::report_success`].
     pub(crate) async fn report_failure(
         &self,
         attempt_id: Uuid,
@@ -295,17 +393,15 @@ impl RotationApi {
         };
 
         let result = self
-            .client
+            .api_configurations
+            .api_client
             .pam_access_connector_rotation_attempts_api()
             .failure(attempt_id, body)
             .await;
 
         match result {
-            Ok(()) => {
-                self.mark_ok();
-                Ok(())
-            }
-            Err(e) => Err(classify_error(e, &self.client, Route::Attempt)),
+            Ok(()) => Ok(()),
+            Err(e) => Err(classify_error(e, Route::Attempt)),
         }
     }
 }
@@ -313,15 +409,13 @@ impl RotationApi {
 /// Route class, for disambiguating 404 semantics.
 #[derive(Clone, Copy)]
 enum Route {
-    /// `/access-connectors/rotation/jobs` and `jobs/{id}/claim`, where a 404 means the connector is
-    /// not eligible.
+    /// `jobs` and `jobs/{id}/claim`: a 404 means the connector is not eligible.
     AccessConnectorOrJob,
-    /// `/access-connectors/rotation/attempts/{id}/…`, where a 404 means the server does not know
-    /// the attempt.
+    /// `attempts/{id}/…`: a 404 means the server does not know the attempt.
     Attempt,
 }
 
-fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Route) -> ApiError {
+fn classify_error(err: bitwarden_api_base::Error, route: Route) -> ApiError {
     use bitwarden_api_base::Error;
 
     match err {
@@ -329,8 +423,8 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
             let status = rc.status.as_u16();
             match status {
                 401 => {
-                    // No async context to call session.phase() here, so a post-retry 401
-                    // maps to Transient; a terminal session loss surfaces earlier instead.
+                    // No async context to read session.phase(), so a post-retry 401 maps to
+                    // Transient; terminal loss surfaces earlier.
                     ApiError::Transient("HTTP 401 (post-retry)".to_string())
                 }
                 404 => match route {
@@ -343,8 +437,8 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
             }
         }
         Error::ReqwestMiddleware(mw_err) => {
-            // get_bearer and force_refresh_bearer keep the SessionError typed inside the middleware
-            // error, so session loss is detected by type rather than by message.
+            // The SessionError stays typed inside the middleware error, so loss is detected by
+            // type.
             if let reqwest_middleware::Error::Middleware(inner) = &mw_err
                 && let Some(SessionError::Lost(l)) = inner.downcast_ref::<SessionError>()
             {
@@ -362,7 +456,7 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
     }
 }
 
-/// Names only the variant of a [`reqwest_middleware::Error`], since its message can wrap arbitrary
+/// Names only the variant of a [`reqwest_middleware::Error`]; its message can wrap arbitrary
 /// strings.
 fn safe_middleware_description(err: &reqwest_middleware::Error) -> &'static str {
     match err {
@@ -409,36 +503,15 @@ fn parse_work_snapshot(
     })
 }
 
-/// Parse a [`bitwarden_api_api::models::RotationCipherResponseModel`] into a
-/// [`RotationCipher`]. A missing or malformed `data` field is a protocol error that never includes
-/// the field's content.
-fn parse_rotation_cipher(
-    model: bitwarden_api_api::models::RotationCipherResponseModel,
-) -> Result<RotationCipher, ApiError> {
-    macro_rules! required {
-        ($field:expr, $name:literal) => {
-            $field
-                .ok_or_else(|| ApiError::Protocol(concat!("missing field: ", $name).to_owned()))?
-        };
-    }
-
-    let cipher_id = required!(model.cipher_id, "cipherId");
-    let revision_date = required!(model.revision_date, "revisionDate");
-
-    let data_str = required!(model.data, "data");
-    let data = serde_json::from_str::<serde_json::Value>(&data_str)
-        .map_err(|_| ApiError::Protocol("cipher data field is not valid JSON".to_owned()))?;
-
-    Ok(RotationCipher {
-        cipher_id,
-        data,
-        key: model.key,
-        revision_date,
-    })
+/// Parse the cipher response into a vault [`Cipher`]. A conversion failure is a protocol error that
+/// never includes the payload.
+fn parse_cipher(model: CipherMiniResponseModel) -> Result<Cipher, ApiError> {
+    Cipher::try_from(model)
+        .map_err(|_| ApiError::Protocol("cipher response could not be parsed".to_owned()))
 }
 
-/// Serialise a [`FailureCode`] to its snake_case serde name. The server caps `errorCode` at 100
-/// characters, far above the longest variant name.
+/// Serialise a [`FailureCode`] to its snake_case serde name (the server caps `errorCode` at 100
+/// characters).
 fn failure_code_string(code: FailureCode) -> String {
     let v = serde_json::to_value(code)
         .unwrap_or_else(|_| serde_json::Value::String("internal".to_owned()));
@@ -453,7 +526,7 @@ fn failure_code_string(code: FailureCode) -> String {
 mod tests {
     use std::{sync::Arc, time::Instant};
 
-    use bitwarden_api_base::Configuration;
+    use bitwarden_crypto::KeyStore;
     use reqwest_middleware::ClientBuilder;
     use tokio::sync::watch;
     use wiremock::{
@@ -468,14 +541,16 @@ mod tests {
             session::{SessionLost, SessionManager},
         },
         error::{FailureCode, SafeDetail, SyncState},
-        test_support::{encrypted_payload_for, test_token},
+        test_support::{access_token_tagged, encrypted_payload_for, test_org_id, test_token},
     };
 
+    /// `bearer` is a short tag, expanded to a real JWT so the `organization` claim parses.
     fn identity_success_response(
         bearer: &str,
         expires_in: u64,
         encrypted_payload: &str,
     ) -> ResponseTemplate {
+        let bearer = access_token_tagged(test_org_id(), bearer);
         let body = format!(
             r#"{{"access_token":"{bearer}","expires_in":{expires_in},"encrypted_payload":"{encrypted_payload}"}}"#
         );
@@ -497,7 +572,7 @@ mod tests {
             .await;
 
         let identity_client = IdentityClient::new(identity_server.uri()).expect("identity client");
-        SessionManager::new(identity_client, test_token())
+        SessionManager::new(identity_client, test_token(), KeyStore::default())
             .await
             .expect("SessionManager::new")
     }
@@ -518,19 +593,33 @@ mod tests {
             .await;
 
         let identity_client = IdentityClient::new(identity_server.uri()).expect("identity client");
-        SessionManager::new(identity_client, test_token())
+        SessionManager::new(identity_client, test_token(), KeyStore::default())
             .await
             .expect("SessionManager::new")
     }
 
-    fn make_rotation_api(
+    /// A handler holding `session`, as startup leaves it.
+    fn handler_for(session: Arc<SessionManager>) -> AccessConnectorTokenHandler {
+        let handler = AccessConnectorTokenHandler::default();
+        handler.set_session(session);
+        handler
+    }
+
+    /// An [`AccessConnectorClient`] over the production client stack with `session` installed, plus
+    /// the connectivity receiver.
+    fn make_access_connector_client(
         api_server: &MockServer,
         session: Arc<SessionManager>,
-    ) -> (RotationApi, watch::Receiver<Instant>) {
+    ) -> (AccessConnectorClient, watch::Receiver<Instant>) {
         let (tx, rx) = watch::channel(Instant::now());
-        let client = build_api_client(api_server.uri(), session);
-        let api = RotationApi::new(client, tx);
-        (api, rx)
+        let (client, handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_owned(),
+            REQUEST_TIMEOUT,
+            tx,
+        );
+        handler.set_session(session);
+        (client.access_connector(), rx)
     }
 
     #[test]
@@ -690,79 +779,52 @@ mod tests {
             message: String::new(),
         };
         let err: bitwarden_api_base::Error = bitwarden_api_base::Error::Response(rc);
-        let api_err = classify_error(
-            err,
-            &{
-                // classify_error ignores the client.
-                let config = Arc::new(Configuration {
-                    base_path: "http://localhost".to_owned(),
-                    client: ClientBuilder::new(
-                        bitwarden_api_base::new_http_client_builder()
-                            .build()
-                            .unwrap(),
-                    )
-                    .build(),
-                });
-                ApiClient::new(&config)
-            },
-            Route::AccessConnectorOrJob,
-        );
+        let api_err = classify_error(err, Route::AccessConnectorOrJob);
         assert!(matches!(api_err, ApiError::Rejected { status: 409 }));
     }
 
     #[test]
-    fn parse_rotation_cipher_parses_data_string_to_value() {
-        use bitwarden_api_api::models::RotationCipherResponseModel;
+    fn parse_cipher_parses_a_login() {
+        let json = crate::test_support::keyed_login_json();
+        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
 
-        let data_json = r#"{"Password":"2.abc123==","SomeOther":"field"}"#;
-        let model = RotationCipherResponseModel {
-            cipher_id: Some(Uuid::new_v4()),
-            organization_id: Some(Uuid::new_v4()),
-            r#type: None,
-            data: Some(data_json.to_owned()),
-            key: Some("encrypted-key".to_owned()),
-            revision_date: Some("2024-01-01T00:00:00Z".to_owned()),
-        };
-
-        let cipher = parse_rotation_cipher(model).expect("parse_rotation_cipher");
-        assert_eq!(cipher.data["Password"], "2.abc123==");
-        assert_eq!(cipher.data["SomeOther"], "field");
-        assert_eq!(cipher.key.as_deref(), Some("encrypted-key"));
-        assert_eq!(cipher.revision_date, "2024-01-01T00:00:00Z");
+        let cipher = parse_cipher(model).expect("parse_cipher");
+        assert_eq!(
+            Uuid::from(cipher.id.expect("id")),
+            crate::test_support::KEYED_LOGIN_ID
+        );
+        assert_eq!(cipher.r#type, bitwarden_vault::CipherType::Login);
+        assert!(cipher.key.is_some());
+        assert!(cipher.login.is_some());
     }
 
     #[test]
-    fn parse_rotation_cipher_missing_data_is_protocol_error() {
-        use bitwarden_api_api::models::RotationCipherResponseModel;
+    fn parse_cipher_missing_type_is_protocol_error() {
+        let mut json = crate::test_support::keyed_login_json();
+        json.as_object_mut().unwrap().remove("type");
+        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
 
-        let model = RotationCipherResponseModel {
-            cipher_id: Some(Uuid::new_v4()),
-            organization_id: None,
-            r#type: None,
-            data: None,
-            key: None,
-            revision_date: Some("2024-01-01T00:00:00Z".to_owned()),
-        };
-
-        let err = parse_rotation_cipher(model).expect_err("should fail");
-        assert!(matches!(err, ApiError::Protocol(_)));
+        let err = parse_cipher(model).expect_err("should fail");
+        assert!(matches!(err, ApiError::Protocol(_)), "got: {err:?}");
     }
 
+    /// The vault parses an unparseable field leniently; the strict pre-flight decrypt rejects it
+    /// (see `crypto::tests`), so parsing must not drop or echo the value.
     #[test]
-    fn parse_rotation_cipher_invalid_json_in_data_is_protocol_error() {
-        use bitwarden_api_api::models::RotationCipherResponseModel;
+    fn parse_cipher_keeps_garbage_enc_string_for_strict_decryption() {
+        let store = crate::test_support::org_store();
+        let mut json = crate::test_support::keyed_login_json();
+        json["name"] = "2.secret!|garbage!|payload!".into();
+        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
 
-        let model = RotationCipherResponseModel {
-            cipher_id: Some(Uuid::new_v4()),
-            organization_id: None,
-            r#type: None,
-            data: Some("NOT VALID JSON".to_owned()),
-            key: None,
-            revision_date: Some("2024-01-01T00:00:00Z".to_owned()),
-        };
-
-        let err = parse_rotation_cipher(model).expect_err("should fail");
-        assert!(matches!(err, ApiError::Protocol(_)));
+        let cipher = parse_cipher(model).expect("lenient parse");
+        assert!(cipher.name.is_some());
+        let org_id = crate::test_support::test_org_id();
+        assert!(
+            crate::test_support::client_with_store(&store)
+                .decrypt_cipher_for_rotation(org_id, cipher)
+                .is_err()
+        );
     }
 
     #[tokio::test]
@@ -771,7 +833,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, mut connectivity_rx) = make_rotation_api(&api_server, session);
+        let (api, mut connectivity_rx) = make_access_connector_client(&api_server, session);
 
         let before = *connectivity_rx.borrow();
 
@@ -809,7 +871,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
@@ -827,7 +889,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let job_id = Uuid::new_v4();
         let attempt_id = Uuid::new_v4();
@@ -891,7 +953,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let job_id = Uuid::new_v4();
         Mock::given(method("POST"))
@@ -907,16 +969,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cipher_parses_data_string_to_value() {
+    async fn get_cipher_parses_the_cipher_response() {
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let attempt_id = Uuid::new_v4();
-        let cipher_id = Uuid::new_v4();
-        let data_json_str = r#"{"Password":"2.abc==","Username":"admin"}"#;
+        let json = crate::test_support::keyed_login_json();
 
         Mock::given(method("GET"))
             .and(path(format!(
@@ -924,21 +985,23 @@ mod tests {
             )))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({
-                        "cipherId": cipher_id,
-                        "data": data_json_str,
-                        "revisionDate": "2024-06-01T12:00:00Z"
-                    }))
+                    .set_body_json(json)
                     .insert_header("content-type", "application/json"),
             )
             .mount(&api_server)
             .await;
 
         let cipher = api.get_cipher(attempt_id).await.expect("get_cipher");
-        assert_eq!(cipher.cipher_id, cipher_id);
-        assert_eq!(cipher.data["Password"], "2.abc==");
-        assert_eq!(cipher.data["Username"], "admin");
-        assert_eq!(cipher.revision_date, "2024-06-01T12:00:00Z");
+        assert_eq!(
+            Uuid::from(cipher.id.expect("id")),
+            crate::test_support::KEYED_LOGIN_ID
+        );
+        assert_eq!(
+            cipher.revision_date,
+            crate::test_support::CIPHER_REVISION_DATE
+                .parse::<chrono::DateTime<chrono::Utc>>()
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -947,7 +1010,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let attempt_id = Uuid::new_v4();
         Mock::given(method("PUT"))
@@ -959,11 +1022,7 @@ mod tests {
             .await;
 
         let err = api
-            .put_cipher(
-                attempt_id,
-                r#"{"Password":"2.new=="}"#.to_owned(),
-                "2024-06-01T12:00:00Z".to_owned(),
-            )
+            .put_cipher(attempt_id, CipherRequestModel::default())
             .await
             .expect_err("should fail");
 
@@ -979,7 +1038,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let attempt_id = Uuid::new_v4();
         Mock::given(method("PUT"))
@@ -991,11 +1050,7 @@ mod tests {
             .await;
 
         let err = api
-            .put_cipher(
-                attempt_id,
-                r#"{"Password":"2.new=="}"#.to_owned(),
-                "2024-06-01T12:00:00Z".to_owned(),
-            )
+            .put_cipher(attempt_id, CipherRequestModel::default())
             .await
             .expect_err("should fail");
 
@@ -1008,7 +1063,7 @@ mod tests {
         let api_server = MockServer::start().await;
 
         let session = make_session(&identity_server, "test-bearer").await;
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let attempt_id = Uuid::new_v4();
 
@@ -1063,7 +1118,9 @@ mod tests {
             .build()
             .unwrap();
         let client = ClientBuilder::new(http_client)
-            .with(AccessConnectorAuthMiddleware::new(Arc::clone(&session)))
+            .with(AccessConnectorAuthMiddleware::new(handler_for(Arc::clone(
+                &session,
+            ))))
             .build();
 
         Mock::given(method("GET"))
@@ -1110,20 +1167,23 @@ mod tests {
             .await;
 
         let identity_client = IdentityClient::new(identity_server.uri()).expect("identity client");
-        let session = SessionManager::new(identity_client, test_token())
+        let session = SessionManager::new(identity_client, test_token(), KeyStore::default())
             .await
             .expect("SessionManager::new");
 
+        let bearer_1 = format!("Bearer {}", access_token_tagged(test_org_id(), "bearer-1"));
+        let bearer_2 = format!("Bearer {}", access_token_tagged(test_org_id(), "bearer-2"));
+
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
-            .and(header("Authorization", "Bearer bearer-1"))
+            .and(header("Authorization", bearer_1.as_str()))
             .respond_with(ResponseTemplate::new(401))
             .up_to_n_times(1)
             .mount(&api_server)
             .await;
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
-            .and(header("Authorization", "Bearer bearer-2"))
+            .and(header("Authorization", bearer_2.as_str()))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_json(serde_json::json!({"data": []}))
@@ -1132,9 +1192,7 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        let (tx, _rx) = watch::channel(Instant::now());
-        let client = build_api_client(api_server.uri(), session);
-        let api = RotationApi::new(client, tx);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let jobs = api.poll_jobs().await.expect("poll_jobs after 401-refresh");
         assert!(jobs.is_empty());
@@ -1153,13 +1211,228 @@ mod tests {
         );
     }
 
-    /// Mounts a 401 on the jobs endpoint, so every authenticated call forces a session refresh.
+    /// Mounts a 401 on the jobs endpoint so every call forces a refresh.
     async fn mount_jobs_401(api_server: &MockServer) {
         Mock::given(method("GET"))
             .and(path("/access-connectors/rotation/jobs"))
             .respond_with(ResponseTemplate::new(401))
             .mount(api_server)
             .await;
+    }
+
+    /// Issue a request through the HTTP stack [`build_sdk_client`] assembled.
+    async fn get_through_client(
+        client: &Client,
+        url: String,
+    ) -> reqwest_middleware::Result<reqwest::Response> {
+        client
+            .internal
+            .get_api_configurations()
+            .api_config
+            .client
+            .get(url)
+            .send()
+            .await
+    }
+
+    /// Sends a GET to `url` through a fresh client and reports whether connectivity was bumped.
+    async fn bumps_connectivity(url: String) -> bool {
+        let (tx, mut rx) = watch::channel(Instant::now());
+        let (client, _handler) = build_sdk_client(
+            "http://api.invalid".to_owned(),
+            "http://identity.invalid".to_owned(),
+            Duration::from_secs(5),
+            tx,
+        );
+        let before = *rx.borrow_and_update();
+
+        let _ = get_through_client(&client, url).await;
+
+        rx.has_changed().expect("sender alive") && *rx.borrow() > before
+    }
+
+    #[tokio::test]
+    async fn connectivity_is_bumped_by_a_2xx_even_with_an_unparseable_body() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/ok"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("not json"))
+            .mount(&server)
+            .await;
+
+        assert!(bumps_connectivity(format!("{}/ok", server.uri())).await);
+    }
+
+    #[tokio::test]
+    async fn connectivity_is_not_bumped_by_non_2xx_responses() {
+        let server = MockServer::start().await;
+        for status in [302, 401, 404, 409, 500, 503] {
+            Mock::given(method("GET"))
+                .and(path(format!("/status/{status}")))
+                .respond_with(ResponseTemplate::new(status))
+                .mount(&server)
+                .await;
+
+            assert!(
+                !bumps_connectivity(format!("{}/status/{status}", server.uri())).await,
+                "{status} must not count as server contact"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn connectivity_is_not_bumped_by_a_transport_error() {
+        // Nothing listens on port 1.
+        assert!(!bumps_connectivity("http://127.0.0.1:1/x".to_owned()).await);
+    }
+
+    #[tokio::test]
+    async fn connectivity_is_not_bumped_by_a_timeout() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/stall"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(30)))
+            .mount(&server)
+            .await;
+        let (tx, rx) = watch::channel(Instant::now());
+        let (client, _handler) = build_sdk_client(
+            server.uri(),
+            "http://identity.invalid".to_owned(),
+            Duration::from_millis(100),
+            tx,
+        );
+        let before = *rx.borrow();
+
+        get_through_client(&client, format!("{}/stall", server.uri()))
+            .await
+            .expect_err("times out");
+
+        assert_eq!(*rx.borrow(), before);
+    }
+
+    #[tokio::test]
+    async fn the_client_exposes_access_connector_sharing_its_key_store() {
+        use bitwarden_core::key_management::SymmetricKeySlotId;
+
+        let (tx, _rx) = watch::channel(Instant::now());
+        let (client, handler) = build_sdk_client(
+            "http://api.invalid".to_owned(),
+            "http://identity.invalid".to_owned(),
+            REQUEST_TIMEOUT,
+            tx,
+        );
+
+        // The cipher is encrypted under the vectors' org key; only the handler's store gets the
+        // key.
+        let json = crate::test_support::keyed_login_json();
+        let model: CipherMiniResponseModel = serde_json::from_value(json).expect("model");
+        let cipher = parse_cipher(model).expect("parse");
+        let org_id = crate::test_support::test_org_id();
+
+        let access_connector = client.access_connector();
+        assert!(
+            access_connector
+                .decrypt_cipher_for_rotation(org_id, cipher.clone())
+                .is_err(),
+            "no key yet"
+        );
+
+        let org_key = crate::test_support::fixture_org_key();
+        let store = handler.key_store().expect("key store");
+        #[allow(deprecated)]
+        store
+            .context_mut()
+            .set_symmetric_key(SymmetricKeySlotId::Organization(org_id), org_key)
+            .expect("set key");
+
+        // The key reached a client handed out earlier and one handed out later.
+        for c in [access_connector, client.access_connector()] {
+            let (view, _key) = c
+                .decrypt_cipher_for_rotation(org_id, cipher.clone())
+                .expect("decrypts with the shared store");
+            assert_eq!(
+                view.login.unwrap().password.as_deref(),
+                Some("old-password")
+            );
+        }
+    }
+
+    /// R1: a black-holed connection must time out.
+    #[tokio::test]
+    async fn request_times_out_rather_than_hanging() {
+        let api_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/stall"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(30)))
+            .mount(&api_server)
+            .await;
+
+        let (client, _handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_string(),
+            Duration::from_millis(100),
+            watch::channel(Instant::now()).0,
+        );
+
+        let started = Instant::now();
+        let err = get_through_client(&client, format!("{}/stall", api_server.uri()))
+            .await
+            .expect_err("a stalled request must fail, not hang");
+
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "must fail on the timeout, not wait out the response"
+        );
+        match err {
+            reqwest_middleware::Error::Middleware(e) => assert!(
+                e.downcast_ref::<crate::api::RequestTimedOutError>()
+                    .is_some(),
+                "expected RequestTimedOutError, got {e:?}"
+            ),
+            other => panic!("expected a middleware error, got {other:?}"),
+        }
+    }
+
+    /// R2: a cross-host redirect must not be followed.
+    #[tokio::test]
+    async fn does_not_follow_a_cross_host_redirect() {
+        let elsewhere = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/elsewhere"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&elsewhere)
+            .await;
+
+        let api_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/redirect"))
+            .respond_with(ResponseTemplate::new(302).insert_header(
+                "location",
+                format!("{}/elsewhere", elsewhere.uri()).as_str(),
+            ))
+            .mount(&api_server)
+            .await;
+
+        let (client, _handler) = build_sdk_client(
+            api_server.uri(),
+            "http://identity.invalid".to_string(),
+            Duration::from_secs(5),
+            watch::channel(Instant::now()).0,
+        );
+
+        let response = get_through_client(&client, format!("{}/redirect", api_server.uri()))
+            .await
+            .expect("the 302 itself is a successful exchange");
+
+        assert_eq!(
+            response.status(),
+            302,
+            "the redirect must be returned, not followed"
+        );
+        assert!(
+            elsewhere.received_requests().await.unwrap().is_empty(),
+            "the redirect target must never be contacted"
+        );
     }
 
     #[tokio::test]
@@ -1179,7 +1452,7 @@ mod tests {
             .await;
         mount_jobs_401(&api_server).await;
 
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let err = api.poll_jobs().await.expect_err("revoked mid-session");
         assert!(
@@ -1195,7 +1468,7 @@ mod tests {
         let session = make_session(&identity_server, "bearer-1").await;
         session.close().await;
 
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let err = api.poll_jobs().await.expect_err("session closed");
         assert!(
@@ -1223,7 +1496,7 @@ mod tests {
             .await;
         mount_jobs_401(&api_server).await;
 
-        let (api, _rx) = make_rotation_api(&api_server, session);
+        let (api, _rx) = make_access_connector_client(&api_server, session);
 
         let err = api.poll_jobs().await.expect_err("refresh keeps failing");
         assert!(

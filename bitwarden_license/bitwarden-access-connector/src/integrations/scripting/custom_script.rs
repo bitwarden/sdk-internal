@@ -154,8 +154,8 @@ mod tests {
         sys::{FakeEnv, FakeFs, Platform},
     };
 
-    /// Never touched on disk: only `rotate`/`verify`/`terminate_sessions` canonicalise the path,
-    /// and `tests/scripting_integration.rs` covers those.
+    /// Never touched on disk; `tests/scripting_integration.rs` covers the canonicalising
+    /// operations.
     const SH_SCRIPT: &str = "/opt/bwac/rotate.sh";
     const PS_SCRIPT: &str = "/opt/bwac/rotate.ps1";
     const HOST: &str = "/usr/local/bin/pwsh";
@@ -174,8 +174,7 @@ mod tests {
         ctx_with(ResolvedCredentials::new())
     }
 
-    /// An integration with both seams faked and a PowerShell host pinned, so no discovery and
-    /// no process ever happens.
+    /// Both seams faked and a PowerShell host pinned: no discovery, no process.
     fn integration(env: FakeEnv, runner: Arc<RecordingRunner>) -> CustomScriptIntegration {
         CustomScriptIntegration::new(
             None,
@@ -234,8 +233,8 @@ mod tests {
 
     #[test]
     fn powershell_launcher_forwards_the_allowlist_and_nothing_else() {
-        // The credential and the access connector token exist in the environment the connector
-        // reads; only the allowlisted names may reach the child.
+        // The credential and token exist in the connector's environment; only allowlisted names
+        // reach the child.
         let env = FakeEnv::from([
             ("PATH", "/usr/bin"),
             ("BWAC_TOKEN", "SENTINEL_TOKEN"),
