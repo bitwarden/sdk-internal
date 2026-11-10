@@ -27,12 +27,14 @@
 //!
 //! # Drivers
 //!
+//! - [`active_directory`]: on-premises Active Directory, over LDAPS.
 //! - [`entra`]: Microsoft Entra ID, through Microsoft Graph.
 //! - [`scripting`]: an operator-supplied script, run directly or through a PowerShell host.
 //!
 //! Operator-facing behaviour (required credentials, permissions, the script contract) is
 //! documented in the crate README.
 
+pub(crate) mod active_directory;
 pub(crate) mod entra;
 pub(crate) mod scripting;
 
