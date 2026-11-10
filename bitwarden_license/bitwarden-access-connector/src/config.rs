@@ -3,14 +3,20 @@
 //! Unknown TOML keys are a startup error. `[targets]` entries override per-target environment
 //! variables, except `client_secret`, which only the environment can supply.
 
-use std::{collections::HashMap, path::PathBuf, time::Duration};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use bitwarden_access_token::{AccessToken, AccessTokenKind};
+use uuid::Uuid;
 
 use crate::{
     cli::RunArgs,
     error::AccessConnectorError,
     executor::{AccessConnectorConfig, retry::RetryCfg},
+    resolver::config::TargetEntry,
 };
 
 const MIN_POLL_INTERVAL_SECS: u64 = 15;
@@ -33,19 +39,12 @@ struct EnvironmentConfig {
 }
 
 impl EnvironmentConfig {
-    fn derive_api(&self) -> Option<String> {
-        self.api.clone().or_else(|| {
+    /// The explicit URL, else `base` plus `/{suffix}`.
+    fn resolve(&self, explicit: Option<&str>, suffix: &str) -> Option<String> {
+        explicit.map(str::to_owned).or_else(|| {
             self.base
                 .as_deref()
-                .map(|b| format!("{}/api", b.trim_end_matches('/')))
-        })
-    }
-
-    fn derive_identity(&self) -> Option<String> {
-        self.identity.clone().or_else(|| {
-            self.base
-                .as_deref()
-                .map(|b| format!("{}/identity", b.trim_end_matches('/')))
+                .map(|b| format!("{}/{suffix}", b.trim_end_matches('/')))
         })
     }
 }
@@ -79,8 +78,7 @@ struct FileConfig {
     /// Whether the Entra ROPC verify probe is enabled.
     entra_verify_probe: bool,
     /// Per-target credential overrides from the `[targets]` section.
-    #[serde(default)]
-    targets: HashMap<uuid::Uuid, crate::resolver::config::TargetEntry>,
+    targets: HashMap<Uuid, TargetEntry>,
 }
 
 /// Built-in defaults for keys the file omits.
@@ -104,16 +102,21 @@ impl Default for FileConfig {
 }
 
 impl FileConfig {
-    /// Load a [`FileConfig`] from `path`. A parse error keeps only its last line, since the source
-    /// snippet could echo config values.
-    fn load(path: &std::path::Path) -> Result<Self, AccessConnectorError> {
+    /// Read and parse the file at `path`.
+    fn load(path: &Path) -> Result<Self, AccessConnectorError> {
         let contents = std::fs::read_to_string(path).map_err(|e| {
             AccessConnectorError::InvalidConfig(format!(
                 "cannot read config file {}: {e}",
                 path.display()
             ))
         })?;
-        toml::from_str(&contents).map_err(|e| {
+        Self::parse(&contents, path)
+    }
+
+    /// Parse TOML `contents`; `path` is for error messages only. A parse error keeps only its last
+    /// line, since the source snippet could echo config values.
+    fn parse(contents: &str, path: &Path) -> Result<Self, AccessConnectorError> {
+        toml::from_str(contents).map_err(|e| {
             let summary = e.to_string();
             let description = summary.lines().last().unwrap_or("parse error");
             AccessConnectorError::InvalidConfig(format!(
@@ -122,6 +125,32 @@ impl FileConfig {
             ))
         })
     }
+}
+
+/// Treat a blank value as unset.
+fn non_blank(v: Option<String>) -> Option<String> {
+    v.filter(|v| !v.trim().is_empty())
+}
+
+/// Parse the raw `BWAC_TOKEN` value. Errors never echo the token.
+fn parse_token(raw: Option<String>) -> Result<AccessToken, AccessConnectorError> {
+    let raw = non_blank(raw).ok_or_else(|| {
+        AccessConnectorError::InvalidConfig(
+            "access connector token must be supplied via the BWAC_TOKEN environment variable"
+                .into(),
+        )
+    })?;
+    AccessToken::parse(raw.trim(), AccessTokenKind::AccessConnector)
+        .map_err(|e| AccessConnectorError::InvalidToken(format!("{e}")))
+}
+
+/// Error for a URL (`api` or `identity`) that no layer supplied.
+fn missing_url(name: &str) -> AccessConnectorError {
+    AccessConnectorError::InvalidConfig(format!(
+        "{name} URL must be supplied via the BWAC_{}_URL environment variable, \
+         [environment].{name}, or [environment].base in the config file",
+        name.to_uppercase()
+    ))
 }
 
 /// Validated configuration for the connector run loop, built by [`Config::from_cli`].
@@ -156,48 +185,36 @@ impl Config {
             }
         }
 
-        let token_str: String = match env_token.filter(|t| !t.trim().is_empty()) {
-            Some(t) => t,
-            None => {
-                return Err(AccessConnectorError::InvalidConfig(
-                    "access connector token must be supplied via the BWAC_TOKEN environment variable".into(),
-                ));
-            }
-        };
-
-        // Token parse errors must not echo the token string.
-        let token = AccessToken::parse(token_str.trim(), AccessTokenKind::AccessConnector)
-            .map_err(|e| AccessConnectorError::InvalidToken(format!("{e}")))?;
-
-        // Drop the plaintext token as soon as it is parsed.
-        drop(token_str);
+        let token = parse_token(env_token)?;
 
         let file = match &args.config {
             Some(path) => FileConfig::load(path)?,
             None => FileConfig::default(),
         };
 
-        let env_url = |name: &str| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
+        let env_url = |name: &str| non_blank(std::env::var(name).ok());
+        Self::build(
+            token,
+            file,
+            env_url("BWAC_API_URL"),
+            env_url("BWAC_IDENTITY_URL"),
+        )
+    }
 
-        let api_url = env_url("BWAC_API_URL")
-            .or_else(|| file.environment.derive_api())
-            .ok_or_else(|| {
-                AccessConnectorError::InvalidConfig(
-                    "api URL must be supplied via the BWAC_API_URL environment variable, \
-                     [environment].api, or [environment].base in the config file"
-                        .into(),
-                )
-            })?;
-
-        let identity_url = env_url("BWAC_IDENTITY_URL")
-            .or_else(|| file.environment.derive_identity())
-            .ok_or_else(|| {
-                AccessConnectorError::InvalidConfig(
-                    "identity URL must be supplied via the BWAC_IDENTITY_URL environment \
-                     variable, [environment].identity, or [environment].base in the config file"
-                        .into(),
-                )
-            })?;
+    /// Resolve URLs (env, then `[environment]`) and validate `file` into a [`Config`].
+    fn build(
+        token: AccessToken,
+        file: FileConfig,
+        env_api: Option<String>,
+        env_identity: Option<String>,
+    ) -> Result<Self, AccessConnectorError> {
+        let env = &file.environment;
+        let api_url = env_api
+            .or_else(|| env.resolve(env.api.as_deref(), "api"))
+            .ok_or_else(|| missing_url("api"))?;
+        let identity_url = env_identity
+            .or_else(|| env.resolve(env.identity.as_deref(), "identity"))
+            .ok_or_else(|| missing_url("identity"))?;
 
         if file.poll_interval < MIN_POLL_INTERVAL_SECS {
             return Err(AccessConnectorError::InvalidConfig(format!(
@@ -211,6 +228,20 @@ impl Config {
                 "heartbeat_interval must be < {MAX_HEARTBEAT_INTERVAL_SECS} seconds (got {})",
                 file.heartbeat_interval
             )));
+        }
+
+        // A zero heartbeat panics `tokio::time::interval`, a zero grace holds every rotation, and a
+        // zero timeout kills every script.
+        for (name, value) in [
+            ("heartbeat_interval", file.heartbeat_interval),
+            ("offline_grace", file.offline_grace),
+            ("script_timeout", file.script_timeout),
+        ] {
+            if value == 0 {
+                return Err(AccessConnectorError::InvalidConfig(format!(
+                    "{name} must be > 0 seconds"
+                )));
+            }
         }
 
         Ok(Config {
@@ -244,120 +275,317 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::TEST_ENV_LOCK as ENV_LOCK;
 
     const VALID_TOKEN: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
-    use crate::TEST_ENV_LOCK as ENV_LOCK;
+    /// The common `[environment]` block.
+    const URLS: &str = r#"
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
+"#;
 
-    fn empty_args() -> RunArgs {
-        RunArgs { config: None }
+    fn token() -> AccessToken {
+        parse_token(Some(VALID_TOKEN.into())).expect("valid token")
     }
 
-    fn file_args(f: &tempfile::NamedTempFile) -> RunArgs {
-        RunArgs {
-            config: Some(f.path().to_path_buf()),
+    fn file(toml: &str) -> FileConfig {
+        FileConfig::parse(toml, Path::new("test.toml")).expect("valid config file")
+    }
+
+    fn parse_err(toml: &str) -> AccessConnectorError {
+        match FileConfig::parse(toml, Path::new("test.toml")) {
+            Err(e) => e,
+            Ok(_) => panic!("expected parse error for {toml:?}"),
         }
     }
 
-    /// Keep the returned file alive; dropping it deletes the file.
-    fn write_toml(contents: &str) -> tempfile::NamedTempFile {
-        use std::io::Write as _;
-        let mut f = tempfile::NamedTempFile::new().expect("tempfile");
-        f.write_all(contents.as_bytes()).expect("write toml");
-        f
+    fn build(toml: &str) -> Result<Config, AccessConnectorError> {
+        Config::build(token(), file(toml), None, None)
     }
 
-    #[test]
-    fn env_token_path_succeeds() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWAC_API_URL", "https://api.example.com");
-            std::env::set_var("BWAC_IDENTITY_URL", "https://identity.example.com");
+    fn invalid_config_message(e: AccessConnectorError) -> String {
+        match e {
+            AccessConnectorError::InvalidConfig(msg) => msg,
+            other => panic!("expected InvalidConfig, got {other:?}"),
         }
-        let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-        assert!(result.is_ok(), "expected Ok, got {result:?}");
     }
 
     #[test]
-    fn missing_bwac_token_is_invalid_config() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-        let result = Config::from_cli(empty_args());
-        assert!(
-            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
-            "expected InvalidConfig, got {result:?}"
-        );
-    }
-
-    #[test]
-    fn empty_bwac_token_is_invalid_config() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", "  ");
-        }
-        let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-        assert!(
-            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
-            "expected InvalidConfig for whitespace-only BWAC_TOKEN, got {result:?}"
-        );
-    }
-
-    #[test]
-    fn malformed_token_is_invalid_token_and_does_not_echo_value() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let bad_token = "not-a-valid-token-string";
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", bad_token);
-        }
-        let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        match result {
-            Err(AccessConnectorError::InvalidToken(msg)) => {
+    fn interval_bounds() {
+        let rows = [
+            ("poll 14", "poll_interval = 14", false),
+            ("poll 15", "poll_interval = 15", true),
+            ("heartbeat 119", "heartbeat_interval = 119", true),
+            ("heartbeat 120", "heartbeat_interval = 120", false),
+            ("heartbeat 0", "heartbeat_interval = 0", false),
+            ("offline_grace 0", "offline_grace = 0", false),
+            ("script_timeout 0", "script_timeout = 0", false),
+        ];
+        for (label, line, ok) in rows {
+            let result = build(&format!("{line}\n{URLS}"));
+            if ok {
+                assert!(result.is_ok(), "{label}: expected Ok, got {result:?}");
+            } else {
                 assert!(
-                    !msg.contains(bad_token),
-                    "error message must not echo the token string; got: {msg}"
+                    matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
+                    "{label}: expected InvalidConfig, got {result:?}"
                 );
             }
-            other => panic!("expected InvalidToken, got {other:?}"),
         }
     }
 
     #[test]
-    fn env_token_removed_from_environment_after_config_load() {
+    fn url_resolution() {
+        const BASE: &str = "[environment]\nbase = \"https://bitwarden.example.com\"\n";
+        const ENV_API: &str = "https://api.env.example.com";
+        const ENV_ID: &str = "https://identity.env.example.com";
+        const DERIVED_API: &str = "https://bitwarden.example.com/api";
+        const DERIVED_ID: &str = "https://bitwarden.example.com/identity";
+        let blank = || Some("  ".to_string());
+        let env = |v: &str| Some(v.to_string());
+
+        // (label, toml, env api, env identity, expected api, expected identity)
+        let rows = [
+            ("env only", "", env(ENV_API), env(ENV_ID), ENV_API, ENV_ID),
+            (
+                "env over file",
+                URLS,
+                env(ENV_API),
+                env(ENV_ID),
+                ENV_API,
+                ENV_ID,
+            ),
+            (
+                "blank env is unset",
+                URLS,
+                blank(),
+                blank(),
+                "https://api.example.com",
+                "https://identity.example.com",
+            ),
+            ("base only", BASE, None, None, DERIVED_API, DERIVED_ID),
+            (
+                "base with trailing slash",
+                "[environment]\nbase = \"https://bitwarden.example.com/\"\n",
+                None,
+                None,
+                DERIVED_API,
+                DERIVED_ID,
+            ),
+            (
+                "explicit api over base",
+                "[environment]\nbase = \"https://bitwarden.example.com\"\napi = \"https://custom-api.example.com/v2\"\n",
+                None,
+                None,
+                "https://custom-api.example.com/v2",
+                DERIVED_ID,
+            ),
+            (
+                "env over explicit and base",
+                "[environment]\nbase = \"https://bitwarden.example.com\"\napi = \"https://api.file.example.com\"\nidentity = \"https://identity.file.example.com\"\n",
+                env(ENV_API),
+                env(ENV_ID),
+                ENV_API,
+                ENV_ID,
+            ),
+        ];
+        for (label, toml, env_api, env_identity, api, identity) in rows {
+            let cfg = Config::build(
+                token(),
+                file(toml),
+                non_blank(env_api),
+                non_blank(env_identity),
+            )
+            .unwrap_or_else(|e| panic!("{label}: expected Ok, got {e:?}"))
+            .into_access_connector_config();
+            assert_eq!(cfg.api_url, api, "{label}: api");
+            assert_eq!(cfg.identity_url, identity, "{label}: identity");
+        }
+    }
+
+    #[test]
+    fn missing_urls() {
+        // (label, toml, substrings the error must contain)
+        let rows: [(&str, &str, &[&str]); 3] = [
+            (
+                "missing api",
+                "[environment]\nidentity = \"https://identity.example.com\"\n",
+                &["api URL"],
+            ),
+            (
+                "missing identity",
+                "[environment]\napi = \"https://api.example.com\"\n",
+                &["identity URL"],
+            ),
+            (
+                "no environment section",
+                "poll_interval = 15\n",
+                &["BWAC_API_URL", "[environment]"],
+            ),
+        ];
+        for (label, toml, expected) in rows {
+            let msg = invalid_config_message(build(toml).unwrap_err());
+            for needle in expected {
+                assert!(
+                    msg.contains(needle),
+                    "{label}: expected {needle:?} in {msg:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn non_blank_treats_whitespace_as_unset() {
+        assert_eq!(non_blank(Some("  ".into())), None);
+        assert_eq!(non_blank(Some("".into())), None);
+        assert_eq!(non_blank(None), None);
+        assert_eq!(non_blank(Some("x".into())), Some("x".into()));
+    }
+
+    #[test]
+    fn rejected_keys() {
+        // (label, toml, secret value the error must not echo)
+        let rows = [
+            ("token key", "token = \"0.x.y:z\"\n", Some("0.x.y:z")),
+            (
+                "old top-level urls",
+                "api_url = \"https://api.example.com\"\nidentity_url = \"https://identity.example.com\"\n",
+                None,
+            ),
+            (
+                "target client_secret",
+                "[targets.00000000-0000-0000-0000-000000000001]\nclient_secret = \"supersecret\"\n",
+                Some("supersecret"),
+            ),
+            (
+                "target non-uuid key",
+                "[targets.not-a-uuid]\nscript = \"/some/script.sh\"\n",
+                None,
+            ),
+        ];
+        for (label, toml, secret) in rows {
+            let msg = invalid_config_message(parse_err(&format!("{toml}{URLS}")));
+            if let Some(secret) = secret {
+                assert!(!msg.contains(secret), "{label}: error echoed value: {msg}");
+            }
+        }
+    }
+
+    #[test]
+    fn token_parsing() {
+        for (label, raw) in [("missing", None), ("blank", Some("  ".to_string()))] {
+            assert!(
+                matches!(
+                    parse_token(raw),
+                    Err(AccessConnectorError::InvalidConfig(_))
+                ),
+                "{label}: expected InvalidConfig"
+            );
+        }
+
+        let bad = "not-a-valid-token-string";
+        match parse_token(Some(bad.into())) {
+            Err(AccessConnectorError::InvalidToken(msg)) => {
+                assert!(!msg.contains(bad), "malformed: error echoed token: {msg}");
+            }
+            _ => panic!("malformed: expected InvalidToken"),
+        }
+    }
+
+    #[test]
+    fn file_values_are_used() {
+        let toml = format!(
+            r#"
+poll_interval      = 30
+heartbeat_interval = 45
+offline_grace      = 90
+max_retry_attempts = 3
+retry_base_delay   = 2
+script_timeout     = 120
+entra_verify_probe = true
+{URLS}
+[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
+script = "/opt/scripts/rotate.sh"
+
+[targets.00000000-0000-0000-0000-000000000001]
+tenant_id = "my-tenant"
+client_id = "my-client"
+"#
+        );
+        let cfg = build(&toml)
+            .expect("expected Ok")
+            .into_access_connector_config();
+        assert_eq!(cfg.api_url, "https://api.example.com");
+        assert_eq!(cfg.identity_url, "https://identity.example.com");
+        assert_eq!(cfg.poll_interval, Duration::from_secs(30));
+        assert_eq!(cfg.heartbeat_interval, Duration::from_secs(45));
+        assert_eq!(cfg.offline_grace, Duration::from_secs(90));
+        assert_eq!(cfg.retry_cfg.max_retry_attempts, 3);
+        assert_eq!(cfg.retry_cfg.retry_base_delay, Duration::from_secs(2));
+        assert_eq!(cfg.script_timeout, Duration::from_secs(120));
+        assert!(cfg.entra_verify_probe);
+
+        assert_eq!(cfg.targets.len(), 2);
+        let script: Uuid = "85808642-baba-4b8e-8c34-b48000d60a0a".parse().unwrap();
+        assert_eq!(
+            cfg.targets[&script].script.as_deref(),
+            Some("/opt/scripts/rotate.sh")
+        );
+        let entra: Uuid = "00000000-0000-0000-0000-000000000001".parse().unwrap();
+        assert_eq!(cfg.targets[&entra].tenant_id.as_deref(), Some("my-tenant"));
+        assert_eq!(cfg.targets[&entra].client_id.as_deref(), Some("my-client"));
+    }
+
+    #[test]
+    fn defaults_apply_when_file_omits_tunables() {
+        let cfg = build(URLS)
+            .expect("expected Ok")
+            .into_access_connector_config();
+        let defaults = FileConfig::default();
+        assert_eq!(
+            cfg.poll_interval,
+            Duration::from_secs(defaults.poll_interval)
+        );
+        assert_eq!(
+            cfg.heartbeat_interval,
+            Duration::from_secs(defaults.heartbeat_interval)
+        );
+        assert_eq!(
+            cfg.offline_grace,
+            Duration::from_secs(defaults.offline_grace)
+        );
+        assert_eq!(
+            cfg.retry_cfg.max_retry_attempts,
+            defaults.max_retry_attempts
+        );
+        assert_eq!(
+            cfg.retry_cfg.retry_base_delay,
+            Duration::from_secs(defaults.retry_base_delay)
+        );
+        assert_eq!(
+            cfg.script_timeout,
+            Duration::from_secs(defaults.script_timeout)
+        );
+        assert_eq!(cfg.entra_verify_probe, defaults.entra_verify_probe);
+        assert!(
+            cfg.targets.is_empty(),
+            "absent [targets] must be an empty map"
+        );
+    }
+
+    #[test]
+    fn from_cli_removes_token_from_environment() {
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "https://api.example.com");
             std::env::set_var("BWAC_IDENTITY_URL", "https://identity.example.com");
         }
-        assert!(
-            std::env::var("BWAC_TOKEN").is_ok(),
-            "BWAC_TOKEN must be present before from_cli"
-        );
-        let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
+        let result = Config::from_cli(RunArgs { config: None });
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::remove_var("BWAC_API_URL");
             std::env::remove_var("BWAC_IDENTITY_URL");
@@ -369,815 +597,42 @@ mod tests {
         );
     }
 
+    /// Covers `from_cli` honouring `args.config` and treating a blank URL variable as unset.
     #[test]
-    fn poll_interval_below_minimum_is_invalid_config() {
+    fn from_cli_reads_config_file_and_ignores_blank_env_urls() {
+        use std::io::Write;
+
         let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-poll_interval = 14
-
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-"#;
-        let f = write_toml(toml);
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        assert!(
-            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
-            "expected InvalidConfig for poll_interval < 15, got {result:?}"
-        );
-    }
-
-    #[test]
-    fn poll_interval_at_minimum_is_valid() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-poll_interval = 15
-
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-"#;
-        let f = write_toml(toml);
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-        assert!(
-            result.is_ok(),
-            "poll_interval=15 should be valid: {result:?}"
-        );
-    }
-
-    #[test]
-    fn heartbeat_interval_at_120_is_invalid_config() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        // The bound is exclusive.
-        let toml = r#"
-heartbeat_interval = 120
-
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-"#;
-        let f = write_toml(toml);
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        assert!(
-            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
-            "expected InvalidConfig for heartbeat_interval >= 120, got {result:?}"
-        );
-    }
-
-    #[test]
-    fn heartbeat_interval_at_119_is_valid() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-heartbeat_interval = 119
-
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-"#;
-        let f = write_toml(toml);
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-        assert!(
-            result.is_ok(),
-            "heartbeat_interval=119 should be valid: {result:?}"
-        );
-    }
-
-    #[test]
-    fn env_urls_without_file_are_used() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWAC_API_URL", "https://api.env.example.com");
-            std::env::set_var("BWAC_IDENTITY_URL", "https://identity.env.example.com");
-        }
-        let result = Config::from_cli(empty_args());
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let inner = result.expect("expected Ok").into_access_connector_config();
-        assert_eq!(inner.api_url, "https://api.env.example.com");
-        assert_eq!(inner.identity_url, "https://identity.env.example.com");
-    }
-
-    #[test]
-    fn env_urls_override_file() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWAC_API_URL", "https://api.env.example.com");
-            std::env::set_var("BWAC_IDENTITY_URL", "https://identity.env.example.com");
-        }
-
-        let toml = r#"
-[environment]
-api      = "https://api.file.example.com"
-identity = "https://identity.file.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let inner = result.expect("expected Ok").into_access_connector_config();
-        assert_eq!(inner.api_url, "https://api.env.example.com");
-        assert_eq!(inner.identity_url, "https://identity.env.example.com");
-    }
-
-    #[test]
-    fn whitespace_env_url_is_treated_as_unset() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
+        let mut config_file = tempfile::NamedTempFile::new().expect("temp config file");
+        config_file
+            .write_all(URLS.as_bytes())
+            .expect("write config file");
+        config_file.flush().expect("flush config file");
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
             std::env::set_var("BWAC_API_URL", "  ");
-            // Leaked URL env vars would skew the test.
             std::env::remove_var("BWAC_IDENTITY_URL");
         }
-
-        let toml = r#"
-[environment]
-api      = "https://api.file.example.com"
-identity = "https://identity.file.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
+        let result = Config::from_cli(RunArgs {
+            config: Some(config_file.path().to_path_buf()),
+        });
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
-            std::env::remove_var("BWAC_TOKEN");
             std::env::remove_var("BWAC_API_URL");
-        }
-
-        let inner = result.expect("expected Ok").into_access_connector_config();
-        assert_eq!(inner.api_url, "https://api.file.example.com");
-        assert_eq!(inner.identity_url, "https://identity.file.example.com");
-    }
-
-    #[test]
-    fn missing_api_url_from_all_layers_is_invalid_config() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-[environment]
-identity = "https://identity.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
             std::env::remove_var("BWAC_TOKEN");
         }
-
-        match result {
-            Err(AccessConnectorError::InvalidConfig(msg)) => {
-                assert!(
-                    msg.contains("api URL"),
-                    "error should mention the missing 'api URL'; got: {msg}"
-                );
-            }
-            other => panic!("expected InvalidConfig for missing api URL, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn missing_identity_url_from_all_layers_is_invalid_config() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-[environment]
-api = "https://api.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        match result {
-            Err(AccessConnectorError::InvalidConfig(msg)) => {
-                assert!(
-                    msg.contains("identity URL"),
-                    "error should mention the missing 'identity URL'; got: {msg}"
-                );
-            }
-            other => panic!("expected InvalidConfig for missing identity URL, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn file_only_values_are_used() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-poll_interval      = 30
-heartbeat_interval = 45
-offline_grace      = 90
-max_retry_attempts = 3
-retry_base_delay   = 2
-script_timeout     = 120
-entra_verify_probe = true
-
-[environment]
-api      = "https://api.file.example.com"
-identity = "https://identity.file.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        let cfg = result.expect("expected Ok from file-only config");
-        let inner = cfg.into_access_connector_config();
-        assert_eq!(inner.api_url, "https://api.file.example.com");
-        assert_eq!(inner.identity_url, "https://identity.file.example.com");
-        assert_eq!(inner.poll_interval, Duration::from_secs(30));
-        assert_eq!(inner.heartbeat_interval, Duration::from_secs(45));
-        assert_eq!(inner.offline_grace, Duration::from_secs(90));
-        assert_eq!(inner.retry_cfg.max_retry_attempts, 3);
-        assert_eq!(inner.retry_cfg.retry_base_delay, Duration::from_secs(2));
-        assert_eq!(inner.script_timeout, Duration::from_secs(120));
-        assert!(inner.entra_verify_probe);
-    }
-
-    #[test]
-    fn defaults_apply_when_file_omits_tunables() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        let cfg = result.expect("expected Ok with defaults");
-        let inner = cfg.into_access_connector_config();
-        let defaults = FileConfig::default();
-        assert_eq!(
-            inner.poll_interval,
-            Duration::from_secs(defaults.poll_interval)
-        );
-        assert_eq!(
-            inner.heartbeat_interval,
-            Duration::from_secs(defaults.heartbeat_interval)
-        );
-        assert_eq!(
-            inner.offline_grace,
-            Duration::from_secs(defaults.offline_grace)
-        );
-        assert_eq!(
-            inner.retry_cfg.max_retry_attempts,
-            defaults.max_retry_attempts
-        );
-        assert_eq!(
-            inner.retry_cfg.retry_base_delay,
-            Duration::from_secs(defaults.retry_base_delay)
-        );
-        assert_eq!(
-            inner.script_timeout,
-            Duration::from_secs(defaults.script_timeout)
-        );
-        assert_eq!(inner.entra_verify_probe, defaults.entra_verify_probe);
-    }
-
-    #[test]
-    fn token_in_file_is_denied_by_unknown_fields() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-        }
-
-        let token_value = "0.x.y:z";
-        let toml = format!(
-            r#"
-token = "{token_value}"
-
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-"#
-        );
-        let f = write_toml(&toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        match result {
-            Err(AccessConnectorError::InvalidConfig(msg)) => {
-                assert!(
-                    !msg.contains(token_value),
-                    "error must NOT echo the token value; got: {msg}"
-                );
-            }
-            other => panic!(
-                "expected InvalidConfig for unknown 'token' field in config file, got {other:?}"
-            ),
-        }
+        let cfg = result.expect("expected Ok").into_access_connector_config();
+        assert_eq!(cfg.api_url, "https://api.example.com");
+        assert_eq!(cfg.identity_url, "https://identity.example.com");
     }
 
     #[test]
     fn nonexistent_config_path_is_invalid_config() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-        }
-
-        let args = RunArgs {
-            config: Some(PathBuf::from("/nonexistent/path/to/config.toml")),
-        };
-
-        let result = Config::from_cli(args);
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
+        let result = FileConfig::load(Path::new("/nonexistent/path/to/config.toml"));
         assert!(
             matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
             "expected InvalidConfig for nonexistent config path, got {result:?}"
-        );
-    }
-
-    #[test]
-    fn file_entra_verify_probe_true_is_used() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-entra_verify_probe = true
-
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        let cfg = result.expect("expected Ok");
-        let inner = cfg.into_access_connector_config();
-        assert!(
-            inner.entra_verify_probe,
-            "entra_verify_probe from file should be true"
-        );
-    }
-
-    #[test]
-    fn base_only_derives_api_and_identity() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            // Leaked URL env vars would skew the test.
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-[environment]
-base = "https://bitwarden.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        let inner = result
-            .expect("base-only config should succeed")
-            .into_access_connector_config();
-        assert_eq!(inner.api_url, "https://bitwarden.example.com/api");
-        assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
-    }
-
-    #[test]
-    fn base_with_trailing_slash_derives_clean_urls() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-[environment]
-base = "https://bitwarden.example.com/"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        let inner = result
-            .expect("trailing-slash base should succeed")
-            .into_access_connector_config();
-        assert_eq!(inner.api_url, "https://bitwarden.example.com/api");
-        assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
-    }
-
-    #[test]
-    fn explicit_api_overrides_base_while_identity_derives() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-[environment]
-base = "https://bitwarden.example.com"
-api  = "https://custom-api.example.com/v2"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        let inner = result
-            .expect("mixed explicit+base config should succeed")
-            .into_access_connector_config();
-        assert_eq!(inner.api_url, "https://custom-api.example.com/v2");
-        assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
-    }
-
-    #[test]
-    fn env_vars_override_explicit_environment_section() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::set_var("BWAC_API_URL", "https://override.env.example.com/api");
-            std::env::set_var(
-                "BWAC_IDENTITY_URL",
-                "https://override.env.example.com/identity",
-            );
-        }
-
-        let toml = r#"
-[environment]
-base     = "https://bitwarden.example.com"
-api      = "https://api.file.example.com"
-identity = "https://identity.file.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let inner = result
-            .expect("env override should succeed")
-            .into_access_connector_config();
-        assert_eq!(inner.api_url, "https://override.env.example.com/api");
-        assert_eq!(
-            inner.identity_url,
-            "https://override.env.example.com/identity"
-        );
-    }
-
-    #[test]
-    fn old_top_level_api_url_key_is_rejected() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-api_url      = "https://api.example.com"
-identity_url = "https://identity.example.com"
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        assert!(
-            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
-            "top-level api_url/identity_url must be rejected as unknown fields, got {result:?}"
-        );
-    }
-
-    #[test]
-    fn no_environment_section_and_no_env_vars_is_invalid_config() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-
-        let toml = r#"
-poll_interval = 15
-"#;
-        let f = write_toml(toml);
-
-        let result = Config::from_cli(file_args(&f));
-        // SAFETY: same guard.
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-
-        match result {
-            Err(AccessConnectorError::InvalidConfig(msg)) => {
-                assert!(
-                    msg.contains("BWAC_API_URL") && msg.contains("[environment]"),
-                    "error should name how to supply the api URL; got: {msg}"
-                );
-            }
-            other => panic!(
-                "expected InvalidConfig for no environment section and no env vars, got {other:?}"
-            ),
-        }
-    }
-
-    #[test]
-    fn targets_script_entry_parsed() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-        let toml = r#"
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-
-[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
-script = "/opt/scripts/rotate.sh"
-"#;
-        let f = write_toml(toml);
-        let result = Config::from_cli(file_args(&f));
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-        let cfg = result
-            .expect("targets section should parse")
-            .into_access_connector_config();
-        let uuid: uuid::Uuid = "85808642-baba-4b8e-8c34-b48000d60a0a".parse().unwrap();
-        assert!(cfg.targets.contains_key(&uuid));
-        assert_eq!(
-            cfg.targets[&uuid].script.as_deref(),
-            Some("/opt/scripts/rotate.sh")
-        );
-    }
-
-    #[test]
-    fn targets_entra_entry_parsed() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-        let toml = r#"
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-
-[targets.00000000-0000-0000-0000-000000000001]
-tenant_id = "my-tenant"
-client_id = "my-client"
-"#;
-        let f = write_toml(toml);
-        let result = Config::from_cli(file_args(&f));
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-        let cfg = result
-            .expect("entra target entry should parse")
-            .into_access_connector_config();
-        let uuid: uuid::Uuid = "00000000-0000-0000-0000-000000000001".parse().unwrap();
-        assert_eq!(cfg.targets[&uuid].tenant_id.as_deref(), Some("my-tenant"));
-        assert_eq!(cfg.targets[&uuid].client_id.as_deref(), Some("my-client"));
-    }
-
-    #[test]
-    fn targets_client_secret_in_file_is_rejected_and_does_not_echo_value() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-        let secret_value = "supersecret";
-        let toml = format!(
-            r#"
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-
-[targets.00000000-0000-0000-0000-000000000001]
-client_secret = "{secret_value}"
-"#
-        );
-        let f = write_toml(&toml);
-        let result = Config::from_cli(file_args(&f));
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-        match result {
-            Err(AccessConnectorError::InvalidConfig(msg)) => {
-                assert!(
-                    !msg.contains(secret_value),
-                    "error must not echo secret value; got: {msg}"
-                );
-            }
-            other => {
-                panic!("expected InvalidConfig for client_secret in targets entry, got {other:?}")
-            }
-        }
-    }
-
-    #[test]
-    fn targets_invalid_uuid_key_is_rejected() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-        let toml = r#"
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-
-[targets.not-a-uuid]
-script = "/some/script.sh"
-"#;
-        let f = write_toml(toml);
-        let result = Config::from_cli(file_args(&f));
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-        assert!(
-            matches!(result, Err(AccessConnectorError::InvalidConfig(_))),
-            "non-UUID key in [targets] must be rejected, got {result:?}"
-        );
-    }
-
-    #[test]
-    fn targets_absent_defaults_to_empty_map() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        unsafe {
-            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
-            std::env::remove_var("BWAC_API_URL");
-            std::env::remove_var("BWAC_IDENTITY_URL");
-        }
-        let toml = r#"
-[environment]
-api      = "https://api.example.com"
-identity = "https://identity.example.com"
-"#;
-        let f = write_toml(toml);
-        let result = Config::from_cli(file_args(&f));
-        unsafe {
-            std::env::remove_var("BWAC_TOKEN");
-        }
-        let cfg = result
-            .expect("no targets section should be fine")
-            .into_access_connector_config();
-        assert!(
-            cfg.targets.is_empty(),
-            "absent [targets] section must default to empty map"
         );
     }
 }

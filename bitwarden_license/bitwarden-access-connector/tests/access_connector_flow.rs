@@ -1,5 +1,4 @@
-//! Black-box integration tests for the access connector end-to-end flow, run against wiremock
-//! identity and API servers.
+//! Integration tests for the access connector flow, against wiremock identity and API servers.
 
 mod common;
 use common::*;
@@ -80,7 +79,7 @@ async fn happy_path_rotate_and_report_success() {
     let exit_code_key = format!("{prefix}EXIT_CODE");
     {
         let _guard = lock_env();
-        // SAFETY: protected by the env lock; no concurrent env mutation.
+        // SAFETY: guarded by ENV_LOCK.
         unsafe {
             std::env::set_var(&script_key, script_path.to_str().expect("utf8 path"));
             std::env::set_var(&exit_code_key, "0");
@@ -304,7 +303,7 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let handle =
         tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
-    // Wait until the connector has retried the claim at least twice after losing the race.
+    // Wait for at least two claim attempts after the lost race.
     let claim_path = format!("/access-connectors/rotation/jobs/{job_id}/claim");
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
     loop {
@@ -376,7 +375,7 @@ async fn invalid_client_at_startup_returns_credential_refused() {
     );
 }
 
-/// Takes ~3s: `SessionManager::new` makes three attempts with 1s and 2s backoff between them.
+/// Takes about 3s: `SessionManager::new` makes three attempts with 1s and 2s backoff.
 #[tokio::test]
 async fn transient_identity_failure_at_startup_returns_startup_failed() {
     let identity = MockServer::start().await;
@@ -420,7 +419,7 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     let cipher_id = KEYED_LOGIN_ID;
     let prefix = env_prefix(target_id);
 
-    // Script exits 1 for terminate, 0 for every other operation.
+    // The script exits 1 for terminate and 0 otherwise.
     let tmpdir = tempfile::tempdir().expect("tempdir");
     let wrapper_path = tmpdir.path().join("terminate_fail.sh");
     std::fs::write(
