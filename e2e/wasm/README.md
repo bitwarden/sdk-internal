@@ -63,6 +63,26 @@ the account**: they add a vault item if it has none, and they rotate its user ke
 re-runnable, but note that it upgrades a V1 account to V2 on the first run and that cannot be
 undone.
 
+### Seeding the live server from test vectors
+
+A development server's SeederApi (`bitwarden/server` `util/SeederApi`) can load the same test
+vectors the emulator does, through its `TestVectorUserScene`. Point the harness at it, and every
+test seeds a fresh account from its own vector instead of sharing one, so `BW_LIVE_EMAIL` and
+`BW_LIVE_PASSWORD` aren't needed:
+
+```sh
+BW_LIVE_SERVER_URL=http://localhost:4000 \
+BW_LIVE_API_URL=http://localhost:4000 \
+BW_LIVE_IDENTITY_URL=http://localhost:33656 \
+BW_LIVE_SEEDER_URL=http://localhost:5047 \
+BW_LIVE_SEEDER_USERNAME=... BW_LIVE_SEEDER_PASSWORD=... \
+npm run test:live
+```
+
+Only what a server holds is sent: wrapped keys, public keys, the authentication hash and the
+encrypted vault. Each test's account is deleted again when the test ends (`DELETE /seed/{playId}`).
+The scene seeds master-password vectors only.
+
 ## Test vectors
 
 `test-vectors/` records recorded test vectors. These can be loaded and tested against to ensure

@@ -4,9 +4,15 @@
 
 import { LoginMethod, type ClientEmulator } from "../../client-emulator/client-emulator";
 import { IGNORED_FIELDS, validateVault } from "../../client-emulator/validate";
-import { describeLoginFailure, liveConfig, requireLiveConfig } from "../../live/config";
+import { liveConfig } from "../../live/config";
 import type { SeedVault } from "../../server-emulator/server-emulator";
-import { liveHarness, type TestHarness } from "../../test-harness";
+import {
+  targetAccount,
+  targetHarness,
+  type TargetAccount,
+  type TestHarness,
+} from "../../test-harness";
+import { testVectors } from "../../vectors/test-vectors";
 import { rotateByPassword } from "./rotate-helpers";
 
 /** A real KDF derivation and a real round trip per step, over a vault of unknown size. */
@@ -16,6 +22,9 @@ const TIMEOUT = 300_000;
 const ROTATION_COUNT = 3;
 
 const ROTATED_FIELDS = [...IGNORED_FIELDS, "key"];
+
+/** The account a seeder seeds: V1, so the first round upgrades it. Without one, the configured account. */
+const V1_VECTOR = testVectors.users.withMasterPassword().get("v1-pbkdf2-min-iterations");
 
 /** The item {@link ensureVaultNotEmpty} adds, named so it is obvious where it came from. */
 const PLACEHOLDER_NAME = "sdk-internal integration tests";
@@ -29,24 +38,16 @@ describeLive("rotate user keys (live server)", () => {
   let harness: TestHarness;
 
   beforeEach(() => {
-    const live = requireLiveConfig();
-    harness = liveHarness(live.settings, live.loginRequest);
+    harness = targetHarness();
   });
 
   afterEach(() => harness.restore());
 
   /** A client logged in, synced and unlocked, as a real one arrives at the vault. */
-  async function loggedIn(): Promise<ClientEmulator> {
-    const live = requireLiveConfig();
-
-    const client = harness.newClientEmulator();
-    try {
-      await client.login(live.email, LoginMethod.Password, live.password);
-    } catch (error) {
-      throw new Error(describeLoginFailure(error));
-    }
-
-    await client.unlock(live.password);
+  async function loggedIn(account: TargetAccount): Promise<ClientEmulator> {
+    const client = account.newClient();
+    await client.login(account.email, LoginMethod.Password, account.password);
+    await client.unlock(account.password);
 
     return client;
   }
@@ -135,8 +136,8 @@ describeLive("rotate user keys (live server)", () => {
   it(
     `survives ${ROTATION_COUNT} consecutive rotations`,
     async () => {
-      const live = requireLiveConfig();
-      const client = await loggedIn();
+      const account = await targetAccount(harness, V1_VECTOR);
+      const client = await loggedIn(account);
 
       await ensureVaultNotEmpty(client);
       const recorded = await recordVault(client);
@@ -147,11 +148,15 @@ describeLive("rotate user keys (live server)", () => {
       const userKeys = [await client.getPasswordManagerClient().crypto().get_user_encryption_key()];
 
       for (let round = 0; round < ROTATION_COUNT; round++) {
-        await rotateByPassword(client.getPasswordManagerClient(), live.password, "CreateIfNeeded");
+        await rotateByPassword(
+          client.getPasswordManagerClient(),
+          account.password,
+          "CreateIfNeeded",
+        );
 
         await client.sync();
         await client.lock();
-        await client.unlock(live.password);
+        await client.unlock(account.password);
 
         userKeys.push(await client.getPasswordManagerClient().crypto().get_user_encryption_key());
       }
@@ -167,7 +172,7 @@ describeLive("rotate user keys (live server)", () => {
 
       // 5. Verify a client that logs in fresh reads it too, so the rotations left the server
       //    holding a consistent account and not just this session
-      await validateVault(await loggedIn(), recorded, ROTATED_FIELDS);
+      await validateVault(await loggedIn(account), recorded, ROTATED_FIELDS);
     },
     TIMEOUT,
   );
