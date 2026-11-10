@@ -3,18 +3,18 @@
 
 <#
 .SYNOPSIS
-    Installs bw-rotation-daemon as a scheduled task that starts at boot. A URL, and an
+    Installs bwac as a scheduled task that starts at boot. A URL, and an
     optional name.
 
 .DESCRIPTION
         .\Install-RotationDaemon.ps1 https://bitwarden.example.com
         .\Install-RotationDaemon.ps1 https://bitwarden.example.com acme
 
-    The binary is the bw-rotation-daemon.exe sitting next to this script, which is how
+    The binary is the bwac.exe sitting next to this script, which is how
     the release archive is laid out. The layout it installs is fixed:
 
-        C:\Program Files\Bitwarden\bw-rotation-daemon\
-            bw-rotation-daemon.exe          the daemon; shared
+        C:\Program Files\Bitwarden\bwac\
+            bwac.exe          the daemon; shared
             Start-RotationDaemon.ps1        launcher (see below); shared
         C:\ProgramData\Bitwarden\bwrd\
             config.toml                     settings; never secrets
@@ -43,7 +43,7 @@
 
     Four things here are not arbitrary:
 
-    * It registers a scheduled task, not a Windows service. bw-rotation-daemon is an
+    * It registers a scheduled task, not a Windows service. bwac is an
       ordinary console program with no service control handler, so sc.exe would start
       it and then fail with error 1053 when it never called StartServiceCtrlDispatcher.
       A scheduled task with an at-startup trigger is the built-in way to run a console
@@ -81,7 +81,7 @@
     To remove it:
 
         Unregister-ScheduledTask -TaskName 'Bitwarden PAM rotation daemon' -Confirm:$false
-        Remove-Item -Recurse 'C:\Program Files\Bitwarden\bw-rotation-daemon'
+        Remove-Item -Recurse 'C:\Program Files\Bitwarden\bwac'
         Remove-Item -Recurse 'C:\ProgramData\Bitwarden\bwrd'
 
     A named daemon comes off the same way, with '(<name>)' on the task name and
@@ -128,12 +128,12 @@ $ProgressPreference = 'SilentlyContinue'
 # Fixed layout
 # ---------------------------------------------------------------------------
 
-$BinaryName   = 'bw-rotation-daemon.exe'
+$BinaryName   = 'bwac.exe'
 $LauncherName = 'Start-RotationDaemon.ps1'
 $TaskPrefix   = 'Bitwarden PAM rotation daemon'
 $RunAsUser    = 'NT AUTHORITY\NETWORK SERVICE'
 
-$InstallDir   = Join-Path $env:ProgramFiles 'Bitwarden\bw-rotation-daemon'
+$InstallDir   = Join-Path $env:ProgramFiles 'Bitwarden\bwac'
 $DataDir      = Join-Path $env:ProgramData 'Bitwarden\bwrd'
 $ScriptDir    = Join-Path $DataDir 'scripts'
 
@@ -211,7 +211,7 @@ function Resolve-Layout {
     $script:LogDir     = Join-Path $script:DaemonDir 'logs'
     $script:ConfigPath = Join-Path $script:DaemonDir 'config.toml'
     $script:EnvPath    = Join-Path $script:DaemonDir 'env'
-    $script:LogPath    = Join-Path $script:LogDir 'bw-rotation-daemon.log'
+    $script:LogPath    = Join-Path $script:LogDir 'bwac.log'
 }
 
 # Windows locks a running image, and Stop-ScheduledTask returns before the process is gone.
@@ -375,7 +375,7 @@ function Write-DaemonConfig {
     # Paths use TOML literal strings (single quotes), which take no escapes, so
     # Windows backslashes go in as written.
     Write-TextFile -Path $ConfigPath -Lines @(
-        '# bw-rotation-daemon configuration. The installer writes this once and never touches'
+        '# bwac configuration. The installer writes this once and never touches'
         '# it again; edit it and restart the scheduled task.'
         '#'
         '# Secrets do not belong here. The daemon treats a config containing a token as a'
@@ -406,7 +406,7 @@ function Write-DaemonEnv {
     }
 
     Write-TextFile -Path $EnvPath -Lines @(
-        '# Environment for bw-rotation-daemon, read by Start-RotationDaemon.ps1 and set on'
+        '# Environment for bwac, read by Start-RotationDaemon.ps1 and set on'
         '# the daemon process only, so nothing here reaches the registry or any other'
         '# process. Restricted by ACL to administrators, SYSTEM and the task principal.'
         '#'
@@ -439,7 +439,7 @@ function Write-Launcher {
     Write-Step 'Launcher'
     # Copied rather than generated: the launcher takes its paths as parameters from the
     # scheduled task, so nothing in it needs interpolating at install time.
-    $template = Join-Path (Join-Path $PSScriptRoot 'templates') 'bw-rotation-daemon-launcher.ps1'
+    $template = Join-Path (Join-Path $PSScriptRoot 'templates') 'bwac-launcher.ps1'
     if (-not (Test-Path -LiteralPath $template)) {
         Fail ("No launcher template next to this script. Expected it at`n         $template`n" +
             '         Run the script from the unpacked release archive.')
