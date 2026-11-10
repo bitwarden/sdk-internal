@@ -1,4 +1,4 @@
-# Local development configuration for bw-rotation-daemon.
+# Local development configuration for bwac.
 #
 # Points at the dev proxy on https://localhost:8080; the daemon token is env-only via
 # BWRD_TOKEN.
