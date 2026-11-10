@@ -20,6 +20,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-base = { workspace = true }
+bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-generators = { workspace = true }

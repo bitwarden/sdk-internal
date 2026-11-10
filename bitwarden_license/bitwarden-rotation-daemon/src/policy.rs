@@ -126,9 +126,17 @@ pub(crate) fn to_generator_request(
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_generators::password;
+    use bitwarden_core::Client;
+    use bitwarden_generators::GeneratorClientsExt as _;
 
     use super::*;
+
+    /// Helper: run a request through the SDK's password generator.
+    fn password(
+        req: PasswordGeneratorRequest,
+    ) -> Result<String, bitwarden_generators::PasswordError> {
+        Client::new(None).generator().password(req)
+    }
 
     /// Helper: build a maximally permissive policy and override individual fields.
     fn all_classes(min: Option<u32>, max: Option<u32>) -> PasswordPolicy {
