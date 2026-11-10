@@ -1,6 +1,6 @@
 //! End-to-end tests for the script launchers, against real files and real child processes. The
 //! crate's unit tests cover everything a fake runner or environment can.
-//!
+//! They are `#[ignore]`d (most need `pwsh` on `PATH`); run with:
 //! They are `#[ignore]`d, as most need `pwsh` on `PATH`; run them with:
 //!
 //! ```text
@@ -10,13 +10,13 @@
 mod common;
 use common::*;
 
-/// Mounts a full rotation exchange. The poll mock keeps offering the same job, so the connector
-/// rotates repeatedly; assert through [`assert_outcome`], which ignores the count.
+/// Mounts a full rotation exchange. The poll mock keeps offering the same job; assert via
+/// [`assert_outcome`], which ignores the count.
 #[allow(clippy::too_many_arguments)]
 async fn mount_rotation(
     api: &MockServer,
     org_key: &bitwarden_crypto::SymmetricCryptoKey,
-    cipher_data: String,
+    cipher_json: serde_json::Value,
     job_id: Uuid,
     attempt_id: Uuid,
     target_id: Uuid,
@@ -60,12 +60,7 @@ async fn mount_rotation(
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({
-                    "cipherId": cipher_id,
-                    "data": cipher_data,
-                    "key": null,
-                    "revisionDate": "2024-01-01T00:00:00Z"
-                }))
+                .set_body_json(cipher_json)
                 .insert_header("content-type", "application/json"),
         )
         .mount(api)
@@ -144,9 +139,9 @@ async fn assert_outcome(api: &MockServer, expect_success: bool) {
     }
 }
 
-/// Runs the connector against `api`/`identity` until it reports an outcome or `deadline` passes,
-/// with `vars` in the environment, then shuts it down cleanly. PowerShell start-up is slow and
-/// varies by platform, so the deadline is generous and the wait ends early.
+/// Runs the connector against `api`/`identity` with `vars` set until it reports an outcome or
+/// `deadline` passes, then shuts it down. The deadline is generous because PowerShell start-up is
+/// slow.
 async fn run_access_connector_with_env(
     api: &MockServer,
     identity: &MockServer,
@@ -202,11 +197,11 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
     // A .ps1 cannot be executed by the kernel, so output at all proves a host interpreted it.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     let tmp = tempfile::TempDir::new().expect("temp dir");
@@ -215,7 +210,7 @@ async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -280,17 +275,17 @@ async fn a_transient_exit_code_survives_a_real_powershell_host() {
     // Only a real host shows `exit 4` coming back as the process exit status.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -352,17 +347,17 @@ async fn a_transient_exit_code_survives_a_real_powershell_host() {
 async fn a_failing_terminate_step_is_reported_but_the_rotation_succeeds() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -412,11 +407,11 @@ async fn a_failing_terminate_step_is_reported_but_the_rotation_succeeds() {
 async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     let tmp = tempfile::TempDir::new().expect("temp dir");
@@ -425,7 +420,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -450,8 +445,8 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
                 format!("{prefix}OUT_PATH"),
                 out.to_string_lossy().into_owned(),
             ),
-            // A per-target credential and the access connector token, both in the connector's own
-            // environment at this point.
+            // A per-target credential and the access connector token are both in the connector's
+            // environment.
             (
                 format!("{prefix}CLIENT_SECRET"),
                 "SENTINEL_SECRET_MUST_NOT_LEAK".to_string(),
@@ -476,8 +471,7 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
         !dumped.contains("SENTINEL_TOKEN_MUST_NOT_LEAK"),
         "access connector token reached the child"
     );
-    // A launcher that cleared everything would pass the two checks above, then fail to start a
-    // host on Windows.
+    // Clearing everything would pass the checks above but fail to start a host on Windows.
     let env: serde_json::Value = serde_json::from_str(&dumped).expect("env dump must be JSON");
     assert!(
         env.get("PATH").is_some(),
@@ -488,21 +482,21 @@ async fn the_allowlist_keeps_credentials_out_of_a_real_child_process() {
 #[tokio::test]
 #[ignore = "Integration test requires PowerShell (pwsh) on PATH"]
 async fn a_script_that_never_reads_stdin_is_still_killed() {
-    // The stdin write must sit inside the timeout, because a script that never drains stdin
-    // blocks it once the payload exceeds the pipe buffer. Only a real blocked pipe shows that.
+    // The stdin write must sit inside the timeout: a script that never drains stdin blocks it once
+    // the payload exceeds the pipe buffer.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,
@@ -523,8 +517,8 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
                 .into_owned(),
         )]
         .into_iter()
-        // About 1 MB in total clears the pipe buffer on every platform, so the write blocks. It is
-        // split because Windows caps a single environment variable at 32,767 characters.
+        // ~1 MB clears every platform's pipe buffer. Split because Windows caps an env var at
+        // 32,767 characters.
         .chain((0..36).map(|i| (format!("{prefix}BULK_{i:02}"), "x".repeat(30_000))))
         .collect(),
         // The test config's script_timeout is 10s; allow it to fire and be reported.
@@ -540,14 +534,14 @@ async fn a_script_that_never_reads_stdin_is_still_killed() {
 #[tokio::test]
 #[ignore = "Integration test resolves real symlinks on disk"]
 async fn a_symlink_pointing_outside_script_root_is_rejected() {
-    // The containment check is `canonicalize` plus `starts_with`, so only a real link tests it.
+    // Containment is `canonicalize` plus `starts_with`; only a real link tests it.
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
-    let (job_id, attempt_id) = (Uuid::new_v4(), Uuid::new_v4());
-    let (target_id, cipher_id) = (Uuid::new_v4(), Uuid::new_v4());
+    let (job_id, attempt_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
+    let (target_id, cipher_id) = (Uuid::new_v4(), KEYED_LOGIN_ID);
     let prefix = env_prefix(target_id);
 
     let root = tempfile::TempDir::new().expect("temp dir");
@@ -557,7 +551,7 @@ async fn a_symlink_pointing_outside_script_root_is_rejected() {
     mount_rotation(
         &api,
         &org_key,
-        make_cipher_data(&org_key, "old-password"),
+        keyed_login_json(),
         job_id,
         attempt_id,
         target_id,

@@ -79,9 +79,9 @@ where
     Err(last_err.unwrap())
 }
 
-/// Like [`with_retries`], but awaits `gate()` before every try, including the first; an abort
-/// returns [`GatedOutcome::Aborted`]. Target-side steps use it so session loss or lease expiry
-/// stops them between tries, never mid-call.
+/// Like [`with_retries`], but awaits `gate()` before every try; an abort returns
+/// [`GatedOutcome::Aborted`]. Session loss or lease expiry stops target-side steps between tries,
+/// never mid-call.
 pub(crate) async fn with_retries_gated<G, GFut, F, Fut, T, E, A>(
     cfg: &RetryCfg,
     mut gate: G,

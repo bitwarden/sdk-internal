@@ -1,5 +1,5 @@
-//! Error taxonomy for the access connector: failure codes, sync state, session
-//! termination outcome, retry classification, and safe report details.
+//! Error taxonomy: failure codes, sync state, session termination outcome, retry classification,
+//! and safe report details.
 
 use thiserror::Error;
 

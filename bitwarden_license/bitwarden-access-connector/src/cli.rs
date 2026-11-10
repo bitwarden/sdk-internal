@@ -29,7 +29,7 @@ pub enum Command {
 pub struct RunArgs {
     /// Path to the TOML configuration file.
     #[arg(long, env = "BWAC_CONFIG", value_name = "PATH")]
-    pub config: Option<PathBuf>,
+    pub(crate) config: Option<PathBuf>,
 }
 
 #[cfg(test)]

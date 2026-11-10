@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use bitwarden_access_token::AccessToken;
 use bitwarden_api_base::new_http_client_builder;
+use bitwarden_core::{OrganizationId, auth::JwtToken};
 use bitwarden_sensitive_value::SensitiveString;
 use serde::Deserialize;
 use thiserror::Error;
@@ -21,6 +22,8 @@ pub(crate) struct AuthSuccess {
     pub(crate) expires_in: u64,
     /// The organisation key wrapped under the connector's encryption key (EncString).
     pub(crate) encrypted_payload: String,
+    /// The organisation the connector belongs to, from the access token's `organization` claim.
+    pub(crate) organization_id: OrganizationId,
 }
 
 impl std::fmt::Debug for AuthSuccess {
@@ -138,12 +141,26 @@ impl IdentityClient {
         let parsed: TokenResponse =
             serde_json::from_slice(&body_bytes).map_err(|_| AuthError::Protocol)?;
 
+        let organization_id = organization_claim(&parsed.access_token)?;
+
         Ok(AuthSuccess {
             access_token: SensitiveString::from(parsed.access_token),
             expires_in: parsed.expires_in,
             encrypted_payload: parsed.encrypted_payload,
+            organization_id,
         })
     }
+}
+
+/// Reads the `organization` claim, which the server emits unprefixed. Its absence is a server
+/// contract violation: without an organisation there is no org slot to key.
+fn organization_claim(access_token: &str) -> Result<OrganizationId, AuthError> {
+    let jwt: JwtToken = access_token.parse().map_err(|_| AuthError::Protocol)?;
+
+    jwt.organization
+        .as_deref()
+        .and_then(|o| o.parse().ok())
+        .ok_or(AuthError::Protocol)
 }
 
 #[cfg(test)]
@@ -156,6 +173,7 @@ mod tests {
     };
 
     use super::{AccessToken, AuthError, IdentityClient};
+    use crate::test_support::{access_token_tagged, test_org_id};
 
     const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
@@ -167,7 +185,9 @@ mod tests {
         IdentityClient::new(server.uri()).expect("client build")
     }
 
-    fn success_body(access_token: &str, expires_in: u64) -> String {
+    /// `tag` is expanded to a real JWT so the `organization` claim parses.
+    fn success_body(tag: &str, expires_in: u64) -> String {
+        let access_token = access_token_tagged(test_org_id(), tag);
         format!(
             r#"{{"access_token":"{access_token}","expires_in":{expires_in},"encrypted_payload":"2.abc==|def==|ghi=="}}"#
         )
@@ -191,7 +211,11 @@ mod tests {
             .await
             .expect("authenticate");
 
-        assert_eq!(result.access_token.expose(), "test-bearer");
+        assert_eq!(
+            result.access_token.expose(),
+            &access_token_tagged(test_org_id(), "test-bearer")
+        );
+        assert_eq!(result.organization_id, test_org_id());
         assert_eq!(result.expires_in, 3600);
         assert_eq!(result.encrypted_payload, "2.abc==|def==|ghi==");
     }
@@ -242,6 +266,74 @@ mod tests {
             matches!(err, AuthError::Rejected),
             "expected Rejected, got {err:?}"
         );
+    }
+
+    /// A token whose claims segment is `claims`, so a test can omit or corrupt the organisation.
+    fn token_with_claims(claims: serde_json::Value) -> String {
+        let payload = bitwarden_encoding::B64Url::from(claims.to_string().as_bytes());
+        format!("header.{payload}.signature")
+    }
+
+    #[tokio::test]
+    async fn access_token_without_organization_claim_is_protocol_error() {
+        let token = token_with_claims(serde_json::json!({
+            "exp": 1_900_000_000u64,
+            "sub": "access-connector",
+            "scope": ["api.pam.rotation"],
+        }));
+
+        let err = authenticate_against(&token).await;
+        assert!(
+            matches!(err, AuthError::Protocol),
+            "expected Protocol, got {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn unparseable_organization_claim_is_protocol_error() {
+        let token = token_with_claims(serde_json::json!({
+            "exp": 1_900_000_000u64,
+            "sub": "access-connector",
+            "scope": ["api.pam.rotation"],
+            "organization": "not-a-uuid",
+        }));
+
+        let err = authenticate_against(&token).await;
+        assert!(
+            matches!(err, AuthError::Protocol),
+            "expected Protocol, got {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn access_token_that_is_not_a_jwt_is_protocol_error() {
+        let err = authenticate_against("opaque-token").await;
+        assert!(
+            matches!(err, AuthError::Protocol),
+            "expected Protocol, got {err:?}"
+        );
+    }
+
+    /// Serve `access_token` from a 200 identity response and return the resulting error.
+    async fn authenticate_against(access_token: &str) -> AuthError {
+        let server = MockServer::start().await;
+        let body = format!(
+            r#"{{"access_token":"{access_token}","expires_in":3600,"encrypted_payload":"2.abc==|def==|ghi=="}}"#
+        );
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(body)
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&server)
+            .await;
+
+        client(&server)
+            .authenticate(&test_token())
+            .await
+            .expect_err("authentication must fail")
     }
 
     #[tokio::test]

@@ -10,13 +10,13 @@ async fn happy_path_rotate_and_report_success() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
 
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
     let job_id = Uuid::new_v4();
     let attempt_id = Uuid::new_v4();
     let target_id = Uuid::new_v4();
-    let cipher_id = Uuid::new_v4();
+    let cipher_id = KEYED_LOGIN_ID;
     let prefix = env_prefix(target_id);
 
     let script_path = fixtures_dir().join("exit_code.sh");
@@ -47,19 +47,14 @@ async fn happy_path_rotate_and_report_success() {
         .mount(&api)
         .await;
 
-    let cipher_data = make_cipher_data(&org_key, "old-password");
+    let cipher_json = keyed_login_json();
     Mock::given(method("GET"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({
-                    "cipherId": cipher_id,
-                    "data": cipher_data,
-                    "key": null,
-                    "revisionDate": "2024-01-01T00:00:00Z"
-                }))
+                .set_body_json(cipher_json.clone())
                 .insert_header("content-type", "application/json"),
         )
         .mount(&api)
@@ -99,7 +94,6 @@ async fn happy_path_rotate_and_report_success() {
     let handle =
         tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
-    // Wait for the success report, then cancel.
     tokio::time::sleep(Duration::from_millis(3000)).await;
     cancel.cancel();
 
@@ -120,6 +114,10 @@ async fn happy_path_rotate_and_report_success() {
         .filter(|r| r.method.as_str() == "PUT")
         .collect();
     assert!(!put_reqs.is_empty(), "PUT cipher must have been called");
+    let put_body: serde_json::Value =
+        serde_json::from_slice(&put_reqs[0].body).expect("PUT body is JSON");
+    let original_key = cipher_json["key"].as_str().expect("GET carries a key");
+    assert_cipher_write_rotated(&org_key, &put_body, original_key, "old-password");
 
     let success_reqs: Vec<_> = all_reqs
         .iter()
@@ -145,13 +143,13 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
 
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
     let job_id = Uuid::new_v4();
     let attempt_id = Uuid::new_v4();
     let target_id = Uuid::new_v4();
-    let cipher_id = Uuid::new_v4();
+    let cipher_id = KEYED_LOGIN_ID;
     let prefix = env_prefix(target_id);
     let script_path = fixtures_dir().join("exit_code.sh");
 
@@ -181,19 +179,14 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         .mount(&api)
         .await;
 
-    let cipher_data = make_cipher_data(&org_key, "old-password");
+    let cipher_json = keyed_login_json();
     Mock::given(method("GET"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({
-                    "cipherId": cipher_id,
-                    "data": cipher_data,
-                    "key": null,
-                    "revisionDate": "2024-01-01T00:00:00Z"
-                }))
+                .set_body_json(cipher_json.clone())
                 .insert_header("content-type", "application/json"),
         )
         .mount(&api)
@@ -225,7 +218,6 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let handle =
         tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
-    // Wait for failure report, then cancel.
     tokio::time::sleep(Duration::from_millis(3000)).await;
     cancel.cancel();
 
@@ -279,7 +271,7 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
 
-    let (_org_key, encrypted_payload) = make_org_key_and_payload();
+    let (_org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
     let job_id = Uuid::new_v4();
@@ -312,8 +304,7 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let handle =
         tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
 
-    // Wait until the connector has attempted the claim at least twice, i.e. it kept polling after
-    // losing the race.
+    // Wait until the connector has retried the claim at least twice after losing the race.
     let claim_path = format!("/access-connectors/rotation/jobs/{job_id}/claim");
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
     loop {
@@ -420,13 +411,13 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     let identity = MockServer::start().await;
     let api = MockServer::start().await;
 
-    let (org_key, encrypted_payload) = make_org_key_and_payload();
+    let (org_key, encrypted_payload) = org_key_and_payload();
     mount_identity_ok(&identity, &encrypted_payload).await;
 
     let job_id = Uuid::new_v4();
     let attempt_id = Uuid::new_v4();
     let target_id = Uuid::new_v4();
-    let cipher_id = Uuid::new_v4();
+    let cipher_id = KEYED_LOGIN_ID;
     let prefix = env_prefix(target_id);
 
     // Script exits 1 for terminate, 0 for every other operation.
@@ -472,19 +463,14 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
         .mount(&api)
         .await;
 
-    let cipher_data = make_cipher_data(&org_key, "old-password");
+    let cipher_json = keyed_login_json();
     Mock::given(method("GET"))
         .and(path(format!(
             "/access-connectors/rotation/attempts/{attempt_id}/cipher"
         )))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({
-                    "cipherId": cipher_id,
-                    "data": cipher_data,
-                    "key": null,
-                    "revisionDate": "2024-01-01T00:00:00Z"
-                }))
+                .set_body_json(cipher_json.clone())
                 .insert_header("content-type", "application/json"),
         )
         .mount(&api)
