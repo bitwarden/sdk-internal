@@ -797,7 +797,8 @@ On `SIGTERM` or Ctrl-C, the connector stops taking new jobs, closes its session 
 A rotation in progress is abandoned without a report, and the server deals with the unreported
 attempt. Where you can, restart between rotations. The logs show when one is running.
 
-The connector keeps no state on disk and writes no log file.
+Apart from an empty lock file, in `%ProgramData%` on Windows and `/var/tmp` on macOS, the connector
+keeps no state on disk and writes no log file.
 
 ### More than one organization
 
@@ -810,6 +811,9 @@ organizations runs one connector per organization. Give each one its own:
 
 If the connectors need their own scripts, point each `script_root` at a different directory. They
 can share the binary. Each unit's logs are separate in the journal.
+
+A token runs in one process per host. A second `bwac` started with the same token logs an error and
+exits with `5`.
 
 ## Logs and exit codes
 
@@ -837,6 +841,8 @@ available jobs, heartbeats, jobs another connector claimed first, and more detai
 | `warn`  | Session termination aborted or failed                        | `attempt_id`, `abort_reason`                                                                     |
 | `warn`  | Success report rejected or unknown                           | `attempt_id`                                                                                     |
 | `warn`  | Transient poll error                                         | backoff duration                                                                                 |
+| `warn`  | Could not check for another bwac process                     |                                                                                                  |
+| `error` | Another bwac process is already running with this token      |                                                                                                  |
 | `error` | Access connector credential refused                          |                                                                                                  |
 | `error` | Access connector could not authenticate at startup           |                                                                                                  |
 | `error` | Access connector not eligible for rotation endpoints         |                                                                                                  |
@@ -852,6 +858,7 @@ Logs never contain passwords, tokens or other credential values.
 | `2`  | The token was refused                                                        | Have an admin issue a new token, then restart with it                                   |
 | `3`  | The connector isn't allowed to rotate                                        | Check the connector isn't revoked or disabled, the license is active and PAM is enabled |
 | `4`  | Couldn't sign in at startup, for example the identity server was unreachable | Check the network and the identity URL, then restart                                    |
+| `5`  | Another `bwac` on this host is running with the same token                   | Stop the other process. A service restarts on its own and takes over                    |
 
 ## Troubleshooting
 
@@ -864,6 +871,7 @@ Logs never contain passwords, tokens or other credential values.
 | `api URL must be supplied via …`                                                  | `identity` or `BWAC_IDENTITY_URL` is set without an API URL or `base` |
 | `config file … is invalid TOML: unknown field`                                    | A typo, or `client_secret` in a `[targets]` block                     |
 | `poll_interval must be >= 15 seconds`                                             | `poll_interval` is below 15                                           |
+| `Another bwac process is already running with this access connector token`        | A second `bwac` uses the same token, often one started from a console |
 
 ### Nothing gets rotated
 

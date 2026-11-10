@@ -55,6 +55,7 @@ $ExitCodeHints = @{
     2 = 'The token was refused. Have an admin issue a new one and put it in {0}.'
     3 = "The connector isn't allowed to rotate. Check it isn't revoked, the license is active and PAM is enabled."
     4 = "Couldn't sign in. Check this host can reach your Bitwarden server."
+    5 = 'Another bwac is running with the same token, for example one started from a console. Stop it, then start the task again.'
 }
 
 function Invoke-Native {
