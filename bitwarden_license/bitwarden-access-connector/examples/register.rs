@@ -8,7 +8,7 @@
 //!
 //! ```text
 //! export BWRD_ORG_KEY_B64="<base64-encoded-org-key>"
-//! cargo run -p bitwarden-rotation-daemon --example register -- --name my-daemon
+//! cargo run -p bitwarden-access-connector --example register -- --name my-daemon
 //! ```
 
 // CLI tool: prints the payload to stdout and operator guidance to stderr by design.
@@ -16,12 +16,12 @@
 
 use std::io::{self, BufRead};
 
+use bitwarden_access_connector::token::{DERIVE_INFO, DERIVE_NAME};
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, EncString, KeyEncryptable, SymmetricCryptoKey, derive_shareable_key,
     generate_random_bytes,
 };
 use bitwarden_encoding::B64;
-use bitwarden_rotation_daemon::token::{DERIVE_INFO, DERIVE_NAME};
 use clap::Parser;
 use zeroize::Zeroizing;
 
@@ -188,12 +188,12 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{KeyDecryptable, KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
-    use bitwarden_encoding::B64;
-    use bitwarden_rotation_daemon::{
+    use bitwarden_access_connector::{
         crypto::{DaemonKeyStore, DaemonSymmSlotId, unwrap_org_key},
         token::DaemonToken,
     };
+    use bitwarden_crypto::{KeyDecryptable, KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
+    use bitwarden_encoding::B64;
 
     use super::generate_registration_payload;
 
