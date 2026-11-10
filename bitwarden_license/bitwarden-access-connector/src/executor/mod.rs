@@ -12,6 +12,7 @@ use std::{
 
 use bitwarden_access_token::AccessToken;
 use bitwarden_core::Client;
+use bitwarden_pam::{RotationFailureCode, RotationSyncState};
 use bitwarden_threading::cancellation_token::CancellationToken;
 use retry::RetryCfg;
 use rotation::{AbortReason, ExecutionContext, ExecutionResult, execute};
@@ -26,7 +27,7 @@ use crate::{
         models::ApiError,
     },
     auth::session::{SessionLost, SessionManager},
-    error::{FailureCode, SafeDetail, SyncState},
+    error::SafeDetail,
     integrations::IntegrationRegistry,
     resolver::CredentialResolver,
     sys::SystemEnv,
@@ -369,9 +370,9 @@ pub(crate) async fn run(cfg: AccessConnectorConfig, cancel: CancellationToken) -
                 rotation::report_failure_absorb(
                     &api,
                     attempt_id,
-                    FailureCode::SealedDataRejected,
+                    RotationFailureCode::SealedDataRejected,
                     Some(SafeDetail::from_seal_rejection(rejection.as_str())),
-                    SyncState::TargetUnchanged,
+                    RotationSyncState::TargetUnchanged,
                 )
                 .await;
                 continue;
