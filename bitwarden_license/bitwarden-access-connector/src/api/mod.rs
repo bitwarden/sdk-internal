@@ -5,10 +5,7 @@
 
 pub(crate) mod models;
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 use bitwarden_api_api::{
     apis::AuthRequired,
@@ -28,7 +25,7 @@ use bitwarden_pam::{
 use bitwarden_vault::Cipher;
 use models::{ApiError, JobRef};
 use reqwest_middleware::{Middleware, Next};
-use tokio::sync::watch;
+use tokio::{sync::watch, time::Instant};
 use uuid::Uuid;
 
 use crate::{
@@ -458,11 +455,11 @@ fn unrecognized_variant(_: bitwarden_pam::RotationError) -> ApiError {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Instant};
+    use std::sync::Arc;
 
     use bitwarden_crypto::KeyStore;
     use reqwest_middleware::ClientBuilder;
-    use tokio::sync::watch;
+    use tokio::{sync::watch, time::Instant};
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{header, method, path},

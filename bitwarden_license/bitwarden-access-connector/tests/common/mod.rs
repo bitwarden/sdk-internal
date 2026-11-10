@@ -1,5 +1,4 @@
-//! Shared harness: wiremock identity and API servers with self-consistent token, payload and cipher
-//! fixtures.
+//! Shared harness: wiremock identity and API servers with a matching token, payload and cipher.
 //!
 //! Tests mutate per-target env vars, so each takes [`lock_env`] first.
 
@@ -84,8 +83,7 @@ pub fn token_encryption_key() -> SymmetricCryptoKey {
     TEST_CREDENTIAL.1.clone()
 }
 
-/// The org key the cipher vectors in `tests/fixtures/ciphers` are encrypted under (base64 of the
-/// encoded `SymmetricCryptoKey`).
+/// The org key the vectors in `tests/fixtures/ciphers` are encrypted under, base64-encoded.
 const ORG_KEY_B64: &str =
     "a4oGKmzuPXlJr6ANfFLy9DHw7lmaCo47mc01fROBKMUklVouVlwvgGsX1Sz9D9JHKbqOku/K25akClXWyp8a4g==";
 
@@ -124,8 +122,8 @@ pub fn test_org_slot() -> SymmetricKeySlotId {
     SymmetricKeySlotId::Organization(test_org_id())
 }
 
-/// An access token carrying the `organization` claim the connector reads. Mirrors
-/// `src/test_support.rs`, which integration tests cannot reach.
+/// An access token carrying the `organization` claim. Mirrors `src/test_support.rs`, which
+/// integration tests cannot reach.
 pub fn access_token_for(organization_id: OrganizationId) -> String {
     let claims = serde_json::json!({
         "exp": 1_900_000_000u64,
@@ -154,16 +152,15 @@ pub async fn mount_identity_ok(server: &MockServer, encrypted_payload: &str) {
         .await;
 }
 
-/// The cipher-read body: the recorded login cipher with its own item key, password
-/// `old-password`, encrypted under [`fixture_org_key`] (see `tests/fixtures/ciphers`).
+/// The recorded login cipher with an item key and password `old-password`, as the cipher GET body.
 pub fn keyed_login_json() -> serde_json::Value {
     serde_json::from_str(include_str!("../fixtures/ciphers/keyed_login.json"))
         .expect("vector is JSON")
 }
 
 /// Asserts a cipher write `body` rotated the password away from `old_password`, with the old one
-/// heading the history. The write's `key` must be exactly `original_key` (the GET's), and the
-/// fields must decrypt under the item key unwrapped from it.
+/// heading the history. The write's `key` must be `original_key` (the GET's), and the fields must
+/// decrypt under the item key unwrapped from it.
 pub fn assert_cipher_write_rotated(
     org_key: &SymmetricCryptoKey,
     body: &serde_json::Value,
