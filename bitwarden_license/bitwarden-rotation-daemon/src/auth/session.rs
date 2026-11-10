@@ -372,10 +372,26 @@ impl SessionManager {
                     guard
                         .apply_success(success, &self.token)
                         .map_err(SessionError::Transient)?;
+                    // Log successful auth/refresh.  `force` on the first attempt
+                    // distinguishes a forced 401-driven refresh from a proactive
+                    // renewal; the difference is cosmetic to the operator.
+                    if tries == 0 {
+                        tracing::info!("session established (authentication succeeded)");
+                    } else {
+                        tracing::info!(
+                            retry = tries,
+                            "session renewed (re-authentication succeeded)"
+                        );
+                    }
                     return Ok(());
                 }
                 Err(AuthError::Rejected) => {
                     guard.enter_terminal(SessionLost::Revoked);
+                    // Terminal — executor logs the actionable operator message;
+                    // we log the phase transition here.
+                    tracing::warn!(
+                        "session entered Revoked phase (credential rejected by identity server)"
+                    );
                     return Err(SessionError::Lost(SessionLost::Revoked));
                 }
                 Err(AuthError::Transient(msg)) => {
@@ -389,6 +405,10 @@ impl SessionManager {
 
                     if tries >= max_tries {
                         guard.set_phase(SessionPhase::Expired);
+                        tracing::warn!(
+                            retry = tries,
+                            "session renewal failed (transient): {err_msg}; giving up after {tries} attempts"
+                        );
                         return Err(SessionError::Transient(err_msg));
                     }
 
@@ -397,10 +417,19 @@ impl SessionManager {
 
                     let sleep_dur = compute_sleep(delay, deadline);
                     if sleep_dur == Duration::ZERO {
+                        tracing::warn!(
+                            retry = tries,
+                            "session renewal deadline exceeded before retry; last error: {err_msg}"
+                        );
                         return Err(SessionError::Transient(
                             "renewal deadline exceeded".to_owned(),
                         ));
                     }
+                    tracing::warn!(
+                        retry = tries,
+                        sleep_ms = sleep_dur.as_millis(),
+                        "session renewal failed (transient): {err_msg}; retrying after {sleep_dur:?}"
+                    );
                     tokio::time::sleep(sleep_dur).await;
                     delay = (delay * 2).min(BACKOFF_CAP);
                 }
@@ -415,6 +444,10 @@ impl SessionManager {
 
                     if tries >= max_tries {
                         guard.set_phase(SessionPhase::Expired);
+                        tracing::warn!(
+                            retry = tries,
+                            "session renewal failed (protocol error): {err_msg}; giving up after {tries} attempts"
+                        );
                         // Lock released when `guard` drops.
                         return Err(SessionError::Transient(err_msg));
                     }
@@ -426,10 +459,19 @@ impl SessionManager {
 
                     let sleep_dur = compute_sleep(delay, deadline);
                     if sleep_dur == Duration::ZERO {
+                        tracing::warn!(
+                            retry = tries,
+                            "session renewal deadline exceeded before retry; last error: {err_msg}"
+                        );
                         return Err(SessionError::Transient(
                             "renewal deadline exceeded".to_owned(),
                         ));
                     }
+                    tracing::warn!(
+                        retry = tries,
+                        sleep_ms = sleep_dur.as_millis(),
+                        "session renewal failed (protocol error): {err_msg}; retrying after {sleep_dur:?}"
+                    );
                     tokio::time::sleep(sleep_dur).await;
                     delay = (delay * 2).min(BACKOFF_CAP);
                 }
