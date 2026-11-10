@@ -362,6 +362,35 @@ async fn invalid_client_at_startup_returns_credential_refused() {
     );
 }
 
+/// Takes ~3s: `SessionManager::new` makes three attempts with 1s and 2s backoff between them.
+#[tokio::test]
+async fn transient_identity_failure_at_startup_returns_startup_failed() {
+    let identity = MockServer::start().await;
+    let api = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/connect/token"))
+        .respond_with(ResponseTemplate::new(503))
+        .mount(&identity)
+        .await;
+
+    let cancel = CancellationToken::new();
+    let cfg = make_cfg(api.uri(), identity.uri(), None);
+
+    let exit = bitwarden_access_connector::run(cfg, cancel).await;
+    assert_eq!(
+        exit,
+        RunExit::StartupFailed,
+        "a 5xx from identity at startup must yield StartupFailed, not CredentialRefused"
+    );
+
+    let api_reqs = api.received_requests().await.expect("requests");
+    assert!(
+        api_reqs.is_empty(),
+        "no API calls should be made when startup authentication fails: {api_reqs:?}"
+    );
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
