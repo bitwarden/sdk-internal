@@ -3,6 +3,20 @@
   extends: ["github>bitwarden/renovate-config:non-pinned"],
   separateMajorMinor: true,
   enabledManagers: ["cargo", "dockerfile", "github-actions", "npm", "nuget", "custom.regex"],
+  // Overrides the :ignoreModulesAndTests defaults, so they are restated first.
+  // support/verifpal is a tracking-only lock mirroring upstream Verifpal at the
+  // pinned rev; it is bumped manually with the root pin and CI checks it.
+  ignorePaths: [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    "support/verifpal/**",
+  ],
   regexManagers: [
     {
       // Pinned binary cargo tools declared in [workspace.metadata.bin].

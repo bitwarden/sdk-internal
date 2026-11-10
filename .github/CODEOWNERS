@@ -68,6 +68,8 @@ crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
 protocols/** @bitwarden/team-key-management-dev
+scripts/check-verifpal-pin.py @bitwarden/team-key-management-dev
+support/verifpal/** @bitwarden/team-key-management-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
 # E2E tests and test vectors are shared between teams; only team folders have an owner.

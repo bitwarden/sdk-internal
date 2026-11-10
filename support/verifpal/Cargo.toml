@@ -1,0 +1,14 @@
+# Tracking-only crate: never built or run. Its Cargo.lock mirrors upstream Verifpal's lock at the
+# rev pinned in the root `[workspace.metadata.bin]`, so dependency scanners see what `cargo bin
+# verifpal` builds. Keep `rev` in sync with the root Cargo.toml; CI checks both and the lock.
+[package]
+name = "verifpal-tracking"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+verifpal = { git = "https://github.com/symbolicsoft/verifpal", rev = "b02e677bff5a0e4f61c5c6939015cef05faa69a0", features = ["cli"] }
+
+# Own workspace, excluded from the root one (same pattern as support/lints).
+[workspace]
