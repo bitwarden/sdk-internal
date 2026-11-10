@@ -592,6 +592,11 @@ identity = "https://identity.example.com"
                 Some("supersecret"),
             ),
             (
+                "target bind_password",
+                "[targets.00000000-0000-0000-0000-000000000001]\nldap_host = \"dc01.corp.example\"\nbind_password = \"bind-supersecret\"\n",
+                Some("bind-supersecret"),
+            ),
+            (
                 "target non-uuid key",
                 "[targets.not-a-uuid]\nscript = \"/some/script.sh\"\n",
                 None,
@@ -668,6 +673,31 @@ client_id = "my-client"
         let entra: Uuid = "00000000-0000-0000-0000-000000000001".parse().unwrap();
         assert_eq!(cfg.targets[&entra].tenant_id.as_deref(), Some("my-tenant"));
         assert_eq!(cfg.targets[&entra].client_id.as_deref(), Some("my-client"));
+    }
+
+    #[test]
+    fn active_directory_target_values_are_used() {
+        let toml = format!(
+            r#"{URLS}
+[targets.00000000-0000-0000-0000-000000000002]
+ldap_host      = "dc01.corp.example"
+bind_dn        = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
+base_dn        = "DC=corp,DC=example"
+ca_certificate = "/etc/pki/ad-ca.pem"
+"#
+        );
+        let cfg = build(&toml)
+            .expect("expected Ok")
+            .into_access_connector_config();
+        let ad: Uuid = "00000000-0000-0000-0000-000000000002".parse().unwrap();
+        let entry = &cfg.targets[&ad];
+        assert_eq!(entry.ldap_host.as_deref(), Some("dc01.corp.example"));
+        assert_eq!(
+            entry.bind_dn.as_deref(),
+            Some("CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example")
+        );
+        assert_eq!(entry.base_dn.as_deref(), Some("DC=corp,DC=example"));
+        assert_eq!(entry.ca_certificate.as_deref(), Some("/etc/pki/ad-ca.pem"));
     }
 
     #[test]
