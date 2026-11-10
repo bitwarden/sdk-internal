@@ -1,62 +1,24 @@
 //! Custom-script integration for arbitrary credential rotation targets.
 //!
-//! [`CustomScriptIntegration`] invokes an operator-supplied executable for each
-//! rotation operation (`rotate`, `verify`, `terminate`).  The executable path
-//! comes from the resolver's `SCRIPT` credential.
-//!
-//! # Security contract (documented in README)
-//!
-//! - Secrets are delivered **only** via stdin as a single JSON document — never via argv or process
-//!   environment variables.  (`/proc/<pid>/cmdline` and `ps` can expose argv; env can be read by
-//!   child processes.)
-//! - `stdout` and `stderr` are always redirected to `/dev/null` (i.e. `Stdio::null()`).  Script
-//!   output can echo credentials; piping it unread would also deadlock a chatty script.
-//! - The `SCRIPT` credential is excluded from the `credentials` map forwarded to the script (the
-//!   script already knows its own path).
-//! - If `script_root` is set, the canonicalized script path must be under the canonicalized root,
-//!   preventing `../` traversal and symlink escapes.
-//!
-//! # Payload shape (stdin)
-//!
-//! ```json
-//! {
-//!   "operation": "rotate",
-//!   "targetSystemId": "…uuid…",
-//!   "accountIdentity": "…",
-//!   "newPassword": "…",
-//!   "credentials": { "EXTRA_KEY": "value", … }
-//! }
-//! ```
-//!
-//! For the `terminate` operation `newPassword` is **omitted** (the script
-//! must not be able to receive or echo back a password it does not need).
+//! [`CustomScriptIntegration`] invokes an operator-supplied executable per rotation operation
+//! (`rotate`, `verify`, `terminate`), read from the resolver's `SCRIPT` credential. Secrets go
+//! only via stdin JSON, never argv or environment; see the README for the full contract.
 //!
 //! # Exit codes
 //!
-//! | Code    | Meaning                                                             |
-//! |---------|---------------------------------------------------------------------|
-//! | 0       | Success                                                             |
-//! | 1       | Fatal failure — target unchanged (rotate) / not applied             |
-//! | 2       | Fatal failure — target was updated (rotation applied, verify failed) |
-//! | 3       | Fatal failure — unknown sync state (timeout after send, etc.)       |
-//! | 4       | Transient failure — retry may succeed                               |
-//! | other   | Fatal, unknown sync state (treated as unexpected / signal)          |
+//! | Code    | Meaning                                                                     |
+//! |---------|------------------------------------------------------------------------------|
+//! | 0       | Success                                                                     |
+//! | 1       | Fatal, target unchanged                                                     |
+//! | 2       | Fatal, target updated (rotation applied, verify failed)                    |
+//! | 3       | Fatal, unknown sync state                                                   |
+//! | 4       | Transient, retry may succeed                                               |
+//! | other   | Fatal, unknown sync state                                                   |
 //! | timeout | Killed by daemon; rotate → unknown, verify → applied, terminate → not_applied |
 //!
-//! # RotationByAdministrativeReset
-//!
-//! The payload never contains the **current** password.  Scripts **must**
-//! perform an administrative (force) reset, not a change-password operation.
-//! A change-password script is incompatible with retry convergence: if the
-//! first attempt succeeds (target updated) but the report fails, the daemon
-//! retries with a new `newPassword`; a change-password script would then fail
-//! because the "current" password it was given was already changed.
-//!
-//! # verify — no v0 opt-out
-//!
-//! `verify` is mandatory.  A script that cannot round-trip-authenticate must
-//! still implement `verify` with its best available applied-check (e.g.
-//! querying the target system's last-password-change timestamp).
+//! Scripts must perform an administrative reset, not a change-password operation: a retried
+//! rotation sends a new `newPassword`, which a change-password script would reject after its
+//! "current" password goes stale. `verify` is mandatory even without round-trip auth.
 
 use std::{
     path::{Path, PathBuf},
@@ -70,15 +32,11 @@ use tokio::time;
 use super::{Integration, IntegrationError, RotateContext, TargetEffect};
 use crate::error::{ErrorClass, FailureCode, SafeDetail};
 
-// ---------------------------------------------------------------------------
-// CustomScriptIntegration
-// ---------------------------------------------------------------------------
-
 /// Integration driver that delegates all operations to an operator-supplied
 /// executable.
 pub(crate) struct CustomScriptIntegration {
-    /// If set, scripts must resolve to a path under this root (prevents
-    /// `../` traversal and symlink escapes).
+    /// A present root restricts scripts to resolve under it, preventing `../` traversal and
+    /// symlink escapes.
     pub(crate) script_root: Option<PathBuf>,
     /// Maximum time to wait for the script to complete.
     pub(crate) timeout: Duration,
@@ -95,10 +53,6 @@ impl CustomScriptIntegration {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Stdin payload
-// ---------------------------------------------------------------------------
-
 /// The JSON document written to the script's stdin.
 ///
 /// `newPassword` is `None` for the `terminate` operation so it is serialised as
@@ -111,13 +65,9 @@ struct ScriptPayload<'a> {
     account_identity: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     new_password: Option<&'a str>,
-    /// Credential map forwarded to the script — SCRIPT key excluded.
+    /// Credential map forwarded to the script; SCRIPT key excluded.
     credentials: std::collections::HashMap<&'a str, &'a str>,
 }
-
-// ---------------------------------------------------------------------------
-// Path resolution + script-root guard
-// ---------------------------------------------------------------------------
 
 /// Resolves the script path from the credentials map and optionally checks that
 /// the canonicalized path is under the canonicalized root.
@@ -165,10 +115,6 @@ fn resolve_script_path(
     Ok(canonical)
 }
 
-// ---------------------------------------------------------------------------
-// Invocation
-// ---------------------------------------------------------------------------
-
 /// Runs the script for the given operation and returns the exit code.
 ///
 /// `new_password` is `None` for the `terminate` operation.
@@ -182,7 +128,7 @@ async fn invoke(
     use bitwarden_sensitive_value::ExposeSensitive as _;
     use tokio::{io::AsyncWriteExt as _, process::Command};
 
-    // Build the credentials map — exclude SCRIPT.
+    // Build the credentials map; exclude SCRIPT.
     let mut credentials: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
     for (k, v) in ctx.creds.iter() {
         if k != "SCRIPT" {
@@ -200,16 +146,8 @@ async fn invoke(
 
     let payload_json = serde_json::to_vec(&payload).map_err(|_| InvokeError::Serialize)?;
 
-    // Spawn the process:
-    //   - argv: [script_path, operation]  — no secrets in argv
-    //   - stdin: piped (we write the JSON, then drop)
-    //   - stdout: null (script output may echo credentials; piped+unread deadlocks)
-    //   - stderr: null (same reason)
-    //   - kill_on_drop: true (guard against timeout leaving a zombie)
-    // Clear the inherited environment before spawning the script.
-    // Secrets (including any residual BWRD_TOKEN) must not reach child processes;
-    // credentials arrive via stdin instead.  The script path is already
-    // canonicalized (absolute), so PATH is not needed for exec resolution.
+    // stdout/stderr null: output may echo credentials, and piping unread would deadlock.
+    // env_clear keeps secrets out of the child; the path is already canonical.
     let mut child = Command::new(script_path)
         .arg(operation)
         .env_clear()
@@ -234,8 +172,7 @@ async fn invoke(
         Ok(Ok(status)) => Ok(status.code()),
         Ok(Err(_)) => Err(InvokeError::Wait),
         Err(_timeout) => {
-            // Kill the child (kill_on_drop also does this when the child is
-            // dropped, but we want to be explicit before returning).
+            // Explicit kill; kill_on_drop would also handle it on drop.
             let _ = child.kill().await;
             Err(InvokeError::Timeout)
         }
@@ -255,10 +192,8 @@ enum InvokeError {
 /// Maps an [`InvokeError::Timeout`] to an [`IntegrationError`] using the
 /// operation-specific timeout semantics.
 fn timeout_error(operation: &str, timeout_secs: u64) -> IntegrationError {
-    // Per spec:
-    //   rotate timeout  → Unknown  (we don't know if the target was updated)
-    //   verify timeout  → Applied  (conservative: assume the password was changed)
-    //   terminate timeout → NotApplied (terminate never changes the credential)
+    // rotate timeout -> Unknown; verify timeout -> Applied (conservative);
+    // terminate timeout -> NotApplied (never changes the credential).
     let effect = match operation {
         "rotate" => TargetEffect::Unknown,
         "verify" => TargetEffect::Applied,
@@ -346,10 +281,6 @@ async fn run_operation(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Integration impl
-// ---------------------------------------------------------------------------
-
 #[async_trait]
 impl Integration for CustomScriptIntegration {
     async fn rotate(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
@@ -372,10 +303,6 @@ impl Integration for CustomScriptIntegration {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use std::{io::Read as _, path::PathBuf, time::Duration};
@@ -390,10 +317,6 @@ mod tests {
         integrations::{RotateContext, TargetEffect},
         resolver::ResolvedCredentials,
     };
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
 
     fn fixture_path(name: &str) -> PathBuf {
         let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -416,10 +339,6 @@ mod tests {
     fn integration(root: Option<PathBuf>, timeout_secs: u64) -> CustomScriptIntegration {
         CustomScriptIntegration::new(root, Duration::from_secs(timeout_secs))
     }
-
-    // -----------------------------------------------------------------------
-    // Script-root escape rejection
-    // -----------------------------------------------------------------------
 
     #[tokio::test]
     async fn script_root_dotdot_rejected() {
@@ -457,10 +376,6 @@ mod tests {
         assert_eq!(err.effect, TargetEffect::NotApplied);
         assert_eq!(err.class, ErrorClass::Fatal);
     }
-
-    // -----------------------------------------------------------------------
-    // Stdin payload correctness
-    // -----------------------------------------------------------------------
 
     #[tokio::test]
     async fn stdin_payload_contains_correct_fields() {
@@ -530,10 +445,6 @@ mod tests {
             "newPassword must be absent for terminate: {v}"
         );
     }
-
-    // -----------------------------------------------------------------------
-    // Exit code mapping
-    // -----------------------------------------------------------------------
 
     async fn run_exit_code(code: i32) -> Result<(), IntegrationError> {
         let mut creds = ResolvedCredentials::new();
@@ -607,10 +518,6 @@ mod tests {
         assert_eq!(err.effect, TargetEffect::NotApplied);
     }
 
-    // -----------------------------------------------------------------------
-    // Timeout
-    // -----------------------------------------------------------------------
-
     #[tokio::test]
     async fn timeout_kills_script_rotate_gives_unknown() {
         let mut creds = ResolvedCredentials::new();
@@ -661,25 +568,20 @@ mod tests {
         assert_eq!(err.effect, TargetEffect::NotApplied);
     }
 
-    // -----------------------------------------------------------------------
-    // No-leak (argv + env)
-    // -----------------------------------------------------------------------
-
     /// Use the process-wide env lock so custom_script tests and config tests
     /// serialise all `BWRD_TOKEN` mutations across modules.
     use crate::TEST_ENV_LOCK as ENV_LOCK;
 
     #[tokio::test]
     async fn no_password_in_argv_or_env() {
-        // Set BWRD_TOKEN in the parent env to verify .env_clear() strips it.
-        // The guard is held only while we mutate env, then dropped before the await.
+        // Set BWRD_TOKEN in the parent env to verify env_clear strips it.
         {
             let _guard = ENV_LOCK.lock().unwrap();
             // SAFETY: protected by ENV_LOCK; single-threaded for this scope.
             unsafe {
                 std::env::set_var("BWRD_TOKEN", "SENTINEL_TOKEN_MUST_NOT_LEAK");
             }
-        } // guard dropped here — no lock held across await
+        } // guard dropped here; no lock held across await
 
         let mut creds = ResolvedCredentials::new();
         creds.insert(
@@ -688,8 +590,7 @@ mod tests {
         );
         let ctx = make_ctx_with_creds(creds);
         let integ = integration(None, 10);
-        // no_leak.sh exits 0 only if the sentinel does NOT appear in argv or env,
-        // and BWRD_TOKEN is absent from the script environment.
+        // no_leak.sh checks the sentinel is absent from argv/env, and BWRD_TOKEN is unset.
         let result = integ.rotate(&ctx).await;
 
         // Clean up regardless of test outcome.
@@ -703,10 +604,6 @@ mod tests {
 
         result.unwrap();
     }
-
-    // -----------------------------------------------------------------------
-    // Only operation in argv
-    // -----------------------------------------------------------------------
 
     #[tokio::test]
     async fn only_operation_in_argv() {

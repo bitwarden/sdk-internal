@@ -1,46 +1,18 @@
 //! Configuration loading and validation for the rotation daemon.
 //!
-//! [`crate::config::Config::from_cli`] resolves configuration from three layers in priority order:
-//!
-//! 1. **Environment variables** — `BWRD_API_URL` / `BWRD_IDENTITY_URL` override everything in the
-//!    config file.  Empty or whitespace-only values are treated as unset.
-//! 2. **Config file** — a TOML file specified with `--config <PATH>` or `BWRD_CONFIG`.  Server URLs
-//!    come from the `[environment]` section.  Every key is optional; unknown keys (including
-//!    `token`) are a hard startup error (`deny_unknown_fields`).
-//! 3. **Derivation from `[environment].base`** — if `api` or `identity` is absent from
-//!    `[environment]`, it is derived from `base` as `{base}/api` or `{base}/identity` (trailing
-//!    slashes on `base` are stripped before joining).
-//! 4. **Built-in defaults** — see the `Default` impl on the private `FileConfig` struct in this
-//!    module (tunables only; no URL defaults).
-//!
-//! **Full URL precedence** (highest to lowest):
-//!
-//! ```text
-//! BWRD_API_URL / BWRD_IDENTITY_URL
-//!   → [environment].api / [environment].identity
-//!     → derived from [environment].base
-//!       → error (InvalidConfig)
-//! ```
+//! [`crate::config::Config::from_cli`] resolves URLs from `BWRD_API_URL` / `BWRD_IDENTITY_URL`,
+//! then `[environment]`, then derivation from `[environment].base`, or a hard startup error.
+//! Unknown TOML keys are also a hard startup error.
 //!
 //! # Per-target credential configuration (`[targets]`)
 //!
-//! The optional `[targets]` TOML section accepts UUID keys, each mapping to a
-//! `TargetEntry`.  Config-file values take precedence over
-//! environment variables on a per-key basis; the env var is the fallback for any key not set in
-//! the config file.  Missing-key errors always report the **env var name** as the actionable hint.
-//!
-//! `client_secret` is deliberately absent from `TargetEntry` and is
-//! rejected as an unknown field.  Secrets must be supplied via environment variables only.
+//! `[targets]` entries take precedence over environment variables per key; `client_secret`
+//! must come from an environment variable, not the file.
 //!
 //! # Token intake
 //!
-//! The daemon token is consumed from the `BWRD_TOKEN` environment variable
-//! (read via [`std::env::var`]).  If the variable is absent or empty, startup
-//! is a hard error ([`crate::error::RotationDaemonError::InvalidConfig`]).
-//! The token string is **never echoed** in error messages.
-//!
-//! The daemon token **cannot** be supplied via the config file.  Any config file containing a
-//! `token` key will be rejected at parse time (`deny_unknown_fields`).
+//! `BWRD_TOKEN` is the only way to supply the daemon token; never echoed, and not settable
+//! via the config file.
 
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 
@@ -57,28 +29,15 @@ const MIN_POLL_INTERVAL_SECS: u64 = 15;
 /// Maximum heartbeat interval the daemon will accept.
 const MAX_HEARTBEAT_INTERVAL_SECS: u64 = 120;
 
-// ---------------------------------------------------------------------------
-// On-disk config file structs
-// ---------------------------------------------------------------------------
-
 /// Server environment configuration from the `[environment]` TOML section.
 ///
-/// All three fields are optional strings.  Final URL resolution (per URL):
-///
-/// ```text
-/// env var (BWRD_API_URL / BWRD_IDENTITY_URL)
-///   → [environment].api / [environment].identity
-///     → derived from [environment].base  (strips trailing '/', appends "/api" or "/identity")
-///       → InvalidConfig error
-/// ```
-///
-/// Supplying neither `base` nor the specific field, and no matching env var, is a hard startup
-/// error naming all three ways to supply the URL.
+/// All three fields are optional. URLs resolve as env var, then `[environment]` field,
+/// then derived from `base`, then a hard startup error naming all three options.
 #[derive(Debug, Default, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct EnvironmentConfig {
-    /// Base self-hosted URL (e.g. `https://bitwarden.example.com`).  Used to derive `api` and
-    /// `identity` when those fields are absent.  Trailing slashes are stripped before derivation.
+    /// Base self-hosted URL (e.g. `https://bitwarden.example.com`), used to derive `api`
+    /// and `identity`. Trailing slashes are stripped before derivation.
     base: Option<String>,
     /// Bitwarden API server URL.  Overrides a `base`-derived value.
     api: Option<String>,
@@ -87,7 +46,7 @@ struct EnvironmentConfig {
 }
 
 impl EnvironmentConfig {
-    /// Derive the API URL: explicit `api` wins, otherwise `{base}/api`.
+    /// Derives the effective API URL.
     fn derive_api(&self) -> Option<String> {
         self.api.clone().or_else(|| {
             self.base
@@ -96,7 +55,7 @@ impl EnvironmentConfig {
         })
     }
 
-    /// Derive the identity URL: explicit `identity` wins, otherwise `{base}/identity`.
+    /// Derives the effective identity URL.
     fn derive_identity(&self) -> Option<String> {
         self.identity.clone().or_else(|| {
             self.base
@@ -106,17 +65,10 @@ impl EnvironmentConfig {
     }
 }
 
-/// On-disk daemon configuration (TOML).  Every key is optional; the `BWRD_API_URL` /
-/// `BWRD_IDENTITY_URL` environment variables override the `[environment]` section's URLs.
+/// On-disk daemon configuration (TOML). Every key is optional; `BWRD_API_URL` /
+/// `BWRD_IDENTITY_URL` override the `[environment]` section's URLs.
 ///
-/// Keys missing from the file are filled in from [`FileConfig::default`] (the daemon's
-/// built-in defaults) via `#[serde(default)]`, so the tunable fields are concrete values.
-/// `script_root` has no built-in default and stays `Option`.
-///
-/// Server URLs live in the `[environment]` section (see [`EnvironmentConfig`]).
-///
-/// The daemon token **cannot** be supplied via this file — any `token` key is a hard startup
-/// error (`deny_unknown_fields`).  Use the `BWRD_TOKEN` environment variable instead.
+/// A `token` key is rejected at parse time; use `BWRD_TOKEN` instead.
 #[derive(Debug, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct FileConfig {
@@ -143,8 +95,8 @@ struct FileConfig {
     targets: HashMap<uuid::Uuid, crate::resolver::config::TargetEntry>,
 }
 
-/// The daemon's built-in defaults — the lowest-priority configuration layer
-/// (env URLs > config file `[environment]` > base derivation > error).
+/// The daemon's built-in defaults: the lowest-priority configuration layer
+/// (env URLs, then config file `[environment]`, then base derivation, then error).
 impl Default for FileConfig {
     fn default() -> Self {
         Self {
@@ -165,10 +117,8 @@ impl Default for FileConfig {
 impl FileConfig {
     /// Load a [`FileConfig`] from a TOML file at `path`.
     ///
-    /// Returns `Err(RotationDaemonError::InvalidConfig(...))` if the file cannot be read or
-    /// parsed.  Only the last line of the TOML error (the human-readable description, e.g.
-    /// "unknown field `token`") is included; the source-code snippet — which could echo config
-    /// values — is stripped.  `BWRD_TOKEN` never reaches this function.
+    /// Only the last line of the TOML error (its human-readable description) is kept;
+    /// the source snippet, which could echo config values, is stripped.
     fn load(path: &std::path::Path) -> Result<Self, RotationDaemonError> {
         let contents = std::fs::read_to_string(path).map_err(|e| {
             RotationDaemonError::InvalidConfig(format!(
@@ -177,9 +127,7 @@ impl FileConfig {
             ))
         })?;
         toml::from_str(&contents).map_err(|e| {
-            // Use only the last line of the TOML error: it contains the human-readable
-            // description (e.g. "unknown field `token`, expected ...") without the
-            // source-code snippet (lines 1-4) that echoes the raw config-file value.
+            // Drop the source snippet; keep only the human-readable description.
             let summary = e.to_string();
             let description = summary.lines().last().unwrap_or("parse error");
             RotationDaemonError::InvalidConfig(format!(
@@ -189,10 +137,6 @@ impl FileConfig {
         })
     }
 }
-
-// ---------------------------------------------------------------------------
-// Validated config
-// ---------------------------------------------------------------------------
 
 /// Validated configuration for the daemon run loop.
 ///
@@ -213,30 +157,16 @@ impl std::fmt::Debug for Config {
 impl Config {
     /// Build a validated [`Config`] from the parsed CLI arguments.
     ///
-    /// Loads an optional TOML config file if `args.config` is set.  The `BWRD_API_URL` /
-    /// `BWRD_IDENTITY_URL` environment variables override all file-level URL settings; all
-    /// other settings come from the file, falling back to built-in defaults.
-    ///
-    /// URL resolution per endpoint (highest to lowest priority):
-    ///
-    /// 1. `BWRD_API_URL` / `BWRD_IDENTITY_URL` env vars (empty/whitespace = unset)
-    /// 2. `[environment].api` / `[environment].identity` in the config file
-    /// 3. Derived from `[environment].base` as `{base}/api` or `{base}/identity`
-    /// 4. Error — [`RotationDaemonError::InvalidConfig`] naming all supply methods
+    /// `BWRD_API_URL` / `BWRD_IDENTITY_URL` env vars override file-level URL settings; other
+    /// settings fall back to built-in defaults.
     ///
     /// # Errors
     ///
-    /// Returns [`RotationDaemonError::InvalidConfig`] for any validation
-    /// failure, or [`RotationDaemonError::InvalidToken`] if the token string
-    /// cannot be parsed.  Error messages never echo secret values.
+    /// [`RotationDaemonError::InvalidConfig`] for a validation failure, or
+    /// [`RotationDaemonError::InvalidToken`] for an unparseable token; never echoes secrets.
     pub fn from_cli(args: RunArgs) -> Result<Self, RotationDaemonError> {
-        // ── Token intake ───────────────────────────────────────────────────
-        // SAFETY: This code runs during single-threaded daemon startup before
-        // the async runtime and any additional threads are spawned.  Mutating
-        // the process environment here is sound because no other thread can
-        // concurrently observe or mutate BWRD_TOKEN at this point.  The
-        // variable is removed immediately after reading to prevent child
-        // processes (e.g. custom scripts) from inheriting the token value.
+        // SAFETY: single-threaded startup; no other thread can observe or mutate
+        // BWRD_TOKEN. Removed immediately after reading so child processes don't inherit it.
         let env_token = std::env::var("BWRD_TOKEN").ok();
         if env_token.is_some() {
             unsafe {
@@ -244,9 +174,7 @@ impl Config {
             }
         }
 
-        // An empty or whitespace-only value is treated the same as an absent
-        // one.  The filter runs after the removal above so the variable is
-        // stripped from the environment even when its value is empty.
+        // Empty or whitespace-only values are treated as absent.
         let token_str: String = match env_token.filter(|t| !t.trim().is_empty()) {
             Some(t) => t,
             None => {
@@ -256,7 +184,7 @@ impl Config {
             }
         };
 
-        // Parse the token — error message must not echo the token string.
+        // Parse the token; error messages must not echo the token string.
         let token: DaemonToken = token_str
             .trim()
             .parse()
@@ -265,16 +193,11 @@ impl Config {
         // Drop the plaintext token string as soon as we have the parsed form.
         drop(token_str);
 
-        // ── Config file ────────────────────────────────────────────────────
         let file = match &args.config {
             Some(path) => FileConfig::load(path)?,
             None => FileConfig::default(),
         };
 
-        // ── URL intake: env > file [environment] > base derivation ─────────
-        // BWRD_API_URL / BWRD_IDENTITY_URL are not secrets: plain reads, and
-        // the variables are left in the environment.  Empty or whitespace-only
-        // values are treated as unset, consistent with BWRD_TOKEN.
         let env_url = |name: &str| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
 
         let api_url = env_url("BWRD_API_URL")
@@ -297,10 +220,7 @@ impl Config {
                 )
             })?;
 
-        // ── Interval validations ───────────────────────────────────────────
-        // Tunables come straight from the config file; keys missing from the
-        // TOML were pre-filled with the built-in defaults via `#[serde(default)]`
-        // on `FileConfig`.
+        // Missing TOML keys fall back to `FileConfig`'s `#[serde(default)]` values.
         if file.poll_interval < MIN_POLL_INTERVAL_SECS {
             return Err(RotationDaemonError::InvalidConfig(format!(
                 "poll_interval must be >= {MIN_POLL_INTERVAL_SECS} seconds (got {})",
@@ -341,10 +261,6 @@ impl Config {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -368,8 +284,6 @@ mod tests {
         }
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────────
-
     /// Write a TOML string to a tempfile and return the file (kept open for lifetime).
     fn write_toml(contents: &str) -> tempfile::NamedTempFile {
         use std::io::Write as _;
@@ -377,8 +291,6 @@ mod tests {
         f.write_all(contents.as_bytes()).expect("write toml");
         f
     }
-
-    // ── Token intake (unchanged behaviour) ───────────────────────────────────
 
     #[test]
     fn env_token_path_succeeds() {
@@ -483,8 +395,6 @@ mod tests {
             "BWRD_TOKEN must be absent from environment after from_cli consumes it"
         );
     }
-
-    // ── Interval validation ──────────────────────────────────────────────────
 
     #[test]
     fn poll_interval_below_minimum_is_invalid_config() {
@@ -610,8 +520,6 @@ identity = "https://identity.example.com"
         );
     }
 
-    // ── URL resolution (env > file [environment] > base derivation) ──────────
-
     #[test]
     fn env_urls_without_file_are_used() {
         let _guard = ENV_LOCK.lock().unwrap();
@@ -691,7 +599,7 @@ identity = "https://identity.file.example.com"
         }
 
         let inner = result.expect("expected Ok").into_daemon_config();
-        // Whitespace-only BWRD_API_URL falls through to the file value.
+        // Whitespace-only BWRD_API_URL is treated as unset.
         assert_eq!(inner.api_url, "https://api.file.example.com");
         assert_eq!(inner.identity_url, "https://identity.file.example.com");
     }
@@ -766,8 +674,6 @@ api = "https://api.example.com"
         }
     }
 
-    // ── Config file tests ────────────────────────────────────────────────────
-
     #[test]
     fn file_only_values_are_used() {
         let _guard = ENV_LOCK.lock().unwrap();
@@ -824,7 +730,7 @@ identity = "https://identity.file.example.com"
             std::env::remove_var("BWRD_IDENTITY_URL");
         }
 
-        // Only provide required fields; everything else should fall to defaults.
+        // Only the required fields are set here; the rest use defaults.
         let toml = r#"
 [environment]
 api      = "https://api.example.com"
@@ -965,8 +871,6 @@ identity = "https://identity.example.com"
         );
     }
 
-    // ── New [environment] section behaviour ──────────────────────────────────
-
     #[test]
     fn base_only_derives_api_and_identity() {
         let _guard = ENV_LOCK.lock().unwrap();
@@ -1022,7 +926,6 @@ base = "https://bitwarden.example.com/"
         let inner = result
             .expect("trailing-slash base should succeed")
             .into_daemon_config();
-        // Must not produce "https://bitwarden.example.com//api"
         assert_eq!(inner.api_url, "https://bitwarden.example.com/api");
         assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
     }
@@ -1108,7 +1011,7 @@ identity = "https://identity.file.example.com"
             std::env::remove_var("BWRD_IDENTITY_URL");
         }
 
-        // Old-format top-level key — must be rejected as unknown field.
+        // Old-format top-level key; must be rejected as unknown field.
         let toml = r#"
 api_url      = "https://api.example.com"
 identity_url = "https://identity.example.com"
@@ -1163,8 +1066,6 @@ poll_interval = 15
             ),
         }
     }
-
-    // ── [targets] section ───────────────────────────────────────────────────
 
     #[test]
     fn targets_script_entry_parsed() {

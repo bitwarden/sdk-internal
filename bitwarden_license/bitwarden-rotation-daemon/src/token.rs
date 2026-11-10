@@ -1,10 +1,8 @@
 //! Daemon token parsing and key derivation.
 //!
-//! Operator-provisioned credential string format:
-//! `0.daemon.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`
-//!
-//! The encryption key is derived via [`bitwarden_crypto::derive_shareable_key`] using the
-//! constants `DERIVE_NAME` and `DERIVE_INFO`.
+//! Operator-provisioned format:
+//! `0.daemon.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`, deriving the
+//! key via [`bitwarden_crypto::derive_shareable_key`] with `DERIVE_NAME`/`DERIVE_INFO`.
 
 use std::{fmt, str::FromStr};
 
@@ -15,18 +13,16 @@ use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
-/// CONTRACT ITEM C1 — key-derivation name constant.
+/// CONTRACT ITEM C1: key-derivation name constant.
 ///
-/// Provisionally SM-identical; pinned in e2e (see plan §1, C1).
-/// Published so the registration helper (`examples/register.rs`) can use the
-/// same derivation path without duplicating the string literals.
+/// Provisionally SM-identical; pinned in e2e (see plan §1, C1). Published so the
+/// registration helper (`examples/register.rs`) can use the same derivation path.
 pub const DERIVE_NAME: &str = "accesstoken";
 
-/// CONTRACT ITEM C1 — key-derivation info constant.
+/// CONTRACT ITEM C1: key-derivation info constant.
 ///
-/// Provisionally SM-identical; pinned in e2e (see plan §1, C1).
-/// Published so the registration helper (`examples/register.rs`) can use the
-/// same derivation path without duplicating the string literals.
+/// Provisionally SM-identical; pinned in e2e (see plan §1, C1). Published so the
+/// registration helper (`examples/register.rs`) can use the same derivation path.
 pub const DERIVE_INFO: &str = "sm-access-token";
 
 /// Errors that can occur while parsing a [`DaemonToken`] from its string representation.
@@ -61,7 +57,7 @@ pub struct DaemonToken {
     pub encryption_key: SymmetricCryptoKey,
 }
 
-// Manual Debug implementation — redacts client_secret and encryption_key.
+// Manual Debug implementation; redacts client_secret and encryption_key.
 impl fmt::Debug for DaemonToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DaemonToken")
@@ -201,7 +197,7 @@ mod tests {
 
     #[test]
     fn missing_colon_gives_wrong_parts() {
-        // SM format (3 dot-parts) — missing the colon/key entirely.
+        // SM format (3 dot-parts); missing the colon/key entirely.
         let t = "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw.X8vbvA0bduihIDe/qrzIQQ==";
         assert!(matches!(
             DaemonToken::from_str(t),
