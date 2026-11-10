@@ -1,5 +1,4 @@
-# bwac configuration. The installer writes this once and never touches
-# it again; edit it and restart the service.
+# bwac configuration. After editing it, restart the service.
 #
 # Secrets do not belong here. The connector treats a config containing a token as a
 # startup error, and rejects client_secret inside [targets], because config files end
@@ -13,6 +12,7 @@ script_root = "@SCRIPT_ROOT@"
 [environment]
 base = "@SERVER_URL@"
 
-# Bitwarden Cloud does not derive from base; set these two and delete the line above:
-# api      = "https://api.bitwarden.com"
-# identity = "https://identity.bitwarden.com"
+# For Bitwarden's cloud, set base to https://bitwarden.com (US) or https://bitwarden.eu (EU).
+# api and identity override base; set both only for a non-standard layout:
+# api      = "https://bitwarden.example.com/api"
+# identity = "https://bitwarden.example.com/identity"

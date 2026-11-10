@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <#
-    Launcher for bwac, written by Install-AccessConnector.ps1.
+    Launcher for bwac, run by the scheduled task from the Windows steps in README.md.
 
     Sets the env file's variables on this process only, for the connector to inherit. A
     machine-level variable would put the token in a registry key any user can read, and
@@ -79,8 +79,11 @@ try {
 
     $psi = New-Object Diagnostics.ProcessStartInfo
     $psi.FileName = $Exe
-    $psi.Arguments = ('run --config "{0}"' -f $Config)
+    $psi.Arguments = 'run'
     $psi.UseShellExecute = $false
+    # The path goes in the environment, not the command line, so it never needs quoting.
+    # Set after the env file is loaded, so -Config wins over a BWAC_CONFIG in that file.
+    $psi.EnvironmentVariables['BWAC_CONFIG'] = $Config
     $psi.RedirectStandardError = $true
     $psi.CreateNoWindow = $true
     $psi.WorkingDirectory = Split-Path -Parent $Config
