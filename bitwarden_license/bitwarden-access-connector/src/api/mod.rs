@@ -22,8 +22,9 @@ use bitwarden_core::{
     key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
+use bitwarden_pam::WorkSnapshot;
 use bitwarden_vault::Cipher;
-use models::{ApiError, JobRef, WorkSnapshot};
+use models::{ApiError, JobRef};
 use reqwest_middleware::{Middleware, Next};
 use tokio::sync::watch;
 use uuid::Uuid;
@@ -308,7 +309,8 @@ impl AccessConnectorClient {
 
         match result {
             Ok(model) => {
-                let snapshot = parse_work_snapshot(model)?;
+                let snapshot =
+                    WorkSnapshot::try_from(model).map_err(|e| ApiError::Protocol(e.to_string()))?;
                 Ok(Some(snapshot))
             }
             Err(bitwarden_api_base::Error::Response(ref rc)) if rc.status.as_u16() == 409 => {
@@ -463,44 +465,6 @@ fn safe_middleware_description(err: &reqwest_middleware::Error) -> &'static str 
         reqwest_middleware::Error::Middleware(_) => "middleware error",
         reqwest_middleware::Error::Reqwest(_) => "reqwest error",
     }
-}
-
-/// Parse a [`bitwarden_api_api::models::RotationClaimResponseModel`] into a
-/// [`WorkSnapshot`]; a missing or unparseable required field is [`ApiError::Protocol`].
-fn parse_work_snapshot(
-    model: bitwarden_api_api::models::RotationClaimResponseModel,
-) -> Result<WorkSnapshot, ApiError> {
-    macro_rules! required {
-        ($field:expr, $name:literal) => {
-            $field
-                .ok_or_else(|| ApiError::Protocol(concat!("missing field: ", $name).to_owned()))?
-        };
-    }
-
-    let attempt_id = required!(model.attempt_id, "attemptId");
-    let job_id = required!(model.job_id, "jobId");
-    let target_system_id = required!(model.target_system_id, "targetSystemId");
-    let target_system_name = required!(model.target_system_name, "targetSystemName");
-    let cipher_id = required!(model.cipher_id, "cipherId");
-
-    let execute_by_str = required!(model.execute_by, "executeBy");
-    let execute_by = execute_by_str
-        .parse::<chrono::DateTime<chrono::Utc>>()
-        .map_err(|_| ApiError::Protocol("invalid executeBy timestamp".to_owned()))?;
-
-    // The sealed halves are not `required!`: a missing one is rejected by `executor::verify`.
-    Ok(WorkSnapshot {
-        attempt_id,
-        job_id,
-        target_system_id,
-        target_system_name,
-        cipher_id,
-        target_system_sealed_data: model.target_system_sealed_data,
-        target_system_wrapped_key: model.target_system_wrapped_key,
-        rotation_config_sealed_data: model.rotation_config_sealed_data,
-        rotation_config_wrapped_key: model.rotation_config_wrapped_key,
-        execute_by,
-    })
 }
 
 /// Parse the cipher response into a vault [`Cipher`]. A conversion failure is a protocol error that
@@ -674,101 +638,6 @@ mod tests {
                 "errorCode for {code:?} exceeds 100 chars: {s:?}"
             );
         }
-    }
-
-    #[test]
-    fn parse_work_snapshot_converts_correctly() {
-        use bitwarden_api_api::models::RotationClaimResponseModel;
-        use chrono::Utc;
-
-        let model = RotationClaimResponseModel {
-            attempt_id: Some(Uuid::new_v4()),
-            job_id: Some(Uuid::new_v4()),
-            source: None,
-            target_system_id: Some(Uuid::new_v4()),
-            target_system_name: Some("test-system".to_owned()),
-            target_system_sealed_data: Some("opaque-target-blob".to_owned()),
-            target_system_wrapped_key: Some("opaque-target-key".to_owned()),
-            cipher_id: Some(Uuid::new_v4()),
-            rotation_config_sealed_data: Some("opaque-config-blob".to_owned()),
-            rotation_config_wrapped_key: Some("opaque-config-key".to_owned()),
-            execute_by: Some(Utc::now().to_rfc3339()),
-        };
-
-        let snap = parse_work_snapshot(model).expect("parse_work_snapshot");
-        assert_eq!(
-            snap.target_system_sealed_data.as_deref(),
-            Some("opaque-target-blob")
-        );
-        assert_eq!(
-            snap.target_system_wrapped_key.as_deref(),
-            Some("opaque-target-key")
-        );
-        assert_eq!(
-            snap.rotation_config_sealed_data.as_deref(),
-            Some("opaque-config-blob")
-        );
-        assert_eq!(
-            snap.rotation_config_wrapped_key.as_deref(),
-            Some("opaque-config-key")
-        );
-    }
-
-    #[test]
-    fn parse_work_snapshot_missing_sealed_blobs_still_parses() {
-        use bitwarden_api_api::models::RotationClaimResponseModel;
-        use chrono::Utc;
-
-        let model = RotationClaimResponseModel {
-            attempt_id: Some(Uuid::new_v4()),
-            job_id: Some(Uuid::new_v4()),
-            source: None,
-            target_system_id: Some(Uuid::new_v4()),
-            target_system_name: Some("test-system".to_owned()),
-            target_system_sealed_data: None,
-            target_system_wrapped_key: None,
-            cipher_id: Some(Uuid::new_v4()),
-            rotation_config_sealed_data: None,
-            rotation_config_wrapped_key: None,
-            execute_by: Some(Utc::now().to_rfc3339()),
-        };
-
-        let snap = parse_work_snapshot(model).expect("parse_work_snapshot");
-        assert!(snap.target_system_sealed_data.is_none());
-        assert!(snap.target_system_wrapped_key.is_none());
-        assert!(snap.rotation_config_sealed_data.is_none());
-        assert!(snap.rotation_config_wrapped_key.is_none());
-    }
-
-    #[test]
-    fn parse_work_snapshot_missing_field_is_protocol_error() {
-        use bitwarden_api_api::models::RotationClaimResponseModel;
-
-        let model = RotationClaimResponseModel::new();
-        let err = parse_work_snapshot(model).expect_err("should fail");
-        assert!(matches!(err, ApiError::Protocol(_)));
-    }
-
-    #[test]
-    fn parse_work_snapshot_bad_execute_by_is_protocol_error() {
-        use bitwarden_api_api::models::RotationClaimResponseModel;
-
-        let model = RotationClaimResponseModel {
-            attempt_id: Some(Uuid::new_v4()),
-            job_id: Some(Uuid::new_v4()),
-            source: None,
-            target_system_id: Some(Uuid::new_v4()),
-            target_system_name: Some("ts".to_owned()),
-            target_system_sealed_data: Some("opaque-target-blob".to_owned()),
-            target_system_wrapped_key: Some("opaque-target-key".to_owned()),
-            cipher_id: Some(Uuid::new_v4()),
-            rotation_config_sealed_data: Some("opaque-config-blob".to_owned()),
-            rotation_config_wrapped_key: Some("opaque-config-key".to_owned()),
-            execute_by: Some("NOT-A-DATE".to_owned()),
-        };
-
-        let err = parse_work_snapshot(model).expect_err("should fail");
-        assert!(matches!(err, ApiError::Protocol(_)));
     }
 
     #[test]
