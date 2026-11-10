@@ -6,14 +6,13 @@ use bitwarden_vault::CipherId;
 use super::{
     error::AccessRequestError,
     models::{
-        AccessPreCheckView, AccessRequestCreateRequest, AccessRequestResultView,
-        AccessRequestRevokeRequest, AccessRequestView, CipherAccessStateView,
+        AccessPreCheckView, AccessRequestCreateRequest, AccessRequestResultView, AccessRequestView,
+        CipherAccessStateView,
     },
 };
 use crate::{AccessRequestId, leases::AccessLeaseView};
 
-/// Client for a requester's PAM access requests. A managing approver also withdraws an unstarted
-/// approval through [`cancel`](Self::cancel).
+/// Client for a requester's PAM access requests.
 #[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct AccessRequestsClient {
@@ -117,19 +116,11 @@ impl AccessRequestsClient {
     }
 
     /// Cancels the caller's own request while it is pending, or approved but not yet activated.
-    ///
-    /// A managing approver withdraws an approval the requester has not started through the same
-    /// call, and must supply [`reason`](AccessRequestRevokeRequest::reason); the server records it
-    /// on their deny decision and refuses the call without one.
-    pub async fn cancel(
-        &self,
-        id: AccessRequestId,
-        request: AccessRequestRevokeRequest,
-    ) -> Result<(), AccessRequestError> {
+    pub async fn cancel(&self, id: AccessRequestId) -> Result<(), AccessRequestError> {
         self.api_configurations
             .api_client
             .access_requests_api()
-            .revoke(id.into(), Some(request.into()))
+            .revoke(id.into(), None)
             .await?;
 
         Ok(())
@@ -275,66 +266,13 @@ mod tests {
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.access_requests_api
                 .expect_revoke()
-                .returning(move |id, body| {
-                    assert_eq!(id, uuid::Uuid::from(request_id()));
-                    assert_eq!(body.and_then(|b| b.reason), None);
-                    Ok(())
-                })
+                .returning(move |_id, _body| Ok(()))
                 .once();
         });
 
-        let result = client(api_client)
-            .cancel(request_id(), AccessRequestRevokeRequest::default())
-            .await;
+        let result = client(api_client).cancel(request_id()).await;
 
         assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn cancel_sends_the_reason() {
-        let api_client = ApiClient::new_mocked(move |mock| {
-            mock.access_requests_api
-                .expect_revoke()
-                .returning(move |_id, body| {
-                    assert_eq!(
-                        body.and_then(|b| b.reason).as_deref(),
-                        Some("Approved by mistake")
-                    );
-                    Ok(())
-                })
-                .once();
-        });
-
-        let request = AccessRequestRevokeRequest {
-            reason: Some("Approved by mistake".to_string()),
-        };
-
-        let result = client(api_client).cancel(request_id(), request).await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn cancel_surfaces_api_error() {
-        let api_client = ApiClient::new_mocked(move |mock| {
-            mock.access_requests_api
-                .expect_revoke()
-                .returning(move |_id, _body| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
-                            status: reqwest::StatusCode::BAD_REQUEST,
-                            message: "A reason is required when revoking a request.".to_string(),
-                        },
-                    ))
-                })
-                .once();
-        });
-
-        let result = client(api_client)
-            .cancel(request_id(), AccessRequestRevokeRequest::default())
-            .await;
-
-        assert!(matches!(result, Err(AccessRequestError::Api(_))));
     }
 
     #[tokio::test]
