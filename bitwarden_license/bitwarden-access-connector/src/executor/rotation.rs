@@ -14,20 +14,17 @@ use std::{
 
 use bitwarden_core::{Client, OrganizationId};
 use bitwarden_generators::GeneratorClientsExt as _;
+use bitwarden_pam::VerifiedJob;
 use bitwarden_vault::Cipher;
 use chrono::Utc;
 
-use super::{
-    retry::{GatedOutcome, RetryCfg, with_retries, with_retries_gated},
-    verify::VerifiedJob,
-};
+use super::retry::{GatedOutcome, RetryCfg, with_retries, with_retries_gated};
 use crate::{
     api::{AccessConnectorClient, AccessConnectorClientExt as _, models::ApiError},
     auth::session::{SessionLost, SessionManager, SessionPhase},
     crypto::CryptoModuleError,
     error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
     integrations::{Integration, IntegrationRegistry, RotateContext},
-    policy,
     resolver::{CredentialResolver, ResolveError},
 };
 
@@ -184,7 +181,7 @@ pub(crate) async fn execute(job: VerifiedJob, ctx: &ExecutionContext) -> Executi
 
     tracing::info!(attempt_id = %attempt_id, "step 1: credentials resolved");
 
-    let gen_req = match policy::to_generator_request(job.password_policy()) {
+    let gen_req = match job.generator_request() {
         Ok(r) => r,
         Err(_) => {
             report_failure_absorb(
@@ -1037,6 +1034,8 @@ mod tests {
         cipher_id: uuid::Uuid,
         make: impl FnOnce() -> Vec<ResponseTemplate>,
     ) -> Run {
+        use bitwarden_pam::WorkSnapshot;
+        use bitwarden_pam_sealed::SealedTargetSystemKind;
         use tokio::sync::watch;
         use wiremock::{
             Mock, MockServer,
@@ -1044,17 +1043,11 @@ mod tests {
         };
 
         use crate::{
-            api::{
-                REQUEST_TIMEOUT, build_sdk_client,
-                models::{TargetKind, WorkSnapshot},
-            },
+            api::{REQUEST_TIMEOUT, build_sdk_client},
             auth::{identity::IdentityClient, session::SessionManager},
-            executor::verify::{
-                self,
-                test_support::{sample_config, sample_target, sealed_pair},
-            },
             integrations::IntegrationRegistry,
             resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
+            test_support::{sample_config, sample_target, sealed_pair},
         };
 
         // The cipher vectors are encrypted under this org key, so the session must install it.
@@ -1130,7 +1123,7 @@ mod tests {
             async fn resolve(
                 &self,
                 _id: uuid::Uuid,
-                _kind: TargetKind,
+                _kind: SealedTargetSystemKind,
             ) -> Result<ResolvedCredentials, ResolveError> {
                 Ok(ResolvedCredentials::new())
             }
@@ -1139,7 +1132,7 @@ mod tests {
         let integ = MockIntegration::always_ok();
         let rotate_calls = Arc::clone(&integ.rotate_calls);
         let mut registry = IntegrationRegistry::new();
-        registry.register(TargetKind::CustomScript, Arc::new(integ));
+        registry.register(SealedTargetSystemKind::CustomScript, Arc::new(integ));
 
         let (target_blob, config_blob) = sealed_pair(
             &store,
@@ -1176,7 +1169,9 @@ mod tests {
             rotation_config_wrapped_key: Some(config_blob.1),
             execute_by: Utc::now() + chrono::Duration::minutes(5),
         };
-        let job = verify::verify(snapshot, &store, test_org_id()).expect("well-formed claim");
+        let job = snapshot
+            .verify(&store, test_org_id())
+            .expect("well-formed claim");
 
         let result = execute(job, &exec_ctx).await;
         let calls = *rotate_calls.lock().unwrap();
