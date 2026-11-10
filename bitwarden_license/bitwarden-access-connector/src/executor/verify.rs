@@ -1,9 +1,10 @@
-//! Cross-checks a claim's two sealed blobs against each other and the plaintext claim (checks 1–7).
-//! Check 8, the pre-flight cipher read, needs the network and lives in `executor::rotation`.
+//! Cross-checks a claim's two sealed values against each other and the plaintext claim (checks
+//! 1–7). Check 8, the pre-flight cipher read, needs the network and lives in `executor::rotation`.
 //!
 //! Only [`verify`] can construct a [`VerifiedJob`], so `rotation::execute` never reads an
 //! uncross-checked claim field.
 
+use bitwarden_crypto::{EncString, safe::DataEnvelope};
 use bitwarden_pam_sealed::{
     RotationConfigSealedV1, SealedPasswordPolicy, SealedTargetSystemMethod, TargetSystemSealedV1,
     unseal_rotation_config, unseal_target_system,
@@ -113,27 +114,38 @@ pub(crate) fn verify(
     snapshot: WorkSnapshot,
     key_store: &AccessConnectorKeyStore,
 ) -> Result<VerifiedJob, SealRejection> {
-    // Check 1.
-    let target_blob = snapshot
+    // Check 1: both halves of each sealed value must be present and parse.
+    let (target_envelope, target_key) = snapshot
         .target_system_sealed_data
         .as_deref()
+        .zip(snapshot.target_system_wrapped_key.as_deref())
         .ok_or(SealRejection::MissingTargetBlob)?;
-    let config_blob = snapshot
+    let (config_envelope, config_key) = snapshot
         .rotation_config_sealed_data
         .as_deref()
+        .zip(snapshot.rotation_config_wrapped_key.as_deref())
         .ok_or(SealRejection::MissingConfigBlob)?;
+
+    let target_envelope: DataEnvelope = target_envelope
+        .parse()
+        .map_err(|_| SealRejection::TargetBlobInvalid)?;
+    let config_envelope: DataEnvelope = config_envelope
+        .parse()
+        .map_err(|_| SealRejection::ConfigBlobInvalid)?;
 
     let mut ctx = key_store.context_mut();
 
     let target: TargetSystemSealedV1 = unseal_target_system::<AccessConnectorKeySlotIds>(
-        target_blob,
+        &target_envelope,
+        &EncString::from(target_key),
         &AccessConnectorSymmSlotId::Organization,
         &mut ctx,
     )
     .map_err(|_| SealRejection::TargetBlobInvalid)?;
 
     let config: RotationConfigSealedV1 = unseal_rotation_config::<AccessConnectorKeySlotIds>(
-        config_blob,
+        &config_envelope,
+        &EncString::from(config_key),
         &AccessConnectorSymmSlotId::Organization,
         &mut ctx,
     )
@@ -187,8 +199,12 @@ pub(crate) fn verify(
 #[cfg(test)]
 pub(crate) mod test_support {
     use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+    use bitwarden_pam_sealed::Sealed;
 
     use super::*;
+
+    /// `(sealedData, wrappedKey)` as sent over the wire.
+    pub(crate) type SealedStrings = (String, String);
 
     /// A key store holding a fresh organization key, which is also returned.
     pub(crate) fn store_with_org_key() -> (AccessConnectorKeyStore, SymmetricCryptoKey) {
@@ -237,17 +253,21 @@ pub(crate) mod test_support {
         job_id: Uuid,
         target_system_id: Uuid,
         cipher_id: Uuid,
-        target_blob: Option<String>,
-        config_blob: Option<String>,
+        target_blob: Option<SealedStrings>,
+        config_blob: Option<SealedStrings>,
     ) -> WorkSnapshot {
+        let (target_data, target_key) = target_blob.unzip();
+        let (config_data, config_key) = config_blob.unzip();
         WorkSnapshot {
             attempt_id,
             job_id,
             target_system_id,
             target_system_name: "test-system".to_owned(),
             cipher_id,
-            target_system_sealed_data: target_blob,
-            rotation_config_sealed_data: config_blob,
+            target_system_sealed_data: target_data,
+            target_system_wrapped_key: target_key,
+            rotation_config_sealed_data: config_data,
+            rotation_config_wrapped_key: config_key,
             execute_by: Utc::now() + chrono::Duration::minutes(5),
         }
     }
@@ -256,7 +276,7 @@ pub(crate) mod test_support {
         store: &AccessConnectorKeyStore,
         target: TargetSystemSealedV1,
         config: RotationConfigSealedV1,
-    ) -> (String, String) {
+    ) -> (SealedStrings, SealedStrings) {
         let mut ctx = store.context_mut();
         let target_blob = bitwarden_pam_sealed::seal_target_system::<AccessConnectorKeySlotIds>(
             target,
@@ -270,7 +290,12 @@ pub(crate) mod test_support {
             &mut ctx,
         )
         .expect("seal config");
-        (target_blob, config_blob)
+        (strings(target_blob), strings(config_blob))
+    }
+
+    /// Wire form of a [`Sealed`]: `(sealedData, wrappedKey)`.
+    pub(crate) fn strings(sealed: Sealed) -> SealedStrings {
+        (sealed.envelope.to_string(), sealed.wrapped_key.to_string())
     }
 }
 
@@ -365,11 +390,63 @@ mod tests {
     }
 
     #[test]
-    fn garbage_target_blob_is_rejected() {
+    fn target_sealed_data_without_wrapped_key_is_rejected() {
         let (store, _org_key) = store_with_org_key();
         let target_system_id = Uuid::new_v4();
         let cipher_id = Uuid::new_v4();
-        let (_target_blob, config_blob) = sealed_pair(
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let mut snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
+        snapshot.target_system_wrapped_key = None;
+        assert_eq!(
+            verify(snapshot, &store).unwrap_err(),
+            SealRejection::MissingTargetBlob
+        );
+    }
+
+    #[test]
+    fn config_sealed_data_without_wrapped_key_is_rejected() {
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let (target_blob, config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let mut snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(target_blob),
+            Some(config_blob),
+        );
+        snapshot.rotation_config_wrapped_key = None;
+        assert_eq!(
+            verify(snapshot, &store).unwrap_err(),
+            SealRejection::MissingConfigBlob
+        );
+    }
+
+    #[test]
+    fn unparseable_wrapped_key_is_rejected() {
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let ((target_data, _), config_blob) = sealed_pair(
             &store,
             sample_target(target_system_id),
             sample_config(target_system_id, cipher_id),
@@ -380,7 +457,63 @@ mod tests {
             Uuid::new_v4(),
             target_system_id,
             cipher_id,
-            Some("not a sealed blob".to_owned()),
+            Some((target_data, "not a wrapped key".to_owned())),
+            Some(config_blob),
+        );
+        assert_eq!(
+            verify(snapshot, &store).unwrap_err(),
+            SealRejection::TargetBlobInvalid
+        );
+    }
+
+    #[test]
+    fn wrapped_key_from_a_different_seal_is_rejected() {
+        // Envelope from one seal, wrapped key from another: the key does not open the envelope.
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let ((target_data, _), config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+        let ((_, other_key), _) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some((target_data, other_key)),
+            Some(config_blob),
+        );
+        assert_eq!(
+            verify(snapshot, &store).unwrap_err(),
+            SealRejection::TargetBlobInvalid
+        );
+    }
+
+    #[test]
+    fn garbage_target_blob_is_rejected() {
+        let (store, _org_key) = store_with_org_key();
+        let target_system_id = Uuid::new_v4();
+        let cipher_id = Uuid::new_v4();
+        let ((_, target_key), config_blob) = sealed_pair(
+            &store,
+            sample_target(target_system_id),
+            sample_config(target_system_id, cipher_id),
+        );
+
+        let snapshot = work_snapshot(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            target_system_id,
+            cipher_id,
+            Some(("not a sealed blob".to_owned(), target_key)),
             Some(config_blob),
         );
         assert_eq!(
@@ -398,12 +531,14 @@ mod tests {
 
         let wrong_key_target_blob = {
             let mut ctx = other_store.context_mut();
-            seal_target_system::<AccessConnectorKeySlotIds>(
-                sample_target(target_system_id),
-                &AccessConnectorSymmSlotId::Organization,
-                &mut ctx,
+            strings(
+                seal_target_system::<AccessConnectorKeySlotIds>(
+                    sample_target(target_system_id),
+                    &AccessConnectorSymmSlotId::Organization,
+                    &mut ctx,
+                )
+                .expect("seal under other store's key"),
             )
-            .expect("seal under other store's key")
         };
         let (_target_blob, config_blob) = sealed_pair(
             &store,
@@ -440,12 +575,14 @@ mod tests {
         );
         let wrong_config_blob = {
             let mut ctx = store.context_mut();
-            seal_rotation_config::<AccessConnectorKeySlotIds>(
-                sample_config(target_system_id, other_cipher_id),
-                &AccessConnectorSymmSlotId::Organization,
-                &mut ctx,
+            strings(
+                seal_rotation_config::<AccessConnectorKeySlotIds>(
+                    sample_config(target_system_id, other_cipher_id),
+                    &AccessConnectorSymmSlotId::Organization,
+                    &mut ctx,
+                )
+                .expect("seal a different config"),
             )
-            .expect("seal a different config")
         };
 
         let snapshot = work_snapshot(
@@ -471,12 +608,14 @@ mod tests {
 
         let wrong_target_blob = {
             let mut ctx = store.context_mut();
-            seal_target_system::<AccessConnectorKeySlotIds>(
-                sample_target(other_target_id),
-                &AccessConnectorSymmSlotId::Organization,
-                &mut ctx,
+            strings(
+                seal_target_system::<AccessConnectorKeySlotIds>(
+                    sample_target(other_target_id),
+                    &AccessConnectorSymmSlotId::Organization,
+                    &mut ctx,
+                )
+                .expect("seal a different target"),
             )
-            .expect("seal a different target")
         };
         let (_matching_target_blob, config_blob) = sealed_pair(
             &store,
