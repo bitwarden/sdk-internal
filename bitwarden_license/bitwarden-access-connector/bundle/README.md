@@ -305,6 +305,7 @@ If the connector stops instead, check the log and the exit code:
 | `2`  | The token was refused                         | Have an admin issue a new token                                             |
 | `3`  | The connector isn't allowed to rotate         | Check the connector isn't revoked, the license is active and PAM is enabled |
 | `4`  | Couldn't sign in, for example a network error | Check the host can reach your Bitwarden server                              |
+| `5`  | Another `bwac` is running with the same token | Stop the other one, for example a `bwac` started from a console             |
 
 To see the exit code, run `systemctl status bwac` on Linux,
 `sudo launchctl print system/com.bitwarden.bwac` on macOS, or
@@ -337,7 +338,7 @@ A token belongs to one organization, so a host that rotates for several organiza
 connector per organization. Give each its own config file, environment file, state directory and
 service, for example `/etc/bwac/acme/config.toml`, `/etc/bwac/acme/env`, `/var/lib/bwac/acme` and
 `bwac-acme.service`. The connectors can share the binary, the service account and the scripts
-directory.
+directory, but not a token: a second `bwac` started with the same token exits with `5`.
 
 On Windows, pass `-Name acme` to `Install-AccessConnector.ps1`. The connector gets its own
 `C:\ProgramData\Bitwarden\bwac\acme` folder for `config.toml`, `env` and `logs`, and a task named
