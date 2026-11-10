@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches: ["main"]
+    paths:
+      - "protocols/**"
+      - ".github/workflows/verifpal.yml"
   pull_request:
     paths:
       - "protocols/**"
       - ".github/workflows/verifpal.yml"
-
-env:
-  VERIFPAL_REV: b02e677bff5a0e4f61c5c6939015cef05faa69a0 # v1.6.7
 
 permissions:
   contents: read
@@ -33,8 +33,22 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
+      - name: Cache cargo-run-bin tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .bin
+          key: cargo-bin-${{ runner.os }}-verifpal-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
+          restore-keys: |
+            cargo-bin-${{ runner.os }}-verifpal-
+
+      - name: Install cargo-run-bin
+        run: cargo install cargo-run-bin --locked --version 1.7.4
+
+      - name: Check cargo-binstall is not configured
+        run: ./scripts/check-no-binstall.sh
+
       - name: Build Verifpal
-        run: cargo install verifpal --git https://github.com/symbolicsoft/verifpal --rev "$VERIFPAL_REV" --locked
+        run: cargo bin verifpal --version
 
       # Findings (attacks) are expected and do not fail the job.
       # Parse and analysis errors exit non-zero and do.
@@ -48,6 +62,6 @@ jobs:
           fi
           for model in "${models[@]}"; do
             echo "::group::$model"
-            verifpal verify "$model"
+            cargo bin verifpal verify "$model"
             echo "::endgroup::"
           done
