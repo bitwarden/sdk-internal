@@ -17,22 +17,26 @@
 //!
 //! On entering `Revoked` or `Closed`:
 //! - The stored bearer token is dropped, clearing the secret string.
-//! - The shared `KeyStore` is replaced with a fresh empty store, clearing the
-//!   `Organization` slot (spec: session fields nulled on leaving active).
+//! - The shared `KeyStore` is replaced with a fresh empty store, clearing the `Organization` slot
+//!   (spec: session fields nulled on leaving active).
 //!
 //! On every successful authentication the org key is re-derived from the fresh
 //! `encrypted_payload` (spec: `HandleAuthenticationSucceeded` re-derives on
 //! every refresh).
 
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use bitwarden_crypto::KeyStore;
 use tokio::sync::{Mutex, watch};
 
-use crate::auth::identity::{AuthError, AuthSuccess, IdentityClient};
-use crate::crypto::{DaemonKeySlotIds, DaemonKeyStore, unwrap_org_key};
-use crate::token::DaemonToken;
+use crate::{
+    auth::identity::{AuthError, AuthSuccess, IdentityClient},
+    crypto::{DaemonKeySlotIds, DaemonKeyStore, unwrap_org_key},
+    token::DaemonToken,
+};
 
 /// 5-minute proactive renewal margin (mirrors `TOKEN_RENEW_MARGIN_SECONDS` in
 /// `crates/bitwarden-auth/src/token_management/middleware.rs:8`).
@@ -239,8 +243,8 @@ impl SessionManager {
     ///
     /// - `Active` and not within the proactive renewal margin → immediate return.
     /// - Otherwise → coalesced renewal under the mutex.
-    /// - Transient errors → retried with capped exponential backoff up to `deadline`
-    ///   (or [`NO_DEADLINE_MAX_TRIES`] total tries when `deadline` is `None`).
+    /// - Transient errors → retried with capped exponential backoff up to `deadline` (or
+    ///   [`NO_DEADLINE_MAX_TRIES`] total tries when `deadline` is `None`).
     /// - `Rejected` → phase → `Revoked`, secrets cleared, `Err(Lost(Revoked))`.
     pub(crate) async fn bearer(&self, deadline: Option<Instant>) -> Result<String, SessionError> {
         // Fast-path: check current state without holding the mutex across a
@@ -461,14 +465,14 @@ mod tests {
         KeyDecryptable, PrimitiveEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm,
         derive_shareable_key,
     };
-    use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
+    };
     use zeroize::Zeroizing;
 
     use super::*;
-    use crate::auth::identity::IdentityClient;
-    use crate::crypto::DaemonSymmSlotId;
-    use crate::token::DaemonToken;
+    use crate::{auth::identity::IdentityClient, crypto::DaemonSymmSlotId, token::DaemonToken};
 
     const VALID_TOKEN_STR: &str = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
