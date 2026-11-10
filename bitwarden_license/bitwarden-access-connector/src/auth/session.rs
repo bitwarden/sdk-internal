@@ -57,21 +57,14 @@ pub(crate) enum SessionLost {
 }
 
 /// Errors returned by [`SessionManager::bearer`] and [`SessionManager::force_refresh`].
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum SessionError {
     /// The session is terminally lost (revoked or closed).
+    #[error("session lost: {0:?}")]
     Lost(SessionLost),
     /// Renewal failed without a rejection (network, 5xx, malformed response); retryable.
+    #[error("transient renewal error: {0}")]
     Transient(String),
-}
-
-impl std::fmt::Display for SessionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Lost(l) => write!(f, "session lost: {l:?}"),
-            Self::Transient(s) => write!(f, "transient renewal error: {s}"),
-        }
-    }
 }
 
 struct SessionState {
