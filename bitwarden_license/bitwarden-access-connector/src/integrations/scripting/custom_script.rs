@@ -162,8 +162,8 @@ mod tests {
     /// Paths are never touched here: `build_command` and `run_operation` take the script path
     /// as given, and only the public `rotate`/`verify`/`terminate_sessions` entry points
     /// canonicalise. Those are covered by `tests/scripting_integration.rs`.
-    const SH_SCRIPT: &str = "/opt/bwrd/rotate.sh";
-    const PS_SCRIPT: &str = "/opt/bwrd/rotate.ps1";
+    const SH_SCRIPT: &str = "/opt/bwac/rotate.sh";
+    const PS_SCRIPT: &str = "/opt/bwac/rotate.ps1";
     const HOST: &str = "/usr/local/bin/pwsh";
 
     fn ctx_with(creds: ResolvedCredentials) -> RotateContext {
@@ -244,7 +244,7 @@ mod tests {
         // the allowlisted names may reach the child.
         let env = FakeEnv::from([
             ("PATH", "/usr/bin"),
-            ("BWRD_TOKEN", "SENTINEL_TOKEN"),
+            ("BWAC_TOKEN", "SENTINEL_TOKEN"),
             (
                 "A1B2C3D4_0000_0000_0000_000000000001_CLIENT_SECRET",
                 "SENTINEL_SECRET",
