@@ -5,11 +5,12 @@
 
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 
+use bitwarden_access_token::{AccessToken, AccessTokenKind};
+
 use crate::{
     cli::RunArgs,
     error::AccessConnectorError,
     executor::{AccessConnectorConfig, retry::RetryCfg},
-    token::AccessConnectorToken,
 };
 
 const MIN_POLL_INTERVAL_SECS: u64 = 15;
@@ -165,9 +166,7 @@ impl Config {
         };
 
         // Token parse errors must not echo the token string.
-        let token: AccessConnectorToken = token_str
-            .trim()
-            .parse()
+        let token = AccessToken::parse(token_str.trim(), AccessTokenKind::AccessConnector)
             .map_err(|e| AccessConnectorError::InvalidToken(format!("{e}")))?;
 
         // Drop the plaintext token as soon as it is parsed.
