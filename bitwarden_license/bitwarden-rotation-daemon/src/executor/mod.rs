@@ -44,21 +44,23 @@ use retry::RetryCfg;
 use rotation::{AbortReason, ExecutionContext, ExecutionResult, execute};
 
 // ---------------------------------------------------------------------------
-// ConnectivityMonitor
+// ConnectivityMonitor (gate arm 5 — not yet wired into the poll loop)
 // ---------------------------------------------------------------------------
 
 /// Watches the `connectivity_tx` watch channel and tracks whether the daemon
 /// has recently received a successful server response.
 ///
-/// The monitor is used by the step-boundary gate (arm 5) to detect network
-/// partitions: if no successful API call has been received within
+/// The monitor will be used by the step-boundary gate (arm 5) to detect
+/// network partitions: if no successful API call has been received within
 /// `offline_grace`, the daemon pauses target-side steps until connectivity
 /// recovers or `execute_by` expires.
+#[cfg(test)]
 pub(crate) struct ConnectivityMonitor {
     rx: watch::Receiver<Instant>,
     offline_grace: Duration,
 }
 
+#[cfg(test)]
 impl ConnectivityMonitor {
     /// Build a monitor from the receiver side of the connectivity watch channel.
     pub(crate) fn new(rx: watch::Receiver<Instant>, offline_grace: Duration) -> Self {

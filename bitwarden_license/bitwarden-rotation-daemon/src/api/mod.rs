@@ -171,8 +171,10 @@ pub(crate) fn build_api_client(
     base_url: impl Into<String>,
     session: Arc<SessionManager>,
 ) -> ApiClient {
+    // Do not follow redirects: a cross-host redirect could leak the bearer token.
     let http_client = bitwarden_api_base::new_http_client_builder()
         .timeout(Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .expect("HTTP client build should not fail");
 
@@ -454,7 +456,7 @@ enum Route {
 }
 
 /// Classify a generated API error into an [`ApiError`].
-fn classify_error(err: bitwarden_api_base::Error, client: &ApiClient, route: Route) -> ApiError {
+fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Route) -> ApiError {
     use bitwarden_api_base::Error;
 
     match err {
@@ -647,7 +649,7 @@ mod tests {
     use super::*;
     use crate::auth::identity::IdentityClient;
     use crate::auth::session::SessionManager;
-    use crate::error::{FailureCode, SafeDetail, SessionTermination, SyncState};
+    use crate::error::{FailureCode, SafeDetail, SyncState};
 
     // ── Shared test helpers ────────────────────────────────────────────────
 
