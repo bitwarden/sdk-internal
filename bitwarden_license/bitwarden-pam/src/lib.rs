@@ -50,6 +50,6 @@ pub use rotation::{
     RotationSyncState, RotationValidationError, SealRejection, SessionTerminationOutcome,
     TargetSystemCreateError, TargetSystemCreateRequest, TargetSystemKind, TargetSystemMethod,
     TargetSystemSealedFields, TargetSystemStatus, TargetSystemView, TargetSystemsClient,
-    VerifiedJob, WorkSnapshot, WorkSnapshotError, decrypt_cipher_for_rotation,
-    is_likely_quartz_cron, preset_for_cron, rotate_cipher_password, rotation_config_actions,
+    VerifiedJob, WorkSnapshot, WorkSnapshotError, is_likely_quartz_cron, preset_for_cron,
+    rotate_cipher_password, rotation_config_actions,
 };
