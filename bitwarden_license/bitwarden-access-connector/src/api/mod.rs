@@ -21,7 +21,7 @@ use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::{
-    auth::session::{SessionLost, SessionManager},
+    auth::session::{SessionError, SessionManager},
     error::{FailureCode, SafeDetail, SessionTermination, SyncState},
 };
 
@@ -41,14 +41,14 @@ impl AccessConnectorAuthMiddleware {
         self.session
             .bearer(None)
             .await
-            .map_err(|e| reqwest_middleware::Error::Middleware(anyhow::anyhow!("{e}")))
+            .map_err(|e| reqwest_middleware::Error::Middleware(anyhow::Error::new(e)))
     }
 
     async fn force_refresh_bearer(&self, stale: &str) -> Result<String, reqwest_middleware::Error> {
         self.session
             .force_refresh(stale, None)
             .await
-            .map_err(|e| reqwest_middleware::Error::Middleware(anyhow::anyhow!("{e}")))
+            .map_err(|e| reqwest_middleware::Error::Middleware(anyhow::Error::new(e)))
     }
 }
 
@@ -343,15 +343,12 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
             }
         }
         Error::ReqwestMiddleware(mw_err) => {
-            // get_bearer and force_refresh_bearer build this message from the session error's
-            // Display ("session lost: Revoked" or "session lost: Closed"), never from credentials.
-            let msg = mw_err.to_string();
-            if msg.contains("session lost") {
-                if msg.contains("Revoked") {
-                    ApiError::SessionLost(SessionLost::Revoked)
-                } else {
-                    ApiError::SessionLost(SessionLost::Closed)
-                }
+            // get_bearer and force_refresh_bearer keep the SessionError typed inside the middleware
+            // error, so session loss is detected by type rather than by message.
+            if let reqwest_middleware::Error::Middleware(inner) = &mw_err
+                && let Some(SessionError::Lost(l)) = inner.downcast_ref::<SessionError>()
+            {
+                ApiError::SessionLost(*l)
             } else {
                 ApiError::Transient(format!(
                     "middleware: {}",
@@ -466,7 +463,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        auth::{identity::IdentityClient, session::SessionManager},
+        auth::{
+            identity::IdentityClient,
+            session::{SessionLost, SessionManager},
+        },
         error::{FailureCode, SafeDetail, SyncState},
         test_support::{encrypted_payload_for, test_token},
     };
@@ -493,6 +493,27 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/connect/token"))
             .respond_with(identity_success_response(bearer, 3600, &payload))
+            .mount(identity_server)
+            .await;
+
+        let identity_client = IdentityClient::new(identity_server.uri()).expect("identity client");
+        SessionManager::new(identity_client, test_token())
+            .await
+            .expect("SessionManager::new")
+    }
+
+    /// Like [`make_session`], but only the first token request succeeds; later requests fall
+    /// through to whatever the test mounts next.
+    async fn make_session_once(identity_server: &MockServer, bearer: &str) -> Arc<SessionManager> {
+        let org_key = bitwarden_crypto::SymmetricCryptoKey::make(
+            bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac,
+        );
+        let payload = encrypted_payload_for(&org_key);
+
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(identity_success_response(bearer, 3600, &payload))
+            .up_to_n_times(1)
             .mount(identity_server)
             .await;
 
@@ -1129,6 +1150,85 @@ mod tests {
             api_reqs.len(),
             2,
             "exactly 2 API requests expected (401 attempt + retry)"
+        );
+    }
+
+    /// Mounts a 401 on the jobs endpoint, so every authenticated call forces a session refresh.
+    async fn mount_jobs_401(api_server: &MockServer) {
+        Mock::given(method("GET"))
+            .and(path("/access-connectors/rotation/jobs"))
+            .respond_with(ResponseTemplate::new(401))
+            .mount(api_server)
+            .await;
+    }
+
+    #[tokio::test]
+    async fn forced_refresh_rejected_maps_to_session_lost_revoked() {
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+        let session = make_session_once(&identity_server, "bearer-1").await;
+        // The first token request succeeded; the forced refresh is rejected.
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(400)
+                    .set_body_string(r#"{"error":"invalid_client"}"#)
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&identity_server)
+            .await;
+        mount_jobs_401(&api_server).await;
+
+        let (api, _rx) = make_rotation_api(&api_server, session);
+
+        let err = api.poll_jobs().await.expect_err("revoked mid-session");
+        assert!(
+            matches!(err, ApiError::SessionLost(SessionLost::Revoked)),
+            "expected SessionLost(Revoked), got {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn call_after_session_close_maps_to_session_lost_closed() {
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+        let session = make_session(&identity_server, "bearer-1").await;
+        session.close().await;
+
+        let (api, _rx) = make_rotation_api(&api_server, session);
+
+        let err = api.poll_jobs().await.expect_err("session closed");
+        assert!(
+            matches!(err, ApiError::SessionLost(SessionLost::Closed)),
+            "expected SessionLost(Closed), got {err:?}"
+        );
+        assert!(
+            api_server.received_requests().await.unwrap().is_empty(),
+            "no request should reach the API once the session is closed"
+        );
+    }
+
+    // Runs in real time (~3 s of session backoff): paused time breaks the HTTP client's connect
+    // timeout.
+    #[tokio::test]
+    async fn forced_refresh_transient_failure_maps_to_transient() {
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+        let session = make_session_once(&identity_server, "bearer-1").await;
+        // The first token request succeeded; the forced refresh keeps failing with a 5xx.
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(ResponseTemplate::new(503))
+            .mount(&identity_server)
+            .await;
+        mount_jobs_401(&api_server).await;
+
+        let (api, _rx) = make_rotation_api(&api_server, session);
+
+        let err = api.poll_jobs().await.expect_err("refresh keeps failing");
+        assert!(
+            matches!(err, ApiError::Transient(_)),
+            "expected Transient, got {err:?}"
         );
     }
 }
