@@ -1,19 +1,6 @@
 #!/bin/sh
-# Fixture: reads the JSON payload from stdin, extracts the "OUT_PATH" field
-# from the credentials map, and writes the full stdin payload to that path.
-#
-# Usage (invoked by the daemon as):  copy_stdin.sh <operation>
-#
-# The payload JSON is expected on stdin:
-# {
-#   "operation": "rotate",
-#   "targetSystemId": "...",
-#   "accountIdentity": "...",
-#   "newPassword": "...",
-#   "credentials": { "OUT_PATH": "/tmp/out.json", ... }
-# }
-#
-# The script writes the payload to the file named by credentials.OUT_PATH.
+# Fixture: reads stdin's JSON, extracts "OUT_PATH" from the credentials map, and writes the
+# full stdin payload there. Invoked as: copy_stdin.sh <operation>
 
 set -e
 

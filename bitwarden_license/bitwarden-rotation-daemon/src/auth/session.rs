@@ -9,20 +9,7 @@
 //!                         → closed   (terminal: explicit shutdown)
 //! ```
 //!
-//! The machine is driven by [`SessionManager::bearer`] (proactive renew) and
-//! [`SessionManager::force_refresh`] (401-driven renew), both coalesced under a
-//! single [`tokio::sync::Mutex`].  At most one identity call is in flight at any
-//! given time: all other callers wait on the mutex and pick up the result after
-//! the renewal completes.
-//!
-//! On entering `Revoked` or `Closed`:
-//! - The stored bearer token is dropped, clearing the secret string.
-//! - The shared `KeyStore` is replaced with a fresh empty store, clearing the `Organization` slot
-//!   (spec: session fields nulled on leaving active).
-//!
-//! On every successful authentication the org key is re-derived from the fresh
-//! `encrypted_payload` (spec: `HandleAuthenticationSucceeded` re-derives on
-//! every refresh).
+//! Entering `Revoked` or `Closed` drops the bearer and replaces the key store with a fresh one.
 
 use std::{
     sync::Arc,
@@ -48,12 +35,8 @@ const BACKOFF_BASE: Duration = Duration::from_secs(1);
 /// Maximum single backoff sleep.
 const BACKOFF_CAP: Duration = Duration::from_secs(30);
 
-/// How many renewal attempts to make when `deadline` is `None`.
+/// Renewal attempt count for a `None` deadline.
 const NO_DEADLINE_MAX_TRIES: u32 = 3;
-
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
 
 /// Observable phases of the daemon session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,10 +80,6 @@ impl std::fmt::Display for SessionError {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Internal state
-// ---------------------------------------------------------------------------
-
 /// The mutable state protected by the session mutex.
 struct SessionState {
     phase: SessionPhase,
@@ -115,13 +94,11 @@ struct SessionState {
 }
 
 impl SessionState {
-    /// True if the stored bearer is within or past the proactive renewal margin.
+    /// Whether the stored bearer is within or past the proactive renewal margin.
     fn needs_renewal(&self) -> bool {
         match self.expires_at {
             Some(t) => {
                 let margin = Duration::from_secs(TOKEN_RENEW_MARGIN_SECS);
-                // t.checked_duration_since(now) gives "how long until expiry";
-                // if that's <= margin (or None, i.e. already expired), renew.
                 match t.checked_duration_since(Instant::now()) {
                     Some(remaining) => remaining <= margin,
                     None => true, // already expired
@@ -153,7 +130,7 @@ impl SessionState {
         )
         .map_err(|e| e.to_string())?;
 
-        // Expose the bearer string once; it is stored internally (never logged).
+        // Bearer is exposed here only to store it internally; never logged.
         self.bearer = Some(success.access_token.expose().to_owned());
         self.expires_at = Some(expires_at);
         self.set_phase(SessionPhase::Active);
@@ -169,22 +146,16 @@ impl SessionState {
         self.set_phase(phase);
         self.bearer = None;
         self.expires_at = None;
-        // Replace key store with a fresh empty one — clears the Organization slot.
+        // Replace key store with a fresh empty one; clears the Organization slot.
         self.key_store = Arc::new(KeyStore::default());
     }
 }
 
-// ---------------------------------------------------------------------------
-// SessionManager
-// ---------------------------------------------------------------------------
-
 /// Manages the daemon session lifecycle.
 ///
-/// Wraps an [`IdentityClient`] and a [`DaemonToken`] to implement the
-/// `DaemonSession` state machine.  All mutable state is behind an async
-/// `Mutex`; at most one renewal is in flight at any time.
-///
-/// `Debug` is implemented manually to avoid leaking the token or bearer.
+/// Wraps an [`IdentityClient`] and a [`DaemonToken`]; all mutable state is behind an
+/// async `Mutex`, so at most one renewal is in flight at a time. `Debug` is
+/// implemented manually to avoid leaking the token or bearer.
 pub(crate) struct SessionManager {
     state: Mutex<SessionState>,
     identity: IdentityClient,
@@ -198,10 +169,9 @@ impl std::fmt::Debug for SessionManager {
 }
 
 impl SessionManager {
-    /// Build a new `SessionManager` and perform the initial authentication.
-    ///
-    /// Returns `Err(SessionError::Lost(Revoked))` if the credential is rejected
-    /// immediately; callers may treat any returned error as a fatal startup failure.
+    /// Build a new `SessionManager` and perform the initial authentication; an
+    /// immediately rejected credential returns `Err(SessionError::Lost(Revoked))`,
+    /// which callers should treat as a fatal startup failure.
     pub(crate) async fn new(
         identity: IdentityClient,
         token: DaemonToken,
@@ -229,23 +199,21 @@ impl SessionManager {
         Ok(mgr)
     }
 
-    /// Returns a clone of the current phase.
+    /// The current session phase.
     pub(crate) async fn phase(&self) -> SessionPhase {
         self.state.lock().await.phase
     }
 
-    /// Returns a reference to the shared key store.
+    /// The shared key store.
     pub(crate) async fn key_store(&self) -> Arc<DaemonKeyStore> {
         Arc::clone(&self.state.lock().await.key_store)
     }
 
-    /// Obtain a valid bearer token, renewing if necessary.
+    /// Obtain a valid bearer token, renewing as needed.
     ///
-    /// - `Active` and not within the proactive renewal margin → immediate return.
-    /// - Otherwise → coalesced renewal under the mutex.
-    /// - Transient errors → retried with capped exponential backoff up to `deadline` (or
-    ///   [`NO_DEADLINE_MAX_TRIES`] total tries when `deadline` is `None`).
-    /// - `Rejected` → phase → `Revoked`, secrets cleared, `Err(Lost(Revoked))`.
+    /// Retries transient errors with capped backoff up to `deadline` ([`NO_DEADLINE_MAX_TRIES`]
+    /// caps a `None` deadline); a rejected credential clears secrets and returns
+    /// `Err(Lost(Revoked))`.
     pub(crate) async fn bearer(&self, deadline: Option<Instant>) -> Result<String, SessionError> {
         // Fast-path: check current state without holding the mutex across a
         // potential network call.
@@ -263,7 +231,7 @@ impl SessionManager {
                 }
                 _ => {}
             }
-            // Guard dropped here — another task may have renewed by the time we re-acquire.
+            // Guard is dropped here; another task may renew before it is re-acquired.
         }
 
         self.renew_with_backoff(deadline, false).await?;
@@ -274,11 +242,8 @@ impl SessionManager {
 
     /// Force a session refresh on the 401 path.
     ///
-    /// If the stored bearer already differs from `stale` (a concurrent task
-    /// already renewed — the `resolve_retry` pattern from middleware.rs:93–101),
-    /// the current bearer is returned without another identity call.
-    ///
-    /// Otherwise renews unconditionally, ignoring the proactive-margin check.
+    /// A bearer already differing from `stale` means a concurrent task already renewed it (the
+    /// `resolve_retry` pattern) and is returned as-is; a match forces an unconditional renewal.
     pub(crate) async fn force_refresh(
         &self,
         stale: &str,
@@ -291,7 +256,7 @@ impl SessionManager {
                 SessionPhase::Closed => return Err(SessionError::Lost(SessionLost::Closed)),
                 _ => {}
             }
-            // resolve_retry: if the token already changed, reuse the new one.
+            // resolve_retry pattern: reuse a token already changed by a concurrent task.
             if let Some(current) = &guard.bearer
                 && current != stale
             {
@@ -299,7 +264,7 @@ impl SessionManager {
             }
         }
 
-        // `force=true` skips the `Active && !needs_renewal()` coalescing guard.
+        // force=true skips the active-and-fresh coalescing guard.
         self.renew_with_backoff(deadline, true).await?;
 
         let guard = self.state.lock().await;
@@ -314,25 +279,10 @@ impl SessionManager {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Internal helpers
-    // -----------------------------------------------------------------------
-
     /// Attempt to renew the session with backoff, serialised via the mutex.
     ///
-    /// **Coalescing**: the `tokio::sync::Mutex` is held across the network call.
-    /// Concurrent callers block on the lock; once the renewing task releases it
-    /// (success or terminal error), the next waiter acquires the lock and sees the
-    /// updated phase — `Active` → returns the stored token, `Revoked`/`Closed` →
-    /// short-circuits with `Lost`.  This ensures exactly one in-flight identity
-    /// call at any time.
-    ///
-    /// **Backoff**: on transient errors the lock is released for the sleep
-    /// (so `close()` can still run), then re-acquired for the next attempt.
-    ///
-    /// `force`: when `true` (401 path via `force_refresh`), the
-    /// `Active && !needs_renewal()` coalescing short-circuit is bypassed on the
-    /// first attempt — a forced renewal always issues at least one network call.
+    /// The mutex is held across the network call, so at most one identity call runs at a time;
+    /// it releases during the backoff sleep so `close()` can still run.
     async fn renew_with_backoff(
         &self,
         deadline: Option<Instant>,
@@ -343,15 +293,13 @@ impl SessionManager {
         let mut first_attempt = true;
 
         loop {
-            // --- Acquire the lock ---
             let mut guard = self.state.lock().await;
 
             // Terminal checks and coalescing short-circuits.
             match guard.phase {
                 SessionPhase::Revoked => return Err(SessionError::Lost(SessionLost::Revoked)),
                 SessionPhase::Closed => return Err(SessionError::Lost(SessionLost::Closed)),
-                // Coalescing: a concurrent renewer already completed.
-                // Skip on the first attempt when `force=true` (401 path).
+                // Coalescing check, skipped on the first attempt under force=true.
                 SessionPhase::Active if !(guard.needs_renewal() || force && first_attempt) => {
                     return Ok(());
                 }
@@ -361,10 +309,7 @@ impl SessionManager {
 
             guard.set_phase(SessionPhase::Authenticating);
 
-            // --- Network call while holding the lock ---
-            // Other tasks that call bearer() will block here; when we release the
-            // lock they will see the new phase (Active / Revoked / Expired) and act
-            // accordingly, yielding the coalescing property.
+            // Other callers of bearer() block here until the lock releases.
             let result = self.identity.authenticate(&self.token).await;
 
             match result {
@@ -387,8 +332,8 @@ impl SessionManager {
                 }
                 Err(AuthError::Rejected) => {
                     guard.enter_terminal(SessionLost::Revoked);
-                    // Terminal — executor logs the actionable operator message;
-                    // we log the phase transition here.
+                    // Terminal; the executor logs the actionable message, this logs
+                    // the phase transition.
                     tracing::warn!(
                         "session entered Revoked phase (credential rejected by identity server)"
                     );
@@ -448,7 +393,6 @@ impl SessionManager {
                             retry = tries,
                             "session renewal failed (protocol error): {err_msg}; giving up after {tries} attempts"
                         );
-                        // Lock released when `guard` drops.
                         return Err(SessionError::Transient(err_msg));
                     }
 
@@ -480,8 +424,8 @@ impl SessionManager {
     }
 }
 
-/// Compute the sleep duration: `delay` capped by time remaining until `deadline`.
-/// Returns `Duration::ZERO` if the deadline has already passed.
+/// Compute the sleep duration: `delay` capped by time remaining until `deadline`, or
+/// `Duration::ZERO` after the deadline passes.
 fn compute_sleep(delay: Duration, deadline: Option<Instant>) -> Duration {
     match deadline {
         None => delay.min(BACKOFF_CAP),
@@ -494,10 +438,6 @@ fn compute_sleep(delay: Duration, deadline: Option<Instant>) -> Duration {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -571,8 +511,6 @@ mod tests {
             .set_body_string(r#"{"error":"invalid_client"}"#)
             .insert_header("content-type", "application/json")
     }
-
-    // -----------------------------------------------------------------------
 
     #[tokio::test]
     async fn successful_auth_populates_bearer_and_org_key() {
@@ -854,8 +792,8 @@ mod tests {
 
     #[tokio::test]
     async fn force_refresh_reuses_token_if_already_renewed() {
-        // Tests the resolve_retry pattern: if the stored token already differs from
-        // `stale`, force_refresh returns the current token without hitting identity.
+        // resolve_retry pattern: force_refresh compares the stored token against `stale` and
+        // skips the identity call on a mismatch.
         let token_key = token_encryption_key();
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let payload = make_encrypted_payload(&token_key, &org_key);
@@ -874,7 +812,7 @@ mod tests {
 
         let count_after_init = server.received_requests().await.unwrap().len();
 
-        // The stored token is "fresh-tok"; stale is something else → reuse.
+        // Stored token is "fresh-tok"; "old-stale-value" differs, so it's reused.
         let result = mgr
             .force_refresh("old-stale-value", None)
             .await
