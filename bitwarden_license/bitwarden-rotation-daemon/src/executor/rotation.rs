@@ -16,6 +16,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use bitwarden_generators::GeneratorClient;
 use chrono::Utc;
 
 use super::retry::{GatedOutcome, RetryCfg, with_retries, with_retries_gated};
@@ -80,6 +81,8 @@ pub(crate) struct ExecutionContext {
     pub(crate) integrations: Arc<IntegrationRegistry>,
     /// The credential resolver (maps target id → connection details).
     pub(crate) resolver: Arc<dyn CredentialResolver>,
+    /// The generator client used to produce the new password at step 2.
+    pub(crate) generator: GeneratorClient,
     /// The shared key store (for cipher encryption at step 5).
     pub(crate) key_store: Arc<DaemonKeyStore>,
     /// Retry configuration.
@@ -165,7 +168,7 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         }
     };
 
-    let new_password = match bitwarden_generators::password(gen_req) {
+    let new_password = match ctx.generator.password(gen_req) {
         Ok(p) => zeroize::Zeroizing::new(p),
         Err(_) => {
             report_failure_absorb(
@@ -1029,6 +1032,7 @@ mod tests {
             KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
         };
         use bitwarden_encoding::B64;
+        use bitwarden_generators::GeneratorClientsExt as _;
         use chrono::Utc;
         use tokio::sync::watch;
         use wiremock::{
@@ -1144,6 +1148,7 @@ mod tests {
             session: Arc::clone(&session),
             integrations: Arc::new(registry),
             resolver: Arc::new(AlwaysOkResolver),
+            generator: bitwarden_core::Client::new(None).generator(),
             key_store,
             retry_cfg: crate::executor::retry::RetryCfg {
                 max_retry_attempts: 1,

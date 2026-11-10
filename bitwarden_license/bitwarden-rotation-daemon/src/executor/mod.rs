@@ -19,6 +19,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use bitwarden_core::Client;
+use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_threading::cancellation_token::CancellationToken;
 use retry::RetryCfg;
 use rotation::{AbortReason, ExecutionContext, ExecutionResult, execute};
@@ -201,6 +203,10 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
     let api_client = build_api_client(cfg.api_url.clone(), Arc::clone(&session));
     let api = Arc::new(RotationApi::new(api_client, connectivity_tx));
+
+    // The daemon drives its own API calls; this client exists only so rotations can reach
+    // the SDK's password generator.
+    let sdk_client = Client::new(None);
 
     let mut registry = IntegrationRegistry::new();
 
@@ -386,6 +392,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
             session: Arc::clone(&session),
             integrations: Arc::clone(&integrations),
             resolver: Arc::clone(&resolver),
+            generator: sdk_client.generator(),
             key_store: Arc::clone(&key_store),
             retry_cfg: cfg.retry_cfg.clone(),
             offline_grace: cfg.offline_grace,
