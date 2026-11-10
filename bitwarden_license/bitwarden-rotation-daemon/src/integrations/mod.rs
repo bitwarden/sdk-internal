@@ -1,19 +1,8 @@
 //! Integration drivers for external credential targets.
 //!
-//! This module defines the [`Integration`] trait that all target-system
-//! drivers implement, plus the shared types they depend on:
-//!
-//! - [`TargetEffect`]: whether the target's credential was changed before an error.
-//! - [`IntegrationError`]: the error type returned by all integration operations.
-//! - [`RotateContext`]: the work snapshot passed into every integration operation.
-//! - [`IntegrationRegistry`]: maps a [`TargetKind`] to the right driver.
-//!
-//! # TargetKind
-//!
-//! [`TargetKind`] is defined in [`crate::api::models`] and re-exported here for
-//! use by the resolver and integration implementations.  The local mirror that
-//! was written while `api/models.rs` was still a stub has been removed now that
-//! the parallel agent has landed the canonical definition.
+//! Defines the [`Integration`] trait every target-system driver implements, plus its shared
+//! types: [`TargetEffect`], [`IntegrationError`], [`RotateContext`], and [`IntegrationRegistry`].
+//! [`TargetKind`] lives in [`crate::api::models`], re-exported here for the resolver.
 
 pub(crate) mod custom_script;
 pub(crate) mod entra;
@@ -33,10 +22,6 @@ use crate::{
     resolver::ResolvedCredentials,
 };
 
-// ---------------------------------------------------------------------------
-// TargetEffect
-// ---------------------------------------------------------------------------
-
 /// Whether the target system's credential was (or might have been) changed
 /// before an error occurred.
 ///
@@ -52,17 +37,10 @@ pub(crate) enum TargetEffect {
     Unknown,
 }
 
-// ---------------------------------------------------------------------------
-// IntegrationError
-// ---------------------------------------------------------------------------
-
 /// An error returned by any [`Integration`] operation.
 ///
-/// Carries all the information the executor needs to build a failure report:
-/// - `class`: whether retry would help ([`ErrorClass::Transient`]) or not ([`ErrorClass::Fatal`]).
-/// - `effect`: the synchronisation state of the target at the time of failure.
-/// - `code`: the failure reason code reported to the server.
-/// - `detail`: a bounded, zero-knowledge detail string (never contains secrets).
+/// Carries what the executor needs for a failure report: `class` (retry or not), `effect`
+/// (target sync state), `code` (failure reason), and `detail` (a safe, secret-free string).
 #[derive(Debug)]
 pub(crate) struct IntegrationError {
     /// Transient (retriable) or fatal (abort immediately).
@@ -72,7 +50,7 @@ pub(crate) struct IntegrationError {
     /// Failure reason code to include in the server failure report.
     pub(crate) code: FailureCode,
     /// Safe, bounded detail string (contains only status codes, exit codes,
-    /// variable names, and static strings — never secret values).
+    /// variable names, and static strings, never secret values).
     pub(crate) detail: SafeDetail,
 }
 
@@ -88,10 +66,6 @@ impl std::fmt::Display for IntegrationError {
 
 impl std::error::Error for IntegrationError {}
 
-// ---------------------------------------------------------------------------
-// RotateContext
-// ---------------------------------------------------------------------------
-
 /// The self-contained work snapshot passed to every [`Integration`] operation.
 ///
 /// Constructed by the executor from the claim response and resolved credentials.
@@ -101,8 +75,8 @@ pub(crate) struct RotateContext {
     pub(crate) target_system_id: Uuid,
     /// The opaque account identity string (e.g. a user principal name or object id).
     pub(crate) account_identity: String,
-    /// The newly generated password to rotate to.  `Zeroizing` ensures it is
-    /// wiped from memory when the context is dropped.
+    /// The newly generated password to rotate to; `Zeroizing` wipes it from
+    /// memory on drop.
     pub(crate) new_password: Zeroizing<String>,
     /// Resolved credentials for authenticating to the target system.
     pub(crate) creds: ResolvedCredentials,
@@ -124,21 +98,11 @@ impl std::fmt::Debug for RotateContext {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Integration trait
-// ---------------------------------------------------------------------------
-
 /// Trait implemented by each target-system driver (Entra, CustomScript, …).
 ///
-/// All methods receive a shared [`RotateContext`] and return `()` on success or
-/// an [`IntegrationError`] (carrying `class`, `effect`, `code`, `detail`) on
-/// failure.  The executor maps the error into a failure report.
-///
-/// # Send + Sync requirement
-///
-/// Per the repository rule (`CLAUDE.md`): **no `#[async_trait(?Send)]`**.  All
-/// integrations are native-only (no WASM context), so plain `async_trait`
-/// (which requires `Send`) is correct.
+/// All methods take a shared [`RotateContext`] and return `()` or an [`IntegrationError`]
+/// (`class`, `effect`, `code`, `detail`), mapped into a failure report by the executor. No
+/// `#[async_trait(?Send)]` per `CLAUDE.md`: integrations are native-only.
 #[async_trait]
 pub(crate) trait Integration: Send + Sync {
     /// Rotate the credential for `ctx.account_identity` to `ctx.new_password`
@@ -151,17 +115,13 @@ pub(crate) trait Integration: Send + Sync {
     /// script's exit code determines success or failure.
     async fn verify(&self, ctx: &RotateContext) -> Result<(), IntegrationError>;
 
-    /// Terminate active sessions for `ctx.account_identity` in the target
-    /// system.  Called only when the claim's `terminate_sessions` flag is set.
+    /// Terminate active sessions for `ctx.account_identity` in the target system.
+    /// Gated by the claim's `terminate_sessions` flag.
     ///
-    /// A failure here must **not** fail the overall rotation — the executor
-    /// uses a `TerminationNeverFailsRotation` discipline (step 6).
+    /// A failure here must not fail the overall rotation: the executor uses a
+    /// `TerminationNeverFailsRotation` discipline (step 6).
     async fn terminate_sessions(&self, ctx: &RotateContext) -> Result<(), IntegrationError>;
 }
-
-// ---------------------------------------------------------------------------
-// IntegrationRegistry
-// ---------------------------------------------------------------------------
 
 /// Maps a [`TargetKind`] to the concrete [`Integration`] driver for that kind.
 ///
@@ -185,7 +145,7 @@ impl IntegrationRegistry {
         self.map.insert(kind, integration);
     }
 
-    /// Returns the driver for the given kind, or `None` if none is registered.
+    /// The driver for the given kind, or `None` absent a registration.
     pub(crate) fn get(&self, kind: TargetKind) -> Option<Arc<dyn Integration>> {
         self.map.get(&kind).cloned()
     }
@@ -196,10 +156,6 @@ impl Default for IntegrationRegistry {
         Self::new()
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

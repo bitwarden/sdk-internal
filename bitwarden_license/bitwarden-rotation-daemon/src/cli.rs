@@ -1,22 +1,11 @@
 //! Command-line interface argument parsing for the rotation daemon.
 //!
-//! The CLI is intentionally minimal: daemon settings live in the TOML
-//! configuration file (located with `--config <PATH>` or `BWRD_CONFIG`) and are
-//! **not** exposed as individual CLI flags.  Two kinds of overrides come from
-//! the environment instead:
+//! Minimal by design: daemon settings live in the TOML config file (`--config <PATH>` or
+//! `BWRD_CONFIG`), not CLI flags. `BWRD_API_URL`/`BWRD_IDENTITY_URL` override the file's URLs;
+//! `BWRD_TOKEN` supplies the token. See [`crate::config::Config::from_cli`] for precedence.
 //!
-//! - `BWRD_API_URL` / `BWRD_IDENTITY_URL` override the config file's URLs.
-//! - `BWRD_TOKEN` supplies the daemon token (environment-only; see below).
-//!
-//! Precedence: environment URLs > config file > built-in defaults.  See
-//! [`crate::config::Config::from_cli`] for the resolution logic.
-//!
-//! # Security note on token intake
-//!
-//! The daemon token string contains the encryption key for the org key.  It is
-//! **never** accepted as a CLI argument because `argv` is visible via `ps` and
-//! `/proc/<pid>/cmdline`, and it is **never** accepted in the config file either.
-//! Supply it via the `BWRD_TOKEN` environment variable only.
+//! The daemon token is never a CLI argument, since `argv` is visible via `ps` and
+//! `/proc/<pid>/cmdline`, and never accepted in the config file; only `BWRD_TOKEN`.
 
 use std::path::PathBuf;
 
@@ -45,10 +34,6 @@ pub struct RunArgs {
     #[arg(long, env = "BWRD_CONFIG", value_name = "PATH")]
     pub config: Option<PathBuf>,
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

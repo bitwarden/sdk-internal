@@ -1,20 +1,13 @@
 //! Config-file-based credential resolver.
 //!
-//! [`ConfigCredentialResolver`] layers a per-target TOML configuration on top of
-//! [`crate::resolver::env::EnvCredentialResolver`].  Resolution order, per credential key:
-//!
-//! 1. **Config file** (`[targets.<uuid>]`) — wins unconditionally.
-//! 2. **Environment variable** — fallback for any key not set in the config file.
-//!
-//! The env var name is always used as the actionable hint when a required key is missing,
-//! regardless of whether the value was expected from the config file or the environment.
-//! This keeps operator-visible error messages consistent and actionable.
+//! [`ConfigCredentialResolver`] layers per-target TOML (`[targets.<uuid>]`) over
+//! [`crate::resolver::env::EnvCredentialResolver`]: the file wins per key, the env var is the
+//! fallback. A missing required key always reports the env var name as the hint.
 //!
 //! # Security note
 //!
-//! `client_secret` is deliberately absent from [`TargetEntry`].  Secrets must be supplied
-//! via environment variables only; the config file is typically checked in to a repo and
-//! must not hold credentials.
+//! `client_secret` is deliberately absent from [`TargetEntry`]; secrets must come from
+//! environment variables only, since the config file is typically checked into a repo.
 
 use std::collections::HashMap;
 
@@ -27,15 +20,11 @@ use crate::{
     resolver::env::{prefix_for, required_suffixes},
 };
 
-// ---------------------------------------------------------------------------
-// TargetEntry
-// ---------------------------------------------------------------------------
-
 /// Per-target credential overrides from the `[targets]` TOML section.
 ///
-/// All fields are optional.  Any `Some` value shadows the corresponding environment
-/// variable.  The `client_secret` field is intentionally absent — secrets must be
-/// supplied via environment variables only.
+/// All fields are optional; any `Some` value shadows the corresponding environment
+/// variable. `client_secret` is intentionally absent, since secrets must come from
+/// environment variables only.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct TargetEntry {
@@ -48,7 +37,7 @@ pub(crate) struct TargetEntry {
 }
 
 impl TargetEntry {
-    /// Return an iterator over `(suffix, value)` pairs for all `Some` fields.
+    /// An iterator over `(suffix, value)` pairs for all `Some` fields.
     fn overrides(&self) -> impl Iterator<Item = (&'static str, &str)> {
         [
             ("SCRIPT", self.script.as_deref()),
@@ -60,19 +49,11 @@ impl TargetEntry {
     }
 }
 
-// ---------------------------------------------------------------------------
-// ConfigCredentialResolver
-// ---------------------------------------------------------------------------
-
 /// A credential resolver that merges config-file overrides with environment-variable fallbacks.
 ///
-/// For each target, the resolver:
-///
-/// 1. Scans all env vars matching the target's prefix (same algorithm as
-///    [`crate::resolver::env::EnvCredentialResolver`]).
-/// 2. Overlays any `Some` fields from the target's [`TargetEntry`] (config wins per key).
-/// 3. Checks that all required suffixes for `kind` are present in the merged map. Missing keys are
-///    reported as their **env var names** — the actionable hint for operators.
+/// Scans env vars matching the target's prefix, overlays any `Some` fields from
+/// [`TargetEntry`], and checks required suffixes for `kind`, reporting missing keys as env
+/// var names.
 pub(crate) struct ConfigCredentialResolver {
     targets: HashMap<Uuid, TargetEntry>,
 }
@@ -126,10 +107,6 @@ impl CredentialResolver for ConfigCredentialResolver {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -166,8 +143,6 @@ mod tests {
         result
     }
 
-    // ── config-only custom script ─────────────────────────────────────────────
-
     #[test]
     fn config_only_custom_script_resolved() {
         let id = Uuid::new_v4();
@@ -190,8 +165,6 @@ mod tests {
             .expose();
         assert_eq!(**script_val, "/opt/scripts/rotate.sh");
     }
-
-    // ── config tenant_id shadows env var ─────────────────────────────────────
 
     #[test]
     fn config_tenant_id_shadows_env_var() {
@@ -230,14 +203,11 @@ mod tests {
         assert!(creds.get("CLIENT_SECRET").is_some());
     }
 
-    // ── env fallback when config absent ──────────────────────────────────────
-
     #[test]
     fn env_fallback_when_config_absent() {
         let id = Uuid::new_v4();
         let prefix = prefix_for(id);
 
-        // No TargetEntry for this UUID.
         let targets: HashMap<Uuid, TargetEntry> = HashMap::new();
 
         let mut vars = HashMap::new();
@@ -253,8 +223,6 @@ mod tests {
         let script = creds.get("SCRIPT").expect("SCRIPT present").expose();
         assert_eq!(**script, "/usr/local/bin/rotate.sh");
     }
-
-    // ── missing key reports env var name ─────────────────────────────────────
 
     #[test]
     fn missing_key_reports_env_var_name() {
@@ -288,7 +256,7 @@ mod tests {
                     names.iter().any(|n| n == &format!("{prefix}CLIENT_SECRET")),
                     "must list CLIENT_SECRET env var: {names:?}"
                 );
-                // TENANT_ID was supplied via config — must NOT appear in missing.
+                // TENANT_ID was supplied via config; must not appear in missing.
                 assert!(
                     !names.iter().any(|n| n.ends_with("TENANT_ID")),
                     "TENANT_ID was in config and must not be listed as missing: {names:?}"
