@@ -14,7 +14,7 @@ use thiserror::Error;
 /// Errors produced by the cryptographic helpers in this module.
 #[derive(Debug, Error)]
 pub(crate) enum CryptoModuleError {
-    /// An encrypted payload or wrapped cipher key could not be decoded or decrypted.
+    /// The encrypted payload could not be decoded or decrypted.
     #[error("org-key payload is invalid")]
     InvalidPayload,
 
@@ -28,7 +28,7 @@ pub(crate) enum CryptoModuleError {
 }
 
 /// Decrypt the identity server's `encrypted_payload` with `token`'s derived key and install the org
-/// key into `store`. Errors carry no payload content.
+/// key into `store`.
 pub(crate) fn unwrap_org_key(
     store: &KeyStore<KeySlotIds>,
     organization_id: OrganizationId,

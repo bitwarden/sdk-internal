@@ -76,16 +76,9 @@ impl AccessConnectorAuthMiddleware {
 }
 
 /// A request needed a bearer before [`AccessConnectorTokenHandler::set_session`] ran.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("session not installed")]
 pub(crate) struct SessionNotInstalledError;
-
-impl std::fmt::Display for SessionNotInstalledError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "session not installed")
-    }
-}
-
-impl std::error::Error for SessionNotInstalledError {}
 
 #[async_trait::async_trait]
 impl Middleware for AccessConnectorAuthMiddleware {
@@ -142,7 +135,7 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
     req.headers_mut().insert(http::header::AUTHORIZATION, value);
 }
 
-/// Keeps a black-holed connection from starving the heartbeat past `AccessConnectorOfflineAfter`.
+/// Bounds each request so a black-holed connection cannot stall the connector.
 pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Applies [`REQUEST_TIMEOUT`] to a whole request; core sets none.
@@ -175,22 +168,12 @@ impl Middleware for TimeoutMiddleware {
 }
 
 /// A request exceeded [`REQUEST_TIMEOUT`].
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("request timed out")]
 pub(crate) struct RequestTimedOutError;
 
-impl std::fmt::Display for RequestTimedOutError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "request timed out")
-    }
-}
-
-impl std::error::Error for RequestTimedOutError {}
-
-/// Records the last successful server contact, which the rotation gate reads to pause target-side
-/// steps while the server is unreachable.
-///
-/// Any 2xx status counts, even if the body later fails to parse: the server answered. Redirects,
-/// client errors and server errors, and transport failures, do not.
+/// Records the last successful server contact, so target-side steps can pause while the server is
+/// unreachable. Any 2xx counts, even if the body later fails to parse.
 pub(crate) struct ConnectivityMiddleware {
     last_ok_tx: watch::Sender<Instant>,
 }
@@ -217,20 +200,14 @@ impl Middleware for ConnectivityMiddleware {
     }
 }
 
-/// Builds the SDK client the connector runs against, plus the handler that carries its session
-/// once startup has one.
+/// Builds the SDK client the connector runs against, plus the handler that carries its session.
 ///
-/// [`TimeoutMiddleware`] is load-bearing twice: core sets no per-request timeout, and it disables
-/// redirect-following only when the extra-middleware vec is non-empty (the auth middleware does not
-/// count). `request_times_out_rather_than_hanging` and `does_not_follow_a_cross_host_redirect`
-/// guard both.
+/// Core only disables redirect-following when extra middleware is supplied, so the middleware vec
+/// must stay non-empty. These endpoints never redirect; following one would treat another host's
+/// reply as the API's and, on a 307, forward the encrypted cipher body.
 ///
-/// Redirects are refused because these endpoints never legitimately redirect, not because the
-/// bearer would leak (reqwest strips `Authorization` on a host change): following one would read
-/// another host's reply as the API's and, on a 307, forward the encrypted cipher body.
-///
-/// Chained outermost, the timeout also bounds token renewal. [`ConnectivityMiddleware`] sits
-/// outside the auth middleware, so a 401 retried into a 2xx counts once and a persistent 401 not.
+/// The timeout is outermost, so it also bounds token renewal. [`ConnectivityMiddleware`] sits
+/// outside the auth middleware, so a 401 retried into a 2xx counts once.
 pub(crate) fn build_sdk_client(
     api_url: String,
     identity_url: String,
@@ -439,8 +416,7 @@ fn classify_error(err: bitwarden_api_base::Error, route: Route) -> ApiError {
             }
         }
         Error::ReqwestMiddleware(mw_err) => {
-            // The SessionError stays typed inside the middleware error, so loss is detected by
-            // type.
+            // SessionError stays typed inside the middleware error.
             if let reqwest_middleware::Error::Middleware(inner) = &mw_err
                 && let Some(SessionError::Lost(l)) = inner.downcast_ref::<SessionError>()
             {
@@ -1162,7 +1138,7 @@ mod tests {
         }
     }
 
-    /// R1: a black-holed connection must time out.
+    /// A black-holed connection must time out.
     #[tokio::test]
     async fn request_times_out_rather_than_hanging() {
         let api_server = MockServer::start().await;
@@ -1198,7 +1174,7 @@ mod tests {
         }
     }
 
-    /// R2: a cross-host redirect must not be followed.
+    /// A cross-host redirect must not be followed.
     #[tokio::test]
     async fn does_not_follow_a_cross_host_redirect() {
         let elsewhere = MockServer::start().await;
