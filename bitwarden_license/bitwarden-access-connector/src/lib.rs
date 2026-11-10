@@ -7,15 +7,14 @@ bitwarden_commercial_marker::commercial_crate!();
 
 pub(crate) mod api;
 pub(crate) mod auth;
-/// CLI argument definitions (exposed for `main.rs`).
+/// CLI argument definitions (public for `main.rs`).
 pub mod cli;
-/// Configuration loading and validation (exposed for `main.rs`).
+/// Configuration loading and validation (public for `main.rs`).
 pub mod config;
-/// Cryptographic helpers (exposed for integration tests).
-pub mod crypto;
-/// Top-level error types (exposed for `main.rs`).
+pub(crate) mod crypto;
+/// Startup error type, public because it is returned by [`config::Config::from_cli`].
 pub mod error;
-/// Connector run-loop and exit variants (exposed for `main.rs`).
+/// Connector run-loop config and exit variants (public for `main.rs` and `tests/`).
 pub mod executor;
 pub(crate) mod integrations;
 pub(crate) mod policy;
@@ -35,7 +34,7 @@ pub async fn run(
     executor::run(cfg, cancel).await
 }
 
-/// Serialises every test that mutates process environment variables, since concurrent mutation is
-/// UB (hence `unsafe` `set_var` in Rust 2024). Hold it for the whole mutation window.
+/// Serialises tests that mutate environment variables, since concurrent mutation is UB. Hold it
+/// for the whole mutation window.
 #[cfg(test)]
 pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
