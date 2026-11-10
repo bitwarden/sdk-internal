@@ -1,6 +1,6 @@
 //! WASM bindings for the Flight Recorder.
 
-use bitwarden_ipc::{Endpoint, RequestError, wasm::JsIpcClient};
+use bitwarden_ipc::{Endpoint, SubscribeError, wasm::JsIpcClient};
 use bitwarden_logging::{
     FlightRecorderEvent, flight_recorder_count,
     ipc::{FlightRecorderCollectorRole, read_flight_recorder_aggregated},
@@ -76,10 +76,8 @@ pub fn enable_flight_recorder_forwarding(ipc_client: &JsIpcClient, destination: 
 pub async fn enable_flight_recorder_collection(
     ipc_client: &JsIpcClient,
     role: FlightRecorderCollectorRole,
-) -> Result<(), RequestError> {
-    bitwarden_logging::ipc::enable_flight_recorder_collection(ipc_client.client.clone(), role)
-        .await
-        .map_err(RequestError::from)
+) -> Result<(), SubscribeError> {
+    bitwarden_logging::ipc::enable_flight_recorder_collection(ipc_client.client.clone(), role).await
 }
 
 impl Default for FlightRecorderClient {
