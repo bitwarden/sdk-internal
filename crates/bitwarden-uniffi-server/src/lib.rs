@@ -9,20 +9,11 @@ mod inspection;
 pub use crypto_parsing::CryptoParsingClient;
 pub use error::ServerError;
 pub use inspection::{
-    CryptoObjectKeyIds, EncStringAlgorithm, EncStringInfo, UnsignedSharedKeyAlgorithm,
-    UnsignedSharedKeyInfo,
+    CryptoObjectKeyIds, EncStringAlgorithm, EncStringInfo, PublicKeyAlgorithm, PublicKeyInfo,
+    UnsignedSharedKeyAlgorithm, UnsignedSharedKeyInfo, VerifyingKeyAlgorithm, VerifyingKeyInfo,
 };
 
-/// Entry point of the server bindings. Functionality hangs off sub-clients, as in the mobile
-/// bindings:
-///
-/// ```text
-/// ServerClient
-/// ├── version()
-/// └── crypto_parsing() -> CryptoParsingClient
-/// ```
-///
-/// Stateless: the server can share one instance across threads.
+/// Entry point of the server bindings.
 #[derive(uniffi::Object, Default)]
 pub struct ServerClient;
 

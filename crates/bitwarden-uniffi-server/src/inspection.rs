@@ -1,14 +1,14 @@
-use bitwarden_crypto::{EncString, KeyId, SymmetricKeyAlgorithm, UnsignedSharedKey};
+use bitwarden_crypto::{
+    EncString, PublicKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SymmetricKeyAlgorithm,
+    UnsignedSharedKey, VerifyingKey,
+};
 
 use crate::ServerError;
 
 /// The key ids a crypto object names, each as 32 lowercase hex characters.
-///
-/// Read from headers only: nothing is decrypted or verified, so the server must not trust them
-/// beyond routing and consistency checks.
 #[derive(uniffi::Record, Debug, Default, PartialEq)]
 pub struct CryptoObjectKeyIds {
-    /// The key this object holds (envelopes) or is (verifying keys), if it names one.
+    /// The key this object holds or is, if it names one.
     pub contained_key_id: Option<String>,
     /// The key this object is encrypted or sealed with, if it names one.
     pub encrypted_by_key_id: Option<String>,
@@ -19,15 +19,15 @@ pub struct CryptoObjectKeyIds {
 /// The symmetric algorithm an EncString is encrypted with.
 #[derive(uniffi::Enum, Debug, PartialEq)]
 pub enum EncStringAlgorithm {
-    /// Type 0. Unauthenticated legacy AES-256-CBC.
+    /// AES-256-CBC.
     Aes256Cbc,
-    /// Type 2, or type 7 sealed with a type 2 key.
+    /// AES-256-CBC with HMAC-SHA256.
     Aes256CbcHmac,
-    /// Type 7.
+    /// AES-256-GCM.
     Aes256Gcm,
-    /// Type 7.
+    /// XAES-256-GCM.
     XAes256Gcm,
-    /// Type 7.
+    /// XChaCha20-Poly1305.
     XChaCha20Poly1305,
 }
 
@@ -42,12 +42,12 @@ impl From<SymmetricKeyAlgorithm> for EncStringAlgorithm {
     }
 }
 
-/// What a symmetric EncString (type 0, 2 or 7) carries.
+/// What an EncString carries.
 #[derive(uniffi::Record, Debug, PartialEq)]
 pub struct EncStringInfo {
-    /// The algorithm it is encrypted with. For type 7, read from the COSE header.
+    /// The algorithm it is encrypted with.
     pub algorithm: EncStringAlgorithm,
-    /// The id of the encrypting key. Only COSE EncStrings (type 7) carry one.
+    /// The id of the encrypting key, if it names one.
     pub encrypted_by_key_id: Option<String>,
 }
 
@@ -55,19 +55,18 @@ impl TryFrom<&EncString> for EncStringInfo {
     type Error = ServerError;
 
     fn try_from(enc_string: &EncString) -> Result<Self, ServerError> {
-        // The SDK reports no algorithm for type 0, which carries no MAC, nor for an unknown COSE
-        // algorithm, which is rejected.
         let algorithm = match enc_string {
+            // `algorithm()` returns a key algorithm, and no key is AES-256-CBC without HMAC.
             EncString::Aes256Cbc_B64 { .. } => EncStringAlgorithm::Aes256Cbc,
             _ => enc_string
                 .algorithm()
-                .map(EncStringAlgorithm::from)
-                .ok_or(ServerError::InvalidData)?,
+                .ok_or(ServerError::InvalidData)?
+                .into(),
         };
 
         Ok(Self {
             algorithm,
-            encrypted_by_key_id: hex(enc_string.key_id()),
+            encrypted_by_key_id: enc_string.key_id().map(|id| id.to_string()),
         })
     }
 }
@@ -75,17 +74,17 @@ impl TryFrom<&EncString> for EncStringInfo {
 /// The public-key algorithm an UnsignedSharedKey is encrypted with.
 #[derive(uniffi::Enum, Debug, PartialEq)]
 pub enum UnsignedSharedKeyAlgorithm {
-    /// Type 3.
+    /// RSA-2048 OAEP with SHA-256.
     Rsa2048OaepSha256,
-    /// Type 4.
+    /// RSA-2048 OAEP with SHA-1.
     Rsa2048OaepSha1,
-    /// Type 5. Deprecated.
+    /// RSA-2048 OAEP with SHA-256, plus HMAC-SHA256.
     Rsa2048OaepSha256HmacSha256,
-    /// Type 6. Deprecated.
+    /// RSA-2048 OAEP with SHA-1, plus HMAC-SHA256.
     Rsa2048OaepSha1HmacSha256,
 }
 
-/// What an RSA-encrypted UnsignedSharedKey (type 3 to 6) carries. It names no key.
+/// What an UnsignedSharedKey carries.
 #[derive(uniffi::Record, Debug, PartialEq)]
 pub struct UnsignedSharedKeyInfo {
     /// The public-key algorithm it is encrypted with.
@@ -115,7 +114,65 @@ impl From<&UnsignedSharedKey> for UnsignedSharedKeyInfo {
     }
 }
 
-/// Formats a key id as 32 lowercase hex characters.
-pub(crate) fn hex(key_id: Option<KeyId>) -> Option<String> {
-    key_id.map(|id| id.to_string())
+/// The signature algorithm of a VerifyingKey.
+#[derive(uniffi::Enum, Debug, PartialEq)]
+pub enum VerifyingKeyAlgorithm {
+    /// Ed25519.
+    Ed25519,
+    /// ML-DSA-44.
+    MlDsa44,
+}
+
+/// What a VerifyingKey carries.
+#[derive(uniffi::Record, Debug, PartialEq)]
+pub struct VerifyingKeyInfo {
+    /// The signature algorithm.
+    pub algorithm: VerifyingKeyAlgorithm,
+    /// The key id, as 32 lowercase hex characters.
+    pub key_id: String,
+}
+
+impl From<&VerifyingKey> for VerifyingKeyInfo {
+    fn from(key: &VerifyingKey) -> Self {
+        let algorithm = match key.algorithm() {
+            SignatureAlgorithm::Ed25519 => VerifyingKeyAlgorithm::Ed25519,
+            SignatureAlgorithm::MlDsa44 => VerifyingKeyAlgorithm::MlDsa44,
+        };
+
+        Self {
+            algorithm,
+            key_id: key.key_id().to_string(),
+        }
+    }
+}
+
+/// The encryption algorithm of a PublicKey.
+#[derive(uniffi::Enum, Debug, PartialEq)]
+pub enum PublicKeyAlgorithm {
+    /// RSA OAEP with SHA-1.
+    RsaOaepSha1,
+}
+
+/// What a PublicKey carries.
+#[derive(uniffi::Record, Debug, PartialEq)]
+pub struct PublicKeyInfo {
+    /// The encryption algorithm.
+    pub algorithm: PublicKeyAlgorithm,
+    /// The key id, as 32 lowercase hex characters.
+    pub key_id: String,
+}
+
+impl TryFrom<&PublicKey> for PublicKeyInfo {
+    type Error = ServerError;
+
+    fn try_from(key: &PublicKey) -> Result<Self, ServerError> {
+        let algorithm = match key.algorithm() {
+            PublicKeyEncryptionAlgorithm::RsaOaepSha1 => PublicKeyAlgorithm::RsaOaepSha1,
+        };
+
+        Ok(Self {
+            algorithm,
+            key_id: key.key_id()?.to_string(),
+        })
+    }
 }

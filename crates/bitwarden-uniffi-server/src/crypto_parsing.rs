@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use bitwarden_crypto::{
     CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError, EncString, EncodingError, KeyId,
-    PublicKey, SignedObject, SignedPublicKey, UnsignedSharedKey, VerifyingKey,
+    PublicKey, SignedObject, UnsignedSharedKey, VerifyingKey,
     compat::LegacyCompatSymmetricKeyEnvelope,
     safe::{DataEnvelope, PasswordProtectedKeyEnvelope, SymmetricKeyEnvelope},
 };
@@ -10,62 +10,55 @@ use bitwarden_encoding::B64;
 
 use crate::{
     ServerError,
-    inspection::{CryptoObjectKeyIds, EncStringInfo, UnsignedSharedKeyInfo, hex},
+    inspection::{
+        CryptoObjectKeyIds, EncStringInfo, PublicKeyInfo, UnsignedSharedKeyInfo, VerifyingKeyInfo,
+    },
 };
 
-/// Strict, keyless inspection: each method parses one SDK type and reports the key ids it names.
-///
-/// Nothing is decrypted or verified. Any invalid input returns [ServerError::InvalidData].
+/// Parses SDK crypto objects and reads the key ids they name, without decrypting or verifying.
 #[derive(uniffi::Object)]
 pub struct CryptoParsingClient;
 
 #[uniffi::export]
 impl CryptoParsingClient {
-    /// The id of the key `enc_string` was encrypted with, as 32 lowercase hex characters.
-    ///
-    /// [None] for legacy (non-COSE) EncStrings, which carry no key id.
+    /// The id of the key `enc_string` was encrypted with, if it names one.
     pub fn get_encrypted_by_key_id_encstring(
         &self,
         enc_string: String,
     ) -> Result<Option<String>, ServerError> {
-        let enc_string = EncString::parse_strict(&enc_string)?;
-
-        Ok(hex(enc_string.key_id()))
+        Ok(EncString::parse_strict(&enc_string)?
+            .key_id()
+            .map(|id| id.to_string()))
     }
 
-    /// The id of the key sealed in `envelope`, as 32 lowercase hex characters.
-    ///
-    /// [None] if the envelope carries no key id.
+    /// The id of the key `envelope` is sealed with.
     pub fn get_encrypted_by_key_id_symmetrickeyenvelope(
         &self,
         envelope: String,
     ) -> Result<Option<String>, ServerError> {
-        let envelope = SymmetricKeyEnvelope::from_str(&envelope)?;
-
-        Ok(hex(envelope.contained_key_id()?))
+        Ok(Some(
+            SymmetricKeyEnvelope::from_str(&envelope)?
+                .encrypted_by_key_id()?
+                .to_string(),
+        ))
     }
 
-    /// Inspects a symmetric EncString (type 0, 2 or 7).
-    ///
-    /// RSA-encrypted UnsignedSharedKeys (types 3 to 6) are not EncStrings and are rejected; use
-    /// [CryptoParsingClient::inspect_unsigned_shared_key].
+    /// Inspects an EncString: its algorithm and encrypting key.
     pub fn inspect_enc_string(&self, enc_string: String) -> Result<EncStringInfo, ServerError> {
-        let enc_string = EncString::parse_strict(&enc_string)?;
-
-        EncStringInfo::try_from(&enc_string)
+        EncStringInfo::try_from(&EncString::parse_strict(&enc_string)?)
     }
 
-    /// Inspects an RSA-encrypted UnsignedSharedKey (type 3 to 6). Names no key.
+    /// Inspects an UnsignedSharedKey: its algorithm.
     pub fn inspect_unsigned_shared_key(
         &self,
         shared_key: String,
     ) -> Result<UnsignedSharedKeyInfo, ServerError> {
-        let shared_key = UnsignedSharedKey::from_str(&shared_key)?;
-
-        Ok(UnsignedSharedKeyInfo::from(&shared_key))
+        Ok(UnsignedSharedKeyInfo::from(&UnsignedSharedKey::from_str(
+            &shared_key,
+        )?))
     }
 
-    /// Inspects a SymmetricKeyEnvelope: the sealed key (if named) and the sealing key.
+    /// Inspects a SymmetricKeyEnvelope: the sealed key and the sealing key.
     pub fn inspect_symmetric_key_envelope(
         &self,
         envelope: String,
@@ -73,15 +66,13 @@ impl CryptoParsingClient {
         let envelope = SymmetricKeyEnvelope::from_str(&envelope)?;
 
         Ok(CryptoObjectKeyIds {
-            contained_key_id: hex(envelope.contained_key_id()?),
-            encrypted_by_key_id: hex(Some(envelope.encrypted_by_key_id()?)),
+            contained_key_id: envelope.contained_key_id()?.map(|id| id.to_string()),
+            encrypted_by_key_id: Some(envelope.encrypted_by_key_id()?.to_string()),
             ..Default::default()
         })
     }
 
-    /// Inspects a LegacyCompatSymmetricKeyEnvelope, in either form.
-    ///
-    /// The EncString form names no sealed key, and a sealing key only if it is COSE (type 7).
+    /// Inspects a LegacyCompatSymmetricKeyEnvelope: the sealed key and the sealing key.
     pub fn inspect_legacy_compat_symmetric_key_envelope(
         &self,
         envelope: String,
@@ -96,22 +87,21 @@ impl CryptoParsingClient {
         }
 
         Ok(CryptoObjectKeyIds {
-            contained_key_id: hex(envelope.contained_key_id()?),
-            encrypted_by_key_id: hex(envelope.encrypted_by_key_id()?),
+            contained_key_id: envelope.contained_key_id()?.map(|id| id.to_string()),
+            encrypted_by_key_id: envelope.encrypted_by_key_id()?.map(|id| id.to_string()),
             ..Default::default()
         })
     }
 
-    /// Inspects a PasswordProtectedKeyEnvelope: the sealed key, if named. Legacy (non-COSE) sealed
-    /// keys have no id.
+    /// Inspects a PasswordProtectedKeyEnvelope: the sealed key.
     pub fn inspect_password_protected_key_envelope(
         &self,
         envelope: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let envelope = PasswordProtectedKeyEnvelope::from_str(&envelope)?;
-
         Ok(CryptoObjectKeyIds {
-            contained_key_id: hex(envelope.contained_key_id()?),
+            contained_key_id: PasswordProtectedKeyEnvelope::from_str(&envelope)?
+                .contained_key_id()?
+                .map(|id| id.to_string()),
             ..Default::default()
         })
     }
@@ -121,15 +111,18 @@ impl CryptoParsingClient {
         &self,
         envelope: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let envelope = DataEnvelope::from_str(&envelope).map_err(|_| ServerError::InvalidData)?;
-
         Ok(CryptoObjectKeyIds {
-            encrypted_by_key_id: hex(Some(envelope.encrypted_by_key_id()?)),
+            encrypted_by_key_id: Some(
+                DataEnvelope::from_str(&envelope)
+                    .map_err(|_| ServerError::InvalidData)?
+                    .encrypted_by_key_id()?
+                    .to_string(),
+            ),
             ..Default::default()
         })
     }
 
-    /// Inspects a base64 COSE Sign1 SignedObject: the signing key.
+    /// Inspects a SignedObject: the signing key.
     pub fn inspect_signed_object(
         &self,
         signed_object: String,
@@ -137,49 +130,26 @@ impl CryptoParsingClient {
         Ok(signed_by_ids(signed_by(&signed_object)?))
     }
 
-    /// Inspects a SignedPublicKey: the signing key.
-    pub fn inspect_signed_public_key(
-        &self,
-        signed_public_key: String,
-    ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let signed_public_key =
-            SignedPublicKey::from_str(&signed_public_key).map_err(|_| ServerError::InvalidData)?;
-
-        // SignedPublicKey hides its SignedObject; re-read the same COSE bytes as one.
-        let bytes = CoseSign1Bytes::from(signed_public_key);
-        let signed_by = SignedObject::from_cose(&bytes)?.signed_by_id()?;
-
-        Ok(signed_by_ids(signed_by))
-    }
-
-    /// Inspects a base64 COSE VerifyingKey: its own id, as `contained_key_id`.
+    /// Inspects a VerifyingKey: its algorithm and key id.
     pub fn inspect_verifying_key(
         &self,
         verifying_key: String,
-    ) -> Result<CryptoObjectKeyIds, ServerError> {
+    ) -> Result<VerifyingKeyInfo, ServerError> {
         let bytes = B64::try_from(verifying_key.as_str()).map_err(|_| ServerError::InvalidData)?;
-        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(&bytes))?;
 
-        Ok(CryptoObjectKeyIds {
-            contained_key_id: hex(Some(verifying_key.key_id())),
-            ..Default::default()
-        })
+        Ok(VerifyingKeyInfo::from(&VerifyingKey::from_cose(
+            &CoseKeyBytes::from(&bytes),
+        )?))
     }
 
-    /// Validates a base64 DER SPKI RSA PublicKey. The SDK defines no key id for it, so all ids are
-    /// [None].
-    pub fn inspect_public_key(
-        &self,
-        public_key: String,
-    ) -> Result<CryptoObjectKeyIds, ServerError> {
-        PublicKey::from_str(&public_key).map_err(|_| ServerError::InvalidData)?;
-
-        Ok(CryptoObjectKeyIds::default())
+    /// Inspects a PublicKey: its algorithm and key id.
+    pub fn inspect_public_key(&self, public_key: String) -> Result<PublicKeyInfo, ServerError> {
+        PublicKeyInfo::try_from(
+            &PublicKey::from_str(&public_key).map_err(|_| ServerError::InvalidData)?,
+        )
     }
 
     /// Inspects a SignedSecurityState: the signing key.
-    ///
-    /// Its version is not returned: the SDK only reads it after verifying the signature.
     pub fn inspect_signed_security_state(
         &self,
         signed_security_state: String,
@@ -193,15 +163,14 @@ impl CryptoParsingClient {
 /// Parses a base64 COSE Sign1 SignedObject and returns its signing key id.
 fn signed_by(signed_object: &str) -> Result<KeyId, CryptoError> {
     let bytes = B64::try_from(signed_object).map_err(|_| EncodingError::InvalidBase64Encoding)?;
-    let signed_object = SignedObject::from_cose(&CoseSign1Bytes::from(&bytes))?;
 
-    signed_object.signed_by_id()
+    SignedObject::from_cose(&CoseSign1Bytes::from(&bytes))?.signed_by_id()
 }
 
-/// Key ids of a signed object, which names only its signer.
+/// Key ids of a signed object.
 fn signed_by_ids(signed_by: KeyId) -> CryptoObjectKeyIds {
     CryptoObjectKeyIds {
-        signed_by_key_id: hex(Some(signed_by)),
+        signed_by_key_id: Some(signed_by.to_string()),
         ..Default::default()
     }
 }
@@ -219,7 +188,10 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::{EncStringAlgorithm, ServerClient, UnsignedSharedKeyAlgorithm};
+    use crate::{
+        EncStringAlgorithm, PublicKeyAlgorithm, ServerClient, UnsignedSharedKeyAlgorithm,
+        VerifyingKeyAlgorithm,
+    };
 
     /// Reaches the sub-client the way bindings do, through [ServerClient].
     fn client() -> CryptoParsingClient {
@@ -248,9 +220,10 @@ mod tests {
         pub TestIds => TestSymmKey, TestPrivateKey, TestSigningKey;
     }
 
-    // Fixed inputs, mirrored in the dotnet-extensions tests. `COSE_ENCSTRING` is encrypted with,
-    // and `ENVELOPE` seals, the XAES-256-GCM key `FIXTURE_KEY_ID`.
+    // Fixed inputs, mirrored in the dotnet-extensions tests. `COSE_ENCSTRING` is encrypted with
+    // the XAES-256-GCM key `FIXTURE_KEY_ID`; `ENVELOPE` seals it with `ENVELOPE_WRAPPING_KEY_ID`.
     const FIXTURE_KEY_ID: &str = "786b476843503fe1f6deb3951ef8f037";
+    const ENVELOPE_WRAPPING_KEY_ID: &str = "f145204af724a7dcf111dc72fbdf504c";
     const COSE_ENCSTRING: &str = "7.g1g/owE6AAEReQN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLnV0ZjgtcGFkZGVkBFB4a0doQ1A/4fbes5Ue+PA3oQVYGDyfZwmpm8qoMQ6T/GkNaSNiH0xURegyi1gwqCiYSKv1pO6JGK65CMOYx4dAUaqpKz5JlvFE/XdTX6VcOggf2PX0H9iCB/rDjvng";
     const LEGACY_ENCSTRING: &str = "2.lydV844NLeMlZyw+lBvavQ==|g/ybWBsaTkyTDJYL1kcrZQ==|2ZeoX1YiRQoaowBuGS7feAH9PZvz3VDy6QuPtMNu7R4=";
     const ENVELOPE: &str = "g1g+pgE6AAEReQMYZQRQ8UUgSvckp9zxEdxy+99QTDoAARVcUHhrR2hDUD/h9t6zlR748Dc6AAE4gQM6AAE4gAKhBVgYHYM4amZXcPx+ioIiaBQXy/itml3h/5kpWFR2SQ9uMP9TBs/iL2+tuzwOcGtphqCkEpSBBlifIzT9oow7+hYJ9N4hKxXYLEn0ldNDdfi7ryjXgAscY0OTDPOEIwUaqJZGKESUEDDhohHVoaGgZrY=";
@@ -266,7 +239,10 @@ mod tests {
 
         assert_eq!(cose.expect("valid"), expected);
         assert_eq!(legacy.expect("valid"), None);
-        assert_eq!(envelope.expect("valid"), expected);
+        assert_eq!(
+            envelope.expect("valid"),
+            Some(ENVELOPE_WRAPPING_KEY_ID.to_string())
+        );
     }
 
     #[test]
@@ -307,12 +283,12 @@ mod tests {
     }
 
     #[test]
-    fn envelope_key_id_matches_sealed_key() {
+    fn envelope_key_id_matches_wrapping_key() {
         let store = KeyStore::<TestIds>::default();
         let mut ctx = store.context_mut();
         let sealed = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         let wrapping = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
-        let expected = ctx.get_symmetric_key_id(sealed).map(|id| id.to_string());
+        let expected = ctx.get_symmetric_key_id(wrapping).map(|id| id.to_string());
 
         let envelope = SymmetricKeyEnvelope::seal(
             sealed,
@@ -505,7 +481,10 @@ mod tests {
             .expect("valid envelope");
 
         assert_eq!(ids.contained_key_id, Some(FIXTURE_KEY_ID.to_string()));
-        assert!(ids.encrypted_by_key_id.is_some());
+        assert_eq!(
+            ids.encrypted_by_key_id,
+            Some(ENVELOPE_WRAPPING_KEY_ID.to_string())
+        );
     }
 
     #[test]
@@ -683,51 +662,27 @@ mod tests {
     }
 
     #[test]
-    fn inspect_signed_public_key_round_trip() {
-        let store = KeyStore::<TestIds>::default();
-        let mut ctx = store.context_mut();
-        let signing = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
-        let private = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let expected = ctx.get_verifying_key(signing).expect("exists").key_id();
-        let signed = ctx.make_signed_public_key(private, signing).expect("signs");
-
-        let ids = client()
-            .inspect_signed_public_key(String::from(signed))
-            .expect("valid SignedPublicKey");
-
-        assert_eq!(ids.signed_by_key_id, id(Some(expected)));
-        assert_eq!(ids.contained_key_id, None);
-    }
-
-    #[test]
-    fn inspect_signed_public_key_invalid() {
-        let client = client();
-
-        for input in [GARBAGE, "AAAA"] {
-            let result = client.inspect_signed_public_key(input.into());
-            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
-        }
-    }
-
-    #[test]
     fn inspect_verifying_key_round_trip() {
         let store = KeyStore::<TestIds>::default();
         let mut ctx = store.context_mut();
 
-        for algorithm in [SignatureAlgorithm::Ed25519, SignatureAlgorithm::MlDsa44] {
+        for (algorithm, expected) in [
+            (SignatureAlgorithm::Ed25519, VerifyingKeyAlgorithm::Ed25519),
+            (SignatureAlgorithm::MlDsa44, VerifyingKeyAlgorithm::MlDsa44),
+        ] {
             let signing = ctx.make_signing_key(algorithm);
             let verifying = ctx.get_verifying_key(signing).expect("exists");
             let encoded = B64::from(verifying.to_cose().as_ref()).to_string();
 
-            let ids = client()
+            let info = client()
                 .inspect_verifying_key(encoded)
                 .expect("valid VerifyingKey");
 
             assert_eq!(
-                ids,
-                CryptoObjectKeyIds {
-                    contained_key_id: id(Some(verifying.key_id())),
-                    ..Default::default()
+                info,
+                VerifyingKeyInfo {
+                    algorithm: expected,
+                    key_id: verifying.key_id().to_string(),
                 }
             );
         }
@@ -750,11 +705,17 @@ mod tests {
         let private = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let public = ctx.get_public_key(private).expect("exists");
 
-        let ids = client()
+        let info = client()
             .inspect_public_key(public.to_string())
             .expect("valid PublicKey");
 
-        assert_eq!(ids, CryptoObjectKeyIds::default());
+        assert_eq!(
+            info,
+            PublicKeyInfo {
+                algorithm: PublicKeyAlgorithm::RsaOaepSha1,
+                key_id: public.key_id().expect("has id").to_string(),
+            }
+        );
     }
 
     #[test]

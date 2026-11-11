@@ -7,7 +7,10 @@ use rsa::{pkcs8::DecodePublicKey, traits::PublicKeyParts};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use super::key_encryptable::CryptoKey;
+use super::{
+    key_encryptable::CryptoKey,
+    key_id::{KEY_ID_SIZE, KeyId},
+};
 use crate::{
     CoseKeyThumbprint, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
     cose::{CoseKeyThumbprintExt, thumbprint_from_required_params},
@@ -72,6 +75,22 @@ impl std::fmt::Debug for PublicKey {
 impl PublicKey {
     pub(crate) fn inner(&self) -> &RawPublicKey {
         &self.inner
+    }
+
+    /// The encryption algorithm of this key.
+    pub fn algorithm(&self) -> PublicKeyEncryptionAlgorithm {
+        match &self.inner {
+            RawPublicKey::RsaOaepSha1(_) => PublicKeyEncryptionAlgorithm::RsaOaepSha1,
+        }
+    }
+
+    /// The id of this key: its RFC 9679 thumbprint, truncated to [`KEY_ID_SIZE`] bytes.
+    pub fn key_id(&self) -> Result<KeyId> {
+        // Same derivation as AES-256-CBC-HMAC keys, which also carry no stored id.
+        let mut key_id = [0u8; KEY_ID_SIZE];
+        key_id.copy_from_slice(&self.thumbprint()?.as_bytes()[..KEY_ID_SIZE]);
+
+        Ok(KeyId::from(key_id))
     }
 
     /// Build a public key from the SubjectPublicKeyInfo DER.
@@ -585,6 +604,24 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         assert_eq!(
             public_key.thumbprint().unwrap().to_hex(),
             "04fbcfa50c5805171304cc5b4794c25d77f7359d8a201828a5d7ef89162463aa"
+        );
+    }
+
+    #[test]
+    fn test_public_key_algorithm_and_key_id() {
+        let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(
+            RSA_PUBLIC_KEY_B64.parse::<B64>().unwrap().as_bytes(),
+        ))
+        .unwrap();
+
+        assert!(matches!(
+            public_key.algorithm(),
+            PublicKeyEncryptionAlgorithm::RsaOaepSha1
+        ));
+        // First 16 bytes of the thumbprint vector above.
+        assert_eq!(
+            public_key.key_id().unwrap().to_string(),
+            "04fbcfa50c5805171304cc5b4794c25d"
         );
     }
 }
