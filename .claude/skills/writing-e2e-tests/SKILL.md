@@ -41,7 +41,7 @@ instead.
 | `server-emulator/server-emulator.ts`             | `seedUserTestVector`, `seedOrganization`, `seedEmergencyAccessTestVector`, `getUser`, `db`                                          |
 | `server-emulator/api-server.ts`                  | Route model (`/sync`, kdf, rotation, ciphers, folders…) with real server rules (409, 400)                                           |
 | `server-emulator/*-server.ts`                    | One service per file (`api`, `emergency-access`, `identity`, `key-connector`); `routes()` bound to its origin in `installFetchHook` |
-| `server-emulator/dto.ts`                         | Server wire DTOs + converters (`SyncResponse.forUser`, `CipherRequest.toCipher`…)                                                   |
+| `server-emulator/dto/*.ts`                       | Server wire DTOs + converters, one file per feature (`sync.ts` → `SyncResponse.forUser`, `vault.ts` → `CipherRequest.toCipher`…)    |
 | `server-emulator/http-mock.ts`                   | Fetch hook; records `requests`, `unmatched`, `bodyFor`, `called`                                                                    |
 | `client-emulator/client-emulator.ts`             | `ClientEmulator` (`login(email, LoginMethod, password?)`, `sync`, `unlock`, `unlockWith`, `lock`, `restart`, `reinit`)              |
 | `client-emulator/local-state.ts`                 | `LocalState`: state bridge + repositories; `locked()`, `unlock(method)`, `clearEphemeral`                                           |

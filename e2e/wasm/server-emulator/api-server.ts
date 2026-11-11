@@ -25,24 +25,24 @@ const PBKDF2_MIN_ITERATIONS = 600_000;
 /** Key ids travel as a lowercase hex encoding of 16 bytes. */
 const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
 import { Database } from "./database";
+import { KdfType } from "./dto/kdf";
 import {
-  KeysResponse,
+  KeyRegenerationRequest,
+  KeyRotationDataResponse,
+  RotateUserKeysRequest,
+  UnlockMethod,
+  UserKeyIdRequest,
+  type ChangeKdfRequest,
+} from "./dto/key-rotation";
+import { MasterPasswordUnlockDataModel } from "./dto/master-password";
+import { KeysResponse, type ProfileOrganizationResponse, SyncResponse } from "./dto/sync";
+import {
   type CipherCreateRequest,
   CipherRequest,
   CipherResponse,
   FolderRequest,
   FolderResponse,
-  KdfType,
-  KeyRegenerationRequest,
-  KeyRotationDataResponse,
-  MasterPasswordUnlockDataModel,
-  type ProfileOrganizationResponse,
-  RotateUserKeysRequest,
-  UnlockMethod,
-  SyncResponse,
-  UserKeyIdRequest,
-  type ChangeKdfRequest,
-} from "./dto";
+} from "./dto/vault";
 import type { CipherEntity, FolderEntity, UserEntity } from "./entities";
 import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_NOT_FOUND } from "./replies";
 

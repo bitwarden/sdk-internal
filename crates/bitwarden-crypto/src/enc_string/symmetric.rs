@@ -190,7 +190,7 @@ impl EncString {
             CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => {
                 SymmetricKeyAlgorithm::XChaCha20Poly1305
             }
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
                 SymmetricKeyAlgorithm::Aes256CbcHmac
             }
         };
@@ -505,6 +505,13 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 )?;
                 Ok(decrypted)
             }
+            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::Aes256CbcHmacKey(key)) => {
+                let (decrypted, _) = crate::cose::symmetric::decrypt_aes256_cbc_hmac_aead(
+                    &CoseEncrypt0Bytes::from(data.as_slice()),
+                    key,
+                )?;
+                Ok(decrypted)
+            }
             (EncString::Unparseable { .. }, _) => Err(CryptoError::UnparseableEncString),
             (_, SymmetricCryptoKey::XAes256GcmKey(_)) => Err(CryptoError::WrongKeyType),
             _ => Err(CryptoError::WrongKeyType),
@@ -551,9 +558,22 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        CryptoError, KEY_ID_SIZE, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
-        SymmetricKeyAlgorithm, derive_symmetric_key,
+        Aes256CbcHmacKey, ContentFormat, CryptoError, KEY_ID_SIZE, KeyDecryptable, KeyEncryptable,
+        SymmetricCryptoKey, SymmetricKeyAlgorithm,
+        cose::symmetric::{CoseContentEncryptionAlgorithm, encrypt_cose0},
+        derive_symmetric_key,
     };
+
+    const AES256_CBC_HMAC_COSE_PLAINTEXT: &str = "Type 7 AES-256-CBC-HMAC test vector";
+    const AES256_CBC_HMAC_COSE_ENC_STRING: &str = "7.g1g/owE6AAERegN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLnV0ZjgtcGFkZGVkBFCsTs/7Lgh6WRgNHdGZULjpoQVQXYJbsJat2eG+9CcclU7mqVhwKiZITE/+y7LqmpX+A+QS7iZ3Ng/0/+zZnW/TFQ//5t5qnJl6p0GV3t804h4rSfwEGtXvI27//Uaup0KEq+XU8kwx5m4VSq8JarD48spPgxlrmpLncTpFgIh+Z6YDPc300PsAbOj+bHT+dSLFH7cRHA==";
+
+    /// Type 2 key with `enc_key = 0..32`, `mac_key = 32..64`.
+    fn aes_cbc_hmac_key() -> Aes256CbcHmacKey {
+        Aes256CbcHmacKey::new(
+            &std::array::from_fn(|i| i as u8),
+            &std::array::from_fn(|i| (i + 32) as u8),
+        )
+    }
 
     fn xaes_key(operations: Vec<KeyOperation>) -> SymmetricCryptoKey {
         SymmetricCryptoKey::XAes256GcmKey(crate::XAes256GcmKey {
@@ -1036,6 +1056,56 @@ mod tests {
             "EncString::Aes256CbcHmacSha256".to_string(),
             format!("{:?}", enc_string)
         );
+    }
+
+    #[test]
+    #[ignore = "Generates test vectors; run manually"]
+    fn generate_aes256_cbc_hmac_cose_test_vector() {
+        let key = aes_cbc_hmac_key();
+        let protected_header = coset::HeaderBuilder::from(ContentFormat::Utf8)
+            .key_id(key.key_id().as_slice().to_vec())
+            .build();
+        let message = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
+            coset::CoseEncrypt0Builder::new(),
+            protected_header,
+            AES256_CBC_HMAC_COSE_PLAINTEXT.as_bytes(),
+            key.as_composite_key(),
+        )
+        .unwrap();
+        let enc_string = EncString::Cose_Encrypt0_B64 {
+            data: coset::CborSerializable::to_vec(message).unwrap(),
+        };
+        println!(
+            "const AES256_CBC_HMAC_COSE_ENC_STRING: &str = \"{}\";",
+            enc_string.to_string()
+        );
+    }
+
+    /// Locks in type 7 EncStrings sealed with a type 2 key; must never break, or existing data
+    /// will no longer decrypt.
+    #[test]
+    fn test_decrypt_aes256_cbc_hmac_cose_test_vector() {
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(aes_cbc_hmac_key());
+        let enc_string: EncString = AES256_CBC_HMAC_COSE_ENC_STRING.parse().unwrap();
+
+        assert_eq!(
+            enc_string.algorithm(),
+            Some(SymmetricKeyAlgorithm::Aes256CbcHmac)
+        );
+        assert_eq!(enc_string.key_id(), key.key_id());
+
+        let decrypted: String = enc_string.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted, AES256_CBC_HMAC_COSE_PLAINTEXT);
+    }
+
+    #[test]
+    fn test_decrypt_aes256_cbc_hmac_cose_wrong_key() {
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("other"));
+        let enc_string: EncString = AES256_CBC_HMAC_COSE_ENC_STRING.parse().unwrap();
+
+        let result: Result<String, _> = enc_string.decrypt_with_key(&key);
+        assert!(matches!(result, Err(CryptoError::WrongCoseKeyId)));
     }
 
     #[test]

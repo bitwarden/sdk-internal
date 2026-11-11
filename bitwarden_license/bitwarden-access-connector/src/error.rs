@@ -59,6 +59,11 @@ impl SafeDetail {
         Self(Self::truncate(format!("error kind: {kind}")))
     }
 
+    /// Only the code: `diagnosticMessage` and `matchedDN` can echo account names and DNs.
+    pub(crate) fn from_ldap_result_code(rc: u32) -> Self {
+        Self(Self::truncate(format!("LDAP result code {rc}")))
+    }
+
     pub(crate) fn timed_out(secs: u64) -> Self {
         Self(Self::truncate(format!("timed out after {secs}s")))
     }
@@ -157,6 +162,12 @@ mod tests {
             d.as_str(),
             "sealed data rejected: target_method_not_automatic"
         );
+    }
+
+    #[test]
+    fn safe_detail_from_ldap_result_code() {
+        let d = SafeDetail::from_ldap_result_code(49);
+        assert_eq!(d.as_str(), "LDAP result code 49");
     }
 
     #[test]
