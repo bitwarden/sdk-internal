@@ -19,6 +19,9 @@ use crate::OrganizationCryptoManagementClient;
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 pub enum OrganizationKeyIdBackfillError {
+    /// The client is locked, so the organization keys are not available.
+    #[error("The client must be unlocked to backfill organization key ids")]
+    NotUnlocked,
     /// The organization repository is not registered or could not be read.
     #[error("Organization state is not available")]
     OrganizationStateNotAvailable(#[from] RepositoryError),
@@ -31,6 +34,8 @@ pub enum OrganizationKeyIdBackfillError {
 impl OrganizationCryptoManagementClient {
     /// Returns the organizations whose key id the server does not have, and that this account can
     /// record the key id for.
+    ///
+    /// Returns [`OrganizationKeyIdBackfillError::NotUnlocked`] when the client is locked.
     pub async fn organization_key_ids_needing_backfill(
         &self,
     ) -> Result<Vec<OrganizationId>, OrganizationKeyIdBackfillError> {
@@ -48,7 +53,7 @@ impl OrganizationCryptoManagementClient {
     /// [`OrganizationKeyIdBackfillError::Api`] when any organization failed. Makes no API calls
     /// when no organization needs a backfill.
     ///
-    /// Requires the client to be unlocked so the organization keys are available in memory.
+    /// Returns [`OrganizationKeyIdBackfillError::NotUnlocked`] when the client is locked.
     pub async fn organization_key_id_backfill(&self) -> Result<(), OrganizationKeyIdBackfillError> {
         let mut failed = false;
 
@@ -89,6 +94,10 @@ impl OrganizationCryptoManagementClient {
         let organizations = self.repository.require()?.list().await?;
 
         let ctx = self.key_store.context();
+        if !ctx.has_symmetric_key(SymmetricKeySlotId::User) {
+            return Err(OrganizationKeyIdBackfillError::NotUnlocked);
+        }
+
         Ok(organizations
             .into_iter()
             // Only backfill if the org key id is not set on the server
@@ -142,7 +151,7 @@ mod tests {
         }
     }
 
-    /// A client holding an organization key for each of `organization_ids`, with
+    /// An unlocked client holding an organization key for each of `organization_ids`, with
     /// `organizations` in its state and its API calls served by the configured mock.
     async fn client(
         organizations: &[ProfileOrganization],
@@ -160,6 +169,12 @@ mod tests {
         let key_store = KeyStore::default();
         {
             let mut ctx = key_store.context_mut();
+            #[allow(deprecated)]
+            ctx.set_symmetric_key(
+                SymmetricKeySlotId::User,
+                SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            )
+            .expect("the context is mutable");
             for organization_id in organization_ids {
                 #[allow(deprecated)]
                 ctx.set_symmetric_key(
@@ -372,6 +387,27 @@ mod tests {
         assert!(matches!(
             client.organization_key_id_backfill().await,
             Err(OrganizationKeyIdBackfillError::OrganizationStateNotAvailable(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_errors_when_the_client_is_locked() {
+        let organization = organization(OrganizationUserType::Owner);
+        let organization_id = organization.details.id;
+        let client = client(&[organization], &[organization_id], expect_no_posts).await;
+        client
+            .key_store
+            .context_mut()
+            .drop_symmetric_key(SymmetricKeySlotId::User)
+            .expect("the context is mutable");
+
+        assert!(matches!(
+            client.organization_key_ids_needing_backfill().await,
+            Err(OrganizationKeyIdBackfillError::NotUnlocked)
+        ));
+        assert!(matches!(
+            client.organization_key_id_backfill().await,
+            Err(OrganizationKeyIdBackfillError::NotUnlocked)
         ));
     }
 }
