@@ -1,6 +1,7 @@
 use bitwarden_crypto::{CryptoError, EncString, KeyId, UnsignedSharedKey};
 
-// EncString type prefixes, as defined by the wire format (`<type>.<payload>`).
+// Type prefixes of the `<type>.<payload>` wire format. EncStrings (symmetric) use 0, 2 and 7;
+// UnsignedSharedKeys (RSA) use 3 to 6.
 const AES256_CBC: u8 = 0;
 const AES256_CBC_HMAC_SHA256: u8 = 2;
 const RSA2048_OAEP_SHA256: u8 = 3;
@@ -23,24 +24,20 @@ pub struct CryptoObjectKeyIds {
     pub signed_by_key_id: Option<String>,
 }
 
-/// Whether an EncString is encrypted with a symmetric key or an RSA public key.
-#[derive(uniffi::Enum, Debug, PartialEq)]
-pub enum EncStringFamily {
-    /// Types 0, 2 and 7.
-    Symmetric,
-    /// Types 3 to 6 (`UnsignedSharedKey`).
-    Asymmetric,
-}
-
-/// What an EncString carries.
+/// What a symmetric EncString (type 0, 2 or 7) carries.
 #[derive(uniffi::Record, Debug, PartialEq)]
 pub struct EncStringInfo {
     /// The numeric type prefix, e.g. `2` for an AES-CBC-HMAC EncString (`2.iv|data|mac`).
     pub encryption_type: u8,
-    /// Symmetric or asymmetric, derived from `encryption_type`.
-    pub family: EncStringFamily,
     /// The id of the encrypting key. Only COSE EncStrings (type 7) carry one.
     pub encrypted_by_key_id: Option<String>,
+}
+
+/// What an RSA-encrypted UnsignedSharedKey (type 3 to 6) carries. It names no key.
+#[derive(uniffi::Record, Debug, PartialEq)]
+pub struct UnsignedSharedKeyInfo {
+    /// The numeric type prefix, e.g. `4` for RSA-OAEP-SHA1 (`4.data`).
+    pub encryption_type: u8,
 }
 
 impl TryFrom<&EncString> for EncStringInfo {
@@ -56,13 +53,12 @@ impl TryFrom<&EncString> for EncStringInfo {
 
         Ok(Self {
             encryption_type,
-            family: EncStringFamily::Symmetric,
             encrypted_by_key_id: hex(enc_string.key_id()),
         })
     }
 }
 
-impl From<&UnsignedSharedKey> for EncStringInfo {
+impl From<&UnsignedSharedKey> for UnsignedSharedKeyInfo {
     #[allow(deprecated)]
     fn from(shared_key: &UnsignedSharedKey) -> Self {
         let encryption_type = match shared_key {
@@ -76,12 +72,7 @@ impl From<&UnsignedSharedKey> for EncStringInfo {
             }
         };
 
-        // RSA EncStrings name no key.
-        Self {
-            encryption_type,
-            family: EncStringFamily::Asymmetric,
-            encrypted_by_key_id: None,
-        }
+        Self { encryption_type }
     }
 }
 

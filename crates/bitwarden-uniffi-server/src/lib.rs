@@ -11,15 +11,12 @@ use bitwarden_crypto::{
     CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError, EncString, EncodingError, KeyId,
     PublicKey, SignedObject, SignedPublicKey, UnsignedSharedKey, VerifyingKey,
     compat::LegacyCompatSymmetricKeyEnvelope,
-    safe::{
-        DataEnvelope, DataEnvelopeError, PasswordProtectedKeyEnvelope, SymmetricKeyEnvelope,
-        SymmetricKeyEnvelopeError,
-    },
+    safe::{DataEnvelope, PasswordProtectedKeyEnvelope, SymmetricKeyEnvelope},
 };
 use bitwarden_encoding::B64;
 pub use error::ServerError;
 use inspection::hex;
-pub use inspection::{CryptoObjectKeyIds, EncStringFamily, EncStringInfo};
+pub use inspection::{CryptoObjectKeyIds, EncStringInfo, UnsignedSharedKeyInfo};
 
 /// Entry point of the server bindings.
 ///
@@ -47,10 +44,9 @@ impl ServerClient {
         &self,
         enc_string: String,
     ) -> Result<Option<String>, ServerError> {
-        let enc_string =
-            EncString::parse_strict(&enc_string).map_err(ServerError::InvalidEncString)?;
+        let enc_string = EncString::parse_strict(&enc_string)?;
 
-        Ok(enc_string.key_id().map(|id| id.to_string()))
+        Ok(hex(enc_string.key_id()))
     }
 
     /// The id of the key sealed in `envelope`, as 32 lowercase hex characters.
@@ -60,45 +56,35 @@ impl ServerClient {
         &self,
         envelope: String,
     ) -> Result<Option<String>, ServerError> {
-        let envelope =
-            SymmetricKeyEnvelope::from_str(&envelope).map_err(ServerError::InvalidEnvelope)?;
-        let key_id = envelope
-            .contained_key_id()
-            .map_err(ServerError::InvalidEnvelope)?;
+        let envelope = SymmetricKeyEnvelope::from_str(&envelope)?;
 
-        Ok(key_id.map(|id| id.to_string()))
+        Ok(hex(envelope.contained_key_id()?))
     }
 }
 
 /// Strict, keyless inspection: each method parses one SDK type and reports the key ids it names.
 ///
-/// Nothing is decrypted or verified. Invalid input returns the [ServerError] variant of that type.
+/// Nothing is decrypted or verified. Any invalid input returns [ServerError::InvalidData].
 #[uniffi::export]
 impl ServerClient {
-    /// Inspects any EncString: symmetric (types 0, 2, 7) or asymmetric (types 3 to 6).
+    /// Inspects a symmetric EncString (type 0, 2 or 7).
+    ///
+    /// RSA-encrypted UnsignedSharedKeys (types 3 to 6) are not EncStrings and are rejected; use
+    /// [ServerClient::inspect_unsigned_shared_key].
     pub fn inspect_enc_string(&self, enc_string: String) -> Result<EncStringInfo, ServerError> {
-        // Asymmetric types are a separate SDK type, so fall back to it before failing.
-        let symmetric_error = match EncString::parse_strict(&enc_string) {
-            Ok(parsed) => {
-                return EncStringInfo::try_from(&parsed).map_err(ServerError::InvalidEncString);
-            }
-            Err(e) => e,
-        };
+        let enc_string = EncString::parse_strict(&enc_string)?;
 
-        UnsignedSharedKey::from_str(&enc_string)
-            .map(|parsed| EncStringInfo::from(&parsed))
-            .map_err(|_| ServerError::InvalidEncString(symmetric_error))
+        Ok(EncStringInfo::try_from(&enc_string)?)
     }
 
-    /// Inspects an RSA-encrypted UnsignedSharedKey (EncString types 3 to 6). Names no key.
+    /// Inspects an RSA-encrypted UnsignedSharedKey (type 3 to 6). Names no key.
     pub fn inspect_unsigned_shared_key(
         &self,
         shared_key: String,
-    ) -> Result<EncStringInfo, ServerError> {
-        let shared_key = UnsignedSharedKey::from_str(&shared_key)
-            .map_err(ServerError::InvalidUnsignedSharedKey)?;
+    ) -> Result<UnsignedSharedKeyInfo, ServerError> {
+        let shared_key = UnsignedSharedKey::from_str(&shared_key)?;
 
-        Ok(EncStringInfo::from(&shared_key))
+        Ok(UnsignedSharedKeyInfo::from(&shared_key))
     }
 
     /// Inspects a SymmetricKeyEnvelope: the sealed key (if named) and the sealing key.
@@ -106,18 +92,11 @@ impl ServerClient {
         &self,
         envelope: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let envelope =
-            SymmetricKeyEnvelope::from_str(&envelope).map_err(ServerError::InvalidEnvelope)?;
-        let contained = envelope
-            .contained_key_id()
-            .map_err(ServerError::InvalidEnvelope)?;
-        let encrypted_by = envelope
-            .encrypted_by_key_id()
-            .map_err(ServerError::InvalidEnvelope)?;
+        let envelope = SymmetricKeyEnvelope::from_str(&envelope)?;
 
         Ok(CryptoObjectKeyIds {
-            contained_key_id: hex(contained),
-            encrypted_by_key_id: hex(Some(encrypted_by)),
+            contained_key_id: hex(envelope.contained_key_id()?),
+            encrypted_by_key_id: hex(Some(envelope.encrypted_by_key_id()?)),
             ..Default::default()
         })
     }
@@ -129,28 +108,18 @@ impl ServerClient {
         &self,
         envelope: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let envelope = LegacyCompatSymmetricKeyEnvelope::from_str(&envelope)
-            .map_err(ServerError::InvalidLegacyCompatEnvelope)?;
+        let envelope = LegacyCompatSymmetricKeyEnvelope::from_str(&envelope)?;
 
         // The SDK parses the EncString form laxly; reject what it could not read.
         if let LegacyCompatSymmetricKeyEnvelope::EncString(EncString::Unparseable { .. }) =
             &envelope
         {
-            return Err(ServerError::InvalidLegacyCompatEnvelope(
-                SymmetricKeyEnvelopeError::Parsing("Unparseable EncString".to_string()),
-            ));
+            return Err(ServerError::InvalidData);
         }
 
-        let contained = envelope
-            .contained_key_id()
-            .map_err(ServerError::InvalidLegacyCompatEnvelope)?;
-        let encrypted_by = envelope
-            .encrypted_by_key_id()
-            .map_err(ServerError::InvalidLegacyCompatEnvelope)?;
-
         Ok(CryptoObjectKeyIds {
-            contained_key_id: hex(contained),
-            encrypted_by_key_id: hex(encrypted_by),
+            contained_key_id: hex(envelope.contained_key_id()?),
+            encrypted_by_key_id: hex(envelope.encrypted_by_key_id()?),
             ..Default::default()
         })
     }
@@ -161,14 +130,10 @@ impl ServerClient {
         &self,
         envelope: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let envelope = PasswordProtectedKeyEnvelope::from_str(&envelope)
-            .map_err(ServerError::InvalidPasswordProtectedEnvelope)?;
-        let contained = envelope
-            .contained_key_id()
-            .map_err(ServerError::InvalidPasswordProtectedEnvelope)?;
+        let envelope = PasswordProtectedKeyEnvelope::from_str(&envelope)?;
 
         Ok(CryptoObjectKeyIds {
-            contained_key_id: hex(contained),
+            contained_key_id: hex(envelope.contained_key_id()?),
             ..Default::default()
         })
     }
@@ -178,15 +143,10 @@ impl ServerClient {
         &self,
         envelope: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let envelope = DataEnvelope::from_str(&envelope).map_err(|e| {
-            ServerError::InvalidDataEnvelope(DataEnvelopeError::Parsing(e.to_string()))
-        })?;
-        let encrypted_by = envelope
-            .encrypted_by_key_id()
-            .map_err(ServerError::InvalidDataEnvelope)?;
+        let envelope = DataEnvelope::from_str(&envelope).map_err(|_| ServerError::InvalidData)?;
 
         Ok(CryptoObjectKeyIds {
-            encrypted_by_key_id: hex(Some(encrypted_by)),
+            encrypted_by_key_id: hex(Some(envelope.encrypted_by_key_id()?)),
             ..Default::default()
         })
     }
@@ -196,9 +156,7 @@ impl ServerClient {
         &self,
         signed_object: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let signed_by = signed_by(&signed_object).map_err(ServerError::InvalidSignedObject)?;
-
-        Ok(signed_by_ids(signed_by))
+        Ok(signed_by_ids(signed_by(&signed_object)?))
     }
 
     /// Inspects a SignedPublicKey: the signing key.
@@ -206,15 +164,12 @@ impl ServerClient {
         &self,
         signed_public_key: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let signed_public_key = SignedPublicKey::from_str(&signed_public_key)
-            .map_err(|e| ServerError::InvalidSignedPublicKey(e.into()))?;
+        let signed_public_key =
+            SignedPublicKey::from_str(&signed_public_key).map_err(|_| ServerError::InvalidData)?;
 
         // SignedPublicKey hides its SignedObject; re-read the same COSE bytes as one.
         let bytes = CoseSign1Bytes::from(signed_public_key);
-        let signed_by = SignedObject::from_cose(&bytes)
-            .map_err(CryptoError::from)
-            .and_then(|object| object.signed_by_id())
-            .map_err(ServerError::InvalidSignedPublicKey)?;
+        let signed_by = SignedObject::from_cose(&bytes)?.signed_by_id()?;
 
         Ok(signed_by_ids(signed_by))
     }
@@ -224,11 +179,8 @@ impl ServerClient {
         &self,
         verifying_key: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        let bytes = B64::try_from(verifying_key.as_str())
-            .map_err(|_| EncodingError::InvalidBase64Encoding)
-            .map_err(|e| ServerError::InvalidVerifyingKey(e.into()))?;
-        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(&bytes))
-            .map_err(|e| ServerError::InvalidVerifyingKey(e.into()))?;
+        let bytes = B64::try_from(verifying_key.as_str()).map_err(|_| ServerError::InvalidData)?;
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(&bytes))?;
 
         Ok(CryptoObjectKeyIds {
             contained_key_id: hex(Some(verifying_key.key_id())),
@@ -242,7 +194,7 @@ impl ServerClient {
         &self,
         public_key: String,
     ) -> Result<CryptoObjectKeyIds, ServerError> {
-        PublicKey::from_str(&public_key).map_err(|_| ServerError::InvalidPublicKey)?;
+        PublicKey::from_str(&public_key).map_err(|_| ServerError::InvalidData)?;
 
         Ok(CryptoObjectKeyIds::default())
     }
@@ -256,10 +208,7 @@ impl ServerClient {
     ) -> Result<CryptoObjectKeyIds, ServerError> {
         // SignedSecurityState lives in bitwarden-core, too heavy for this crate. Its wire format is
         // a base64 SignedObject, which is what its own parser reads.
-        let signed_by =
-            signed_by(&signed_security_state).map_err(ServerError::InvalidSignedSecurityState)?;
-
-        Ok(signed_by_ids(signed_by))
+        Ok(signed_by_ids(signed_by(&signed_security_state)?))
     }
 }
 
@@ -375,7 +324,7 @@ mod tests {
     fn encstring_invalid_is_error() {
         let result = ServerClient::new().get_encrypted_by_key_id_encstring("garbage".into());
 
-        assert!(matches!(result, Err(ServerError::InvalidEncString(_))));
+        assert!(matches!(result, Err(ServerError::InvalidData)));
     }
 
     #[test]
@@ -406,7 +355,7 @@ mod tests {
         let result =
             ServerClient::new().get_encrypted_by_key_id_symmetrickeyenvelope("garbage".into());
 
-        assert!(matches!(result, Err(ServerError::InvalidEnvelope(_))));
+        assert!(matches!(result, Err(ServerError::InvalidData)));
     }
 
     // Test payloads. `SecurityStateStub` mirrors bitwarden-core's `SecurityState`.
@@ -450,7 +399,6 @@ mod tests {
             info,
             EncStringInfo {
                 encryption_type: 7,
-                family: EncStringFamily::Symmetric,
                 encrypted_by_key_id: id(ctx.get_symmetric_key_id(key)),
             }
         );
@@ -468,23 +416,19 @@ mod tests {
             .expect("valid EncString");
 
         assert_eq!(info.encryption_type, 2);
-        assert_eq!(info.family, EncStringFamily::Symmetric);
         assert_eq!(info.encrypted_by_key_id, None);
     }
 
+    // UnsignedSharedKeys share the `<type>.<payload>` format but are not EncStrings.
     #[test]
-    fn inspect_enc_string_asymmetric() {
+    fn inspect_enc_string_rejects_unsigned_shared_key() {
         let store = KeyStore::<TestIds>::default();
         let mut ctx = store.context_mut();
         let shared = make_shared_key(&mut ctx);
 
-        let info = ServerClient::new()
-            .inspect_enc_string(shared)
-            .expect("valid EncString");
+        let result = ServerClient::new().inspect_enc_string(shared);
 
-        assert_eq!(info.encryption_type, 4);
-        assert_eq!(info.family, EncStringFamily::Asymmetric);
-        assert_eq!(info.encrypted_by_key_id, None);
+        assert!(matches!(result, Err(ServerError::InvalidData)));
     }
 
     #[test]
@@ -493,10 +437,7 @@ mod tests {
 
         for input in [GARBAGE, "2.AAAA|AAAA", "9.AAAA"] {
             let result = client.inspect_enc_string(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidEncString(_))),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -522,7 +463,6 @@ mod tests {
             .expect("valid UnsignedSharedKey");
 
         assert_eq!(info.encryption_type, 4);
-        assert_eq!(info.family, EncStringFamily::Asymmetric);
     }
 
     #[test]
@@ -531,10 +471,7 @@ mod tests {
 
         for input in [GARBAGE, COSE_ENCSTRING, LEGACY_ENCSTRING] {
             let result = client.inspect_unsigned_shared_key(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidUnsignedSharedKey(_))),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -582,10 +519,7 @@ mod tests {
 
         for input in [GARBAGE, COSE_ENCSTRING] {
             let result = client.inspect_symmetric_key_envelope(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidEnvelope(_))),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -645,10 +579,7 @@ mod tests {
 
         for input in [GARBAGE, "2.AAAA|AAAA"] {
             let result = client.inspect_legacy_compat_symmetric_key_envelope(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidLegacyCompatEnvelope(_))),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -684,13 +615,7 @@ mod tests {
 
         for input in [GARBAGE, ENVELOPE] {
             let result = client.inspect_password_protected_key_envelope(input.into());
-            assert!(
-                matches!(
-                    result,
-                    Err(ServerError::InvalidPasswordProtectedEnvelope(_))
-                ),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -721,10 +646,7 @@ mod tests {
         // Not base64; base64 but not COSE.
         for input in [GARBAGE, "AAAA"] {
             let result = client.inspect_data_envelope(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidDataEnvelope(_))),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -761,10 +683,7 @@ mod tests {
 
         for input in [GARBAGE, "AAAA"] {
             let result = client.inspect_signed_object(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidSignedObject(_))),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -791,10 +710,7 @@ mod tests {
 
         for input in [GARBAGE, "AAAA"] {
             let result = client.inspect_signed_public_key(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidSignedPublicKey(_))),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -828,10 +744,7 @@ mod tests {
 
         for input in [GARBAGE, "AAAA"] {
             let result = client.inspect_verifying_key(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidVerifyingKey(_))),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -855,10 +768,7 @@ mod tests {
 
         for input in [GARBAGE, "AAAA"] {
             let result = client.inspect_public_key(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidPublicKey)),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 
@@ -889,10 +799,7 @@ mod tests {
 
         for input in [GARBAGE, "AAAA"] {
             let result = client.inspect_signed_security_state(input.into());
-            assert!(
-                matches!(result, Err(ServerError::InvalidSignedSecurityState(_))),
-                "{input}"
-            );
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{input}");
         }
     }
 }
