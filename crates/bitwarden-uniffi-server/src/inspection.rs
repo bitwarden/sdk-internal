@@ -35,7 +35,7 @@ pub enum EncStringFamily {
 /// What an EncString carries.
 #[derive(uniffi::Record, Debug, PartialEq)]
 pub struct EncStringInfo {
-    /// The numeric type prefix, e.g. `2` for `2.<iv>|<data>|<mac>`.
+    /// The numeric type prefix, e.g. `2` for an AES-CBC-HMAC EncString (`2.iv|data|mac`).
     pub encryption_type: u8,
     /// Symmetric or asymmetric, derived from `encryption_type`.
     pub family: EncStringFamily,
