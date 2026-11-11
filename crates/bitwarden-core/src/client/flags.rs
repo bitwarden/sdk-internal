@@ -16,6 +16,11 @@ pub struct Flags {
     /// Enable FedRAMP government region behavior.
     #[serde(alias = "fedrampGovRegion")]
     pub fedramp_gov_region: bool,
+
+    /// Finish SSO JIT provisioning through the `sso-jit-provision-finish` endpoints. These
+    /// endpoints let the client choose whether the organization membership stays Invited.
+    #[serde(alias = "pm-34429-invite-link-auto-confirm")]
+    pub invite_link_auto_confirm: bool,
 }
 
 impl Flags {
@@ -54,6 +59,14 @@ mod tests {
         map.insert("pm-34500-strict-cipher-decryption".into(), true);
         let flags = Flags::load_from_map(map);
         assert!(flags.strict_cipher_decryption);
+    }
+
+    #[test]
+    fn test_load_invite_link_auto_confirm_alias() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("pm-34429-invite-link-auto-confirm".into(), true);
+        let flags = Flags::load_from_map(map);
+        assert!(flags.invite_link_auto_confirm);
     }
 
     #[test]
