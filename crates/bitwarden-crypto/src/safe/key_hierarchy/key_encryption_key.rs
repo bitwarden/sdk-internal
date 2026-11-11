@@ -94,7 +94,7 @@ mod tests {
             ),
             (
                 SymmetricKeyAlgorithm::Aes256CbcHmac,
-                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
             ),
         ] {
             let key_id = ctx.make_symmetric_key(algorithm);
