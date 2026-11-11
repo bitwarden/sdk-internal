@@ -19,7 +19,7 @@ use crate::{
             account_cryptographic_state_to_wrapped_model, rotate_account_cryptographic_state,
         },
         data::{check_for_old_attachments, reencrypt_data},
-        rotation_context::make_rotation_context,
+        rotation_context::{ensure_rotates_to_v2, make_rotation_context},
         sync::{SyncedAccountData, sync_current_account_data},
         unlock::{ReencryptCommonUnlockDataInput, reencrypt_common_unlock_data},
         unlock_method::{PrimaryUnlockMethod, reencrypt_unlock_method_data},
@@ -49,6 +49,18 @@ pub enum UpgradeTokenAction {
     CreateIfNeeded,
 }
 
+/// Which user key version a rotation produces. Callers set it from the
+/// `force-upgrade-v2-encryption` feature flag.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[bitwarden_ffi::wasm_record]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum UserKeyUpgrade {
+    /// A V1 user key rotates to a new V1 user key. A V2 user key rotates to a new V2 user key.
+    KeepVersion,
+    /// The user key rotates to a new V2 user key.
+    UpgradeToV2,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -59,6 +71,9 @@ pub struct RotateUserKeysRequest {
     /// shares the new user key for account recovery.
     pub trusted_organization_public_keys: Vec<PublicKey>,
     pub upgrade_token_action: UpgradeTokenAction,
+    /// Must be [`UserKeyUpgrade::UpgradeToV2`] for a V1 user, since the server takes only a V2
+    /// account on this endpoint.
+    pub user_key_upgrade: UserKeyUpgrade,
 }
 
 #[bitwarden_ffi::wasm_export]
@@ -70,6 +85,9 @@ impl UserCryptoManagementClient {
     ) -> Result<(), RotateUserKeysError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
+
+        // Checked before any request, so a refused rotation leaves the account untouched
+        ensure_rotates_to_v2(key_store, request.user_key_upgrade)?;
 
         let sync = sync_current_account_data(api_client)
             .await
@@ -196,6 +214,7 @@ async fn internal_rotate_user_keys(
             request.trusted_organization_public_keys.as_slice(),
             request.trusted_emergency_access_public_keys.as_slice(),
             request.upgrade_token_action.clone(),
+            request.user_key_upgrade,
             &mut ctx,
         )?;
 
@@ -511,6 +530,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::Skip,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -546,6 +566,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::Skip,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -583,6 +604,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::Skip,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -625,6 +647,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::Skip,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -667,6 +690,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::CreateIfNeeded,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -711,6 +735,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::CreateIfNeeded,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -761,6 +786,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::Skip,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -852,6 +878,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::Skip,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -920,6 +947,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::Skip,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -975,6 +1003,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::Skip,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -1036,6 +1065,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::CreateIfNeeded,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -1087,6 +1117,7 @@ mod tests {
                 trusted_organization_public_keys: vec![organization_public_key],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::CreateIfNeeded,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -1122,6 +1153,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: UpgradeTokenAction::Skip,
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,

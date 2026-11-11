@@ -1,6 +1,12 @@
 // The request and response models of user-key rotation, KDF changes and key ids.
 
-import { WrappedAccountCryptographicStateRequest } from "./account-keys";
+import {
+  PublicKeyEncryptionKeyPairRequest,
+  SecurityStateRequest,
+  SignatureKeyPairRequest,
+  WrappedAccountCryptographicStateRequest,
+} from "./account-keys";
+import { KdfModel, type KdfTypeValue } from "./kdf";
 import {
   MasterPasswordAuthenticationDataModel,
   MasterPasswordUnlockDataModel,
@@ -50,6 +56,54 @@ export class RotateUserKeysRequest {
   accountData!: AccountDataRequest;
   unlockMethodData!: UnlockMethodRequest;
   newUserKeyId?: string;
+}
+
+/** `AccountKeysRequestModel` — a V1 account omits the signature key pair and security state. */
+export class AccountKeysRequest {
+  publicKeyEncryptionKeyPair!: PublicKeyEncryptionKeyPairRequest;
+  signatureKeyPair?: SignatureKeyPairRequest | null;
+  securityState?: SecurityStateRequest | null;
+}
+
+/** `MasterPasswordUnlockAndAuthenticationDataModel` — the new password, KDF fields flattened. */
+export class MasterPasswordUnlockAndAuthenticationDataModel {
+  kdfType!: KdfTypeValue;
+  kdfIterations!: number;
+  kdfMemory?: number | null;
+  kdfParallelism?: number | null;
+  masterKeyAuthenticationHash!: string;
+  masterKeyEncryptedUserKey!: string;
+  masterPasswordHint?: string | null;
+  masterPasswordSalt!: string;
+  containedKeyId?: string | null;
+
+  /** The KDF the new password is derived with. */
+  static kdfOf(posted: MasterPasswordUnlockAndAuthenticationDataModel): KdfModel {
+    return {
+      kdfType: posted.kdfType,
+      iterations: posted.kdfIterations,
+      memory: posted.kdfMemory ?? undefined,
+      parallelism: posted.kdfParallelism ?? undefined,
+    };
+  }
+}
+
+/** `UnlockDataRequestModel` — {@link CommonUnlockDataRequest} plus the new master password. */
+export class UnlockDataRequest extends CommonUnlockDataRequest {
+  masterPasswordUnlockData!: MasterPasswordUnlockAndAuthenticationDataModel;
+}
+
+/**
+ * `RotateUserAccountKeysAndDataRequestModel` — the body of
+ * `POST /accounts/key-management/rotate-user-account-keys`, a rotation bundled with a password
+ * change.
+ */
+export class RotateUserAccountKeysAndDataRequest {
+  oldMasterKeyAuthenticationHash!: string;
+  accountUnlockData!: UnlockDataRequest;
+  accountKeys!: AccountKeysRequest;
+  accountData!: AccountDataRequest;
+  newUserKeyId?: string | null;
 }
 
 /**
