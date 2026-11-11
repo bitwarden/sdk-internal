@@ -1,4 +1,5 @@
 use bitwarden_core::{OrganizationId, UserId};
+use bitwarden_crypto::KeyId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -49,6 +50,12 @@ pub struct OrganizationDetails {
     pub enabled: bool,
     /// Whether the organization has both a public and private key configured.
     pub has_public_and_private_keys: bool,
+    /// The id of the organization key, as recorded by the server. `None` when the server has not
+    /// recorded one yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    pub key_id: Option<KeyId>,
 }
 
 impl Default for OrganizationDetails {
@@ -58,6 +65,7 @@ impl Default for OrganizationDetails {
             name: String::new(),
             enabled: true,
             has_public_and_private_keys: false,
+            key_id: None,
         }
     }
 }
@@ -464,6 +472,33 @@ mod tests {
                 name: None,
             })
         );
+
+        assert_eq!(serde_json::to_value(&organization).unwrap(), json);
+    }
+
+    #[test]
+    fn round_trips_key_id() {
+        let mut json = organization_json();
+        json["details"]["keyId"] = json!("0123456789abcdef0123456789abcdef");
+
+        let organization: ProfileOrganization = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(
+            organization.details.key_id,
+            Some("0123456789abcdef0123456789abcdef".parse().unwrap())
+        );
+
+        assert_eq!(serde_json::to_value(&organization).unwrap(), json);
+    }
+
+    #[test]
+    fn deserializes_missing_key_id_as_none() {
+        // Records stored before the key id was synced have no `keyId`, and must not gain one on
+        // the way back out.
+        let json = organization_json();
+        assert!(json["details"].get("keyId").is_none());
+
+        let organization: ProfileOrganization = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(organization.details.key_id, None);
 
         assert_eq!(serde_json::to_value(&organization).unwrap(), json);
     }
