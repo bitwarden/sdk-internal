@@ -6,6 +6,7 @@ use bitwarden_api_api::models::{
     AccessRequestCreateRequestModel, AccessRequestDecisionResponseModel,
     AccessRequestDetailsResponseModel, AccessRequestResultResponseModel,
     AccessRequestStatus as ApiAccessRequestStatus, CipherAccessStateResponseModel,
+    CipherAccessSummaryResponseModel,
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{OrganizationId, UserId, require};
@@ -425,6 +426,29 @@ pub enum AccessBadgeState {
     Privileged,
 }
 
+impl AccessBadgeState {
+    /// Ranks the facts of one cipher's access state into its badge.
+    fn rank(
+        active_lease_end: Option<DateTime<Utc>>,
+        approved: bool,
+        pending: bool,
+        can_request: Option<bool>,
+    ) -> Self {
+        if let Some(expires_at) = active_lease_end {
+            AccessBadgeState::Active { expires_at }
+        } else if approved {
+            AccessBadgeState::Ready
+        } else if pending {
+            AccessBadgeState::Pending
+        } else if can_request == Some(false) {
+            // Absent reads as requestable, so an older server keeps the resting badge.
+            AccessBadgeState::Unavailable
+        } else {
+            AccessBadgeState::Privileged
+        }
+    }
+}
+
 /// A single-snapshot read of the caller's access state for one cipher, powering the cipher-view
 /// banner and the vault-row badge.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -466,20 +490,12 @@ impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
             .map(|request| AccessRequestView::try_from(*request))
             .transpose()?;
 
-        let badge_state = if let Some(lease) = &active_lease {
-            AccessBadgeState::Active {
-                expires_at: lease.not_after,
-            }
-        } else if approved_request.is_some() {
-            AccessBadgeState::Ready
-        } else if pending_request.is_some() {
-            AccessBadgeState::Pending
-        } else if response.can_request == Some(false) {
-            // Absent reads as requestable, so an older server keeps the resting badge.
-            AccessBadgeState::Unavailable
-        } else {
-            AccessBadgeState::Privileged
-        };
+        let badge_state = AccessBadgeState::rank(
+            active_lease.as_ref().map(|lease| lease.not_after),
+            approved_request.is_some(),
+            pending_request.is_some(),
+            response.can_request,
+        );
 
         Ok(Self {
             cipher_id: CipherId::new(require!(response.cipher_id)),
@@ -489,6 +505,39 @@ impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
             badge_state,
             extensions_allowed: require!(response.extensions_allowed),
             max_extension_duration_seconds: response.max_extension_duration_seconds,
+        })
+    }
+}
+
+/// One gated cipher's badge, from the batch read. A gated cipher the batch leaves out is
+/// [`AccessBadgeState::Privileged`].
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[bitwarden_ffi::wasm_record]
+#[serde(rename_all = "camelCase")]
+pub struct CipherAccessBadgeView {
+    /// The cipher this badge was resolved for.
+    pub cipher_id: CipherId,
+    /// The badge to show; ranked as [`CipherAccessStateView::badge_state`] is.
+    pub badge_state: AccessBadgeState,
+}
+
+impl TryFrom<CipherAccessSummaryResponseModel> for CipherAccessBadgeView {
+    type Error = PamDecodeError;
+
+    fn try_from(response: CipherAccessSummaryResponseModel) -> Result<Self, Self::Error> {
+        let active_lease_end = response
+            .active_lease_not_after
+            .map(|not_after| not_after.parse::<DateTime<Utc>>())
+            .transpose()?;
+
+        Ok(Self {
+            cipher_id: CipherId::new(require!(response.cipher_id)),
+            badge_state: AccessBadgeState::rank(
+                active_lease_end,
+                response.has_approved_request.unwrap_or(false),
+                response.has_pending_request.unwrap_or(false),
+                response.can_request,
+            ),
         })
     }
 }
@@ -1023,6 +1072,52 @@ mod tests {
         let view = CipherAccessStateView::try_from(response).unwrap();
 
         assert_eq!(view.badge_state, AccessBadgeState::Privileged);
+    }
+
+    #[test]
+    fn cipher_access_badge_view_ranks_like_the_state_view() {
+        for (leased, approved, pending, can_request) in [
+            (true, true, true, Some(false)),
+            (false, true, true, Some(false)),
+            (false, false, true, Some(false)),
+            (false, false, false, Some(false)),
+            (false, false, false, Some(true)),
+            (false, false, false, None),
+        ] {
+            let state = CipherAccessStateView::try_from(CipherAccessStateResponseModel {
+                can_request,
+                ..cipher_access_state_response_with(
+                    leased.then(sample_active_lease),
+                    pending.then(|| Box::new(full_response())),
+                    approved.then(|| Box::new(full_response())),
+                )
+            })
+            .unwrap();
+
+            let badge = CipherAccessBadgeView::try_from(CipherAccessSummaryResponseModel {
+                cipher_id: Some(cipher_id()),
+                active_lease_not_after: leased.then(|| "2025-01-01T01:00:00Z".to_string()),
+                has_approved_request: Some(approved),
+                has_pending_request: Some(pending),
+                can_request,
+                ..Default::default()
+            })
+            .unwrap();
+
+            assert_eq!(badge.cipher_id, state.cipher_id);
+            assert_eq!(badge.badge_state, state.badge_state);
+        }
+    }
+
+    #[test]
+    fn cipher_access_badge_view_rejects_an_unparseable_lease_end() {
+        let result = CipherAccessBadgeView::try_from(CipherAccessSummaryResponseModel {
+            cipher_id: Some(cipher_id()),
+            active_lease_not_after: Some("not a date".to_string()),
+            ..Default::default()
+        });
+
+        assert!(matches!(result, Err(PamDecodeError::Chrono(_))));
     }
 
     #[test]

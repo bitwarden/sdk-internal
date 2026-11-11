@@ -25,7 +25,7 @@ pub use access_requests::{
     AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
     AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView, AccessRequestError,
     AccessRequestResultView, AccessRequestStatus, AccessRequestSummaryView, AccessRequestView,
-    AccessRequestWindowError, AccessRequestsClient, CipherAccessStateView,
+    AccessRequestWindowError, AccessRequestsClient, CipherAccessBadgeView, CipherAccessStateView,
     DEFAULT_REQUEST_ACCESS_DURATION_SECONDS, MAX_REQUEST_ACCESS_WINDOW_SECONDS,
     default_request_access_duration_seconds, max_request_access_window_seconds,
 };

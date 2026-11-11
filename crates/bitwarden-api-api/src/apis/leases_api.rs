@@ -36,6 +36,11 @@ pub trait LeasesApi: Send + Sync {
     /// GET /leases/active
     async fn get_active(&self) -> Result<models::AccessLeaseResponseModelListResponseModel, Error>;
 
+    /// GET /leases/ciphers/state
+    async fn get_cipher_states(
+        &self,
+    ) -> Result<models::CipherAccessSummaryResponseModelListResponseModel, Error>;
+
     /// GET /leases/history
     async fn get_history(&self)
     -> Result<models::AccessLeaseResponseModelListResponseModel, Error>;
@@ -93,6 +98,23 @@ impl LeasesApi for LeasesApiClient {
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!("{}/leases/active", local_var_configuration.base_path);
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_cipher_states(
+        &self,
+    ) -> Result<models::CipherAccessSummaryResponseModelListResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str =
+            format!("{}/leases/ciphers/state", local_var_configuration.base_path);
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 

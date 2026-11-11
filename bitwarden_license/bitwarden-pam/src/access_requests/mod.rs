@@ -14,7 +14,7 @@ pub use models::{
     AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
     AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView,
     AccessRequestResultView, AccessRequestStatus, AccessRequestSummaryView, AccessRequestView,
-    CipherAccessStateView,
+    CipherAccessBadgeView, CipherAccessStateView,
 };
 pub use validate::{
     AccessRequestWindowError, DEFAULT_REQUEST_ACCESS_DURATION_SECONDS,

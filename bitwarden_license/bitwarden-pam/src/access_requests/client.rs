@@ -7,7 +7,7 @@ use super::{
     error::AccessRequestError,
     models::{
         AccessPreCheckView, AccessRequestCreateRequest, AccessRequestResultView, AccessRequestView,
-        CipherAccessStateView,
+        CipherAccessBadgeView, CipherAccessStateView,
     },
 };
 use crate::{AccessRequestId, leases::AccessLeaseView};
@@ -51,6 +51,28 @@ impl AccessRequestsClient {
             .await?;
 
         Ok(CipherAccessStateView::try_from(response)?)
+    }
+
+    /// Reads the badge of every cipher an access rule governs for the caller, in one call, for the
+    /// vault's Controlled access sort and filter. A gated cipher left out of the result is
+    /// [`Privileged`](super::models::AccessBadgeState::Privileged).
+    pub async fn cipher_access_states(
+        &self,
+    ) -> Result<Vec<CipherAccessBadgeView>, AccessRequestError> {
+        let response = self
+            .api_configurations
+            .api_client
+            .leases_api()
+            .get_cipher_states()
+            .await?;
+
+        response
+            .data
+            .unwrap_or_default()
+            .into_iter()
+            .map(CipherAccessBadgeView::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     /// Validates and opens an access request for a cipher. Run [`pre_check`](Self::pre_check)
@@ -138,14 +160,16 @@ mod tests {
             AccessLeaseStatus as ApiAccessLeaseStatus, AccessPreCheckResponseModel,
             AccessRequestDetailsResponseModel, AccessRequestDetailsResponseModelListResponseModel,
             AccessRequestResultResponseModel, AccessRequestStatus as ApiAccessRequestStatus,
-            CipherAccessStateResponseModel,
+            CipherAccessStateResponseModel, CipherAccessSummaryResponseModel,
+            CipherAccessSummaryResponseModelListResponseModel,
         },
     };
+    use chrono::{DateTime, Utc};
     use uuid::uuid;
 
     use super::*;
     use crate::{
-        AccessApprovalMode, AccessLeaseStatus, AccessRequestStatus,
+        AccessApprovalMode, AccessBadgeState, AccessLeaseStatus, AccessRequestStatus,
         access_requests::MAX_REQUEST_ACCESS_WINDOW_SECONDS,
     };
 
@@ -345,6 +369,54 @@ mod tests {
         assert_eq!(result.active_lease, None);
         assert!(result.extensions_allowed);
         assert_eq!(result.max_extension_duration_seconds, Some(1800));
+    }
+
+    #[tokio::test]
+    async fn cipher_access_states_returns_a_badge_per_summary() {
+        let other_cipher_id = uuid!("99999999-9999-9999-9999-999999999999");
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.leases_api
+                .expect_get_cipher_states()
+                .returning(move || {
+                    Ok(CipherAccessSummaryResponseModelListResponseModel {
+                        data: Some(vec![
+                            CipherAccessSummaryResponseModel {
+                                cipher_id: Some(cipher_id().into()),
+                                active_lease_not_after: Some("2025-01-01T02:00:00Z".to_string()),
+                                can_request: Some(true),
+                                ..Default::default()
+                            },
+                            CipherAccessSummaryResponseModel {
+                                cipher_id: Some(other_cipher_id),
+                                has_approved_request: Some(false),
+                                has_pending_request: Some(false),
+                                can_request: Some(false),
+                                ..Default::default()
+                            },
+                        ]),
+                        ..Default::default()
+                    })
+                })
+                .once();
+        });
+
+        let result = client(api_client).cipher_access_states().await.unwrap();
+
+        assert_eq!(
+            result,
+            vec![
+                CipherAccessBadgeView {
+                    cipher_id: cipher_id(),
+                    badge_state: AccessBadgeState::Active {
+                        expires_at: "2025-01-01T02:00:00Z".parse::<DateTime<Utc>>().unwrap(),
+                    },
+                },
+                CipherAccessBadgeView {
+                    cipher_id: CipherId::new(other_cipher_id),
+                    badge_state: AccessBadgeState::Unavailable,
+                },
+            ]
+        );
     }
 
     #[tokio::test]
