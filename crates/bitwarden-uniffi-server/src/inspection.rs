@@ -1,14 +1,6 @@
-use bitwarden_crypto::{CryptoError, EncString, KeyId, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, KeyId, SymmetricKeyAlgorithm, UnsignedSharedKey};
 
-// Type prefixes of the `<type>.<payload>` wire format. EncStrings (symmetric) use 0, 2 and 7;
-// UnsignedSharedKeys (RSA) use 3 to 6.
-const AES256_CBC: u8 = 0;
-const AES256_CBC_HMAC_SHA256: u8 = 2;
-const RSA2048_OAEP_SHA256: u8 = 3;
-const RSA2048_OAEP_SHA1: u8 = 4;
-const RSA2048_OAEP_SHA256_HMAC_SHA256: u8 = 5;
-const RSA2048_OAEP_SHA1_HMAC_SHA256: u8 = 6;
-const COSE_ENCRYPT0: u8 = 7;
+use crate::ServerError;
 
 /// The key ids a crypto object names, each as 32 lowercase hex characters.
 ///
@@ -24,55 +16,102 @@ pub struct CryptoObjectKeyIds {
     pub signed_by_key_id: Option<String>,
 }
 
+/// The symmetric algorithm an EncString is encrypted with.
+#[derive(uniffi::Enum, Debug, PartialEq)]
+pub enum EncStringAlgorithm {
+    /// Type 0. Unauthenticated legacy AES-256-CBC.
+    Aes256Cbc,
+    /// Type 2, or type 7 sealed with a type 2 key.
+    Aes256CbcHmac,
+    /// Type 7.
+    Aes256Gcm,
+    /// Type 7.
+    XAes256Gcm,
+    /// Type 7.
+    XChaCha20Poly1305,
+}
+
+impl From<SymmetricKeyAlgorithm> for EncStringAlgorithm {
+    fn from(algorithm: SymmetricKeyAlgorithm) -> Self {
+        match algorithm {
+            SymmetricKeyAlgorithm::Aes256CbcHmac => Self::Aes256CbcHmac,
+            SymmetricKeyAlgorithm::Aes256Gcm => Self::Aes256Gcm,
+            SymmetricKeyAlgorithm::XAes256Gcm => Self::XAes256Gcm,
+            SymmetricKeyAlgorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305,
+        }
+    }
+}
+
 /// What a symmetric EncString (type 0, 2 or 7) carries.
 #[derive(uniffi::Record, Debug, PartialEq)]
 pub struct EncStringInfo {
-    /// The numeric type prefix, e.g. `2` for an AES-CBC-HMAC EncString (`2.iv|data|mac`).
-    pub encryption_type: u8,
+    /// The algorithm it is encrypted with. For type 7, read from the COSE header.
+    pub algorithm: EncStringAlgorithm,
     /// The id of the encrypting key. Only COSE EncStrings (type 7) carry one.
     pub encrypted_by_key_id: Option<String>,
 }
 
-/// What an RSA-encrypted UnsignedSharedKey (type 3 to 6) carries. It names no key.
-#[derive(uniffi::Record, Debug, PartialEq)]
-pub struct UnsignedSharedKeyInfo {
-    /// The numeric type prefix, e.g. `4` for RSA-OAEP-SHA1 (`4.data`).
-    pub encryption_type: u8,
-}
-
 impl TryFrom<&EncString> for EncStringInfo {
-    type Error = CryptoError;
+    type Error = ServerError;
 
-    fn try_from(enc_string: &EncString) -> Result<Self, CryptoError> {
-        let encryption_type = match enc_string {
-            EncString::Aes256Cbc_B64 { .. } => AES256_CBC,
-            EncString::Aes256Cbc_HmacSha256_B64 { .. } => AES256_CBC_HMAC_SHA256,
-            EncString::Cose_Encrypt0_B64 { .. } => COSE_ENCRYPT0,
-            EncString::Unparseable { .. } => return Err(CryptoError::UnparseableEncString),
+    fn try_from(enc_string: &EncString) -> Result<Self, ServerError> {
+        // The SDK reports no algorithm for type 0, which carries no MAC, nor for an unknown COSE
+        // algorithm, which is rejected.
+        let algorithm = match enc_string {
+            EncString::Aes256Cbc_B64 { .. } => EncStringAlgorithm::Aes256Cbc,
+            _ => enc_string
+                .algorithm()
+                .map(EncStringAlgorithm::from)
+                .ok_or(ServerError::InvalidData)?,
         };
 
         Ok(Self {
-            encryption_type,
+            algorithm,
             encrypted_by_key_id: hex(enc_string.key_id()),
         })
     }
 }
 
+/// The public-key algorithm an UnsignedSharedKey is encrypted with.
+#[derive(uniffi::Enum, Debug, PartialEq)]
+pub enum UnsignedSharedKeyAlgorithm {
+    /// Type 3.
+    Rsa2048OaepSha256,
+    /// Type 4.
+    Rsa2048OaepSha1,
+    /// Type 5. Deprecated.
+    Rsa2048OaepSha256HmacSha256,
+    /// Type 6. Deprecated.
+    Rsa2048OaepSha1HmacSha256,
+}
+
+/// What an RSA-encrypted UnsignedSharedKey (type 3 to 6) carries. It names no key.
+#[derive(uniffi::Record, Debug, PartialEq)]
+pub struct UnsignedSharedKeyInfo {
+    /// The public-key algorithm it is encrypted with.
+    pub algorithm: UnsignedSharedKeyAlgorithm,
+}
+
 impl From<&UnsignedSharedKey> for UnsignedSharedKeyInfo {
+    // Types 5 and 6 are deprecated in the SDK but still parse, so they are still reported.
     #[allow(deprecated)]
     fn from(shared_key: &UnsignedSharedKey) -> Self {
-        let encryption_type = match shared_key {
-            UnsignedSharedKey::Rsa2048_OaepSha256_B64 { .. } => RSA2048_OAEP_SHA256,
-            UnsignedSharedKey::Rsa2048_OaepSha1_B64 { .. } => RSA2048_OAEP_SHA1,
+        let algorithm = match shared_key {
+            UnsignedSharedKey::Rsa2048_OaepSha256_B64 { .. } => {
+                UnsignedSharedKeyAlgorithm::Rsa2048OaepSha256
+            }
+            UnsignedSharedKey::Rsa2048_OaepSha1_B64 { .. } => {
+                UnsignedSharedKeyAlgorithm::Rsa2048OaepSha1
+            }
             UnsignedSharedKey::Rsa2048_OaepSha256_HmacSha256_B64 { .. } => {
-                RSA2048_OAEP_SHA256_HMAC_SHA256
+                UnsignedSharedKeyAlgorithm::Rsa2048OaepSha256HmacSha256
             }
             UnsignedSharedKey::Rsa2048_OaepSha1_HmacSha256_B64 { .. } => {
-                RSA2048_OAEP_SHA1_HMAC_SHA256
+                UnsignedSharedKeyAlgorithm::Rsa2048OaepSha1HmacSha256
             }
         };
 
-        Self { encryption_type }
+        Self { algorithm }
     }
 }
 
