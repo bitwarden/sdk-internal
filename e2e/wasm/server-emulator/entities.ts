@@ -9,7 +9,7 @@ import type {
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
 
-import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
+import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto/emergency-access";
 
 /** Master-password unlock data as the server holds it. */
 export interface StoredMasterPasswordUnlock {

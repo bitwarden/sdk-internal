@@ -33,6 +33,7 @@ use crate::{
     error::SafeDetail,
     integrations::{
         IntegrationRegistry,
+        active_directory::ActiveDirectoryIntegration,
         entra::EntraIntegration,
         scripting::{CustomScriptIntegration, PowershellConfig, ProcessScriptRunner},
     },
@@ -82,6 +83,11 @@ pub struct AccessConnectorConfig {
 }
 
 impl AccessConnectorConfig {
+    /// The token's API key ID, which identifies the access connector without the secret.
+    pub fn api_key_id(&self) -> Uuid {
+        self.token.api_key_id()
+    }
+
     /// Builds a config for integration tests, bypassing validation.
     #[doc(hidden)]
     pub fn new_for_test(
@@ -431,6 +437,9 @@ fn build_integrations(cfg: &AccessConnectorConfig) -> Arc<IntegrationRegistry> {
 
     let entra = Arc::new(EntraIntegration::new(cfg.entra_verify_probe));
     registry.register(SealedTargetSystemKind::Entra, entra);
+
+    let active_directory = Arc::new(ActiveDirectoryIntegration::new());
+    registry.register(SealedTargetSystemKind::ActiveDirectory, active_directory);
 
     Arc::new(registry)
 }

@@ -4,7 +4,7 @@
 import { ApiServer } from "./api-server";
 import { Database } from "./database";
 import { EmergencyAccessServer } from "./emergency-access-server";
-import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto";
+import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto/emergency-access";
 import type {
   AccountId,
   OrganizationMember,

@@ -99,6 +99,15 @@ impl FromClientPart<Arc<ApiConfigurations>> for Client {
 }
 
 #[cfg(feature = "internal")]
+impl<K: bitwarden_state::PersistedValueKey> FromClientPart<bitwarden_state::PersistedValue<K>>
+    for Client
+{
+    fn get_part(&self) -> bitwarden_state::PersistedValue<K> {
+        self.platform().state().value::<K>()
+    }
+}
+
+#[cfg(feature = "internal")]
 impl FromClientPart<reqwest::Client> for Client {
     fn get_part(&self) -> reqwest::Client {
         self.internal.get_http_client().clone()
