@@ -1,0 +1,48 @@
+[package]
+name = "bitwarden-organization-crypto-management"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[features]
+wasm = [
+    "bitwarden-core/wasm",
+    "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
+    "bitwarden-organizations/wasm",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+] # WASM support
+
+# Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
+[dependencies]
+bitwarden-api-api = { workspace = true }
+bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
+bitwarden-organizations = { workspace = true }
+bitwarden-state = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
+bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
+bitwarden-test = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[lints]
+workspace = true
