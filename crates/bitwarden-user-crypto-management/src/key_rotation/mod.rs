@@ -121,4 +121,6 @@ pub enum RotateUserKeysError {
     UntrustedKey,
     #[error("Vault contains old attachments that must be re-uploaded before key rotation")]
     OldAttachments,
+    #[error("This key rotation requires upgrading the V1 user key to V2")]
+    UpgradeRequired,
 }

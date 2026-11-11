@@ -14,7 +14,7 @@ use crate::{
         RotateUserKeysError,
         crypto::rotate_account_cryptographic_state_to_request_model,
         data::{check_for_old_attachments, reencrypt_data},
-        rotate_user_keys::UpgradeTokenAction,
+        rotate_user_keys::{UpgradeTokenAction, UserKeyUpgrade},
         rotation_context::make_rotation_context,
         sync::{SyncedAccountData, sync_current_account_data},
         unlock::{
@@ -33,6 +33,7 @@ pub struct PasswordChangeAndRotateUserKeysRequest {
     pub hint: Option<String>,
     pub trusted_emergency_access_public_keys: Vec<PublicKey>,
     pub trusted_organization_public_keys: Vec<PublicKey>,
+    pub user_key_upgrade: UserKeyUpgrade,
 }
 
 #[bitwarden_ffi::wasm_export]
@@ -90,6 +91,7 @@ async fn internal_password_change_and_rotate_user_keys(
             request.trusted_organization_public_keys.as_slice(),
             request.trusted_emergency_access_public_keys.as_slice(),
             UpgradeTokenAction::Skip,
+            request.user_key_upgrade,
             &mut ctx,
         )?;
 
@@ -236,6 +238,7 @@ mod tests {
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -267,6 +270,7 @@ mod tests {
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -300,6 +304,7 @@ mod tests {
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -376,6 +381,7 @@ mod tests {
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -386,5 +392,65 @@ mod tests {
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
         }
+    }
+
+    /// Rotates the V1 test account with the given upgrade and returns the posted request.
+    async fn rotate_v1_account(
+        user_key_upgrade: UserKeyUpgrade,
+    ) -> RotateUserAccountKeysAndDataRequestModel {
+        let (key_store, sync) = make_test_key_store_and_synced_data();
+        let posted = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let posted_clone = posted.clone();
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.accounts_key_management_api
+                .expect_password_change_and_rotate_user_account_keys()
+                .once()
+                .returning(move |req| {
+                    *posted_clone.lock().unwrap() = req;
+                    Ok(())
+                });
+        });
+
+        internal_password_change_and_rotate_user_keys(
+            &key_store,
+            &api_client,
+            PasswordChangeAndRotateUserKeysRequest {
+                old_password: "old_password".to_string(),
+                password: "new_password".to_string(),
+                hint: None,
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+                user_key_upgrade,
+            },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
+        )
+        .await
+        .expect("rotation should succeed");
+
+        posted
+            .lock()
+            .unwrap()
+            .take()
+            .expect("request body should be present")
+    }
+
+    #[tokio::test]
+    async fn test_password_change_and_rotate_v1_keep_version_stays_v1() {
+        let req = rotate_v1_account(UserKeyUpgrade::KeepVersion).await;
+
+        assert!(
+            req.account_keys.signature_key_pair.is_none(),
+            "a V1 to V1 rotation has no signature key pair"
+        );
+        assert!(req.account_keys.security_state.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_password_change_and_rotate_v1_upgrade_to_v2_becomes_v2() {
+        let req = rotate_v1_account(UserKeyUpgrade::UpgradeToV2).await;
+
+        assert!(req.account_keys.signature_key_pair.is_some());
+        assert!(req.account_keys.security_state.is_some());
     }
 }

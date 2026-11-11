@@ -27,8 +27,11 @@ const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
 import { Database } from "./database";
 import { KdfType } from "./dto/kdf";
 import {
+  type AccountDataRequest,
   KeyRegenerationRequest,
   KeyRotationDataResponse,
+  MasterPasswordUnlockAndAuthenticationDataModel,
+  RotateUserAccountKeysAndDataRequest,
   RotateUserKeysRequest,
   UnlockMethod,
   UserKeyIdRequest,
@@ -45,6 +48,12 @@ import {
 } from "./dto/vault";
 import type { CipherEntity, FolderEntity, UserEntity } from "./entities";
 import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_NOT_FOUND } from "./replies";
+
+/** The items a rotation re-encrypts, each paired with what is stored for it. */
+interface ResolvedAccountData {
+  ciphers: { posted: CipherRequest & { id: string }; stored: CipherEntity }[];
+  folders: { posted: { id: string; name: string }; stored: FolderEntity }[];
+}
 
 export class ApiServer {
   constructor(readonly db: Database) {}
@@ -78,6 +87,15 @@ export class ApiServer {
       "POST /accounts/key-management/rotate-user-keys": authenticatedRoute(
         this.db,
         (user, request) => this.rotateUserKeys(user, request.json<RotateUserKeysRequest>()),
+      ),
+
+      "POST /accounts/key-management/rotate-user-account-keys": authenticatedRoute(
+        this.db,
+        (user, request) =>
+          this.passwordChangeAndRotateUserKeys(
+            user,
+            request.json<RotateUserAccountKeysAndDataRequest>(),
+          ),
       ),
 
       "POST /ciphers": authenticatedRoute(this.db, (user, request) =>
@@ -247,26 +265,9 @@ export class ApiServer {
 
     // Every referenced item is resolved before a single write lands: a rejected rotation must not
     // leave the account rotated on top of a half re-encrypted vault.
-    const ciphers: { posted: CipherRequest & { id: string }; stored: CipherEntity }[] = [];
-    for (const cipher of posted.accountData.ciphers ?? []) {
-      const stored = this.reachableCipher(user, cipher.id);
-      // A rotation re-encrypts under the new user key, so only the user's own ciphers belong
-      // here — an organization cipher stays under the organization key.
-      if (stored === undefined || stored.userId !== user.userId) {
-        return error(HTTP_NOT_FOUND, `no cipher ${cipher.id} to re-encrypt`);
-      }
-
-      ciphers.push({ posted: cipher, stored });
-    }
-
-    const folders: { posted: { id: string; name: string }; stored: FolderEntity }[] = [];
-    for (const folder of posted.accountData.folders ?? []) {
-      const stored = this.db.folders.get(folder.id);
-      if (stored === undefined || stored.userId !== user.userId) {
-        return error(HTTP_NOT_FOUND, `no folder ${folder.id} to re-encrypt`);
-      }
-
-      folders.push({ posted: folder, stored });
+    const accountData = this.resolveAccountData(user, posted.accountData);
+    if ("reply" in accountData) {
+      return accountData.reply;
     }
 
     user.accountCryptographicState = {
@@ -297,6 +298,117 @@ export class ApiServer {
       };
     }
 
+    this.writeAccountData(accountData);
+
+    return {};
+  }
+
+  /**
+   * Rotates the user key together with a password change.
+   *
+   * Unlike {@link rotateUserKeys}, this takes a V1 account state too: a V1 account that is not
+   * upgraded keeps a V1 user key. No upgrade token is issued, so any pending one is cleared.
+   */
+  private passwordChangeAndRotateUserKeys(
+    user: UserEntity,
+    posted: RotateUserAccountKeysAndDataRequest,
+  ): MockReply {
+    // Proof of possession of the old password. Accounts seeded without a hash skip the check.
+    if (
+      user.masterPasswordAuthenticationHash !== null &&
+      posted.oldMasterKeyAuthenticationHash !== user.masterPasswordAuthenticationHash
+    ) {
+      return error(HTTP_BAD_REQUEST, "invalid master password hash");
+    }
+
+    const newUserKeyId = posted.newUserKeyId ?? undefined;
+    if (newUserKeyId !== undefined && !KEY_ID_PATTERN.test(newUserKeyId)) {
+      return error(HTTP_BAD_REQUEST, `malformed new key id ${newUserKeyId}`);
+    }
+
+    const {
+      publicKeyEncryptionKeyPair: pair,
+      signatureKeyPair,
+      securityState,
+    } = posted.accountKeys;
+    const isV2 = signatureKeyPair != null && securityState != null;
+    if (isV2 && pair.signedPublicKey === undefined) {
+      return error(HTTP_BAD_REQUEST, "signed public key required");
+    }
+
+    const accountData = this.resolveAccountData(user, posted.accountData);
+    if ("reply" in accountData) {
+      return accountData.reply;
+    }
+
+    if (isV2) {
+      user.accountCryptographicState = {
+        V2: {
+          private_key: asEncString(pair.wrappedPrivateKey),
+          signing_key: asEncString(signatureKeyPair.wrappedSigningKey),
+          security_state: asSignedSecurityState(securityState.securityState),
+          signed_public_key: asSignedPublicKey(pair.signedPublicKey!),
+        },
+      };
+      user.verifyingKey = signatureKeyPair.verifyingKey;
+      user.securityVersion = securityState.securityVersion;
+    } else {
+      user.accountCryptographicState = { V1: { private_key: asEncString(pair.wrappedPrivateKey) } };
+    }
+    user.publicKey = pair.publicKey;
+    user.userKeyId = newUserKeyId === undefined ? undefined : asKeyId(newUserKeyId);
+    delete user.upgradeToken;
+
+    const password = posted.accountUnlockData.masterPasswordUnlockData;
+    user.masterPasswordUnlock = MasterPasswordUnlockDataModel.toStored({
+      kdf: MasterPasswordUnlockAndAuthenticationDataModel.kdfOf(password),
+      masterKeyWrappedUserKey: password.masterKeyEncryptedUserKey,
+      salt: password.masterPasswordSalt,
+      containedKeyId: password.containedKeyId ?? undefined,
+    });
+    user.kdf = user.masterPasswordUnlock.kdf;
+    user.masterPasswordAuthenticationHash = password.masterKeyAuthenticationHash;
+
+    this.writeAccountData(accountData);
+
+    return {};
+  }
+
+  /**
+   * Resolves every item a rotation re-encrypts against what the user owns, or the reply that
+   * rejects the rotation.
+   */
+  private resolveAccountData(
+    user: UserEntity,
+    posted: AccountDataRequest,
+  ): ResolvedAccountData | { reply: MockReply } {
+    const ciphers: ResolvedAccountData["ciphers"] = [];
+    for (const cipher of posted.ciphers ?? []) {
+      const stored = this.reachableCipher(user, cipher.id);
+      // A rotation re-encrypts under the new user key, so only the user's own ciphers belong
+      // here — an organization cipher stays under the organization key.
+      if (stored === undefined || stored.userId !== user.userId) {
+        return { reply: error(HTTP_NOT_FOUND, `no cipher ${cipher.id} to re-encrypt`) };
+      }
+
+      ciphers.push({ posted: cipher, stored });
+    }
+
+    const folders: ResolvedAccountData["folders"] = [];
+    for (const folder of posted.folders ?? []) {
+      const stored = this.db.folders.get(folder.id);
+      if (stored === undefined || stored.userId !== user.userId) {
+        return { reply: error(HTTP_NOT_FOUND, `no folder ${folder.id} to re-encrypt`) };
+      }
+
+      folders.push({ posted: folder, stored });
+    }
+
+    return { ciphers, folders };
+  }
+
+  /** Stores the re-encrypted items of a rotation under one new revision. */
+  private writeAccountData({ ciphers, folders }: ResolvedAccountData): void {
     const now = this.db.revisions.next();
     for (const { posted: cipher, stored } of ciphers) {
       this.db.ciphers.update(cipher.id, {
@@ -318,8 +430,6 @@ export class ApiServer {
         folder: FolderRequest.toFolder(folder, folder.id, now),
       });
     }
-
-    return {};
   }
 
   /**
