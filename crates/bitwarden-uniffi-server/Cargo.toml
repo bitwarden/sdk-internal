@@ -27,8 +27,5 @@ bitwarden-encoding = { workspace = true }
 thiserror = { workspace = true }
 uniffi = { workspace = true }
 
-[dev-dependencies]
-serde = { workspace = true }
-
 [lints]
 workspace = true

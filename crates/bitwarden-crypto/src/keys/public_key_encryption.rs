@@ -84,7 +84,7 @@ impl PublicKey {
         }
     }
 
-    /// The id of this key: its RFC 9679 thumbprint, truncated to [`KEY_ID_SIZE`] bytes.
+    /// The id of this key: its RFC 9679 thumbprint, truncated to the key id length.
     pub fn key_id(&self) -> Result<KeyId> {
         // Same derivation as AES-256-CBC-HMAC keys, which also carry no stored id.
         let mut key_id = [0u8; KEY_ID_SIZE];

@@ -1788,6 +1788,7 @@ name = "bitwarden-uniffi-server"
 version = "0.1.0"
 dependencies = [
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "thiserror",
  "uniffi",
 ]
