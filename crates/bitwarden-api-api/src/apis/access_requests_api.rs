@@ -37,6 +37,11 @@ pub trait AccessRequestsApi: Send + Sync {
         access_decision_request_model: models::AccessDecisionRequestModel,
     ) -> Result<models::AccessRequestDetailsResponseModel, Error>;
 
+    /// GET /access-requests/approved
+    async fn get_approved(
+        &self,
+    ) -> Result<models::AccessRequestDetailsResponseModelListResponseModel, Error>;
+
     /// GET /access-requests/{id}
     async fn get_details<'a>(
         &self,
@@ -46,7 +51,12 @@ pub trait AccessRequestsApi: Send + Sync {
     /// GET /access-requests/history
     async fn get_history(
         &self,
-    ) -> Result<models::AccessRequestDetailsResponseModelListResponseModel, Error>;
+        page: Option<i32>,
+        page_size: Option<i32>,
+        status: Option<Vec<String>>,
+        collection_id: Option<Vec<uuid::Uuid>>,
+        requester_id: Option<Vec<uuid::Uuid>>,
+    ) -> Result<models::AccessRequestHistoryPageResponseModel, Error>;
 
     /// GET /access-requests/inbox
     async fn get_inbox(
@@ -123,6 +133,25 @@ impl AccessRequestsApi for AccessRequestsApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
+    async fn get_approved(
+        &self,
+    ) -> Result<models::AccessRequestDetailsResponseModelListResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/access-requests/approved",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
     async fn get_details<'a>(
         &self,
         id: uuid::Uuid,
@@ -146,7 +175,12 @@ impl AccessRequestsApi for AccessRequestsApiClient {
 
     async fn get_history(
         &self,
-    ) -> Result<models::AccessRequestDetailsResponseModelListResponseModel, Error> {
+        page: Option<i32>,
+        page_size: Option<i32>,
+        status: Option<Vec<String>>,
+        collection_id: Option<Vec<uuid::Uuid>>,
+        requester_id: Option<Vec<uuid::Uuid>>,
+    ) -> Result<models::AccessRequestHistoryPageResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -158,6 +192,71 @@ impl AccessRequestsApi for AccessRequestsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = page {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("page", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = page_size {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("pageSize", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = status {
+            local_var_req_builder = match "multi" {
+                "multi" => local_var_req_builder.query(
+                    &param_value
+                        .into_iter()
+                        .map(|p| ("status".to_owned(), p.to_string()))
+                        .collect::<Vec<(std::string::String, std::string::String)>>(),
+                ),
+                _ => local_var_req_builder.query(&[(
+                    "status",
+                    &param_value
+                        .into_iter()
+                        .map(|p| p.to_string())
+                        .collect::<Vec<String>>()
+                        .join(",")
+                        .to_string(),
+                )]),
+            };
+        }
+        if let Some(ref param_value) = collection_id {
+            local_var_req_builder = match "multi" {
+                "multi" => local_var_req_builder.query(
+                    &param_value
+                        .into_iter()
+                        .map(|p| ("collectionId".to_owned(), p.to_string()))
+                        .collect::<Vec<(std::string::String, std::string::String)>>(),
+                ),
+                _ => local_var_req_builder.query(&[(
+                    "collectionId",
+                    &param_value
+                        .into_iter()
+                        .map(|p| p.to_string())
+                        .collect::<Vec<String>>()
+                        .join(",")
+                        .to_string(),
+                )]),
+            };
+        }
+        if let Some(ref param_value) = requester_id {
+            local_var_req_builder = match "multi" {
+                "multi" => local_var_req_builder.query(
+                    &param_value
+                        .into_iter()
+                        .map(|p| ("requesterId".to_owned(), p.to_string()))
+                        .collect::<Vec<(std::string::String, std::string::String)>>(),
+                ),
+                _ => local_var_req_builder.query(&[(
+                    "requesterId",
+                    &param_value
+                        .into_iter()
+                        .map(|p| p.to_string())
+                        .collect::<Vec<String>>()
+                        .join(",")
+                        .to_string(),
+                )]),
+            };
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await

@@ -5,7 +5,10 @@ use bitwarden_core::{FromClient, client::ApiConfigurations};
 
 use super::{
     error::ApprovalError,
-    models::{AccessDecisionRequest, AccessRequestRevokeRequest},
+    models::{
+        AccessDecisionRequest, AccessRequestHistoryPage, AccessRequestHistoryQuery,
+        AccessRequestRevokeRequest,
+    },
 };
 use crate::{AccessRequestId, access_requests::AccessRequestView};
 
@@ -38,13 +41,15 @@ impl ApprovalsClient {
             .map_err(Into::into)
     }
 
-    /// Lists the decided access requests for collections the caller manages.
-    pub async fn list_history(&self) -> Result<Vec<AccessRequestView>, ApprovalError> {
+    /// Lists the approved access requests for collections the caller manages that can still give
+    /// access: not started and inside their window, or behind a live lease, with that lease's
+    /// extension.
+    pub async fn list_approved(&self) -> Result<Vec<AccessRequestView>, ApprovalError> {
         let response = self
             .api_configurations
             .api_client
             .access_requests_api()
-            .get_history()
+            .get_approved()
             .await?;
 
         response
@@ -54,6 +59,34 @@ impl ApprovalsClient {
             .map(AccessRequestView::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)
+    }
+
+    /// Reads one page of the ended access requests on collections the caller manages and among
+    /// the caller's own, newest end first, with the total and the filter options.
+    pub async fn list_history(
+        &self,
+        query: AccessRequestHistoryQuery,
+    ) -> Result<AccessRequestHistoryPage, ApprovalError> {
+        let response = self
+            .api_configurations
+            .api_client
+            .access_requests_api()
+            .get_history(
+                Some(i32::try_from(query.page).unwrap_or(i32::MAX)),
+                Some(i32::try_from(query.page_size).unwrap_or(i32::MAX)),
+                non_empty(
+                    query
+                        .statuses
+                        .iter()
+                        .map(|status| status.wire_name().to_owned())
+                        .collect(),
+                ),
+                non_empty(query.collection_ids.into_iter().map(Into::into).collect()),
+                non_empty(query.requester_ids.into_iter().map(Into::into).collect()),
+            )
+            .await?;
+
+        Ok(AccessRequestHistoryPage::try_from(response)?)
     }
 
     /// Records a decision on a pending access request.
@@ -97,6 +130,11 @@ impl ApprovalsClient {
     }
 }
 
+/// The binding omits an absent list, which the server reads as unfiltered.
+fn non_empty<T>(values: Vec<T>) -> Option<Vec<T>> {
+    (!values.is_empty()).then_some(values)
+}
+
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{
@@ -104,13 +142,16 @@ mod tests {
         models::{
             AccessDecisionVerdict as ApiAccessDecisionVerdict, AccessRequestDetailsResponseModel,
             AccessRequestDetailsResponseModelListResponseModel,
+            AccessRequestHistoryPageResponseModel, AccessRequestHistoryRequesterResponseModel,
             AccessRequestStatus as ApiAccessRequestStatus,
         },
     };
+    use bitwarden_collections::collection::CollectionId;
+    use bitwarden_core::UserId;
     use uuid::uuid;
 
     use super::*;
-    use crate::{AccessDecisionVerdict, AccessRequestStatus};
+    use crate::{AccessDecisionVerdict, AccessRequestHistoryStatus, AccessRequestStatus};
 
     fn request_id() -> AccessRequestId {
         AccessRequestId::new(uuid!("44444444-4444-4444-4444-444444444444"))
@@ -171,22 +212,118 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_history_returns_views() {
+    async fn list_approved_returns_views() {
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.access_requests_api
-                .expect_get_history()
+                .expect_get_approved()
                 .returning(move || {
                     let mut list = AccessRequestDetailsResponseModelListResponseModel::new();
-                    list.data = Some(vec![sample_request()]);
+                    list.data = Some(vec![AccessRequestDetailsResponseModel {
+                        status: Some(ApiAccessRequestStatus::Approved),
+                        ..sample_request()
+                    }]);
                     Ok(list)
                 })
                 .once();
         });
 
-        let result = client(api_client).list_history().await.unwrap();
+        let result = client(api_client).list_approved().await.unwrap();
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, request_id());
+        assert_eq!(result[0].status, AccessRequestStatus::Approved);
+    }
+
+    #[tokio::test]
+    async fn list_history_sends_the_query_and_returns_the_page() {
+        let collection_id = uuid!("00000000-0000-0000-0000-0000000000c1");
+        let requester_id = uuid!("00000000-0000-0000-0000-0000000000a1");
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_requests_api
+                .expect_get_history()
+                .withf(move |page, page_size, status, collections, requesters| {
+                    *page == Some(2)
+                        && *page_size == Some(25)
+                        && status.as_deref()
+                            == Some(&["revoked".to_string(), "sessionEnded".to_string()][..])
+                        && collections.as_deref() == Some(&[collection_id][..])
+                        && requesters.as_deref() == Some(&[requester_id][..])
+                })
+                .returning(move |_, _, _, _, _| {
+                    Ok(AccessRequestHistoryPageResponseModel {
+                        data: Some(vec![sample_request()]),
+                        total: Some(51),
+                        requesters: Some(vec![AccessRequestHistoryRequesterResponseModel {
+                            id: Some(requester_id),
+                            name: Some("Grace".to_string()),
+                            email: Some("grace@example.com".to_string()),
+                            ..Default::default()
+                        }]),
+                        collection_ids: Some(vec![collection_id]),
+                        ..Default::default()
+                    })
+                })
+                .once();
+        });
+
+        let page = client(api_client)
+            .list_history(AccessRequestHistoryQuery {
+                page: 2,
+                page_size: 25,
+                statuses: vec![
+                    AccessRequestHistoryStatus::Revoked,
+                    AccessRequestHistoryStatus::SessionEnded,
+                ],
+                collection_ids: vec![CollectionId::new(collection_id)],
+                requester_ids: vec![UserId::new(requester_id)],
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(page.requests.len(), 1);
+        assert_eq!(page.requests[0].id, request_id());
+        assert_eq!(page.total, 51);
+        assert_eq!(
+            page.requesters[0].email.as_deref(),
+            Some("grace@example.com")
+        );
+        assert_eq!(page.collection_ids, vec![CollectionId::new(collection_id)]);
+    }
+
+    #[tokio::test]
+    async fn list_history_leaves_empty_filters_out() {
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_requests_api
+                .expect_get_history()
+                .withf(|page, page_size, status, collections, requesters| {
+                    *page == Some(0)
+                        && *page_size == Some(10)
+                        && status.is_none()
+                        && collections.is_none()
+                        && requesters.is_none()
+                })
+                .returning(move |_, _, _, _, _| {
+                    Ok(AccessRequestHistoryPageResponseModel {
+                        total: Some(0),
+                        ..Default::default()
+                    })
+                })
+                .once();
+        });
+
+        let page = client(api_client)
+            .list_history(AccessRequestHistoryQuery {
+                page: 0,
+                page_size: 10,
+                statuses: vec![],
+                collection_ids: vec![],
+                requester_ids: vec![],
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(page.requests, Vec::new());
+        assert_eq!(page.total, 0);
     }
 
     #[tokio::test]
