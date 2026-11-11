@@ -38,9 +38,11 @@ pub struct JitMasterPasswordRegistrationRequest {
     pub master_password_hint: Option<String>,
     /// Should enroll user into admin password reset
     pub reset_password_enroll: bool,
-    /// Whether the server moves the pending organization membership from Invited to Accepted.
-    /// Send `false` for open-invite links so the membership stays Invited for later Admin
-    /// Console checks. Defaults to `true` when not set. Only used when the
+    /// Whether the server moves the pending organization membership from Invited to Accepted and
+    /// the user is enrolled in admin account recovery. Send `false` for open-invite links so the
+    /// membership stays Invited and is Accepted by the client after successful registration.
+    /// This also skips account recovery enrollment, even when `reset_password_enroll` is `true`.
+    /// Defaults to `true` when not set. Only used when the
     /// `pm-34429-invite-link-auto-confirm` flag is on.
     #[serde(default)]
     #[cfg_attr(feature = "uniffi", uniffi(default = None))]
@@ -78,27 +80,7 @@ impl RegistrationClient {
 async fn internal_post_keys_for_jit_password_registration(
     registration_client: &RegistrationClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    request: JitMasterPasswordRegistrationRequest,
-) -> Result<JitMasterPasswordRegistrationResponse, RegistrationError> {
-    // TODO: Remove the legacy flow when the pm-34429-invite-link-auto-confirm flag is removed.
-    if registration_client
-        .client
-        .flags()
-        .get()
-        .await
-        .invite_link_auto_confirm
-    {
-        sso_jit_provision_finish_password(registration_client, api_client, request).await
-    } else {
-        legacy_post_keys_for_jit_password_registration(registration_client, api_client, request)
-            .await
-    }
-}
-
-async fn legacy_post_keys_for_jit_password_registration(
-    registration_client: &RegistrationClient,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-    request: JitMasterPasswordRegistrationRequest,
+    mut request: JitMasterPasswordRegistrationRequest,
 ) -> Result<JitMasterPasswordRegistrationResponse, RegistrationError> {
     // First call crypto API to get all keys
     info!("Initializing account cryptography");
@@ -106,12 +88,53 @@ async fn legacy_post_keys_for_jit_password_registration(
         .client
         .crypto()
         .make_user_jit_master_password_registration(
-            request.master_password,
-            request.salt,
-            request.org_public_key,
+            // Take the password out of the request instead of cloning it, so no second copy of
+            // it is made.
+            std::mem::take(&mut request.master_password),
+            request.salt.clone(),
+            request.org_public_key.clone(),
         )
         .map_err(|_| RegistrationError::Crypto)?;
 
+    // TODO: Remove the legacy flow when the pm-34429-invite-link-auto-confirm flag is removed
+    // with https://bitwarden.atlassian.net/browse/PM-40052
+    if registration_client
+        .client
+        .flags()
+        .get()
+        .await
+        .invite_link_auto_confirm
+    {
+        sso_jit_provision_finish_password(api_client, &request, &registration_crypto_result)
+            .await?;
+    } else {
+        legacy_post_keys_for_jit_password_registration(
+            api_client,
+            &request,
+            &registration_crypto_result,
+        )
+        .await?;
+    }
+
+    info!("User initialized!");
+    // Note: This passing out of state and keys is temporary. Once SDK state management is more
+    // mature, the account cryptographic state and keys should be set directly here.
+    Ok(JitMasterPasswordRegistrationResponse {
+        account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
+        master_password_unlock: registration_crypto_result.master_password_unlock_data,
+        user_key: registration_crypto_result
+            .user_key
+            .to_encoded()
+            .to_vec()
+            .into(),
+    })
+}
+
+async fn legacy_post_keys_for_jit_password_registration(
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    request: &JitMasterPasswordRegistrationRequest,
+    registration_crypto_result: &MakeJitMasterPasswordRegistrationResponse,
+) -> Result<(), RegistrationError> {
     // Post the generated keys to the API here. The user now has keys and is "registered", but
     // has no unlock method.
     let api_request = SetInitialPasswordRequestModel {
@@ -124,8 +147,8 @@ async fn legacy_post_keys_for_jit_password_registration(
         master_password_authentication: Some(Box::new(
             (&registration_crypto_result.master_password_authentication_data).into(),
         )),
-        master_password_hint: request.master_password_hint,
-        org_identifier: request.organization_sso_identifier,
+        master_password_hint: request.master_password_hint.clone(),
+        org_identifier: request.organization_sso_identifier.clone(),
         // TODO Deprecated fields below, to be removed with https://bitwarden.atlassian.net/browse/PM-27327
         kdf_parallelism: None,
         master_password_hash: None,
@@ -151,52 +174,29 @@ async fn legacy_post_keys_for_jit_password_registration(
             api_client,
             request.org_id,
             request.user_id,
-            &registration_crypto_result,
+            registration_crypto_result,
         )
         .await?;
     }
 
-    info!("User initialized!");
-    // Note: This passing out of state and keys is temporary. Once SDK state management is more
-    // mature, the account cryptographic state and keys should be set directly here.
-    Ok(JitMasterPasswordRegistrationResponse {
-        account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
-        master_password_unlock: registration_crypto_result.master_password_unlock_data,
-        user_key: registration_crypto_result
-            .user_key
-            .to_encoded()
-            .to_vec()
-            .into(),
-    })
+    Ok(())
 }
 
 async fn sso_jit_provision_finish_password(
-    registration_client: &RegistrationClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    request: JitMasterPasswordRegistrationRequest,
-) -> Result<JitMasterPasswordRegistrationResponse, RegistrationError> {
-    // First call crypto API to get all keys
-    info!("Initializing account cryptography");
-    let registration_crypto_result = registration_client
-        .client
-        .crypto()
-        .make_user_jit_master_password_registration(
-            request.master_password,
-            request.salt,
-            request.org_public_key,
-        )
-        .map_err(|_| RegistrationError::Crypto)?;
-
+    request: &JitMasterPasswordRegistrationRequest,
+    registration_crypto_result: &MakeJitMasterPasswordRegistrationResponse,
+) -> Result<(), RegistrationError> {
     let accept_organization_invite = request.accept_organization_invite.unwrap_or(true);
     let api_request = SsoJitProvisionFinishPasswordRequestModel {
         account_keys: Some(Box::new(
             registration_crypto_result.account_keys_request.clone(),
         )),
-        master_password_hint: request.master_password_hint,
+        master_password_hint: request.master_password_hint.clone(),
         ..SsoJitProvisionFinishPasswordRequestModel::new(
             (&registration_crypto_result.master_password_authentication_data).into(),
             (&registration_crypto_result.master_password_unlock_data).into(),
-            request.organization_sso_identifier,
+            request.organization_sso_identifier.clone(),
             accept_organization_invite,
         )
     };
@@ -216,23 +216,12 @@ async fn sso_jit_provision_finish_password(
             api_client,
             request.org_id,
             request.user_id,
-            &registration_crypto_result,
+            registration_crypto_result,
         )
         .await?;
     }
 
-    info!("User initialized!");
-    // Note: This passing out of state and keys is temporary. Once SDK state management is more
-    // mature, the account cryptographic state and keys should be set directly here.
-    Ok(JitMasterPasswordRegistrationResponse {
-        account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
-        master_password_unlock: registration_crypto_result.master_password_unlock_data,
-        user_key: registration_crypto_result
-            .user_key
-            .to_encoded()
-            .to_vec()
-            .into(),
-    })
+    Ok(())
 }
 
 /// Enrolls the user into admin account recovery with the reset password key generated during
@@ -268,14 +257,14 @@ async fn enroll_in_account_recovery(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, num::NonZeroU32};
+    use std::{collections::HashMap, num::NonZeroU32, str::FromStr};
 
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{KdfRequestModel, KdfType},
     };
     use bitwarden_core::Client;
-    use bitwarden_crypto::{EncString, Kdf};
+    use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
 
     use super::*;
 
@@ -385,8 +374,18 @@ mod tests {
                     assert_eq!(*org_id, uuid::uuid!(TEST_ORG_ID));
                     assert_eq!(*user_id, uuid::uuid!(TEST_USER_ID));
                     if let Some(enrollment_request) = body {
-                        assert!(enrollment_request.reset_password_key.is_some());
-                        assert!(enrollment_request.master_password_hash.is_some());
+                        assert!(
+                            UnsignedSharedKey::from_str(
+                                enrollment_request.reset_password_key.as_ref().unwrap()
+                            )
+                            .is_ok()
+                        );
+                        assert!(
+                            B64::from_str(
+                                enrollment_request.master_password_hash.as_ref().unwrap()
+                            )
+                            .is_ok()
+                        );
                         true
                     } else {
                         false
@@ -404,7 +403,7 @@ mod tests {
             master_password: "test-password-123".to_string(),
             master_password_hint: Some(expected_hint.to_string()),
             reset_password_enroll: true,
-            accept_organization_invite: None,
+            accept_organization_invite: Some(false),
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -629,6 +628,14 @@ mod tests {
                     assert!(req.keys.is_none());
                     assert_eq!(req.master_password_unlock.salt, "test@example.com");
                     assert_eq!(req.master_password_authentication.salt, "test@example.com");
+                    let expected_kdf = Box::new(KdfRequestModel {
+                        kdf_type: KdfType::Argon2id,
+                        iterations: 6,
+                        memory: Some(32),
+                        parallelism: Some(4),
+                    });
+                    assert_eq!(req.master_password_unlock.kdf, expected_kdf);
+                    assert_eq!(req.master_password_authentication.kdf, expected_kdf);
                     true
                 })
                 .returning(move |_body| Ok(()));
@@ -640,8 +647,16 @@ mod tests {
                     assert_eq!(*org_id, uuid::uuid!(TEST_ORG_ID));
                     assert_eq!(*user_id, uuid::uuid!(TEST_USER_ID));
                     let enrollment_request = body.as_ref().unwrap();
-                    assert!(enrollment_request.reset_password_key.is_some());
-                    assert!(enrollment_request.master_password_hash.is_some());
+                    assert!(
+                        UnsignedSharedKey::from_str(
+                            enrollment_request.reset_password_key.as_ref().unwrap()
+                        )
+                        .is_ok()
+                    );
+                    assert!(
+                        B64::from_str(enrollment_request.master_password_hash.as_ref().unwrap())
+                            .is_ok()
+                    );
                     true
                 })
                 .returning(move |_org_id, _user_id, _body| Ok(()));

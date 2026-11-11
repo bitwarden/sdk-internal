@@ -82,7 +82,8 @@ async fn internal_post_keys_for_tde_registration(
         .make_user_tde_registration(request.org_public_key.clone())
         .map_err(|_| RegistrationError::Crypto)?;
 
-    // TODO: Remove the legacy flow when the pm-34429-invite-link-auto-confirm flag is removed.
+    // TODO: Remove the legacy flow when the pm-34429-invite-link-auto-confirm flag is removed
+    // with https://bitwarden.atlassian.net/browse/PM-40052
     if registration_client
         .client
         .flags()
@@ -262,7 +263,7 @@ mod tests {
         models::{DeviceResponseModel, KeysResponseModel},
     };
     use bitwarden_core::Client;
-    use bitwarden_crypto::EncString;
+    use bitwarden_crypto::{EncString, UnsignedSharedKey};
 
     use super::*;
 
@@ -297,6 +298,21 @@ mod tests {
             mock.accounts_api
                 .expect_post_keys()
                 .once()
+                .withf(|body| {
+                    let body = body.as_ref().unwrap();
+                    let account_keys = body.account_keys.as_ref().unwrap();
+                    assert_eq!(
+                        Some(&body.public_key),
+                        account_keys.account_public_key.as_ref()
+                    );
+                    assert_eq!(
+                        Some(&body.encrypted_private_key),
+                        account_keys.user_key_encrypted_account_private_key.as_ref()
+                    );
+                    assert!(EncString::from_str(&body.encrypted_private_key).is_ok());
+                    assert!(body.user_key_id.is_some());
+                    true
+                })
                 .returning(move |_body| {
                     Ok(KeysResponseModel {
                         object: None,
@@ -309,12 +325,24 @@ mod tests {
             mock.organization_users_api
                 .expect_put_reset_password_enrollment()
                 .once()
+                .withf(|org_id, user_id, body| {
+                    assert_eq!(*org_id, uuid::uuid!(TEST_ORG_ID));
+                    assert_eq!(*user_id, uuid::uuid!(TEST_USER_ID));
+                    let body = body.as_ref().unwrap();
+                    assert!(
+                        UnsignedSharedKey::from_str(body.reset_password_key.as_ref().unwrap())
+                            .is_ok()
+                    );
+                    assert!(body.master_password_hash.is_none());
+                    true
+                })
                 .returning(move |_org_id, _user_id, _body| Ok(()));
             mock.devices_api
                 .expect_put_keys()
                 .once()
                 .returning(move |_device_id, body| {
                     let body = body.unwrap();
+                    assert!(UnsignedSharedKey::from_str(body.encrypted_user_key.as_str()).is_ok());
                     assert!(matches!(
                         EncString::from_str(body.encrypted_private_key.as_str()).unwrap(),
                         EncString::Aes256Cbc_HmacSha256_B64 { .. }
@@ -345,7 +373,7 @@ mod tests {
             user_id: TEST_USER_ID.parse().unwrap(),
             device_identifier: TEST_DEVICE_ID.to_string(),
             trust_device: true,
-            accept_organization_invite: None,
+            accept_organization_invite: Some(false),
         };
 
         let result =
@@ -605,10 +633,29 @@ mod tests {
                         let req = body.as_ref().unwrap();
                         assert_eq!(req.organization_id, uuid::uuid!(TEST_ORG_ID));
                         assert_eq!(req.accept_organization_invite, expected_accept);
-                        assert!(req.keys.account_keys.is_some());
+                        let account_keys = req.keys.account_keys.as_ref().unwrap();
+                        assert_eq!(
+                            Some(&req.keys.public_key),
+                            account_keys.account_public_key.as_ref()
+                        );
+                        assert_eq!(
+                            Some(&req.keys.encrypted_private_key),
+                            account_keys.user_key_encrypted_account_private_key.as_ref()
+                        );
+                        assert!(EncString::from_str(&req.keys.encrypted_private_key).is_ok());
+                        assert!(req.keys.user_key_id.is_some());
+                        if let Some(account_recovery_key) = &req.account_recovery_key {
+                            assert!(UnsignedSharedKey::from_str(account_recovery_key).is_ok());
+                        }
                         assert_eq!(req.account_recovery_key.is_some(), expected_accept);
                         assert_eq!(req.device_keys.is_some(), trust_device);
                         if let Some(device_keys) = &req.device_keys {
+                            assert!(
+                                UnsignedSharedKey::from_str(
+                                    device_keys.encrypted_user_key.as_str()
+                                )
+                                .is_ok()
+                            );
                             assert!(matches!(
                                 EncString::from_str(device_keys.encrypted_private_key.as_str())
                                     .unwrap(),

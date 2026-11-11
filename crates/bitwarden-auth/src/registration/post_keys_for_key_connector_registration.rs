@@ -31,7 +31,7 @@ impl RegistrationClient {
     /// user to key connector unlock.
     ///
     /// `accept_organization_invite` controls whether the server moves the organization
-    /// membership from Invited to Accepted. Send `false so the membership
+    /// membership from Invited to Accepted. Send `false` for open-invite links so the membership
     /// stays Invited for later Admin Console checks. Defaults to `true` when not set. Only used
     /// when the `pm-34429-invite-link-auto-confirm` flag is on.
     pub async fn post_keys_for_key_connector_registration(
@@ -84,7 +84,8 @@ async fn internal_post_keys_for_key_connector_registration(
         account_keys: Some(Box::new(registration_crypto_result.account_keys_request)),
         ..SetKeyConnectorKeyRequestModel::new(sso_org_identifier.to_string())
     };
-    // TODO: Remove the legacy flow when the pm-34429-invite-link-auto-confirm flag is removed.
+    // TODO: Remove the legacy flow when the pm-34429-invite-link-auto-confirm flag is removed
+    // with https://bitwarden.atlassian.net/browse/PM-40052
     let response = if registration_client
         .client
         .flags()
@@ -205,7 +206,7 @@ mod tests {
             &api_client,
             &key_connector_api_client,
             TEST_SSO_ORG_IDENTIFIER.to_string(),
-            None,
+            Some(false),
         )
         .await;
         assert!(result.is_ok());
