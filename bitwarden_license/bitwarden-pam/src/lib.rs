@@ -34,7 +34,9 @@ pub use access_rules::{
     AccessRuleView, AccessRulesClient, is_valid_cidr,
 };
 pub use approvals::{
-    AccessDecisionRequest, AccessRequestRevokeRequest, ApprovalError, ApprovalsClient,
+    AccessDecisionRequest, AccessRequestHistoryPage, AccessRequestHistoryQuery,
+    AccessRequestHistoryRequester, AccessRequestHistoryStatus, AccessRequestRevokeRequest,
+    ApprovalError, ApprovalsClient,
 };
 pub use error::PamDecodeError;
 pub use leases::{
