@@ -23,8 +23,12 @@ bench = false
 # The `uniffi` feature stays off: library-mode bindgen would otherwise emit every crypto type
 # into the server bindings.
 bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
 thiserror = { workspace = true }
 uniffi = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }
 
 [lints]
 workspace = true

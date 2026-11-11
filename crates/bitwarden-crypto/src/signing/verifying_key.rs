@@ -59,6 +59,11 @@ impl VerifyingKey {
         }
     }
 
+    /// Returns the id of the verifying key, identical to that of its signing key.
+    pub fn key_id(&self) -> KeyId {
+        self.id.clone()
+    }
+
     /// Verifies the signature of the given data, for the given namespace.
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
