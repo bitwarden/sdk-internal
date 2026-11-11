@@ -21,28 +21,6 @@ pub struct CryptoParsingClient;
 
 #[uniffi::export]
 impl CryptoParsingClient {
-    /// The id of the key `enc_string` was encrypted with, if it names one.
-    pub fn get_encrypted_by_key_id_encstring(
-        &self,
-        enc_string: String,
-    ) -> Result<Option<String>, ServerError> {
-        Ok(EncString::parse_strict(&enc_string)?
-            .key_id()
-            .map(|id| id.to_string()))
-    }
-
-    /// The id of the key `envelope` is sealed with.
-    pub fn get_encrypted_by_key_id_symmetrickeyenvelope(
-        &self,
-        envelope: String,
-    ) -> Result<Option<String>, ServerError> {
-        Ok(Some(
-            SymmetricKeyEnvelope::from_str(&envelope)?
-                .encrypted_by_key_id()?
-                .to_string(),
-        ))
-    }
-
     /// Inspects an EncString: its algorithm and encrypting key.
     pub fn inspect_enc_string(&self, enc_string: String) -> Result<EncStringInfo, ServerError> {
         EncStringInfo::try_from(&EncString::parse_strict(&enc_string)?)
@@ -215,36 +193,6 @@ mod tests {
     // RSA-2048 SPKI.
     const PUBLIC_KEY: &str = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxiXYn+w+Fln8DCG1wmsm2ARyousIze1Jt3Fl55iOdD5kcWc71hLgiwvEGYmHqec5Ztl16Z2CuHtUrZhExRvXegVPPyOJU2lbsxw8okF+JXX+0vK7x9rNR4q4EZOHEwbU77H+EnwpAkkSaVAsH38tJq3lztlosELDXY7QA8S+HHhLsaj9d12crCixaZVE9ckTEFxraMtJQ4ur5O0KBDToC4xouPwzQzZbbXFIjjhfBbsQjN7lf4mky3bg0VvMgB5QA8tCUq35ActZrQXQJYj7C3uNcGr7DnJjVsjlRZ9f3b7tJIUDHTSt7AqhkoVlbf0C/lUVtIY9Va8RBpWcAjMJEQIDAQAB";
     const PUBLIC_KEY_ID: &str = "dac064e9c0a6a07547a2dd16de0790f8";
-
-    #[test]
-    fn get_encrypted_by_key_ids() {
-        let client = client();
-
-        let cose = client.get_encrypted_by_key_id_encstring(COSE_ENCSTRING.into());
-        let legacy = client.get_encrypted_by_key_id_encstring(LEGACY_ENCSTRING.into());
-        let envelope = client.get_encrypted_by_key_id_symmetrickeyenvelope(ENVELOPE.into());
-
-        assert_eq!(cose.expect("valid"), Some(FIXTURE_KEY_ID.to_string()));
-        assert_eq!(legacy.expect("valid"), None);
-        assert_eq!(
-            envelope.expect("valid"),
-            Some(ENVELOPE_WRAPPING_KEY_ID.to_string())
-        );
-    }
-
-    #[test]
-    fn get_encrypted_by_key_id_encstring_invalid() {
-        let result = client().get_encrypted_by_key_id_encstring(GARBAGE.into());
-
-        assert!(matches!(result, Err(ServerError::InvalidData)));
-    }
-
-    #[test]
-    fn get_encrypted_by_key_id_symmetrickeyenvelope_invalid() {
-        let result = client().get_encrypted_by_key_id_symmetrickeyenvelope(GARBAGE.into());
-
-        assert!(matches!(result, Err(ServerError::InvalidData)));
-    }
 
     #[test]
     fn inspect_enc_string() {
