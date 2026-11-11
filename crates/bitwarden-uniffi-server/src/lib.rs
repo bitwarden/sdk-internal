@@ -25,23 +25,8 @@ impl ServerClient {
         Self
     }
 
-    /// The SDK version this library was built from.
-    pub fn version(&self) -> String {
-        env!("CARGO_PKG_VERSION").to_string()
-    }
-
     /// Parses SDK crypto objects and reads the key ids they name, without decrypting.
     pub fn crypto_parsing(&self) -> CryptoParsingClient {
         CryptoParsingClient
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn version_is_crate_version() {
-        assert_eq!(ServerClient::new().version(), env!("CARGO_PKG_VERSION"));
     }
 }
