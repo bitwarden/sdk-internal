@@ -90,11 +90,11 @@ mod tests {
     }
 
     // Fixed inputs, mirrored in the dotnet-extensions tests. `COSE_ENCSTRING` is encrypted with,
-    // and `ENVELOPE` seals, the XChaCha20-Poly1305 key `FIXTURE_KEY_ID`.
-    const FIXTURE_KEY_ID: &str = "5367fc06796da8e62b61afdc5c02b9f1";
-    const COSE_ENCSTRING: &str = "7.g1g/owE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLnV0ZjgtcGFkZGVkBFBTZ/wGeW2o5ithr9xcArnxoQVYGK4ToRVEH/cowcY3KzAn0K4jqgl06xAWpVgwY5qRRgNeYMc9KUbZmghWPKJAz10ENbQdS0/u0XeWRDQz5TRXJiNl+TDyrlI6731b";
+    // and `ENVELOPE` seals, the XAES-256-GCM key `FIXTURE_KEY_ID`.
+    const FIXTURE_KEY_ID: &str = "786b476843503fe1f6deb3951ef8f037";
+    const COSE_ENCSTRING: &str = "7.g1g/owE6AAEReQN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLnV0ZjgtcGFkZGVkBFB4a0doQ1A/4fbes5Ue+PA3oQVYGDyfZwmpm8qoMQ6T/GkNaSNiH0xURegyi1gwqCiYSKv1pO6JGK65CMOYx4dAUaqpKz5JlvFE/XdTX6VcOggf2PX0H9iCB/rDjvng";
     const LEGACY_ENCSTRING: &str = "2.lydV844NLeMlZyw+lBvavQ==|g/ybWBsaTkyTDJYL1kcrZQ==|2ZeoX1YiRQoaowBuGS7feAH9PZvz3VDy6QuPtMNu7R4=";
-    const ENVELOPE: &str = "g1g+pgE6AAEReQMYZQRQNPLyvvUn/ZOFjUStHRQPvzoAARVcUFNn/AZ5bajmK2Gv3FwCufE6AAE4gQM6AAE4gAKhBVgYqKO9y+PFmZQr6GR5Nmj5bzc1uvqHm4FTWFRUAxgMKOBrC0T0iM0bqLFjzmBCkXA6fJ9qzG6e2iIWW4mJ7/j1+T/90Yi6syHtD+5mvda+rg6BF+BLzB48oItIfasxUcYthwzxVW33CfVk/JoNU+U=";
+    const ENVELOPE: &str = "g1g+pgE6AAEReQMYZQRQ8UUgSvckp9zxEdxy+99QTDoAARVcUHhrR2hDUD/h9t6zlR748Dc6AAE4gQM6AAE4gAKhBVgYHYM4amZXcPx+ioIiaBQXy/itml3h/5kpWFR2SQ9uMP9TBs/iL2+tuzwOcGtphqCkEpSBBlifIzT9oow7+hYJ9N4hKxXYLEn0ldNDdfi7ryjXgAscY0OTDPOEIwUaqJZGKESUEDDhohHVoaGgZrY=";
 
     #[test]
     fn fixtures_return_expected_key_ids() {
@@ -119,7 +119,7 @@ mod tests {
     fn encstring_key_id_matches_encrypting_key() {
         let store = KeyStore::<TestIds>::default();
         let mut ctx = store.context_mut();
-        let key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         let expected = ctx.get_symmetric_key_id(key).map(|id| id.to_string());
 
         let enc_string = "secret".encrypt(&mut ctx, key).expect("encrypts");
@@ -156,7 +156,7 @@ mod tests {
     fn envelope_key_id_matches_sealed_key() {
         let store = KeyStore::<TestIds>::default();
         let mut ctx = store.context_mut();
-        let sealed = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let sealed = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         let wrapping = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         let expected = ctx.get_symmetric_key_id(sealed).map(|id| id.to_string());
 
