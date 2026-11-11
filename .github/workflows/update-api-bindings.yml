@@ -123,6 +123,8 @@ jobs:
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          prefix-key: v1-rust
 
       - name: Set Node Version
         id: retrieve-node-version
@@ -135,11 +137,18 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          cache: "npm"
-          cache-dependency-path: "package-lock.json"
           node-version: ${{ env._NODE_VERSION }}
+          # A restored npm cache would let npm ci skip the Aikido proxy.
+          package-manager-cache: false
         env:
           _NODE_VERSION: ${{ steps.retrieve-node-version.outputs.node_version }}
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: NPM setup
         run: npm ci

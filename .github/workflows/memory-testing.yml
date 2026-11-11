@@ -21,6 +21,9 @@ jobs:
   memory-test:
     name: Testing
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Check out repo
@@ -41,7 +44,15 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           key: memtest-cargo
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Test
         run: ./crates/memory-testing/run_test.sh no-docker

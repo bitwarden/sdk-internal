@@ -29,6 +29,7 @@ jobs:
 
     permissions:
       contents: read
+      id-token: write
       security-events: write
 
     strategy:
@@ -103,6 +104,7 @@ jobs:
         if: matrix.needs_rust
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           # The build output cache below restores target/ for the checks that compile the
           # workspace. The other checks compile nothing.
           cache-targets: false
@@ -129,9 +131,16 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .bin
-          key: cargo-bin-${{ runner.os }}-${{ matrix.check }}-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
+          key: cargo-bin-v1-${{ runner.os }}-${{ matrix.check }}-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
           restore-keys: |
-            cargo-bin-${{ runner.os }}-${{ matrix.check }}-
+            cargo-bin-v1-${{ runner.os }}-${{ matrix.check }}-
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Install cargo-run-bin
         if: matrix.needs_rust
@@ -166,9 +175,9 @@ jobs:
         if: matrix.needs_node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          cache: "npm"
-          cache-dependency-path: "package-lock.json"
           node-version: "16"
+          # A restored npm cache would let npm ci skip the Aikido proxy.
+          package-manager-cache: false
 
       - name: NPM setup
         if: matrix.needs_node
@@ -185,6 +194,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+      id-token: write
     steps:
       - name: Check out repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -206,15 +216,23 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           cache-targets: false
 
       - name: Cache cargo-run-bin tools
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .bin
-          key: cargo-bin-${{ runner.os }}-advisories-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
+          key: cargo-bin-v1-${{ runner.os }}-advisories-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
           restore-keys: |
-            cargo-bin-${{ runner.os }}-advisories-
+            cargo-bin-v1-${{ runner.os }}-advisories-
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
