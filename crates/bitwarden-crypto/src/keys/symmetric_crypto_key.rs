@@ -491,7 +491,8 @@ impl SymmetricCryptoKey {
     #[cfg(test)]
     pub fn generate_seeded_for_unit_tests(seed: &str) -> Self {
         // Keep this separate from the other generate function to not break test vectors.
-        let mut seeded_rng = ChaChaRng::from_seed(bitwarden_crypto_primitives::sha256::digest(seed.as_bytes()));
+        let mut seeded_rng =
+            ChaChaRng::from_seed(bitwarden_crypto_primitives::sha256::digest(seed.as_bytes()));
         let mut key = Box::pin(Array::<u8, U64>::default());
         // Two separate 32-byte fills, as above, so the generated key is unchanged.
         let (enc_key, mac_key) = key.split_at_mut(AES256_CBC_HMAC_ENC_KEY_SIZE);

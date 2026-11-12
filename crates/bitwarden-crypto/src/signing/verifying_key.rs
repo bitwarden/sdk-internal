@@ -3,6 +3,7 @@
 //! This implements the lowest layer of the signature module, verifying signatures on raw byte
 //! arrays.
 
+use bitwarden_crypto_primitives::{ed25519, ml_dsa};
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
@@ -11,7 +12,6 @@ use coset::{
         OkpKeyParameter,
     },
 };
-use bitwarden_crypto_primitives::{ed25519, ml_dsa};
 
 use super::{SignatureAlgorithm, ed25519_verifying_key, key_id, mldsa44_verifying_key};
 use crate::{
@@ -103,16 +103,15 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                 .to_vec()
                 .expect("Verifying key is always serializable")
                 .into(),
-            RawVerifyingKey::MlDsa44(key) => coset::CoseKeyBuilder::new_mldsa_pub_key(
-                MlDsaVariant::MlDsa44,
-                key.to_bytes(),
-            )
-            .key_id((&self.id).into())
-            .add_key_op(KeyOperation::Verify)
-            .build()
-            .to_vec()
-            .expect("Verifying key is always serializable")
-            .into(),
+            RawVerifyingKey::MlDsa44(key) => {
+                coset::CoseKeyBuilder::new_mldsa_pub_key(MlDsaVariant::MlDsa44, key.to_bytes())
+                    .key_id((&self.id).into())
+                    .add_key_op(KeyOperation::Verify)
+                    .build()
+                    .to_vec()
+                    .expect("Verifying key is always serializable")
+                    .into()
+            }
         }
     }
 
@@ -178,10 +177,7 @@ impl CoseKeyThumbprintExt for VerifyingKey {
                     KeyParameter::Alg.to_i64(),
                     Value::Integer(Integer::from(Algorithm::ML_DSA_44.to_i64())),
                 ),
-                (
-                    AkpKeyParameter::Pub.to_i64(),
-                    Value::Bytes(key.to_bytes()),
-                ),
+                (AkpKeyParameter::Pub.to_i64(), Value::Bytes(key.to_bytes())),
             ],
         };
         Ok(thumbprint_from_required_params(params))

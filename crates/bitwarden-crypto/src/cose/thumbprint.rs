@@ -14,8 +14,8 @@
 //! its corresponding public key produce the same thumbprint. The same applies for signature key
 //! pairs / their verification key.
 
-use ciborium::{Value, value::Integer};
 use bitwarden_crypto_primitives::sha256;
+use ciborium::{Value, value::Integer};
 
 /// An [RFC 9679](https://www.rfc-editor.org/rfc/rfc9679) COSE Key Thumbprint.
 ///

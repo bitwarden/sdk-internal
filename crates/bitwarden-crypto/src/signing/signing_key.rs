@@ -1,5 +1,6 @@
 use std::pin::Pin;
 
+use bitwarden_crypto_primitives::{ed25519, ml_dsa};
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, CoseKey, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
@@ -7,7 +8,6 @@ use coset::{
         AkpKeyParameter, Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter,
     },
 };
-use bitwarden_crypto_primitives::{ed25519, ml_dsa};
 
 use super::{
     SignatureAlgorithm, ed25519_signing_key, key_id, mldsa_seed,

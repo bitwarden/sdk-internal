@@ -1,8 +1,8 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
+use bitwarden_crypto_primitives::rsa::OaepHash;
 use bitwarden_encoding::{B64, FromStrVisitor};
 pub use internal::UnsignedSharedKey;
-use bitwarden_crypto_primitives::rsa::OaepHash;
 use serde::Deserialize;
 
 use super::{from_b64_vec, split_enc_string};

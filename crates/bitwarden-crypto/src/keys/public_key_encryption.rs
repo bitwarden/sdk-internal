@@ -1,11 +1,11 @@
 use std::{fmt::Display, pin::Pin, str::FromStr};
 
-use bitwarden_encoding::{B64, FromStrVisitor};
-use ciborium::{Value, value::Integer};
-use coset::iana::{EnumI64, KeyParameter, KeyType, RsaKeyParameter};
 use bitwarden_crypto_primitives::rsa::{
     KeySize, PrivateKey as RsaPrivateKey, PublicKey as RsaPublicKey,
 };
+use bitwarden_encoding::{B64, FromStrVisitor};
+use ciborium::{Value, value::Integer};
+use coset::iana::{EnumI64, KeyParameter, KeyType, RsaKeyParameter};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -108,14 +108,8 @@ impl CoseKeyThumbprintExt for PublicKey {
                 ),
                 // Per RFC 8230, `n` and `e` are unsigned big-endian byte strings with no leading
                 // zero or sign byte; `modulus` and `exponent` return exactly this minimal form.
-                (
-                    RsaKeyParameter::N.to_i64(),
-                    Value::Bytes(key.modulus()),
-                ),
-                (
-                    RsaKeyParameter::E.to_i64(),
-                    Value::Bytes(key.exponent()),
-                ),
+                (RsaKeyParameter::N.to_i64(), Value::Bytes(key.modulus())),
+                (RsaKeyParameter::E.to_i64(), Value::Bytes(key.exponent())),
             ],
         };
         Ok(thumbprint_from_required_params(params))
@@ -191,9 +185,9 @@ impl PrivateKey {
             PublicKeyEncryptionAlgorithm::RsaOaepSha1 => {
                 let _span = SlowCryptoSpan::start(SlowCryptoOp::RsaKeyGeneration);
                 Self {
-                    inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                        RsaPrivateKey::generate(KeySize::Rsa2048),
-                    )),
+                    inner: RawPrivateKey::RsaOaepSha1(Box::pin(RsaPrivateKey::generate(
+                        KeySize::Rsa2048,
+                    ))),
                 }
             }
         }
@@ -251,13 +245,11 @@ impl PrivateKey {
     )]
     pub fn to_der(&self) -> Result<Pkcs8PrivateKeyBytes> {
         match &self.inner {
-            RawPrivateKey::RsaOaepSha1(private_key) => {
-                Ok(private_key
-                    .to_pkcs8_der()
-                    .map_err(|_| CryptoError::InvalidKey)?
-                    .to_vec()
-                    .into())
-            }
+            RawPrivateKey::RsaOaepSha1(private_key) => Ok(private_key
+                .to_pkcs8_der()
+                .map_err(|_| CryptoError::InvalidKey)?
+                .to_vec()
+                .into()),
         }
     }
 

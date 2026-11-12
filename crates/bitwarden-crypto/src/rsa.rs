@@ -1,7 +1,7 @@
-use bitwarden_encoding::B64;
 use bitwarden_crypto_primitives::rsa::{
     KeySize, OaepHash, PrivateKey as RsaPrivateKey, PublicKey as RsaPublicKey,
 };
+use bitwarden_encoding::B64;
 
 use crate::{
     CryptoError, EncString, SymmetricCryptoKey,
@@ -36,9 +36,7 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
         .map_err(|_| RsaError::CreatePrivateKey)?;
 
     let protected = match key {
-        SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-            EncString::encrypt_aes256_hmac(&pkcs, key)
-        }
+        SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(&pkcs, key),
         SymmetricCryptoKey::XChaCha20Poly1305Key(_) => Err(CryptoError::OperationNotSupported(
             UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
