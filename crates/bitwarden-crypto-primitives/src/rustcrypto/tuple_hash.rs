@@ -11,7 +11,8 @@ pub(crate) fn tuple_hash256(items: &[&[u8]], customization: &[u8], out: &mut [u8
     let mut xof = CShake256::new_with_function_name(FUNCTION_NAME, customization);
 
     for item in items {
-        xof.update(&encode_string_prefix(item.len()));
+        // encode_string(item) = left_encode(bit length) || item
+        xof.update(&left_encode(bit_len(item.len())));
         xof.update(item);
     }
     xof.update(&right_encode(bit_len(out.len())));
@@ -23,11 +24,6 @@ fn bit_len(byte_len: usize) -> u64 {
     (byte_len as u64)
         .checked_mul(8)
         .expect("length in bits fits in u64")
-}
-
-/// `left_encode(len(S))` of `encode_string(S)`; the string itself follows.
-fn encode_string_prefix(byte_len: usize) -> Vec<u8> {
-    left_encode(bit_len(byte_len))
 }
 
 /// `left_encode(x)`: byte count, then big-endian bytes of `x` (at least one).

@@ -4,8 +4,11 @@ use zeroize::Zeroizing;
 
 use crate::{Error, backend};
 
+/// Pseudorandom key length in bytes (SHA-256 output).
+pub const PRK_LEN: usize = 32;
+
 /// HKDF-Extract. Returns the pseudorandom key.
-pub fn extract(salt: Option<&[u8]>, ikm: &[u8]) -> Zeroizing<[u8; 32]> {
+pub fn extract(salt: Option<&[u8]>, ikm: &[u8]) -> Zeroizing<[u8; PRK_LEN]> {
     backend::hkdf::extract(salt, ikm)
 }
 

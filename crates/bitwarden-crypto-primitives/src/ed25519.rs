@@ -15,7 +15,8 @@ pub const SIGNATURE_LEN: usize = 64;
 #[derive(Clone)]
 pub struct SigningKey(backend::ed25519::SigningKey);
 
-impl zeroize::ZeroizeOnDrop for SigningKey where backend::ed25519::SigningKey: zeroize::ZeroizeOnDrop {}
+impl zeroize::ZeroizeOnDrop for SigningKey where backend::ed25519::SigningKey: zeroize::ZeroizeOnDrop
+{}
 
 impl SigningKey {
     /// Generates a fresh key.

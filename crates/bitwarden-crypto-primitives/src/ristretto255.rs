@@ -2,13 +2,18 @@
 
 use crate::{Error, backend};
 
+/// Compressed point length in bytes.
+pub const POINT_LEN: usize = 32;
+/// Length in bytes of the uniform input to `from_uniform_bytes` and of wide scalars.
+pub const WIDE_LEN: usize = 64;
+
 /// A ristretto255 group element.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct RistrettoPoint(backend::ristretto255::RistrettoPoint);
 
 impl RistrettoPoint {
     /// Maps 64 uniform bytes to a point (RFC 9496 §4.3.4).
-    pub fn from_uniform_bytes(bytes: &[u8; 64]) -> Self {
+    pub fn from_uniform_bytes(bytes: &[u8; WIDE_LEN]) -> Self {
         Self(backend::ristretto255::RistrettoPoint::from_uniform_bytes(
             bytes,
         ))
@@ -20,7 +25,7 @@ impl RistrettoPoint {
     }
 
     /// Returns the canonical 32-byte encoding.
-    pub fn compress(&self) -> [u8; 32] {
+    pub fn compress(&self) -> [u8; POINT_LEN] {
         self.0.compress()
     }
 
@@ -30,7 +35,7 @@ impl RistrettoPoint {
     }
 
     /// Multiplies by the scalar `wide_scalar mod ℓ` (64 bytes, little-endian).
-    pub fn mul_wide(&self, wide_scalar: &[u8; 64]) -> Self {
+    pub fn mul_wide(&self, wide_scalar: &[u8; WIDE_LEN]) -> Self {
         Self(self.0.mul_wide(wide_scalar))
     }
 }

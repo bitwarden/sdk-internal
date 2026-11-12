@@ -6,11 +6,14 @@ use rsa::{
 };
 use zeroize::Zeroizing;
 
-use super::random::SystemRng;
 use crate::{
     Error,
+    random::SystemRng,
     rsa::{KeySize, OaepHash, PrivateComponents},
 };
+
+/// Number of primes in a standard (non multi-prime) RSA key.
+const TWO_PRIMES: usize = 2;
 
 #[derive(Clone)]
 pub(crate) struct PrivateKey(RsaPrivateKey);
@@ -54,6 +57,11 @@ impl PrivateKey {
         d: &[u8],
         primes: &[&[u8]],
     ) -> Result<Self, Error> {
+        // `components` and the SSH/JWK formats only describe two-prime keys.
+        if primes.len() > TWO_PRIMES {
+            return Err(Error::InvalidKey);
+        }
+
         let uint = |b: &[u8]| BoxedUint::from_be_slice_vartime(b);
         RsaPrivateKey::from_components(
             uint(n),

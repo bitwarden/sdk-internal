@@ -4,8 +4,11 @@ use p256::{
 };
 use zeroize::Zeroizing;
 
-use super::random::SystemRng;
-use crate::Error;
+use crate::{
+    Error,
+    p256::{SCALAR_LEN, SEC1_UNCOMPRESSED_LEN},
+    random::SystemRng,
+};
 
 #[derive(Clone)]
 pub(crate) struct SecretKey(p256::SecretKey);
@@ -22,13 +25,13 @@ impl SecretKey {
         Self(p256::SecretKey::generate_from_rng(&mut SystemRng))
     }
 
-    pub(crate) fn from_bytes(scalar: &[u8; 32]) -> Result<Self, Error> {
+    pub(crate) fn from_bytes(scalar: &[u8; SCALAR_LEN]) -> Result<Self, Error> {
         p256::SecretKey::from_slice(scalar)
             .map(Self)
             .map_err(|_| Error::InvalidKey)
     }
 
-    pub(crate) fn to_bytes(&self) -> Zeroizing<[u8; 32]> {
+    pub(crate) fn to_bytes(&self) -> Zeroizing<[u8; SCALAR_LEN]> {
         Zeroizing::new(self.0.to_bytes().into())
     }
 
@@ -47,7 +50,7 @@ impl SecretKey {
         PublicKey(self.0.public_key())
     }
 
-    pub(crate) fn diffie_hellman(&self, peer: &PublicKey) -> Zeroizing<[u8; 32]> {
+    pub(crate) fn diffie_hellman(&self, peer: &PublicKey) -> Zeroizing<[u8; SCALAR_LEN]> {
         let shared = p256::ecdh::diffie_hellman(self.0.to_nonzero_scalar(), peer.0.as_affine());
         Zeroizing::new((*shared.raw_secret_bytes()).into())
     }
@@ -63,7 +66,7 @@ impl PublicKey {
             .map_err(|_| Error::InvalidKey)
     }
 
-    pub(crate) fn to_sec1_uncompressed(&self) -> [u8; 65] {
+    pub(crate) fn to_sec1_uncompressed(&self) -> [u8; SEC1_UNCOMPRESSED_LEN] {
         self.0
             .to_sec1_point(false)
             .as_bytes()

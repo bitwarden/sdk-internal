@@ -10,6 +10,9 @@ use rustcrypto as backend;
 mod error;
 pub use error::Error;
 
+#[macro_use]
+mod hash_module;
+
 pub mod aes_cbc;
 pub mod aes_gcm;
 pub mod argon2;

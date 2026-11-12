@@ -3,13 +3,13 @@ use ml_dsa::{
 };
 use zeroize::Zeroizing;
 
-use super::random::{SystemRng, fill_bytes};
-use crate::Error;
+use super::random::fill_bytes;
+use crate::{Error, ml_dsa::SEED_LEN, random::SystemRng};
 
 /// Seed and expanded key. The seed is kept because it is the serialized form.
 #[derive(Clone)]
 pub(crate) struct SigningKey {
-    seed: Zeroizing<[u8; 32]>,
+    seed: Zeroizing<[u8; SEED_LEN]>,
     key: Box<ExpandedSigningKey<MlDsa44>>,
 }
 
@@ -27,15 +27,17 @@ impl SigningKey {
         Self::from_seed(&seed)
     }
 
-    pub(crate) fn from_seed(seed: &[u8; 32]) -> Self {
-        let b32 = Zeroizing::new(B32::from(*seed));
+    pub(crate) fn from_seed(seed: &[u8; SEED_LEN]) -> Self {
+        // Fill the array in place so no unzeroized copy of the seed is left on the stack.
+        let mut b32 = Zeroizing::new(B32::default());
+        b32.copy_from_slice(seed);
         Self {
             seed: Zeroizing::new(*seed),
             key: Box::new(ExpandedSigningKey::<MlDsa44>::from_seed(&b32)),
         }
     }
 
-    pub(crate) fn seed(&self) -> Zeroizing<[u8; 32]> {
+    pub(crate) fn seed(&self) -> Zeroizing<[u8; SEED_LEN]> {
         self.seed.clone()
     }
 

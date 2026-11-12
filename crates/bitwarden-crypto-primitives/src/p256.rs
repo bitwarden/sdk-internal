@@ -4,6 +4,11 @@ use zeroize::Zeroizing;
 
 use crate::{Error, backend};
 
+/// Secret scalar length in bytes.
+pub const SCALAR_LEN: usize = 32;
+/// Uncompressed SEC1 point length in bytes (`0x04 || x || y`).
+pub const SEC1_UNCOMPRESSED_LEN: usize = 65;
+
 /// P-256 secret scalar. Zeroized on drop.
 #[derive(Clone)]
 pub struct SecretKey(backend::p256::SecretKey);
@@ -17,12 +22,12 @@ impl SecretKey {
     }
 
     /// Builds a key from a big-endian scalar.
-    pub fn from_bytes(scalar: &[u8; 32]) -> Result<Self, Error> {
+    pub fn from_bytes(scalar: &[u8; SCALAR_LEN]) -> Result<Self, Error> {
         backend::p256::SecretKey::from_bytes(scalar).map(Self)
     }
 
     /// Returns the big-endian scalar.
-    pub fn to_bytes(&self) -> Zeroizing<[u8; 32]> {
+    pub fn to_bytes(&self) -> Zeroizing<[u8; SCALAR_LEN]> {
         self.0.to_bytes()
     }
 
@@ -42,7 +47,7 @@ impl SecretKey {
     }
 
     /// ECDH with `peer`. Returns the shared point's x-coordinate.
-    pub fn diffie_hellman(&self, peer: &PublicKey) -> Zeroizing<[u8; 32]> {
+    pub fn diffie_hellman(&self, peer: &PublicKey) -> Zeroizing<[u8; SCALAR_LEN]> {
         self.0.diffie_hellman(&peer.0)
     }
 }
@@ -58,7 +63,7 @@ impl PublicKey {
     }
 
     /// Returns the uncompressed SEC1 encoding.
-    pub fn to_sec1_uncompressed(&self) -> [u8; 65] {
+    pub fn to_sec1_uncompressed(&self) -> [u8; SEC1_UNCOMPRESSED_LEN] {
         self.0.to_sec1_uncompressed()
     }
 }

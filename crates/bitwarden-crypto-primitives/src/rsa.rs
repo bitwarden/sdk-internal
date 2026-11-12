@@ -63,7 +63,8 @@ impl PrivateKey {
         backend::rsa::PrivateKey::from_pkcs1_der(der).map(Self)
     }
 
-    /// Builds a key from big-endian components and validates it.
+    /// Builds a two-prime key from big-endian components and validates it. With fewer than two
+    /// primes, they are recovered from `n`, `e` and `d`.
     pub fn from_components(n: &[u8], e: &[u8], d: &[u8], primes: &[&[u8]]) -> Result<Self, Error> {
         backend::rsa::PrivateKey::from_components(n, e, d, primes).map(Self)
     }
@@ -195,7 +196,10 @@ mod tests {
 
         let parsed = PrivateKey::from_pkcs8_pem(&pem).expect("parses");
         assert!(parsed.public_key() == KEY.public_key());
-        assert_eq!(PrivateKey::from_pkcs8_pem("junk").err(), Some(Error::InvalidKey));
+        assert_eq!(
+            PrivateKey::from_pkcs8_pem("junk").err(),
+            Some(Error::InvalidKey)
+        );
     }
 
     #[test]
