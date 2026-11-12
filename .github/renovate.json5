@@ -98,6 +98,12 @@
     },
     {
       matchManagers: ["cargo"],
+      matchPackageNames: ["ldap3"],
+      commitMessagePrefix: "[deps] PAM:",
+      reviewers: ["team:team-pam-dev"],
+    },
+    {
+      matchManagers: ["cargo"],
       matchPackageNames: [
         "aes",
         "anyhow",
