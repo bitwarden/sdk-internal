@@ -62,7 +62,7 @@ impl ApprovalsClient {
     }
 
     /// Reads one page of the ended access requests on collections the caller manages and among
-    /// the caller's own, newest end first, with the total and the filter options.
+    /// the caller's own, newest request first, with the total and the filter options.
     pub async fn list_history(
         &self,
         query: AccessRequestHistoryQuery,

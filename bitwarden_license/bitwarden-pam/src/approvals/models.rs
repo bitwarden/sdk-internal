@@ -59,7 +59,7 @@ pub struct AccessRequestHistoryQuery {
 }
 
 /// One page of the approver history: the ended requests on collections the caller manages, and
-/// the caller's own, newest end first.
+/// the caller's own, newest request first.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]

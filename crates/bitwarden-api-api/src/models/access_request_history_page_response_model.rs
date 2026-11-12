@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessRequestHistoryPageResponseModel : One page of the approver history, newest end first, with
-/// what the filters can offer.
+/// AccessRequestHistoryPageResponseModel : One page of the approver history, newest request first,
+/// with what the filters can offer.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessRequestHistoryPageResponseModel {
     #[serde(
@@ -53,7 +53,7 @@ pub struct AccessRequestHistoryPageResponseModel {
 }
 
 impl AccessRequestHistoryPageResponseModel {
-    /// One page of the approver history, newest end first, with what the filters can offer.
+    /// One page of the approver history, newest request first, with what the filters can offer.
     pub fn new() -> AccessRequestHistoryPageResponseModel {
         AccessRequestHistoryPageResponseModel {
             object: None,
