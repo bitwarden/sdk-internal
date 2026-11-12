@@ -47,6 +47,7 @@ pub(crate) struct RotationConfig {
     last_rotation_at: Option<DateTime<Utc>>,
     next_rotation_at: Option<DateTime<Utc>>,
     has_active_job: bool,
+    last_job_failed: bool,
     awaiting_manual_rotation: bool,
     creation_date: DateTime<Utc>,
     revision_date: DateTime<Utc>,
@@ -88,6 +89,7 @@ impl RotationConfig {
                 .map(|date| date.parse())
                 .transpose()?,
             has_active_job: response.has_active_job.unwrap_or(false),
+            last_job_failed: response.last_job_failed.unwrap_or(false),
             awaiting_manual_rotation: response.awaiting_manual_rotation.unwrap_or(false),
             creation_date: require!(response.creation_date).parse()?,
             revision_date: require!(response.revision_date).parse()?,
@@ -167,6 +169,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, RotationConfigView> for Rotatio
             last_rotation_at: self.last_rotation_at,
             next_rotation_at: self.next_rotation_at,
             has_active_job: self.has_active_job,
+            last_job_failed: self.last_job_failed,
             awaiting_manual_rotation: self.awaiting_manual_rotation,
             creation_date: self.creation_date,
             revision_date: self.revision_date,
@@ -208,6 +211,10 @@ pub struct RotationConfigView {
     /// Whether the config has a pending or claimed job, or a timed-out one the sweep has not yet
     /// recorded.
     pub has_active_job: bool,
+    /// Whether the newest job ended badly: it reported failure, or it is unresolved and its
+    /// timeout has already been recorded by the sweep. Lets a list read resolve the Failed status
+    /// without fetching each config's job history. Mutually exclusive with `has_active_job`.
+    pub last_job_failed: bool,
     /// Whether a manual-method config is waiting for an operator to record an out-of-band
     /// rotation.
     pub awaiting_manual_rotation: bool,
@@ -278,6 +285,7 @@ impl RotationConfigDetail {
                 enabled: response.enabled,
                 last_rotation_at: response.last_rotation_at,
                 has_active_job: response.has_active_job,
+                last_job_failed: response.last_job_failed,
                 awaiting_manual_rotation: response.awaiting_manual_rotation,
                 creation_date: response.creation_date,
                 revision_date: response.revision_date,
@@ -835,6 +843,7 @@ mod tests {
             enabled: config.enabled,
             last_rotation_at: config.last_rotation_at,
             has_active_job: config.has_active_job,
+            last_job_failed: config.last_job_failed,
             awaiting_manual_rotation: config.awaiting_manual_rotation,
             creation_date: config.creation_date,
             revision_date: config.revision_date,
