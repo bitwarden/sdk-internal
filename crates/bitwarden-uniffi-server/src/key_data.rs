@@ -11,7 +11,10 @@
 
 use std::{num::NonZeroU32, str::FromStr};
 
-use bitwarden_crypto::{CoseSerializable, CoseSign1Bytes, Kdf, SignedObject, SignedPublicKey};
+use bitwarden_crypto::{
+    CoseSerializable, CoseSign1Bytes, Kdf, SignedObject, SignedPublicKey, SigningNamespace,
+};
+use bitwarden_encoding::B64;
 use serde::{Deserialize, de::DeserializeOwned};
 
 use crate::{CryptoObjectKeyIds, CryptoParsingClient, ServerError};
@@ -83,13 +86,16 @@ impl KeyDataClient {
             KeyData::SecurityState {
                 signed_security_state,
             } => {
-                // SignedSecurityState lives in bitwarden-core; its wire format is a SignedObject.
-                let signature = parsing.inspect_signed_object(signed_security_state)?;
+                // SignedSecurityState lives in bitwarden-core; its wire format is a base64
+                // SignedObject.
+                let bytes = B64::try_from(signed_security_state.as_str())
+                    .map_err(|_| ServerError::InvalidData)?;
+                let signed = SignedObject::from_cose(&CoseSign1Bytes::from(&bytes))?;
 
                 Ok(KeyInfo {
                     data_type: KeyDataType::SecurityState,
                     key_ids: KeyIds {
-                        signed_by_key_id: signature.signed_by_key_id,
+                        signed_by_key_id: Some(signer(&signed, SigningNamespace::SecurityState)?),
                         ..Default::default()
                     },
                 })
@@ -349,9 +355,19 @@ fn signed_public_key_signer(signed_key: String) -> Result<String, ServerError> {
     let signed_key = SignedPublicKey::from_str(&signed_key)?;
 
     // SignedPublicKey hides its SignedObject; re-read the same COSE bytes as one.
-    let signed_by = SignedObject::from_cose(&CoseSign1Bytes::from(signed_key))?.signed_by_id()?;
+    let signed = SignedObject::from_cose(&CoseSign1Bytes::from(signed_key))?;
 
-    Ok(signed_by.to_string())
+    signer(&signed, SigningNamespace::SignedPublicKey)
+}
+
+/// The id of the key that signed `signed`, refusing an object signed in another namespace, e.g. a
+/// security state where a public key belongs. The signature is not verified.
+fn signer(signed: &SignedObject, namespace: SigningNamespace) -> Result<String, ServerError> {
+    if signed.namespace()? != namespace {
+        return Err(ServerError::InvalidData);
+    }
+
+    Ok(signed.signed_by_id()?.to_string())
 }
 
 /// Refuses two ids that differ. Either missing passes: not every object names its key.
@@ -715,6 +731,10 @@ mod tests {
             // A member holds the wrong SDK type.
             with(private_key(), "publicKey", json!(o.verifying_key)),
             with(private_key(), "signedKey", json!(o.enc_string)),
+            // A signed object in another namespace.
+            with(private_key(), "signedKey", json!(o.signed_security_state)),
+            json!({ "type": "signed-security-state", "signedSecurityState": o.signed_public_key })
+                .to_string(),
             with(signing_key(), "publicKey", json!(o.public_key)),
             json!({ "type": "unsigned-shared-key", "wrappedKey": o.enc_string }).to_string(),
             json!({ "type": "signed-security-state", "signedSecurityState": "AAAA" }).to_string(),
