@@ -40,12 +40,15 @@ jobs:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             binary: bwac
+            installer: install-access-connector.sh
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             binary: bwac
+            installer: install-access-connector.sh
           - os: macos-26
             target: aarch64-apple-darwin
             binary: bwac
+            installer: install-access-connector.sh
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             binary: bwac.exe
@@ -111,6 +114,10 @@ jobs:
         run: |
           python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb')); print(sys.argv[1], 'is valid TOML')" \
               bitwarden_license/bitwarden-access-connector/bundle/templates/config.toml.in
+
+      - name: Check the shell install script
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: shellcheck bitwarden_license/bitwarden-access-connector/installers/install-access-connector.sh
 
       - name: Check the PowerShell scripts parse
         if: startsWith(matrix.os, 'windows')
