@@ -1,0 +1,32 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.1.0'
+}
+
+// Bindings and host library built by crates/bitwarden-uniffi/kotlin/build-jvm.sh
+def uniffiJvmDir = file('../../crates/bitwarden-uniffi/kotlin/jvm')
+
+sourceSets {
+    test {
+        kotlin {
+            srcDir new File(uniffiJvmDir, 'bindings')
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'net.java.dev.jna:jna:5.17.0'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.named('test') {
+    systemProperty 'jna.library.path', new File(uniffiJvmDir, 'lib').path
+    // The SDK logs to stdout, which Gradle does not capture. Set RUST_LOG to see it.
+    environment 'RUST_LOG', System.getenv('RUST_LOG') ?: 'off'
+    // The tests run against a native library that Gradle does not track as an input.
+    outputs.upToDateWhen { false }
+    testLogging {
+        events = ['passed', 'skipped', 'failed']
+        exceptionFormat = 'full'
+    }
+}
