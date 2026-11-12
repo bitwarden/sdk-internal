@@ -5,20 +5,16 @@ use std::{
 };
 
 use bitwarden_crypto::CryptoError;
+use bitwarden_crypto_primitives::hmac::{HashAlg, hmac};
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use data_encoding::BASE32_NOPAD;
-use hmac::{Hmac, KeyInit, Mac};
 use percent_encoding::{NON_ALPHANUMERIC, percent_decode_str, percent_encode};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::CipherListView;
-
-type HmacSha1 = Hmac<sha1::Sha1>;
-type HmacSha256 = Hmac<sha2::Sha256>;
-type HmacSha512 = Hmac<sha2::Sha512>;
 
 const BASE32_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const STEAM_CHARS: &str = "23456789BCDFGHJKMNPQRTVWXY";
@@ -106,28 +102,13 @@ pub enum TotpAlgorithm {
 impl TotpAlgorithm {
     // Derive the HMAC hash for the given algorithm
     fn derive_hash(&self, key: &[u8], time: &[u8]) -> Vec<u8> {
-        fn compute_digest<D: Mac>(digest: D, time: &[u8]) -> Vec<u8> {
-            digest.chain_update(time).finalize().into_bytes().to_vec()
-        }
-
-        match self {
-            TotpAlgorithm::Sha1 => compute_digest(
-                HmacSha1::new_from_slice(key).expect("hmac new_from_slice should not fail"),
-                time,
-            ),
-            TotpAlgorithm::Sha256 => compute_digest(
-                HmacSha256::new_from_slice(key).expect("hmac new_from_slice should not fail"),
-                time,
-            ),
-            TotpAlgorithm::Sha512 => compute_digest(
-                HmacSha512::new_from_slice(key).expect("hmac new_from_slice should not fail"),
-                time,
-            ),
-            TotpAlgorithm::Steam => compute_digest(
-                HmacSha1::new_from_slice(key).expect("hmac new_from_slice should not fail"),
-                time,
-            ),
-        }
+        // Steam codes are HMAC-SHA1 with a custom alphabet.
+        let alg = match self {
+            TotpAlgorithm::Sha1 | TotpAlgorithm::Steam => HashAlg::Sha1,
+            TotpAlgorithm::Sha256 => HashAlg::Sha256,
+            TotpAlgorithm::Sha512 => HashAlg::Sha512,
+        };
+        hmac(alg, key, time)
     }
 }
 

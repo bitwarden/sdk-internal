@@ -66,16 +66,14 @@ impl LoginUriView {
             return false;
         };
 
-        use sha2::Digest;
-        let uri_hash = sha2::Sha256::new().chain_update(uri.as_bytes()).finalize();
+        let uri_hash = bitwarden_crypto_primitives::sha256::digest(uri.as_bytes());
 
         uri_hash.as_slice().ct_eq(cs.as_bytes()).into()
     }
 
     pub(crate) fn generate_checksum(&mut self) {
         if let Some(uri) = &self.uri {
-            use sha2::Digest;
-            let uri_hash = sha2::Sha256::new().chain_update(uri.as_bytes()).finalize();
+            let uri_hash = bitwarden_crypto_primitives::sha256::digest(uri.as_bytes());
             let uri_hash = B64::from(uri_hash.as_slice()).to_string();
             self.uri_checksum = Some(uri_hash);
         }
