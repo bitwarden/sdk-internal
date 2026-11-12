@@ -62,3 +62,23 @@ npm run perf -- memory             # memory, one process per harness file
 ```
 
 Compare builds by running the same harness with a different `PERF_LABEL` for each.
+
+## Iterator harnesses
+
+Compare listing the vault from state in one call (`list`) with `list_iterable`, which reads the
+cipher repository a chunk at a time and yields one result per cipher, and with decrypting a vault
+array the client passes in (`decrypt_list_with_failures`). The state is a client-managed repository
+in JavaScript, registered as a web client registers its own. They share their setup with the decrypt
+list harnesses.
+
+```sh
+npm run perf -- iterator.perf                    # time per mode
+npm run perf -- iterator-memory                  # memory, one file per mode
+PERF_CHUNK_SIZE=1000 npm run perf -- iterator-memory-list-iterable.perf  # another chunk size
+npm run perf -- iterable-gc                      # whether iterables left early are reclaimed
+PERF_GC=0 npm run perf -- iterable-gc            # the same, without collecting garbage
+```
+
+The memory harnesses are one file per mode, `iterator-memory-<mode>.perf.ts` and
+`iterable-gc-<mode>.perf.ts`, since each needs its own process. The shared code is in
+`iterator-memory.ts` and `iterable-gc.ts`.
