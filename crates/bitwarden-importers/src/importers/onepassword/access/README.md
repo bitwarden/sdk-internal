@@ -17,8 +17,7 @@ each one into a Bitwarden folder. 1P doesn't have folders, only tags.
 - No service account support (they are not so good for export/import)
 - Two entry points, `Client::open_account` and `Client::open_account_sso`, and
   `Client::sign_in_methods` to tell which one an account needs. No vault selection, no random access
-- Added `aes-gcm`, `hkdf`, `crypto-bigint` and `icu_normalizer` to the workspace, will increase the
-  wasm size.
+- Added `crypto-bigint` and `icu_normalizer` to the workspace, will increase the wasm size.
 - SRP uses `crypto-bigint` rather than `num-bigint` for the constant-time `modpow`
 - The legacy path is transcribed from the client and cannot be tested end to end. Patching the web
   client to mint a `PBES2-HS256` account fails: the server answers `POST /api/v1/user/auth` with a
@@ -52,9 +51,6 @@ each one into a Bitwarden folder. 1P doesn't have folders, only tags.
   them? See start_registers_an_unknown_device_then_retries for an example.
 - Do we need to import password history?
 - Legacy SRP (`SRP-4096`) is rejected, the client derives it differently and ends in SHA-1
-- This module reaches for `hkdf`, `aes-gcm` and `rsa` directly because `bitwarden-crypto` keeps
-  those primitives private. Question: should `bitwarden-crypto` expose them, so feature crates do
-  not each depend on RustCrypto themselves?
 - Decide partial-import policy: import valid data; report missing-access or explicitly unsupported
   data as skipped; should unexpected JSON, decryption or internal failures abort or also be skipped?
 - The username goes on the wire raw, `v2/auth/methods` and `v3/auth/start` do not get the normalized

@@ -4,18 +4,16 @@
 //! The new device proves it knows the verification code the user reads off the enrolled device, and
 //! both sides end up with the same key to move the credential bundle through the server.
 
-use bitwarden_threading::time;
-use curve25519_dalek::{
-    ristretto::{CompressedRistretto, RistrettoPoint},
-    scalar::Scalar,
-    traits::Identity,
+use bitwarden_crypto_primitives::{
+    hmac::{self, HashAlg, Hmac},
+    ristretto255::RistrettoPoint,
+    sha384, sha512,
 };
+use bitwarden_threading::time;
 use data_encoding::BASE64URL_NOPAD;
-use hmac::{Hmac, KeyInit, Mac};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
-use sha2::{Digest, Sha384, Sha512};
 use zeroize::Zeroizing;
 
 use super::{
@@ -40,7 +38,6 @@ const EXCHANGE_KEY_INFO: &[u8] = b"1P_SSO_CREDENTIAL_BUNDLE_KEY:ENROLL\x01";
 const CREDENTIAL_BUNDLE_AAD: &[u8] = b"1P_SSO_CREDENTIAL_BUNDLE:ENROLL";
 
 /// The first CPace message, from the enrolled device.
-#[derive(Debug)]
 pub(super) struct MsgA {
     /// The enrolled device's public point.
     ya: RistrettoPoint,
@@ -65,7 +62,7 @@ struct Ad {
 fn parse_msg_a(json: &[u8]) -> Result<MsgA, OnePasswordError> {
     let msg_a: wire::MsgA = serde_json::from_slice(json).map_err(|_| OnePasswordError::Parse)?;
     let ya = decompress_point(&decode64_loose(&msg_a.ya)?)?;
-    if ya == RistrettoPoint::identity() {
+    if ya.is_identity() {
         return Err(OnePasswordError::Internal(
             "the CPace point must not be the identity".into(),
         ));
@@ -84,10 +81,8 @@ fn parse_msg_a(json: &[u8]) -> Result<MsgA, OnePasswordError> {
 
 /// Fails for anything but the canonical encoding of a point.
 fn decompress_point(bytes: &[u8]) -> Result<RistrettoPoint, OnePasswordError> {
-    CompressedRistretto::from_slice(bytes)
-        .ok()
-        .and_then(|point| point.decompress())
-        .ok_or_else(|| OnePasswordError::Internal("invalid CPace point".into()))
+    RistrettoPoint::decompress(bytes)
+        .map_err(|_| OnePasswordError::Internal("invalid CPace point".into()))
 }
 
 /// Calculates `msgb`, the new device's answer to `msga`.
@@ -146,8 +141,7 @@ fn calculate_second_hash(
 
 /// Multiplies by the scalar the client secret reduces to, and compresses the result.
 fn multiply_by_client_scalar(point: &RistrettoPoint, client_secret: &[u8; 64]) -> [u8; 32] {
-    let scalar = Zeroizing::new(Scalar::from_bytes_mod_order_wide(client_secret));
-    (point * *scalar).compress().to_bytes()
+    point.mul_wide(client_secret).compress()
 }
 
 /// Prefixes every field with its length as LEB128, and concatenates them.
@@ -179,7 +173,7 @@ fn write_leb128_prefixed(buffer: &mut Vec<u8>, data: &[u8]) {
 fn verify_tag_a(tag_a: &[u8], auth_b: &[u8], msg_a: &MsgA) -> bool {
     let mut mac = tag_mac(auth_b);
     mac.update(&msg_a.original_message);
-    mac.verify_slice(tag_a).is_ok()
+    mac.verify(tag_a).is_ok()
 }
 
 /// Calculates the shared secret `authB` and the `tagb` that proves knowing it.
@@ -211,19 +205,19 @@ fn calculate_auth_b_hash(auth_a: &[u8], msg_a: &MsgA, msg_b: &[u8]) -> Zeroizing
 fn calculate_tag_b(auth_b: &[u8], msg_b: &[u8]) -> [u8; 64] {
     let mut mac = tag_mac(auth_b);
     mac.update(msg_b);
-    mac.finalize().into_bytes().into()
+    mac.finalize()
+        .try_into()
+        .expect("HMAC-SHA512 tags are 64 bytes")
 }
 
 /// The MAC both tags are made with, keyed from `authB`.
-fn tag_mac(auth_b: &[u8]) -> Hmac<Sha512> {
-    let mac_key = Zeroizing::new(<[u8; 64]>::from(
-        Sha512::new()
-            .chain_update(b"CPaceMac")
-            .chain_update(auth_b)
-            .finalize(),
-    ));
-    <Hmac<Sha512> as KeyInit>::new_from_slice(mac_key.as_slice())
-        .expect("HMAC accepts any key length")
+fn tag_mac(auth_b: &[u8]) -> Hmac {
+    let mut hasher = sha512::Sha512::new();
+    hasher.update(b"CPaceMac");
+    hasher.update(auth_b);
+    let mac_key = Zeroizing::new(hasher.finalize());
+
+    Hmac::new(HashAlg::Sha512, mac_key.as_slice())
 }
 
 /// Derives the key that encrypts the credential bundle in transit from `authB`.
@@ -262,9 +256,10 @@ pub(super) fn enrolled_device_msg_a(
     salt: &[u8],
     session_id: &[u8],
 ) -> Vec<u8> {
-    // The hashes only read the associated data, so the point is a placeholder.
+    // The hashes only read the associated data, so the point is a placeholder: the identity, whose
+    // canonical encoding is all zeros.
     let placeholder = MsgA {
-        ya: RistrettoPoint::identity(),
+        ya: RistrettoPoint::decompress(&[0; 32]).expect("the identity decodes"),
         ad: Ad {
             version: 1,
             salt: salt.to_vec(),
@@ -333,7 +328,10 @@ pub(super) fn enrolled_device_tag_a(
     let auth_b = enrolled_device_auth_b(ya_secret, &parse_msg_a(msga_json)?, msg_b)?;
     let mut mac = tag_mac(auth_b.as_slice());
     mac.update(msga_json);
-    Ok(mac.finalize().into_bytes().into())
+    Ok(mac
+        .finalize()
+        .try_into()
+        .expect("HMAC-SHA512 tags are 64 bytes"))
 }
 
 /// `authB` as the enrolled device computes it, from its own secret and the new device's `msg_b`.
@@ -343,20 +341,20 @@ fn enrolled_device_auth_b(
     msg_a: &MsgA,
     msg_b: &[u8],
 ) -> Result<Zeroizing<[u8; 64]>, OnePasswordError> {
-    let ya_scalar = Scalar::from_bytes_mod_order_wide(ya_secret);
-    let auth_a = (decompress_point(msg_b)? * ya_scalar).compress().to_bytes();
+    let auth_a = decompress_point(msg_b)?.mul_wide(ya_secret).compress();
     Ok(calculate_auth_b_hash(&auth_a, msg_a, msg_b))
 }
 
 fn sha512(data: &[u8]) -> [u8; 64] {
-    Sha512::digest(data).into()
+    sha512::digest(data)
 }
 
 fn hmac_sha384(key: &[u8], message: &[u8]) -> Zeroizing<[u8; 48]> {
-    let mut mac =
-        <Hmac<Sha384> as KeyInit>::new_from_slice(key).expect("HMAC accepts any key length");
-    mac.update(message);
-    Zeroizing::new(mac.finalize().into_bytes().into())
+    // Zeroize the heap tag too, not only the returned copy.
+    let tag = Zeroizing::new(hmac::hmac(HashAlg::Sha384, key, message));
+    let mut out = Zeroizing::new([0; sha384::DIGEST_LEN]);
+    out.copy_from_slice(&tag);
+    out
 }
 
 /// Who signs in, where, and the token that authorizes it.
@@ -620,7 +618,7 @@ mod tests {
         assert_eq!(msg_a.ad.salt, (1..=16).collect::<Vec<u8>>());
         assert_eq!(msg_a.ad.session_id, (100..116).collect::<Vec<u8>>());
         assert_eq!(
-            BASE64URL_NOPAD.encode(&msg_a.ya.compress().to_bytes()),
+            BASE64URL_NOPAD.encode(&msg_a.ya.compress()),
             "IrCugkEa6t7w1_c8A8rYXtk4flTBrMStgtMSEf7qFUE"
         );
     }
@@ -912,10 +910,14 @@ mod tests {
     #[test]
     fn ya_is_the_generator_times_the_enrolled_secret() {
         let vectors = vectors().cpace;
-        let ya_scalar = Scalar::from_bytes_mod_order_wide(&hex_array(&vectors.ya_secret));
         let generator = RistrettoPoint::from_uniform_bytes(&hex_array(&vectors.second_hash));
 
-        assert_eq!((generator * ya_scalar).compress(), msg_a().ya.compress());
+        assert_eq!(
+            generator
+                .mul_wide(&hex_array(&vectors.ya_secret))
+                .compress(),
+            msg_a().ya.compress()
+        );
     }
 
     #[test]
@@ -935,11 +937,10 @@ mod tests {
     #[test]
     fn enrolled_device_derives_the_same_auth_a() {
         let vectors = vectors().cpace;
-        let ya_scalar = Scalar::from_bytes_mod_order_wide(&hex_array(&vectors.ya_secret));
         let msg_b = decompress_point(&hex(&vectors.msgb)).expect("a valid point");
 
         assert_eq!(
-            HEXLOWER.encode(&(msg_b * ya_scalar).compress().to_bytes()),
+            HEXLOWER.encode(&msg_b.mul_wide(&hex_array(&vectors.ya_secret)).compress()),
             vectors.auth_a
         );
     }

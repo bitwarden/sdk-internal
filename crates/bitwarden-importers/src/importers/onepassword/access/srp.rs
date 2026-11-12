@@ -2,6 +2,7 @@
 
 use std::sync::LazyLock;
 
+use bitwarden_crypto_primitives::sha256;
 use crypto_bigint::{
     BoxedUint, ConcatenatingMul, Odd, Resize,
     modular::{BoxedMontyForm, BoxedMontyParams},
@@ -9,7 +10,6 @@ use crypto_bigint::{
 use data_encoding::{BASE64URL_NOPAD, HEXLOWER};
 use rand::Rng;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 
 use super::{
     account_key::AccountKey,
@@ -409,7 +409,7 @@ pub(super) fn compute_x(
 }
 
 fn sha256(data: &[u8]) -> [u8; 32] {
-    Sha256::digest(data).into()
+    sha256::digest(data)
 }
 
 /// The server's half of the exchange, for the tests of flows that run a login end to end. It holds

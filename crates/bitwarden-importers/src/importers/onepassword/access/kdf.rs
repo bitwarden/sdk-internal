@@ -2,10 +2,9 @@
 
 use std::borrow::Cow;
 
+use bitwarden_crypto_primitives::{hkdf, sha256};
 use data_encoding::BASE64URL_NOPAD;
-use hkdf::Hkdf;
 use icu_normalizer::DecomposingNormalizer;
-use sha2::{Digest, Sha256};
 
 use super::{account_key::AccountKey, error::OnePasswordError};
 
@@ -15,9 +14,8 @@ pub(super) const MIN_PBKDF2_ITERATIONS: u32 = 10_000;
 
 /// HKDF-SHA256 producing 32 bytes, with `method` as the `info` parameter.
 pub(super) fn hkdf_sha256(method: &str, ikm: &[u8], salt: &[u8]) -> [u8; 32] {
-    let hk = Hkdf::<Sha256>::new(Some(salt), ikm);
     let mut okm = [0u8; 32];
-    hk.expand(method.as_bytes(), &mut okm)
+    hkdf::derive(Some(salt), ikm, method.as_bytes(), &mut okm)
         .expect("okm is a fixed 32 bytes, under HKDF's 255-block limit");
     okm
 }
@@ -60,7 +58,7 @@ pub(super) fn normalize_identity_username(username: &str) -> String {
 fn legacy_password(username: &str, password: &str) -> String {
     let digest = match password.is_empty() {
         true => String::new(),
-        false => BASE64URL_NOPAD.encode(&Sha256::digest(password.as_bytes())),
+        false => BASE64URL_NOPAD.encode(&sha256::digest(password.as_bytes())),
     };
     format!("{username}:{digest}")
 }
