@@ -63,8 +63,8 @@ impl PrivateKey {
         backend::rsa::PrivateKey::from_pkcs1_der(der).map(Self)
     }
 
-    /// Builds a two-prime key from big-endian components and validates it. With fewer than two
-    /// primes, they are recovered from `n`, `e` and `d`.
+    /// Builds a two-prime key from big-endian components and validates it. `primes` must hold
+    /// exactly `p` and `q`.
     pub fn from_components(n: &[u8], e: &[u8], d: &[u8], primes: &[&[u8]]) -> Result<Self, Error> {
         backend::rsa::PrivateKey::from_components(n, e, d, primes).map(Self)
     }

@@ -57,8 +57,9 @@ impl PrivateKey {
         d: &[u8],
         primes: &[&[u8]],
     ) -> Result<Self, Error> {
-        // `components` and the SSH/JWK formats only describe two-prime keys.
-        if primes.len() > TWO_PRIMES {
+        // Two-prime keys only: `components` and the SSH/JWK formats describe exactly two primes,
+        // and every backend must accept the same inputs.
+        if primes.len() != TWO_PRIMES {
             return Err(Error::InvalidKey);
         }
 
