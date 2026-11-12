@@ -6,3 +6,5 @@
 
 mod legacy_compat_symmetric_key_envelope;
 pub use legacy_compat_symmetric_key_envelope::*;
+mod legacy_compat_signing_key_envelope;
+pub use legacy_compat_signing_key_envelope::*;

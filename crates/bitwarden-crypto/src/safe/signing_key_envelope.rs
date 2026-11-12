@@ -55,6 +55,10 @@ impl From<KeyEncryptionKeyError> for SigningKeyEnvelopeError {
 
 /// A signing key protected by a [`KeyEncryptionKey`]: an XAES-256-GCM or AES-256-CBC-HMAC
 /// wrapping key. The signing key is sealed as a COSE key.
+///
+/// To migrate a key stored as an [`EncString`](crate::EncString), see
+/// [`LegacyCompatSigningKeyEnvelope`](crate::compat::LegacyCompatSigningKeyEnvelope) and its
+/// migration example.
 #[derive(Clone)]
 pub struct SigningKeyEnvelope {
     cose_encrypt0: coset::CoseEncrypt0,
