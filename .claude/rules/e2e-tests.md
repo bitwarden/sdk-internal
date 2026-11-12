@@ -17,8 +17,8 @@ same SDK, so a new test goes into every suite.
   counterpart of an existing test is backlog, not part of the PR.
 - If a new test cannot be written for a binding, say so in a comment next to the test and in the PR
   description. Two reasons qualify: the method is only exported to one binding, or the test needs
-  harness pieces the other suite lacks (`e2e/wasm` has a server emulator and a client emulator that
-  `e2e/swift` does not). Building the missing harness is separate work, not part of the PR.
+  harness pieces the other suite lacks, such as the server and client emulators in `e2e/wasm`.
+  Building the missing harness is separate work, not part of the PR.
 - When reviewing a change under `e2e/`, check the other suites for the counterpart of each added
   test and flag a missing one. For a changed test, check only the counterparts that exist.
 
