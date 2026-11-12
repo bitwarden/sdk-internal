@@ -1,10 +1,10 @@
 //! This file contains helper functions to aid in COSE deserialization
 
+use bitwarden_crypto_primitives::{ed25519, ml_dsa};
 use coset::{
     CoseKey, Label, ProtectedHeader, RegisteredLabel,
     iana::{AkpKeyParameter, EllipticCurve, EnumI64, OkpKeyParameter},
 };
-use bitwarden_crypto_primitives::{ed25519, ml_dsa};
 use zeroize::Zeroizing;
 
 use super::SigningNamespace;

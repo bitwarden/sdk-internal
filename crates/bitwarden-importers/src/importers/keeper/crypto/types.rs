@@ -1,4 +1,4 @@
-use std::{fmt, num::NonZeroU32};
+use std::fmt;
 
 use rand::Rng;
 
@@ -53,12 +53,11 @@ impl KeeperAesKey {
     }
 
     pub(crate) fn from_password(password: &str, salt: &[u8], iterations: u32) -> Self {
-        // PBKDF2 always runs the first round, so 0 iterations derives the same key as 1.
-        let rounds = NonZeroU32::new(iterations).unwrap_or(NonZeroU32::MIN);
-
-        let mut key = Zeroizing::new([0u8; KEEPER_KEY_SIZE]);
-        pbkdf2::hmac_sha256(password.as_bytes(), salt, rounds, key.as_mut_slice());
-        Self(key)
+        Self(Zeroizing::new(bitwarden_crypto::pbkdf2(
+            password.as_bytes(),
+            salt,
+            iterations,
+        )))
     }
 
     pub(crate) fn expose_bytes(&self) -> &[u8] {
