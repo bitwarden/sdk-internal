@@ -120,7 +120,7 @@ jobs:
           reset_sysroot_mtimes: true
 
       # Pull requests skip the slow wasm2js fallback: their artifacts are only used for the type
-      # check in clients and the integration tests, which don't load it.
+      # check in clients and the e2e tests, which don't load it.
       - name: Build
         id: build
         env:
@@ -136,8 +136,8 @@ jobs:
           path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}/*
           if-no-files-found: error
 
-  integration-tests:
-    name: Integration tests
+  e2e-tests:
+    name: E2E tests
     runs-on: ubuntu-24.04
     needs: build
     permissions:
@@ -162,7 +162,7 @@ jobs:
         with:
           node-version: 22
           cache: "npm"
-          cache-dependency-path: crates/bitwarden-wasm-internal/integration-tests/package-lock.json
+          cache-dependency-path: e2e/wasm/package-lock.json
 
       - name: Download SDK artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -172,11 +172,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        working-directory: crates/bitwarden-wasm-internal/integration-tests
+        working-directory: e2e/wasm
 
-      - name: Run integration tests
+      - name: Run e2e tests
         run: npm test
-        working-directory: crates/bitwarden-wasm-internal/integration-tests
+        working-directory: e2e/wasm
 
   trigger-wasm-publish:
     name: Trigger WASM publish

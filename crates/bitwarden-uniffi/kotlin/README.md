@@ -46,6 +46,11 @@ mv ../../../target/i686-linux-android/release/libbitwarden_uniffi.so ./sdk/src/m
 ./build-schemas.sh
 ```
 
+### JVM bindings
+
+`./build-jvm.sh` builds the library for the host and generates bindings for a desktop JVM into
+`jvm/`. The e2e tests in [`e2e/kotlin`](../../../e2e/kotlin/) run against them.
+
 ### Publish
 
 ```bash

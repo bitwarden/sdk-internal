@@ -5,14 +5,14 @@ error[E0277]: the trait bound `LargeVec<Item>: IntoWasmAbi` is not satisfied
    | ^^^^^^^^^^^^^^ the trait `IntoWasmAbi` is not implemented for `LargeVec<Item>`
    |
    = help: the following other types implement trait `IntoWasmAbi`:
-             &'a JsType
-             &'a [MaybeUninit<f32>]
-             &'a [MaybeUninit<f64>]
-             &'a [MaybeUninit<i16>]
-             &'a [MaybeUninit<i32>]
-             &'a [MaybeUninit<i64>]
-             &'a [MaybeUninit<i8>]
-             &'a [MaybeUninit<isize>]
+             &&str
+             &'__wbg_ref JsType
+             &'__wbg_ref js_sys::AggregateError
+             &'__wbg_ref js_sys::Array<T>
+             &'__wbg_ref js_sys::ArrayBuffer
+             &'__wbg_ref js_sys::ArrayBufferOptions
+             &'__wbg_ref js_sys::ArrayTuple<T>
+             &'__wbg_ref js_sys::AsyncDisposableStack
            and $N others
    = note: required for `LargeVec<Item>` to implement `ReturnWasmAbi`
    = note: this error originates in the attribute macro `::bitwarden_ffi::_macro::wasm_bindgen` (in Nightly builds, run with -Z macro-backtrace for more info)

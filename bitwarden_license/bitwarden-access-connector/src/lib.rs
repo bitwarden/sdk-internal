@@ -16,6 +16,8 @@ pub(crate) mod crypto;
 pub mod error;
 /// Run loop configuration and exit reasons.
 pub mod executor;
+/// One process per access connector token on a host.
+pub mod instance_lock;
 pub(crate) mod integrations;
 pub(crate) mod resolver;
 pub(crate) mod sys;

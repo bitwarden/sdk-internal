@@ -1,12 +1,13 @@
 //! Entry point for the `bwac` binary.
 //!
 //! Exit codes: 0 clean shutdown, 1 invalid configuration, token or arguments, 2 credential refused,
-//! 3 not eligible, 4 startup authentication failed transiently.
+//! 3 not eligible, 4 startup authentication failed transiently, 5 another process runs this token.
 
 use bitwarden_access_connector::{
     cli::{Cli, Command},
     config::Config,
     executor::RunExit,
+    instance_lock::{self, InstanceLockError},
 };
 use bitwarden_threading::cancellation_token::CancellationToken;
 use clap::Parser;
@@ -42,6 +43,23 @@ async fn main() {
         Err(e) => {
             tracing::error!("startup error: {e}");
             std::process::exit(1);
+        }
+    };
+
+    // Two processes on one token would race each other for every job. Not a security boundary, so
+    // a failed check only warns.
+    let _instance_lock = match instance_lock::acquire(connector_cfg.api_key_id()) {
+        Ok(lock) => Some(lock),
+        Err(InstanceLockError::AlreadyRunning) => {
+            tracing::error!(
+                "Another bwac process is already running with this access connector token. Stop \
+                 it before starting this one."
+            );
+            std::process::exit(5);
+        }
+        Err(e) => {
+            tracing::warn!("{e}; continuing without the single-instance check");
+            None
         }
     };
 

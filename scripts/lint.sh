@@ -8,11 +8,11 @@
 #   scripts/lint.sh --fix          Auto-fix where supported; still run check-only tools.
 #   scripts/lint.sh --only <name>  Run a single check. Composes with --fix.
 #
-# Available checks: fmt clippy sort udeps dylint doc prettier dep-ownership cargo-lock
+# Available checks: fmt clippy sort udeps dylint doc prettier dep-ownership cargo-lock advisories bans
 
 set -euo pipefail
 
-CHECKS=(fmt clippy sort udeps dylint doc prettier dep-ownership cargo-lock)
+CHECKS=(fmt clippy sort udeps dylint doc prettier dep-ownership cargo-lock advisories bans)
 
 FIX=0
 ONLY=""
@@ -164,6 +164,19 @@ run_cargo_lock() {
   cargo metadata --locked --format-version 1 >/dev/null
 }
 
+run_advisories() {
+  require_cargo_bin
+  # Checks Cargo.lock against the RustSec advisory database, using the ignores in deny.toml.
+  # A newly published advisory can make it fail on an unchanged tree, so CI runs it outside
+  # the blocking lint gate.
+  cargo bin cargo-deny check advisories
+}
+
+run_bans() {
+  require_cargo_bin
+  cargo bin cargo-deny check bans
+}
+
 for check in "${CHECKS[@]}"; do
   should_run "$check" || continue
   section "$check"
@@ -177,5 +190,7 @@ for check in "${CHECKS[@]}"; do
     prettier) run_prettier ;;
     dep-ownership) run_dep_ownership ;;
     cargo-lock) run_cargo_lock ;;
+    advisories) run_advisories ;;
+    bans) run_bans ;;
   esac
 done

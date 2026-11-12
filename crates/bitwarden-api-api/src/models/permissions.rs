@@ -92,6 +92,12 @@ pub struct Permissions {
         skip_serializing_if = "Option::is_none"
     )]
     pub manage_access_rules: Option<bool>,
+    #[serde(
+        rename = "manageRotation",
+        alias = "ManageRotation",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub manage_rotation: Option<bool>,
 }
 
 impl Permissions {
@@ -110,6 +116,7 @@ impl Permissions {
             manage_reset_password: None,
             manage_scim: None,
             manage_access_rules: None,
+            manage_rotation: None,
         }
     }
 }

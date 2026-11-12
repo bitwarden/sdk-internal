@@ -57,6 +57,7 @@ pub(crate) async fn send_two_factor_email(
             email: input.email.to_owned(),
             auth_request_id: None,
             sso_email2_fa_session_token: None,
+            device_identifier: None,
         }))
         .await?;
 

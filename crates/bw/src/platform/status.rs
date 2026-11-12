@@ -4,7 +4,7 @@
 //! letting a typestate extractor reject the unauthenticated case.
 //!
 //! `serverUrl` is resolved from `config.json` alone (see [`resolve_server_url`]). The persisted
-//! `BASE_URLS` setting holds only the derived api/identity URLs, from which the user-entered base
+//! `BASE_URLS` value holds only the derived api/identity URLs, from which the user-entered base
 //! URL is not recoverable for split-domain deployments. Consequence: a self-hosted login performed
 //! through
 //! `bw login --server <url>` (which persists no base URL at all today) reports the cloud default
@@ -96,15 +96,15 @@ async fn build_status(
         .await
         .map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, true));
 
-    // Reading persisted settings does not require an unlocked vault, so the locked state reports
+    // Reading persisted values does not require an unlocked vault, so the locked state reports
     // the user's identity and last sync just like the Node CLI does.
     let persisted = user.platform().state();
 
     Ok(StatusResponse {
         server_url,
         last_sync,
-        user_email: persisted.setting(USER_EMAIL)?.get().await?,
-        user_id: persisted.setting(USER_ID)?.get().await?,
+        user_email: persisted.value::<USER_EMAIL>().try_get().await?,
+        user_id: persisted.value::<USER_ID>().try_get().await?,
         status,
     })
 }

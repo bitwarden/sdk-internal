@@ -632,9 +632,7 @@ impl TryFrom<CipherLoginModel> for Login {
                 .transpose()?,
             totp: EncString::try_from_optional(login.totp)?,
             autofill_on_page_load: login.autofill_on_page_load,
-            // `CipherLoginModel` has no HTTP authentication property until the server adds one and
-            // the API bindings are regenerated.
-            http_authentication_enabled: None,
+            http_authentication_enabled: login.http_authentication_enabled,
             fido2_credentials: login
                 .fido2_credentials
                 .map(|v| v.into_iter().map(|c| c.try_into()).collect())
@@ -746,8 +744,6 @@ impl From<Fido2Credential> for bitwarden_api_api::models::CipherFido2CredentialM
     }
 }
 
-/// Drops `http_authentication_enabled`: `CipherLoginModel` has no HTTP authentication property
-/// until the server adds one and the API bindings are regenerated.
 impl From<Login> for bitwarden_api_api::models::CipherLoginModel {
     fn from(login: Login) -> Self {
         bitwarden_api_api::models::CipherLoginModel {
@@ -760,6 +756,7 @@ impl From<Login> for bitwarden_api_api::models::CipherLoginModel {
             password_revision_date: login.password_revision_date.map(|d| d.to_rfc3339()),
             totp: login.totp.map(|t| t.to_string()),
             autofill_on_page_load: login.autofill_on_page_load,
+            http_authentication_enabled: login.http_authentication_enabled,
             fido2_credentials: login
                 .fido2_credentials
                 .map(|c| c.into_iter().map(|c| c.into()).collect()),

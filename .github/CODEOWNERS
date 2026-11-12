@@ -54,6 +54,7 @@ crates/bitwarden-generators/** @bitwarden/team-tools-dev
 crates/bitwarden-importers/** @bitwarden/team-tools-dev
 crates/bitwarden-member-administration/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organization-crypto/** @bitwarden/team-key-management-dev
+crates/bitwarden-organization-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-organization-domains/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organization-invite-link/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev
@@ -67,19 +68,23 @@ crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
 crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
+protocols/** @bitwarden/team-key-management-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
-# Integration tests and test vectors are shared between teams; only team folders have an owner.
-crates/bitwarden-wasm-internal/integration-tests/**
+# E2E tests and test vectors are shared between teams; only team folders have an owner.
+e2e/wasm/**
 test-vectors/**
-crates/bitwarden-wasm-internal/integration-tests/server-emulator/emergency-access-server.ts @bitwarden/team-auth-dev
-crates/bitwarden-wasm-internal/integration-tests/tests/emergency-access/** @bitwarden/team-auth-dev
-crates/bitwarden-wasm-internal/integration-tests/tests/auth/** @bitwarden/team-auth-dev
-crates/bitwarden-wasm-internal/integration-tests/tests/organizations/** @bitwarden/team-admin-console-dev
-crates/bitwarden-wasm-internal/integration-tests/tests/policies/** @bitwarden/team-admin-console-dev
-crates/bitwarden-wasm-internal/integration-tests/tests/registration/** @bitwarden/team-auth-dev
-crates/bitwarden-wasm-internal/integration-tests/tests/unlock/** @bitwarden/team-key-management-dev
-crates/bitwarden-wasm-internal/integration-tests/tests/user-crypto-management/** @bitwarden/team-key-management-dev
+e2e/wasm/server-emulator/emergency-access-server.ts @bitwarden/team-auth-dev
+e2e/wasm/server-emulator/dto/emergency-access.ts @bitwarden/team-auth-dev
+e2e/wasm/server-emulator/dto/identity.ts @bitwarden/team-auth-dev
+e2e/wasm/tests/emergency-access/** @bitwarden/team-auth-dev
+e2e/wasm/tests/auth/** @bitwarden/team-auth-dev
+e2e/wasm/tests/organization-crypto-management/** @bitwarden/team-key-management-dev
+e2e/wasm/tests/organizations/** @bitwarden/team-admin-console-dev
+e2e/wasm/tests/policies/** @bitwarden/team-admin-console-dev
+e2e/wasm/tests/registration/** @bitwarden/team-auth-dev
+e2e/wasm/tests/unlock/** @bitwarden/team-key-management-dev
+e2e/wasm/tests/user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-wasm-internal/src/pure_crypto.rs @bitwarden/team-key-management-dev
 crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev
 crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-dev
@@ -99,6 +104,8 @@ crates/bw/src/vault/** @bitwarden/team-vault-dev
 
 ## Multiple owners
 .github/workflows/build-* @bitwarden/team-platform-dev
+.github/workflows/verifpal.yml @bitwarden/team-key-management-dev
+.github/workflows/build-access-connector.yml @bitwarden/team-pam-dev
 .github/workflows/version-bump.yml @bitwarden/team-platform-dev
 
 # Docker-related files
