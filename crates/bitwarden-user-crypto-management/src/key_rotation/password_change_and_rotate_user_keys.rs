@@ -14,8 +14,8 @@ use crate::{
         RotateUserKeysError,
         crypto::rotate_account_cryptographic_state_to_request_model,
         data::{check_for_old_attachments, reencrypt_data},
-        rotate_user_keys::{UpgradeTokenAction, UserKeyUpgrade},
-        rotation_context::make_rotation_context,
+        rotate_user_keys::UpgradeTokenAction,
+        rotation_context::{UserKeyUpgrade, make_rotation_context, user_key_upgrade},
         sync::{SyncedAccountData, sync_current_account_data},
         unlock::{
             ReencryptCommonUnlockDataInput, ReencryptMasterPasswordChangeAndUnlockInput,
@@ -33,7 +33,6 @@ pub struct PasswordChangeAndRotateUserKeysRequest {
     pub hint: Option<String>,
     pub trusted_emergency_access_public_keys: Vec<PublicKey>,
     pub trusted_organization_public_keys: Vec<PublicKey>,
-    pub user_key_upgrade: UserKeyUpgrade,
 }
 
 #[bitwarden_ffi::wasm_export]
@@ -43,6 +42,8 @@ impl UserCryptoManagementClient {
     /// Before rotating, this checks whether the user's public key encryption key pair needs
     /// regeneration and fixes it if necessary. This ensures that key rotation can proceed even
     /// if the existing private key is corrupt.
+    ///
+    /// A V1 user key stays V1 unless `force-upgrade-v2-encryption` is on.
     pub async fn password_change_and_rotate_user_keys(
         &self,
         request: PasswordChangeAndRotateUserKeysRequest,
@@ -64,6 +65,7 @@ impl UserCryptoManagementClient {
             key_store,
             api_client,
             request,
+            user_key_upgrade(&self.client).await,
             wrapped_account_cryptographic_state,
             sync,
         )
@@ -76,6 +78,7 @@ async fn internal_password_change_and_rotate_user_keys(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     request: PasswordChangeAndRotateUserKeysRequest,
+    user_key_upgrade: UserKeyUpgrade,
     wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     sync: SyncedAccountData,
 ) -> Result<(), RotateUserKeysError> {
@@ -91,7 +94,7 @@ async fn internal_password_change_and_rotate_user_keys(
             request.trusted_organization_public_keys.as_slice(),
             request.trusted_emergency_access_public_keys.as_slice(),
             UpgradeTokenAction::Skip,
-            request.user_key_upgrade,
+            user_key_upgrade,
             &mut ctx,
         )?;
 
@@ -238,8 +241,8 @@ mod tests {
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
+            UserKeyUpgrade::UpgradeToV2,
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )
@@ -270,8 +273,8 @@ mod tests {
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
+            UserKeyUpgrade::UpgradeToV2,
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )
@@ -304,8 +307,8 @@ mod tests {
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
+            UserKeyUpgrade::UpgradeToV2,
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )
@@ -381,8 +384,8 @@ mod tests {
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                user_key_upgrade: UserKeyUpgrade::UpgradeToV2,
             },
+            UserKeyUpgrade::UpgradeToV2,
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )
@@ -420,8 +423,8 @@ mod tests {
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                user_key_upgrade,
             },
+            user_key_upgrade,
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )

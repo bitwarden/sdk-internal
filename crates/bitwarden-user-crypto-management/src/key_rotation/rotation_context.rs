@@ -1,16 +1,37 @@
-use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
+use bitwarden_core::{
+    Client,
+    key_management::{KeySlotIds, SymmetricKeySlotId},
+};
 use bitwarden_crypto::{KeyStore, KeyStoreContext, PublicKey, SymmetricKeyAlgorithm};
 use tracing::{debug, info, warn};
 
 use super::{
     RotateUserKeysError,
-    rotate_user_keys::{UpgradeTokenAction, UserKeyUpgrade},
+    rotate_user_keys::UpgradeTokenAction,
     sync::SyncedAccountData,
     unlock::{V1EmergencyAccessMembership, V1OrganizationMembership},
 };
 
 #[derive(Debug)]
 struct UntrustedKeyError;
+
+/// Which user key version a rotation produces.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum UserKeyUpgrade {
+    /// A V1 user key rotates to a new V1 user key. A V2 user key rotates to a new V2 user key.
+    KeepVersion,
+    /// The user key rotates to a new V2 user key.
+    UpgradeToV2,
+}
+
+/// The user key upgrade the `force-upgrade-v2-encryption` feature flag asks for.
+pub(super) async fn user_key_upgrade(client: &Client) -> UserKeyUpgrade {
+    if client.flags().get().await.force_upgrade_v2_encryption {
+        return UserKeyUpgrade::UpgradeToV2;
+    }
+
+    UserKeyUpgrade::KeepVersion
+}
 
 /// Whether the rotation creates a V2 upgrade token.
 ///
@@ -222,6 +243,7 @@ mod tests {
         RotateUserKeysError, UpgradeTokenAction, UserKeyUpgrade, creates_v2_upgrade_token,
         ensure_rotates_to_v2, filter_trusted_emergency_access, filter_trusted_organization,
         make_rotation_context, new_user_key_algorithm, organization_memberships_needing_trust,
+        user_key_upgrade,
     };
 
     #[test]
@@ -791,5 +813,22 @@ mod tests {
             matches!(result, Err(RotateUserKeysError::UntrustedKey)),
             "without an upgrade token, the user must trust account recovery keys"
         );
+    }
+
+    #[tokio::test]
+    async fn test_user_key_upgrade_follows_force_upgrade_v2_encryption_flag() {
+        let client = bitwarden_core::Client::new(None);
+        assert_eq!(
+            user_key_upgrade(&client).await,
+            UserKeyUpgrade::KeepVersion,
+            "without the flag, a V1 user key must stay V1"
+        );
+
+        client
+            .flags()
+            .load([("force-upgrade-v2-encryption".to_string(), true)].into())
+            .await;
+
+        assert_eq!(user_key_upgrade(&client).await, UserKeyUpgrade::UpgradeToV2);
     }
 }
