@@ -2,7 +2,10 @@ use std::{borrow::Cow, collections::HashMap};
 
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
-use passkey::types::webauthn::UserVerificationRequirement;
+use passkey::{
+    crypto::{hash::Sha256Backend, rust_crypto::RustCryptoSha2},
+    types::webauthn::UserVerificationRequirement,
+};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -832,7 +835,9 @@ impl PrfInputValues {
     const WEBAUTHN_PRF_CONTEXT_STRING: &[u8] = b"WebAuthn PRF\0";
 
     fn hash_webauthn_prf_input(input: &[u8]) -> [u8; 32] {
-        passkey::types::crypto::sha256(&[Self::WEBAUTHN_PRF_CONTEXT_STRING, input].concat())
+        <RustCryptoSha2 as Sha256Backend>::sha256(
+            &[Self::WEBAUTHN_PRF_CONTEXT_STRING, input].concat(),
+        )
     }
 }
 

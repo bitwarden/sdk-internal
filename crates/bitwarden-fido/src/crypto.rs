@@ -1,10 +1,80 @@
-use coset::{CoseKey, iana};
-use p256::{
-    SecretKey,
-    pkcs8::{DecodePrivateKey, EncodePrivateKey},
+//! The cryptographic backend used by the passkey-rs authenticator, and conversions between the
+//! COSE keys passkey-rs uses and the PKCS#8 keys stored in the vault.
+
+use std::ops::RangeInclusive;
+
+use coset::{CoseKey, RegisteredLabelWithPrivate, iana};
+use p256::{elliptic_curve::Generate, pkcs8::EncodePrivateKey};
+use passkey::crypto::{
+    CryptoBackend, Pkcs8, SecretKeyT,
+    rng::RngBackend,
+    rust_crypto::{RustCryptoSecretKey, RustCryptoSha2},
 };
-use passkey::authenticator::{CoseKeyPair, private_key_from_cose_key};
+use rand::{Rng, RngExt};
 use thiserror::Error;
+
+/// [CryptoBackend] for the Bitwarden authenticator.
+///
+/// Key operations use passkey-rs' RustCrypto implementation, but randomness comes from
+/// [bitwarden_random], the SDK's single source of randomness. Only ES256 is offered, because
+/// passkeys are stored in the vault as P-256 keys.
+pub(crate) struct BitwardenFidoCrypto;
+
+impl CryptoBackend for BitwardenFidoCrypto {
+    type Rng = BitwardenFidoRng;
+    type Sha256 = RustCryptoSha2;
+    type SecretKey = RustCryptoSecretKey;
+
+    fn enumerate_algorithms(&self) -> Vec<iana::Algorithm> {
+        vec![iana::Algorithm::ES256]
+    }
+
+    fn generate_key(
+        &self,
+        algorithm: iana::Algorithm,
+    ) -> Result<Self::SecretKey, passkey::crypto::Error> {
+        match algorithm {
+            iana::Algorithm::ES256 | iana::Algorithm::ESP256 => {
+                let secret_key = p256::SecretKey::generate_from_rng(&mut bitwarden_random::rng());
+                let pkcs8 = secret_key.to_pkcs8_der()?;
+                RustCryptoSecretKey::from_pkcs8(pkcs8.as_bytes())
+            }
+            _ => Err(Box::new(UnsupportedAlgorithmError)),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+#[error("Unsupported passkey algorithm")]
+struct UnsupportedAlgorithmError;
+
+/// [RngBackend] backed by [bitwarden_random].
+pub(crate) struct BitwardenFidoRng;
+
+impl RngBackend for BitwardenFidoRng {
+    fn random_vec(len: usize) -> Vec<u8> {
+        let mut bytes = vec![0u8; len];
+        bitwarden_random::rng().fill_bytes(&mut bytes);
+        bytes
+    }
+
+    fn random_array<const N: usize>() -> [u8; N] {
+        let mut bytes = [0u8; N];
+        bitwarden_random::rng().fill_bytes(&mut bytes);
+        bytes
+    }
+
+    fn from_range(range: RangeInclusive<u8>) -> u8 {
+        bitwarden_random::rng().random_range(range)
+    }
+}
+
+fn is_es256(cose_key: &CoseKey) -> bool {
+    matches!(
+        cose_key.alg,
+        Some(RegisteredLabelWithPrivate::Assigned(iana::Algorithm::ES256))
+    )
+}
 
 #[derive(Debug, Error)]
 pub enum CoseKeyToPkcs8Error {
@@ -15,22 +85,20 @@ pub enum CoseKeyToPkcs8Error {
 }
 
 pub(crate) fn cose_key_to_pkcs8(cose_key: &CoseKey) -> Result<Vec<u8>, CoseKeyToPkcs8Error> {
-    // cose_key.
-    let secret_key = private_key_from_cose_key(cose_key).map_err(|error| {
+    if !is_es256(cose_key) {
+        tracing::error!("Unsupported cose_key algorithm.");
+        return Err(CoseKeyToPkcs8Error::FailedToExtractPrivateKeyFromCoseKey);
+    }
+
+    let secret_key = RustCryptoSecretKey::from_cose_key(cose_key).map_err(|error| {
         tracing::error!(?error, "Failed to extract private key from cose_key.");
         CoseKeyToPkcs8Error::FailedToExtractPrivateKeyFromCoseKey
     })?;
 
-    let vec = secret_key
-        .to_pkcs8_der()
-        .map_err(|error| {
-            tracing::error!(%error, "Failed to convert P256 private key to PKC8.");
-            CoseKeyToPkcs8Error::FailedToConvertP256PrivateKeyToPkcs8
-        })?
-        .as_bytes()
-        .to_vec();
-
-    Ok(vec)
+    secret_key.to_pkcs8().map_err(|error| {
+        tracing::error!(%error, "Failed to convert P256 private key to PKC8.");
+        CoseKeyToPkcs8Error::FailedToConvertP256PrivateKeyToPkcs8
+    })
 }
 
 #[derive(Debug, Error)]
@@ -38,13 +106,17 @@ pub(crate) fn cose_key_to_pkcs8(cose_key: &CoseKey) -> Result<Vec<u8>, CoseKeyTo
 pub struct PrivateKeyFromSecretKeyError;
 
 pub fn pkcs8_to_cose_key(secret_key: &[u8]) -> Result<CoseKey, PrivateKeyFromSecretKeyError> {
-    let secret_key = SecretKey::from_pkcs8_der(secret_key).map_err(|error| {
+    let secret_key = RustCryptoSecretKey::from_pkcs8(secret_key).map_err(|error| {
         tracing::error!(%error, "Failed to extract private key from secret_key.");
         PrivateKeyFromSecretKeyError
     })?;
 
-    let cose_key_pair = CoseKeyPair::from_secret_key(&secret_key, iana::Algorithm::ES256);
-    Ok(cose_key_pair.private)
+    let cose_key = secret_key.to_cose_key();
+    if !is_es256(&cose_key) {
+        tracing::error!("Stored passkey is not a P-256 key.");
+        return Err(PrivateKeyFromSecretKeyError);
+    }
+    Ok(cose_key)
 }
 
 #[cfg(test)]
