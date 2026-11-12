@@ -22,7 +22,7 @@ Outside the SDK boundary - only secrets cross it, never keys:
         |  wraps other keys:
         |    - SymmetricKeyEnvelope           -> a CEK or another KEK
         |    - PrivateKeyEnvelope   (n/i)     -> a private key
-        |    - SignatureKeyEnvelope (n/i)     -> a signing key
+        |    - SigningKeyEnvelope             -> a signing key
         v
     +----------------------------------------------------------------+
     | Content Encryption Key (CEK)  --  fresh per data, NEVER reused  |
@@ -81,7 +81,7 @@ CEKs, and they are what actually encrypt content.
     | User Key  (KEK)                                             |
     +-------------------------------------------------------------+
         |  wraps, via SymmetricKeyEnvelope / PrivateKeyEnvelope /
-        |  SignatureKeyEnvelope:
+        |  SigningKeyEnvelope:
         |
         +--> Private key
         +--> Signing key

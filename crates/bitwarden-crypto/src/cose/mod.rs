@@ -94,7 +94,7 @@ pub(crate) enum SafeObjectNamespace {
     SymmetricKeyEnvelope = 3,
     //Reserved:
     //PrivateKeyEnvelope = 4,
-    //SigningKeyEnvelope = 5,
+    SigningKeyEnvelope = 5,
     SecretProtectedKeyEnvelope = 6,
 }
 
@@ -106,6 +106,7 @@ impl TryFrom<i128> for SafeObjectNamespace {
             1 => Ok(SafeObjectNamespace::PasswordProtectedKeyEnvelope),
             2 => Ok(SafeObjectNamespace::DataEnvelope),
             3 => Ok(SafeObjectNamespace::SymmetricKeyEnvelope),
+            5 => Ok(SafeObjectNamespace::SigningKeyEnvelope),
             6 => Ok(SafeObjectNamespace::SecretProtectedKeyEnvelope),
             _ => Err(()),
         }
