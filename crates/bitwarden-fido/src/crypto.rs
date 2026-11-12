@@ -1,10 +1,11 @@
+use bitwarden_crypto_primitives::p256 as p256_primitives;
 use coset::{CoseKey, iana};
-use p256::{
-    SecretKey,
-    pkcs8::{DecodePrivateKey, EncodePrivateKey},
-};
+use p256::{FieldBytes, SecretKey, elliptic_curve::zeroize::Zeroizing};
 use passkey::authenticator::{CoseKeyPair, private_key_from_cose_key};
 use thiserror::Error;
+
+/// Length of a big-endian P-256 secret scalar.
+const P256_SCALAR_LEN: usize = 32;
 
 #[derive(Debug, Error)]
 pub enum CoseKeyToPkcs8Error {
@@ -21,13 +22,14 @@ pub(crate) fn cose_key_to_pkcs8(cose_key: &CoseKey) -> Result<Vec<u8>, CoseKeyTo
         CoseKeyToPkcs8Error::FailedToExtractPrivateKeyFromCoseKey
     })?;
 
-    let vec = secret_key
-        .to_pkcs8_der()
+    // passkey hands out a p256 0.13 key; cross into primitives via the raw scalar.
+    let scalar: Zeroizing<[u8; P256_SCALAR_LEN]> = Zeroizing::new(secret_key.to_bytes().into());
+    let vec = p256_primitives::SecretKey::from_bytes(&scalar)
+        .and_then(|key| key.to_pkcs8_der())
         .map_err(|error| {
             tracing::error!(%error, "Failed to convert P256 private key to PKC8.");
             CoseKeyToPkcs8Error::FailedToConvertP256PrivateKeyToPkcs8
         })?
-        .as_bytes()
         .to_vec();
 
     Ok(vec)
@@ -38,10 +40,18 @@ pub(crate) fn cose_key_to_pkcs8(cose_key: &CoseKey) -> Result<Vec<u8>, CoseKeyTo
 pub struct PrivateKeyFromSecretKeyError;
 
 pub fn pkcs8_to_cose_key(secret_key: &[u8]) -> Result<CoseKey, PrivateKeyFromSecretKeyError> {
-    let secret_key = SecretKey::from_pkcs8_der(secret_key).map_err(|error| {
+    let secret_key = p256_primitives::SecretKey::from_pkcs8_der(secret_key).map_err(|error| {
         tracing::error!(%error, "Failed to extract private key from secret_key.");
         PrivateKeyFromSecretKeyError
     })?;
+
+    // passkey expects a p256 0.13 key; cross from primitives via the raw scalar.
+    let scalar = secret_key.to_bytes();
+    let secret_key =
+        SecretKey::from_bytes(FieldBytes::from_slice(scalar.as_slice())).map_err(|error| {
+            tracing::error!(%error, "Failed to convert P256 scalar to secret key.");
+            PrivateKeyFromSecretKeyError
+        })?;
 
     let cose_key_pair = CoseKeyPair::from_secret_key(&secret_key, iana::Algorithm::ES256);
     Ok(cose_key_pair.private)

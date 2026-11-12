@@ -1,13 +1,20 @@
+use bitwarden_crypto_primitives::{p256 as p256_primitives, rsa as rsa_primitives};
 use ed25519;
 use pem_rfc7468::PemLabel;
-use pkcs8::{DecodePrivateKey, PrivateKeyInfo, SecretDocument, der::Decode, pkcs5};
+use pkcs8::{
+    DecodePrivateKey, ObjectIdentifier, PrivateKeyInfo, SecretDocument, der::Decode, pkcs5,
+};
 use ssh_key::{
-    Algorithm,
+    Algorithm, Mpint,
     private::{Ed25519Keypair, RsaKeypair},
+    public::EcdsaPublicKey,
     sec1,
 };
 
 use crate::{SshKeyData, error::SshKeyImportError, ssh_private_key_to_data};
+
+/// PKCS#1 `rsaEncryption` algorithm OID (RFC 8017).
+const RSA_ENCRYPTION_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.1");
 
 /// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded [SshKeyData],
 /// with the public key and fingerprint, and the private key in OpenSSH format.
@@ -128,15 +135,7 @@ pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyData, SshKeyImpo
 
             ssh_key::private::PrivateKey::from(Ed25519Keypair::from(&private_key.secret_key.into()))
         }
-        rsa::pkcs1::ALGORITHM_OID => {
-            let private_key: rsa::RsaPrivateKey = private_key_info
-                .try_into()
-                .map_err(|_| SshKeyImportError::Parsing)?;
-
-            ssh_key::private::PrivateKey::from(
-                RsaKeypair::try_from(private_key).map_err(|_| SshKeyImportError::Parsing)?,
-            )
-        }
+        RSA_ENCRYPTION_OID => import_rsa_pkcs8_der(encoded_key)?,
         sec1::ALGORITHM_OID => import_ecdsa_pkcs8_der(encoded_key)?,
         _ => return Err(SshKeyImportError::UnsupportedKeyType),
     };
@@ -180,14 +179,42 @@ fn is_supported_algorithm(algorithm: &Algorithm) -> bool {
     )
 }
 
+fn import_rsa_pkcs8_der(encoded_key: &[u8]) -> Result<ssh_key::PrivateKey, SshKeyImportError> {
+    let private_key = rsa_primitives::PrivateKey::from_pkcs8_der(encoded_key)
+        .map_err(|_| SshKeyImportError::Parsing)?;
+
+    // Cross from primitives into ssh-key via the big-endian components.
+    let c = private_key.components();
+    let public = ssh_key::public::RsaPublicKey::new(
+        Mpint::from_positive_bytes(&c.e),
+        Mpint::from_positive_bytes(&c.n),
+    )
+    .map_err(|_| SshKeyImportError::Parsing)?;
+    let private = ssh_key::private::RsaPrivateKey::new(
+        Mpint::from_positive_bytes(&c.d),
+        Mpint::from_positive_bytes(&c.iqmp),
+        Mpint::from_positive_bytes(&c.p),
+        Mpint::from_positive_bytes(&c.q),
+    )
+    .map_err(|_| SshKeyImportError::Parsing)?;
+    let keypair = RsaKeypair::new(public, private).map_err(|_| SshKeyImportError::Parsing)?;
+
+    Ok(ssh_key::PrivateKey::from(keypair))
+}
+
 fn import_ecdsa_pkcs8_der(encoded_key: &[u8]) -> Result<ssh_key::PrivateKey, SshKeyImportError> {
     use pkcs8::DecodePrivateKey as _;
 
-    if let Ok(sk) = p256::SecretKey::from_pkcs8_der(encoded_key) {
-        let public_key = sk.public_key();
+    if let Ok(sk) = p256_primitives::SecretKey::from_pkcs8_der(encoded_key) {
+        // Cross from primitives into ssh-key via the SEC1 point and the raw scalar.
+        let public_key = sk.public_key().to_sec1_uncompressed();
+        let Ok(EcdsaPublicKey::NistP256(public)) = EcdsaPublicKey::from_sec1_bytes(&public_key)
+        else {
+            return Err(SshKeyImportError::Parsing);
+        };
         let keypair = ssh_key::private::EcdsaKeypair::NistP256 {
-            public: public_key.into(),
-            private: ssh_key::private::EcdsaPrivateKey::from(sk),
+            public,
+            private: ssh_key::private::EcdsaPrivateKey::from(*sk.to_bytes()),
         };
         return ssh_key::PrivateKey::new(ssh_key::private::KeypairData::Ecdsa(keypair), "")
             .map_err(|_| SshKeyImportError::Parsing);
