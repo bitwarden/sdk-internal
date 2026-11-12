@@ -53,6 +53,7 @@ wasm = [
     "bitwarden-importers/wasm",
     "bitwarden-managed-settings/wasm",
     "bitwarden-member-administration/wasm",
+    "bitwarden-organization-crypto-management/wasm",
     "bitwarden-organization-domains/wasm",
     "bitwarden-organization-invite-link/wasm",
     "bitwarden-organizations/wasm",
@@ -86,6 +87,7 @@ bitwarden-generators = { workspace = true }
 bitwarden-importers = { workspace = true }
 bitwarden-managed-settings = { workspace = true }
 bitwarden-member-administration = { workspace = true }
+bitwarden-organization-crypto-management = { workspace = true }
 bitwarden-organization-domains = { workspace = true }
 bitwarden-organization-invite-link = { workspace = true }
 bitwarden-organizations = { workspace = true }

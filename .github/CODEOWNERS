@@ -54,6 +54,7 @@ crates/bitwarden-generators/** @bitwarden/team-tools-dev
 crates/bitwarden-importers/** @bitwarden/team-tools-dev
 crates/bitwarden-member-administration/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organization-crypto/** @bitwarden/team-key-management-dev
+crates/bitwarden-organization-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-organization-domains/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organization-invite-link/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev
@@ -74,8 +75,11 @@ protocols/** @bitwarden/team-key-management-dev
 e2e/wasm/**
 test-vectors/**
 e2e/wasm/server-emulator/emergency-access-server.ts @bitwarden/team-auth-dev
+e2e/wasm/server-emulator/dto/emergency-access.ts @bitwarden/team-auth-dev
+e2e/wasm/server-emulator/dto/identity.ts @bitwarden/team-auth-dev
 e2e/wasm/tests/emergency-access/** @bitwarden/team-auth-dev
 e2e/wasm/tests/auth/** @bitwarden/team-auth-dev
+e2e/wasm/tests/organization-crypto-management/** @bitwarden/team-key-management-dev
 e2e/wasm/tests/organizations/** @bitwarden/team-admin-console-dev
 e2e/wasm/tests/policies/** @bitwarden/team-admin-console-dev
 e2e/wasm/tests/registration/** @bitwarden/team-auth-dev
