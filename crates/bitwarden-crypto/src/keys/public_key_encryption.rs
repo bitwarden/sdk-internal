@@ -3,7 +3,9 @@ use std::{fmt::Display, pin::Pin, str::FromStr};
 use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::{Value, value::Integer};
 use coset::iana::{EnumI64, KeyParameter, KeyType, RsaKeyParameter};
-use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey, traits::PublicKeyParts};
+use bitwarden_crypto_primitives::rsa::{
+    KeySize, PrivateKey as RsaPrivateKey, PublicKey as RsaPublicKey,
+};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -79,8 +81,7 @@ impl PublicKey {
     pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
         Ok(PublicKey {
             inner: RawPublicKey::RsaOaepSha1(
-                RsaPublicKey::from_public_key_der(der.as_ref())
-                    .map_err(|_| CryptoError::InvalidKey)?,
+                RsaPublicKey::from_spki_der(der.as_ref()).map_err(|_| CryptoError::InvalidKey)?,
             ),
         })
     }
@@ -88,13 +89,10 @@ impl PublicKey {
     /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
     #[bitwarden_logging::instrument(err)]
     pub fn to_der(&self) -> Result<SpkiPublicKeyBytes> {
-        use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
             RawPublicKey::RsaOaepSha1(public_key) => Ok(public_key
-                .to_public_key_der()
+                .to_spki_der()
                 .map_err(|_| CryptoError::InvalidKey)?
-                .as_bytes()
-                .to_owned()
                 .into()),
         }
     }
@@ -109,15 +107,14 @@ impl CoseKeyThumbprintExt for PublicKey {
                     Value::Integer(Integer::from(KeyType::RSA.to_i64())),
                 ),
                 // Per RFC 8230, `n` and `e` are unsigned big-endian byte strings with no leading
-                // zero or sign byte. `to_be_bytes_trimmed_vartime` yields exactly this minimal
-                // form; variable-time is acceptable as `n` and `e` are public.
+                // zero or sign byte; `modulus` and `exponent` return exactly this minimal form.
                 (
                     RsaKeyParameter::N.to_i64(),
-                    Value::Bytes(key.n().to_be_bytes_trimmed_vartime().into_vec()),
+                    Value::Bytes(key.modulus()),
                 ),
                 (
                     RsaKeyParameter::E.to_i64(),
-                    Value::Bytes(key.e().to_be_bytes_trimmed_vartime().into_vec()),
+                    Value::Bytes(key.exponent()),
                 ),
             ],
         };
@@ -190,19 +187,12 @@ impl CryptoKey for PrivateKey {}
 impl PrivateKey {
     /// Generate a random PrivateKey (RSA-2048).
     pub fn make(algorithm: PublicKeyEncryptionAlgorithm) -> Self {
-        Self::make_internal(algorithm, &mut bitwarden_random::rng())
-    }
-
-    fn make_internal<R: rand::CryptoRng + rand::Rng>(
-        algorithm: PublicKeyEncryptionAlgorithm,
-        rng: &mut R,
-    ) -> Self {
         match algorithm {
             PublicKeyEncryptionAlgorithm::RsaOaepSha1 => {
                 let _span = SlowCryptoSpan::start(SlowCryptoOp::RsaKeyGeneration);
                 Self {
                     inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                        RsaPrivateKey::new(rng, 2048).expect("failed to generate a key"),
+                        RsaPrivateKey::generate(KeySize::Rsa2048),
                     )),
                 }
             }
@@ -224,7 +214,6 @@ impl PrivateKey {
         bitwarden_logging::instrument(err)
     )]
     pub fn from_pem(pem: &str) -> Result<Self> {
-        use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
             inner: RawPrivateKey::RsaOaepSha1(Box::pin(
                 RsaPrivateKey::from_pkcs8_pem(pem).map_err(|_| CryptoError::InvalidKey)?,
@@ -243,7 +232,6 @@ impl PrivateKey {
         bitwarden_logging::instrument(err)
     )]
     pub fn from_der(der: &Pkcs8PrivateKeyBytes) -> Result<Self> {
-        use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
             inner: RawPrivateKey::RsaOaepSha1(Box::pin(
                 RsaPrivateKey::from_pkcs8_der(der.as_ref()).map_err(|_| CryptoError::InvalidKey)?,
@@ -264,12 +252,10 @@ impl PrivateKey {
     pub fn to_der(&self) -> Result<Pkcs8PrivateKeyBytes> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
-                use rsa::pkcs8::EncodePrivateKey;
                 Ok(private_key
                     .to_pkcs8_der()
                     .map_err(|_| CryptoError::InvalidKey)?
-                    .as_bytes()
-                    .to_owned()
+                    .to_vec()
                     .into())
             }
         }
@@ -280,7 +266,7 @@ impl PrivateKey {
     pub fn to_public_key(&self) -> PublicKey {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => PublicKey {
-                inner: RawPublicKey::RsaOaepSha1(private_key.to_public_key()),
+                inner: RawPublicKey::RsaOaepSha1(private_key.public_key()),
             },
         }
     }

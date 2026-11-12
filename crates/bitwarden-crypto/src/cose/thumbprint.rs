@@ -15,7 +15,7 @@
 //! pairs / their verification key.
 
 use ciborium::{Value, value::Integer};
-use sha2::{Digest, Sha256};
+use bitwarden_crypto_primitives::sha256;
 
 /// An [RFC 9679](https://www.rfc-editor.org/rfc/rfc9679) COSE Key Thumbprint.
 ///
@@ -84,7 +84,7 @@ pub(crate) fn thumbprint_from_required_params(mut params: Vec<(i64, Value)>) -> 
     let mut buf = Vec::new();
     ciborium::into_writer(&map, &mut buf)
         .expect("CBOR serialization of a COSE key parameter map cannot fail");
-    CoseKeyThumbprint(Sha256::digest(&buf).into())
+    CoseKeyThumbprint(sha256::digest(&buf))
 }
 
 /// Returns the CBOR encoding of an integer label, used as the sort key for canonical ordering.

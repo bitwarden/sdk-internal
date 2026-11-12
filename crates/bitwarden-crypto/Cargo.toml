@@ -18,7 +18,7 @@ keywords.workspace = true
 default = []
 no-memory-hardening = [] # Disable memory hardening features
 uniffi = [
-    "argon2/parallel",
+    "bitwarden-crypto-primitives/argon2-parallel",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
     "dep:uniffi",
@@ -37,13 +37,8 @@ dangerous-crypto-debug = []
 test-utils = []
 
 [dependencies]
-aes = { workspace = true }
-aes-gcm = { workspace = true }
-argon2 = { version = "=0.6.0-rc.8", features = [
-    "kdf",
-    "zeroize",
-], default-features = false }
 bitwarden-api-key-connector = { workspace = true }
+bitwarden-crypto-primitives = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-ffi = { workspace = true }
@@ -51,30 +46,20 @@ bitwarden-logging = { workspace = true }
 bitwarden-random = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
-cbc = { workspace = true }
-chacha20poly1305 = { version = "0.11.0-rc.3", features = ["zeroize"] }
 ciborium = { workspace = true }
 coset = { version = ">=0.4.2, <0.5" }
-ed25519-dalek = { workspace = true, features = ["rand_core", "zeroize"] }
 hex = { version = ">=0.4.0, <0.5" }
-hkdf = { workspace = true }
-hmac = { workspace = true, features = ["zeroize"] }
 hybrid-array = { version = "0.4.10", features = ["alloc", "serde", "zeroize"] }
 js-sys = { workspace = true, optional = true }
-ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
 num-bigint = ">=0.4, <0.5"
 num-traits = ">=0.2.15, <0.3"
-pbkdf2 = { workspace = true }
 rand = { workspace = true }
 rayon = ">=1.8.1, <2.0"
-rsa = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde-wasm-bindgen = { workspace = true, optional = true }
 serde_bytes = { workspace = true }
 serde_repr.workspace = true
-sha1 = { workspace = true, features = ["zeroize"] }
-sha2 = { workspace = true, features = ["zeroize"] }
 subtle = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util"] }
@@ -84,7 +69,6 @@ typenum = ">=1.18.0, <1.21.0"
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
-xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = ["alloc"] }
 zeroize = { workspace = true, features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 

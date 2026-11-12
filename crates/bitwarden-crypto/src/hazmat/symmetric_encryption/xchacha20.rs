@@ -17,17 +17,14 @@
 //! `https://eprint.iacr.org/2019/016.pdf`
 //! `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
 
-use aes::cipher::common::Generate;
-use chacha20poly1305::{
-    AeadCore, AeadInOut, KeyInit, XChaCha20Poly1305 as XChaCha20Poly1305Alg, aead::Nonce,
-};
+use bitwarden_crypto_primitives::xchacha20_poly1305;
 use coset::{CoseEncrypt, CoseEncrypt0};
-use typenum::Unsigned;
+use rand::RngExt;
 
 use super::Aead;
 use crate::CryptoError;
 
-pub(crate) const NONCE_SIZE: usize = <XChaCha20Poly1305Alg as AeadCore>::NonceSize::USIZE;
+pub(crate) const NONCE_SIZE: usize = xchacha20_poly1305::NONCE_LEN;
 pub(crate) const KEY_SIZE: usize = 32;
 
 /// XChaCha20-Poly1305 authenticated encryption with associated data.
@@ -47,11 +44,7 @@ impl Aead for XChaCha20Poly1305 {
         plaintext: &[u8],
         associated_data: &[u8],
     ) -> Self::Ciphertext {
-        // This buffer contains the plaintext, that will be encrypted in-place
-        let mut buffer = plaintext.to_vec();
-        XChaCha20Poly1305Alg::new(key.into())
-            .encrypt_in_place(&nonce.0, associated_data, &mut buffer)
-            .expect("encryption failed");
+        let buffer = xchacha20_poly1305::encrypt(key, &nonce.0, associated_data, plaintext);
 
         XChaCha20Poly1305Ciphertext {
             encrypted_bytes: buffer,
@@ -64,11 +57,8 @@ impl Aead for XChaCha20Poly1305 {
         ciphertext: &Self::Ciphertext,
         associated_data: &[u8],
     ) -> Result<Vec<u8>, CryptoError> {
-        let mut buffer = ciphertext.encrypted_bytes().to_vec();
-        XChaCha20Poly1305Alg::new(key.into())
-            .decrypt_in_place(&nonce.0, associated_data, &mut buffer)
-            .map_err(|_| CryptoError::KeyDecrypt)?;
-        Ok(buffer)
+        xchacha20_poly1305::decrypt(key, &nonce.0, associated_data, ciphertext.encrypted_bytes())
+            .map_err(|_| CryptoError::KeyDecrypt)
     }
 }
 
@@ -77,24 +67,24 @@ impl Aead for XChaCha20Poly1305 {
 /// XChaCha20-Poly1305 has a large (192-bit) nonce, so a fresh, cryptographically random nonce can
 /// be generated for every message with [`XChaCha20Poly1305Nonce::make`] without a practical risk of
 /// nonce reuse.
-pub(crate) struct XChaCha20Poly1305Nonce(Nonce<XChaCha20Poly1305Alg>);
+pub(crate) struct XChaCha20Poly1305Nonce([u8; NONCE_SIZE]);
 
 impl XChaCha20Poly1305Nonce {
     /// Generates a fresh, cryptographically random nonce.
     pub(crate) fn make() -> Self {
         let mut rng = bitwarden_random::rng();
-        XChaCha20Poly1305Nonce(Nonce::<XChaCha20Poly1305Alg>::generate_from_rng(&mut rng))
+        XChaCha20Poly1305Nonce(rng.random())
     }
 
     /// Returns the raw nonce bytes.
     pub(crate) fn as_bytes(&self) -> &[u8] {
-        self.0.as_slice()
+        &self.0
     }
 
     /// Parses the nonce from a COSE message's unprotected `iv` header bytes.
     fn from_cose_iv(iv: &[u8]) -> Result<Self, CryptoError> {
         let nonce: [u8; NONCE_SIZE] = iv.try_into().map_err(|_| CryptoError::InvalidNonceLength)?;
-        Ok(XChaCha20Poly1305Nonce(nonce.into()))
+        Ok(XChaCha20Poly1305Nonce(nonce))
     }
 }
 

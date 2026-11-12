@@ -30,11 +30,11 @@
 //! Random access is not possible with this format, both because of the use of CBC chaining,
 //! and because of the single HMAC over the entire cipher stream.
 
-use aes::cipher::{BlockModeDecrypt, BlockModeEncrypt, KeyIvInit};
-use hkdf::HmacImpl;
-use hybrid_array::Array;
+use bitwarden_crypto_primitives::{
+    aes_cbc,
+    hmac::{HashAlg, Hmac},
+};
 use rand::Rng;
-use subtle::ConstantTimeEq;
 
 use super::{
     ChunkDecryptionResult, ChunkEncryptionResult, StreamCreationError, StreamDecryptionError,
@@ -43,7 +43,6 @@ use super::{
 use crate::{
     Aes256CbcHmacKey, SymmetricCryptoKey,
     stream::large_memory_buffer::{Buffer, InvalidIndexError},
-    util::PbkdfSha256Hmac,
 };
 
 const AES256_CBC_BLOCK_SIZE: usize = 16;
@@ -61,57 +60,50 @@ type StreamHeaderBytes = [u8; HEADER_LENGTH];
 type CbcCiphertextBlock = [u8; AES256_CBC_BLOCK_SIZE];
 
 struct CbcDecryptor {
-    decryptor: cbc::Decryptor<aes::Aes256>,
+    decryptor: aes_cbc::Decryptor,
 }
 
 impl CbcDecryptor {
     fn new(key: &[u8; 32], iv: &Iv) -> Self {
         Self {
-            decryptor: cbc::Decryptor::<aes::Aes256>::new(key.into(), iv.into()),
+            decryptor: aes_cbc::Decryptor::new(key, iv),
         }
     }
 
     fn decrypt_block(&mut self, block: &CbcCiphertextBlock) -> CbcPlaintextBlock {
-        let mut block: Array<u8, _> = (*block).into();
+        let mut block = *block;
         self.decryptor.decrypt_block(&mut block);
-        CbcPlaintextBlock(
-            block
-                .as_slice()
-                .try_into()
-                .expect("block size checked by type"),
-        )
+        CbcPlaintextBlock(block)
     }
 }
 
 struct CbcEncryptor {
-    encryptor: cbc::Encryptor<aes::Aes256>,
+    encryptor: aes_cbc::Encryptor,
 }
 
 impl CbcEncryptor {
     fn new(key: &[u8; 32], iv: &Iv) -> Self {
         Self {
-            encryptor: cbc::Encryptor::<aes::Aes256>::new(key.into(), iv.into()),
+            encryptor: aes_cbc::Encryptor::new(key, iv),
         }
     }
 
     fn encrypt_block(&mut self, block: &mut CbcPlaintextBlock) -> CbcCiphertextBlock {
-        let mut block_array: Array<u8, _> = block.0.into();
+        let mut block_array = block.0;
         self.encryptor.encrypt_block(&mut block_array);
         block_array
-            .as_slice()
-            .try_into()
-            .expect("block size checked by type")
     }
 }
 
 /// A higher level interface over the HMAC validation of the attachment ciphertext
 struct HmacStreamValidator {
-    hmac: PbkdfSha256Hmac,
+    // Boxed: the HMAC state is large and would bloat the stream state enums.
+    hmac: Box<Hmac>,
 }
 
 impl HmacStreamValidator {
     fn new(mac_key: &[u8; 32], iv: &Iv) -> Self {
-        let mut hmac = PbkdfSha256Hmac::new_from_slice(mac_key);
+        let mut hmac = Box::new(Hmac::new(HashAlg::Sha256, mac_key));
         hmac.update(iv);
         Self { hmac }
     }
@@ -123,13 +115,12 @@ impl HmacStreamValidator {
 
     /// Called after the final block has been ingested by `read_block`, during encryption.
     fn end_stream(&self) -> Mac {
-        // `HmacImpl::finalize` consumes self; clone so the validator can stay borrowed by the
+        // `Hmac::finalize` consumes self; clone so the validator can stay borrowed by the
         // decryptor state machine and be dropped normally when the state transitions.
         let mac: Mac = self
             .hmac
             .clone()
             .finalize()
-            .as_slice()
             .try_into()
             .expect("hmac output is 32 bytes");
         mac
@@ -138,10 +129,9 @@ impl HmacStreamValidator {
     /// Called after the final block has been ingested by `read_block`, during decryption. Returns
     /// whether the calculated HMAC matches the expected HMAC from the header.
     fn validate_stream_end(&self, expected_mac: &Mac) -> bool {
-        // `HmacImpl::finalize` consumes self; clone so the validator can stay borrowed
+        // `Hmac::verify` consumes self; clone so the validator can stay borrowed
         // by the decryptor state machine and be dropped normally when the state transitions.
-        let calculated_mac = self.hmac.clone().finalize();
-        calculated_mac.as_slice().ct_eq(expected_mac).into()
+        self.hmac.clone().verify(expected_mac).is_ok()
     }
 }
 

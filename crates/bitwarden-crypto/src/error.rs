@@ -58,7 +58,7 @@ pub enum CryptoError {
     Fingerprint(#[from] FingerprintError),
 
     #[error("Argon2 error, {0}")]
-    Argon(#[from] argon2::Error),
+    Argon(bitwarden_crypto_primitives::Error),
 
     #[error("Number is zero")]
     ZeroNumber,
@@ -120,7 +120,7 @@ pub enum RsaError {
     #[error("Unable to create private key")]
     CreatePrivateKey,
     #[error("Rsa error, {0}")]
-    Rsa(#[from] rsa::Error),
+    Rsa(#[from] bitwarden_crypto_primitives::Error),
 }
 
 #[derive(Debug, Error)]

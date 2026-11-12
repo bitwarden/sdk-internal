@@ -11,7 +11,7 @@ use coset::{
         OkpKeyParameter,
     },
 };
-use ml_dsa::{MlDsa44, signature::Verifier};
+use bitwarden_crypto_primitives::{ed25519, ml_dsa};
 
 use super::{SignatureAlgorithm, ed25519_verifying_key, key_id, mldsa44_verifying_key};
 use crate::{
@@ -26,8 +26,8 @@ use crate::{
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
 pub(super) enum RawVerifyingKey {
-    Ed25519(ed25519_dalek::VerifyingKey),
-    MlDsa44(Box<ml_dsa::VerifyingKey<MlDsa44>>),
+    Ed25519(ed25519::VerifyingKey),
+    MlDsa44(Box<ml_dsa::VerifyingKey>),
 }
 
 /// A verifying key is a public key used for verifying signatures. It can be published to other
@@ -65,19 +65,15 @@ impl VerifyingKey {
     pub(super) fn verify_raw(&self, signature: &[u8], data: &[u8]) -> Result<(), CryptoError> {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => {
-                let sig = ed25519_dalek::Signature::from_bytes(
-                    signature
-                        .try_into()
-                        .map_err(|_| SignatureError::InvalidSignature)?,
-                );
-                key.verify_strict(data, &sig)
+                let sig = signature
+                    .try_into()
+                    .map_err(|_| SignatureError::InvalidSignature)?;
+                key.verify(data, sig)
                     .map_err(|_| SignatureError::InvalidSignature.into())
             }
             RawVerifyingKey::MlDsa44(key) => {
                 let _span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaVerify);
-                let sig = ml_dsa::Signature::<MlDsa44>::try_from(signature)
-                    .map_err(|_| SignatureError::InvalidSignature)?;
-                key.verify(data, &sig)
+                key.verify(data, signature)
                     .map_err(|_| SignatureError::InvalidSignature.into())
             }
         }
@@ -109,7 +105,7 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                 .into(),
             RawVerifyingKey::MlDsa44(key) => coset::CoseKeyBuilder::new_mldsa_pub_key(
                 MlDsaVariant::MlDsa44,
-                key.encode().to_vec(),
+                key.to_bytes(),
             )
             .key_id((&self.id).into())
             .add_key_op(KeyOperation::Verify)
@@ -184,7 +180,7 @@ impl CoseKeyThumbprintExt for VerifyingKey {
                 ),
                 (
                     AkpKeyParameter::Pub.to_i64(),
-                    Value::Bytes(key.encode().to_vec()),
+                    Value::Bytes(key.to_bytes()),
                 ),
             ],
         };

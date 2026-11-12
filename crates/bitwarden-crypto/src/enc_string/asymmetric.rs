@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt::Display, str::FromStr};
 
 use bitwarden_encoding::{B64, FromStrVisitor};
 pub use internal::UnsignedSharedKey;
-use rsa::Oaep;
+use bitwarden_crypto_primitives::rsa::OaepHash;
 use serde::Deserialize;
 
 use super::{from_b64_vec, split_enc_string};
@@ -257,22 +257,22 @@ impl UnsignedSharedKey {
                 use UnsignedSharedKey::*;
                 let key_data = measure(SlowCryptoOp::RsaDecrypt, || match self {
                     Rsa2048_OaepSha256_B64 { data } => {
-                        rsa_private_key.decrypt(Oaep::<sha2::Sha256>::new(), data)
+                        rsa_private_key.decrypt_oaep(OaepHash::Sha256, data)
                     }
                     Rsa2048_OaepSha1_B64 { data } => {
-                        rsa_private_key.decrypt(Oaep::<sha1::Sha1>::new(), data)
+                        rsa_private_key.decrypt_oaep(OaepHash::Sha1, data)
                     }
                     #[allow(deprecated)]
                     Rsa2048_OaepSha256_HmacSha256_B64 { data, .. } => {
-                        rsa_private_key.decrypt(Oaep::<sha2::Sha256>::new(), data)
+                        rsa_private_key.decrypt_oaep(OaepHash::Sha256, data)
                     }
                     #[allow(deprecated)]
                     Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
-                        rsa_private_key.decrypt(Oaep::<sha1::Sha1>::new(), data)
+                        rsa_private_key.decrypt_oaep(OaepHash::Sha1, data)
                     }
                 })
                 .map_err(|_| CryptoError::KeyDecrypt)?;
-                SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_data))
+                SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_data.as_slice()))
             }
         }
     }

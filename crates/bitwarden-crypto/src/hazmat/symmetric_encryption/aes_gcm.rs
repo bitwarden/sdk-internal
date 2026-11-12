@@ -16,15 +16,14 @@
 //! `https://eprint.iacr.org/2019/016.pdf`
 //! `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
 
-use aes::cipher::common::Generate;
-use aes_gcm::{AeadCore, AeadInOut, Aes256Gcm as Aes256GcmAlg, KeyInit, aead::Nonce};
+use bitwarden_crypto_primitives::aes_gcm;
 use coset::{CoseEncrypt, CoseEncrypt0};
-use typenum::Unsigned;
+use rand::RngExt;
 
 use super::Aead;
 use crate::CryptoError;
 
-pub(crate) const NONCE_SIZE: usize = <Aes256GcmAlg as AeadCore>::NonceSize::USIZE;
+pub(crate) const NONCE_SIZE: usize = aes_gcm::NONCE_LEN;
 pub(crate) const KEY_SIZE: usize = 32;
 
 /// AES-256-GCM authenticated encryption with associated data.
@@ -44,11 +43,7 @@ impl Aead for Aes256Gcm {
         plaintext: &[u8],
         associated_data: &[u8],
     ) -> Self::Ciphertext {
-        // This buffer contains the plaintext, that will be encrypted in-place
-        let mut buffer = plaintext.to_vec();
-        Aes256GcmAlg::new(key.into())
-            .encrypt_in_place(&nonce.0, associated_data, &mut buffer)
-            .expect("encryption failed");
+        let buffer = aes_gcm::encrypt(key, &nonce.0, associated_data, plaintext);
 
         Aes256GcmCiphertext {
             encrypted_bytes: buffer,
@@ -61,11 +56,8 @@ impl Aead for Aes256Gcm {
         ciphertext: &Self::Ciphertext,
         associated_data: &[u8],
     ) -> Result<Vec<u8>, CryptoError> {
-        let mut buffer = ciphertext.encrypted_bytes().to_vec();
-        Aes256GcmAlg::new(key.into())
-            .decrypt_in_place(&nonce.0, associated_data, &mut buffer)
-            .map_err(|_| CryptoError::KeyDecrypt)?;
-        Ok(buffer)
+        aes_gcm::decrypt(key, &nonce.0, associated_data, ciphertext.encrypted_bytes())
+            .map_err(|_| CryptoError::KeyDecrypt)
     }
 }
 
@@ -74,24 +66,24 @@ impl Aead for Aes256Gcm {
 /// AES-256-GCM has a short (96-bit) nonce, so a fresh nonce must be used for every message
 /// encrypted under a given key to avoid catastrophic nonce reuse. Generate a fresh nonce with
 /// [`Aes256GcmNonce::make`] for each encryption.
-pub(crate) struct Aes256GcmNonce(Nonce<Aes256GcmAlg>);
+pub(crate) struct Aes256GcmNonce([u8; NONCE_SIZE]);
 
 impl Aes256GcmNonce {
     /// Generates a fresh, cryptographically random nonce.
     pub(crate) fn make() -> Self {
         let mut rng = bitwarden_random::rng();
-        Aes256GcmNonce(Nonce::<Aes256GcmAlg>::generate_from_rng(&mut rng))
+        Aes256GcmNonce(rng.random())
     }
 
     /// Returns the raw nonce bytes.
     pub(crate) fn as_bytes(&self) -> &[u8] {
-        self.0.as_slice()
+        &self.0
     }
 
     /// Parses the nonce from a COSE message's unprotected `iv` header bytes.
     fn from_cose_iv(iv: &[u8]) -> Result<Self, CryptoError> {
         let nonce: [u8; NONCE_SIZE] = iv.try_into().map_err(|_| CryptoError::InvalidNonceLength)?;
-        Ok(Aes256GcmNonce(nonce.into()))
+        Ok(Aes256GcmNonce(nonce))
     }
 }
 
