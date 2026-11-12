@@ -1,0 +1,16 @@
+// A standalone build, so the tests run on a desktop JVM without the Android SDK that the build in
+// `crates/bitwarden-uniffi/kotlin` needs.
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'e2e-tests'

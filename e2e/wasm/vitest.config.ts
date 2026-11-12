@@ -18,5 +18,10 @@ export default defineConfig(({ mode }) => ({
     // The default reporter omits bench tables when stdout is not a TTY, e.g. in CI logs.
     reporters: ["verbose"],
     benchmark: { include: ["perf/**/*.perf.ts"] },
+    // The memory measurements in `perf/memory.ts` capture the SDK's linear memory as it loads, and
+    // force garbage collection, which needs `--expose-gc`. `npm run perf` runs in this mode. A
+    // `--execArgv` on the command line replaces this list, so `npm run perf:profile` repeats it.
+    setupFiles: mode === "benchmark" ? ["perf/memory.ts"] : [],
+    execArgv: mode === "benchmark" ? ["--expose-gc"] : [],
   },
 }));

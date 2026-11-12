@@ -1,6 +1,8 @@
 //! Initializes a new cryptographic state for a user and posts it to the server; enrolls the
 //! user to key connector unlock.
-use bitwarden_api_api::models::SetKeyConnectorKeyRequestModel;
+use bitwarden_api_api::models::{
+    SetKeyConnectorKeyRequestModel, SsoJitProvisionFinishSetKeyConnectorKeyRequestModel,
+};
 use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 use bitwarden_crypto::EncString;
 use bitwarden_encoding::B64;
@@ -27,10 +29,16 @@ pub struct KeyConnectorRegistrationResult {
 impl RegistrationClient {
     /// Initializes a new cryptographic state for a user and posts it to the server; enrolls the
     /// user to key connector unlock.
+    ///
+    /// `accept_organization_invite` controls whether the server moves the organization
+    /// membership from Invited to Accepted. Send `false` for open-invite links so the membership
+    /// stays Invited for later Admin Console checks. Defaults to `true` when not set. Only used
+    /// when the `pm-34429-invite-link-auto-confirm` flag is on.
     pub async fn post_keys_for_key_connector_registration(
         &self,
         key_connector_url: String,
         sso_org_identifier: String,
+        accept_organization_invite: Option<bool>,
     ) -> Result<KeyConnectorRegistrationResult, RegistrationError> {
         let client = &self.client.internal;
         let configuration = &client.get_api_configurations();
@@ -41,6 +49,7 @@ impl RegistrationClient {
             &configuration.api_client,
             &key_connector_client,
             sso_org_identifier,
+            accept_organization_invite,
         )
         .await
     }
@@ -51,6 +60,7 @@ async fn internal_post_keys_for_key_connector_registration(
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_connector_api_client: &bitwarden_api_key_connector::apis::ApiClient,
     sso_org_identifier: String,
+    accept_organization_invite: Option<bool>,
 ) -> Result<KeyConnectorRegistrationResult, RegistrationError> {
     // First call crypto API to get all keys
     info!("Initializing account cryptography");
@@ -74,14 +84,34 @@ async fn internal_post_keys_for_key_connector_registration(
         account_keys: Some(Box::new(registration_crypto_result.account_keys_request)),
         ..SetKeyConnectorKeyRequestModel::new(sso_org_identifier.to_string())
     };
-    api_client
-        .accounts_key_management_api()
-        .post_set_key_connector_key(Some(request))
+    // TODO: Remove the legacy flow when the pm-34429-invite-link-auto-confirm flag is removed
+    // with https://bitwarden.atlassian.net/browse/PM-40052
+    let response = if registration_client
+        .client
+        .flags()
+        .get()
         .await
-        .map_err(|e| {
-            error!("Failed to post account cryptographic state to server: {e:?}");
-            RegistrationError::Api
-        })?;
+        .invite_link_auto_confirm
+    {
+        api_client
+            .sso_jit_provision_finish_api()
+            .finish_jit_provision_for_key_connector(Some(
+                SsoJitProvisionFinishSetKeyConnectorKeyRequestModel::new(
+                    request,
+                    accept_organization_invite.unwrap_or(true),
+                ),
+            ))
+            .await
+    } else {
+        api_client
+            .accounts_key_management_api()
+            .post_set_key_connector_key(Some(request))
+            .await
+    };
+    response.map_err(|e| {
+        error!("Failed to post account cryptographic state to server: {e:?}");
+        RegistrationError::Api
+    })?;
 
     info!("User initialized!");
     // Note: This passing out of state and keys is temporary. Once SDK state management is more
@@ -131,6 +161,8 @@ async fn post_key_to_key_connector(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use bitwarden_api_api::apis::ApiClient;
     use bitwarden_core::Client;
 
@@ -174,6 +206,7 @@ mod tests {
             &api_client,
             &key_connector_api_client,
             TEST_SSO_ORG_IDENTIFIER.to_string(),
+            Some(false),
         )
         .await;
         assert!(result.is_ok());
@@ -229,6 +262,7 @@ mod tests {
             &api_client,
             &key_connector_api_client,
             TEST_SSO_ORG_IDENTIFIER.to_string(),
+            None,
         )
         .await;
 
@@ -287,6 +321,7 @@ mod tests {
             &api_client,
             &key_connector_api_client,
             TEST_SSO_ORG_IDENTIFIER.to_string(),
+            None,
         )
         .await;
 
@@ -301,6 +336,128 @@ mod tests {
             key_connector_api_client
         {
             mock.user_keys_api.checkpoint();
+        }
+    }
+
+    async fn client_with_invite_link_auto_confirm() -> Client {
+        let client = Client::new(None);
+        client
+            .flags()
+            .load(HashMap::from([(
+                "pm-34429-invite-link-auto-confirm".to_string(),
+                true,
+            )]))
+            .await;
+        client
+    }
+
+    fn key_connector_api_client_not_found() -> bitwarden_api_key_connector::apis::ApiClient {
+        bitwarden_api_key_connector::apis::ApiClient::new_mocked(|mock| {
+            mock.user_keys_api
+                .expect_get_user_key()
+                .once()
+                .returning(move || {
+                    Err(bitwarden_api_key_connector::apis::Error::ResponseError(
+                        bitwarden_api_key_connector::apis::ResponseContent {
+                            status: reqwest::StatusCode::NOT_FOUND,
+                            content: "Not Found".to_string(),
+                        },
+                    ))
+                });
+            mock.user_keys_api
+                .expect_post_user_key()
+                .once()
+                .returning(move |_body| Ok(()));
+        })
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_key_connector_registration_invite_link_auto_confirm_success() {
+        // `None` defaults to accepting the invite.
+        for (accept_organization_invite, expected_accept) in
+            [(None, true), (Some(true), true), (Some(false), false)]
+        {
+            let client = client_with_invite_link_auto_confirm().await;
+            let registration_client = RegistrationClient::new(client);
+
+            let api_client = ApiClient::new_mocked(|mock| {
+                mock.sso_jit_provision_finish_api
+                    .expect_finish_jit_provision_for_key_connector()
+                    .once()
+                    .withf(move |body| {
+                        let req = body.as_ref().unwrap();
+                        assert_eq!(req.accept_organization_invite, expected_accept);
+                        assert_eq!(
+                            req.key_connector_keys.org_identifier,
+                            TEST_SSO_ORG_IDENTIFIER
+                        );
+                        assert!(
+                            req.key_connector_keys
+                                .key_connector_key_wrapped_user_key
+                                .is_some()
+                        );
+                        assert!(req.key_connector_keys.account_keys.is_some());
+                        true
+                    })
+                    .returning(move |_body| Ok(()));
+                mock.accounts_key_management_api
+                    .expect_post_set_key_connector_key()
+                    .never();
+            });
+            let key_connector_api_client = key_connector_api_client_not_found();
+
+            let result = internal_post_keys_for_key_connector_registration(
+                &registration_client,
+                &api_client,
+                &key_connector_api_client,
+                TEST_SSO_ORG_IDENTIFIER.to_string(),
+                accept_organization_invite,
+            )
+            .await;
+            assert!(result.is_ok());
+
+            // Assert that the mock expectations were met
+            if let ApiClient::Mock(mut mock) = api_client {
+                mock.sso_jit_provision_finish_api.checkpoint();
+                mock.accounts_key_management_api.checkpoint();
+            }
+            if let bitwarden_api_key_connector::apis::ApiClient::Mock(mut mock) =
+                key_connector_api_client
+            {
+                mock.user_keys_api.checkpoint();
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_key_connector_registration_invite_link_auto_confirm_api_failure() {
+        let client = client_with_invite_link_auto_confirm().await;
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sso_jit_provision_finish_api
+                .expect_finish_jit_provision_for_key_connector()
+                .once()
+                .returning(move |_body| {
+                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
+                });
+        });
+        let key_connector_api_client = key_connector_api_client_not_found();
+
+        let result = internal_post_keys_for_key_connector_registration(
+            &registration_client,
+            &api_client,
+            &key_connector_api_client,
+            TEST_SSO_ORG_IDENTIFIER.to_string(),
+            None,
+        )
+        .await;
+
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.sso_jit_provision_finish_api.checkpoint();
         }
     }
 }

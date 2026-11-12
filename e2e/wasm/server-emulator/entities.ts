@@ -4,6 +4,7 @@ import type {
   Folder,
   Kdf,
   KeyId,
+  OrganizationUserType,
   UnsignedSharedKey,
   V2UpgradeToken,
   WrappedAccountCryptographicState,
@@ -80,6 +81,8 @@ export interface FolderEntity {
 /** A member of an organization, as the server holds it. */
 export interface OrganizationMember {
   userId: string;
+  /** The member's role, which the server authorizes organization key changes by. */
+  type: OrganizationUserType;
   /** The organization key sealed to this member's public key. */
   organizationKeySealedToMember: string;
   /** Present only for a member enrolled in account recovery. */
