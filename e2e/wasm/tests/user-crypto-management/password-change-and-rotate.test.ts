@@ -6,7 +6,7 @@ import type { SeededTestVector } from "../../server-emulator/server-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { testVectors } from "../../vectors/test-vectors";
 import { rejection } from "../utils";
-import { changePasswordAndRotate, rotateByPassword, type UserKeyUpgrade } from "./rotate-helpers";
+import { changePasswordAndRotate, rotateByPassword, type ForceUpgradeV2 } from "./rotate-helpers";
 
 const TIMEOUT = 120_000;
 
@@ -31,9 +31,9 @@ const isV1UserKey = (key: SymmetricKey | B64 | null) =>
  *                                         │
  *   relogin ──────────────────────────────┴── login(P2) ─▶ unlock(K2) ──▶ reads
  *
- * - V1 with `KeepVersion` stays V1: the `force-upgrade-v2-encryption` flag is off, and older
- *   devices that cannot read V2 data keep working.
- * - V1 with `UpgradeToV2` moves to V2: the flag is on.
+ * - V1 with `force-upgrade-v2-encryption` off stays V1, so older devices that cannot read V2
+ *   data keep working.
+ * - V1 with the flag on moves to V2.
  * - V2 stays V2 either way: a user key never goes back to V1.
  */
 describe("password change and rotate user keys", () => {
@@ -52,32 +52,32 @@ describe("password change and rotate user keys", () => {
   const cases: {
     name: string;
     vector: typeof V1_VECTOR;
-    upgrade: UserKeyUpgrade;
+    forceUpgradeV2: ForceUpgradeV2;
     expectedVersion: "V1" | "V2";
   }[] = [
     {
       name: "keeps a V1 account on V1",
       vector: V1_VECTOR,
-      upgrade: "KeepVersion",
+      forceUpgradeV2: "off",
       expectedVersion: "V1",
     },
     {
       name: "upgrades a V1 account to V2",
       vector: V1_VECTOR,
-      upgrade: "UpgradeToV2",
+      forceUpgradeV2: "on",
       expectedVersion: "V2",
     },
     {
       name: "keeps a V2 account on V2",
       vector: V2_VECTOR,
-      upgrade: "KeepVersion",
+      forceUpgradeV2: "off",
       expectedVersion: "V2",
     },
   ];
 
-  for (const { name, vector, upgrade, expectedVersion } of cases) {
+  for (const { name, vector, forceUpgradeV2, expectedVersion } of cases) {
     it(
-      `${name} with ${upgrade}`,
+      `${name} with force-upgrade-v2-encryption ${forceUpgradeV2}`,
       async () => {
         const seeded = harness.server.seedUserTestVector(vector);
         const client = harness.newClientEmulator();
@@ -93,7 +93,7 @@ describe("password change and rotate user keys", () => {
           client.getPasswordManagerClient(),
           vector.account.password,
           NEW_PASSWORD,
-          upgrade,
+          forceUpgradeV2,
         );
 
         // 2. Verify a fresh login with the new password reads the vault over a new user key of
@@ -139,7 +139,7 @@ describe("password change and rotate user keys", () => {
           client.getPasswordManagerClient(),
           passwords[round],
           passwords[round + 1],
-          "KeepVersion",
+          "off",
         );
       }
 
@@ -173,7 +173,7 @@ describe("password change and rotate user keys", () => {
           client.getPasswordManagerClient(),
           V1_VECTOR.account.password,
           "CreateIfNeeded",
-          "KeepVersion",
+          "off",
         ),
         isRotateUserKeysError,
       );

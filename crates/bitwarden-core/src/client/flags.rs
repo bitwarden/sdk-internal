@@ -21,6 +21,10 @@ pub struct Flags {
     /// endpoints let the client choose whether the organization membership stays Invited.
     #[serde(alias = "pm-34429-invite-link-auto-confirm")]
     pub invite_link_auto_confirm: bool,
+
+    /// Upgrade V1 user keys to V2 on key rotation. While off, a V1 user key rotates to a new V1
+    /// user key, so older devices that cannot read V2 data keep working.
+    pub force_upgrade_v2_encryption: bool,
 }
 
 impl Flags {
