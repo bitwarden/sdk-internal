@@ -1,4 +1,5 @@
 use pkcs8::EncodePrivateKey;
+use rsa::RsaPrivateKey;
 use ssh_key::{EcdsaCurve, PrivateKey};
 
 use crate::error::SshKeyExportError;
@@ -25,7 +26,7 @@ pub fn export_pkcs8_der_key(private_key: &str) -> Result<Vec<u8>, SshKeyExportEr
                 .to_vec())
         }
         ssh_key::private::KeypairData::Rsa(keypair) => {
-            let rk: rsa::PrivateKey = keypair
+            let rk: RsaPrivateKey = keypair
                 .try_into()
                 .map_err(|_| SshKeyExportError::KeyConversion)?;
 

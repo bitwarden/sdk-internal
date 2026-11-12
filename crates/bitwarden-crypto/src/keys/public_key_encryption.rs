@@ -3,7 +3,7 @@ use std::{fmt::Display, pin::Pin, str::FromStr};
 use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::{Value, value::Integer};
 use coset::iana::{EnumI64, KeyParameter, KeyType, RsaKeyParameter};
-use rsa::{pkcs8::DecodePublicKey, traits::PublicKeyParts};
+use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey, traits::PublicKeyParts};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -42,7 +42,7 @@ pub enum PublicKeyEncryptionAlgorithm {
 
 #[derive(Clone, PartialEq)]
 pub(crate) enum RawPublicKey {
-    RsaOaepSha1(rsa::PublicKey),
+    RsaOaepSha1(RsaPublicKey),
 }
 
 /// Public key of a key pair used in a public key encryption scheme. It is used for
@@ -79,7 +79,7 @@ impl PublicKey {
     pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
         Ok(PublicKey {
             inner: RawPublicKey::RsaOaepSha1(
-                rsa::PublicKey::from_public_key_der(der.as_ref())
+                RsaPublicKey::from_public_key_der(der.as_ref())
                     .map_err(|_| CryptoError::InvalidKey)?,
             ),
         })
@@ -164,11 +164,11 @@ impl Serialize for PublicKey {
 
 #[derive(Clone)]
 pub(crate) enum RawPrivateKey {
-    // rsa::PrivateKey is not a Copy type so this isn't completely necessary, but
+    // RsaPrivateKey is not a Copy type so this isn't completely necessary, but
     // to keep the compiler from making stack copies when moving this struct around,
     // we use a Box to keep the values on the heap. We also pin the box to make sure
     // that the contents can't be pulled out of the box and moved
-    RsaOaepSha1(Pin<Box<rsa::PrivateKey>>),
+    RsaOaepSha1(Pin<Box<RsaPrivateKey>>),
 }
 
 /// Private key of a key pair used in a public key encryption scheme. It is used for
@@ -178,11 +178,11 @@ pub struct PrivateKey {
     inner: RawPrivateKey,
 }
 
-// Note that rsa::PrivateKey already implements ZeroizeOnDrop, so we don't need to do anything
+// Note that RsaPrivateKey already implements ZeroizeOnDrop, so we don't need to do anything
 // We add this assertion to make sure that this is still true in the future
 const _: fn() = || {
     fn assert_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
-    assert_zeroize_on_drop::<rsa::PrivateKey>();
+    assert_zeroize_on_drop::<RsaPrivateKey>();
 };
 impl zeroize::ZeroizeOnDrop for PrivateKey {}
 impl CryptoKey for PrivateKey {}
@@ -202,7 +202,7 @@ impl PrivateKey {
                 let _span = SlowCryptoSpan::start(SlowCryptoOp::RsaKeyGeneration);
                 Self {
                     inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                        rsa::PrivateKey::new(rng, 2048).expect("failed to generate a key"),
+                        RsaPrivateKey::new(rng, 2048).expect("failed to generate a key"),
                     )),
                 }
             }
@@ -227,7 +227,7 @@ impl PrivateKey {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
             inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                rsa::PrivateKey::from_pkcs8_pem(pem).map_err(|_| CryptoError::InvalidKey)?,
+                RsaPrivateKey::from_pkcs8_pem(pem).map_err(|_| CryptoError::InvalidKey)?,
             )),
         })
     }
@@ -246,8 +246,7 @@ impl PrivateKey {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
             inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                rsa::PrivateKey::from_pkcs8_der(der.as_ref())
-                    .map_err(|_| CryptoError::InvalidKey)?,
+                RsaPrivateKey::from_pkcs8_der(der.as_ref()).map_err(|_| CryptoError::InvalidKey)?,
             )),
         })
     }
