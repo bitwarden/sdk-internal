@@ -1,17 +1,14 @@
-use std::pin::Pin;
+use std::{num::NonZeroU32, pin::Pin};
 
-use hmac::digest::OutputSizeUser;
+use bitwarden_crypto_primitives::{hkdf, pbkdf2 as pbkdf2_primitive, sha256};
 use hybrid_array::{Array, ArraySize};
 use rand::{
     RngExt,
     distr::{Alphanumeric, Distribution, SampleString, StandardUniform},
 };
-use typenum::Unsigned;
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::Result;
-
-pub(crate) type PbkdfSha256Hmac = hmac::Hmac<sha2::Sha256>;
 
 /// Size of the stack region [`clear_stack`] overwrites.
 const CLEARED_STACK_SIZE: usize = 16 * 1024;
@@ -25,8 +22,7 @@ const CLEARED_STACK_SIZE: usize = 16 * 1024;
 pub(crate) fn clear_stack() {
     std::hint::black_box([0u8; CLEARED_STACK_SIZE]);
 }
-pub(crate) const PBKDF_SHA256_HMAC_OUT_SIZE: usize =
-    <<PbkdfSha256Hmac as OutputSizeUser>::OutputSize as Unsigned>::USIZE;
+pub(crate) const PBKDF_SHA256_HMAC_OUT_SIZE: usize = sha256::DIGEST_LEN;
 
 #[derive(Debug)]
 pub(crate) enum HkdfExpandError {
@@ -39,13 +35,15 @@ pub(crate) fn hkdf_expand<T: ArraySize>(
     prk: &[u8],
     info: Option<&str>,
 ) -> Result<Pin<Box<Array<u8, T>>>, HkdfExpandError> {
-    let hkdf = hkdf::Hkdf::<sha2::Sha256>::from_prk(prk)
-        .map_err(|_| HkdfExpandError::InvalidInputLegth)?;
+    // HKDF-Expand needs a PRK of at least HashLen; checked here to keep the two error cases apart.
+    if prk.len() < sha256::DIGEST_LEN {
+        return Err(HkdfExpandError::InvalidInputLegth);
+    }
+
     let mut key = Box::<Array<u8, T>>::default();
 
     let i = info.map(|i| i.as_bytes()).unwrap_or(&[]);
-    hkdf.expand(i, key.as_mut_slice())
-        .map_err(|_| HkdfExpandError::InvalidOutputLength)?;
+    hkdf::expand(prk, i, key.as_mut_slice()).map_err(|_| HkdfExpandError::InvalidOutputLength)?;
 
     Ok(Box::into_pin(key))
 }
@@ -69,8 +67,12 @@ pub fn generate_random_alphanumeric(len: usize) -> String {
 
 /// Derive pbkdf2 of a given password and salt
 pub fn pbkdf2(password: &[u8], salt: &[u8], rounds: u32) -> [u8; PBKDF_SHA256_HMAC_OUT_SIZE] {
-    pbkdf2::pbkdf2_array::<PbkdfSha256Hmac, PBKDF_SHA256_HMAC_OUT_SIZE>(password, salt, rounds)
-        .expect("hash is a valid fixed size")
+    // Zero rounds historically ran one round; keep that output for compatibility.
+    let rounds = NonZeroU32::new(rounds).unwrap_or(NonZeroU32::MIN);
+
+    let mut out = [0u8; PBKDF_SHA256_HMAC_OUT_SIZE];
+    pbkdf2_primitive::hmac_sha256(password, salt, rounds, &mut out);
+    out
 }
 
 #[cfg(test)]

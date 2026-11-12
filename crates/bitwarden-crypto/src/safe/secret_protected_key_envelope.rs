@@ -456,9 +456,8 @@ fn derive_cek(
     // COSE_KDF_Context is the HKDF-Expand info. Full HKDF (extract + expand) is used since the
     // secret can be of arbitrary length and is not required to be a uniformly random key.
     let info = kdf_context_info(alg)?;
-    let hkdf = hkdf::Hkdf::<sha2::Sha256>::new(Some(&hkdf_settings.salt), secret);
     let mut key = [0u8; ENVELOPE_HKDF_OUTPUT_KEY_SIZE];
-    hkdf.expand(&info, &mut key)
+    bitwarden_crypto_primitives::hkdf::derive(Some(&hkdf_settings.salt), secret, &info, &mut key)
         .map_err(|_| SecretProtectedKeyEnvelopeError::Kdf)?;
     Ok(key)
 }

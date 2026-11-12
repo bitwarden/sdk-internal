@@ -9,19 +9,15 @@
 //!
 //! In most cases, use higher-level APIs instead of this raw-key primitive when available.
 
-use aes::cipher::common::Generate;
+use bitwarden_crypto_primitives::xaes_256_gcm;
 use coset::{CoseEncrypt, CoseEncrypt0};
-use typenum::Unsigned;
-use xaes_256_gcm::{
-    Xaes256Gcm as Xaes256GcmAlg,
-    aead::{AeadCore, AeadInOut, KeyInit, Nonce},
-};
+use rand::RngExt;
 
 use super::Aead;
 use crate::CryptoError;
 
 pub(crate) const KEY_SIZE: usize = 32;
-pub(crate) const NONCE_SIZE: usize = <Xaes256GcmAlg as AeadCore>::NonceSize::USIZE;
+pub(crate) const NONCE_SIZE: usize = xaes_256_gcm::NONCE_LEN;
 
 /// XAES-256-GCM authenticated encryption with associated data.
 ///
@@ -39,10 +35,7 @@ impl Aead for XAes256Gcm {
         plaintext: &[u8],
         associated_data: &[u8],
     ) -> Self::Ciphertext {
-        let mut buffer = plaintext.to_vec();
-        Xaes256GcmAlg::new(key.into())
-            .encrypt_in_place(&nonce.0, associated_data, &mut buffer)
-            .expect("encryption failed");
+        let buffer = xaes_256_gcm::encrypt(key, &nonce.0, associated_data, plaintext);
 
         XAes256GcmCiphertext {
             encrypted_bytes: buffer,
@@ -55,33 +48,30 @@ impl Aead for XAes256Gcm {
         ciphertext: &Self::Ciphertext,
         associated_data: &[u8],
     ) -> Result<Vec<u8>, CryptoError> {
-        let mut buffer = ciphertext.encrypted_bytes().to_vec();
-        Xaes256GcmAlg::new(key.into())
-            .decrypt_in_place(&nonce.0, associated_data, &mut buffer)
-            .map_err(|_| CryptoError::KeyDecrypt)?;
-        Ok(buffer)
+        xaes_256_gcm::decrypt(key, &nonce.0, associated_data, ciphertext.encrypted_bytes())
+            .map_err(|_| CryptoError::KeyDecrypt)
     }
 }
 
 /// A 192-bit XAES-256-GCM nonce.
-pub(crate) struct XAes256GcmNonce(Nonce<Xaes256GcmAlg>);
+pub(crate) struct XAes256GcmNonce([u8; NONCE_SIZE]);
 
 impl XAes256GcmNonce {
     /// Generates a fresh, cryptographically random nonce.
     pub(crate) fn make() -> Self {
         let mut rng = bitwarden_random::rng();
-        Self(Nonce::<Xaes256GcmAlg>::generate_from_rng(&mut rng))
+        Self(rng.random())
     }
 
     /// Returns the raw nonce bytes.
     pub(crate) fn as_bytes(&self) -> &[u8] {
-        self.0.as_slice()
+        &self.0
     }
 
     /// Parses the nonce from a COSE message's unprotected `iv` header bytes.
     fn from_cose_iv(iv: &[u8]) -> Result<Self, CryptoError> {
         let nonce: [u8; NONCE_SIZE] = iv.try_into().map_err(|_| CryptoError::InvalidNonceLength)?;
-        Ok(Self(nonce.into()))
+        Ok(Self(nonce))
     }
 }
 
