@@ -15,8 +15,10 @@ same SDK, so a new test goes into every suite.
 - A PR that changes a test also changes its counterparts in the other suites, where they exist. The
   suites are not at parity: `e2e/wasm` has many tests the other suites never had, and a missing
   counterpart of an existing test is backlog, not part of the PR.
-- If a new test cannot exist for a binding, for example because the method is only exported to WASM,
-  say so in a comment next to the test and in the PR description.
+- If a new test cannot be written for a binding, say so in a comment next to the test and in the PR
+  description. Two reasons qualify: the method is only exported to one binding, or the test needs
+  harness pieces the other suite lacks (`e2e/wasm` has a server emulator and a client emulator that
+  `e2e/swift` does not). Building the missing harness is separate work, not part of the PR.
 - When reviewing a change under `e2e/`, check the other suites for the counterpart of each added
   test and flag a missing one. For a changed test, check only the counterparts that exist.
 
