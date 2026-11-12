@@ -21,7 +21,7 @@ normal = [
 
 [features]
 default = []
-# Multi-threaded Argon2 lanes. Not available on wasm32.
+# Multi-threaded Argon2 lanes in the RustCrypto backend. Not available on wasm32.
 argon2-parallel = ["argon2/parallel"]
 
 [dependencies]
@@ -45,6 +45,11 @@ subtle = { workspace = true }
 thiserror = { workspace = true }
 xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = ["alloc"] }
 zeroize = { workspace = true, features = ["derive"] }
+
+# OpenSSL backend, selected with `--cfg bitwarden_crypto_backend="openssl"`. Builds a vendored
+# OpenSSL 3.x; set `OPENSSL_NO_VENDOR=1` to link the system OpenSSL (>= 3.5) instead.
+[target.'cfg(bitwarden_crypto_backend = "openssl")'.dependencies]
+openssl = { version = "0.10.82", features = ["vendored"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # OS entropy on wasm32 comes from `crypto.getRandomValues`.

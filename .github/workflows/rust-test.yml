@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - test
+      - test-openssl
     steps:
       - name: Check if tests passed
         run: exit 0
@@ -97,6 +98,31 @@ jobs:
       # tests/scripting_integration.rs runs here, so #[ignore]d pwsh tests belong in that file.
       - name: Test (integration, requires pwsh)
         run: cargo test --workspace --all-features ${{ matrix.exclude }} --test scripting_integration -- --ignored --test-threads=1
+
+  test-openssl:
+    name: OpenSSL backend
+    runs-on: ubuntu-24.04
+    env:
+      # Selects the OpenSSL backend of bitwarden-crypto-primitives (vendored OpenSSL 3.x).
+      RUSTFLAGS: --cfg bitwarden_crypto_backend="openssl"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+
+      # Runs the whole SDK on OpenSSL; the crypto-primitives tests also cross-check both backends.
+      - name: Test
+        run: cargo test --workspace --all-features
 
   test-wasm:
     name: WASM
