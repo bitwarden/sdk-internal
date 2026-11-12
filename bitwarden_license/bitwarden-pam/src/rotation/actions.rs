@@ -82,6 +82,7 @@ mod tests {
             last_rotation_at: None,
             next_rotation_at: None,
             has_active_job: false,
+            last_job_failed: false,
             awaiting_manual_rotation: false,
             creation_date: timestamp(),
             revision_date: timestamp(),
