@@ -41,6 +41,7 @@ bitwarden-core = { path = "crates/bitwarden-core", version = "=4.0.0" }
 bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=4.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=4.0.0" }
 bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=4.0.0" }
+bitwarden-crypto-primitives = { path = "crates/bitwarden-crypto-primitives", version = "=4.0.0" }
 bitwarden-crypto-sync-handler = { path = "crates/bitwarden-crypto-sync-handler", version = "=4.0.0" }
 bitwarden-emergency-access = { path = "crates/bitwarden-emergency-access", version = "=4.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=4.0.0" }

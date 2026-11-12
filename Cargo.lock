@@ -895,6 +895,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-crypto-primitives"
+version = "4.0.0"
+dependencies = [
+ "aes 0.9.3",
+ "aes-gcm 0.11.1",
+ "argon2",
+ "bitwarden-encoding",
+ "cbc",
+ "chacha20poly1305 0.11.0",
+ "cshake",
+ "curve25519-dalek 5.0.0",
+ "ed25519-dalek",
+ "getrandom 0.4.3",
+ "hex",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "ml-dsa",
+ "p256 0.14.0",
+ "pbkdf2",
+ "rand 0.10.3",
+ "rsa",
+ "sha1",
+ "sha2 0.11.1",
+ "subtle",
+ "thiserror",
+ "xaes-256-gcm",
+ "zeroize",
+]
+
+[[package]]
 name = "bitwarden-crypto-sync-handler"
 version = "4.0.0"
 dependencies = [
@@ -2727,6 +2757,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cshake"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6250a2d96a09edbe8e75ed29c87d05512ee2cbb24c7e8c684657f7930ffd3c6"
+dependencies = [
+ "digest 0.11.3",
+ "keccak",
+ "sponge-cursor",
+]
+
+[[package]]
 name = "csv"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3332,7 +3373,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4708,7 +4749,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5768,7 +5809,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5825,7 +5866,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6678,7 +6719,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7840,7 +7881,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

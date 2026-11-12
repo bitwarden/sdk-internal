@@ -92,7 +92,7 @@
     },
     {
       matchManagers: ["cargo"],
-      matchPackageNames: ["aes-gcm", "hkdf", "pbkdf2", "rand"],
+      matchPackageNames: ["aes-gcm", "cshake", "hkdf", "pbkdf2", "rand"],
       commitMessagePrefix: "[deps] Key Management (cargo):",
       reviewers: ["team:team-key-management-dev"],
     },
