@@ -71,6 +71,8 @@ only needs credentials for its own targets.
 ## Requirements
 
 - Linux (x86-64 or ARM64), macOS (ARM64) or Windows (x86-64).
+- On Linux, glibc 2.34 or later, which RHEL 9, Debian 12, Ubuntu 22.04, Amazon Linux 2023 and later
+  releases have. `ldd --version` shows the version.
 - No root access for the connector itself. Your scripts may need their own privileges.
 - No inbound network access.
 - A registered access connector that hasn't been revoked, in an organization with an active license
@@ -161,6 +163,7 @@ Everything else is set in the config file or the environment.
 | ---------------------- | ----------------------------------------------------------------- |
 | `BWAC_TOKEN`           | Required. The access connector token                              |
 | `BWAC_CONFIG`          | Path to the config file                                           |
+| `BWAC_BASE_URL`        | Bitwarden server URL. Overrides `base` in the config file         |
 | `BWAC_API_URL`         | Bitwarden API URL. Overrides the config file                      |
 | `BWAC_IDENTITY_URL`    | Bitwarden identity URL. Overrides the config file                 |
 | `RUST_LOG`             | Log filter. Defaults to `info`                                    |
@@ -213,10 +216,10 @@ The API and identity URLs are each taken from the first of these that is set:
 
 1. `BWAC_API_URL` and `BWAC_IDENTITY_URL`
 2. `api` and `identity` in `[environment]`
-3. `base` in `[environment]`
+3. `BWAC_BASE_URL`, or else `base` in `[environment]`
 
-A `base` of `https://bitwarden.com` or `https://vault.bitwarden.com` means the US cloud, and
-`https://bitwarden.eu` or `https://vault.bitwarden.eu` means the EU cloud. Any other `base` is
+A base URL of `https://bitwarden.com` or `https://vault.bitwarden.com` means the US cloud, and
+`https://bitwarden.eu` or `https://vault.bitwarden.eu` means the EU cloud. Any other base URL is
 treated as a self-hosted server, with the URLs `{base}/api` and `{base}/identity`.
 
 If none of these is set, the connector uses the US cloud. If only some are set and one URL is still
@@ -874,6 +877,8 @@ Logs never contain passwords, tokens or other credential values.
 | `config file … is invalid TOML: unknown field`                                    | A typo, or `client_secret` in a `[targets]` block                     |
 | `poll_interval must be >= 15 seconds`                                             | `poll_interval` is below 15                                           |
 | `Another bwac process is already running with this access connector token`        | A second `bwac` uses the same token, often one started from a console |
+| `no trusted CA certificates could be loaded`                                      | No CA bundle, or `SSL_CERT_FILE` or `SSL_CERT_DIR` is wrong           |
+| ``version `GLIBC_2.34' not found``                                                | glibc is older than 2.34. See [Requirements](#requirements)           |
 
 ### Nothing gets rotated
 
@@ -943,3 +948,38 @@ platform.
 
 See also the [SDK architecture](https://contributing.bitwarden.com/architecture/sdk/) and
 [security definitions](https://contributing.bitwarden.com/architecture/security/definitions).
+
+### Docker image
+
+The image runs `bwac` on Alpine Linux as an unprivileged user with UID `10001`. `tini` runs as
+process 1 and reaps the processes a killed script leaves behind.
+
+Build it from the repository root, because `bwac` builds in the Cargo workspace:
+
+```sh
+docker build -f bitwarden_license/bitwarden-access-connector/Dockerfile -t bwac .
+```
+
+Start it with the environment file, and with the config file and scripts mounted read-only:
+
+```sh
+docker run -d --name bwac --restart unless-stopped \
+  --env-file /etc/bwac/env \
+  -e BWAC_CONFIG=/etc/bwac/config.toml \
+  -v /etc/bwac/config.toml:/etc/bwac/config.toml:ro \
+  -v /opt/bwac/scripts:/opt/bwac/scripts:ro \
+  --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+  bwac
+```
+
+The container uses these paths:
+
+| Path                | Holds                                            | Mount                                            |
+| ------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| `/etc/bwac`         | `config.toml` and any files it names             | Read-only. UID `10001` must be able to read them |
+| `/opt/bwac/scripts` | Rotation scripts. Set `script_root` to this path | Read-only. UID `10001` must be able to run them  |
+| `/tmp`              | Scratch files for scripts                        | `--tmpfs /tmp`                                   |
+
+`docker run` reads the environment file on the host, which is why it isn't mounted. The connector
+writes nothing to disk, so the root filesystem can be read-only, and scripts can write only to
+`/tmp`. `docker logs bwac` shows the log.
