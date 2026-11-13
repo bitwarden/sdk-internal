@@ -58,6 +58,7 @@ impl Decryptor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_vectors::{array, bytes};
 
     // NIST SP 800-38A F.2.5 (CBC-AES256.Encrypt), first two blocks.
     const KEY: &str = "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4";
@@ -65,14 +66,10 @@ mod tests {
     const PT: &str = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e51";
     const CT: &str = "f58c4c04d6e5f1ba779eabfb5f7bfbd69cfc4e967edb808d679f777bc6702c7d";
 
-    fn arr<const N: usize>(h: &str) -> [u8; N] {
-        hex::decode(h).expect("hex").try_into().expect("length")
-    }
-
     #[test]
     fn streaming_known_answer() {
-        let (key, iv) = (arr::<KEY_LEN>(KEY), arr::<IV_LEN>(IV));
-        let pt = hex::decode(PT).expect("hex");
+        let (key, iv) = (array::<KEY_LEN>(KEY), array::<IV_LEN>(IV));
+        let pt = bytes(PT);
 
         let mut enc = Encryptor::new(&key, &iv);
         let mut out = Vec::new();
@@ -95,8 +92,8 @@ mod tests {
 
     #[test]
     fn padded_roundtrip_matches_streaming() {
-        let (key, iv) = (arr::<KEY_LEN>(KEY), arr::<IV_LEN>(IV));
-        let pt = hex::decode(PT).expect("hex");
+        let (key, iv) = (array::<KEY_LEN>(KEY), array::<IV_LEN>(IV));
+        let pt = bytes(PT);
 
         let ct = encrypt_pkcs7(&key, &iv, &pt);
         // Two data blocks plus one full padding block.
@@ -107,9 +104,9 @@ mod tests {
 
     #[test]
     fn rejects_bad_length() {
-        let (key, iv) = (arr::<KEY_LEN>(KEY), arr::<IV_LEN>(IV));
+        let (key, iv) = (array::<KEY_LEN>(KEY), array::<IV_LEN>(IV));
         assert_eq!(
-            decrypt_pkcs7(&key, &iv, &[0u8; 15]),
+            decrypt_pkcs7(&key, &iv, &bytes("000000000000000000000000000000")),
             Err(Error::DecryptionFailed)
         );
     }
@@ -118,27 +115,27 @@ mod tests {
     /// padding block, and one byte more shares the first ciphertext block with it.
     #[test]
     fn known_answers_padding() {
-        const KEY_42: [u8; KEY_LEN] = [0x42; KEY_LEN];
-        const IV_24: [u8; IV_LEN] = [0x24; IV_LEN];
+        const KEY_42: &str = "4242424242424242424242424242424242424242424242424242424242424242";
+        const IV_24: &str = "24242424242424242424242424242424";
 
-        let cases: [(&[u8], &str); 3] = [
-            (b"", "f14adffc8869f2eb0df4e65f69723de2"),
+        // (plaintext, ciphertext)
+        let cases = [
+            ("", "f14adffc8869f2eb0df4e65f69723de2"),
             (
-                &[0x11; 16],
+                "11111111111111111111111111111111",
                 "7d2f24631d29ffe73a37092c736b54e049282da0cce3e6a9ea19ee2d77dfef42",
             ),
             (
-                &[0x11; 17],
+                "1111111111111111111111111111111111",
                 "7d2f24631d29ffe73a37092c736b54e044226c47a0f59fe109bf2cf59c633d36",
             ),
         ];
+        let (key, iv) = (array::<KEY_LEN>(KEY_42), array::<IV_LEN>(IV_24));
         for (plaintext, expected) in cases {
-            let ciphertext = encrypt_pkcs7(&KEY_42, &IV_24, plaintext);
+            let plaintext = bytes(plaintext);
+            let ciphertext = encrypt_pkcs7(&key, &iv, &plaintext);
             assert_eq!(hex::encode(&ciphertext), expected);
-            assert_eq!(
-                decrypt_pkcs7(&KEY_42, &IV_24, &ciphertext),
-                Ok(plaintext.to_vec())
-            );
+            assert_eq!(decrypt_pkcs7(&key, &iv, &ciphertext), Ok(plaintext));
         }
     }
 }

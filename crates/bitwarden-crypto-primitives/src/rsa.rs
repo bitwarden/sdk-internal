@@ -137,6 +137,7 @@ mod tests {
     use bitwarden_encoding::B64;
 
     use super::*;
+    use crate::test_vectors::bytes;
 
     static KEY: LazyLock<PrivateKey> = LazyLock::new(|| PrivateKey::generate(KeySize::Rsa2048));
 
@@ -205,7 +206,7 @@ mod tests {
     #[test]
     fn components_roundtrip() {
         let c = KEY.components();
-        assert_eq!(c.e, vec![0x01, 0x00, 0x01]);
+        assert_eq!(hex::encode(&c.e), "010001");
         assert_eq!(c.n, KEY.public_key().modulus());
 
         let rebuilt = PrivateKey::from_components(&c.n, &c.e, &c.d, &[&c.p, &c.q]).expect("valid");
@@ -263,22 +264,47 @@ mod tests {
         0dc4b02042e9c23f4f6d6d1f35acf47b269faca9d760408f7994ff5da86deb5a\
         f6dbb94921474f57dee20b45dc56c788d8e007b50643f56fb825b962a6f37859\
         490203010001";
-    const FOX: &[u8] = b"The quick brown fox jumps over the lazy dog";
-    /// Longest OAEP plaintext for a 256-byte modulus: `k - 2 * hLen - 2`.
-    const MAX_SHA1_PLAINTEXT: usize = 256 - 2 * 20 - 2;
-    const MAX_SHA256_PLAINTEXT: usize = 256 - 2 * 32 - 2;
+    /// "The quick brown fox jumps over the lazy dog".
+    const FOX: &str = "54686520717569636b2062726f776e20666f78206a756d7073206f7665722074\
+        6865206c617a7920646f67";
+    /// Longest OAEP plaintexts for a 256-byte modulus (`k - 2 * hLen - 2`: 214 for SHA-1, 190 for
+    /// SHA-256), and one byte past each limit.
+    const MAX_SHA1_PLAINTEXT: &str = "1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        11111111111111111111111111111111111111111111";
+    const MAX_SHA256_PLAINTEXT: &str = "1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        111111111111111111111111111111111111111111111111111111111111";
+    const OVERSIZED_SHA1_PLAINTEXT: &str = "1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111";
+    const OVERSIZED_SHA256_PLAINTEXT: &str = "1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        1111111111111111111111111111111111111111111111111111111111111111\
+        11111111111111111111111111111111111111111111111111111111111111";
 
     fn vector_key() -> PrivateKey {
-        PrivateKey::from_pkcs8_der(&hex::decode(VECTOR_KEY).expect("hex")).expect("valid key")
+        PrivateKey::from_pkcs8_der(&bytes(VECTOR_KEY)).expect("valid key")
     }
 
     #[test]
     fn known_answers_oaep() {
         let key = vector_key();
-        let max_sha1 = [0x11; MAX_SHA1_PLAINTEXT];
-        let max_sha256 = [0x11; MAX_SHA256_PLAINTEXT];
-
-        let cases: [(OaepHash, &[u8], &str); 5] = [
+        // (hash, plaintext, ciphertext), all hex
+        let cases = [
             (
                 OaepHash::Sha1,
                 FOX,
@@ -305,7 +331,7 @@ mod tests {
             ),
             (
                 OaepHash::Sha256,
-                b"",
+                "",
                 "5c08d62ae6e10f1d49a7c0efe9bcb60bef8f98170ece95ae4ebc2ef21ddb669e\
                 181639324de13edd20af9dbc924189f5ee4799deb9b24d0d5c11e00675338535\
                 80a54be4ed6c21c4838e3a6fc5f38588879ae08ce0bf7c41e468cb898838e340\
@@ -317,7 +343,7 @@ mod tests {
             ),
             (
                 OaepHash::Sha1,
-                &max_sha1,
+                MAX_SHA1_PLAINTEXT,
                 "bed8b27a955dc39dc24617b5238c1d5b9855e6fcca28e2580ab5ba9a3ba9b61b\
                 09dc145044baa6cc1a48798547e705be63cc539458acd99af4b3f27007630c98\
                 505becd2aa4251d41394c2b0c21fd77f4de9bfcce9cabf0a8860f50cfd7e30d9\
@@ -329,7 +355,7 @@ mod tests {
             ),
             (
                 OaepHash::Sha256,
-                &max_sha256,
+                MAX_SHA256_PLAINTEXT,
                 "b36c694a7c8b264766fc5427174a83045ad9e405256c5a5b8ad5bb7d5fb9c302\
                 f538c0aebf069ccbcc33b3008165f385dc769fe3d7a8c009d27a76657be1a245\
                 8521d4b26a38b037563a0f5f3ebb0298affc930bec707ca2b60e2652c6600d0d\
@@ -341,11 +367,10 @@ mod tests {
             ),
         ];
         for (hash, plaintext, ciphertext) in cases {
-            let ciphertext = hex::decode(ciphertext).expect("hex");
             let decrypted = key
-                .decrypt_oaep(hash, &ciphertext)
+                .decrypt_oaep(hash, &bytes(ciphertext))
                 .expect("valid ciphertext");
-            assert_eq!(decrypted.as_slice(), plaintext);
+            assert_eq!(hex::encode(decrypted.as_slice()), plaintext);
         }
     }
 
@@ -355,13 +380,13 @@ mod tests {
         let public = vector_key().public_key();
         assert_eq!(
             public
-                .encrypt_oaep(OaepHash::Sha1, &[0x11; MAX_SHA1_PLAINTEXT + 1])
+                .encrypt_oaep(OaepHash::Sha1, &bytes(OVERSIZED_SHA1_PLAINTEXT))
                 .err(),
             Some(Error::InvalidParameters)
         );
         assert_eq!(
             public
-                .encrypt_oaep(OaepHash::Sha256, &[0x11; MAX_SHA256_PLAINTEXT + 1])
+                .encrypt_oaep(OaepHash::Sha256, &bytes(OVERSIZED_SHA256_PLAINTEXT))
                 .err(),
             Some(Error::InvalidParameters)
         );

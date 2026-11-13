@@ -27,9 +27,10 @@ pub fn derive(salt: Option<&[u8]>, ikm: &[u8], info: &[u8], out: &mut [u8]) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_vectors::{array, bytes};
 
     // RFC 5869 test case 1.
-    const IKM: [u8; 22] = [0x0b; 22];
+    const IKM: &str = "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b";
     const SALT: &str = "000102030405060708090a0b0c";
     const INFO: &str = "f0f1f2f3f4f5f6f7f8f9";
     const PRK: &str = "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5";
@@ -38,27 +39,33 @@ mod tests {
 
     #[test]
     fn known_answer() {
-        let salt = hex::decode(SALT).expect("hex");
-        let info = hex::decode(INFO).expect("hex");
+        let salt = bytes(SALT);
+        let info = bytes(INFO);
 
-        assert_eq!(hex::encode(extract(Some(&salt), &IKM).as_slice()), PRK);
+        assert_eq!(
+            hex::encode(extract(Some(&salt), &bytes(IKM)).as_slice()),
+            PRK
+        );
 
         let mut okm = [0u8; 42];
-        derive(Some(&salt), &IKM, &info, &mut okm).expect("valid lengths");
+        derive(Some(&salt), &bytes(IKM), &info, &mut okm).expect("valid lengths");
         assert_eq!(hex::encode(okm), OKM);
     }
 
     #[test]
     fn rejects_short_prk_and_long_output() {
+        const SHORT_PRK: &str = "00000000000000000000000000000000";
+        const ZERO_PRK: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
         let mut out = [0u8; 32];
         assert_eq!(
-            expand(&[0u8; 16], b"", &mut out),
+            expand(&bytes(SHORT_PRK), b"", &mut out),
             Err(Error::InvalidParameters)
         );
 
         let mut too_long = vec![0u8; 255 * 32 + 1];
         assert_eq!(
-            expand(&[0u8; 32], b"", &mut too_long),
+            expand(&bytes(ZERO_PRK), b"", &mut too_long),
             Err(Error::InvalidParameters)
         );
     }
@@ -67,7 +74,7 @@ mod tests {
     #[test]
     fn known_answer_no_salt_no_info() {
         let mut okm = [0u8; 42];
-        derive(None, &IKM, b"", &mut okm).expect("valid lengths");
+        derive(None, &bytes(IKM), b"", &mut okm).expect("valid lengths");
         assert_eq!(
             hex::encode(okm),
             "8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d\
@@ -78,14 +85,15 @@ mod tests {
     /// Shortest and longest (255 blocks) expansions; the long one is compared by its SHA-256.
     #[test]
     fn known_answer_output_length_bounds() {
-        const PRK: [u8; PRK_LEN] = [0x42; PRK_LEN];
+        let prk: [u8; PRK_LEN] =
+            array("4242424242424242424242424242424242424242424242424242424242424242");
 
         let mut one = [0u8; 1];
-        expand(&PRK, b"info", &mut one).expect("valid length");
+        expand(&prk, b"info", &mut one).expect("valid length");
         assert_eq!(hex::encode(one), "a2");
 
         let mut max = vec![0u8; 255 * PRK_LEN];
-        expand(&PRK, b"info", &mut max).expect("valid length");
+        expand(&prk, b"info", &mut max).expect("valid length");
         assert_eq!(
             hex::encode(crate::sha256::digest(&max)),
             "1a40dcf431b2fc7b6404941c3e4fcd3b1b2f9d0efb269a910fb52236ff39df59"

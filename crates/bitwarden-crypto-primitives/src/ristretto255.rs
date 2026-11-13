@@ -43,29 +43,51 @@ impl RistrettoPoint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_vectors::{array, bytes};
+
+    const UNIFORM_01: &str = "0101010101010101010101010101010101010101010101010101010101010101\
+    0101010101010101010101010101010101010101010101010101010101010101";
 
     #[test]
     fn scalar_multiplication_commutes() {
-        let g = RistrettoPoint::from_uniform_bytes(&[1; 64]);
-        let (a, b) = ([2; 64], [3; 64]);
+        let g = RistrettoPoint::from_uniform_bytes(&array(UNIFORM_01));
+        let (a, b) = (
+            array(
+                "0202020202020202020202020202020202020202020202020202020202020202\
+                      0202020202020202020202020202020202020202020202020202020202020202",
+            ),
+            array(
+                "0303030303030303030303030303030303030303030303030303030303030303\
+                      0303030303030303030303030303030303030303030303030303030303030303",
+            ),
+        );
         assert!(g.mul_wide(&a).mul_wide(&b) == g.mul_wide(&b).mul_wide(&a));
     }
 
     #[test]
     fn encoding_roundtrip_and_identity() {
-        let g = RistrettoPoint::from_uniform_bytes(&[1; 64]);
+        let g = RistrettoPoint::from_uniform_bytes(&array(UNIFORM_01));
         assert!(RistrettoPoint::decompress(&g.compress()).expect("canonical") == g);
         assert!(!g.is_identity());
 
-        let identity = RistrettoPoint::decompress(&[0; 32]).expect("identity encodes as zeros");
+        let identity = RistrettoPoint::decompress(&bytes(
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        ))
+        .expect("identity encodes as zeros");
         assert!(identity.is_identity());
 
         assert_eq!(
-            RistrettoPoint::decompress(&[0xff; 32]).err(),
+            RistrettoPoint::decompress(&bytes(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            ))
+            .err(),
             Some(Error::InvalidKey)
         );
         assert_eq!(
-            RistrettoPoint::decompress(&[0; 31]).err(),
+            RistrettoPoint::decompress(&bytes(
+                "00000000000000000000000000000000000000000000000000000000000000"
+            ))
+            .err(),
             Some(Error::InvalidKey)
         );
     }
@@ -75,23 +97,29 @@ mod tests {
 
     #[test]
     fn known_answers() {
-        let point = RistrettoPoint::from_uniform_bytes(&[0x42; WIDE_LEN]);
+        const SCALAR_24: &str = "2424242424242424242424242424242424242424242424242424242424242424\
+        2424242424242424242424242424242424242424242424242424242424242424";
+        /// Wide scalar 1 (little-endian).
+        const ONE: &str = "0100000000000000000000000000000000000000000000000000000000000000\
+        0000000000000000000000000000000000000000000000000000000000000000";
+
+        let point = RistrettoPoint::from_uniform_bytes(&array(
+            "4242424242424242424242424242424242424242424242424242424242424242\
+            4242424242424242424242424242424242424242424242424242424242424242",
+        ));
         assert_eq!(
             hex::encode(point.compress()),
             "441bdd7b3fb1a07d8a8add8ca6ede38cbce78eef2a34323aa4c2cce37db81561"
         );
         assert_eq!(
-            hex::encode(point.mul_wide(&[0x24; WIDE_LEN]).compress()),
+            hex::encode(point.mul_wide(&array(SCALAR_24)).compress()),
             "ca2d29b8b09bf24387d77c47cb5495332b44ac465c1a35e5bca5302a77f48239"
         );
 
-        let basepoint =
-            RistrettoPoint::decompress(&hex::decode(BASEPOINT).expect("hex")).expect("canonical");
+        let basepoint = RistrettoPoint::decompress(&bytes(BASEPOINT)).expect("canonical");
         assert_eq!(hex::encode(basepoint.compress()), BASEPOINT);
 
-        // Scalar 1 (little-endian, wide) is the identity map.
-        let mut one = [0u8; WIDE_LEN];
-        one[0] = 1;
-        assert!(basepoint.mul_wide(&one) == basepoint);
+        // Multiplying by scalar 1 is the identity map.
+        assert!(basepoint.mul_wide(&array(ONE)) == basepoint);
     }
 }

@@ -71,6 +71,7 @@ impl PublicKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_vectors::{array, bytes};
 
     #[test]
     fn ecdh_agrees() {
@@ -99,11 +100,19 @@ mod tests {
         assert!(PublicKey::from_sec1_bytes(&sec1).expect("valid") == key.public_key());
 
         assert_eq!(
-            SecretKey::from_bytes(&[0; 32]).err(),
+            SecretKey::from_bytes(&array(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ))
+            .err(),
             Some(Error::InvalidKey)
         );
         assert_eq!(
-            PublicKey::from_sec1_bytes(&[4; 65]).err(),
+            PublicKey::from_sec1_bytes(&bytes(
+                "0404040404040404040404040404040404040404040404040404040404040404\
+                0404040404040404040404040404040404040404040404040404040404040404\
+                04"
+            ))
+            .err(),
             Some(Error::InvalidKey)
         );
     }
@@ -111,21 +120,17 @@ mod tests {
     /// P-256 group order `n` (SEC 2 §2.4.2).
     const ORDER: &str = "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551";
 
-    fn scalar(hex_str: &str) -> [u8; SCALAR_LEN] {
-        hex::decode(hex_str)
-            .expect("hex")
-            .try_into()
-            .expect("length")
-    }
-
     /// Scalar 1 yields the generator `G`; `n - 1` is the largest valid scalar; `n` is rejected.
     #[test]
     fn known_answers_scalar_bounds() {
-        let mut one = [0u8; SCALAR_LEN];
-        one[SCALAR_LEN - 1] = 1;
+        const ONE: &str = "0000000000000000000000000000000000000000000000000000000000000001";
+        /// `n - 1`, the largest valid scalar.
+        const ORDER_MINUS_1: &str =
+            "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632550";
+
         assert_eq!(
             hex::encode(
-                SecretKey::from_bytes(&one)
+                SecretKey::from_bytes(&array(ONE))
                     .expect("valid")
                     .public_key()
                     .to_sec1_uncompressed()
@@ -135,19 +140,20 @@ mod tests {
             f5"
         );
 
-        let mut n_minus_1 = scalar(ORDER);
-        n_minus_1[SCALAR_LEN - 1] -= 1;
-        assert!(SecretKey::from_bytes(&n_minus_1).is_ok());
+        assert!(SecretKey::from_bytes(&array(ORDER_MINUS_1)).is_ok());
         assert_eq!(
-            SecretKey::from_bytes(&scalar(ORDER)).err(),
+            SecretKey::from_bytes(&array(ORDER)).err(),
             Some(Error::InvalidKey)
         );
     }
 
     #[test]
     fn known_answers_fixed_scalars() {
-        let a = SecretKey::from_bytes(&[0x42; SCALAR_LEN]).expect("valid");
-        let b = SecretKey::from_bytes(&[0x24; SCALAR_LEN]).expect("valid");
+        const SCALAR_42: &str = "4242424242424242424242424242424242424242424242424242424242424242";
+        const SCALAR_24: &str = "2424242424242424242424242424242424242424242424242424242424242424";
+
+        let a = SecretKey::from_bytes(&array(SCALAR_42)).expect("valid");
+        let b = SecretKey::from_bytes(&array(SCALAR_24)).expect("valid");
 
         assert_eq!(
             hex::encode(a.public_key().to_sec1_uncompressed()),

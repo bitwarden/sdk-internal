@@ -14,7 +14,7 @@ mod vectors {
     /// FIPS 180-2 long message: one million `a`, spanning many blocks.
     #[test]
     fn known_answer_million_a() {
-        let digest = digest(&vec![b'a'; 1_000_000]);
+        let digest = digest("a".repeat(1_000_000).as_bytes());
         assert_eq!(
             hex::encode(digest),
             "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"

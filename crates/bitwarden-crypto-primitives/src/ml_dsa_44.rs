@@ -67,6 +67,7 @@ impl VerifyingKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_vectors::{array, bytes};
 
     /// ML-DSA-44 encoded verifying key length (FIPS 204 Table 2).
     const PUBLIC_KEY_LEN: usize = 1312;
@@ -87,7 +88,9 @@ mod tests {
 
     #[test]
     fn seed_is_deterministic() {
-        let a = SigningKey::from_seed(&[3; SEED_LEN]);
+        let a = SigningKey::from_seed(&array(
+            "0303030303030303030303030303030303030303030303030303030303030303",
+        ));
         let b = SigningKey::from_seed(&a.seed());
         assert!(a.verifying_key() == b.verifying_key());
 
@@ -106,20 +109,22 @@ mod tests {
     fn known_answers_seed_expansion() {
         let cases = [
             (
-                [0x00; SEED_LEN],
+                "0000000000000000000000000000000000000000000000000000000000000000",
                 "eb4e7302842153b0fa19e8620739ad258af4929c26dd89079a7ec7d4282208e1",
             ),
             (
-                [0xff; SEED_LEN],
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "62c4f1b3164db7fa896a3343e900eb3e13c9f76de122020feba37ee063d49ef0",
             ),
             (
-                [0x42; SEED_LEN],
+                "4242424242424242424242424242424242424242424242424242424242424242",
                 "19506c63f504c175013cf1b459397bbbc2ce6a3fd841bab68b3898f6f2fddc2f",
             ),
         ];
         for (seed, expected) in cases {
-            let public = SigningKey::from_seed(&seed).verifying_key().to_bytes();
+            let public = SigningKey::from_seed(&array(seed))
+                .verifying_key()
+                .to_bytes();
             assert_eq!(hex::encode(crate::sha256::digest(&public)), expected);
         }
     }
@@ -127,7 +132,8 @@ mod tests {
     /// Signing is hedged, so a recorded signature is checked by verification only.
     #[test]
     fn recorded_signature_verifies() {
-        const FOX: &[u8] = b"The quick brown fox jumps over the lazy dog";
+        const SEED_42: &str = "4242424242424242424242424242424242424242424242424242424242424242";
+        const FOX: &str = "The quick brown fox jumps over the lazy dog";
         const SIGNATURE: &str = "b4c7c13ff8cbc02df30ee1c82cb0b1656c74974a36248fd0d45a0357498eb007\
         08ccc224550edc59343dabda6ab44e0ed175c58c1546004f12776518e86a3a94\
         652867fc7f4e5b1b97c10ffb0a7c979d2fe5b4a573ebac785b8090f754fd69f8\
@@ -205,11 +211,14 @@ mod tests {
         375687959aa3adb3bfd6e1f4f9191c383d446570788a92999cb8c0cce7eff800\
         00000000000000000000000000000000111c2d3f";
 
-        let public = SigningKey::from_seed(&[0x42; SEED_LEN]).verifying_key();
-        let mut sig = hex::decode(SIGNATURE).expect("hex");
-        assert_eq!(public.verify(FOX, &sig), Ok(()));
+        let public = SigningKey::from_seed(&array(SEED_42)).verifying_key();
+        let mut sig = bytes(SIGNATURE);
+        assert_eq!(public.verify(FOX.as_bytes(), &sig), Ok(()));
 
         sig[0] ^= 1;
-        assert_eq!(public.verify(FOX, &sig), Err(Error::InvalidSignature));
+        assert_eq!(
+            public.verify(FOX.as_bytes(), &sig),
+            Err(Error::InvalidSignature)
+        );
     }
 }

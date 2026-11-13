@@ -8,6 +8,8 @@ mod rustcrypto;
 use rustcrypto as backend;
 
 mod error;
+#[cfg(test)]
+mod test_vectors;
 pub use error::Error;
 
 #[macro_use]

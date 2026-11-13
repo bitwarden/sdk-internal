@@ -57,30 +57,43 @@ impl Hmac {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_vectors::bytes;
 
     // RFC 4231 test case 2.
-    const KEY: &[u8] = b"Jefe";
-    const DATA: &[u8] = b"what do ya want for nothing?";
+    const KEY: &str = "Jefe";
+    const DATA: &str = "what do ya want for nothing?";
     const SHA256_TAG: &str = "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843";
 
     #[test]
     fn known_answer_sha256() {
-        assert_eq!(hex::encode(hmac(HashAlg::Sha256, KEY, DATA)), SHA256_TAG);
+        assert_eq!(
+            hex::encode(hmac(HashAlg::Sha256, KEY.as_bytes(), DATA.as_bytes())),
+            SHA256_TAG
+        );
     }
 
     #[test]
     fn tag_lengths() {
-        assert_eq!(hmac(HashAlg::Sha1, KEY, DATA).len(), 20);
-        assert_eq!(hmac(HashAlg::Sha384, KEY, DATA).len(), 48);
-        assert_eq!(hmac(HashAlg::Sha512, KEY, DATA).len(), 64);
+        assert_eq!(
+            hmac(HashAlg::Sha1, KEY.as_bytes(), DATA.as_bytes()).len(),
+            20
+        );
+        assert_eq!(
+            hmac(HashAlg::Sha384, KEY.as_bytes(), DATA.as_bytes()).len(),
+            48
+        );
+        assert_eq!(
+            hmac(HashAlg::Sha512, KEY.as_bytes(), DATA.as_bytes()).len(),
+            64
+        );
     }
 
     #[test]
     fn verify_accepts_valid_and_rejects_invalid() {
-        let tag = hmac(HashAlg::Sha256, KEY, DATA);
+        let tag = hmac(HashAlg::Sha256, KEY.as_bytes(), DATA.as_bytes());
 
-        let mut mac = Hmac::new(HashAlg::Sha256, KEY);
-        mac.update(DATA);
+        let mut mac = Hmac::new(HashAlg::Sha256, KEY.as_bytes());
+        mac.update(DATA.as_bytes());
         assert_eq!(mac.clone().verify(&tag), Ok(()));
 
         let mut bad = tag.clone();
@@ -90,9 +103,13 @@ mod tests {
     }
 
     /// RFC 4231 test case 6 data: the key is longer than every block size, so it is hashed first.
-    const LONG_KEY_DATA: &[u8] = b"Test Using Larger Than Block-Size Key - Hash Key First";
-    const LONG_KEY: [u8; 131] = [0xaa; 131];
-    const FOX: &[u8] = b"The quick brown fox jumps over the lazy dog";
+    const LONG_KEY_DATA: &str = "Test Using Larger Than Block-Size Key - Hash Key First";
+    const LONG_KEY: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+    aaaaaa";
+    const FOX: &str = "The quick brown fox jumps over the lazy dog";
 
     /// Expected tags per algorithm: (empty key and message, long key, key `"key"` over FOX).
     const VECTORS: [(HashAlg, &str, &str, &str); 4] = [
@@ -133,11 +150,15 @@ mod tests {
         for (alg, empty, long_key, fox) in VECTORS {
             assert_eq!(hex::encode(hmac(alg, b"", b"")), empty, "{alg:?} empty");
             assert_eq!(
-                hex::encode(hmac(alg, &LONG_KEY, LONG_KEY_DATA)),
+                hex::encode(hmac(alg, &bytes(LONG_KEY), LONG_KEY_DATA.as_bytes())),
                 long_key,
                 "{alg:?} long key"
             );
-            assert_eq!(hex::encode(hmac(alg, b"key", FOX)), fox, "{alg:?} fox");
+            assert_eq!(
+                hex::encode(hmac(alg, b"key", FOX.as_bytes())),
+                fox,
+                "{alg:?} fox"
+            );
         }
     }
 }
