@@ -13,7 +13,10 @@ use ::openssl::{cipher::Cipher, cipher_ctx::CipherCtx};
 use zeroize::Zeroizing;
 
 use super::aes_gcm;
-use crate::Error;
+use crate::{
+    Error,
+    xaes_256_gcm::{KEY_LEN, NONCE_LEN},
+};
 
 /// AES block length in bytes.
 const BLOCK_LEN: usize = 16;
@@ -25,14 +28,19 @@ const RB: u8 = 0x87;
 const PREFIX_1: [u8; 4] = [0x00, 0x01, b'X', 0x00];
 const PREFIX_2: [u8; 4] = [0x00, 0x02, b'X', 0x00];
 
-pub(crate) fn encrypt(key: &[u8; 32], nonce: &[u8; 24], aad: &[u8], plaintext: &[u8]) -> Vec<u8> {
+pub(crate) fn encrypt(
+    key: &[u8; KEY_LEN],
+    nonce: &[u8; NONCE_LEN],
+    aad: &[u8],
+    plaintext: &[u8],
+) -> Vec<u8> {
     let (derived, gcm_nonce) = derive(key, nonce);
     aes_gcm::encrypt(&derived, &gcm_nonce, aad, plaintext)
 }
 
 pub(crate) fn decrypt(
-    key: &[u8; 32],
-    nonce: &[u8; 24],
+    key: &[u8; KEY_LEN],
+    nonce: &[u8; NONCE_LEN],
     aad: &[u8],
     ciphertext: &[u8],
 ) -> Result<Vec<u8>, Error> {
@@ -41,7 +49,10 @@ pub(crate) fn decrypt(
 }
 
 /// Returns the derived key and the 12-byte GCM nonce.
-fn derive(key: &[u8; 32], nonce: &[u8; 24]) -> (Zeroizing<[u8; 32]>, [u8; 12]) {
+fn derive(
+    key: &[u8; KEY_LEN],
+    nonce: &[u8; NONCE_LEN],
+) -> (Zeroizing<[u8; KEY_LEN]>, [u8; crate::aes_gcm::NONCE_LEN]) {
     const INFALLIBLE: &str = "AES-ECB of fixed-size in-memory blocks does not fail";
 
     let mut ctx = CipherCtx::new().expect(INFALLIBLE);
@@ -62,7 +73,7 @@ fn derive(key: &[u8; 32], nonce: &[u8; 24]) -> (Zeroizing<[u8; 32]>, [u8; 12]) {
     let k1 = Zeroizing::new(double(&l));
 
     let (derivation_nonce, gcm_nonce) = nonce.split_at(DERIVATION_NONCE_LEN);
-    let mut derived = Zeroizing::new([0u8; 32]);
+    let mut derived = Zeroizing::new([0u8; KEY_LEN]);
     let (half_1, half_2) = derived.split_at_mut(BLOCK_LEN);
     aes(&counter_block(&k1, PREFIX_1, derivation_nonce), half_1);
     aes(&counter_block(&k1, PREFIX_2, derivation_nonce), half_2);

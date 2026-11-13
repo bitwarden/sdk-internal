@@ -5,10 +5,8 @@ use ::openssl::{
 use zeroize::Zeroizing;
 
 use super::random::fill_bytes;
-use crate::Error;
+use crate::{Error, ml_dsa::SEED_LEN};
 
-/// Seed length in bytes (FIPS 204 `ξ`).
-const SEED_LEN: usize = 32;
 /// Encoded ML-DSA-44 verifying key length (FIPS 204 Table 2).
 const PUBLIC_KEY_LEN: usize = 1312;
 
@@ -26,14 +24,14 @@ impl SigningKey {
         Self::from_seed(&seed)
     }
 
-    pub(crate) fn from_seed(seed: &[u8; 32]) -> Self {
+    pub(crate) fn from_seed(seed: &[u8; SEED_LEN]) -> Self {
         Self(
             PKey::private_key_from_seed(None, KeyType::ML_DSA_44, None, seed)
                 .expect("every 32-byte string is an ML-DSA seed"),
         )
     }
 
-    pub(crate) fn seed(&self) -> Zeroizing<[u8; 32]> {
+    pub(crate) fn seed(&self) -> Zeroizing<[u8; SEED_LEN]> {
         let mut seed = Zeroizing::new([0u8; SEED_LEN]);
         let len = self
             .0

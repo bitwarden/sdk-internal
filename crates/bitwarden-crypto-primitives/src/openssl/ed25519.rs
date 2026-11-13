@@ -5,12 +5,10 @@ use ::openssl::{
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use zeroize::Zeroizing;
 
-use crate::Error;
-
-/// Seed / public key length in bytes.
-const KEY_LEN: usize = 32;
-/// Signature length in bytes.
-const SIGNATURE_LEN: usize = 64;
+use crate::{
+    Error,
+    ed25519::{PUBLIC_KEY_LEN, SEED_LEN, SIGNATURE_LEN},
+};
 
 #[derive(Clone)]
 pub(crate) struct SigningKey(PKey<Private>);
@@ -23,14 +21,14 @@ impl SigningKey {
         Self(PKey::generate_ed25519().expect("Ed25519 key generation does not fail"))
     }
 
-    pub(crate) fn from_seed(seed: &[u8; 32]) -> Self {
+    pub(crate) fn from_seed(seed: &[u8; SEED_LEN]) -> Self {
         Self(
             PKey::private_key_from_raw_bytes(seed, Id::ED25519)
                 .expect("every 32-byte string is an Ed25519 seed"),
         )
     }
 
-    pub(crate) fn seed(&self) -> Zeroizing<[u8; 32]> {
+    pub(crate) fn seed(&self) -> Zeroizing<[u8; SEED_LEN]> {
         let raw = Zeroizing::new(
             self.0
                 .raw_private_key()
@@ -51,7 +49,7 @@ impl SigningKey {
         VerifyingKey::from_bytes(&bytes).expect("a derived public key is a valid point")
     }
 
-    pub(crate) fn sign(&self, msg: &[u8]) -> [u8; 64] {
+    pub(crate) fn sign(&self, msg: &[u8]) -> [u8; SIGNATURE_LEN] {
         const INFALLIBLE: &str = "Ed25519 signing of in-memory data does not fail";
 
         let mut signer = Signer::new_without_digest(&self.0).expect(INFALLIBLE);
@@ -64,7 +62,7 @@ impl SigningKey {
 /// Raw encoding plus the OpenSSL key. Equality compares the encoding.
 #[derive(Clone)]
 pub(crate) struct VerifyingKey {
-    bytes: [u8; KEY_LEN],
+    bytes: [u8; PUBLIC_KEY_LEN],
     key: PKey<Public>,
 }
 
@@ -79,7 +77,7 @@ impl Eq for VerifyingKey {}
 impl VerifyingKey {
     /// OpenSSL stores any 32 bytes as a key; decompress here to reject non-points like the
     /// RustCrypto backend does.
-    pub(crate) fn from_bytes(bytes: &[u8; 32]) -> Result<Self, Error> {
+    pub(crate) fn from_bytes(bytes: &[u8; PUBLIC_KEY_LEN]) -> Result<Self, Error> {
         if CompressedEdwardsY(*bytes).decompress().is_none() {
             return Err(Error::InvalidKey);
         }
@@ -89,7 +87,7 @@ impl VerifyingKey {
         Ok(Self { bytes: *bytes, key })
     }
 
-    pub(crate) fn to_bytes(&self) -> [u8; 32] {
+    pub(crate) fn to_bytes(&self) -> [u8; PUBLIC_KEY_LEN] {
         self.bytes
     }
 
@@ -100,8 +98,10 @@ impl VerifyingKey {
     /// to match `ed25519_dalek::VerifyingKey::verify_strict`. Remaining gap: a non-canonical
     /// encoding of `R` fails here, while dalek compares decoded points and could accept it. Honest
     /// signers never produce one.
-    pub(crate) fn verify(&self, msg: &[u8], sig: &[u8; 64]) -> Result<(), Error> {
-        let r: [u8; KEY_LEN] = sig[..KEY_LEN].try_into().expect("R is the first 32 bytes");
+    pub(crate) fn verify(&self, msg: &[u8], sig: &[u8; SIGNATURE_LEN]) -> Result<(), Error> {
+        let r: [u8; PUBLIC_KEY_LEN] = sig[..PUBLIC_KEY_LEN]
+            .try_into()
+            .expect("R is the first 32 bytes");
         if is_weak(&self.bytes) || is_weak(&r) {
             return Err(Error::InvalidSignature);
         }
@@ -116,7 +116,7 @@ impl VerifyingKey {
 }
 
 /// Whether `bytes` fails to decode or decodes to a small-order point.
-fn is_weak(bytes: &[u8; KEY_LEN]) -> bool {
+fn is_weak(bytes: &[u8; PUBLIC_KEY_LEN]) -> bool {
     CompressedEdwardsY(*bytes)
         .decompress()
         .is_none_or(|point| point.is_small_order())

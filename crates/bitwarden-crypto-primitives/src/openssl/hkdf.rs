@@ -4,14 +4,14 @@ use ::openssl::{
 };
 use zeroize::Zeroizing;
 
-use crate::Error;
+use crate::{Error, hkdf::PRK_LEN};
 
 /// SHA-256 output length; also the minimum PRK length (RFC 5869 §2.3).
 const HASH_LEN: usize = 32;
 /// Maximum output is 255 blocks (RFC 5869 §2.3).
 const MAX_OUTPUT_LEN: usize = 255 * HASH_LEN;
 
-pub(crate) fn extract(salt: Option<&[u8]>, ikm: &[u8]) -> Zeroizing<[u8; 32]> {
+pub(crate) fn extract(salt: Option<&[u8]>, ikm: &[u8]) -> Zeroizing<[u8; PRK_LEN]> {
     let mut prk = Zeroizing::new([0u8; HASH_LEN]);
     hkdf(
         Md::sha256(),
