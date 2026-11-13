@@ -16,6 +16,7 @@ pub use bitwarden_member_administration::*;
 pub use bitwarden_organization_invite_link::*;
 pub use bitwarden_server_communication_config::wasm::*;
 pub use bitwarden_shared_unlock::wasm::*;
+pub use bitwarden_web_connector::wasm::*;
 pub use client::PasswordManagerClient;
 pub use flight_recorder::FlightRecorderClient;
 pub use init::init_sdk;
