@@ -59,41 +59,44 @@ mod tests {
     use super::*;
     use crate::test_vectors::bytes;
 
-    // RFC 4231 test case 2.
-    const KEY: &str = "Jefe";
-    const DATA: &str = "what do ya want for nothing?";
-    const SHA256_TAG: &str = "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843";
+    // RFC 4231 test case 1 (RFC 2202 test case 1 for SHA-1): key 0x0b * 20, data "Hi There".
+    const KEY: &str = "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b";
+    const DATA: &str = "4869205468657265";
 
     #[test]
-    fn known_answer_sha256() {
-        assert_eq!(
-            hex::encode(hmac(HashAlg::Sha256, KEY.as_bytes(), DATA.as_bytes())),
-            SHA256_TAG
-        );
-    }
-
-    #[test]
-    fn tag_lengths() {
-        assert_eq!(
-            hmac(HashAlg::Sha1, KEY.as_bytes(), DATA.as_bytes()).len(),
-            20
-        );
-        assert_eq!(
-            hmac(HashAlg::Sha384, KEY.as_bytes(), DATA.as_bytes()).len(),
-            48
-        );
-        assert_eq!(
-            hmac(HashAlg::Sha512, KEY.as_bytes(), DATA.as_bytes()).len(),
-            64
-        );
+    fn known_answers_rfc4231() {
+        let cases = [
+            (HashAlg::Sha1, "b617318655057264e28bc0b6fb378c8ef146be00"),
+            (
+                HashAlg::Sha256,
+                "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7",
+            ),
+            (
+                HashAlg::Sha384,
+                "afd03944d84895626b0825f4ab46907f15f9dadbe4101ec682aa034c7cebc59c\
+                faea9ea9076ede7f4af152e8b2fa9cb6",
+            ),
+            (
+                HashAlg::Sha512,
+                "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cde\
+                daa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854",
+            ),
+        ];
+        for (alg, expected) in cases {
+            assert_eq!(
+                hex::encode(hmac(alg, &bytes(KEY), &bytes(DATA))),
+                expected,
+                "{alg:?}"
+            );
+        }
     }
 
     #[test]
     fn verify_accepts_valid_and_rejects_invalid() {
-        let tag = hmac(HashAlg::Sha256, KEY.as_bytes(), DATA.as_bytes());
+        let tag = hmac(HashAlg::Sha256, &bytes(KEY), &bytes(DATA));
 
-        let mut mac = Hmac::new(HashAlg::Sha256, KEY.as_bytes());
-        mac.update(DATA.as_bytes());
+        let mut mac = Hmac::new(HashAlg::Sha256, &bytes(KEY));
+        mac.update(&bytes(DATA));
         assert_eq!(mac.clone().verify(&tag), Ok(()));
 
         let mut bad = tag.clone();
