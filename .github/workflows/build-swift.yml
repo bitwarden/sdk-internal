@@ -48,8 +48,6 @@ jobs:
       contents: read
     env:
       _VERSION: ${{ needs.version.outputs.package_version }}
-      # Aikido can't run on macOS, so Cargo only uses the crates fetch-crates downloaded.
-      CARGO_NET_OFFLINE: "true"
     outputs:
       short-sha: ${{ steps.build.outputs.short-sha }}
     steps:
@@ -77,6 +75,11 @@ jobs:
         with:
           name: cargo-crates
           path: ~/.cargo
+
+      # Aikido only runs on Linux X64 runners, so Cargo only uses the crates fetch-crates downloaded.
+      - name: Keep Cargo offline
+        shell: bash
+        run: echo "CARGO_NET_OFFLINE=true" >> "$GITHUB_ENV"
 
       - name: Rustup target
         run: |

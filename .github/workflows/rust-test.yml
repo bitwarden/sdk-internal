@@ -45,9 +45,6 @@ jobs:
     name: ${{ matrix.os }} / default
     runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
     needs: fetch-crates
-    # Aikido can't run on every OS in the matrix, so Cargo only uses the crates fetch-crates downloaded.
-    env:
-      CARGO_NET_OFFLINE: "true"
     strategy:
       matrix:
         include:
@@ -98,6 +95,11 @@ jobs:
         with:
           name: cargo-crates
           path: ~/.cargo
+
+      # Aikido only runs on Linux X64 runners, so Cargo only uses the crates fetch-crates downloaded.
+      - name: Keep Cargo offline
+        shell: bash
+        run: echo "CARGO_NET_OFFLINE=true" >> "$GITHUB_ENV"
 
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
       # that changed and the crates that depend on them. Without any match, the run builds

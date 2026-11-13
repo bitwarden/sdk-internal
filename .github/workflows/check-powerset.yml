@@ -29,10 +29,6 @@ jobs:
     runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
     needs: fetch-crates
 
-    # Aikido can't run on every OS in the matrix, so Cargo only uses the crates fetch-crates downloaded.
-    env:
-      CARGO_NET_OFFLINE: "true"
-
     strategy:
       fail-fast: false
       matrix:
@@ -63,6 +59,11 @@ jobs:
         with:
           name: cargo-crates
           path: ~/.cargo
+
+      # Aikido only runs on Linux X64 runners, so Cargo only uses the crates fetch-crates downloaded.
+      - name: Keep Cargo offline
+        shell: bash
+        run: echo "CARGO_NET_OFFLINE=true" >> "$GITHUB_ENV"
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
