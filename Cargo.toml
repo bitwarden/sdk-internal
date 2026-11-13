@@ -107,7 +107,7 @@ icu_normalizer = { version = "2.2.0", features = [
     "utf8_iter",
 ], default-features = false }
 js-sys = { version = ">=0.3.72, <0.4" }
-keepass = { version = ">=0.13.7, <0.16", default-features = false }
+keepass = { version = ">=0.13.7, <0.18", default-features = false }
 ldap3 = { version = "=0.12.1", default-features = false, features = [
     "tls-rustls-ring",
 ] }
