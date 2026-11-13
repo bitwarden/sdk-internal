@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
     // Tests use `describe`/`it`/`expect` without importing them.
     globals: true,
     // Harnesses run one after another so they don't compete for CPU, and live suites one after
-    // another so they don't race on the same account.
+    // another so a run puts one test's load at a time on a shared server.
     fileParallelism: mode !== "benchmark" && mode !== "live",
     // The default reporter omits bench tables when stdout is not a TTY, e.g. in CI logs.
     reporters: ["verbose"],
