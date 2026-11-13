@@ -46,6 +46,7 @@ crates/bitwarden-autotype/** @bitwarden/team-desktop-native-dev
 crates/bitwarden-collections/** @bitwarden/team-admin-console-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-crypto-cipher-suite/** @bitwarden/team-key-management-dev
+crates/bitwarden-crypto-primitives/** @bitwarden/team-key-management-dev
 crates/bitwarden-crypto-sync-handler/** @bitwarden/team-key-management-dev
 crates/bitwarden-emergency-access/** @bitwarden/team-auth-dev
 crates/bitwarden-encrypted-migrator/** @bitwarden/team-key-management-dev

@@ -41,6 +41,7 @@ bitwarden-core = { path = "crates/bitwarden-core", version = "=4.0.0" }
 bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=4.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=4.0.0" }
 bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=4.0.0" }
+bitwarden-crypto-primitives = { path = "crates/bitwarden-crypto-primitives", version = "=4.0.0" }
 bitwarden-crypto-sync-handler = { path = "crates/bitwarden-crypto-sync-handler", version = "=4.0.0" }
 bitwarden-emergency-access = { path = "crates/bitwarden-emergency-access", version = "=4.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=4.0.0" }
@@ -237,6 +238,11 @@ opt-level = "z"
 # but it will more aggressively inline functions. This will help us avoid extra stack copies of keys and
 # other sensitive values being left behind without cleanup.
 [profile.release.package.bitwarden-crypto]
+opt-level = 3
+
+# Same for the primitives crate: the generic RustCrypto code (cipher modes, HMAC, PBKDF2, AEADs) is
+# instantiated here, so it must be optimized here too, not only in the RustCrypto crates.
+[profile.release.package.bitwarden-crypto-primitives]
 opt-level = 3
 
 # Heavy crypto operations are optimized for speed instead of size. Each crate costs a few KB but
