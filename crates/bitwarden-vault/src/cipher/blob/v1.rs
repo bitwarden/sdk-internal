@@ -469,6 +469,7 @@ mod tests {
         assert_eq!(unsealed, expected.into());
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_secure_note_test_vector() {
         verify_test_vector(
@@ -478,6 +479,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_login_test_vector() {
         verify_test_vector(
@@ -487,6 +489,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_card_test_vector() {
         verify_test_vector(
@@ -496,6 +499,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_identity_test_vector() {
         verify_test_vector(
@@ -505,6 +509,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_ssh_key_test_vector() {
         verify_test_vector(
@@ -514,6 +519,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_bank_account_test_vector() {
         verify_test_vector(
@@ -523,6 +529,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_passport_test_vector() {
         verify_test_vector(
@@ -532,6 +539,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_drivers_license_test_vector() {
         verify_test_vector(

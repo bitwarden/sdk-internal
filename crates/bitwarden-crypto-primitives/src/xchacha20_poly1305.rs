@@ -31,7 +31,8 @@ pub fn decrypt(
     backend::xchacha20_poly1305::decrypt(key, nonce, aad, ciphertext)
 }
 
-#[cfg(test)]
+// The OpenSSL backend does not support this primitive.
+#[cfg(all(test, not(bitwarden_crypto_backend = "openssl")))]
 mod tests {
     use super::*;
     use crate::test_vectors::{array, bytes};
@@ -99,5 +100,20 @@ mod tests {
             assert_eq!(hex::encode(&ciphertext), expected);
             assert_eq!(decrypt(&key, &nonce, &aad, &ciphertext), Ok(plaintext));
         }
+    }
+}
+
+#[cfg(all(test, bitwarden_crypto_backend = "openssl"))]
+mod unsupported_on_openssl {
+    use super::*;
+    use crate::test_vectors::array;
+
+    const KEY: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+    const NONCE: &str = "000000000000000000000000000000000000000000000000";
+
+    #[test]
+    #[should_panic(expected = "XChaCha20-Poly1305 is not available on the OpenSSL backend")]
+    fn panics() {
+        let _ = decrypt(&array(KEY), &array(NONCE), b"", b"");
     }
 }

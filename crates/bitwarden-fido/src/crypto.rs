@@ -75,6 +75,7 @@ mod tests {
         <CoseKey as coset::CborSerializable>::from_slice(bytes.as_slice()).unwrap()
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_cose_key_to_pkcs8_and_back() {
         let cose_key = private_key_for_testing();
@@ -100,6 +101,7 @@ mod tests {
         ]
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_pkcs8_to_cose_key_and_back() {
         let pkcs8 = pkcs8_key_for_testing();

@@ -655,6 +655,7 @@ mod tests {
         assert_eq!(base64_url_decode("YWJj==").unwrap(), b"abc");
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn ec_round_trip() {
         let pair = EcKeyPair::generate().unwrap();
@@ -668,6 +669,7 @@ mod tests {
         assert_eq!(decrypted.expose_bytes(), plaintext);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn ec_rejects_wrong_private_key() {
         let pair = EcKeyPair::generate().unwrap();
@@ -856,6 +858,7 @@ mod tests {
         assert_eq!(key.expose_bytes(), &expected_key);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_decrypt_ec_packet() {
         let key_material = vec![
@@ -900,6 +903,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_ec_key_encryption() {
         let key_pair: EcKeyPair = EcKeyPair::generate().unwrap();

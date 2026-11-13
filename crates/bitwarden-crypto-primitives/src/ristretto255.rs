@@ -40,7 +40,8 @@ impl RistrettoPoint {
     }
 }
 
-#[cfg(test)]
+// The OpenSSL backend does not support this primitive.
+#[cfg(all(test, not(bitwarden_crypto_backend = "openssl")))]
 mod tests {
     use super::*;
     use crate::test_vectors::{array, bytes};
@@ -121,5 +122,16 @@ mod tests {
 
         // Multiplying by scalar 1 is the identity map.
         assert!(basepoint.mul_wide(&array(ONE)) == basepoint);
+    }
+}
+
+#[cfg(all(test, bitwarden_crypto_backend = "openssl"))]
+mod unsupported_on_openssl {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "ristretto255 is not available on the OpenSSL backend")]
+    fn panics() {
+        let _ = RistrettoPoint::decompress(b"");
     }
 }

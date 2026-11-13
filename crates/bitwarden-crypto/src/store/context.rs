@@ -1000,6 +1000,7 @@ mod tests {
         assert_eq!(decrypted1.0, decrypted2.0);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_wrap_unwrap() {
         let store: KeyStore<TestIds> = KeyStore::default();

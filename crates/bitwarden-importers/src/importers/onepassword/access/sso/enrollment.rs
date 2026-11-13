@@ -628,6 +628,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn three_wrong_codes_fail_the_enrollment() {
         let vectors = vectors().cpace;
@@ -665,6 +666,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn canceling_after_a_wrong_code_cancels_the_enrollment_on_the_server() {
         let vectors = vectors().cpace;
@@ -698,6 +700,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn no_new_code_is_asked_for_until_the_enrolled_device_replaces_msga() {
         let vectors = vectors().cpace;
@@ -738,6 +741,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn the_new_msga_is_asked_for_once_the_wrong_code_is_checked() {
         let vectors = vectors().cpace;
@@ -806,6 +810,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn denying_the_request_while_waiting_for_a_new_msga_is_a_denial() {
         let vectors = vectors().cpace;
@@ -862,6 +867,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn enrolls_a_device_approved_on_another() {
         let vectors = vectors().cpace;
@@ -904,6 +910,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn a_failed_exchange_fails_the_enrollment() {
         let vectors = vectors().cpace;
