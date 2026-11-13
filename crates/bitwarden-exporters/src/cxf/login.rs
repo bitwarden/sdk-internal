@@ -8,8 +8,9 @@ use bitwarden_fido::{InvalidGuidError, string_to_guid_bytes};
 use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    AndroidAppIdCredential, B64Url, BasicAuthCredential, CredentialScope, NotB64UrlEncoded,
-    OTPHashAlgorithm, PasskeyCredential, TotpCredential,
+    AndroidAppIdCredential, B64Url, BasicAuthCredential, CredentialScope,
+    GeneratedPasswordCredential, NotB64UrlEncoded, OTPHashAlgorithm, PasskeyCredential,
+    TotpCredential,
 };
 use thiserror::Error;
 
@@ -17,6 +18,10 @@ use crate::{Fido2Credential, Field, Login, LoginUri};
 
 /// Prefix that indicates the URL is an Android app scheme.
 const ANDROID_APP_SCHEME: &str = "androidapp://";
+
+/// Name of the hidden custom field used to preserve a [GeneratedPasswordCredential] that conflicts
+/// with the [BasicAuthCredential] password.
+const GENERATED_PASSWORD_FIELD_NAME: &str = "Generated Password";
 
 /// Convert CXF OTPHashAlgorithm to Bitwarden's TotpAlgorithm
 /// Handles standard algorithms and special cases like Steam
@@ -48,13 +53,18 @@ fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
     }
 }
 
+/// Convert CXF login related credentials to a Bitwarden [Login].
+///
+/// Returns the login together with any additional custom fields that should be added to the
+/// cipher, e.g. a generated password that conflicts with the basic auth password.
 pub(super) fn to_login(
     creation_date: DateTime<Utc>,
     basic_auth: Option<&BasicAuthCredential>,
     passkey: Option<&PasskeyCredential>,
     totp: Option<&TotpCredential>,
+    generated_password: Option<&GeneratedPasswordCredential>,
     scope: Option<&CredentialScope>,
-) -> Login {
+) -> (Login, Vec<Field>) {
     // Use basic_auth username first, fallback to non-empty passkey username
     let username = basic_auth
         .and_then(|v| v.username.clone().map(Into::into))
@@ -70,9 +80,30 @@ pub(super) fn to_login(
         .or_else(|| passkey.map(|p| vec![passkey_rp_id_to_uri(&p.rp_id)]))
         .unwrap_or_default();
 
-    Login {
+    let basic_auth_password = basic_auth.and_then(|v| v.password.clone().map(String::from));
+    let generated_password = generated_password
+        .map(|g| g.password.clone())
+        .filter(|p| !p.is_empty());
+
+    // Use non-empty basic_auth password first, fallback to the generated password. If both exist
+    // and differ, preserve the generated password as a hidden custom field so it isn't lost.
+    let (password, fields) = match (basic_auth_password, generated_password) {
+        (Some(password), Some(generated)) if password.is_empty() => (Some(generated), vec![]),
+        (Some(password), Some(generated)) if password != generated => (
+            Some(password),
+            vec![Field {
+                name: Some(GENERATED_PASSWORD_FIELD_NAME.to_string()),
+                value: Some(generated),
+                r#type: FieldType::Hidden as u8,
+                linked_id: None,
+            }],
+        ),
+        (password, generated) => (password.or(generated), vec![]),
+    };
+
+    let login = Login {
         username,
-        password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
+        password,
         login_uris,
         totp: totp.map(|t| totp_credential_to_totp(t).to_string()),
         fido2_credentials: passkey.map(|p| {
@@ -92,7 +123,9 @@ pub(super) fn to_login(
                 creation_date,
             }]
         }),
-    }
+    };
+
+    (login, fields)
 }
 
 /// Creates a LoginUri from a URL string

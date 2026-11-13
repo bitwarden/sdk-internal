@@ -99,6 +99,27 @@ mod tests {
     }
 
     #[test]
+    fn test_cxf_sample_generated_password_mapping() {
+        let items = load_sample_cxf().expect("Should load sample CXF data");
+
+        // The "Generated Password" item only contains a generated-password credential
+        let cipher = items
+            .iter()
+            .find(|item| item.name == "Generated Password")
+            .expect("Should find Generated Password item");
+
+        match &cipher.r#type {
+            CipherType::Login(login) => {
+                assert_eq!(login.password, Some("KozyS!cf#Nc9C799".to_string()));
+                assert_eq!(login.username, None);
+                assert!(login.login_uris.is_empty());
+            }
+            _ => panic!("Generated Password item should be a Login type"),
+        }
+        assert!(cipher.fields.is_empty());
+    }
+
+    #[test]
     fn test_cxf_sample_note_integration() {
         let items = load_sample_cxf().expect("Should load sample CXF data");
 
