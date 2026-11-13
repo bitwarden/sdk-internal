@@ -36,11 +36,12 @@ impl KdfDerivedKeyMaterial {
         salt: &[u8],
         kdf: &Kdf,
     ) -> Result<Self, CryptoError> {
-        kdf.validate()?;
-
         match kdf {
             Kdf::PBKDF2 { iterations } => {
                 let iterations = iterations.get();
+                if iterations < PBKDF2_MIN_ITERATIONS {
+                    return Err(CryptoError::InsufficientKdfParameters);
+                }
 
                 let mut hash = measure(SlowCryptoOp::Pbkdf2, || {
                     crate::util::pbkdf2(secret, salt, iterations)
@@ -58,6 +59,13 @@ impl KdfDerivedKeyMaterial {
                 let memory = memory.get() * 1024; // Convert MiB to KiB;
                 let iterations = iterations.get();
                 let parallelism = parallelism.get();
+
+                if memory < ARGON2ID_MIN_MEMORY
+                    || iterations < ARGON2ID_MIN_ITERATIONS
+                    || parallelism < ARGON2ID_MIN_PARALLELISM
+                {
+                    return Err(CryptoError::InsufficientKdfParameters);
+                }
 
                 let salt_sha = sha2::Sha256::new().chain_update(salt).finalize();
 
@@ -138,44 +146,6 @@ impl TryFrom<wasm_bindgen::JsValue> for Kdf {
 }
 
 impl Kdf {
-    /// Checks the parameters meet the SDK's minimums, the ones derivation enforces.
-    ///
-    /// Lets a server refuse weak settings a client sends without deriving a key.
-    pub fn validate(&self) -> Result<(), CryptoError> {
-        match self {
-            Kdf::PBKDF2 { iterations } => {
-                if iterations.get() < PBKDF2_MIN_ITERATIONS {
-                    return Err(CryptoError::InsufficientKdfParameters);
-                }
-            }
-            Kdf::Argon2id {
-                iterations,
-                memory,
-                parallelism,
-            } => {
-                // Memory is in MiB, Argon2 takes KiB: e.g. 64 is 65536.
-                let memory = memory
-                    .get()
-                    .checked_mul(1024)
-                    .ok_or(argon2::Error::MemoryTooMuch)?;
-                let iterations = iterations.get();
-                let parallelism = parallelism.get();
-
-                if memory < ARGON2ID_MIN_MEMORY
-                    || iterations < ARGON2ID_MIN_ITERATIONS
-                    || parallelism < ARGON2ID_MIN_PARALLELISM
-                {
-                    return Err(CryptoError::InsufficientKdfParameters);
-                }
-
-                // Argon2's own limits, e.g. on parallelism.
-                argon2::Params::new(memory, iterations, parallelism, Some(32))?;
-            }
-        }
-
-        Ok(())
-    }
-
     /// Default KDF for new encryption V1 accounts.
     pub fn default_pbkdf2() -> Kdf {
         Kdf::PBKDF2 {
@@ -214,10 +184,7 @@ fn default_argon2_parallelism() -> NonZeroU32 {
 mod tests {
     use std::num::{NonZero, NonZeroU32};
 
-    use crate::{
-        CryptoError,
-        keys::kdf::{Kdf, KdfDerivedKeyMaterial},
-    };
+    use crate::keys::kdf::{Kdf, KdfDerivedKeyMaterial};
 
     #[test]
     fn test_derive_kdf_minimums() {
@@ -255,34 +222,6 @@ mod tests {
                     .to_string(),
                 "Insufficient KDF parameters"
             );
-        }
-    }
-
-    #[test]
-    fn test_validate() {
-        fn nz(n: u32) -> NonZero<u32> {
-            NonZero::new(n).unwrap()
-        }
-
-        assert!(Kdf::default_pbkdf2().validate().is_ok());
-        assert!(Kdf::default_argon2().validate().is_ok());
-
-        let insufficient = Kdf::PBKDF2 {
-            iterations: nz(4999),
-        };
-        assert!(matches!(
-            insufficient.validate(),
-            Err(CryptoError::InsufficientKdfParameters)
-        ));
-
-        // MiB that overflow KiB in u32, and parallelism above Argon2's limit.
-        for (memory, parallelism) in [(u32::MAX, 1), (64, 1 << 24)] {
-            let kdf = Kdf::Argon2id {
-                iterations: nz(3),
-                memory: nz(memory),
-                parallelism: nz(parallelism),
-            };
-            assert!(matches!(kdf.validate(), Err(CryptoError::Argon(_))));
         }
     }
 

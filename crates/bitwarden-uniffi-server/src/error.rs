@@ -16,9 +16,6 @@ pub enum ServerError {
     /// Two objects in the input name different keys where they must name the same one.
     #[error("Key id mismatch")]
     KeyIdMismatch,
-    /// KDF settings below the SDK's minimums or outside Argon2's limits, or an empty salt.
-    #[error("Invalid KDF")]
-    InvalidKdf,
 }
 
 /// Maps SDK parse errors to [ServerError::InvalidData], so exports can use `?`.
