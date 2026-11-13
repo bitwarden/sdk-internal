@@ -205,6 +205,7 @@ async fn assert_downloads_the_account(session: Session, master_key: Zeroizing<Ve
     assert_eq!(item.overview.title.as_deref(), Some("Example"));
 }
 
+#[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
 #[tokio::test]
 async fn a_new_device_is_enrolled_and_signs_in() {
     let server = FakeServer::start().await;
@@ -232,6 +233,7 @@ async fn a_new_device_is_enrolled_and_signs_in() {
     server.mock.verify().await;
 }
 
+#[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
 #[tokio::test]
 async fn a_wrong_verification_code_is_asked_for_again() {
     let server = FakeServer::start().await;
@@ -253,6 +255,7 @@ async fn a_wrong_verification_code_is_asked_for_again() {
     server.mock.verify().await;
 }
 
+#[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
 #[tokio::test]
 async fn a_second_factor_after_the_sso_login_is_unsupported() {
     let server = FakeServer::start_with_mfa(json!({"totp": {"enabled": true}})).await;

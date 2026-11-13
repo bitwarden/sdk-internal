@@ -128,6 +128,7 @@ mod tests {
     #[cfg(test)]
     use super::*;
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_encrypt_decrypt_xchacha20() {
         let key = [0u8; KEY_SIZE];
@@ -147,6 +148,7 @@ mod tests {
         assert_eq!(nonce.as_bytes().len(), NONCE_SIZE);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_fails_when_ciphertext_changed() {
         let key = [0u8; KEY_SIZE];
@@ -161,6 +163,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_fails_when_associated_data_changed() {
         let key = [0u8; KEY_SIZE];
@@ -180,6 +183,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_fails_when_nonce_changed() {
         let key = [0u8; KEY_SIZE];

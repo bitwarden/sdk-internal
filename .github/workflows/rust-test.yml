@@ -102,11 +102,20 @@ jobs:
   test-openssl:
     name: OpenSSL backend
     runs-on: ubuntu-24.04
+    # The OpenSSL backend links the system OpenSSL, which must be >= 3.5. Ubuntu 24.04 ships 3.0;
+    # Debian trixie ships 3.5.
+    container: debian:trixie
     env:
-      # Selects the OpenSSL backend of bitwarden-crypto-primitives (vendored OpenSSL 3.x).
+      # Selects the OpenSSL backend of bitwarden-crypto-primitives.
       RUSTFLAGS: --cfg bitwarden_crypto_backend="openssl"
 
     steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl git libssl-dev pkg-config
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -122,7 +131,7 @@ jobs:
 
       # Runs the whole SDK on OpenSSL. The crypto-primitives test vectors run here against the
       # OpenSSL backend (the `test` job runs them against RustCrypto), and the cross-backend tests
-      # compare both.
+      # compare both. Tests that need XChaCha20-Poly1305 or ristretto255 are ignored on OpenSSL.
       - name: Test
         run: cargo test --workspace --all-features
 
