@@ -54,6 +54,10 @@ impl From<KeyEncryptionKeyError> for PrivateKeyEnvelopeError {
 
 /// A private key protected by a [`KeyEncryptionKey`]: an XAES-256-GCM or AES-256-CBC-HMAC
 /// wrapping key. The private key is sealed as PKCS#8 DER.
+///
+/// To migrate a key stored as an [`EncString`](crate::EncString), see
+/// [`LegacyCompatPrivateKeyEnvelope`](crate::compat::LegacyCompatPrivateKeyEnvelope) and its
+/// migration example.
 #[derive(Clone)]
 pub struct PrivateKeyEnvelope {
     cose_encrypt0: coset::CoseEncrypt0,
