@@ -31,6 +31,12 @@ jobs:
   build:
     name: Build bwac - ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # Sign only the Windows binary, and only on push to main or manual dispatch. PR builds are never signed.
+      _SIGN_WINDOWS: ${{ matrix.target == 'x86_64-pc-windows-msvc' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
 
     strategy:
       fail-fast: false
@@ -135,6 +141,67 @@ jobs:
           mkdir package
           cp -R "${BUNDLE}/." package/
           cp "${BINARY}" package/
+
+      - name: Log in to Azure
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Get Azure Key Vault secrets
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        id: get-kv-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: "bitwarden-ci"
+          secrets: "code-signing-vault-url,
+            code-signing-client-id,
+            code-signing-tenant-id,
+            code-signing-client-secret,
+            code-signing-cert-name"
+
+      - name: Log out from Azure
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        uses: bitwarden/gh-actions/azure-logout@main
+
+      - name: Install AzureSignTool
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        run: dotnet tool install --global AzureSignTool --version 4.0.1
+
+      - name: Sign Windows binary and launcher script
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        env:
+          SIGNING_VAULT_URL: ${{ steps.get-kv-secrets.outputs.code-signing-vault-url }}
+          SIGNING_CLIENT_ID: ${{ steps.get-kv-secrets.outputs.code-signing-client-id }}
+          SIGNING_TENANT_ID: ${{ steps.get-kv-secrets.outputs.code-signing-tenant-id }}
+          SIGNING_CLIENT_SECRET: ${{ steps.get-kv-secrets.outputs.code-signing-client-secret }}
+          SIGNING_CERT_NAME: ${{ steps.get-kv-secrets.outputs.code-signing-cert-name }}
+          # Sign the staged copies so target/ (saved by the build cache) and bundle/ stay unsigned.
+          BINARY: package/${{ matrix.binary }}
+        run: |
+          # Scripts customers run unchanged. The examples are meant to be edited, so they stay unsigned.
+          SCRIPTS=(
+            package/templates/bwac-launcher.ps1
+          )
+          for f in "${BINARY}" "${SCRIPTS[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "::error::File to sign not found: $f"
+              exit 1
+            fi
+          done
+          printf 'Signing %s\n' "${BINARY}" "${SCRIPTS[@]}"
+          azuresigntool sign -v \
+            -kvu "$SIGNING_VAULT_URL" \
+            -kvi "$SIGNING_CLIENT_ID" \
+            -kvt "$SIGNING_TENANT_ID" \
+            -kvs "$SIGNING_CLIENT_SECRET" \
+            -kvc "$SIGNING_CERT_NAME" \
+            -fd sha256 \
+            -du https://bitwarden.com \
+            -tr http://timestamp.digicert.com \
+            "${BINARY}" "${SCRIPTS[@]}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
