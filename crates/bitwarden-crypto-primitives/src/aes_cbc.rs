@@ -12,17 +12,17 @@ pub const IV_LEN: usize = 16;
 pub const BLOCK_LEN: usize = 16;
 
 /// Encrypts `plaintext` with PKCS#7 padding.
-pub fn encrypt(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN], plaintext: &[u8]) -> Vec<u8> {
-    backend::aes_cbc::encrypt(key, iv, plaintext)
+pub fn encrypt_pkcs7(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN], plaintext: &[u8]) -> Vec<u8> {
+    backend::aes_cbc::encrypt_pkcs7(key, iv, plaintext)
 }
 
 /// Decrypts `ciphertext` and strips PKCS#7 padding.
-pub fn decrypt(
+pub fn decrypt_pkcs7(
     key: &[u8; KEY_LEN],
     iv: &[u8; IV_LEN],
     ciphertext: &[u8],
 ) -> Result<Vec<u8>, Error> {
-    backend::aes_cbc::decrypt(key, iv, ciphertext)
+    backend::aes_cbc::decrypt_pkcs7(key, iv, ciphertext)
 }
 
 /// Unpadded, block-at-a-time CBC encryption for streaming. Padding is the caller's job.
@@ -98,17 +98,20 @@ mod tests {
         let (key, iv) = (arr::<KEY_LEN>(KEY), arr::<IV_LEN>(IV));
         let pt = hex::decode(PT).expect("hex");
 
-        let ct = encrypt(&key, &iv, &pt);
+        let ct = encrypt_pkcs7(&key, &iv, &pt);
         // Two data blocks plus one full padding block.
         assert_eq!(ct.len(), 3 * BLOCK_LEN);
         assert_eq!(hex::encode(&ct[..2 * BLOCK_LEN]), CT);
-        assert_eq!(decrypt(&key, &iv, &ct), Ok(pt));
+        assert_eq!(decrypt_pkcs7(&key, &iv, &ct), Ok(pt));
     }
 
     #[test]
     fn rejects_bad_length() {
         let (key, iv) = (arr::<KEY_LEN>(KEY), arr::<IV_LEN>(IV));
-        assert_eq!(decrypt(&key, &iv, &[0u8; 15]), Err(Error::DecryptionFailed));
+        assert_eq!(
+            decrypt_pkcs7(&key, &iv, &[0u8; 15]),
+            Err(Error::DecryptionFailed)
+        );
     }
 
     /// PKCS#7 edge cases: empty input pads to a full block, a block-aligned input gains a whole
@@ -130,10 +133,10 @@ mod tests {
             ),
         ];
         for (plaintext, expected) in cases {
-            let ciphertext = encrypt(&KEY_42, &IV_24, plaintext);
+            let ciphertext = encrypt_pkcs7(&KEY_42, &IV_24, plaintext);
             assert_eq!(hex::encode(&ciphertext), expected);
             assert_eq!(
-                decrypt(&KEY_42, &IV_24, &ciphertext),
+                decrypt_pkcs7(&KEY_42, &IV_24, &ciphertext),
                 Ok(plaintext.to_vec())
             );
         }

@@ -8,11 +8,11 @@ use crate::{
 type CbcEnc = cbc::Encryptor<aes::Aes256>;
 type CbcDec = cbc::Decryptor<aes::Aes256>;
 
-pub(crate) fn encrypt(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN], plaintext: &[u8]) -> Vec<u8> {
+pub(crate) fn encrypt_pkcs7(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN], plaintext: &[u8]) -> Vec<u8> {
     CbcEnc::new(key.into(), iv.into()).encrypt_padded_vec::<Pkcs7>(plaintext)
 }
 
-pub(crate) fn decrypt(
+pub(crate) fn decrypt_pkcs7(
     key: &[u8; KEY_LEN],
     iv: &[u8; IV_LEN],
     ciphertext: &[u8],
