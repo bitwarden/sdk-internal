@@ -3,7 +3,7 @@
 //! This implements the lowest layer of the signature module, verifying signatures on raw byte
 //! arrays.
 
-use bitwarden_crypto_primitives::{ed25519, ml_dsa};
+use bitwarden_crypto_primitives::{ed25519, ml_dsa_44};
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
@@ -27,7 +27,7 @@ use crate::{
 /// scheme.
 pub(super) enum RawVerifyingKey {
     Ed25519(ed25519::VerifyingKey),
-    MlDsa44(Box<ml_dsa::VerifyingKey>),
+    MlDsa44(Box<ml_dsa_44::VerifyingKey>),
 }
 
 /// A verifying key is a public key used for verifying signatures. It can be published to other
