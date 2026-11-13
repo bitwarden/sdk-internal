@@ -1,6 +1,6 @@
 use std::{num::NonZeroU32, pin::Pin};
 
-use bitwarden_crypto_primitives::{argon2, sha256};
+use bitwarden_crypto_primitives::{argon2, pbkdf2::pbkdf2_hmac_sha256, sha256};
 use hybrid_array::Array;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -38,13 +38,13 @@ impl KdfDerivedKeyMaterial {
     ) -> Result<Self, CryptoError> {
         match kdf {
             Kdf::PBKDF2 { iterations } => {
-                let iterations = iterations.get();
-                if iterations < PBKDF2_MIN_ITERATIONS {
+                if iterations.get() < PBKDF2_MIN_ITERATIONS {
                     return Err(CryptoError::InsufficientKdfParameters);
                 }
 
-                let mut hash = measure(SlowCryptoOp::Pbkdf2, || {
-                    crate::util::pbkdf2(secret, salt, iterations)
+                let mut hash = [0u8; sha256::DIGEST_LEN];
+                measure(SlowCryptoOp::Pbkdf2, || {
+                    pbkdf2_hmac_sha256(secret, salt, *iterations, &mut hash);
                 });
 
                 let key_material = Box::pin(hash.into());

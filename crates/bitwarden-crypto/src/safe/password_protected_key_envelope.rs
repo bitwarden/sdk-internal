@@ -14,9 +14,15 @@
 //! single recipient's unprotected headers. The output from the KDF - "envelope key", is used to
 //! wrap the symmetric key, that is sealed by the envelope.
 
-use std::{num::TryFromIntError, str::FromStr};
+use std::{
+    num::{NonZeroU32, TryFromIntError},
+    str::FromStr,
+};
 
-use bitwarden_crypto_primitives::argon2::{self, Params};
+use bitwarden_crypto_primitives::{
+    argon2::{self, Params},
+    pbkdf2::pbkdf2_hmac_sha256,
+};
 use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::{Value, value::Integer};
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
@@ -593,13 +599,20 @@ fn derive_pbkdf2_key(
     pbkdf2_settings: &Pbkdf2RawSettings,
     password: &str,
 ) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
-    Ok(measure(SlowCryptoOp::Pbkdf2, || {
-        crate::util::pbkdf2(
+    // Zero iterations is not a valid PBKDF2 setting.
+    let rounds = NonZeroU32::new(pbkdf2_settings.iterations)
+        .ok_or(PasswordProtectedKeyEnvelopeError::Kdf)?;
+
+    let mut hash = [0u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE];
+    measure(SlowCryptoOp::Pbkdf2, || {
+        pbkdf2_hmac_sha256(
             password.as_bytes(),
             &pbkdf2_settings.salt,
-            pbkdf2_settings.iterations,
-        )
-    }))
+            rounds,
+            &mut hash,
+        );
+    });
+    Ok(hash)
 }
 
 /// Errors that can occur when sealing or unsealing a key with the `PasswordProtectedKeyEnvelope`.

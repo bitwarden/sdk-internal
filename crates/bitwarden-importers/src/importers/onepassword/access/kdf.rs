@@ -1,8 +1,8 @@
 //! HKDF-SHA256, PBES2 (PBKDF2-HS256), and master-key derivation.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, num::NonZeroU32};
 
-use bitwarden_crypto_primitives::{hkdf, sha256};
+use bitwarden_crypto_primitives::{hkdf, pbkdf2::pbkdf2_hmac_sha256, sha256};
 use data_encoding::BASE64URL_NOPAD;
 use icu_normalizer::DecomposingNormalizer;
 
@@ -35,8 +35,10 @@ pub(super) fn validate_pbes2(method: &str) -> Result<(), OnePasswordError> {
 }
 
 /// PBKDF2-HMAC-SHA256 producing 32 bytes. Callers check the method first.
-pub(super) fn pbes2(password: &str, salt: &[u8], iterations: u32) -> [u8; 32] {
-    bitwarden_crypto::pbkdf2(password.as_bytes(), salt, iterations)
+pub(super) fn pbes2(password: &str, salt: &[u8], iterations: NonZeroU32) -> [u8; 32] {
+    let mut out = [0u8; sha256::DIGEST_LEN];
+    pbkdf2_hmac_sha256(password.as_bytes(), salt, iterations, &mut out);
+    out
 }
 
 pub(super) fn normalize_password(password: &str) -> Cow<'_, str> {
@@ -95,6 +97,7 @@ pub(super) fn derive_master_key(
         normalize_password(password).into_owned()
     };
 
+    let iterations = NonZeroU32::new(iterations).ok_or(OnePasswordError::Parse)?;
     let k2 = pbes2(&password, salt, iterations);
 
     account_key.combine_with(&k2)
@@ -250,7 +253,11 @@ mod tests {
     #[test]
     fn pbes2_returns_derived_key() {
         assert_eq!(
-            BASE64URL_NOPAD.encode(&pbes2("password", b"salt", 100)),
+            BASE64URL_NOPAD.encode(&pbes2(
+                "password",
+                b"salt",
+                NonZeroU32::new(100).expect("non-zero")
+            )),
             "B-aZcYDPfxKQTwQQDUBdNIiP32KvbVBqDswjsZb-mdg"
         );
     }

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, num::NonZeroU32};
 
 use rand::Rng;
 
@@ -52,12 +52,10 @@ impl KeeperAesKey {
         Self(Zeroizing::new(buf))
     }
 
-    pub(crate) fn from_password(password: &str, salt: &[u8], iterations: u32) -> Self {
-        Self(Zeroizing::new(bitwarden_crypto::pbkdf2(
-            password.as_bytes(),
-            salt,
-            iterations,
-        )))
+    pub(crate) fn from_password(password: &str, salt: &[u8], iterations: NonZeroU32) -> Self {
+        let mut key = Zeroizing::new([0u8; KEEPER_KEY_SIZE]);
+        pbkdf2_hmac_sha256(password.as_bytes(), salt, iterations, key.as_mut_slice());
+        Self(key)
     }
 
     pub(crate) fn expose_bytes(&self) -> &[u8] {
@@ -359,7 +357,9 @@ impl EncryptionParamsBlob {
             return Err(KeeperCryptoError::CorruptEncryptionParams);
         }
 
-        let key = KeeperAesKey::from_password(password, &self.salt(), self.iterations());
+        let iterations =
+            NonZeroU32::new(self.iterations()).ok_or(KeeperCryptoError::CorruptEncryptionParams)?;
+        let key = KeeperAesKey::from_password(password, &self.salt(), iterations);
         let decrypted = decrypt_aes_no_padding(&self.data(), &key, &self.iv())?;
         let bytes = decrypted.expose_bytes();
 
@@ -411,7 +411,7 @@ impl AsRef<[u8]> for EncryptionParamsBlob {
 pub(crate) struct KeeperV1KeyHash([u8; 32]);
 
 impl KeeperV1KeyHash {
-    pub(crate) fn from_password(password: &str, salt: &[u8], iterations: u32) -> Self {
+    pub(crate) fn from_password(password: &str, salt: &[u8], iterations: NonZeroU32) -> Self {
         let key = KeeperAesKey::from_password(password, salt, iterations);
         Self(sha256::digest(key.expose_bytes()))
     }
@@ -613,7 +613,8 @@ mod tests {
     #[test]
     fn pbkdf2_known_answer() {
         // PBKDF2-HMAC-SHA256, password="password", salt="salt", c=1, dkLen=32
-        let key = KeeperAesKey::from_password("password", b"salt", 1);
+        let key =
+            KeeperAesKey::from_password("password", b"salt", NonZeroU32::new(1).expect("non-zero"));
         let expected = data_encoding::HEXLOWER
             .decode(b"120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b")
             .unwrap();
@@ -622,9 +623,17 @@ mod tests {
 
     #[test]
     fn derive_v1_key_hash_is_sha256_of_key() {
-        let key = KeeperAesKey::from_password("hunter2", b"somesalt", 1000);
+        let key = KeeperAesKey::from_password(
+            "hunter2",
+            b"somesalt",
+            NonZeroU32::new(1000).expect("non-zero"),
+        );
         let expected = sha256::digest(key.expose_bytes()).to_vec();
-        let hash = KeeperV1KeyHash::from_password("hunter2", b"somesalt", 1000);
+        let hash = KeeperV1KeyHash::from_password(
+            "hunter2",
+            b"somesalt",
+            NonZeroU32::new(1000).expect("non-zero"),
+        );
         assert_eq!(hash.as_ref(), expected.as_slice());
     }
 
@@ -674,7 +683,11 @@ mod tests {
         salt: &[u8; 16],
         data_key: &[u8; 32],
     ) -> Vec<u8> {
-        let derived = KeeperAesKey::from_password(password, salt, iterations);
+        let derived = KeeperAesKey::from_password(
+            password,
+            salt,
+            NonZeroU32::new(iterations).expect("non-zero"),
+        );
         let iv = [0x42u8; 16];
         // Two identical 32-byte blocks, AES-CBC no padding.
         let mut blocks = data_key.to_vec();
