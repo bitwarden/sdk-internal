@@ -188,10 +188,10 @@ mod tests {
                     .expect_get_user_key()
                     .once()
                     .returning(move || {
-                        Err(bitwarden_api_key_connector::apis::Error::ResponseError(
+                        Err(bitwarden_api_key_connector::apis::Error::Response(
                             bitwarden_api_key_connector::apis::ResponseContent {
                                 status: reqwest::StatusCode::NOT_FOUND,
-                                content: "Not Found".to_string(),
+                                message: "Not Found".to_string(),
                             },
                         ))
                     });
@@ -240,10 +240,10 @@ mod tests {
                     .expect_get_user_key()
                     .once()
                     .returning(move || {
-                        Err(bitwarden_api_key_connector::apis::Error::ResponseError(
+                        Err(bitwarden_api_key_connector::apis::Error::Response(
                             bitwarden_api_key_connector::apis::ResponseContent {
                                 status: reqwest::StatusCode::NOT_FOUND,
-                                content: "Not Found".to_string(),
+                                message: "Not Found".to_string(),
                             },
                         ))
                     });
@@ -303,10 +303,10 @@ mod tests {
                     .expect_get_user_key()
                     .once()
                     .returning(move || {
-                        Err(bitwarden_api_key_connector::apis::Error::ResponseError(
+                        Err(bitwarden_api_key_connector::apis::Error::Response(
                             bitwarden_api_key_connector::apis::ResponseContent {
                                 status: reqwest::StatusCode::NOT_FOUND,
-                                content: "Not Found".to_string(),
+                                message: "Not Found".to_string(),
                             },
                         ))
                     });

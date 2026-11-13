@@ -3,8 +3,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use bitwarden_api_base::{AuthRequired, Configuration};
 use mockall::automock;
-use reqwest::Method;
-use serde::Serialize;
 
 use crate::{
     apis::Error,
@@ -42,48 +40,33 @@ impl UserKeysApiClient {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl UserKeysApi for UserKeysApiClient {
     async fn get_user_key(&self) -> Result<UserKeyResponseModel, Error> {
-        let response = request(&self.configuration, Method::GET, None::<()>).await?;
-
-        let body = response.text().await?;
-        let response_model = serde_json::from_str::<UserKeyResponseModel>(&body)?;
-        Ok(response_model)
+        let config = &self.configuration;
+        let request = config
+            .client
+            .get(format!("{}/user-keys", config.base_path))
+            .with_extension(AuthRequired::Bearer);
+        bitwarden_api_base::process_with_json_response(request).await
     }
 
     async fn post_user_key(&self, request_model: UserKeyKeyRequestModel) -> Result<(), Error> {
-        request(&self.configuration, Method::POST, Some(request_model)).await?;
-
-        Ok(())
+        let config = &self.configuration;
+        let request = config
+            .client
+            .post(format!("{}/user-keys", config.base_path))
+            .with_extension(AuthRequired::Bearer)
+            .json(&request_model);
+        bitwarden_api_base::process_with_empty_response(request).await
     }
 
     async fn put_user_key(&self, request_model: UserKeyKeyRequestModel) -> Result<(), Error> {
-        request(&self.configuration, Method::PUT, Some(request_model)).await?;
-
-        Ok(())
+        let config = &self.configuration;
+        let request = config
+            .client
+            .put(format!("{}/user-keys", config.base_path))
+            .with_extension(AuthRequired::Bearer)
+            .json(&request_model);
+        bitwarden_api_base::process_with_empty_response(request).await
     }
-}
-
-async fn request(
-    configuration: &Arc<Configuration>,
-    method: Method,
-    body: Option<impl Serialize>,
-) -> Result<reqwest::Response, Error> {
-    let url = format!("{}/user-keys", configuration.base_path);
-
-    let mut request = configuration
-        .client
-        .request(method, url)
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .header(reqwest::header::ACCEPT, "application/json")
-        .with_extension(AuthRequired::Bearer);
-
-    if let Some(ref body) = body {
-        request =
-            request.body(serde_json::to_string(&body).expect("Serialize should be infallible"))
-    }
-
-    let response = request.send().await?;
-
-    Ok(response.error_for_status()?)
 }
 
 #[cfg(test)]

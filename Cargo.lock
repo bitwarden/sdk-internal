@@ -653,8 +653,6 @@ dependencies = [
  "async-trait",
  "bitwarden-api-base",
  "mockall",
- "reqwest",
- "reqwest-middleware",
  "serde",
  "serde_json",
  "tokio",
