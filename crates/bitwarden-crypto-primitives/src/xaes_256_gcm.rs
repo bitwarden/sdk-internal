@@ -81,4 +81,37 @@ mod tests {
             "ce546ef63c9cc60765923609b33a9a1974e96e52daf2fcf7075e2271"
         );
     }
+
+    /// Edge cases under fixed key and nonce: empty plaintext with AAD (tag only), a plaintext one
+    /// byte past a block without AAD, and a multi-block plaintext with AAD.
+    #[test]
+    fn known_answers() {
+        const KEY_42: [u8; KEY_LEN] = [0x42; KEY_LEN];
+        const NONCE_24: [u8; NONCE_LEN] = [0x24; NONCE_LEN];
+        const FOX: &[u8] = b"The quick brown fox jumps over the lazy dog";
+
+        let cases: [(&[u8], &[u8], &str); 3] = [
+            (b"aad", b"", "18ef199c103f13f2e1ce85cf374b9997"),
+            (
+                b"",
+                &[0x11; 17],
+                "ad5c0f01a138cecf2105b59c272f9c753a9e5deb768d43176de5ad57ce51818a\
+                93",
+            ),
+            (
+                b"aad",
+                FOX,
+                "e8257b30c15cb6bd5b34c6ff5949e3444d3eb310e11eef91efd172b8bf2d73f6\
+                e8987bd472107d0c660e4ad8ab245fa9f6dca83a0ebfd854a7eb43",
+            ),
+        ];
+        for (aad, plaintext, expected) in cases {
+            let ciphertext = encrypt(&KEY_42, &NONCE_24, aad, plaintext);
+            assert_eq!(hex::encode(&ciphertext), expected);
+            assert_eq!(
+                decrypt(&KEY_42, &NONCE_24, aad, &ciphertext),
+                Ok(plaintext.to_vec())
+            );
+        }
+    }
 }

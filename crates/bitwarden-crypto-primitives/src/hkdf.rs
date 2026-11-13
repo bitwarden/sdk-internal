@@ -62,4 +62,33 @@ mod tests {
             Err(Error::InvalidParameters)
         );
     }
+
+    /// RFC 5869 test case 3: no salt, no info.
+    #[test]
+    fn known_answer_no_salt_no_info() {
+        let mut okm = [0u8; 42];
+        derive(None, &IKM, b"", &mut okm).expect("valid lengths");
+        assert_eq!(
+            hex::encode(okm),
+            "8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d\
+            9d201395faa4b61a96c8"
+        );
+    }
+
+    /// Shortest and longest (255 blocks) expansions; the long one is compared by its SHA-256.
+    #[test]
+    fn known_answer_output_length_bounds() {
+        const PRK: [u8; PRK_LEN] = [0x42; PRK_LEN];
+
+        let mut one = [0u8; 1];
+        expand(&PRK, b"info", &mut one).expect("valid length");
+        assert_eq!(hex::encode(one), "a2");
+
+        let mut max = vec![0u8; 255 * PRK_LEN];
+        expand(&PRK, b"info", &mut max).expect("valid length");
+        assert_eq!(
+            hex::encode(crate::sha256::digest(&max)),
+            "1a40dcf431b2fc7b6404941c3e4fcd3b1b2f9d0efb269a910fb52236ff39df59"
+        );
+    }
 }

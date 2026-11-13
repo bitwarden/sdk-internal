@@ -1,7 +1,7 @@
 /// Generates a hash module body: `DIGEST_LEN`, one-shot `digest()`, an incremental hasher, and
-/// tests against the FIPS 180 "abc" known answer.
+/// tests against the FIPS 180 "abc" and empty-input known answers.
 macro_rules! hash_module {
-    ($hasher:ident, $len:expr, $abc_kat:expr) => {
+    ($hasher:ident, $len:expr, $abc_kat:expr, $empty_kat:expr) => {
         use crate::backend;
 
         /// Digest length in bytes.
@@ -42,6 +42,11 @@ macro_rules! hash_module {
             #[test]
             fn known_answer_abc() {
                 assert_eq!(hex::encode(digest(b"abc")), $abc_kat);
+            }
+
+            #[test]
+            fn known_answer_empty() {
+                assert_eq!(hex::encode(digest(b"")), $empty_kat);
             }
 
             #[test]

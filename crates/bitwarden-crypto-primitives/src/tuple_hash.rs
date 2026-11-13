@@ -46,4 +46,29 @@ mod tests {
         tuple_hash256(&[b"a", b"bc"], b"", &mut b);
         assert_ne!(a, b);
     }
+
+    fn hash(items: &[&[u8]], customization: &[u8], len: usize) -> String {
+        let mut out = vec![0u8; len];
+        tuple_hash256(items, customization, &mut out);
+        hex::encode(out)
+    }
+
+    /// Edge cases: the empty tuple differs from a tuple of empty strings, a one-byte output, and a
+    /// customization string longer than the 136-byte cSHAKE256 rate.
+    #[test]
+    fn known_answers_edge_cases() {
+        assert_eq!(
+            hash(&[], b"", 32),
+            "2bec56ccb477bf46b33f0028e846265078759b8f08fd507b112b8ecac4d9a188"
+        );
+        assert_eq!(
+            hash(&[b"", b""], b"", 32),
+            "86a356954714fcbc07df3feaf4d2b074dfd83197284497dc3f0c55f2f1db7905"
+        );
+        assert_eq!(hash(&[b"a"], b"", 1), "d1");
+        assert_eq!(
+            hash(&[b"a", b"bc"], &[0x5a; 200], 32),
+            "3de68ac5d9d86a6e6b321c141ade87bca011cda45cb4f15e265bc7dba0f58611"
+        );
+    }
 }

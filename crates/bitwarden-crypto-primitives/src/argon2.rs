@@ -57,4 +57,39 @@ mod tests {
             Err(Error::InvalidParameters)
         );
     }
+
+    fn derive(memory_kib: u32, iterations: u32, parallelism: u32, len: usize) -> String {
+        let params = Params {
+            memory_kib,
+            iterations,
+            parallelism,
+        };
+        let mut out = vec![0u8; len];
+        argon2id(b"password", b"somesalt", &params, &mut out).expect("valid params");
+        hex::encode(out)
+    }
+
+    /// Smallest valid cost (8 KiB, one pass, one lane) and a multi-lane cost.
+    #[test]
+    fn known_answer_cost_bounds() {
+        assert_eq!(
+            derive(8, 1, 1, 32),
+            "f137f8e186a403a679ccd0606e5ab5dcdafe43c1640855ac8c6e33e9bd63eeb3"
+        );
+        assert_eq!(
+            derive(64 * 1024, 3, 4, 32),
+            "661fefbd6f29bcbc8f4646abc32a9d7a4645bb5c059537f8a5587f31adbecccd"
+        );
+    }
+
+    /// Shortest (4 bytes) and a longer than one Blake2b block (64 bytes) tag.
+    #[test]
+    fn known_answer_output_lengths() {
+        assert_eq!(derive(1024, 2, 1, 4), "6eafeb38");
+        assert_eq!(
+            derive(1024, 2, 1, 64),
+            "3f1e8d2fa34c480ae2613ad1f4a8ffb54c724e1ebe8fc2a1394590bce1921c59\
+            7e6158ea138c2de50d4b5c9523810a026ad8952eaa661f61c758fc6f9fabb713"
+        );
+    }
 }

@@ -110,4 +110,32 @@ mod tests {
         let (key, iv) = (arr::<KEY_LEN>(KEY), arr::<IV_LEN>(IV));
         assert_eq!(decrypt(&key, &iv, &[0u8; 15]), Err(Error::DecryptionFailed));
     }
+
+    /// PKCS#7 edge cases: empty input pads to a full block, a block-aligned input gains a whole
+    /// padding block, and one byte more shares the first ciphertext block with it.
+    #[test]
+    fn known_answers_padding() {
+        const KEY_42: [u8; KEY_LEN] = [0x42; KEY_LEN];
+        const IV_24: [u8; IV_LEN] = [0x24; IV_LEN];
+
+        let cases: [(&[u8], &str); 3] = [
+            (b"", "f14adffc8869f2eb0df4e65f69723de2"),
+            (
+                &[0x11; 16],
+                "7d2f24631d29ffe73a37092c736b54e049282da0cce3e6a9ea19ee2d77dfef42",
+            ),
+            (
+                &[0x11; 17],
+                "7d2f24631d29ffe73a37092c736b54e044226c47a0f59fe109bf2cf59c633d36",
+            ),
+        ];
+        for (plaintext, expected) in cases {
+            let ciphertext = encrypt(&KEY_42, &IV_24, plaintext);
+            assert_eq!(hex::encode(&ciphertext), expected);
+            assert_eq!(
+                decrypt(&KEY_42, &IV_24, &ciphertext),
+                Ok(plaintext.to_vec())
+            );
+        }
+    }
 }

@@ -107,4 +107,65 @@ mod tests {
             Some(Error::InvalidKey)
         );
     }
+
+    /// P-256 group order `n` (SEC 2 §2.4.2).
+    const ORDER: &str = "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551";
+
+    fn scalar(hex_str: &str) -> [u8; SCALAR_LEN] {
+        hex::decode(hex_str)
+            .expect("hex")
+            .try_into()
+            .expect("length")
+    }
+
+    /// Scalar 1 yields the generator `G`; `n - 1` is the largest valid scalar; `n` is rejected.
+    #[test]
+    fn known_answers_scalar_bounds() {
+        let mut one = [0u8; SCALAR_LEN];
+        one[SCALAR_LEN - 1] = 1;
+        assert_eq!(
+            hex::encode(
+                SecretKey::from_bytes(&one)
+                    .expect("valid")
+                    .public_key()
+                    .to_sec1_uncompressed()
+            ),
+            "046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2\
+            964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51\
+            f5"
+        );
+
+        let mut n_minus_1 = scalar(ORDER);
+        n_minus_1[SCALAR_LEN - 1] -= 1;
+        assert!(SecretKey::from_bytes(&n_minus_1).is_ok());
+        assert_eq!(
+            SecretKey::from_bytes(&scalar(ORDER)).err(),
+            Some(Error::InvalidKey)
+        );
+    }
+
+    #[test]
+    fn known_answers_fixed_scalars() {
+        let a = SecretKey::from_bytes(&[0x42; SCALAR_LEN]).expect("valid");
+        let b = SecretKey::from_bytes(&[0x24; SCALAR_LEN]).expect("valid");
+
+        assert_eq!(
+            hex::encode(a.public_key().to_sec1_uncompressed()),
+            "043ad3861a95621392516bb593ef05583ed2e5866f5cb6260a3017237fd89b90\
+            afd0961c7e37075a6791a39c61f56295b02b6d26567b615e60aa41ee1c8e8338\
+            8d"
+        );
+        assert_eq!(
+            hex::encode(a.to_pkcs8_der().expect("encodes").as_slice()),
+            "308187020100301306072a8648ce3d020106082a8648ce3d030107046d306b02\
+            0101042042424242424242424242424242424242424242424242424242424242\
+            42424242a144034200043ad3861a95621392516bb593ef05583ed2e5866f5cb6\
+            260a3017237fd89b90afd0961c7e37075a6791a39c61f56295b02b6d26567b61\
+            5e60aa41ee1c8e83388d"
+        );
+        assert_eq!(
+            hex::encode(a.diffie_hellman(&b.public_key()).as_slice()),
+            "e349cf6859d17371eaad97b5605b346539b69cef845378beaab8c3e54b0d12c7"
+        );
+    }
 }

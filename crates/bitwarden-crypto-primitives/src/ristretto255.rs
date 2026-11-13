@@ -69,4 +69,29 @@ mod tests {
             Some(Error::InvalidKey)
         );
     }
+
+    /// RFC 9496 Appendix A.1: the encoding of the basepoint `B`.
+    const BASEPOINT: &str = "e2f2ae0a6abc4e71a884a961c500515f58e30b6aa582dd8db6a65945e08d2d76";
+
+    #[test]
+    fn known_answers() {
+        let point = RistrettoPoint::from_uniform_bytes(&[0x42; WIDE_LEN]);
+        assert_eq!(
+            hex::encode(point.compress()),
+            "441bdd7b3fb1a07d8a8add8ca6ede38cbce78eef2a34323aa4c2cce37db81561"
+        );
+        assert_eq!(
+            hex::encode(point.mul_wide(&[0x24; WIDE_LEN]).compress()),
+            "ca2d29b8b09bf24387d77c47cb5495332b44ac465c1a35e5bca5302a77f48239"
+        );
+
+        let basepoint =
+            RistrettoPoint::decompress(&hex::decode(BASEPOINT).expect("hex")).expect("canonical");
+        assert_eq!(hex::encode(basepoint.compress()), BASEPOINT);
+
+        // Scalar 1 (little-endian, wide) is the identity map.
+        let mut one = [0u8; WIDE_LEN];
+        one[0] = 1;
+        assert!(basepoint.mul_wide(&one) == basepoint);
+    }
 }

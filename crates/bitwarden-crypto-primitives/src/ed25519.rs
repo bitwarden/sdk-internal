@@ -104,4 +104,35 @@ mod tests {
             Err(Error::InvalidSignature)
         );
     }
+
+    /// Deterministic signatures under a fixed seed, including over the empty message.
+    #[test]
+    fn known_answers_fixed_seed() {
+        const FOX: &[u8] = b"The quick brown fox jumps over the lazy dog";
+
+        let key = SigningKey::from_seed(&[0x42; SEED_LEN]);
+        let public = key.verifying_key();
+        assert_eq!(
+            hex::encode(public.to_bytes()),
+            "2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12"
+        );
+
+        let cases: [(&[u8], &str); 2] = [
+            (
+                b"",
+                "3f9f3147d0dd159f334cb800435ae49a2837adae5e6b2394906edc2cfed82978\
+                5e3dd186eb2fed1319a0451917cb6617fcbe9382e0d1343eb5ffd4a9a2dd820c",
+            ),
+            (
+                FOX,
+                "e868bd83b3daa5114b47f99e42c795f4c65018cbc150341e351f1eb54f5707a8\
+                0bec06c54ded44beb9f1e9321f04e72af1844839f23eafce8c9a0beb7b86410a",
+            ),
+        ];
+        for (msg, expected) in cases {
+            let sig = key.sign(msg);
+            assert_eq!(hex::encode(sig), expected);
+            assert_eq!(public.verify(msg, &sig), Ok(()));
+        }
+    }
 }
