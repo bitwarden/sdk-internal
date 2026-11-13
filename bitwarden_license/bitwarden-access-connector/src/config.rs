@@ -240,16 +240,16 @@ impl Config {
             None => FileConfig::default(),
         };
 
+        check_trust_store()?;
+
         let env_url = |name: &str| non_blank(std::env::var(name).ok());
-        let config = Self::build(
+        Self::build(
             token,
             file,
             env_url("BWAC_API_URL"),
             env_url("BWAC_IDENTITY_URL"),
             env_url("BWAC_BASE_URL"),
-        )?;
-        check_trust_store()?;
-        Ok(config)
+        )
     }
 
     /// Resolve URLs (env, then `[environment]`, then `base`) and validate `file` into a
