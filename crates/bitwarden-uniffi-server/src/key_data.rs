@@ -43,7 +43,7 @@ impl KeyDataClient {
                 let signed_by = signed_key.map(signed_public_key_signer).transpose()?;
 
                 // The envelope, where it names its key, holds this pair's private key.
-                same(&envelope.contained_key_id, &Some(public.key_id.clone()))?;
+                validate_keyids_match(&envelope.contained_key_id, &Some(public.key_id.clone()))?;
 
                 Ok(KeyInfo {
                     data_type: KeyDataType::PrivateKey,
@@ -61,7 +61,7 @@ impl KeyDataClient {
                 let envelope = parsing.inspect_legacy_compat_symmetric_key_envelope(signing_key)?;
                 let verifying = parsing.inspect_verifying_key(verifying_key)?;
 
-                same(&envelope.contained_key_id, &Some(verifying.key_id.clone()))?;
+                validate_keyids_match(&envelope.contained_key_id, &Some(verifying.key_id.clone()))?;
 
                 Ok(KeyInfo {
                     data_type: KeyDataType::SigningKey,
@@ -330,7 +330,7 @@ fn signer(signed: &SignedObject, namespace: SigningNamespace) -> Result<String, 
 }
 
 /// Refuses two ids that differ. Either missing passes: not every object names its key.
-fn same(left: &Option<String>, right: &Option<String>) -> Result<(), ServerError> {
+fn validate_keyids_match(left: &Option<String>, right: &Option<String>) -> Result<(), ServerError> {
     match (left, right) {
         (Some(left), Some(right)) if left != right => Err(ServerError::KeyIdMismatch),
         _ => Ok(()),
