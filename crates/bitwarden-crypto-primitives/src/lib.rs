@@ -29,6 +29,5 @@ pub mod sha1;
 pub mod sha256;
 pub mod sha384;
 pub mod sha512;
-pub mod tuple_hash;
 pub mod xaes_256_gcm;
 pub mod xchacha20_poly1305;

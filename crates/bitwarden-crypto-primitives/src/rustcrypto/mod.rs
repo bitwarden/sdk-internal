@@ -13,6 +13,5 @@ pub(crate) mod pbkdf2;
 pub(crate) mod random;
 pub(crate) mod ristretto255;
 pub(crate) mod rsa;
-pub(crate) mod tuple_hash;
 pub(crate) mod xaes_256_gcm;
 pub(crate) mod xchacha20_poly1305;

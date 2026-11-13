@@ -30,7 +30,6 @@ aes-gcm = { workspace = true }
 argon2 = { version = "=0.6.0-rc.8", features = ["kdf", "zeroize"], default-features = false }
 cbc = { workspace = true }
 chacha20poly1305 = { version = "0.11.0-rc.3", features = ["zeroize"] }
-cshake = "0.2.1"
 curve25519-dalek = { workspace = true }
 ed25519-dalek = { workspace = true, features = ["rand_core", "zeroize"] }
 hkdf = { workspace = true }

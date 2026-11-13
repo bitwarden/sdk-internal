@@ -904,7 +904,6 @@ dependencies = [
  "bitwarden-encoding",
  "cbc",
  "chacha20poly1305 0.11.0",
- "cshake",
  "curve25519-dalek 5.0.0",
  "ed25519-dalek",
  "getrandom 0.4.3",
@@ -2754,17 +2753,6 @@ checksum = "3633a51a39c69ebbaa4feaa694bd83d241e4093901c84a0963b19d9bb3f0cf8f"
 dependencies = [
  "crypto-bigint 0.7.10",
  "rand_core 0.10.1",
-]
-
-[[package]]
-name = "cshake"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6250a2d96a09edbe8e75ed29c87d05512ee2cbb24c7e8c684657f7930ffd3c6"
-dependencies = [
- "digest 0.11.3",
- "keccak",
- "sponge-cursor",
 ]
 
 [[package]]
