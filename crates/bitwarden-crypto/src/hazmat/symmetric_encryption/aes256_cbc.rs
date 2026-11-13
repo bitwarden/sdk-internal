@@ -24,13 +24,14 @@ impl Aes256Cbc {
         ciphertext: &[u8],
         key: &[u8; KEY_SIZE],
     ) -> Result<Vec<u8>, SymmetricEncryptionError> {
-        aes_cbc::decrypt(key, iv, ciphertext).map_err(|_| SymmetricEncryptionError::FormatWrong)
+        aes_cbc::decrypt_pkcs7(key, iv, ciphertext)
+            .map_err(|_| SymmetricEncryptionError::FormatWrong)
     }
 
     /// Encrypt using AES-256 in CBC mode.
     #[cfg(test)]
     fn encrypt(iv: &[u8; IV_SIZE], plaintext: &[u8], key: &[u8; KEY_SIZE]) -> Vec<u8> {
-        aes_cbc::encrypt(key, iv, plaintext)
+        aes_cbc::encrypt_pkcs7(key, iv, plaintext)
     }
 }
 

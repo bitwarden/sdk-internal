@@ -35,7 +35,7 @@ impl Aes256CbcHmacSha256 {
     ) -> ([u8; MAC_SIZE], Vec<u8>) {
         let (enc_key, mac_key) = split_to_subkeys(key);
 
-        let data = aes_cbc::encrypt(enc_key, iv, plaintext);
+        let data = aes_cbc::encrypt_pkcs7(enc_key, iv, plaintext);
         let mac = calculate_mac(iv, &data, mac_key);
 
         (mac, data)
@@ -55,7 +55,8 @@ impl Aes256CbcHmacSha256 {
             return Err(SymmetricEncryptionError::IntegrityCheckFailed);
         }
 
-        aes_cbc::decrypt(enc_key, iv, ciphertext).map_err(|_| SymmetricEncryptionError::FormatWrong)
+        aes_cbc::decrypt_pkcs7(enc_key, iv, ciphertext)
+            .map_err(|_| SymmetricEncryptionError::FormatWrong)
     }
 }
 

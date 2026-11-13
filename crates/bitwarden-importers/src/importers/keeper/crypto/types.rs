@@ -198,7 +198,7 @@ impl AesV1Packet {
         }
         let (iv, ciphertext) = self.0.split_at(AES_BLOCK_SIZE);
         let iv = iv.try_into().map_err(|_| KeeperCryptoError::InvalidData)?;
-        aes_cbc::decrypt(&key.0, iv, ciphertext)
+        aes_cbc::decrypt_pkcs7(&key.0, iv, ciphertext)
             .map(KeeperPlaintext::from)
             .map_err(|_| KeeperCryptoError::Decryption)
     }
@@ -601,7 +601,7 @@ mod tests {
         let key = KeeperAesKey::from([9u8; 32]);
         let iv = [1u8; 16];
         let plaintext = b"keeper aes-v1 unauthenticated payload";
-        let ciphertext = aes_cbc::encrypt(&key.0, &iv, plaintext);
+        let ciphertext = aes_cbc::encrypt_pkcs7(&key.0, &iv, plaintext);
         let mut packet_bytes = iv.to_vec();
         packet_bytes.extend_from_slice(&ciphertext);
 
@@ -751,7 +751,7 @@ mod tests {
 
         // aes-v1 path
         let iv = [2u8; 16];
-        let ct = aes_cbc::encrypt(&data_key.0, &iv, &record_key);
+        let ct = aes_cbc::encrypt_pkcs7(&data_key.0, &iv, &record_key);
         let mut v1_packet_bytes = iv.to_vec();
         v1_packet_bytes.extend_from_slice(&ct);
         let v1_packet = AesV1Packet::from(v1_packet_bytes);
