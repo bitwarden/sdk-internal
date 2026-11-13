@@ -120,8 +120,8 @@ fn pbkdf2_matches() {
     for rounds in [1, 2, 1000] {
         let rounds = NonZeroU32::new(rounds).expect("non-zero");
         let (mut a, mut b) = ([0u8; 64], [0u8; 64]);
-        rc::pbkdf2::hmac_sha256(MESSAGE, b"salt", rounds, &mut a);
-        ossl::pbkdf2::hmac_sha256(MESSAGE, b"salt", rounds, &mut b);
+        rc::pbkdf2::pbkdf2_hmac_sha256(MESSAGE, b"salt", rounds, &mut a);
+        ossl::pbkdf2::pbkdf2_hmac_sha256(MESSAGE, b"salt", rounds, &mut b);
         assert_eq!(a, b);
     }
 }
