@@ -5,7 +5,7 @@ use ::openssl::{
 use zeroize::Zeroizing;
 
 use super::random::fill_bytes;
-use crate::{Error, ml_dsa::SEED_LEN};
+use crate::{Error, ml_dsa_44::SEED_LEN};
 
 /// Encoded ML-DSA-44 verifying key length (FIPS 204 Table 2).
 const PUBLIC_KEY_LEN: usize = 1312;

@@ -333,8 +333,8 @@ fn add_group_order(scalar: &mut [u8]) {
 #[test]
 fn ml_dsa_interoperates() {
     let (a, b) = (
-        rc::ml_dsa::SigningKey::from_seed(&SEED),
-        ossl::ml_dsa::SigningKey::from_seed(&SEED),
+        rc::ml_dsa_44::SigningKey::from_seed(&SEED),
+        ossl::ml_dsa_44::SigningKey::from_seed(&SEED),
     );
     assert_eq!(*a.seed(), *b.seed());
 
@@ -346,8 +346,8 @@ fn ml_dsa_interoperates() {
     assert_eq!(vk_a.verify(MESSAGE, &b.sign(MESSAGE)), Ok(()));
     assert_ne!(b.sign(MESSAGE), b.sign(MESSAGE));
 
-    let generated = ossl::ml_dsa::SigningKey::generate();
-    let from_seed = rc::ml_dsa::SigningKey::from_seed(&generated.seed());
+    let generated = ossl::ml_dsa_44::SigningKey::generate();
+    let from_seed = rc::ml_dsa_44::SigningKey::from_seed(&generated.seed());
     assert_eq!(
         from_seed.verifying_key().to_bytes(),
         generated.verifying_key().to_bytes()
