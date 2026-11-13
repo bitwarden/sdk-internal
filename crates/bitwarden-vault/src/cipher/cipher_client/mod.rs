@@ -181,11 +181,17 @@ impl CiphersClient {
     ///
     /// This method attempts to encrypt all ciphers in the list. If any cipher
     /// fails to encrypt, the entire operation fails and an error is returned.
+    ///
+    /// Fails with `InvalidInput` if any view is not a valid `CipherView`.
+    // From JavaScript, the views are converted here rather than by wasm-bindgen: it converts the
+    // arguments of an `async` export inside the promise it returns, and a conversion failure there
+    // leaves that promise pending forever. Converting in the body turns it into an
+    // `EncryptError::InvalidInput` rejection instead.
     // The signature is part of the UniFFI and wasm public surface; keep it `async`.
     #[allow(clippy::unused_async)]
     pub async fn encrypt_list(
         &self,
-        cipher_views: Vec<CipherView>,
+        cipher_views: LargeVec<CipherView>,
     ) -> Result<Vec<EncryptionContext>, EncryptError> {
         let user_id = self
             .client
@@ -200,6 +206,7 @@ impl CiphersClient {
         let prepared: Vec<(EncryptMode<CipherView>, Option<String>)> = cipher_views
             .into_iter()
             .map(|cv| {
+                let cv = cv?;
                 let encrypted_by_key_id = ctx
                     .get_symmetric_key_id(cv.key_identifier())
                     .map(|id| id.to_string());
@@ -208,9 +215,9 @@ impl CiphersClient {
                 } else {
                     EncryptMode::Legacy(cv)
                 };
-                (mode, encrypted_by_key_id)
+                Ok((mode, encrypted_by_key_id))
             })
-            .collect();
+            .collect::<Result<_, EncryptError>>()?;
 
         let (prepared_modes, key_ids): (Vec<_>, Vec<_>) = prepared.into_iter().unzip();
 
@@ -974,7 +981,11 @@ mod tests {
 
         let cipher_views = vec![test_cipher_view(), test_cipher_view()];
 
-        let result = client.vault().ciphers().encrypt_list(cipher_views).await;
+        let result = client
+            .vault()
+            .ciphers()
+            .encrypt_list(cipher_views.into())
+            .await;
 
         assert!(result.is_ok());
         let contexts = result.unwrap();
@@ -990,7 +1001,7 @@ mod tests {
     async fn test_encrypt_list_empty() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
-        let result = client.vault().ciphers().encrypt_list(vec![]).await;
+        let result = client.vault().ciphers().encrypt_list(vec![].into()).await;
 
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
@@ -1006,7 +1017,7 @@ mod tests {
         let contexts = client
             .vault()
             .ciphers()
-            .encrypt_list(original_views)
+            .encrypt_list(original_views.into())
             .await
             .unwrap();
 
@@ -1032,7 +1043,7 @@ mod tests {
         let contexts = client
             .vault()
             .ciphers()
-            .encrypt_list(cipher_views)
+            .encrypt_list(cipher_views.into())
             .await
             .unwrap();
 
@@ -1115,7 +1126,7 @@ mod tests {
         let contexts = client
             .vault()
             .ciphers()
-            .encrypt_list(vec![personal_view, org_view])
+            .encrypt_list(vec![personal_view, org_view].into())
             .await
             .unwrap();
 
