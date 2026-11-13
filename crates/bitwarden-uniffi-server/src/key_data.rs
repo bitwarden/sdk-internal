@@ -9,16 +9,13 @@
 //! must be equal. Nothing is decrypted or verified; comparing the ids with stored keys is the
 //! server's job.
 
-use std::str::FromStr;
+use std::{num::NonZeroU32, str::FromStr};
 
 use bitwarden_crypto::{
     CoseSerializable, CoseSign1Bytes, SignedObject, SignedPublicKey, SigningNamespace,
 };
 use bitwarden_encoding::B64;
-use serde::{
-    Deserialize,
-    de::{DeserializeOwned, IgnoredAny},
-};
+use serde::{Deserialize, de::DeserializeOwned};
 
 use crate::{CryptoObjectKeyIds, CryptoParsingClient, ServerError};
 
@@ -263,12 +260,29 @@ enum MasterPasswordData {
     #[serde(rename_all = "camelCase")]
     Raw {
         wrapped_key: String,
-        // Required, but not checked: KDF settings are the server's to validate.
-        #[serde(rename = "kdf")]
-        _kdf: IgnoredAny,
+        // Parsed, not validated: KDF settings are the server's to check.
+        #[allow(dead_code)]
+        kdf: KdfData,
     },
     PasswordProtectedKeyEnvelope {
         envelope: String,
+    },
+}
+
+/// A KDF and its salt; memory in MiB.
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case", deny_unknown_fields)]
+#[allow(dead_code)]
+enum KdfData {
+    Pbkdf2 {
+        iterations: NonZeroU32,
+        salt: String,
+    },
+    Argon2id {
+        iterations: NonZeroU32,
+        memory: NonZeroU32,
+        parallelism: NonZeroU32,
+        salt: String,
     },
 }
 
@@ -733,6 +747,22 @@ mod tests {
         let result = client().validate_unlock_method(master_password(kdf));
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn master_password_malformed_kdf() {
+        let cases = [
+            // Salt beside the KDF instead of in it.
+            json!({ "type": "pbkdf2", "iterations": 600000 }),
+            json!({ "type": "pbkdf2", "iterations": 0, "salt": "user@example.com" }),
+            json!({ "type": "scrypt", "iterations": 600000, "salt": "user@example.com" }),
+            serde_json::from_str(&with(argon2id(), "extra", json!(1))).expect("json"),
+        ];
+
+        for kdf in cases {
+            let result = client().validate_unlock_method(master_password(kdf.clone()));
+            assert!(matches!(result, Err(ServerError::InvalidData)), "{kdf}");
+        }
     }
 
     #[test]
