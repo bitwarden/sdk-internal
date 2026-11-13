@@ -11,7 +11,7 @@ const MIN_MEMORY_KIB_PER_LANE: u32 = 8;
 
 /// Argon2id v0x13. Lanes run sequentially: OpenSSL only threads them after a process-wide
 /// `OSSL_set_max_threads`, which this driver leaves alone.
-pub(crate) fn argon2id(
+pub(crate) fn argon2id_v13(
     password: &[u8],
     salt: &[u8],
     params: &Params,
