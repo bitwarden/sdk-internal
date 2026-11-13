@@ -89,6 +89,8 @@ crates/bitwarden-wasm-internal/src/pure_crypto.rs @bitwarden/team-key-management
 crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev
 crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-dev
 crates/bitwarden-member-administration/src/account_recovery_v2_upgrade.rs @bitwarden/team-key-management-dev
+crates/bitwarden-uniffi-server/src/crypto_parsing.rs @bitwarden/team-key-management-dev
+crates/bitwarden-uniffi-server/src/inspection.rs @bitwarden/team-key-management-dev
 
 # BW CLI
 crates/bw/src/admin_console/** @bitwarden/team-platform-dev
