@@ -15,11 +15,11 @@ use passkey::{
     authenticator::{
         DiscoverabilitySupport, StoreInfo, UiHint, UserCheck, extensions::HmacSecretConfig,
     },
+    crypto::{hash::Sha256Backend, rust_crypto::RustCryptoSha2},
     types::{
         CredentialExtensions, Passkey, StoredHmacSecret,
-        crypto::sha256,
         ctap2::{
-            self, Ctap2Code, Ctap2Error, StatusCode, VendorError,
+            self, Ctap2Error, StatusCode, VendorError,
             extensions::{AuthenticatorPrfInputs, AuthenticatorPrfValues},
             make_credential::Options,
         },
@@ -30,6 +30,7 @@ use reqwest::Url;
 use crate::{
     GetAssertionRequest, MakeCredentialResult, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
+    crypto::BitwardenFidoCrypto,
     types::{
         GetAssertionExtensionsOutput, PublicKeyCredentialDescriptor, PublicKeyCredentialParameters,
         UV, WebAuthnEntityError,
@@ -111,17 +112,19 @@ impl DeviceAuthKeyAuthenticator<'_> {
         // Create credential with passkey-rs, store record on device with given trait implementation
         let store = DeviceAuthKeyStoreInternal { store: self.store };
         let ui = DeviceAuthKeyUiInternal {};
-        let mut authenticator =
-            passkey::authenticator::Authenticator::new(super::AAGUID, store, ui)
-                .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential());
+        let mut authenticator = passkey::authenticator::Authenticator::new(
+            super::AAGUID,
+            store,
+            ui,
+            BitwardenFidoCrypto,
+        )
+        .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential());
         let response = authenticator
             .make_credential(request)
             .await
             .map_err(|status_code| {
                 tracing::error!(?status_code, "Failed to make FIDO credential");
-                if let StatusCode::Ctap2(Ctap2Code::Known(Ctap2Error::CredentialExcluded)) =
-                    status_code
-                {
+                if let StatusCode::Known(Ctap2Error::CredentialExcluded) = status_code {
                     DeviceAuthKeyError::CredentialExcluded
                 } else {
                     DeviceAuthKeyError::AuthenticatorFailure
@@ -238,8 +241,7 @@ impl DeviceAuthKeyAuthenticator<'_> {
             extensions: request
                 .extensions
                 .map(passkey::types::ctap2::get_assertion::ExtensionInputs::from),
-            options: passkey::types::ctap2::make_credential::Options {
-                rk: request.options.rk,
+            options: passkey::types::ctap2::get_assertion::Options {
                 up: true,
                 uv: match request.options.uv {
                     UV::Discouraged => false,
@@ -261,9 +263,13 @@ impl DeviceAuthKeyAuthenticator<'_> {
         // Get signature
         let store = DeviceAuthKeyStoreInternal { store: self.store };
         let ui = DeviceAuthKeyUiInternal {};
-        let mut authenticator =
-            passkey::authenticator::Authenticator::new(super::AAGUID, store, ui)
-                .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential());
+        let mut authenticator = passkey::authenticator::Authenticator::new(
+            super::AAGUID,
+            store,
+            ui,
+            BitwardenFidoCrypto,
+        )
+        .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential());
         let response = authenticator
             .get_assertion(request)
             .await
@@ -415,7 +421,7 @@ fn convert_creation_options(
         r#"{{"type":"webauthn.create","challenge":"{}","origin":"{}","crossOrigin":false}}"#,
         challenge_b64, origin
     );
-    let client_data_hash = passkey::types::crypto::sha256(client_data_json.as_bytes()).to_vec();
+    let client_data_hash = RustCryptoSha2::sha256(client_data_json.as_bytes()).to_vec();
 
     // Inject default RP ID
     let mut rp = rp.clone();
@@ -465,7 +471,7 @@ fn convert_creation_options(
     // Note, we currently hard-code this value instead of getting it from the server.
     let prf_input = AuthenticatorPrfInputs {
         eval: Some(AuthenticatorPrfValues {
-            first: sha256("passwordless-login".as_bytes()),
+            first: RustCryptoSha2::sha256("passwordless-login".as_bytes()),
             second: None,
         }),
         eval_by_credential: None,
@@ -585,6 +591,8 @@ impl TryFrom<DeviceAuthKeyRecord> for Passkey {
             })?,
             rp_id: value.rp_id,
             user_handle: Some(value.user_id.into()),
+            username: None,
+            user_display_name: None,
             counter: value.counter,
             extensions: CredentialExtensions {
                 hmac_secret: Some(StoredHmacSecret {
@@ -764,7 +772,8 @@ struct DeviceAuthKeyStoreInternal<'a> {
 
 #[async_trait::async_trait]
 impl passkey::authenticator::CredentialStore for DeviceAuthKeyStoreInternal<'_> {
-    type PasskeyItem = DeviceAuthKeyRecord;
+    // The stored record is parsed into a `Passkey` when it is loaded.
+    type PasskeyItem = Passkey;
 
     async fn find_credentials(
         &self,
@@ -772,12 +781,12 @@ impl passkey::authenticator::CredentialStore for DeviceAuthKeyStoreInternal<'_> 
         _rp_id: &str,
         _user_handle: Option<&[u8]>,
     ) -> Result<Vec<Self::PasskeyItem>, StatusCode> {
+        let vendor_error =
+            || StatusCode::from(VendorError::try_from(0xf0).expect("valid vendor error"));
         match self.store.get_record().await {
-            Ok(Some(key)) => Ok(vec![key]),
-            Ok(None) => return Ok(vec![]),
-            Err(_) => Err(VendorError::try_from(0xf0)
-                .expect("valid vendor error")
-                .into()),
+            Ok(Some(record)) => Ok(vec![Passkey::try_from(record).map_err(|_| vendor_error())?]),
+            Ok(None) => Ok(vec![]),
+            Err(_) => Err(vendor_error()),
         }
     }
 
@@ -786,7 +795,7 @@ impl passkey::authenticator::CredentialStore for DeviceAuthKeyStoreInternal<'_> 
         cred: Passkey,
         _user: passkey::types::ctap2::make_credential::PublicKeyCredentialUserEntity,
         _rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
-        _options: passkey::types::ctap2::get_assertion::Options,
+        _options: passkey::types::ctap2::make_credential::Options,
     ) -> Result<(), StatusCode> {
         let record = cred
             .try_into()
@@ -798,13 +807,11 @@ impl passkey::authenticator::CredentialStore for DeviceAuthKeyStoreInternal<'_> 
         Ok(())
     }
 
-    async fn update_credential(&mut self, _cred: Passkey) -> Result<(), StatusCode> {
+    async fn update_credential(&mut self, _cred: &Passkey) -> Result<(), StatusCode> {
         // This is only used to update the counter, which we're not currently using.
         tracing::warn!("called update_credential() on device auth key, which is not supported");
-        Err(StatusCode::Ctap2(
-            VendorError::try_from(0xF3)
-                .expect("valid vendor error")
-                .into(),
+        Err(StatusCode::from(
+            VendorError::try_from(0xF3).expect("valid vendor error"),
         ))
     }
 
@@ -819,7 +826,7 @@ struct DeviceAuthKeyUiInternal {}
 
 #[async_trait::async_trait]
 impl passkey::authenticator::UserValidationMethod for DeviceAuthKeyUiInternal {
-    type PasskeyItem = DeviceAuthKeyRecord;
+    type PasskeyItem = Passkey;
 
     async fn check_user<'a>(
         &self,

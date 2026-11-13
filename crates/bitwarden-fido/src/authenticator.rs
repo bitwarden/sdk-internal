@@ -1,11 +1,14 @@
 use std::sync::Mutex;
 
 use bitwarden_core::Client;
-use bitwarden_crypto::CryptoError;
-use bitwarden_vault::{CipherError, CipherView, EncryptError, VaultClientExt};
+use bitwarden_vault::{
+    CipherError, CipherView, EncryptError, Fido2CredentialFullView, VaultClientExt,
+};
 use itertools::Itertools;
 use passkey::{
-    authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UiHint, UserCheck},
+    authenticator::{
+        Authenticator, DiscoverabilitySupport, PasskeyAccessor, StoreInfo, UiHint, UserCheck,
+    },
     types::{
         Passkey,
         ctap2::{self, Ctap2Error, StatusCode, VendorError},
@@ -19,8 +22,8 @@ use super::{
     SelectedCredential, UnknownEnumError, try_from_credential_new_view, types::*,
 };
 use crate::{
-    Fido2CallbackError, FillCredentialError, InvalidGuidError, fill_with_credential,
-    string_to_guid_bytes, try_from_credential_full,
+    Fido2CallbackError, Fido2Error, FillCredentialError, InvalidGuidError,
+    crypto::BitwardenFidoCrypto, string_to_guid_bytes, try_from_credential_full,
 };
 
 #[derive(Debug, Error)]
@@ -29,9 +32,6 @@ pub enum GetSelectedCredentialError {
     NoSelectedCredential,
     #[error("No fido2 credentials found")]
     NoCredentialFound,
-
-    #[error(transparent)]
-    Crypto(#[from] CryptoError),
 }
 
 #[allow(missing_docs)]
@@ -221,8 +221,7 @@ impl<'a> Fido2Authenticator<'a> {
                 extensions: request
                     .extensions
                     .map(passkey::types::ctap2::get_assertion::ExtensionInputs::from),
-                options: passkey::types::ctap2::make_credential::Options {
-                    rk: request.options.rk,
+                options: passkey::types::ctap2::get_assertion::Options {
                     up: true,
                     uv: self.convert_requested_uv(request.options.uv),
                 },
@@ -236,9 +235,13 @@ impl<'a> Fido2Authenticator<'a> {
             Err(e) => return Err(GetAssertionError::Other(format!("{e:?}"))),
         };
 
-        let selected_credential = self.get_selected_credential()?;
+        let credential_id: Vec<u8> = response
+            .credential
+            .as_ref()
+            .map(|c| c.id.to_vec())
+            .ok_or(GetSelectedCredentialError::NoCredentialFound)?;
+        let selected_credential = self.get_selected_credential(&credential_id)?;
         let authenticator_data = response.auth_data.to_vec();
-        let credential_id = string_to_guid_bytes(&selected_credential.credential.credential_id)?;
         let extensions = response.unsigned_extension_outputs.into();
 
         Ok(GetAssertionResult {
@@ -298,7 +301,8 @@ impl<'a> Fido2Authenticator<'a> {
     pub(super) fn get_authenticator(
         &self,
         create_credential: bool,
-    ) -> Authenticator<CredentialStoreImpl<'_>, UserValidationMethodImpl<'_>> {
+    ) -> Authenticator<CredentialStoreImpl<'_>, UserValidationMethodImpl<'_>, BitwardenFidoCrypto>
+    {
         Authenticator::new(
             AAGUID,
             CredentialStoreImpl {
@@ -308,6 +312,7 @@ impl<'a> Fido2Authenticator<'a> {
             UserValidationMethodImpl {
                 authenticator: self,
             },
+            BitwardenFidoCrypto,
         )
     }
 
@@ -321,8 +326,10 @@ impl<'a> Fido2Authenticator<'a> {
         }
     }
 
+    /// Returns the selected cipher together with its credential that has the given ID.
     pub(super) fn get_selected_credential(
         &self,
+        credential_id: &[u8],
     ) -> Result<SelectedCredential, GetSelectedCredentialError> {
         let cipher = self
             .selected_cipher
@@ -331,12 +338,11 @@ impl<'a> Fido2Authenticator<'a> {
             .clone()
             .ok_or(GetSelectedCredentialError::NoSelectedCredential)?;
 
-        let creds = cipher.get_fido2_credentials();
-
-        let credential = creds
-            .first()
-            .ok_or(GetSelectedCredentialError::NoCredentialFound)?
-            .clone();
+        let credential = cipher
+            .get_fido2_credentials()
+            .into_iter()
+            .find(|c| string_to_guid_bytes(&c.credential_id).is_ok_and(|id| id == credential_id))
+            .ok_or(GetSelectedCredentialError::NoCredentialFound)?;
 
         Ok(SelectedCredential { cipher, credential })
     }
@@ -362,9 +368,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         #[derive(Debug, Error)]
         enum InnerError {
             #[error(transparent)]
-            Cipher(#[from] CipherError),
-            #[error(transparent)]
-            Crypto(#[from] CryptoError),
+            Fido2(#[from] Fido2Error),
             #[error(transparent)]
             Fido2Callback(#[from] Fido2CallbackError),
         }
@@ -398,10 +402,17 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             // When using the credential for authentication we have to ask the user to pick one.
             if this.create_credential {
+                // Skip credentials that can't be parsed rather than failing the whole lookup.
                 Ok(creds
                     .into_iter()
-                    .map(CipherViewContainer::new)
-                    .collect::<Result<_, _>>()?)
+                    .filter_map(|cipher| {
+                        CipherViewContainer::new(cipher)
+                            .inspect_err(|error| {
+                                error!(%error, "Skipping a FIDO2 credential that can't be read.")
+                            })
+                            .ok()
+                    })
+                    .collect())
             } else {
                 let picked = this
                     .authenticator
@@ -433,7 +444,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         cred: Passkey,
         user: passkey::types::ctap2::make_credential::PublicKeyCredentialUserEntity,
         rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
-        options: passkey::types::ctap2::get_assertion::Options,
+        options: passkey::types::ctap2::make_credential::Options,
     ) -> Result<(), StatusCode> {
         #[derive(Debug, Error)]
         enum InnerError {
@@ -441,8 +452,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             FillCredential(#[from] FillCredentialError),
             #[error(transparent)]
             Cipher(#[from] CipherError),
-            #[error(transparent)]
-            Crypto(#[from] CryptoError),
             #[error(transparent)]
             Encrypt(#[from] EncryptError),
             #[error(transparent)]
@@ -458,7 +467,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             cred: Passkey,
             user: passkey::types::ctap2::make_credential::PublicKeyCredentialUserEntity,
             rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
-            options: passkey::types::ctap2::get_assertion::Options,
+            options: passkey::types::ctap2::make_credential::Options,
         ) -> Result<(), InnerError> {
             let cred = try_from_credential_full(cred, user, rp, options)?;
 
@@ -505,19 +514,11 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         })
     }
 
-    async fn update_credential(&mut self, cred: Passkey) -> Result<(), StatusCode> {
+    async fn update_credential(&mut self, item: &Self::PasskeyItem) -> Result<(), StatusCode> {
         #[derive(Debug, Error)]
         enum InnerError {
             #[error(transparent)]
-            InvalidGuid(#[from] InvalidGuidError),
-            #[error("Credential ID does not match selected credential")]
-            CredentialIdMismatch,
-            #[error(transparent)]
-            FillCredential(#[from] FillCredentialError),
-            #[error(transparent)]
             Cipher(#[from] CipherError),
-            #[error(transparent)]
-            Crypto(#[from] CryptoError),
             #[error(transparent)]
             Encrypt(#[from] EncryptError),
             #[error(transparent)]
@@ -529,22 +530,30 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         // This is just a wrapper around the actual implementation to allow for ? error handling
         async fn inner(
             this: &mut CredentialStoreImpl<'_>,
-            cred: Passkey,
+            item: &CipherViewContainer,
         ) -> Result<(), InnerError> {
-            // Get the previously selected cipher and update the credential
-            let selected = this.authenticator.get_selected_credential()?;
+            // Get the previously selected cipher. This fails if the credential being updated
+            // isn't on it.
+            let mut selected = this
+                .authenticator
+                .get_selected_credential(item.credential_id())?
+                .cipher;
 
-            // Check that the provided credential ID matches the selected credential
-            let new_id: &Vec<u8> = &cred.credential_id;
-            let selected_id = string_to_guid_bytes(&selected.credential.credential_id)?;
-            if new_id != &selected_id {
-                return Err(InnerError::CredentialIdMismatch);
-            }
-
-            let cred = fill_with_credential(&selected.credential, cred)?;
-
-            let mut selected = selected.cipher;
-            selected.set_new_fido2_credentials(vec![cred])?;
+            // Replace only the updated credential, keeping any others on the cipher.
+            let credentials = selected
+                .get_fido2_credentials()
+                .into_iter()
+                .map(|credential| {
+                    let is_updated = string_to_guid_bytes(&credential.credential_id)
+                        .is_ok_and(|id| id == item.credential_id());
+                    Fido2CredentialFullView::from(if is_updated {
+                        item.credential.clone()
+                    } else {
+                        credential
+                    })
+                })
+                .collect();
+            selected.set_new_fido2_credentials(credentials)?;
 
             // Store the updated credential for later use
             this.authenticator
@@ -570,7 +579,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             Ok(())
         }
 
-        inner(self, cred).await.map_err(|error| {
+        inner(self, item).await.map_err(|error| {
             error!(%error, "Error updating credential.");
             VendorError::try_from(0xF2)
                 .expect("Valid vendor error code")
@@ -667,6 +676,8 @@ fn map_ui_hint(hint: UiHint<'_, CipherViewContainer>) -> UiHint<'_, CipherView> 
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use async_trait::async_trait;
     use bitwarden_core::{Client, key_management::SymmetricKeySlotId};
     use bitwarden_crypto::SymmetricCryptoKey;
@@ -725,6 +736,16 @@ mod tests {
 
     struct MockCredentialStore {
         cipher: CipherView,
+        saved: AtomicUsize,
+    }
+
+    impl MockCredentialStore {
+        fn new(cipher: CipherView) -> Self {
+            Self {
+                cipher,
+                saved: AtomicUsize::new(0),
+            }
+        }
     }
 
     #[async_trait]
@@ -746,6 +767,7 @@ mod tests {
             &self,
             _cred: EncryptionContext,
         ) -> Result<(), Fido2CallbackError> {
+            self.saved.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
     }
@@ -767,25 +789,32 @@ mod tests {
         0x84, 0x05, 0x71,
     ];
 
-    fn create_test_cipher() -> CipherView {
-        let key_value = B64Url::from(TEST_FIDO_P256_KEY).to_string();
-
-        let fido2_credential = Fido2CredentialView {
-            credential_id: TEST_FIDO_CREDENTIAL_ID.to_string(),
+    fn create_test_credential(credential_id: &str, counter: &str) -> Fido2CredentialView {
+        Fido2CredentialView {
+            credential_id: credential_id.to_string(),
             key_type: "public-key".to_string(),
             key_algorithm: "ECDSA".to_string(),
             key_curve: "P-256".to_string(),
-            key_value,
+            key_value: B64Url::from(TEST_FIDO_P256_KEY).to_string(),
             rp_id: TEST_FIDO_RP_ID.to_string(),
             user_handle: Some(TEST_FIDO_USER_HANDLE.to_string()),
             user_name: None,
-            counter: "0".to_string(),
+            counter: counter.to_string(),
             rp_name: None,
             user_display_name: None,
             discoverable: "true".to_string(),
             creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
-        };
+        }
+    }
 
+    fn create_test_cipher() -> CipherView {
+        create_test_cipher_with_credentials(vec![create_test_credential(
+            TEST_FIDO_CREDENTIAL_ID,
+            "0",
+        )])
+    }
+
+    fn create_test_cipher_with_credentials(credentials: Vec<Fido2CredentialView>) -> CipherView {
         CipherView {
             partial: false,
             id: Some("c2c7e624-dcfd-4f23-af41-b177014ffcb5".parse().unwrap()),
@@ -804,7 +833,7 @@ mod tests {
                 totp: None,
                 autofill_on_page_load: None,
                 http_authentication_enabled: None,
-                fido2_credentials: Some(vec![fido2_credential]),
+                fido2_credentials: Some(credentials),
             }),
             identity: None,
             card: None,
@@ -835,6 +864,112 @@ mod tests {
     /// authenticator, we have disabled the configuration.
     /// When we implement PRF, this test should be updated to test that PRF _is_
     /// evaluated when PRF extension input is received.
+    async fn create_test_client() -> Client {
+        let client = Client::new(None);
+        client
+            .internal
+            .init_user_id("060000fb-0922-4dd3-b170-6e15cb5df8c8".parse().unwrap())
+            .await
+            .unwrap();
+        let user_key: SymmetricCryptoKey =
+            "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q=="
+                .to_string()
+                .try_into()
+                .unwrap();
+
+        #[allow(deprecated)]
+        client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .set_symmetric_key(SymmetricKeySlotId::User, user_key)
+            .unwrap();
+        client
+    }
+
+    fn create_assertion_request() -> GetAssertionRequest {
+        GetAssertionRequest {
+            rp_id: TEST_FIDO_RP_ID.to_string(),
+            client_data_hash: vec![0u8; 32],
+            allow_list: None,
+            options: Options {
+                rk: false,
+                uv: UV::Preferred,
+            },
+            extensions: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_counter_update_keeps_other_credentials() {
+        const OTHER_CREDENTIAL_ID: &str = "0b1e1b9d-0c9a-4b8e-9f64-1d6c4b1f2a3e";
+        let client = create_test_client().await;
+        let cipher = create_test_cipher_with_credentials(vec![
+            create_test_credential(TEST_FIDO_CREDENTIAL_ID, "5"),
+            create_test_credential(OTHER_CREDENTIAL_ID, "9"),
+        ]);
+
+        let user_interface = MockUserInterface;
+        let credential_store = MockCredentialStore::new(cipher);
+        let mut authenticator =
+            Fido2Authenticator::new(&client, &user_interface, &credential_store);
+
+        let result = authenticator
+            .get_assertion(create_assertion_request())
+            .await
+            .unwrap();
+
+        assert_eq!(
+            TEST_FIDO_CREDENTIAL_ID,
+            guid_bytes_to_string(&result.credential_id).unwrap()
+        );
+        assert_eq!(credential_store.saved.load(Ordering::SeqCst), 1);
+
+        let updated = authenticator
+            .selected_cipher
+            .lock()
+            .unwrap()
+            .clone()
+            .unwrap()
+            .get_fido2_credentials();
+        assert_eq!(updated.len(), 2, "Other credentials must be kept");
+        assert_eq!(updated[0].credential_id, TEST_FIDO_CREDENTIAL_ID);
+        assert_eq!(updated[0].counter, "6");
+        assert_eq!(updated[1].credential_id, OTHER_CREDENTIAL_ID);
+        assert_eq!(updated[1].counter, "9");
+    }
+
+    #[tokio::test]
+    async fn test_malformed_non_current_credential_does_not_break_assertion() {
+        let client = create_test_client().await;
+        let mut malformed = create_test_credential("not-a-guid", "0");
+        malformed.key_value = "not base64url!".to_string();
+        let cipher = create_test_cipher_with_credentials(vec![
+            create_test_credential(TEST_FIDO_CREDENTIAL_ID, "0"),
+            malformed,
+        ]);
+
+        let user_interface = MockUserInterface;
+        let credential_store = MockCredentialStore::new(cipher);
+        let mut authenticator =
+            Fido2Authenticator::new(&client, &user_interface, &credential_store);
+
+        let result = authenticator
+            .get_assertion(create_assertion_request())
+            .await
+            .unwrap();
+
+        assert_eq!(
+            TEST_FIDO_CREDENTIAL_ID,
+            guid_bytes_to_string(&result.credential_id).unwrap()
+        );
+        assert_eq!(
+            credential_store.saved.load(Ordering::SeqCst),
+            0,
+            "A zero counter must not trigger a save"
+        );
+    }
+
     #[tokio::test]
     async fn test_prf_is_not_evaluated() {
         let client = Client::new(None);
@@ -855,7 +990,7 @@ mod tests {
         let cipher = create_test_cipher();
 
         let user_interface = MockUserInterface;
-        let credential_store = MockCredentialStore { cipher };
+        let credential_store = MockCredentialStore::new(cipher);
         let mut authenticator =
             Fido2Authenticator::new(&client, &user_interface, &credential_store);
 

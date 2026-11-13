@@ -1067,13 +1067,15 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "bitwarden-random",
  "bitwarden-vault",
  "chrono",
  "coset",
  "itertools 0.15.0",
- "p256 0.13.2",
+ "p256 0.14.0",
  "passkey",
  "passkey-client",
+ "rand 0.10.3",
  "reqwest",
  "serde",
  "serde_json",
@@ -2692,10 +2694,11 @@ checksum = "9c035cb64cba03dad2fb921f3e218785e8cf9a41790da5eb3a1400f62fa2be11"
 dependencies = [
  "cpubits",
  "ctutils",
+ "getrandom 0.4.3",
  "hybrid-array",
  "num-traits",
  "rand_core 0.10.1",
- "serdect 0.4.3",
+ "serdect",
  "subtle",
  "zeroize",
 ]
@@ -3232,7 +3235,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6043086bf7973472e0c7dff2142ea0b680d30e18d9cc40f267efbf222bd47"
 dependencies = [
  "base16ct 0.2.0",
- "base64ct",
  "crypto-bigint 0.5.5",
  "digest 0.10.7",
  "ff 0.13.1",
@@ -3243,8 +3245,6 @@ dependencies = [
  "pkcs8 0.10.2",
  "rand_core 0.6.4",
  "sec1 0.7.3",
- "serde_json",
- "serdect 0.2.0",
  "subtle",
  "zeroize",
 ]
@@ -3263,6 +3263,7 @@ dependencies = [
  "group 0.14.0",
  "hkdf 0.13.0",
  "hybrid-array",
+ "pem-rfc7468 1.0.0",
  "pkcs8 0.11.0",
  "rand_core 0.10.1",
  "sec1 0.8.1",
@@ -4912,39 +4913,38 @@ dependencies = [
 
 [[package]]
 name = "passkey"
-version = "0.5.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+version = "0.6.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=cd8921f05e8947600953fee7ca5f8d35a13775b2#cd8921f05e8947600953fee7ca5f8d35a13775b2"
 dependencies = [
  "passkey-authenticator",
  "passkey-client",
+ "passkey-crypto",
  "passkey-transports",
  "passkey-types",
 ]
 
 [[package]]
 name = "passkey-authenticator"
-version = "0.5.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+version = "0.6.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=cd8921f05e8947600953fee7ca5f8d35a13775b2#cd8921f05e8947600953fee7ca5f8d35a13775b2"
 dependencies = [
  "async-trait",
- "coset",
+ "ciborium",
  "log",
- "p256 0.13.2",
+ "passkey-crypto",
  "passkey-types",
- "rand 0.8.8",
 ]
 
 [[package]]
 name = "passkey-client"
-version = "0.5.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+version = "0.6.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=cd8921f05e8947600953fee7ca5f8d35a13775b2#cd8921f05e8947600953fee7ca5f8d35a13775b2"
 dependencies = [
  "ciborium",
- "coset",
  "idna",
- "itertools 0.14.0",
  "nom",
  "passkey-authenticator",
+ "passkey-crypto",
  "passkey-types",
  "public-suffix",
  "serde",
@@ -4953,26 +4953,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "passkey-crypto"
+version = "0.1.1"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=cd8921f05e8947600953fee7ca5f8d35a13775b2#cd8921f05e8947600953fee7ca5f8d35a13775b2"
+dependencies = [
+ "coset",
+ "ed25519-dalek",
+ "getrandom 0.4.3",
+ "hmac 0.13.0",
+ "log",
+ "ml-dsa",
+ "p256 0.14.0",
+ "rand 0.10.3",
+ "sha2 0.11.1",
+ "signature 3.0.0",
+ "zeroize",
+]
+
+[[package]]
 name = "passkey-transports"
-version = "0.1.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+version = "0.2.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=cd8921f05e8947600953fee7ca5f8d35a13775b2#cd8921f05e8947600953fee7ca5f8d35a13775b2"
 
 [[package]]
 name = "passkey-types"
-version = "0.5.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+version = "0.6.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=cd8921f05e8947600953fee7ca5f8d35a13775b2#cd8921f05e8947600953fee7ca5f8d35a13775b2"
 dependencies = [
  "bitflags 2.13.2",
  "ciborium",
- "coset",
  "data-encoding",
- "getrandom 0.2.17",
- "hmac 0.12.1",
  "indexmap 2.14.2",
- "rand 0.8.8",
+ "passkey-crypto",
  "serde",
  "serde_json",
- "sha2 0.10.9",
  "strum",
  "url",
  "zeroize",
@@ -5320,8 +5334,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c9f42978c78a00e3d68f69fc03e57a234debae69da4020a4fb588fcdcd07b06"
 dependencies = [
  "elliptic-curve 0.14.3",
+ "once_cell",
  "primefield",
- "serdect 0.4.3",
+ "serdect",
  "wnaf",
 ]
 
@@ -5382,7 +5397,7 @@ dependencies = [
 [[package]]
 name = "public-suffix"
 version = "0.1.3"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=cd8921f05e8947600953fee7ca5f8d35a13775b2#cd8921f05e8947600953fee7ca5f8d35a13775b2"
 
 [[package]]
 name = "quick-error"
@@ -5989,7 +6004,6 @@ dependencies = [
  "der 0.7.10",
  "generic-array",
  "pkcs8 0.10.2",
- "serdect 0.2.0",
  "subtle",
  "zeroize",
 ]
@@ -6226,16 +6240,6 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
-]
-
-[[package]]
-name = "serdect"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a84f14a19e9a014bb9f4512488d9829a68e04ecabffb0f9904cd1ace94598177"
-dependencies = [
- "base16ct 0.2.0",
- "serde",
 ]
 
 [[package]]
