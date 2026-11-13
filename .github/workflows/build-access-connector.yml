@@ -293,19 +293,45 @@ jobs:
         if: steps.dockerfile.outputs.exists == 'true'
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
+      # The layer cache saves the apt install, which runs under emulation for arm64. Only pushes
+      # write it, so pull requests read it without evicting other caches.
+      - name: Build amd64 image for the smoke test
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: dist
+          file: ${{ env._DOCKERFILE }}
+          platforms: linux/amd64
+          load: true
+          tags: bwac:test-amd64
+          cache-from: type=gha,scope=access-connector-image-amd64
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=access-connector-image-amd64' || '' }}
+
+      - name: Build arm64 image for the smoke test
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: dist
+          file: ${{ env._DOCKERFILE }}
+          platforms: linux/arm64
+          load: true
+          tags: bwac:test-arm64
+          cache-from: type=gha,scope=access-connector-image-arm64
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=access-connector-image-arm64' || '' }}
+
       # Runs before the push, so a broken image never reaches the registry.
       - name: Smoke test image
         if: steps.dockerfile.outputs.exists == 'true'
         run: |
-          for platform in linux/amd64 linux/arm64; do
-            docker buildx build --load --platform "${platform}" -f "${_DOCKERFILE}" -t bwac:test dist
-            docker run --rm --platform "${platform}" --read-only --cap-drop ALL bwac:test --version
-            docker run --rm --platform "${platform}" --read-only --cap-drop ALL bwac:test run --help > /dev/null
+          for arch in amd64 arm64; do
+            image="bwac:test-${arch}"
+            docker run --rm --platform "linux/${arch}" --read-only --cap-drop ALL "${image}" --version
+            docker run --rm --platform "linux/${arch}" --read-only --cap-drop ALL "${image}" run --help > /dev/null
 
             code=0
-            docker run --rm --platform "${platform}" --read-only --cap-drop ALL bwac:test || code=$?
+            docker run --rm --platform "linux/${arch}" --read-only --cap-drop ALL "${image}" || code=$?
             if [ "${code}" -ne 1 ]; then
-              echo "::error::bwac on ${platform} without a token exited with ${code}, expected 1"
+              echo "::error::bwac on linux/${arch} without a token exited with ${code}, expected 1"
               exit 1
             fi
           done
