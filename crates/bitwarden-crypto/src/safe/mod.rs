@@ -8,6 +8,8 @@ mod secret_protected_key_envelope;
 pub use secret_protected_key_envelope::*;
 mod symmetric_key_envelope;
 pub use symmetric_key_envelope::*;
+mod signing_key_envelope;
+pub use signing_key_envelope::*;
 mod data_envelope;
 pub use data_envelope::*;
 mod key_hierarchy;
