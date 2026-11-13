@@ -1,6 +1,6 @@
 use std::{num::NonZeroU32, pin::Pin};
 
-use bitwarden_crypto_primitives::{hkdf, pbkdf2 as pbkdf2_primitive, sha256};
+use bitwarden_crypto_primitives::{hkdf, pbkdf2::pbkdf2_hmac_sha256, sha256};
 use hybrid_array::{Array, ArraySize};
 use rand::{
     RngExt,
@@ -71,7 +71,7 @@ pub fn pbkdf2(password: &[u8], salt: &[u8], rounds: u32) -> [u8; PBKDF_SHA256_HM
     let rounds = NonZeroU32::new(rounds).unwrap_or(NonZeroU32::MIN);
 
     let mut out = [0u8; PBKDF_SHA256_HMAC_OUT_SIZE];
-    pbkdf2_primitive::hmac_sha256(password, salt, rounds, &mut out);
+    pbkdf2_hmac_sha256(password, salt, rounds, &mut out);
     out
 }
 
