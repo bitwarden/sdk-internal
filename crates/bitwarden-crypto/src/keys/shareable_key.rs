@@ -1,12 +1,12 @@
 use std::pin::Pin;
 
-use hmac::{KeyInit, Mac};
+use bitwarden_crypto_primitives::hmac::{HashAlg, hmac};
 use hybrid_array::Array;
 use typenum::U64;
 use zeroize::Zeroizing;
 
 use super::Aes256CbcHmacKey;
-use crate::util::{PbkdfSha256Hmac, hkdf_expand};
+use crate::util::hkdf_expand;
 
 /// Derive a shareable key using hkdf from secret and name.
 ///
@@ -18,13 +18,11 @@ pub fn derive_shareable_key(
     info: Option<&str>,
 ) -> Aes256CbcHmacKey {
     // Because all inputs are fixed size, we can unwrap all errors here without issue
-    let res = Zeroizing::new(
-        PbkdfSha256Hmac::new_from_slice(format!("bitwarden-{name}").as_bytes())
-            .expect("hmac new_from_slice should not fail")
-            .chain_update(secret)
-            .finalize()
-            .into_bytes(),
-    );
+    let res = Zeroizing::new(hmac(
+        HashAlg::Sha256,
+        format!("bitwarden-{name}").as_bytes(),
+        secret.as_slice(),
+    ));
 
     // HKDF already produces the `enc_key || mac_key` layout the key stores internally.
     let key: Pin<Box<Array<u8, U64>>> = hkdf_expand(&res, info).expect("Input is a valid size");

@@ -2,10 +2,9 @@
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use bitwarden_crypto_primitives::hmac;
 use data_encoding::BASE64URL_NOPAD;
-use hmac::{Hmac, KeyInit, Mac};
 use rand::Rng;
-use sha2::Sha256;
 use url::Url;
 
 use super::{error::OnePasswordError, opdata::AesKey};
@@ -82,10 +81,9 @@ fn calculate_session_hmac_salt(session_key: &[u8]) -> [u8; 32] {
 }
 
 fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
-    let mut mac =
-        <Hmac<Sha256> as KeyInit>::new_from_slice(key).expect("HMAC accepts any key length");
-    mac.update(message);
-    mac.finalize().into_bytes().into()
+    hmac::hmac(hmac::HashAlg::Sha256, key, message)
+        .try_into()
+        .expect("HMAC-SHA256 tags are 32 bytes")
 }
 
 #[cfg(test)]

@@ -11,9 +11,7 @@ pub(super) const HIBP_DEFAULT_BASE_URL: &str = "https://api.pwnedpasswords.com";
 ///
 /// Returns a tuple of (prefix: first 5 chars, suffix: remaining chars).
 fn hash_password_for_hibp(password: &str) -> (String, String) {
-    use sha1::{Digest, Sha1};
-
-    let hash = Sha1::digest(password.as_bytes());
+    let hash = bitwarden_crypto_primitives::sha1::digest(password.as_bytes());
     let hash_hex = hash
         .iter()
         .map(|b| format!("{:02X}", b))

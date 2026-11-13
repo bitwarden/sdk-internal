@@ -1,9 +1,7 @@
-use bitwarden_encoding::B64;
-use rsa::{
-    Oaep, RsaPrivateKey, RsaPublicKey,
-    pkcs8::{EncodePrivateKey, EncodePublicKey},
+use bitwarden_crypto_primitives::rsa::{
+    KeySize, OaepHash, PrivateKey as RsaPrivateKey, PublicKey as RsaPublicKey,
 };
-use sha1::Sha1;
+use bitwarden_encoding::B64;
 
 use crate::{
     CryptoError, EncString, SymmetricCryptoKey,
@@ -24,15 +22,13 @@ pub struct RsaKeyPair {
 
 /// Generate a new RSA key pair of 2048 bits
 pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
-    let mut rng = bitwarden_random::rng();
-    let bits = 2048;
     let priv_key = measure(SlowCryptoOp::RsaKeyGeneration, || {
-        RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key")
+        RsaPrivateKey::generate(KeySize::Rsa2048)
     });
-    let pub_key = RsaPublicKey::from(&priv_key);
+    let pub_key = priv_key.public_key();
 
     let spki = pub_key
-        .to_public_key_der()
+        .to_spki_der()
         .map_err(|_| RsaError::CreatePublicKey)?;
 
     let pkcs = priv_key
@@ -40,9 +36,7 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
         .map_err(|_| RsaError::CreatePrivateKey)?;
 
     let protected = match key {
-        SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-            EncString::encrypt_aes256_hmac(pkcs.as_bytes(), key)
-        }
+        SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(&pkcs, key),
         SymmetricCryptoKey::XChaCha20Poly1305Key(_) => Err(CryptoError::OperationNotSupported(
             UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
@@ -58,7 +52,7 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
     }?;
 
     Ok(RsaKeyPair {
-        public: spki.as_ref().into(),
+        public: spki.into(),
         private: protected,
     })
 }
@@ -66,10 +60,7 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
 /// Encrypt data using RSA-OAEP-SHA1 with a 2048 bit key
 pub(super) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) -> Result<Vec<u8>> {
     let _span = SlowCryptoSpan::start(SlowCryptoOp::RsaEncrypt);
-    let mut rng = bitwarden_random::rng();
-
-    let padding = Oaep::<Sha1>::new();
     public_key
-        .encrypt(&mut rng, padding, data)
+        .encrypt_oaep(OaepHash::Sha1, data)
         .map_err(|e| CryptoError::Rsa(e.into()))
 }

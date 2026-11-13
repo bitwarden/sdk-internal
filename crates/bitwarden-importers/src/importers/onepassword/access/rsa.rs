@@ -1,11 +1,7 @@
 //! RSA-OAEP (SHA1/SHA256) decrypt from 1Password's JWK.
-//!
-//! This module shares its name with the external `rsa` crate, so inside the crate the dependency is
-//! reached as `::rsa`.
 
-use ::rsa::{BoxedUint, Oaep, RsaPrivateKey};
-use sha1::Sha1;
-use sha2::Sha256;
+use bitwarden_crypto_primitives::rsa::{OaepHash, PrivateKey};
+use zeroize::Zeroizing;
 
 use super::{
     error::OnePasswordError,
@@ -19,23 +15,21 @@ const OAEP_SHA256: &str = "RSA-OAEP-256";
 /// An RSA private key identified by its kid.
 pub(super) struct RsaKey {
     pub id: String,
-    key: RsaPrivateKey,
+    key: PrivateKey,
 }
 
 impl RsaKey {
     /// Builds the private key from the base64 JWK components.
     pub(super) fn parse(jwk: &RsaKeyJwk) -> Result<RsaKey, OnePasswordError> {
-        let uint = |s: &str| -> Result<BoxedUint, OnePasswordError> {
-            Ok(BoxedUint::from_be_slice_vartime(&decode64_loose(s)?))
-        };
+        // Big-endian component bytes; secret ones are zeroized on drop.
+        let n = decode64_loose(&jwk.n)?;
+        let e = decode64_loose(&jwk.e)?;
+        let d = Zeroizing::new(decode64_loose(&jwk.d)?);
+        let p = Zeroizing::new(decode64_loose(&jwk.p)?);
+        let q = Zeroizing::new(decode64_loose(&jwk.q)?);
 
-        let key = RsaPrivateKey::from_components(
-            uint(&jwk.n)?,
-            uint(&jwk.e)?,
-            uint(&jwk.d)?,
-            vec![uint(&jwk.p)?, uint(&jwk.q)?],
-        )
-        .map_err(|_| OnePasswordError::Internal("invalid RSA key".into()))?;
+        let key = PrivateKey::from_components(&n, &e, &d, &[&p, &q])
+            .map_err(|_| OnePasswordError::Internal("invalid RSA key".into()))?;
 
         Ok(RsaKey {
             id: jwk.kid.clone(),
@@ -49,11 +43,9 @@ impl RsaKey {
             return Err(OnePasswordError::Internal("mismatching key id".into()));
         }
 
-        let result = match encrypted.scheme.as_str() {
-            OAEP_SHA1 => self.key.decrypt(Oaep::<Sha1>::new(), &encrypted.ciphertext),
-            OAEP_SHA256 => self
-                .key
-                .decrypt(Oaep::<Sha256>::new(), &encrypted.ciphertext),
+        let hash = match encrypted.scheme.as_str() {
+            OAEP_SHA1 => OaepHash::Sha1,
+            OAEP_SHA256 => OaepHash::Sha256,
             other => {
                 return Err(OnePasswordError::Internal(format!(
                     "invalid encryption scheme '{other}'"
@@ -61,7 +53,10 @@ impl RsaKey {
             }
         };
 
-        result.map_err(|_| OnePasswordError::Decryption)
+        self.key
+            .decrypt_oaep(hash, &encrypted.ciphertext)
+            .map(|plaintext| plaintext.to_vec())
+            .map_err(|_| OnePasswordError::Decryption)
     }
 }
 

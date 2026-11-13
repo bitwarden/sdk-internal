@@ -2,6 +2,7 @@
 
 use std::convert::Infallible;
 
+use bitwarden_crypto_primitives::random::SystemRng;
 use rand::TryRng;
 
 #[cfg(feature = "uniffi")]
@@ -35,7 +36,7 @@ pub struct SdkRngImpl(Inner);
 
 #[derive(Clone, Debug)]
 enum Inner {
-    /// OS entropy source.
+    /// OS entropy source, drawn from the crypto primitives backend CSPRNG.
     Os,
     /// Draws from the thread-local stream installed by [`set_seed_raw`]. Carries no data, so the
     /// struct stays `Send + Sync`.
@@ -70,9 +71,7 @@ impl TryRng for SdkRngImpl {
 
     fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
         match &self.0 {
-            Inner::Os => Ok(rand::rngs::SysRng
-                .try_next_u32()
-                .expect("system RNG must not fail")),
+            Inner::Os => SystemRng.try_next_u32(),
             #[cfg(feature = "dangerous-seeded-rng-for-testing")]
             Inner::Seeded => Ok(seeded::next_u32()),
         }
@@ -80,9 +79,7 @@ impl TryRng for SdkRngImpl {
 
     fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
         match &self.0 {
-            Inner::Os => Ok(rand::rngs::SysRng
-                .try_next_u64()
-                .expect("system RNG must not fail")),
+            Inner::Os => SystemRng.try_next_u64(),
             #[cfg(feature = "dangerous-seeded-rng-for-testing")]
             Inner::Seeded => Ok(seeded::next_u64()),
         }
@@ -90,9 +87,7 @@ impl TryRng for SdkRngImpl {
 
     fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Self::Error> {
         match &self.0 {
-            Inner::Os => rand::rngs::SysRng
-                .try_fill_bytes(dst)
-                .expect("system RNG must not fail"),
+            Inner::Os => SystemRng.try_fill_bytes(dst)?,
             #[cfg(feature = "dangerous-seeded-rng-for-testing")]
             Inner::Seeded => seeded::fill_bytes(dst),
         }

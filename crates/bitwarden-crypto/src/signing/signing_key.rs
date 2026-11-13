@@ -1,5 +1,6 @@
 use std::pin::Pin;
 
+use bitwarden_crypto_primitives::{ed25519, ml_dsa_44};
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, CoseKey, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
@@ -7,10 +8,6 @@ use coset::{
         AkpKeyParameter, Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter,
     },
 };
-use ed25519_dalek::Signer;
-use hybrid_array::Array;
-use ml_dsa::{B32, MlDsa44};
-use rand::Rng;
 
 use super::{
     SignatureAlgorithm, ed25519_signing_key, key_id, mldsa_seed,
@@ -31,11 +28,11 @@ pub(crate) const ML_DSA_SEED_SIZE: usize = 32;
 /// scheme.
 #[derive(Clone)]
 enum RawSigningKey {
-    Ed25519(Pin<Box<ed25519_dalek::SigningKey>>),
+    Ed25519(Pin<Box<ed25519::SigningKey>>),
     MlDsa44 {
-        seed: Pin<Box<B32>>,
-        signing_key: Pin<Box<ml_dsa::ExpandedSigningKey<MlDsa44>>>,
-        verifying_key: Box<ml_dsa::VerifyingKey<MlDsa44>>,
+        // Holds the seed, which is the serialized form.
+        signing_key: Pin<Box<ml_dsa_44::SigningKey>>,
+        verifying_key: Box<ml_dsa_44::VerifyingKey>,
     },
 }
 
@@ -52,8 +49,8 @@ pub struct SigningKey {
 // For any new keys, this needs to be checked
 const _: fn() = || {
     fn assert_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
-    assert_zeroize_on_drop::<ed25519_dalek::SigningKey>();
-    assert_zeroize_on_drop::<ml_dsa::ExpandedSigningKey<MlDsa44>>();
+    assert_zeroize_on_drop::<ed25519::SigningKey>();
+    assert_zeroize_on_drop::<ml_dsa_44::SigningKey>();
 };
 impl zeroize::ZeroizeOnDrop for SigningKey {}
 impl CryptoKey for SigningKey {}
@@ -68,9 +65,9 @@ impl std::fmt::Debug for SigningKey {
         debug_struct.field("id", &self.id);
         #[cfg(feature = "dangerous-crypto-debug")]
         match &self.inner {
-            RawSigningKey::Ed25519(key) => debug_struct.field("key", &hex::encode(key.to_bytes())),
-            RawSigningKey::MlDsa44 { seed, .. } => {
-                debug_struct.field("seed", &hex::encode(seed.to_vec()))
+            RawSigningKey::Ed25519(key) => debug_struct.field("key", &hex::encode(*key.seed())),
+            RawSigningKey::MlDsa44 { signing_key, .. } => {
+                debug_struct.field("seed", &hex::encode(*signing_key.seed()))
             }
         };
         debug_struct.finish()
@@ -83,22 +80,16 @@ impl SigningKey {
         match algorithm {
             SignatureAlgorithm::Ed25519 => SigningKey {
                 id: KeyId::make(),
-                inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(
-                    &mut bitwarden_random::rng(),
-                ))),
+                inner: RawSigningKey::Ed25519(Box::pin(ed25519::SigningKey::generate())),
             },
             SignatureAlgorithm::MlDsa44 => {
-                // This is heap allocated from the start, so will be zeroized on drop
-                let mut seed = Box::pin(Array::from([0u8; 32]));
-                bitwarden_random::rng().fill_bytes(&mut seed);
-
-                let kp = measure(SlowCryptoOp::MlDsaKeyGeneration, || {
-                    ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed)
-                });
+                let kp = measure(
+                    SlowCryptoOp::MlDsaKeyGeneration,
+                    ml_dsa_44::SigningKey::generate,
+                );
                 SigningKey {
                     id: KeyId::make(),
                     inner: RawSigningKey::MlDsa44 {
-                        seed,
                         verifying_key: Box::new(kp.verifying_key()),
                         signing_key: Box::pin(kp),
                     },
@@ -134,15 +125,10 @@ impl SigningKey {
     /// signed objects.
     pub(super) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
         match &self.inner {
-            RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
+            RawSigningKey::Ed25519(key) => key.sign(data).to_vec(),
             RawSigningKey::MlDsa44 { signing_key, .. } => {
                 let _span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaSign);
-                signing_key
-                    .sign_randomized(data, &[], &mut bitwarden_random::rng())
-                    .expect("Empty ML-DSA context must be accepted")
-                    .encode()
-                    .as_slice()
-                    .to_vec()
+                signing_key.sign(data)
             }
         }
     }
@@ -158,7 +144,7 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                     .algorithm(Algorithm::EdDSA)
                     .param(
                         OkpKeyParameter::D.to_i64(), // Signing key
-                        Value::Bytes(key.to_bytes().into()),
+                        Value::Bytes(key.seed().to_vec()),
                     )
                     .param(
                         OkpKeyParameter::Crv.to_i64(), // Elliptic curve identifier
@@ -171,15 +157,17 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                     .into()
             }
             RawSigningKey::MlDsa44 {
-                seed,
+                signing_key,
                 verifying_key,
-                ..
             } => coset::CoseKeyBuilder::new_mldsa_pub_key(
                 MlDsaVariant::MlDsa44,
-                verifying_key.encode().to_vec(),
+                verifying_key.to_bytes(),
             )
             .key_id((&self.id).into())
-            .param(AkpKeyParameter::Priv.to_i64(), Value::Bytes(seed.to_vec()))
+            .param(
+                AkpKeyParameter::Priv.to_i64(),
+                Value::Bytes(signing_key.seed().to_vec()),
+            )
             .add_key_op(KeyOperation::Sign)
             .build()
             .to_vec()
@@ -206,12 +194,11 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
             ) => {
                 let seed = mldsa_seed(&cose_key)?;
                 let kp = measure(SlowCryptoOp::MlDsaExpandSeed, || {
-                    ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed)
+                    ml_dsa_44::SigningKey::from_seed(&seed)
                 });
                 Ok(SigningKey {
                     id: key_id(&cose_key)?,
                     inner: RawSigningKey::MlDsa44 {
-                        seed: Box::pin(seed),
                         verifying_key: Box::new(kp.verifying_key()),
                         signing_key: Box::pin(kp),
                     },

@@ -44,6 +44,7 @@ bitwarden-commercial-vault = { workspace = true, optional = true, features = [
 ] }
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
+bitwarden-crypto-primitives = { workspace = true }
 bitwarden-crypto-sync-handler = { workspace = true, features = ["wasm"] }
 bitwarden-emergency-access = { workspace = true, features = ["wasm"] }
 bitwarden-encrypted-migrator = { workspace = true, features = ["wasm"] }
@@ -72,9 +73,7 @@ bitwarden-user-crypto-management = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"
 rand = { workspace = true }
-rsa = { workspace = true }
 serde = { workspace = true }
-sha1 = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-web = { version = "0.1.3" }

@@ -1,5 +1,6 @@
-use std::pin::Pin;
+use std::{num::NonZeroU32, pin::Pin};
 
+use bitwarden_crypto_primitives::{pbkdf2::pbkdf2_hmac_sha256, sha256};
 use bitwarden_encoding::B64;
 use hybrid_array::Array;
 use rand::RngExt;
@@ -80,11 +81,15 @@ impl MasterKey {
     )]
     #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument)]
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> B64 {
-        let hash = Zeroizing::new(util::pbkdf2(
+        // The hash purpose doubles as the PBKDF2 round count: 1 for the server, 2 for local use.
+        let rounds = NonZeroU32::new(purpose as u32).expect("hash purposes are non-zero");
+        let mut hash = Zeroizing::new([0u8; sha256::DIGEST_LEN]);
+        pbkdf2_hmac_sha256(
             self.inner_bytes().as_slice(),
             password,
-            purpose as u32,
-        ));
+            rounds,
+            hash.as_mut_slice(),
+        );
         let encoded = hash.as_slice().into();
 
         // PBKDF2 leaves copies of the hash in the popped HMAC/SHA-256 stack frames.

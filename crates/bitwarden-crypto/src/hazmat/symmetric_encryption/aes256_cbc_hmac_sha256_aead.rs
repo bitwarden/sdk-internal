@@ -3,15 +3,15 @@
 //! An extended construction of AES-256-CBC-HMAC-SHA256. It is used when an AES256-CBC-HMAC-SHA256
 //! key is used for authenticated encryption in the context of COSE.
 
-use aes::cipher::{BlockModeDecrypt, BlockModeEncrypt, KeyIvInit, block_padding::Pkcs7};
-use hmac::{KeyInit, Mac};
+use bitwarden_crypto_primitives::{
+    aes_cbc,
+    hmac::{HashAlg, Hmac},
+};
 use rand::RngExt;
 use subtle::ConstantTimeEq;
 
 use super::Aead;
 use crate::CryptoError;
-
-type HmacSha256 = hmac::Hmac<sha2::Sha256>;
 
 pub(crate) const NONCE_SIZE: usize = 16;
 pub(crate) const ENC_KEY_SIZE: usize = 32;
@@ -41,9 +41,7 @@ impl Aead for Aes256CbcHmacSha256Aead {
     ) -> Self::Ciphertext {
         let (enc_key, mac_key) = split_to_subkeys(key);
 
-        let mut encrypted_bytes =
-            cbc::Encryptor::<aes::Aes256>::new(enc_key.into(), nonce.as_array().into())
-                .encrypt_padded_vec::<Pkcs7>(plaintext);
+        let mut encrypted_bytes = aes_cbc::encrypt_pkcs7(enc_key, nonce.as_array(), plaintext);
         let mac =
             calculate_mac_with_aad(nonce.as_array(), &encrypted_bytes, associated_data, mac_key);
         encrypted_bytes.extend_from_slice(&mac);
@@ -70,11 +68,7 @@ impl Aead for Aes256CbcHmacSha256Aead {
             return Err(CryptoError::KeyDecrypt);
         }
 
-        let mut buf = data.to_vec();
-        cbc::Decryptor::<aes::Aes256>::new(enc_key.into(), nonce.as_array().into())
-            .decrypt_padded::<Pkcs7>(&mut buf)
-            .map(|slice| slice.to_vec())
-            .map_err(|_| CryptoError::KeyDecrypt)
+        aes_cbc::decrypt_pkcs7(enc_key, nonce.as_array(), data).map_err(|_| CryptoError::KeyDecrypt)
     }
 }
 
@@ -98,15 +92,14 @@ fn calculate_mac_with_aad(
     associated_data: &[u8],
     mac_key: &[u8; MAC_KEY_SIZE],
 ) -> [u8; MAC_SIZE] {
-    let mut hmac =
-        HmacSha256::new_from_slice(mac_key).expect("hmac new_from_slice should not fail");
+    let mut hmac = Hmac::new(HashAlg::Sha256, mac_key);
     hmac.update(MAC_DOMAIN_SEPARATOR);
     hmac.update(iv);
     hmac.update(&(data.len() as u64).to_be_bytes());
     hmac.update(data);
     hmac.update(&(associated_data.len() as u64).to_be_bytes());
     hmac.update(associated_data);
-    (*hmac.finalize().into_bytes())
+    hmac.finalize()
         .try_into()
         // This is safe because HMAC-SHA256 output size is always 32 bytes
         .expect("HMAC output size to be correct")

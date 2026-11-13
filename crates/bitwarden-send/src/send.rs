@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use bitwarden_api_api::models::{
     SendDataModel, SendFileModel, SendItemMetadataModel, SendResponseModel, SendTextModel,
     SendWithIdRequestModel,
@@ -10,6 +12,7 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
     OctetStreamBytes, PrimitiveEncryptable, generate_random_bytes,
 };
+use bitwarden_crypto_primitives::{pbkdf2::pbkdf2_hmac_sha256, sha256};
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_uuid::uuid_newtype;
 use bitwarden_vault::{CipherId, CipherView};
@@ -22,7 +25,7 @@ use wasm_bindgen::prelude::*;
 use zeroize::Zeroizing;
 
 use crate::{SendParseError, access::SEND_KEY_LEN, error::SendItemDeserializationFailureError};
-pub const SEND_ITERATIONS: u32 = 100_000;
+pub const SEND_ITERATIONS: NonZeroU32 = NonZeroU32::new(100_000).expect("non-zero");
 pub const DEFAULT_SEND_ENCRYPTION: SendEncryptionType = SendEncryptionType::V1;
 
 uuid_newtype!(pub SendId);
@@ -267,7 +270,8 @@ impl SendAuthType {
     pub(crate) fn auth_data(&self, k: &[u8]) -> (Option<String>, Option<String>) {
         match self {
             SendAuthType::Password { password } => {
-                let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), k, SEND_ITERATIONS);
+                let mut hashed = [0u8; sha256::DIGEST_LEN];
+                pbkdf2_hmac_sha256(password.as_bytes(), k, SEND_ITERATIONS, &mut hashed);
                 (Some(B64::from(hashed.as_slice()).to_string()), None)
             }
             SendAuthType::HashedPassword { key_b64 } => (Some(key_b64.clone()), None),
@@ -770,8 +774,9 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
             // record and preserve the stored hash unconditionally in that case, ignoring
             // whatever this field carries. See `ToSendBase` server-side.
             password: self.new_password.as_ref().map(|password| {
-                let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
-                B64::from(password.as_slice()).to_string()
+                let mut hashed = [0u8; sha256::DIGEST_LEN];
+                pbkdf2_hmac_sha256(password.as_bytes(), &k, SEND_ITERATIONS, &mut hashed);
+                B64::from(hashed.as_slice()).to_string()
             }),
 
             r#type: self.r#type,

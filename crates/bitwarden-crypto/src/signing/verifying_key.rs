@@ -3,6 +3,7 @@
 //! This implements the lowest layer of the signature module, verifying signatures on raw byte
 //! arrays.
 
+use bitwarden_crypto_primitives::{ed25519, ml_dsa_44};
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
@@ -11,7 +12,6 @@ use coset::{
         OkpKeyParameter,
     },
 };
-use ml_dsa::{MlDsa44, signature::Verifier};
 
 use super::{SignatureAlgorithm, ed25519_verifying_key, key_id, mldsa44_verifying_key};
 use crate::{
@@ -26,8 +26,8 @@ use crate::{
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
 pub(super) enum RawVerifyingKey {
-    Ed25519(ed25519_dalek::VerifyingKey),
-    MlDsa44(Box<ml_dsa::VerifyingKey<MlDsa44>>),
+    Ed25519(ed25519::VerifyingKey),
+    MlDsa44(Box<ml_dsa_44::VerifyingKey>),
 }
 
 /// A verifying key is a public key used for verifying signatures. It can be published to other
@@ -65,19 +65,15 @@ impl VerifyingKey {
     pub(super) fn verify_raw(&self, signature: &[u8], data: &[u8]) -> Result<(), CryptoError> {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => {
-                let sig = ed25519_dalek::Signature::from_bytes(
-                    signature
-                        .try_into()
-                        .map_err(|_| SignatureError::InvalidSignature)?,
-                );
-                key.verify_strict(data, &sig)
+                let sig = signature
+                    .try_into()
+                    .map_err(|_| SignatureError::InvalidSignature)?;
+                key.verify(data, sig)
                     .map_err(|_| SignatureError::InvalidSignature.into())
             }
             RawVerifyingKey::MlDsa44(key) => {
                 let _span = SlowCryptoSpan::start(SlowCryptoOp::MlDsaVerify);
-                let sig = ml_dsa::Signature::<MlDsa44>::try_from(signature)
-                    .map_err(|_| SignatureError::InvalidSignature)?;
-                key.verify(data, &sig)
+                key.verify(data, signature)
                     .map_err(|_| SignatureError::InvalidSignature.into())
             }
         }
@@ -107,16 +103,15 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                 .to_vec()
                 .expect("Verifying key is always serializable")
                 .into(),
-            RawVerifyingKey::MlDsa44(key) => coset::CoseKeyBuilder::new_mldsa_pub_key(
-                MlDsaVariant::MlDsa44,
-                key.encode().to_vec(),
-            )
-            .key_id((&self.id).into())
-            .add_key_op(KeyOperation::Verify)
-            .build()
-            .to_vec()
-            .expect("Verifying key is always serializable")
-            .into(),
+            RawVerifyingKey::MlDsa44(key) => {
+                coset::CoseKeyBuilder::new_mldsa_pub_key(MlDsaVariant::MlDsa44, key.to_bytes())
+                    .key_id((&self.id).into())
+                    .add_key_op(KeyOperation::Verify)
+                    .build()
+                    .to_vec()
+                    .expect("Verifying key is always serializable")
+                    .into()
+            }
         }
     }
 
@@ -182,10 +177,7 @@ impl CoseKeyThumbprintExt for VerifyingKey {
                     KeyParameter::Alg.to_i64(),
                     Value::Integer(Integer::from(Algorithm::ML_DSA_44.to_i64())),
                 ),
-                (
-                    AkpKeyParameter::Pub.to_i64(),
-                    Value::Bytes(key.encode().to_vec()),
-                ),
+                (AkpKeyParameter::Pub.to_i64(), Value::Bytes(key.to_bytes())),
             ],
         };
         Ok(thumbprint_from_required_params(params))

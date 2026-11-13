@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, num::NonZeroU32};
 
 use rand::Rng;
 
@@ -52,10 +52,10 @@ impl KeeperAesKey {
         Self(Zeroizing::new(buf))
     }
 
-    pub(crate) fn from_password(password: &str, salt: &[u8], iterations: u32) -> Self {
-        Self(Zeroizing::new(
-            pbkdf2_hmac_array::<Sha256, KEEPER_KEY_SIZE>(password.as_bytes(), salt, iterations),
-        ))
+    pub(crate) fn from_password(password: &str, salt: &[u8], iterations: NonZeroU32) -> Self {
+        let mut key = Zeroizing::new([0u8; KEEPER_KEY_SIZE]);
+        pbkdf2_hmac_sha256(password.as_bytes(), salt, iterations, key.as_mut_slice());
+        Self(key)
     }
 
     pub(crate) fn expose_bytes(&self) -> &[u8] {
@@ -195,14 +195,10 @@ impl AesV1Packet {
             return Err(KeeperCryptoError::InvalidData);
         }
         let (iv, ciphertext) = self.0.split_at(AES_BLOCK_SIZE);
-        let mut buf = ciphertext.to_vec();
-        let decrypted = cbc::Decryptor::<aes::Aes256>::new_from_slices(key.expose_bytes(), iv)
-            .map_err(|_| KeeperCryptoError::InvalidKey)?
-            .decrypt_padded::<Pkcs7>(&mut buf)
-            .map_err(|_| KeeperCryptoError::Decryption)?;
-        let len = decrypted.len();
-        buf.truncate(len);
-        Ok(KeeperPlaintext::from(buf))
+        let iv = iv.try_into().map_err(|_| KeeperCryptoError::InvalidData)?;
+        aes_cbc::decrypt_pkcs7(&key.0, iv, ciphertext)
+            .map(KeeperPlaintext::from)
+            .map_err(|_| KeeperCryptoError::Decryption)
     }
 }
 
@@ -234,12 +230,10 @@ impl AesV2Packet {
             return Err(KeeperCryptoError::InvalidData);
         }
         let (nonce_bytes, ciphertext) = self.0.split_at(AES_GCM_NONCE_SIZE);
-        let cipher = Aes256Gcm::new_from_slice(key.expose_bytes())
-            .map_err(|_| KeeperCryptoError::InvalidKey)?;
-        let nonce_arr = Nonce::<<Aes256Gcm as aes_gcm::AeadCore>::NonceSize>::try_from(nonce_bytes)
+        let nonce = nonce_bytes
+            .try_into()
             .map_err(|_| KeeperCryptoError::InvalidData)?;
-        cipher
-            .decrypt(&nonce_arr, ciphertext)
+        aes_gcm::decrypt(&key.0, nonce, &[], ciphertext)
             .map(KeeperPlaintext::from)
             .map_err(|_| KeeperCryptoError::Decryption)
     }
@@ -250,12 +244,7 @@ impl AesV2Packet {
         key: &KeeperAesKey,
         nonce: &[u8; AES_GCM_NONCE_SIZE],
     ) -> Result<Self, KeeperCryptoError> {
-        let cipher = Aes256Gcm::new_from_slice(key.expose_bytes())
-            .map_err(|_| KeeperCryptoError::InvalidKey)?;
-        let nonce_arr = Nonce::<<Aes256Gcm as aes_gcm::AeadCore>::NonceSize>::from(*nonce);
-        let ciphertext = cipher
-            .encrypt(&nonce_arr, plaintext)
-            .map_err(|_| KeeperCryptoError::Decryption)?;
+        let ciphertext = aes_gcm::encrypt(&key.0, nonce, &[], plaintext);
         let mut out = Vec::with_capacity(AES_GCM_NONCE_SIZE + ciphertext.len());
         out.extend_from_slice(nonce);
         out.extend_from_slice(&ciphertext);
@@ -291,14 +280,13 @@ impl EcPacket {
     ) -> Result<Self, KeeperCryptoError> {
         let recipient = PublicKey::from_sec1_bytes(public_key.as_ref())
             .map_err(|_| KeeperCryptoError::InvalidKey)?;
-        let ephemeral = SecretKey::generate_from_rng(&mut bitwarden_random::rng());
+        let ephemeral = SecretKey::generate();
         let encryption_key = derive_ecdh_key(&recipient, &ephemeral);
         let encrypted = AesV2Packet::encrypt(plaintext, &encryption_key)?;
-        let ephemeral_public = ephemeral.public_key().to_sec1_point(false);
+        let ephemeral_public = ephemeral.public_key().to_sec1_uncompressed();
 
-        let mut out =
-            Vec::with_capacity(ephemeral_public.as_bytes().len() + encrypted.as_ref().len());
-        out.extend_from_slice(ephemeral_public.as_bytes());
+        let mut out = Vec::with_capacity(ephemeral_public.len() + encrypted.as_ref().len());
+        out.extend_from_slice(&ephemeral_public);
         out.extend_from_slice(encrypted.as_ref());
         Ok(Self(out))
     }
@@ -369,7 +357,9 @@ impl EncryptionParamsBlob {
             return Err(KeeperCryptoError::CorruptEncryptionParams);
         }
 
-        let key = KeeperAesKey::from_password(password, &self.salt(), self.iterations());
+        let iterations =
+            NonZeroU32::new(self.iterations()).ok_or(KeeperCryptoError::CorruptEncryptionParams)?;
+        let key = KeeperAesKey::from_password(password, &self.salt(), iterations);
         let decrypted = decrypt_aes_no_padding(&self.data(), &key, &self.iv())?;
         let bytes = decrypted.expose_bytes();
 
@@ -421,12 +411,9 @@ impl AsRef<[u8]> for EncryptionParamsBlob {
 pub(crate) struct KeeperV1KeyHash([u8; 32]);
 
 impl KeeperV1KeyHash {
-    pub(crate) fn from_password(password: &str, salt: &[u8], iterations: u32) -> Self {
+    pub(crate) fn from_password(password: &str, salt: &[u8], iterations: NonZeroU32) -> Self {
         let key = KeeperAesKey::from_password(password, salt, iterations);
-        let hash = Sha256::digest(key.expose_bytes());
-        let mut buf = [0u8; 32];
-        buf.copy_from_slice(&hash);
-        Self(buf)
+        Self(sha256::digest(key.expose_bytes()))
     }
 }
 
@@ -451,17 +438,15 @@ pub(crate) struct EcKeyPair {
 
 impl EcKeyPair {
     pub(crate) fn generate() -> Result<Self, KeeperCryptoError> {
-        let secret = SecretKey::generate_from_rng(&mut bitwarden_random::rng());
+        let secret = SecretKey::generate();
         let private_key_bytes = secret
             .to_pkcs8_der()
-            .map_err(|_| KeeperCryptoError::InvalidKey)?
-            .as_bytes()
-            .to_vec();
-        let public_key_bytes = secret.public_key().to_sec1_point(false).as_bytes().to_vec();
+            .map_err(|_| KeeperCryptoError::InvalidKey)?;
+        let public_key_bytes = secret.public_key().to_sec1_uncompressed();
 
         Ok(EcKeyPair {
-            private_key: EcPrivateKeyDer::from(private_key_bytes),
-            public_key: EcPublicKey::try_from(public_key_bytes)?,
+            private_key: EcPrivateKeyDer(private_key_bytes),
+            public_key: EcPublicKey::from(public_key_bytes),
         })
     }
 }
@@ -512,11 +497,8 @@ impl EncryptedRecordKey {
 
 /// Derive Keeper's ECDH content-encryption-key: ECDH(P-256) shared X coordinate, then SHA-256.
 fn derive_ecdh_key(public: &PublicKey, secret: &SecretKey) -> KeeperAesKey {
-    let shared = p256::ecdh::diffie_hellman(secret.to_nonzero_scalar(), public.as_affine());
-    let hash = Sha256::digest(shared.raw_secret_bytes());
-    let mut buf = [0u8; KEEPER_KEY_SIZE];
-    buf.copy_from_slice(&hash);
-    KeeperAesKey::from(buf)
+    let shared = secret.diffie_hellman(public);
+    KeeperAesKey::from(sha256::digest(shared.as_slice()))
 }
 
 /// Decrypt 64 bytes of AES-256-CBC ciphertext with no padding.
@@ -525,14 +507,14 @@ fn decrypt_aes_no_padding(
     key: &KeeperAesKey,
     iv: &[u8; AES_BLOCK_SIZE],
 ) -> Result<KeeperPlaintext, KeeperCryptoError> {
-    let mut buf = data.to_vec();
-    let decrypted = cbc::Decryptor::<aes::Aes256>::new_from_slices(key.expose_bytes(), iv)
-        .map_err(|_| KeeperCryptoError::InvalidKey)?
-        .decrypt_padded::<NoPadding>(&mut buf)
-        .map_err(|_| KeeperCryptoError::Decryption)?;
-    let len = decrypted.len();
-    buf.truncate(len);
-    Ok(KeeperPlaintext::from(buf))
+    // Block-at-a-time CBC: the blob is whole blocks and carries no padding.
+    let mut buf = Zeroizing::new(*data);
+    let mut decryptor = aes_cbc::Decryptor::new(&key.0, iv);
+    for block in buf.as_chunks_mut::<{ aes_cbc::BLOCK_LEN }>().0 {
+        decryptor.decrypt_block(block);
+    }
+
+    Ok(KeeperPlaintext::from(buf.to_vec()))
 }
 
 #[cfg(test)]
@@ -616,13 +598,10 @@ mod tests {
     #[test]
     fn aes_v1_round_trip() {
         // Produce a valid aes-v1 packet (IV || AES-256-CBC/PKCS7) and decrypt it.
-        use aes::cipher::BlockModeEncrypt;
         let key = KeeperAesKey::from([9u8; 32]);
         let iv = [1u8; 16];
         let plaintext = b"keeper aes-v1 unauthenticated payload";
-        let ciphertext = cbc::Encryptor::<aes::Aes256>::new_from_slices(key.expose_bytes(), &iv)
-            .unwrap()
-            .encrypt_padded_vec::<Pkcs7>(plaintext);
+        let ciphertext = aes_cbc::encrypt_pkcs7(&key.0, &iv, plaintext);
         let mut packet_bytes = iv.to_vec();
         packet_bytes.extend_from_slice(&ciphertext);
 
@@ -634,7 +613,8 @@ mod tests {
     #[test]
     fn pbkdf2_known_answer() {
         // PBKDF2-HMAC-SHA256, password="password", salt="salt", c=1, dkLen=32
-        let key = KeeperAesKey::from_password("password", b"salt", 1);
+        let key =
+            KeeperAesKey::from_password("password", b"salt", NonZeroU32::new(1).expect("non-zero"));
         let expected = data_encoding::HEXLOWER
             .decode(b"120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b")
             .unwrap();
@@ -643,9 +623,17 @@ mod tests {
 
     #[test]
     fn derive_v1_key_hash_is_sha256_of_key() {
-        let key = KeeperAesKey::from_password("hunter2", b"somesalt", 1000);
-        let expected = Sha256::digest(key.expose_bytes()).to_vec();
-        let hash = KeeperV1KeyHash::from_password("hunter2", b"somesalt", 1000);
+        let key = KeeperAesKey::from_password(
+            "hunter2",
+            b"somesalt",
+            NonZeroU32::new(1000).expect("non-zero"),
+        );
+        let expected = sha256::digest(key.expose_bytes()).to_vec();
+        let hash = KeeperV1KeyHash::from_password(
+            "hunter2",
+            b"somesalt",
+            NonZeroU32::new(1000).expect("non-zero"),
+        );
         assert_eq!(hash.as_ref(), expected.as_slice());
     }
 
@@ -695,15 +683,20 @@ mod tests {
         salt: &[u8; 16],
         data_key: &[u8; 32],
     ) -> Vec<u8> {
-        use aes::cipher::BlockModeEncrypt;
-        let derived = KeeperAesKey::from_password(password, salt, iterations);
+        let derived = KeeperAesKey::from_password(
+            password,
+            salt,
+            NonZeroU32::new(iterations).expect("non-zero"),
+        );
         let iv = [0x42u8; 16];
         // Two identical 32-byte blocks, AES-CBC no padding.
         let mut blocks = data_key.to_vec();
         blocks.extend_from_slice(data_key);
-        let encrypted = cbc::Encryptor::<aes::Aes256>::new_from_slices(derived.expose_bytes(), &iv)
-            .unwrap()
-            .encrypt_padded_vec::<NoPadding>(&blocks);
+        let mut encryptor = aes_cbc::Encryptor::new(&derived.0, &iv);
+        for block in blocks.as_chunks_mut::<{ aes_cbc::BLOCK_LEN }>().0 {
+            encryptor.encrypt_block(block);
+        }
+        let encrypted = blocks;
 
         let mut params = vec![
             1u8, // version
@@ -770,11 +763,8 @@ mod tests {
         assert_eq!(decrypted.expose_bytes(), &record_key);
 
         // aes-v1 path
-        use aes::cipher::BlockModeEncrypt;
         let iv = [2u8; 16];
-        let ct = cbc::Encryptor::<aes::Aes256>::new_from_slices(data_key.expose_bytes(), &iv)
-            .unwrap()
-            .encrypt_padded_vec::<Pkcs7>(&record_key);
+        let ct = aes_cbc::encrypt_pkcs7(&data_key.0, &iv, &record_key);
         let mut v1_packet_bytes = iv.to_vec();
         v1_packet_bytes.extend_from_slice(&ct);
         let v1_packet = AesV1Packet::from(v1_packet_bytes);

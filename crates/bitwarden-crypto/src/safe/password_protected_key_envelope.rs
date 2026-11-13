@@ -14,9 +14,15 @@
 //! single recipient's unprotected headers. The output from the KDF - "envelope key", is used to
 //! wrap the symmetric key, that is sealed by the envelope.
 
-use std::{num::TryFromIntError, str::FromStr};
+use std::{
+    num::{NonZeroU32, TryFromIntError},
+    str::FromStr,
+};
 
-use argon2::Params;
+use bitwarden_crypto_primitives::{
+    argon2::{self, Params},
+    pbkdf2::pbkdf2_hmac_sha256,
+};
 use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::{Value, value::Integer};
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
@@ -484,17 +490,14 @@ impl From<&Argon2RawSettings> for Header {
     }
 }
 
-impl TryInto<Params> for &Argon2RawSettings {
-    type Error = PasswordProtectedKeyEnvelopeError;
-
-    fn try_into(self) -> Result<Params, PasswordProtectedKeyEnvelopeError> {
-        Params::new(
-            self.memory,
-            self.iterations,
-            self.parallelism,
-            Some(ENVELOPE_ARGON2_OUTPUT_KEY_SIZE),
-        )
-        .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)
+/// Parameter validation happens when the KDF runs.
+impl From<&Argon2RawSettings> for Params {
+    fn from(settings: &Argon2RawSettings) -> Params {
+        Params {
+            memory_kib: settings.memory,
+            iterations: settings.iterations,
+            parallelism: settings.parallelism,
+        }
     }
 }
 
@@ -577,16 +580,15 @@ fn derive_argon2_key(
     argon2_settings: &Argon2RawSettings,
     password: &str,
 ) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
-    use argon2::*;
-
     let mut hash = [0u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE];
-    let argon = Argon2::new(
-        Algorithm::Argon2id,
-        Version::V0x13,
-        argon2_settings.try_into()?,
-    );
+    let params = Params::from(argon2_settings);
     measure(SlowCryptoOp::Argon2id, || {
-        argon.hash_password_into(password.as_bytes(), &argon2_settings.salt, &mut hash)
+        argon2::argon2id_v13(
+            password.as_bytes(),
+            &argon2_settings.salt,
+            &params,
+            &mut hash,
+        )
     })
     .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
@@ -597,13 +599,20 @@ fn derive_pbkdf2_key(
     pbkdf2_settings: &Pbkdf2RawSettings,
     password: &str,
 ) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
-    Ok(measure(SlowCryptoOp::Pbkdf2, || {
-        crate::util::pbkdf2(
+    // Zero iterations is not a valid PBKDF2 setting.
+    let rounds = NonZeroU32::new(pbkdf2_settings.iterations)
+        .ok_or(PasswordProtectedKeyEnvelopeError::Kdf)?;
+
+    let mut hash = [0u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE];
+    measure(SlowCryptoOp::Pbkdf2, || {
+        pbkdf2_hmac_sha256(
             password.as_bytes(),
             &pbkdf2_settings.salt,
-            pbkdf2_settings.iterations,
-        )
-    }))
+            rounds,
+            &mut hash,
+        );
+    });
+    Ok(hash)
 }
 
 /// Errors that can occur when sealing or unsealing a key with the `PasswordProtectedKeyEnvelope`.
