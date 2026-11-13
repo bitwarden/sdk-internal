@@ -135,11 +135,11 @@ fn argon2_matches() {
     };
     let (mut a, mut b) = ([0u8; 32], [0u8; 32]);
     assert_eq!(
-        rc::argon2::argon2id(MESSAGE, b"somesalt", &params, &mut a),
+        rc::argon2::argon2id_v13(MESSAGE, b"somesalt", &params, &mut a),
         Ok(())
     );
     assert_eq!(
-        ossl::argon2::argon2id(MESSAGE, b"somesalt", &params, &mut b),
+        ossl::argon2::argon2id_v13(MESSAGE, b"somesalt", &params, &mut b),
         Ok(())
     );
     assert_eq!(a, b);
@@ -175,11 +175,11 @@ fn argon2_matches() {
     ];
     for (params, salt, len) in rejected {
         let (mut a, mut b) = (vec![0u8; len], vec![0u8; len]);
-        let rc_result = rc::argon2::argon2id(MESSAGE, salt, &params, &mut a);
+        let rc_result = rc::argon2::argon2id_v13(MESSAGE, salt, &params, &mut a);
         assert!(rc_result.is_err());
         assert_eq!(
             rc_result,
-            ossl::argon2::argon2id(MESSAGE, salt, &params, &mut b)
+            ossl::argon2::argon2id_v13(MESSAGE, salt, &params, &mut b)
         );
     }
 }
