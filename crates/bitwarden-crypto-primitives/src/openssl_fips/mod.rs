@@ -1,7 +1,7 @@
 //! OpenSSL (>= 3.5) backend driver. Each submodule mirrors one public module of the crate.
 //!
 //! OpenSSL has no HChaCha20 (needed for XChaCha20) and no ristretto255 group API, so those two
-//! modules re-export the RustCrypto driver.
+//! modules are unsupported and panic.
 
 pub(crate) mod aes_cbc;
 pub(crate) mod aes_gcm;
@@ -14,7 +14,7 @@ pub(crate) mod ml_dsa_44;
 pub(crate) mod p256;
 pub(crate) mod pbkdf2;
 pub(crate) mod random;
-pub(crate) use crate::rustcrypto::ristretto255;
+pub(crate) mod ristretto255;
 pub(crate) mod rsa;
 pub(crate) mod xaes_256_gcm;
-pub(crate) use crate::rustcrypto::xchacha20_poly1305;
+pub(crate) mod xchacha20_poly1305;
