@@ -1,6 +1,6 @@
 //! This file contains helper functions to aid in COSE deserialization
 
-use bitwarden_crypto_primitives::{ed25519, ml_dsa};
+use bitwarden_crypto_primitives::{ed25519, ml_dsa_44};
 use coset::{
     CoseKey, Label, ProtectedHeader, RegisteredLabel,
     iana::{AkpKeyParameter, EllipticCurve, EnumI64, OkpKeyParameter},
@@ -166,8 +166,8 @@ pub(super) fn mldsa_seed(
 /// Helper function to parse an ML-DSA-44 verifying key from a `CoseKey`.
 pub(super) fn mldsa44_verifying_key(
     cose_key: &CoseKey,
-) -> Result<ml_dsa::VerifyingKey, EncodingError> {
+) -> Result<ml_dsa_44::VerifyingKey, EncodingError> {
     let pub_bytes = akp_pub(cose_key)?;
-    ml_dsa::VerifyingKey::from_bytes(pub_bytes)
+    ml_dsa_44::VerifyingKey::from_bytes(pub_bytes)
         .map_err(|_| EncodingError::InvalidValue("ML-DSA-44 verifying key length"))
 }

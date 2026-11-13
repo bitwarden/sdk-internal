@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use bitwarden_crypto_primitives::{ed25519, ml_dsa};
+use bitwarden_crypto_primitives::{ed25519, ml_dsa_44};
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, CoseKey, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
@@ -31,8 +31,8 @@ enum RawSigningKey {
     Ed25519(Pin<Box<ed25519::SigningKey>>),
     MlDsa44 {
         // Holds the seed, which is the serialized form.
-        signing_key: Pin<Box<ml_dsa::SigningKey>>,
-        verifying_key: Box<ml_dsa::VerifyingKey>,
+        signing_key: Pin<Box<ml_dsa_44::SigningKey>>,
+        verifying_key: Box<ml_dsa_44::VerifyingKey>,
     },
 }
 
@@ -50,7 +50,7 @@ pub struct SigningKey {
 const _: fn() = || {
     fn assert_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
     assert_zeroize_on_drop::<ed25519::SigningKey>();
-    assert_zeroize_on_drop::<ml_dsa::SigningKey>();
+    assert_zeroize_on_drop::<ml_dsa_44::SigningKey>();
 };
 impl zeroize::ZeroizeOnDrop for SigningKey {}
 impl CryptoKey for SigningKey {}
@@ -85,7 +85,7 @@ impl SigningKey {
             SignatureAlgorithm::MlDsa44 => {
                 let kp = measure(
                     SlowCryptoOp::MlDsaKeyGeneration,
-                    ml_dsa::SigningKey::generate,
+                    ml_dsa_44::SigningKey::generate,
                 );
                 SigningKey {
                     id: KeyId::make(),
@@ -194,7 +194,7 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
             ) => {
                 let seed = mldsa_seed(&cose_key)?;
                 let kp = measure(SlowCryptoOp::MlDsaExpandSeed, || {
-                    ml_dsa::SigningKey::from_seed(&seed)
+                    ml_dsa_44::SigningKey::from_seed(&seed)
                 });
                 Ok(SigningKey {
                     id: key_id(&cose_key)?,
