@@ -6,7 +6,7 @@ use crate::{
     aes_cbc::{BLOCK_LEN, IV_LEN, KEY_LEN},
 };
 
-pub(crate) fn encrypt(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN], plaintext: &[u8]) -> Vec<u8> {
+pub(crate) fn encrypt_pkcs7(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN], plaintext: &[u8]) -> Vec<u8> {
     const INFALLIBLE: &str = "AES-CBC encryption of in-memory data does not fail";
 
     let mut ctx = CipherCtx::new().expect(INFALLIBLE);
@@ -21,7 +21,7 @@ pub(crate) fn encrypt(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN], plaintext: &[u8]) 
     out
 }
 
-pub(crate) fn decrypt(
+pub(crate) fn decrypt_pkcs7(
     key: &[u8; KEY_LEN],
     iv: &[u8; IV_LEN],
     ciphertext: &[u8],
