@@ -34,11 +34,11 @@ impl KeyDataClient {
 
         match parse(&data)? {
             KeyData::PrivateKey {
-                wrapped_key,
+                private_key,
                 public_key,
                 signed_key,
             } => {
-                let envelope = parsing.inspect_legacy_compat_symmetric_key_envelope(wrapped_key)?;
+                let envelope = parsing.inspect_legacy_compat_symmetric_key_envelope(private_key)?;
                 let public = parsing.inspect_public_key(public_key)?;
                 let signed_by = signed_key.map(signed_public_key_signer).transpose()?;
 
@@ -55,11 +55,11 @@ impl KeyDataClient {
                 })
             }
             KeyData::SigningKey {
-                wrapped_key,
-                public_key,
+                signing_key,
+                verifying_key,
             } => {
-                let envelope = parsing.inspect_legacy_compat_symmetric_key_envelope(wrapped_key)?;
-                let verifying = parsing.inspect_verifying_key(public_key)?;
+                let envelope = parsing.inspect_legacy_compat_symmetric_key_envelope(signing_key)?;
+                let verifying = parsing.inspect_verifying_key(verifying_key)?;
 
                 same(&envelope.contained_key_id, &Some(verifying.key_id.clone()))?;
 
@@ -220,7 +220,7 @@ enum KeyData {
         rename_all = "camelCase"
     )]
     PrivateKey {
-        wrapped_key: String,
+        private_key: String,
         public_key: String,
         signed_key: Option<String>,
     },
@@ -229,8 +229,8 @@ enum KeyData {
         rename_all = "camelCase"
     )]
     SigningKey {
-        wrapped_key: String,
-        public_key: String,
+        signing_key: String,
+        verifying_key: String,
     },
     #[serde(
         rename = "legacy-compat-symmetric-key-envelope",
@@ -498,7 +498,7 @@ mod tests {
         let o = &*OBJECTS;
         json!({
             "type": "legacy-compat-private-key-envelope",
-            "wrappedKey": o.enc_string_envelope,
+            "privateKey": o.enc_string_envelope,
             "publicKey": o.public_key,
             "signedKey": o.signed_public_key,
         })
@@ -508,8 +508,8 @@ mod tests {
         let o = &*OBJECTS;
         json!({
             "type": "legacy-compat-signing-key-envelope",
-            "wrappedKey": o.enc_string_envelope,
-            "publicKey": o.verifying_key,
+            "signingKey": o.enc_string_envelope,
+            "verifyingKey": o.verifying_key,
         })
     }
 
@@ -578,7 +578,7 @@ mod tests {
     #[test]
     fn private_key_envelope_holds_another_key() {
         // The COSE envelope names the symmetric key it holds, not the pair's private key.
-        let data = with(private_key(), "wrappedKey", json!(OBJECTS.envelope));
+        let data = with(private_key(), "privateKey", json!(OBJECTS.envelope));
 
         let result = client().validate_key(data);
 
@@ -608,7 +608,7 @@ mod tests {
 
     #[test]
     fn signing_key_envelope_holds_another_key() {
-        let data = with(signing_key(), "wrappedKey", json!(OBJECTS.envelope));
+        let data = with(signing_key(), "signingKey", json!(OBJECTS.envelope));
 
         let result = client().validate_key(data);
 
@@ -694,7 +694,7 @@ mod tests {
             with(private_key(), "signedKey", json!(o.signed_security_state)),
             json!({ "type": "signed-security-state", "signedSecurityState": o.signed_public_key })
                 .to_string(),
-            with(signing_key(), "publicKey", json!(o.public_key)),
+            with(signing_key(), "verifyingKey", json!(o.public_key)),
             json!({ "type": "unsigned-shared-key", "wrappedKey": o.enc_string }).to_string(),
             json!({ "type": "signed-security-state", "signedSecurityState": "AAAA" }).to_string(),
         ];
