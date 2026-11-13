@@ -41,7 +41,7 @@ impl Aead for Aes256CbcHmacSha256Aead {
     ) -> Self::Ciphertext {
         let (enc_key, mac_key) = split_to_subkeys(key);
 
-        let mut encrypted_bytes = aes_cbc::encrypt(enc_key, nonce.as_array(), plaintext);
+        let mut encrypted_bytes = aes_cbc::encrypt_pkcs7(enc_key, nonce.as_array(), plaintext);
         let mac =
             calculate_mac_with_aad(nonce.as_array(), &encrypted_bytes, associated_data, mac_key);
         encrypted_bytes.extend_from_slice(&mac);
@@ -68,7 +68,7 @@ impl Aead for Aes256CbcHmacSha256Aead {
             return Err(CryptoError::KeyDecrypt);
         }
 
-        aes_cbc::decrypt(enc_key, nonce.as_array(), data).map_err(|_| CryptoError::KeyDecrypt)
+        aes_cbc::decrypt_pkcs7(enc_key, nonce.as_array(), data).map_err(|_| CryptoError::KeyDecrypt)
     }
 }
 
