@@ -1,7 +1,7 @@
 //! OpenSSL (>= 3.5) backend driver. Each submodule mirrors one public module of the crate.
 //!
-//! OpenSSL has no HChaCha20 (needed for XChaCha20) and no ristretto255 group API, so those two
-//! modules are unsupported and panic.
+//! XChaCha20-Poly1305, P-256 and ristretto255 are deliberately unsupported on this backend and
+//! panic.
 
 pub(crate) mod aes_cbc;
 pub(crate) mod aes_gcm;

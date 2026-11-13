@@ -68,7 +68,8 @@ impl PublicKey {
     }
 }
 
-#[cfg(test)]
+// The OpenSSL backend does not support this primitive.
+#[cfg(all(test, not(bitwarden_crypto_backend = "openssl")))]
 mod tests {
     use super::*;
     use crate::test_vectors::{array, bytes};
@@ -173,5 +174,16 @@ mod tests {
             hex::encode(a.diffie_hellman(&b.public_key()).as_slice()),
             "e349cf6859d17371eaad97b5605b346539b69cef845378beaab8c3e54b0d12c7"
         );
+    }
+}
+
+#[cfg(all(test, bitwarden_crypto_backend = "openssl"))]
+mod unsupported_on_openssl {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "P-256 is not available on the OpenSSL backend")]
+    fn panics() {
+        let _ = SecretKey::from_pkcs8_der(b"");
     }
 }

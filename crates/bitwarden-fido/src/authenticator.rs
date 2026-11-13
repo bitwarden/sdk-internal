@@ -835,6 +835,7 @@ mod tests {
     /// authenticator, we have disabled the configuration.
     /// When we implement PRF, this test should be updated to test that PRF _is_
     /// evaluated when PRF extension input is received.
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn test_prf_is_not_evaluated() {
         let client = Client::new(None);
