@@ -61,16 +61,14 @@ example of a generator extension for the `Client` struct.
 
 ```rust,ignore
 use bitwarden_core::Client;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// Generator extension client that wraps the base Client
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct GeneratorClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl GeneratorClient {
     fn new(client: Client) -> Self {
         Self { client }
