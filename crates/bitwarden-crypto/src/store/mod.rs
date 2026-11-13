@@ -25,6 +25,7 @@
 use std::sync::{Arc, RwLock};
 
 use bitwarden_ffi::{LargeVec, LargeVecError};
+use futures::{Stream, StreamExt, stream};
 use rayon::prelude::*;
 
 use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeySlotId, KeySlotIds};
@@ -340,19 +341,79 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
         let results: Box<dyn Iterator<Item = _> + 'a> = match items.try_into_vec() {
             // Items from Rust are already in memory, so they are decrypted as one slice, which
             // avoids moving each item into a batch.
-            Ok(items) => {
-                let results = self.decrypt_batch(&items);
-                Box::new(
-                    items
-                        .into_iter()
-                        .zip(results)
-                        .map(|(item, result)| result.map_err(|error| Box::new((item, error))))
-                        .map(Ok),
-                )
-            }
+            Ok(items) => Box::new(self.decrypt_vec(items).map(Ok)),
             Err(items) => Box::new(self.decrypt_iter(items)),
         };
         results
+    }
+
+    /// Decrypt a stream of chunks, each chunk as it arrives, so only one chunk is held in memory.
+    /// The items of a chunk are decrypted together, as [KeyStore::decrypt_list] does.
+    ///
+    /// Each chunk comes back as its items' results in input order: `Ok(output)` when an item
+    /// decrypts, `Err(failure)` with the item and its error when it does not. An input error is
+    /// yielded in place of its chunk and ends the stream: later polls return `None` without
+    /// reading the input again.
+    ///
+    /// The stream holds a clone of this store and takes contexts only while it decrypts a chunk,
+    /// so it holds no lock while it waits for the input. Each chunk is decrypted with the keys the
+    /// store holds at that time: once the store is cleared, every item of a later chunk fails.
+    pub fn decrypt_stream<Key, Data, Output, E, Chunks>(
+        &self,
+        chunks: Chunks,
+    ) -> impl Stream<Item = Result<Vec<DecryptedItem<Data, Output>>, E>>
+    + Send
+    + use<Ids, Key, Data, Output, E, Chunks>
+    where
+        Key: KeySlotId,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync,
+        Output: Send,
+        Chunks: Stream<Item = Result<Vec<Data>, E>> + Send,
+    {
+        let state = Some((Box::pin(chunks), self.clone()));
+        stream::unfold(state, |state| async move {
+            let (mut chunks, store) = state?;
+            match chunks.next().await? {
+                Ok(items) => {
+                    // Collecting the results straight out of `items` can reuse the buffer of
+                    // `items`, so the decrypted chunk would keep the capacity of the encrypted
+                    // one for as long as it lives. A `Vec` of the exact length frees that buffer
+                    // once the chunk is decrypted.
+                    let mut results = Vec::with_capacity(items.len());
+                    results.extend(store.decrypt_vec(items));
+                    Some((Ok(results), Some((chunks, store))))
+                }
+                Err(error) => Some((Err(error), None)),
+            }
+        })
+        // `unfold` panics when polled after it ends.
+        .fuse()
+    }
+
+    /// Decrypts `items` as one slice and returns each item's result in input order, with an item
+    /// that fails to decrypt handed back along with its error. The decrypt behind the items from
+    /// Rust of [KeyStore::decrypt_large_vec], each batch of [KeyStore::decrypt_iter], and each
+    /// chunk of [KeyStore::decrypt_stream].
+    ///
+    /// The items are taken by value, so the caller has no copy of an item that fails to decrypt
+    /// and a reference cannot be given back. The failure holds the item itself, because callers
+    /// such as the vault need to return failed ciphers to their clients. The item is boxed to keep
+    /// the `Err` variant small, as clippy's `result_large_err` requires, because encrypted items
+    /// such as a `Cipher` can be large.
+    fn decrypt_vec<Key, Data, Output>(
+        &self,
+        items: Vec<Data>,
+    ) -> impl Iterator<Item = DecryptedItem<Data, Output>>
+    where
+        Key: KeySlotId,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Sync,
+        Output: Send,
+    {
+        let results = self.decrypt_batch(&items);
+        items
+            .into_iter()
+            .zip(results)
+            .map(|(item, result)| result.map_err(|error| Box::new((item, error))))
     }
 
     /// Decrypt items from an iterator a batch at a time, so only one batch is held in memory.
@@ -418,17 +479,8 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
                     return None;
                 }
 
-                // `decrypt_iter` takes ownership of the items, so the caller has no copy of an
-                // item that fails to decrypt, meaning that we can't give back a reference. The
-                // result returns the item itself, because callers such as the vault need to return
-                // failed ciphers to their clients. The item is boxed to keep the `Err` variant
-                // small, as clippy's `result_large_err` requires, because encrypted items such as
-                // a `Cipher` can be large.
-                let results = self.decrypt_batch(&batch);
-                ready = batch
-                    .into_iter()
-                    .zip(results)
-                    .map(|(item, result)| result.map_err(|error| Box::new((item, error))))
+                ready = self
+                    .decrypt_vec(batch)
                     .map(Ok)
                     .chain(input_error.map(Err))
                     .collect::<Vec<_>>()
@@ -438,8 +490,8 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     }
 
     /// Decrypts the items of a slice, returning each item's result in order. The decrypt behind
-    /// [KeyStore::decrypt_list], [KeyStore::decrypt_list_with_failures], and each batch of
-    /// [KeyStore::decrypt_iter].
+    /// [KeyStore::decrypt_list], [KeyStore::decrypt_list_with_failures], and
+    /// [KeyStore::decrypt_vec].
     ///
     /// The items are spread over the rayon threads in pieces of at least `batch_chunk_size` items.
     /// Each piece gets its own context, whose local keys are cleared after every item.
@@ -500,6 +552,10 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
         res
     }
 }
+
+/// The result of decrypting an item handed over by value: the output, or the item back along with
+/// its error.
+type DecryptedItem<Data, Output> = Result<Output, Box<(Data, crate::CryptoError)>>;
 
 /// Calculate the optimal chunk size for parallelizing encryption/decryption operations.
 fn batch_chunk_size(len: usize) -> usize {
@@ -690,6 +746,137 @@ pub(crate) mod tests {
                 output,
                 (0..4).map(|n| format!("Item {n}")).collect::<Vec<_>>()
             );
+        }
+    }
+
+    mod decrypt_stream {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+
+        use futures::{StreamExt, stream};
+
+        use super::*;
+        use crate::{CryptoError, store::tests::decrypt_iter::store_and_items};
+
+        /// What a chunk out of [KeyStore::decrypt_stream] says, for comparing whole outputs: each
+        /// item's decrypted text, or the failed item's key.
+        fn outcomes(
+            chunk: Vec<Result<DataView, Box<(Data, CryptoError)>>>,
+        ) -> Vec<Result<String, TestSymmKey>> {
+            chunk
+                .into_iter()
+                .map(|result| match result {
+                    Ok(view) => Ok(view.0),
+                    Err(failure) => Err(failure.0.1),
+                })
+                .collect()
+        }
+
+        /// `items` split into chunks of `sizes`, in order.
+        fn chunks_of(items: Vec<Data>, sizes: &[usize]) -> Vec<Vec<Data>> {
+            let mut items = items.into_iter();
+            sizes
+                .iter()
+                .map(|&size| items.by_ref().take(size).collect())
+                .collect()
+        }
+
+        #[tokio::test]
+        async fn decrypts_each_chunk_in_order_and_hands_back_failed_items_in_place() {
+            let failing = [0, 5, 9];
+            let (store, items) = store_and_items(10, &failing);
+            let keys: Vec<_> = items.iter().map(|item| item.1).collect();
+            // The second chunk is empty, and comes back empty.
+            let chunks = chunks_of(items, &[4, 0, 3, 3]);
+
+            let output: Vec<_> = store
+                .decrypt_stream::<_, _, DataView, &str, _>(stream::iter(chunks).map(Ok))
+                .map(|chunk| outcomes(chunk.unwrap()))
+                .collect()
+                .await;
+
+            let expected = |range: std::ops::Range<usize>| -> Vec<_> {
+                range
+                    .map(|n| {
+                        if failing.contains(&n) {
+                            Err(keys[n])
+                        } else {
+                            Ok(format!("Item {n}"))
+                        }
+                    })
+                    .collect()
+            };
+            assert_eq!(
+                output,
+                [
+                    expected(0..4),
+                    expected(4..4),
+                    expected(4..7),
+                    expected(7..10)
+                ]
+            );
+        }
+
+        #[tokio::test]
+        async fn yields_an_input_error_and_ends_without_reading_on() {
+            let (store, items) = store_and_items(4, &[]);
+            let mut chunks = chunks_of(items, &[2, 2]).into_iter();
+            let input = [
+                Ok(chunks.next().unwrap()),
+                Err("invalid"),
+                Ok(chunks.next().unwrap()),
+            ];
+            let read = Arc::new(AtomicUsize::new(0));
+            let counted = Arc::clone(&read);
+            let input = stream::iter(input).inspect(move |_| {
+                counted.fetch_add(1, Ordering::SeqCst);
+            });
+
+            let mut output = std::pin::pin!(store.decrypt_stream::<_, _, DataView, _, _>(input));
+
+            let first = output.next().await.unwrap().unwrap();
+            assert_eq!(
+                outcomes(first),
+                [Ok("Item 0".to_owned()), Ok("Item 1".to_owned())]
+            );
+            assert!(matches!(output.next().await, Some(Err("invalid"))));
+            assert!(output.next().await.is_none());
+            assert!(output.next().await.is_none());
+            assert_eq!(read.load(Ordering::SeqCst), 2);
+        }
+
+        #[tokio::test]
+        async fn yields_nothing_for_no_chunks() {
+            let (store, _) = store_and_items(0, &[]);
+
+            let output: Vec<_> = store
+                .decrypt_stream::<_, Data, DataView, &str, _>(stream::empty())
+                .collect()
+                .await;
+
+            assert!(output.is_empty());
+        }
+
+        #[tokio::test]
+        async fn holds_no_context_while_reading_the_input_or_between_chunks() {
+            let (store, items) = store_and_items(6, &[]);
+            // A context holds the store's lock, which would make the write lock unavailable.
+            let reader = store.clone();
+            let input = stream::iter(chunks_of(items, &[2, 2, 2])).map(move |chunk| {
+                assert!(reader.inner.try_write().is_ok());
+                Ok::<_, &str>(chunk)
+            });
+
+            let mut output = std::pin::pin!(store.decrypt_stream::<_, _, DataView, _, _>(input));
+
+            let mut chunks = 0;
+            while output.next().await.is_some() {
+                assert!(store.inner.try_write().is_ok());
+                chunks += 1;
+            }
+            assert_eq!(chunks, 3);
         }
     }
 
