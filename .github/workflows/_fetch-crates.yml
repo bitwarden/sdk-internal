@@ -1,0 +1,106 @@
+name: Fetch crates through Aikido
+
+# Downloads the crates a workflow needs on a Linux runner protected by Aikido Endpoint Protection
+# and uploads them as the `cargo-crates` artifact. The Aikido action only supports Linux X64, so
+# jobs on macOS, Windows and ARM runners download this artifact and run Cargo with
+# CARGO_NET_OFFLINE instead of reaching crates.io themselves.
+
+on:
+  workflow_call:
+    inputs:
+      tools:
+        description: "Space-separated [workspace.metadata.bin] tools the jobs build with `cargo bin`"
+        type: string
+        required: false
+        default: ""
+    secrets:
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_CLIENT_ID:
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fetch:
+    name: Fetch crates
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      # Without --target, cargo fetch downloads the dependencies of every platform.
+      - name: Fetch workspace crates
+        run: cargo fetch --locked
+
+      # `cargo install --locked` builds a tool from the Cargo.lock it was published with, not the
+      # workspace's. Fetching that lock file's dependencies, again for every platform, lets the
+      # offline jobs install the tool. cargo-run-bin is installed for real, so its version stays in
+      # Renovate's cargo-run-bin regex, and its source is found by glob rather than by a second copy
+      # of the version.
+      - name: Fetch tool crates
+        if: inputs.tools != ''
+        env:
+          _TOOLS: ${{ inputs.tools }}
+        run: |
+          cargo install cargo-run-bin --locked --version 1.7.4
+
+          registry_src=("${CARGO_HOME:-$HOME/.cargo}"/registry/src/index.crates.io-*)
+          if [[ ${#registry_src[@]} -ne 1 ]]; then
+            echo "::error::Expected one crates.io source directory, found: ${registry_src[*]}"
+            exit 1
+          fi
+          run_bin_manifest=("${registry_src[0]}"/cargo-run-bin-*/Cargo.toml)
+          if [[ ${#run_bin_manifest[@]} -ne 1 || ! -f "${run_bin_manifest[0]}" ]]; then
+            echo "::error::Expected one cargo-run-bin source directory, found: ${run_bin_manifest[*]}"
+            exit 1
+          fi
+          cargo fetch --locked --manifest-path "${run_bin_manifest[0]}"
+
+          bin_metadata=$(cargo metadata --no-deps --format-version 1 | jq '.metadata.bin')
+          for tool in $_TOOLS; do
+            version=$(jq -r --arg tool "$tool" '.[$tool].version // empty' <<< "$bin_metadata")
+            if [[ -z "$version" ]]; then
+              echo "::error::$tool has no crates.io version in [workspace.metadata.bin]"
+              exit 1
+            fi
+            # cargo info caches the tool's index entry and downloads its .crate.
+            (cd "$RUNNER_TEMP" && cargo info "$tool@$version" > /dev/null)
+            cargo fetch --locked --manifest-path "${registry_src[0]}/$tool-$version/Cargo.toml"
+          done
+
+      # The index cache is under a hidden directory, and the .crate files are already compressed.
+      - name: Upload crates
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cargo-crates
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error

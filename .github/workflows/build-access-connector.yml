@@ -28,9 +28,21 @@ defaults:
     shell: bash
 
 jobs:
+  fetch-crates:
+    name: Fetch crates
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/_fetch-crates.yml
+    secrets:
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+
   build:
     name: Build bwac - ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    needs: fetch-crates
 
     strategy:
       fail-fast: false
@@ -64,9 +76,22 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           key: access-connector-${{ matrix.target }}
           # The build output cache below restores target/, including the dependencies.
           cache-targets: false
+
+      # After the cache restore, so this run's index entries replace any older cached ones.
+      - name: Download crates
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cargo-crates
+          path: ~/.cargo
+
+      # Aikido only runs on Linux X64 runners, so Cargo only uses the crates fetch-crates downloaded.
+      - name: Keep Cargo offline
+        shell: bash
+        run: echo "CARGO_NET_OFFLINE=true" >> "$GITHUB_ENV"
 
       - name: Cache build output
         uses: bitwarden/gh-actions/cargo-build-cache@main

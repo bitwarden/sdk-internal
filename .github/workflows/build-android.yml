@@ -38,6 +38,7 @@ jobs:
           - target: i686-linux-android
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Checkout repo
@@ -53,6 +54,7 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           key: ${{ matrix.settings.target }}-cargo
           # The build output cache below restores target/, including the dependencies.
           cache-targets: false
@@ -65,7 +67,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .bin
-          key: cargo-bin-${{ runner.os }}-cross-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
+          key: cargo-bin-v1-${{ runner.os }}-cross-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
 
       # cross builds inside this image, which provides the NDK and linker. Cargo's fingerprints don't
       # cover them, so the build output cache is keyed on the image digest: a new image starts a new
@@ -89,16 +91,31 @@ jobs:
         with:
           key: ${{ github.job }}-${{ matrix.settings.target }}-${{ steps.cross-image.outputs.digest }}
 
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
 
       - name: Check cargo-binstall is not configured
         run: ./scripts/check-no-binstall.sh
 
+      # cross runs Cargo in a container, which doesn't go through the runner's Aikido proxy. Fetch the
+      # crates here and keep the container's Cargo offline.
+      - name: Fetch crates
+        run: |
+          cargo bin cross --version
+          cargo fetch --locked
+
       - name: Build
         id: build
         env:
           TARGET: ${{ matrix.settings.target }}
+          CARGO_NET_OFFLINE: "true"
         run: cargo bin cross build -p bitwarden-uniffi --release --target=${{ matrix.settings.target }}
 
       - name: Upload artifact
@@ -117,6 +134,7 @@ jobs:
       sdk-version: ${{ steps.publish.outputs.sdk-version }}
     permissions:
       contents: read
+      id-token: write
       packages: write
 
     steps:
@@ -144,6 +162,7 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           key: cargo-combine-cache
 
       - name: Setup Java
@@ -151,6 +170,13 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Download Artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -170,6 +196,9 @@ jobs:
 
       - name: Setup gradle
         uses: gradle/actions/setup-gradle@f29f5a9d7b09a7c6b29859002d29d24e1674c884 # v5.0.1
+        env:
+          # Drops the Gradle caches saved before Aikido checked their downloads.
+          GRADLE_BUILD_ACTION_CACHE_KEY_PREFIX: v1-
 
       # The Gradle build cache lets tasks whose inputs are unchanged, such as compiling and linting
       # the generated bindings when the SDK's API is the same, reuse the output of an earlier run.
