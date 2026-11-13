@@ -91,13 +91,12 @@ impl VerifyingKey {
         self.bytes
     }
 
-    /// Strict verification: rejects small-order keys and non-canonical signatures.
+    /// Strict verification, matching `ed25519_dalek::VerifyingKey::verify_strict`: rejects
+    /// small-order keys and `R`, `s >= L`, and non-canonical `R` encodings.
     ///
-    /// OpenSSL verifies cofactorless, rejects `s >= L`, and compares `R` byte-for-byte with the
-    /// recomputed point. It does not reject small-order `A` or `R`, so both are checked here first
-    /// to match `ed25519_dalek::VerifyingKey::verify_strict`. Remaining gap: a non-canonical
-    /// encoding of `R` fails here, while dalek compares decoded points and could accept it. Honest
-    /// signers never produce one.
+    /// OpenSSL verifies cofactorless, rejects `s >= L`, and compares the recomputed `R` with the
+    /// signature's `R` bytes (so a non-canonical `R` fails, as in dalek). It does not reject
+    /// small-order `A` or `R`, so both are checked here first.
     pub(crate) fn verify(&self, msg: &[u8], sig: &[u8; SIGNATURE_LEN]) -> Result<(), Error> {
         let r: [u8; PUBLIC_KEY_LEN] = sig[..PUBLIC_KEY_LEN]
             .try_into()
