@@ -6,7 +6,7 @@ use std::{num::NonZeroU32, sync::LazyLock};
 use crate::{
     argon2::Params,
     hmac::HashAlg,
-    openssl as ossl,
+    openssl_fips as ossl,
     rsa::{KeySize, OaepHash},
     rustcrypto as rc,
 };
@@ -203,16 +203,19 @@ fn aes_cbc_matches() {
     let iv = [9u8; 16];
     for len in [0, 1, 16, MESSAGE.len()] {
         let pt = &MESSAGE[..len];
-        let ct = rc::aes_cbc::encrypt(&KEY, &iv, pt);
-        assert_eq!(ct, ossl::aes_cbc::encrypt(&KEY, &iv, pt));
-        assert_eq!(ossl::aes_cbc::decrypt(&KEY, &iv, &ct), Ok(pt.to_vec()));
+        let ct = rc::aes_cbc::encrypt_pkcs7(&KEY, &iv, pt);
+        assert_eq!(ct, ossl::aes_cbc::encrypt_pkcs7(&KEY, &iv, pt));
+        assert_eq!(
+            ossl::aes_cbc::decrypt_pkcs7(&KEY, &iv, &ct),
+            Ok(pt.to_vec())
+        );
     }
 
-    let mut bad_padding = rc::aes_cbc::encrypt(&KEY, &iv, b"x");
+    let mut bad_padding = rc::aes_cbc::encrypt_pkcs7(&KEY, &iv, b"x");
     bad_padding[15] ^= 1;
     assert_eq!(
-        rc::aes_cbc::decrypt(&KEY, &iv, &bad_padding),
-        ossl::aes_cbc::decrypt(&KEY, &iv, &bad_padding)
+        rc::aes_cbc::decrypt_pkcs7(&KEY, &iv, &bad_padding),
+        ossl::aes_cbc::decrypt_pkcs7(&KEY, &iv, &bad_padding)
     );
 
     let (mut enc_a, mut enc_b) = (

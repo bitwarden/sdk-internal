@@ -20,9 +20,9 @@ mod rustcrypto;
 use rustcrypto as backend;
 
 #[cfg(bitwarden_crypto_backend = "openssl")]
-mod openssl;
+mod openssl_fips;
 #[cfg(bitwarden_crypto_backend = "openssl")]
-use self::openssl as backend;
+use openssl_fips as backend;
 
 #[cfg(all(test, bitwarden_crypto_backend = "openssl"))]
 mod cross_backend_tests;
