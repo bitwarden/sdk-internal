@@ -21,7 +21,7 @@ Outside the SDK boundary - only secrets cross it, never keys:
     +-------------------------------------------------------------+
         |  wraps other keys:
         |    - SymmetricKeyEnvelope           -> a CEK or another KEK
-        |    - PrivateKeyEnvelope   (n/i)     -> a private key
+        |    - PrivateKeyEnvelope             -> a private key
         |    - SignatureKeyEnvelope (n/i)     -> a signing key
         v
     +----------------------------------------------------------------+
