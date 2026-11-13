@@ -25,7 +25,7 @@ pub fn decrypt_pkcs7(
     backend::aes_cbc::decrypt_pkcs7(key, iv, ciphertext)
 }
 
-/// Unpadded, block-at-a-time CBC encryption for streaming. Padding is the caller's job.
+/// Unpadded, block-at-a-time CBC encryption for streaming. The caller must perform padding.
 pub struct Encryptor(backend::aes_cbc::Encryptor);
 
 impl Encryptor {
@@ -40,7 +40,7 @@ impl Encryptor {
     }
 }
 
-/// Unpadded, block-at-a-time CBC decryption for streaming. Unpadding is the caller's job.
+/// Unpadded, block-at-a-time CBC decryption for streaming. The caller must remove padding.
 pub struct Decryptor(backend::aes_cbc::Decryptor);
 
 impl Decryptor {
