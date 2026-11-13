@@ -1,7 +1,0 @@
-*
-!/.cargo/config.toml
-!/bitwarden_license/*
-!/crates/*
-!/Cargo.toml
-!/Cargo.lock
-!/rust-toolchain.toml

@@ -1,40 +1,23 @@
-# bwac builds in the Cargo workspace, so the context must be the repository root:
-#   docker build -f bitwarden_license/bitwarden-access-connector/Dockerfile .
+# Packages the bwac that build-access-connector.yml builds. The context holds one binary per
+# platform, at linux/amd64/bwac and linux/arm64/bwac. The binaries link against glibc, and the
+# arm64 one needs 2.39 or later.
+FROM debian:13-slim
 
-###############################################
-#                 Build stage                 #
-###############################################
-FROM rust:1.99-alpine AS build
-
-RUN apk add --no-cache gcc musl-dev
-
-WORKDIR /source
-
-COPY rust-toolchain.toml ./
-RUN rustup toolchain install
-
-COPY . ./
-
-# Rust links musl statically, so the binary runs on any base image.
-RUN cargo build -p bitwarden-access-connector --release --locked \
-    && cp target/release/bwac /bwac
-
-###############################################
-#                  App stage                  #
-###############################################
-FROM alpine:3.24
+ARG TARGETPLATFORM
 
 LABEL com.bitwarden.product="bitwarden"
 
-RUN apk add --no-cache ca-certificates tini \
-    && addgroup -S -g 10001 bwac \
-    && adduser -S -D -H -u 10001 -G bwac -s /sbin/nologin bwac \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 bwac \
+    && useradd --system --uid 10001 --gid bwac --no-create-home --shell /usr/sbin/nologin bwac \
     && install -d -m 0755 /etc/bwac /opt/bwac/scripts
 
-COPY --from=build /bwac /usr/local/bin/bwac
+COPY --chmod=0755 ${TARGETPLATFORM}/bwac /usr/local/bin/bwac
 
 USER 10001:10001
 
 # bwac doesn't reap the processes a killed script leaves behind, so it can't be PID 1.
-ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/bwac"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/bwac"]
 CMD ["run"]

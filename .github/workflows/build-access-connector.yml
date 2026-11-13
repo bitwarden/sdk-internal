@@ -284,9 +284,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      # The arm64 image's RUN steps execute under emulation on this amd64 runner.
+      - name: Set up QEMU
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
       - name: Set up Docker Buildx
         if: steps.dockerfile.outputs.exists == 'true'
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      # Runs before the push, so a broken image never reaches the registry.
+      - name: Smoke test image
+        if: steps.dockerfile.outputs.exists == 'true'
+        run: |
+          for platform in linux/amd64 linux/arm64; do
+            docker buildx build --load --platform "${platform}" -f "${_DOCKERFILE}" -t bwac:test dist
+            docker run --rm --platform "${platform}" --read-only --cap-drop ALL bwac:test --version
+            docker run --rm --platform "${platform}" --read-only --cap-drop ALL bwac:test run --help > /dev/null
+
+            code=0
+            docker run --rm --platform "${platform}" --read-only --cap-drop ALL bwac:test || code=$?
+            if [ "${code}" -ne 1 ]; then
+              echo "::error::bwac on ${platform} without a token exited with ${code}, expected 1"
+              exit 1
+            fi
+          done
 
       - name: Build Docker image
         id: build-docker

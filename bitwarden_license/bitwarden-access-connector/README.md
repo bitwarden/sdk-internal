@@ -953,13 +953,16 @@ See also the [SDK architecture](https://contributing.bitwarden.com/architecture/
 
 ### Docker image
 
-The image runs `bwac` on Alpine Linux as an unprivileged user with UID `10001`. `tini` runs as
-process 1 and reaps the processes a killed script leaves behind.
+The image runs `bwac` on Debian 13 as an unprivileged user with UID `10001`. `tini` runs as process
+1 and reaps the processes a killed script leaves behind.
 
-Build it from the repository root, because `bwac` builds in the Cargo workspace:
+The Dockerfile packages a Linux `bwac` built elsewhere, such as the `bwac-x86_64-unknown-linux-gnu`
+or `bwac-aarch64-unknown-linux-gnu` artifact of the build workflow. Put it at
+`dist/linux/amd64/bwac` or `dist/linux/arm64/bwac`, to match the platform Docker builds for, then
+run:
 
 ```sh
-docker build -f bitwarden_license/bitwarden-access-connector/Dockerfile -t bwac .
+docker build -f bitwarden_license/bitwarden-access-connector/Dockerfile -t bwac dist
 ```
 
 Start it with the environment file, and with the config file and scripts mounted read-only:

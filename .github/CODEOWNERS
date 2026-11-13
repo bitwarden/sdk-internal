@@ -106,7 +106,6 @@ crates/bw/src/vault/** @bitwarden/team-vault-dev
 .github/workflows/build-* @bitwarden/team-platform-dev
 .github/workflows/verifpal.yml @bitwarden/team-key-management-dev
 .github/workflows/build-access-connector.yml @bitwarden/team-pam-dev
-.github/workflows/build-access-connector-docker.yml @bitwarden/team-pam-dev
 .github/workflows/version-bump.yml @bitwarden/team-platform-dev
 
 # Docker-related files
