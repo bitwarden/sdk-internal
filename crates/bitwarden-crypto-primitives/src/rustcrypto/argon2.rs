@@ -2,7 +2,7 @@ use argon2::{Algorithm, Argon2, Version};
 
 use crate::{Error, argon2::Params};
 
-pub(crate) fn argon2id(
+pub(crate) fn argon2id_v13(
     password: &[u8],
     salt: &[u8],
     params: &Params,

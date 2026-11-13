@@ -14,13 +14,13 @@ pub struct Params {
 }
 
 /// Derives `out.len()` bytes from `password` and `salt`.
-pub fn argon2id(
+pub fn argon2id_v13(
     password: &[u8],
     salt: &[u8],
     params: &Params,
     out: &mut [u8],
 ) -> Result<(), Error> {
-    backend::argon2::argon2id(password, salt, params, out)
+    backend::argon2::argon2id_v13(password, salt, params, out)
 }
 
 #[cfg(test)]
@@ -37,7 +37,7 @@ mod tests {
             parallelism: 1,
         };
         let mut out = [0u8; 32];
-        argon2id(b"password", b"somesalt", &params, &mut out).expect("valid params");
+        argon2id_v13(b"password", b"somesalt", &params, &mut out).expect("valid params");
         assert_eq!(
             hex::encode(out),
             "09316115d5cf24ed5a15a31a3ba326e5cf32edc24702987c02b6566f61913cf7"
@@ -53,7 +53,7 @@ mod tests {
         };
         let mut out = [0u8; 32];
         assert_eq!(
-            argon2id(b"password", b"somesalt", &params, &mut out),
+            argon2id_v13(b"password", b"somesalt", &params, &mut out),
             Err(Error::InvalidParameters)
         );
     }
@@ -65,7 +65,7 @@ mod tests {
             parallelism,
         };
         let mut out = vec![0u8; len];
-        argon2id(b"password", b"somesalt", &params, &mut out).expect("valid params");
+        argon2id_v13(b"password", b"somesalt", &params, &mut out).expect("valid params");
         hex::encode(out)
     }
 
