@@ -24,32 +24,36 @@ default = []
 # Multi-threaded Argon2 lanes in the RustCrypto backend. Not available on wasm32.
 argon2-parallel = ["argon2/parallel"]
 
+# Shared by both backends.
 [dependencies]
+curve25519-dalek = { workspace = true }
+rand = { workspace = true }
+subtle = { workspace = true }
+thiserror = { workspace = true }
+zeroize = { workspace = true, features = ["derive"] }
+
+# OpenSSL backend, selected with `--cfg bitwarden_crypto_backend="openssl"`. Links the system
+# OpenSSL, which must be >= 3.5.
+[target.'cfg(bitwarden_crypto_backend = "openssl")'.dependencies]
+openssl = { version = "0.10.82" }
+
+# RustCrypto backend (default).
+[target.'cfg(not(bitwarden_crypto_backend = "openssl"))'.dependencies]
 aes = { workspace = true }
 aes-gcm = { workspace = true }
 argon2 = { version = "=0.6.0-rc.8", features = ["kdf", "zeroize"], default-features = false }
 cbc = { workspace = true }
 chacha20poly1305 = { version = "0.11.0-rc.3", features = ["zeroize"] }
-curve25519-dalek = { workspace = true }
 ed25519-dalek = { workspace = true, features = ["rand_core", "zeroize"] }
 hkdf = { workspace = true }
 hmac = { workspace = true, features = ["zeroize"] }
 ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
 p256 = { version = "=0.14.0", features = ["alloc", "ecdh", "pkcs8"], default-features = false }
 pbkdf2 = { workspace = true }
-rand = { workspace = true }
 rsa = { workspace = true }
 sha1 = { workspace = true, features = ["zeroize"] }
 sha2 = { workspace = true, features = ["zeroize"] }
-subtle = { workspace = true }
-thiserror = { workspace = true }
 xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = ["alloc"] }
-zeroize = { workspace = true, features = ["derive"] }
-
-# OpenSSL backend, selected with `--cfg bitwarden_crypto_backend="openssl"`. Builds a vendored
-# OpenSSL 3.x; set `OPENSSL_NO_VENDOR=1` to link the system OpenSSL (>= 3.5) instead.
-[target.'cfg(bitwarden_crypto_backend = "openssl")'.dependencies]
-openssl = { version = "0.10.82", features = ["vendored"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # OS entropy on wasm32 comes from `crypto.getRandomValues`.
@@ -58,6 +62,24 @@ getrandom4 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 [dev-dependencies]
 bitwarden-encoding = { workspace = true }
 hex = { version = ">=0.4.0, <0.5" }
+
+# The cross-backend tests compare the OpenSSL backend against RustCrypto.
+[target.'cfg(bitwarden_crypto_backend = "openssl")'.dev-dependencies]
+aes = { workspace = true }
+aes-gcm = { workspace = true }
+argon2 = { version = "=0.6.0-rc.8", features = ["kdf", "zeroize"], default-features = false }
+cbc = { workspace = true }
+chacha20poly1305 = { version = "0.11.0-rc.3", features = ["zeroize"] }
+ed25519-dalek = { workspace = true, features = ["rand_core", "zeroize"] }
+hkdf = { workspace = true }
+hmac = { workspace = true, features = ["zeroize"] }
+ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
+p256 = { version = "=0.14.0", features = ["alloc", "ecdh", "pkcs8"], default-features = false }
+pbkdf2 = { workspace = true }
+rsa = { workspace = true }
+sha1 = { workspace = true, features = ["zeroize"] }
+sha2 = { workspace = true, features = ["zeroize"] }
+xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = ["alloc"] }
 
 [lints]
 workspace = true
