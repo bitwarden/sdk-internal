@@ -18,9 +18,10 @@ You need:
 - Outbound HTTPS from the host to your Bitwarden server and to the systems you rotate. Entra ID
   targets also need `login.microsoftonline.com` and `graph.microsoft.com`. The connector doesn't
   listen on any port.
-- On Linux, glibc 2.34 or later, which RHEL 9, Debian 12, Ubuntu 22.04, Amazon Linux 2023 and later
-  releases have. `ldd --version` shows the version. On an older host, `bwac` stops at once with
-  ``version `GLIBC_2.34' not found``.
+- On Linux, glibc 2.34 or later on x86-64, such as RHEL 9, Debian 12, Ubuntu 22.04 or Amazon Linux
+  2023, and glibc 2.39 or later on ARM64, such as RHEL 10, Debian 13 or Ubuntu 24.04.
+  `ldd --version` shows the version. On an older host, `bwac` stops at once with
+  ``version `GLIBC_…' not found``.
 
 The connector reads its token only from the `BWAC_TOKEN` environment variable. Keep the token out of
 command lines and shell history. The steps below put it in a file that only administrators and the

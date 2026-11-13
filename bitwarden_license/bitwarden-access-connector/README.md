@@ -71,8 +71,10 @@ only needs credentials for its own targets.
 ## Requirements
 
 - Linux (x86-64 or ARM64), macOS (ARM64) or Windows (x86-64).
-- On Linux, glibc 2.34 or later, which RHEL 9, Debian 12, Ubuntu 22.04, Amazon Linux 2023 and later
-  releases have. `ldd --version` shows the version.
+- On Linux, glibc 2.34 or later on x86-64, such as RHEL 9, Debian 12, Ubuntu 22.04 or Amazon Linux
+  2023, and glibc 2.39 or later on ARM64, such as RHEL 10, Debian 13 or Ubuntu 24.04.
+  `ldd --version` shows the version. On x86-64 with a glibc older than 2.39, each start prints
+  ``weak version `GLIBC_2.39' not found``, which is harmless.
 - No root access for the connector itself. Your scripts may need their own privileges.
 - No inbound network access.
 - A registered access connector that hasn't been revoked, in an organization with an active license
@@ -878,7 +880,7 @@ Logs never contain passwords, tokens or other credential values.
 | `poll_interval must be >= 15 seconds`                                             | `poll_interval` is below 15                                           |
 | `Another bwac process is already running with this access connector token`        | A second `bwac` uses the same token, often one started from a console |
 | `no trusted CA certificates could be loaded`                                      | No CA bundle, or `SSL_CERT_FILE` or `SSL_CERT_DIR` is wrong           |
-| ``version `GLIBC_2.34' not found``                                                | glibc is older than 2.34. See [Requirements](#requirements)           |
+| ``version `GLIBC_…' not found``                                                   | glibc is too old for this build. See [Requirements](#requirements)    |
 
 ### Nothing gets rotated
 
