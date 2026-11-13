@@ -17,10 +17,20 @@ keywords.workspace = true
 [features]
 # Holds the wire traits and what the macro expansions name. An adopting crate forwards its own
 # `wasm` feature here.
-wasm = ["dep:serde", "dep:thiserror", "dep:tsify", "dep:wasm-bindgen"]
+wasm = [
+    "bitwarden-error/wasm",
+    "dep:bitwarden-error",
+    "dep:js-sys",
+    "dep:serde",
+    "dep:thiserror",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+]
 
 [dependencies]
+bitwarden-error = { workspace = true, optional = true }
 bitwarden-ffi-macro = { workspace = true }
+js-sys = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 tsify = { workspace = true, optional = true }
@@ -32,6 +42,9 @@ serde_json = { workspace = true }
 trybuild = "1.0.101"
 tsify = { workspace = true }
 wasm-bindgen = { workspace = true }
+# The generated shims are `#[wasm_bindgen]` exports, and the async ones return a promise.
+wasm-bindgen-futures = { workspace = true }
+wasm-bindgen-test = { workspace = true }
 
 [lints]
 workspace = true
