@@ -246,6 +246,11 @@ opt-level = "z"
 [profile.release.package.bitwarden-crypto]
 opt-level = 3
 
+# Same for the primitives crate: the generic RustCrypto code (cipher modes, HMAC, PBKDF2, AEADs) is
+# instantiated here, so it must be optimized here too, not only in the RustCrypto crates.
+[profile.release.package.bitwarden-crypto-primitives]
+opt-level = 3
+
 # Heavy crypto operations are optimized for speed instead of size. Each crate costs a few KB but
 # shortens unlock, vault decryption and ML-DSA operations. RSA crates are left out: building them
 # for speed added ~70 KB with no measurable gain (their generic code is instantiated in callers).
