@@ -1,12 +1,17 @@
 use ::openssl::{cipher::Cipher, cipher_ctx::CipherCtx};
 use zeroize::Zeroizing;
 
-use crate::Error;
+use crate::{
+    Error,
+    aes_gcm::{KEY_LEN, NONCE_LEN, TAG_LEN},
+};
 
-/// GCM tag length in bytes.
-const TAG_LEN: usize = 16;
-
-pub(crate) fn encrypt(key: &[u8; 32], nonce: &[u8; 12], aad: &[u8], plaintext: &[u8]) -> Vec<u8> {
+pub(crate) fn encrypt(
+    key: &[u8; KEY_LEN],
+    nonce: &[u8; NONCE_LEN],
+    aad: &[u8],
+    plaintext: &[u8],
+) -> Vec<u8> {
     const INFALLIBLE: &str = "AES-GCM encryption of in-memory data does not fail";
 
     let mut ctx = CipherCtx::new().expect(INFALLIBLE);
@@ -24,8 +29,8 @@ pub(crate) fn encrypt(key: &[u8; 32], nonce: &[u8; 12], aad: &[u8], plaintext: &
 }
 
 pub(crate) fn decrypt(
-    key: &[u8; 32],
-    nonce: &[u8; 12],
+    key: &[u8; KEY_LEN],
+    nonce: &[u8; NONCE_LEN],
     aad: &[u8],
     ciphertext: &[u8],
 ) -> Result<Vec<u8>, Error> {

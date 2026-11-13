@@ -7,12 +7,10 @@ use ::openssl::{
 };
 use zeroize::Zeroizing;
 
-use crate::Error;
-
-/// Scalar and field element length in bytes.
-const SCALAR_LEN: usize = 32;
-/// Uncompressed SEC1 point length: `0x04 || x || y`.
-const UNCOMPRESSED_LEN: usize = 65;
+use crate::{
+    Error,
+    p256::{SCALAR_LEN, SEC1_UNCOMPRESSED_LEN},
+};
 
 #[derive(Clone)]
 pub(crate) struct SecretKey(PKey<Private>);
@@ -28,7 +26,7 @@ impl SecretKey {
         Self(PKey::from_ec_key(ec).expect(INFALLIBLE))
     }
 
-    pub(crate) fn from_bytes(scalar: &[u8; 32]) -> Result<Self, Error> {
+    pub(crate) fn from_bytes(scalar: &[u8; SCALAR_LEN]) -> Result<Self, Error> {
         let group = group();
         let mut ctx = BigNumContext::new_secure().map_err(|_| Error::InvalidKey)?;
 
@@ -51,7 +49,7 @@ impl SecretKey {
             .map_err(|_| Error::InvalidKey)
     }
 
-    pub(crate) fn to_bytes(&self) -> Zeroizing<[u8; 32]> {
+    pub(crate) fn to_bytes(&self) -> Zeroizing<[u8; SCALAR_LEN]> {
         let ec = self.ec_key();
         let bytes = Zeroizing::new(
             ec.private_key()
@@ -91,7 +89,7 @@ impl SecretKey {
         PublicKey(PKey::from_ec_key(public).expect(INFALLIBLE))
     }
 
-    pub(crate) fn diffie_hellman(&self, peer: &PublicKey) -> Zeroizing<[u8; 32]> {
+    pub(crate) fn diffie_hellman(&self, peer: &PublicKey) -> Zeroizing<[u8; SCALAR_LEN]> {
         const INFALLIBLE: &str = "ECDH between validated P-256 keys does not fail";
 
         let mut deriver = Deriver::new(&self.0).expect(INFALLIBLE);
@@ -139,7 +137,7 @@ impl PublicKey {
             .map_err(|_| Error::InvalidKey)
     }
 
-    pub(crate) fn to_sec1_uncompressed(&self) -> [u8; 65] {
+    pub(crate) fn to_sec1_uncompressed(&self) -> [u8; SEC1_UNCOMPRESSED_LEN] {
         const INFALLIBLE: &str = "encoding a valid P-256 point does not fail";
 
         let ec = self.0.ec_key().expect("PublicKey always wraps an EC key");
@@ -148,7 +146,7 @@ impl PublicKey {
             .public_key()
             .to_bytes(ec.group(), PointConversionForm::UNCOMPRESSED, &mut ctx)
             .expect(INFALLIBLE);
-        let encoded: [u8; UNCOMPRESSED_LEN] = bytes
+        let encoded: [u8; SEC1_UNCOMPRESSED_LEN] = bytes
             .try_into()
             .expect("uncompressed P-256 point is 65 bytes");
         encoded

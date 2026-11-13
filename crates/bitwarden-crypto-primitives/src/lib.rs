@@ -4,8 +4,9 @@
 // Every public module is a thin wrapper over the matching `backend` module, so callers never see
 // backend types.
 //
-//   caller ──► bitwarden_crypto_primitives::<module> ──► backend::<module> ─┬─► RustCrypto (default)
-//                                                                          └─► OpenSSL (>= 3.5)
+//   caller ──► bitwarden_crypto_primitives::<module> ──► backend::<module> ─┬─► RustCrypto
+// (default)                                                                          └─► OpenSSL
+// (>= 3.5)
 //
 // The OpenSSL driver re-exports the RustCrypto `xchacha20_poly1305` and `ristretto255` modules,
 // which OpenSSL cannot provide, so `rustcrypto` is always compiled. On the OpenSSL backend its

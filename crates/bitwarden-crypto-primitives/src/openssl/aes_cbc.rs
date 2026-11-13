@@ -1,12 +1,12 @@
 use ::openssl::{cipher::Cipher, cipher_ctx::CipherCtx};
 use zeroize::Zeroizing;
 
-use crate::Error;
+use crate::{
+    Error,
+    aes_cbc::{BLOCK_LEN, IV_LEN, KEY_LEN},
+};
 
-/// AES block length in bytes.
-const BLOCK_LEN: usize = 16;
-
-pub(crate) fn encrypt(key: &[u8; 32], iv: &[u8; 16], plaintext: &[u8]) -> Vec<u8> {
+pub(crate) fn encrypt(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN], plaintext: &[u8]) -> Vec<u8> {
     const INFALLIBLE: &str = "AES-CBC encryption of in-memory data does not fail";
 
     let mut ctx = CipherCtx::new().expect(INFALLIBLE);
@@ -21,7 +21,11 @@ pub(crate) fn encrypt(key: &[u8; 32], iv: &[u8; 16], plaintext: &[u8]) -> Vec<u8
     out
 }
 
-pub(crate) fn decrypt(key: &[u8; 32], iv: &[u8; 16], ciphertext: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn decrypt(
+    key: &[u8; KEY_LEN],
+    iv: &[u8; IV_LEN],
+    ciphertext: &[u8],
+) -> Result<Vec<u8>, Error> {
     let mut ctx = CipherCtx::new().map_err(|_| Error::DecryptionFailed)?;
     ctx.decrypt_init(Some(Cipher::aes_256_cbc()), Some(key), Some(iv))
         .map_err(|_| Error::DecryptionFailed)?;
@@ -40,11 +44,11 @@ pub(crate) fn decrypt(key: &[u8; 32], iv: &[u8; 16], ciphertext: &[u8]) -> Resul
 pub(crate) struct Encryptor(CipherCtx);
 
 impl Encryptor {
-    pub(crate) fn new(key: &[u8; 32], iv: &[u8; 16]) -> Self {
+    pub(crate) fn new(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN]) -> Self {
         Self(unpadded_ctx(Direction::Encrypt, key, iv))
     }
 
-    pub(crate) fn encrypt_block(&mut self, block: &mut [u8; 16]) {
+    pub(crate) fn encrypt_block(&mut self, block: &mut [u8; BLOCK_LEN]) {
         process_block(&mut self.0, block);
     }
 }
@@ -53,11 +57,11 @@ impl Encryptor {
 pub(crate) struct Decryptor(CipherCtx);
 
 impl Decryptor {
-    pub(crate) fn new(key: &[u8; 32], iv: &[u8; 16]) -> Self {
+    pub(crate) fn new(key: &[u8; KEY_LEN], iv: &[u8; IV_LEN]) -> Self {
         Self(unpadded_ctx(Direction::Decrypt, key, iv))
     }
 
-    pub(crate) fn decrypt_block(&mut self, block: &mut [u8; 16]) {
+    pub(crate) fn decrypt_block(&mut self, block: &mut [u8; BLOCK_LEN]) {
         process_block(&mut self.0, block);
     }
 }
@@ -69,7 +73,7 @@ enum Direction {
 }
 
 /// CBC context with padding off, so every update emits exactly the blocks it was given.
-fn unpadded_ctx(direction: Direction, key: &[u8; 32], iv: &[u8; 16]) -> CipherCtx {
+fn unpadded_ctx(direction: Direction, key: &[u8; KEY_LEN], iv: &[u8; IV_LEN]) -> CipherCtx {
     const INFALLIBLE: &str = "AES-CBC setup with fixed-size key and IV does not fail";
 
     let mut ctx = CipherCtx::new().expect(INFALLIBLE);

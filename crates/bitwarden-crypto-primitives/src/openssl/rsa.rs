@@ -73,8 +73,7 @@ impl PrivateKey {
         Self::validated(rsa)
     }
 
-    /// Two-prime keys only. Unlike RustCrypto, an empty `primes` list (prime recovery from
-    /// `n, e, d`) and multi-prime keys are rejected.
+    /// Two-prime keys only.
     pub(crate) fn from_components(
         n: &[u8],
         e: &[u8],
