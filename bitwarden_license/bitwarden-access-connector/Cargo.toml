@@ -2,7 +2,8 @@
 name = "bitwarden-access-connector"
 description = "Bitwarden PAM access connector, which rotates managed credentials."
 
-version.workspace = true
+version = "0.1.0"
+publish = false
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true

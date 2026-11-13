@@ -185,13 +185,13 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
             #[wasm_bindgen(method)]
             pub async fn #set(
                 this: &crate::key_management::state_bridge::RawWasmStateBridge,
-                value: #ty,
+                value: <#ty as ::bitwarden_ffi::ToWasm>::Wire,
             );
             #[doc = #get_doc]
             #[wasm_bindgen(method)]
             pub async fn #get(
                 this: &crate::key_management::state_bridge::RawWasmStateBridge,
-            ) -> ::wasm_bindgen::JsValue;
+            ) -> Option<<#ty as ::bitwarden_ffi::FromWasm>::Wire>;
             #[doc = #clear_doc]
             #[wasm_bindgen(method)]
             pub async fn #clear(
@@ -268,37 +268,28 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
         let set = format_ident!("set_{}", f.name);
         let get = format_ident!("get_{}", f.name);
         let clear = format_ident!("clear_{}", f.name);
-        let get_err = format!("State bridge `get_{n}` failed to deserialize value from JsValue");
-
-        // wasm-bindgen converts JS numbers to integers through `TryFromJsValue`, not
-        // `TryFrom<JsValue>`.
-        let from_js = if is_js_integer(ty) {
-            quote! { <#ty as ::wasm_bindgen::convert::TryFromJsValue>::try_from_js_value(js) }
-        } else {
-            quote! { <#ty as ::core::convert::TryFrom<::wasm_bindgen::JsValue>>::try_from(js) }
-        };
-
+        let get_err = format!("State bridge `get_{n}` failed to convert the value from JavaScript");
+        let set_err = format!("State bridge `set_{n}` failed to convert the value to JavaScript");
+        // Conversion happens inside the thread because a wire value can be a JS handle, and so
+        // `!Send`.
         quote! {
             async fn #set(&self, value: #ty) {
                 self.0
                     .run_in_thread(move |state| async move {
+                        let value = ::bitwarden_ffi::ToWasm::to_wire(value).expect(#set_err);
                         state.#set(value).await
                     })
                     .await
                     .expect("State bridge call panicked");
             }
             async fn #get(&self) -> Option<#ty> {
-                let js: ::wasm_bindgen::JsValue = self.0
+                self.0
                     .run_in_thread(|state| async move {
-                        state.#get().await
+                        let wire = state.#get().await?;
+                        Some(<#ty as ::bitwarden_ffi::FromWasm>::from_wire(wire).expect(#get_err))
                     })
                     .await
-                    .expect("State bridge call panicked");
-                if js.is_null() || js.is_undefined() {
-                    None
-                } else {
-                    Some(#from_js.expect(#get_err))
-                }
+                    .expect("State bridge call panicked")
             }
             async fn #clear(&self) {
                 self.0
@@ -385,17 +376,4 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
-}
-
-/// Whether `ty` is an integer that wasm-bindgen converts from a JS number, e.g. `u32`.
-fn is_js_integer(ty: &Type) -> bool {
-    const JS_INTEGERS: [&str; 6] = ["i8", "u8", "i16", "u16", "i32", "u32"];
-
-    let Type::Path(path) = ty else {
-        return false;
-    };
-
-    path.path
-        .get_ident()
-        .is_some_and(|ident| JS_INTEGERS.iter().any(|name| ident == name))
 }
