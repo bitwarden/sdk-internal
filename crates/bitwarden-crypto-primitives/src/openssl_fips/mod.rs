@@ -10,7 +10,7 @@ pub(crate) mod digest;
 pub(crate) mod ed25519;
 pub(crate) mod hkdf;
 pub(crate) mod hmac;
-pub(crate) mod ml_dsa;
+pub(crate) mod ml_dsa_44;
 pub(crate) mod p256;
 pub(crate) mod pbkdf2;
 pub(crate) mod random;
