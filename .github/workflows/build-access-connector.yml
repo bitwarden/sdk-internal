@@ -132,6 +132,13 @@ jobs:
               /tmp/bwac.plist
           plutil -lint /tmp/bwac.plist
 
+      # tomllib needs Python 3.11, and ubuntu-22.04 ships 3.10.
+      - name: Set up Python
+        if: startsWith(matrix.os, 'ubuntu')
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
       - name: Check the config template
         if: startsWith(matrix.os, 'ubuntu')
         run: |
