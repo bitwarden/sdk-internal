@@ -11,6 +11,8 @@ use tracing::info;
 
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;
+#[cfg(feature = "internal")]
+use crate::ProviderId;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeySlotIds, SymmetricKeySlotId};
 use crate::{MissingPrivateKeyError, error::UserIdAlreadySetError};
@@ -131,6 +133,64 @@ impl EncryptionSettings {
                     ctx.persist_symmetric_key(
                         org_symmetric_key,
                         SymmetricKeySlotId::Organization(org_id),
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Decrypt and load the user's provider keys into the key store, keyed by provider ID.
+    ///
+    /// Mirrors [`Self::set_org_keys`]: a provider's symmetric key is encapsulated to the user's
+    /// public key the same way an organization's key is, so it's decapsulated against the user's
+    /// private key the same way.
+    #[cfg(feature = "internal")]
+    #[bitwarden_logging::instrument(err)]
+    pub(crate) fn set_provider_keys(
+        provider_enc_keys: Vec<(ProviderId, UnsignedSharedKey)>,
+        store: &KeyStore<KeySlotIds>,
+    ) -> Result<(), EncryptionSettingsError> {
+        use crate::key_management::PrivateKeySlotId;
+
+        let mut ctx = store.context_mut();
+
+        if provider_enc_keys.is_empty() {
+            info!("No provider keys to set");
+            return Ok(());
+        }
+
+        if !ctx.has_private_key(PrivateKeySlotId::UserPrivateKey) {
+            info!("User private key is missing, cannot set provider keys");
+            return Err(MissingPrivateKeyError.into());
+        }
+
+        // Make sure we only keep the keys given in the arguments and not any of the previous
+        // ones, which might be from providers that the user is no longer a part of anymore
+        ctx.retain_symmetric_keys(|key_ref| !matches!(key_ref, SymmetricKeySlotId::Provider(_)));
+
+        info!("Decrypting provider keys");
+        for (provider_id, provider_enc_key) in provider_enc_keys {
+            let _span = tracing::span!(
+                tracing::Level::INFO,
+                "decapsulate_provider_key",
+                provider_id = %provider_id
+            )
+            .entered();
+            match provider_enc_key.decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx) {
+                Err(e) => {
+                    tracing::error!("Failed to decapsulate provider key: {}", e);
+                    return Err(e.into());
+                }
+                Ok(provider_symmetric_key) => {
+                    tracing::info!(
+                        provider_id = %provider_id,
+                        "Successfully decapsulated provider key",
+                    );
+                    ctx.persist_symmetric_key(
+                        provider_symmetric_key,
+                        SymmetricKeySlotId::Provider(provider_id),
                     )?;
                 }
             }

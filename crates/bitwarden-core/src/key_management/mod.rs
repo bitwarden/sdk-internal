@@ -74,7 +74,7 @@ mod local_user_data_key_state;
 #[cfg(feature = "internal")]
 pub mod state_bridge;
 
-use crate::{OrganizationId, UserId};
+use crate::{OrganizationId, ProviderId, UserId};
 
 /// Represents the local user data key, wrapped by user key.
 /// This key is used to encrypt local user data (e.g., password generator history).
@@ -93,6 +93,7 @@ key_slot_ids! {
         Master,
         User,
         Organization(OrganizationId),
+        Provider(ProviderId),
         LocalUserData,
         #[local]
         Local(LocalId),

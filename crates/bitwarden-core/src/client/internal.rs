@@ -12,6 +12,8 @@ use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info};
 
+#[cfg(feature = "internal")]
+use crate::ProviderId;
 use crate::{
     DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
     key_management::KeySlotIds,
@@ -395,6 +397,15 @@ impl InternalClient {
         org_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
+    }
+
+    #[allow(missing_docs)]
+    #[cfg(feature = "internal")]
+    pub fn initialize_provider_crypto(
+        &self,
+        provider_keys: Vec<(ProviderId, UnsignedSharedKey)>,
+    ) -> Result<(), EncryptionSettingsError> {
+        EncryptionSettings::set_provider_keys(provider_keys, &self.key_store)
     }
 
     #[cfg(feature = "internal")]

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{flags::Flags, login_method::UserLoginMethod};
 use crate::{
-    OrganizationId, UserId,
+    OrganizationId, ProviderId, UserId,
     key_management::account_cryptographic_state::WrappedAccountCryptographicState,
 };
 
@@ -25,6 +25,22 @@ pub struct OrganizationSharedKey {
 }
 
 register_repository_item!(OrganizationId => OrganizationSharedKey, "OrganizationSharedKey");
+
+/// A persisted provider encryption key.
+///
+/// Stored in a Repository keyed by [`ProviderId`].
+/// The `provider_id` is included in the struct so it can be recovered from `Repository::list()`.
+#[derive(Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
+pub struct ProviderSharedKey {
+    /// The provider this key belongs to.
+    pub provider_id: ProviderId,
+    /// The provider's shared encryption key.
+    pub key: UnsignedSharedKey,
+}
+
+register_repository_item!(ProviderId => ProviderSharedKey, "ProviderSharedKey");
 
 /// Base API URLs for identity and API services.
 #[derive(Debug, Clone, Serialize, Deserialize)]
