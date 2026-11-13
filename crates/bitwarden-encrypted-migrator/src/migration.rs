@@ -1,48 +1,41 @@
-//! The encrypted migrations and the order in which they run.
+//! The interface of an encrypted migration.
 //!
-//! To add a migration, add its module in `migrations/`, add a variant to [`Migration`], and add the
-//! migration to [`Migration::all`] in the position where it must run.
+//! To add a migration, add its module in `migrations/` with a type that implements
+//! [`EncryptedMigration`], and add the migration to [`all`](crate::migrations::all) in the
+//! position where it must run.
 
-use bitwarden_core::{Client, FromClient};
-use tracing::{Instrument, info_span};
+use bitwarden_sensitive_value::MasterPassword;
+use bitwarden_threading::MaybeSend;
 
-use crate::migrations::account_recovery_v2_upgrade::AccountRecoveryV2UpgradeMigration;
+/// An encrypted migration of the account.
+///
+/// Another device can run the same migration at the same time. Design the migration so that the
+/// server rejects the second run, and so that a rejected or failed run leaves the account usable.
+pub(crate) trait EncryptedMigration: Send + Sync {
+    /// The name of the migration in the logs.
+    const NAME: &'static str;
 
-/// An encrypted migration. A migration does not change data that is already in the current
-/// format, so it can run again.
-// An enum rather than a trait object, because API futures are not `Send` on wasm32.
-pub(crate) enum Migration {
-    AccountRecoveryV2Upgrade(AccountRecoveryV2UpgradeMigration),
+    /// Checks the current state of the account.
+    fn needs_migration(&self) -> MigrationNeed;
+
+    /// Runs the migration. A migration logs its own failures and runs again after the next unlock
+    /// or sync.
+    ///
+    /// Gets the master password when [`EncryptedMigration::needs_migration`] returns
+    /// [`MigrationNeed::NeedsMasterPassword`].
+    fn run(&self, master_password: Option<&MasterPassword>)
+    -> impl Future<Output = ()> + MaybeSend;
 }
 
-impl Migration {
-    /// Every migration, in the order they run.
-    pub(crate) fn all(client: &Client) -> Vec<Migration> {
-        vec![Migration::AccountRecoveryV2Upgrade(
-            AccountRecoveryV2UpgradeMigration::from_client(client),
-        )]
-    }
-
-    pub(crate) fn name(&self) -> &'static str {
-        match self {
-            Migration::AccountRecoveryV2Upgrade(_) => "account_recovery_v2_upgrade",
-        }
-    }
-
-    /// Runs the migration. A migration logs its own failures and is retried on the next run.
-    pub(crate) async fn run(&self) {
-        match self {
-            Migration::AccountRecoveryV2Upgrade(migration) => migration.run().await,
-        }
-    }
-}
-
-/// Runs the migrations one after another, in registration order.
-pub(crate) async fn run_migrations(migrations: &[Migration]) {
-    for migration in migrations {
-        migration
-            .run()
-            .instrument(info_span!("encrypted_migration", name = migration.name()))
-            .await;
-    }
+/// Whether the account needs a migration, and what the migration needs to run.
+#[cfg_attr(not(test), expect(dead_code))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MigrationNeed {
+    /// The data of the account is already in the current format.
+    NotNeeded,
+    /// The account needs the migration. The migration needs only the unlocked account.
+    Needed,
+    /// The account needs the migration. The migration needs the unlocked account and the master
+    /// password.
+    NeedsMasterPassword,
 }
