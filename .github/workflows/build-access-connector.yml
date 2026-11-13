@@ -189,9 +189,129 @@ jobs:
   ci-pass:
     name: Check if build passed
     runs-on: ubuntu-24.04
-    needs: build
+    needs:
+      - build
+      - docker
     if: always()
     steps:
       - name: Verify all builds passed
         if: ${{ needs.build.result != 'success' }}
         run: exit 1
+
+      - name: Verify Docker image build passed
+        if: ${{ needs.docker.result != 'success' }}
+        run: exit 1
+
+  docker:
+    name: Build Docker image
+    runs-on: ubuntu-24.04
+    needs: build
+    permissions:
+      contents: read
+      id-token: write # keyless cosign signing
+      packages: write
+    # Don't cancel an in-progress run, so a main build always finishes pushing and signing.
+    concurrency:
+      group: ${{ github.workflow }}-docker-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      _IMAGE: ghcr.io/bitwarden/access-connector
+      _DOCKERFILE: bitwarden_license/bitwarden-access-connector/Dockerfile
+      _PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The Dockerfile is added later by the dev team. Until then the job succeeds without building.
+      - name: Check for Dockerfile
+        id: dockerfile
+        run: |
+          if [[ -f "${_DOCKERFILE}" ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${_DOCKERFILE} not found, skipping the Docker image build"
+          fi
+
+      - name: Get crate version
+        id: version
+        if: steps.dockerfile.outputs.exists == 'true'
+        run: |
+          VERSION=$(cargo +stable metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name == "bitwarden-access-connector") | .version')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download Linux artifacts
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: bwac-*-unknown-linux-gnu
+          path: artifacts
+
+      - name: Set up build context
+        if: steps.dockerfile.outputs.exists == 'true'
+        run: |
+          # download-artifact drops the executable bit, so restore it.
+          install -D -m 0755 artifacts/bwac-x86_64-unknown-linux-gnu/bwac dist/linux/amd64/bwac
+          install -D -m 0755 artifacts/bwac-aarch64-unknown-linux-gnu/bwac dist/linux/arm64/bwac
+
+      - name: Generate image metadata
+        id: meta
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest
+        with:
+          images: ${{ env._IMAGE }}
+          tags: |
+            type=raw,value=dev,enable=${{ env._PUSH }}
+            type=sha,prefix=dev-,format=short,enable=${{ env._PUSH }}
+          labels: |
+            org.opencontainers.image.title=Bitwarden Access Connector
+            org.opencontainers.image.vendor=Bitwarden Inc.
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.source=https://github.com/bitwarden/sdk-internal
+            org.opencontainers.image.url=https://github.com/bitwarden/access-connector
+
+      - name: Log in to GHCR
+        if: steps.dockerfile.outputs.exists == 'true' && env._PUSH == 'true'
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set up Docker Buildx
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Build Docker image
+        id: build-docker
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: dist
+          file: ${{ env._DOCKERFILE }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ env._PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: mode=max
+
+      - name: Install Cosign
+        if: steps.dockerfile.outputs.exists == 'true' && env._PUSH == 'true'
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Sign image with Cosign
+        if: steps.dockerfile.outputs.exists == 'true' && env._PUSH == 'true'
+        env:
+          DIGEST: ${{ steps.build-docker.outputs.digest }}
+        run: cosign sign --yes "${_IMAGE}@${DIGEST}"
+
+      - name: Log out of GHCR
+        if: always() && steps.dockerfile.outputs.exists == 'true' && env._PUSH == 'true'
+        run: docker logout ghcr.io
