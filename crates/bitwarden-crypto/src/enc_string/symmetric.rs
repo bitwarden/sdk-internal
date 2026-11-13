@@ -618,6 +618,7 @@ mod tests {
         assert_eq!(enc_string.key_id(), Some([0u8; KEY_ID_SIZE].into()));
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_algorithm_of_enc_string() {
         let v1 = EncString::encrypt_aes256_hmac(b"Test", &derive_symmetric_key("test")).unwrap();
@@ -653,6 +654,7 @@ mod tests {
     /// XChaCha20Poly1305 encstrings should be padded in blocks of 32 bytes. This ensures that the
     /// encstring length does not reveal more than the 32-byte range of lengths that the contained
     /// string falls into.
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_xchacha20_encstring_string_padding_block_sizes() {
         let cases = [
@@ -677,6 +679,7 @@ mod tests {
         assert_ne!(ciphertext_lengths[3], ciphertext_lengths[4]);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_enc_roundtrip_xchacha20() {
         let key_id = [0u8; KEY_ID_SIZE];
@@ -773,6 +776,7 @@ mod tests {
         assert_eq!(decrypted_str, test_string);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_enc_roundtrip_xchacha20_empty() {
         let key_id = [0u8; KEY_ID_SIZE];

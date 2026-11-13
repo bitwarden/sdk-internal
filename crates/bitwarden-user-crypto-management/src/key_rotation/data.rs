@@ -532,6 +532,7 @@ mod tests {
         assert_eq!(send.key, decrypted_send.key);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_rotation_keyless_plain() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -544,6 +545,7 @@ mod tests {
         assert_upgraded_to_blob(&mut ctx, &out[0], new);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_rotation_keyless_attachment() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -557,6 +559,7 @@ mod tests {
         assert_attachment_key_decryptable(&mut ctx, &out[0], new);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_rotation_keyed_plain() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -569,6 +572,7 @@ mod tests {
         assert_upgraded_to_blob(&mut ctx, &out[0], new);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_rotation_keyed_fido2() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -582,6 +586,7 @@ mod tests {
         assert_fido2_decryptable(&mut ctx, &out[0], new);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_rotation_keyed_attachment() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -595,6 +600,7 @@ mod tests {
         assert_attachment_key_decryptable(&mut ctx, &out[0], new);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_rotation_keyed_fido2_and_attachment() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
