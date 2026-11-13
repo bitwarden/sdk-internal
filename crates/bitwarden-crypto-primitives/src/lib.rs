@@ -19,7 +19,7 @@ pub mod argon2;
 pub mod ed25519;
 pub mod hkdf;
 pub mod hmac;
-pub mod ml_dsa;
+pub mod ml_dsa_44;
 pub mod p256;
 pub mod pbkdf2;
 pub mod random;

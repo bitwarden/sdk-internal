@@ -4,7 +4,7 @@ use ml_dsa::{
 use zeroize::Zeroizing;
 
 use super::random::fill_bytes;
-use crate::{Error, ml_dsa::SEED_LEN, random::SystemRng};
+use crate::{Error, ml_dsa_44::SEED_LEN, random::SystemRng};
 
 /// Seed and expanded key. The seed is kept because it is the serialized form.
 #[derive(Clone)]

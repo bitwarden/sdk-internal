@@ -9,19 +9,22 @@ pub const SEED_LEN: usize = 32;
 
 /// ML-DSA-44 signing key. Holds the seed and the expanded key; zeroized on drop.
 #[derive(Clone)]
-pub struct SigningKey(backend::ml_dsa::SigningKey);
+pub struct SigningKey(backend::ml_dsa_44::SigningKey);
 
-impl zeroize::ZeroizeOnDrop for SigningKey where backend::ml_dsa::SigningKey: zeroize::ZeroizeOnDrop {}
+impl zeroize::ZeroizeOnDrop for SigningKey where
+    backend::ml_dsa_44::SigningKey: zeroize::ZeroizeOnDrop
+{
+}
 
 impl SigningKey {
     /// Generates a fresh key.
     pub fn generate() -> Self {
-        Self(backend::ml_dsa::SigningKey::generate())
+        Self(backend::ml_dsa_44::SigningKey::generate())
     }
 
     /// Expands a key from its 32-byte seed.
     pub fn from_seed(seed: &[u8; SEED_LEN]) -> Self {
-        Self(backend::ml_dsa::SigningKey::from_seed(seed))
+        Self(backend::ml_dsa_44::SigningKey::from_seed(seed))
     }
 
     /// Returns the 32-byte seed.
@@ -42,12 +45,12 @@ impl SigningKey {
 
 /// ML-DSA-44 verifying key.
 #[derive(Clone, PartialEq, Eq)]
-pub struct VerifyingKey(backend::ml_dsa::VerifyingKey);
+pub struct VerifyingKey(backend::ml_dsa_44::VerifyingKey);
 
 impl VerifyingKey {
     /// Parses an encoded verifying key.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        backend::ml_dsa::VerifyingKey::from_bytes(bytes).map(Self)
+        backend::ml_dsa_44::VerifyingKey::from_bytes(bytes).map(Self)
     }
 
     /// Returns the encoded verifying key.
