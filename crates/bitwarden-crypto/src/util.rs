@@ -1,6 +1,6 @@
-use std::{num::NonZeroU32, pin::Pin};
+use std::pin::Pin;
 
-use bitwarden_crypto_primitives::{hkdf, pbkdf2::pbkdf2_hmac_sha256, sha256};
+use bitwarden_crypto_primitives::{hkdf, sha256};
 use hybrid_array::{Array, ArraySize};
 use rand::{
     RngExt,
@@ -22,7 +22,6 @@ const CLEARED_STACK_SIZE: usize = 16 * 1024;
 pub(crate) fn clear_stack() {
     std::hint::black_box([0u8; CLEARED_STACK_SIZE]);
 }
-pub(crate) const PBKDF_SHA256_HMAC_OUT_SIZE: usize = sha256::DIGEST_LEN;
 
 #[derive(Debug)]
 pub(crate) enum HkdfExpandError {
@@ -63,16 +62,6 @@ where
 /// that.
 pub fn generate_random_alphanumeric(len: usize) -> String {
     Alphanumeric.sample_string(&mut bitwarden_random::rng(), len)
-}
-
-/// Derive pbkdf2 of a given password and salt
-pub fn pbkdf2(password: &[u8], salt: &[u8], rounds: u32) -> [u8; PBKDF_SHA256_HMAC_OUT_SIZE] {
-    // Zero rounds historically ran one round; keep that output for compatibility.
-    let rounds = NonZeroU32::new(rounds).unwrap_or(NonZeroU32::MIN);
-
-    let mut out = [0u8; PBKDF_SHA256_HMAC_OUT_SIZE];
-    pbkdf2_hmac_sha256(password, salt, rounds, &mut out);
-    out
 }
 
 #[cfg(test)]

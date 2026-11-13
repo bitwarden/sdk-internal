@@ -4,8 +4,7 @@
 //! **Keeper's** wire formats, not Bitwarden's, so it deliberately does **not** live in
 //! `bitwarden-crypto`: the formats are unauthenticated AES-CBC ("aes-v1"), AES-GCM with a prepended
 //! nonce ("aes-v2"), RSA PKCS#1 v1.5 (unsupported), an ECDH-P256 → SHA-256 → AES-GCM scheme, and
-//! Keeper's custom `encryptionParams` blob. Where a primitive is standard we reuse
-//! `bitwarden_crypto` (`pbkdf2`) and otherwise use `bitwarden_crypto_primitives`.
+//! Keeper's custom `encryptionParams` blob. The primitives come from `bitwarden_crypto_primitives`.
 //!
 //! Every function here must stay compatible with data produced by Keeper's clients; do not change
 //! the formats.
@@ -15,6 +14,7 @@
 use bitwarden_crypto_primitives::{
     aes_cbc, aes_gcm,
     p256::{PublicKey, SecretKey},
+    pbkdf2::pbkdf2_hmac_sha256,
     sha256,
 };
 use subtle::ConstantTimeEq;

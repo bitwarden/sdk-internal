@@ -1,6 +1,6 @@
 //! SRP-4096: the A/B exchange with the server and the crypto behind it.
 
-use std::sync::LazyLock;
+use std::{num::NonZeroU32, sync::LazyLock};
 
 use bitwarden_crypto_primitives::sha256;
 use crypto_bigint::{
@@ -400,10 +400,11 @@ pub(super) fn compute_x(
         &srp_info.salt,
         kdf::normalize_username(&credentials.username).as_bytes(),
     );
+    let iterations = NonZeroU32::new(srp_info.iterations).ok_or(OnePasswordError::Parse)?;
     let k2 = kdf::pbes2(
         &kdf::normalize_password(&credentials.password),
         &k1,
-        srp_info.iterations,
+        iterations,
     );
     account_key.combine_with(&k2)
 }

@@ -4,6 +4,8 @@
 //! The new device proves it knows the verification code the user reads off the enrolled device, and
 //! both sides end up with the same key to move the credential bundle through the server.
 
+use std::num::NonZeroU32;
+
 use bitwarden_crypto_primitives::{
     hmac::{self, HashAlg, Hmac},
     ristretto255::RistrettoPoint,
@@ -27,7 +29,7 @@ use super::{
     Timing,
 };
 
-const PASSCODE_ITERATIONS: u32 = 100_000;
+const PASSCODE_ITERATIONS: NonZeroU32 = NonZeroU32::new(100_000).expect("non-zero");
 
 /// Pads the second hash input through the passcode hash to one 128 byte SHA-512 block.
 const PADDING_LENGTH: usize = 76;

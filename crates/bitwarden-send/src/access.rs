@@ -6,6 +6,7 @@ use bitwarden_core::{ApiError, key_management::KeySlotIds};
 use bitwarden_crypto::{
     CryptoError, EncString, KeyDecryptable as _, KeyStore, SymmetricCryptoKey, derive_shareable_key,
 };
+use bitwarden_crypto_primitives::{pbkdf2::pbkdf2_hmac_sha256, sha256};
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_error::bitwarden_error;
 use bitwarden_vault::{CipherId, CipherView};
@@ -286,8 +287,13 @@ impl SendAccessKey {
     /// stored on the server. A pinning test asserts the two agree; if they ever diverge, every
     /// password-protected receive fails with an opaque server-side rejection.
     pub fn hash_password_b64(&self, password: &str) -> String {
-        let hashed =
-            bitwarden_crypto::pbkdf2(password.as_bytes(), self.secret.as_slice(), SEND_ITERATIONS);
+        let mut hashed = [0u8; sha256::DIGEST_LEN];
+        pbkdf2_hmac_sha256(
+            password.as_bytes(),
+            self.secret.as_slice(),
+            SEND_ITERATIONS,
+            &mut hashed,
+        );
         B64::from(hashed.as_slice()).to_string()
     }
 

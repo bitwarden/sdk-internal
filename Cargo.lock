@@ -1513,6 +1513,7 @@ dependencies = [
  "bitwarden-auth",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-crypto-primitives",
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-ffi",
