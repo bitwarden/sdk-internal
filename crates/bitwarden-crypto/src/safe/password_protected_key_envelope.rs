@@ -577,7 +577,7 @@ fn derive_argon2_key(
     let mut hash = [0u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE];
     let params = Params::from(argon2_settings);
     measure(SlowCryptoOp::Argon2id, || {
-        argon2::argon2id(
+        argon2::argon2id_v13(
             password.as_bytes(),
             &argon2_settings.salt,
             &params,

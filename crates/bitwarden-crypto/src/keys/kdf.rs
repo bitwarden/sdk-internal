@@ -77,7 +77,7 @@ impl KdfDerivedKeyMaterial {
                     parallelism,
                 };
                 measure(SlowCryptoOp::Argon2id, || {
-                    argon2::argon2id(secret, &salt_sha, &params, hash.as_mut_slice())
+                    argon2::argon2id_v13(secret, &salt_sha, &params, hash.as_mut_slice())
                 })
                 .map_err(CryptoError::Argon)?;
 
