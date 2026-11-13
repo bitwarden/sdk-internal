@@ -2,7 +2,7 @@
 
 #[cfg(feature = "cli")]
 use bitwarden_core::client::persisted_state::{
-    ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, SESSION_PROTECTED_USER_KEY,
+    ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, ProviderSharedKey, SESSION_PROTECTED_USER_KEY,
 };
 use bitwarden_core::{
     Client,
@@ -173,6 +173,32 @@ impl UnlockClient {
             .initialize_org_crypto(org_keys.into_iter().map(|k| (k.org_id, k.key)).collect())
             .map_err(|e| {
                 tracing::error!("Failed to decrypt organization keys: {e}");
+                UnlockError::Unknown
+            })?;
+
+        let provider_keys = state
+            .get::<ProviderSharedKey>()
+            .map_err(|e| {
+                tracing::error!("Failed to read provider keys repository: {e}");
+                UnlockError::Unknown
+            })?
+            .list()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to list provider keys: {e}");
+                UnlockError::Unknown
+            })?;
+
+        self.client
+            .internal
+            .initialize_provider_crypto(
+                provider_keys
+                    .into_iter()
+                    .map(|k| (k.provider_id, k.key))
+                    .collect(),
+            )
+            .map_err(|e| {
+                tracing::error!("Failed to decrypt provider keys: {e}");
                 UnlockError::Unknown
             })?;
 

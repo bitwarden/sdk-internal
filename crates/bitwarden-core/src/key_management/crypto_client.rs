@@ -21,9 +21,10 @@ use crate::key_management::crypto::{
 use crate::key_management::{
     SymmetricKeySlotId,
     crypto::{
-        DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
-        derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-        initialize_org_crypto, initialize_user_crypto, make_prf_user_key_set,
+        DerivePinKeyResponse, InitOrgCryptoRequest, InitProviderCryptoRequest,
+        InitUserCryptoRequest, UpdatePasswordResponse, derive_pin_key, derive_pin_user_key,
+        enroll_admin_password_reset, get_user_encryption_key, initialize_org_crypto,
+        initialize_provider_crypto, initialize_user_crypto, make_prf_user_key_set,
     },
 };
 use crate::{
@@ -64,6 +65,16 @@ impl CryptoClient {
         req: InitOrgCryptoRequest,
     ) -> Result<(), EncryptionSettingsError> {
         initialize_org_crypto(&self.client, req).await
+    }
+
+    /// Initialization method for the provider crypto. Needs to be called after
+    /// `initialize_user_crypto` but before any other crypto operations that require provider
+    /// keys.
+    pub async fn initialize_provider_crypto(
+        &self,
+        req: InitProviderCryptoRequest,
+    ) -> Result<(), EncryptionSettingsError> {
+        initialize_provider_crypto(&self.client, req).await
     }
 
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is

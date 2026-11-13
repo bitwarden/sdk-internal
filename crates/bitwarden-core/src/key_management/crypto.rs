@@ -31,11 +31,11 @@ use tracing::info;
 #[cfg(feature = "wasm")]
 use crate::key_management::wasm_unlock_state::{copy_user_key_to_state, get_user_key_from_state};
 use crate::{
-    Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
+    Client, NotAuthenticatedError, OrganizationId, ProviderId, UserId, WrongPasswordError,
     client::{
         LoginMethod, UserLoginMethod,
         encryption_settings::EncryptionSettingsError,
-        persisted_state::{ACCOUNT_CRYPTO_STATE, OrganizationSharedKey},
+        persisted_state::{ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, ProviderSharedKey},
     },
     key_management::{
         MasterPasswordError, SymmetricKeySlotId, V2UpgradeToken,
@@ -449,6 +449,42 @@ pub(super) async fn initialize_org_crypto(
             {
                 tracing::warn!("Failed to persist org key for {org_id}: {e}");
             }
+        }
+    }
+
+    Ok(())
+}
+
+/// Represents the request to initialize the user's provider cryptographic state.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[bitwarden_ffi::wasm_record]
+pub struct InitProviderCryptoRequest {
+    /// The encryption keys for all the providers the user is a part of
+    pub provider_keys: HashMap<ProviderId, UnsignedSharedKey>,
+}
+
+/// Initialize the user's provider cryptographic state.
+pub(super) async fn initialize_provider_crypto(
+    client: &Client,
+    req: InitProviderCryptoRequest,
+) -> Result<(), EncryptionSettingsError> {
+    let provider_keys: Vec<_> = req.provider_keys.into_iter().collect();
+    client
+        .internal
+        .initialize_provider_crypto(provider_keys.clone())?;
+
+    // Persist provider keys for rehydration. `replace_all` clears out any previously persisted
+    // keys for providers the user is no longer a part of, mirroring the `retain_symmetric_keys`
+    // eviction done in-memory by `set_provider_keys`.
+    if let Ok(repo) = client.internal.state_registry.get::<ProviderSharedKey>() {
+        let values = provider_keys
+            .into_iter()
+            .map(|(provider_id, key)| (provider_id, ProviderSharedKey { provider_id, key }))
+            .collect();
+        if let Err(e) = repo.replace_all(values).await {
+            tracing::warn!("Failed to persist provider keys: {e}");
         }
     }
 
@@ -2049,6 +2085,126 @@ mod tests {
 
         let entry = persisted.expect("org key should be persisted after initialize_org_crypto");
         assert_eq!(entry.org_id, org_id);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_provider_crypto_persists_provider_keys() {
+        use crate::{ProviderId, client::persisted_state::ProviderSharedKey};
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let provider_id = ProviderId::new_v4();
+        let provider_key = {
+            let ctx = client.internal.get_key_store().context();
+            #[allow(deprecated)]
+            let user_key = ctx
+                .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+                .unwrap();
+            #[allow(deprecated)]
+            let public_key = ctx
+                .dangerous_get_private_key(PrivateKeySlotId::UserPrivateKey)
+                .unwrap()
+                .to_public_key();
+            #[expect(deprecated)]
+            UnsignedSharedKey::encapsulate_key_unsigned(user_key, &public_key).unwrap()
+        };
+
+        client
+            .crypto()
+            .initialize_provider_crypto(InitProviderCryptoRequest {
+                provider_keys: HashMap::from([(provider_id, provider_key)]),
+            })
+            .await
+            .unwrap();
+
+        assert!(
+            client
+                .internal
+                .get_key_store()
+                .context()
+                .has_symmetric_key(SymmetricKeySlotId::Provider(provider_id))
+        );
+
+        let repo = client
+            .internal
+            .state_registry
+            .get::<ProviderSharedKey>()
+            .expect("ProviderSharedKey repository should be available");
+
+        let persisted = repo
+            .get(provider_id)
+            .await
+            .expect("repository get should not fail");
+
+        let entry =
+            persisted.expect("provider key should be persisted after initialize_provider_crypto");
+        assert_eq!(entry.provider_id, provider_id);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_provider_crypto_evicts_stale_persisted_keys() {
+        use crate::{ProviderId, client::persisted_state::ProviderSharedKey};
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let make_provider_key = |client: &Client| {
+            let ctx = client.internal.get_key_store().context();
+            #[allow(deprecated)]
+            let user_key = ctx
+                .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+                .unwrap();
+            #[allow(deprecated)]
+            let public_key = ctx
+                .dangerous_get_private_key(PrivateKeySlotId::UserPrivateKey)
+                .unwrap()
+                .to_public_key();
+            #[expect(deprecated)]
+            UnsignedSharedKey::encapsulate_key_unsigned(user_key, &public_key).unwrap()
+        };
+
+        let stale_provider_id = ProviderId::new_v4();
+        client
+            .crypto()
+            .initialize_provider_crypto(InitProviderCryptoRequest {
+                provider_keys: HashMap::from([(stale_provider_id, make_provider_key(&client))]),
+            })
+            .await
+            .unwrap();
+
+        // Re-initialize without the previous provider: it should be evicted both from the
+        // in-memory key store and from the persisted repository.
+        let current_provider_id = ProviderId::new_v4();
+        client
+            .crypto()
+            .initialize_provider_crypto(InitProviderCryptoRequest {
+                provider_keys: HashMap::from([(current_provider_id, make_provider_key(&client))]),
+            })
+            .await
+            .unwrap();
+
+        assert!(
+            !client
+                .internal
+                .get_key_store()
+                .context()
+                .has_symmetric_key(SymmetricKeySlotId::Provider(stale_provider_id))
+        );
+        assert!(
+            client
+                .internal
+                .get_key_store()
+                .context()
+                .has_symmetric_key(SymmetricKeySlotId::Provider(current_provider_id))
+        );
+
+        let repo = client
+            .internal
+            .state_registry
+            .get::<ProviderSharedKey>()
+            .expect("ProviderSharedKey repository should be available");
+
+        assert!(repo.get(stale_provider_id).await.unwrap().is_none());
+        assert!(repo.get(current_provider_id).await.unwrap().is_some());
     }
 
     #[tokio::test]
