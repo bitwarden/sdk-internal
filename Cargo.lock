@@ -900,11 +900,16 @@ version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-error",
  "bitwarden-ffi",
  "bitwarden-sync",
+ "reqwest",
+ "reqwest-middleware",
  "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tracing",
@@ -912,6 +917,7 @@ dependencies = [
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]

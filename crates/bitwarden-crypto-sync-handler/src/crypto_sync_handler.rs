@@ -14,11 +14,13 @@ use bitwarden_core::{
         account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
-use bitwarden_crypto::KeyId;
+use bitwarden_crypto::{Kdf, KeyId};
 use serde::{Deserialize, Serialize};
 #[cfg(any(feature = "uniffi", feature = "wasm"))]
 use tracing::debug;
 use tracing::warn;
+
+use crate::key_sync::{KeySyncError, sync_keys};
 
 /// The parts of a sync response the key management sync handler needs.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -58,6 +60,11 @@ pub struct CryptoSyncUserDecryption {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub user_key_id: Option<KeyId>,
+    /// The account's KDF settings. Also set for accounts without a master password, e.g. trusted
+    /// device or Key Connector users. When absent, the master password unlock data's KDF is used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub kdf: Option<Kdf>,
 }
 
 /// Errors returned when a sync response cannot be converted into [`CryptoSyncData`].
@@ -145,12 +152,13 @@ impl TryFrom<&bitwarden_api_api::models::UserDecryptionResponseModel> for Crypto
                 .map(str::parse)
                 .transpose()
                 .map_err(CryptoSyncDataParseError::UserKeyId)?,
+            kdf: None,
         })
     }
 }
 
 /// Runs the key management sync work for the given sync data.
-async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
+pub(crate) async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
     // A replayed payload is refused whole: taking its user decryption options would let the
     // server swap out the key id and unlock data that belong to the state it just tried to undo.
     if is_replayed_state(client, data).await {
@@ -188,6 +196,11 @@ async fn handle_user_decryption_options(client: &Client, data: &CryptoSyncData) 
                 .await;
         }
         None => state_bridge.clear_masterpassword_unlock_data().await,
+    }
+
+    // Accounts without a master password still have KDF settings, e.g. trusted device users.
+    if let Some(kdf) = user_decryption.kdf.as_ref() {
+        state_bridge.set_kdf_config(kdf).await;
     }
 
     match user_decryption.v2_upgrade_token.as_ref() {
@@ -325,6 +338,12 @@ impl CryptoSyncHandlerClient {
     /// state has been applied.
     pub async fn on_sync(&self, data: CryptoSyncData) {
         handle_crypto_sync(&self.client, &data).await
+    }
+
+    /// Reads the user's keys and unlock methods from the Key Service and writes them to state,
+    /// as an alternative to taking them from the Identity token response at login.
+    pub async fn sync_keys(&self) -> Result<(), KeySyncError> {
+        sync_keys(&self.client).await
     }
 }
 
