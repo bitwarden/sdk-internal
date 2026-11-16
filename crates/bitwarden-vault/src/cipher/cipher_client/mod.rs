@@ -36,7 +36,7 @@ pub use delete::DeleteCipherError;
 mod edit;
 pub use edit::{CipherEditRequest, CipherPartialEditRequest, EditCipherError};
 mod get;
-pub use get::GetCipherError;
+pub use get::{GetCipherError, LIST_CHUNK_SIZE};
 mod move_many;
 pub use move_many::MoveCipherError;
 mod restore;

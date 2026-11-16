@@ -55,6 +55,7 @@ bitwarden-unlock = { workspace = true, features = ["uniffi"] }
 bitwarden-user-crypto-management = { workspace = true, features = ["uniffi"] }
 bitwarden-vault = { workspace = true, features = ["uniffi"] }
 chrono = { workspace = true, features = ["std"] }
+futures = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -73,6 +74,9 @@ tracing-oslog = "0.3.0"
 
 [build-dependencies]
 uniffi = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt"] }
 
 [lints]
 workspace = true
