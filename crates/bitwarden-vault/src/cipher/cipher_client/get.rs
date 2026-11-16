@@ -89,9 +89,9 @@ async fn get_all_ciphers(
     })
 }
 
-/// How many ciphers [`CiphersClient::list_iterable`] reads and decrypts at a time by default.
-#[cfg(feature = "wasm")]
-const LIST_CHUNK_SIZE: usize = 250;
+/// How many ciphers the bindings' lazy cipher listings read and decrypt at a time by default, such
+/// as `list_iterable` on WASM.
+pub const LIST_CHUNK_SIZE: usize = 250;
 
 #[allow(deprecated)]
 #[bitwarden_ffi::wasm_export]

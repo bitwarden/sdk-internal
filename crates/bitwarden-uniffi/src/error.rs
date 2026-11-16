@@ -84,6 +84,8 @@ pub enum BitwardenError {
     #[error(transparent)]
     GetCipher(#[from] bitwarden_vault::GetCipherError),
     #[error(transparent)]
+    DecryptStream(#[from] bitwarden_vault::DecryptStreamError),
+    #[error(transparent)]
     RestoreCipher(#[from] bitwarden_vault::RestoreCipherError),
     #[error(transparent)]
     MoveCipher(#[from] bitwarden_vault::MoveCipherError),

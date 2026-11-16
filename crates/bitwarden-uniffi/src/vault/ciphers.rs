@@ -1,11 +1,14 @@
+use std::sync::Arc;
+
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::OrganizationId;
 use bitwarden_vault::{
     Cipher, CipherCreateRequest, CipherEditRequest, CipherId, CipherListView,
     CipherPartialEditRequest, CipherView, DecryptCipherListResult, DecryptCipherResult,
-    EncryptionContext, FolderId,
+    EncryptionContext, FolderId, LIST_CHUNK_SIZE,
 };
 
+use super::cipher_list_stream::CipherListStream;
 use crate::Result;
 
 #[allow(missing_docs)]
@@ -129,6 +132,14 @@ impl CiphersClient {
     /// and failures
     pub async fn list(&self) -> Result<DecryptCipherListResult> {
         Ok(self.0.list().await?)
+    }
+
+    /// Get all ciphers from local state and decrypt them to list views lazily, up to `chunk_size`
+    /// at a time (250 when not given, at least one), in the repository's order. See
+    /// [`CipherListStream::next_chunk`].
+    pub fn list_stream(&self, chunk_size: Option<u32>) -> Arc<CipherListStream> {
+        let chunk_size = chunk_size.map_or(LIST_CHUNK_SIZE, |size| size as usize);
+        Arc::new(CipherListStream::new(self.0.list_stream(chunk_size)))
     }
 
     /// Get all ciphers from local state and fully decrypt them, returning both successes and

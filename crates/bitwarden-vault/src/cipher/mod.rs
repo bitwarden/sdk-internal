@@ -44,7 +44,7 @@ pub use cipher_client::{
     BulkUpdateCollectionsCipherError, CipherCreateRequest, CipherEditRequest,
     CipherPartialEditRequest, CiphersClient, CreateCipherError, DecryptStreamError, DecryptedChunk,
     DeleteCipherError, EditCipherError, GetAssignedOrgCiphersAdminError, GetCipherError,
-    GetOrganizationCiphersAdminError, MoveCipherError, RestoreCipherError,
+    GetOrganizationCiphersAdminError, LIST_CHUNK_SIZE, MoveCipherError, RestoreCipherError,
     should_use_blob_encryption,
 };
 pub use cipher_view_type::CipherViewType;
