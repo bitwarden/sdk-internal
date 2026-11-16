@@ -68,7 +68,7 @@ impl UserCryptoManagementClient {
     /// Rotates the user's encryption keys without a password change.
     ///
     /// The server takes only a V2 account here. A V1 user is refused with
-    /// [`RotateUserKeysError::UpgradeRequired`] unless `force-upgrade-v2-encryption` is on.
+    /// `RotateUserKeysError::UpgradeRequired` unless `force-upgrade-v2-encryption` is on.
     pub async fn rotate_user_keys(
         &self,
         request: RotateUserKeysRequest,
