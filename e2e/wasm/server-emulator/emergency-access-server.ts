@@ -17,15 +17,13 @@
 import { randomUUID } from "node:crypto";
 
 import type { Database } from "./database";
+import { ListResponse } from "./dto/common";
 import {
-  CipherResponse,
   EmergencyAccessGranteeDetailsResponse,
   EmergencyAccessGrantorDetailsResponse,
   EmergencyAccessStatus,
   EmergencyAccessTakeoverResponse,
   EmergencyAccessType,
-  ListResponse,
-  MasterPasswordUnlockDataModel,
   type EmergencyAccessAcceptRequest,
   type EmergencyAccessStatusValue,
   type EmergencyAccessTypeValue,
@@ -34,7 +32,9 @@ import {
   type EmergencyAccessPasswordRequest,
   type EmergencyAccessUpdateRequest,
   type EmergencyAccessViewResponse,
-} from "./dto";
+} from "./dto/emergency-access";
+import { MasterPasswordUnlockDataModel } from "./dto/master-password";
+import { CipherResponse } from "./dto/vault";
 import type { AccountId, EmergencyAccessEntity, UserEntity } from "./entities";
 import type { MockReply, Routes } from "./http-mock";
 

@@ -1,18 +1,52 @@
-error[E0277]: the trait bound `LargeVec<Item>: IntoWasmAbi` is not satisfied
+error[E0277]: the trait bound `LargeVec<Item>: ToWasm` is not satisfied
   --> tests/compilation_tests/wasm/large_vec_sync_return.rs:10:1
    |
 10 | #[wasm_export]
-   | ^^^^^^^^^^^^^^ the trait `IntoWasmAbi` is not implemented for `LargeVec<Item>`
+   | ^^^^^^^^^^^^^^ the trait `ToWasm` is not implemented for `LargeVec<Item>`
    |
-   = help: the following other types implement trait `IntoWasmAbi`:
-             &&str
-             &'__wbg_ref JsType
-             &'__wbg_ref js_sys::AggregateError
-             &'__wbg_ref js_sys::Array<T>
-             &'__wbg_ref js_sys::ArrayBuffer
-             &'__wbg_ref js_sys::ArrayBufferOptions
-             &'__wbg_ref js_sys::ArrayTuple<T>
-             &'__wbg_ref js_sys::AsyncDisposableStack
+   = help: the following other types implement trait `ToWasm`:
+             ()
+             Item
+             Ts<T>
+             bool
+             char
+             f32
+             f64
+             i128
            and $N others
-   = note: required for `LargeVec<Item>` to implement `ReturnWasmAbi`
+   = note: this error originates in the attribute macro `wasm_export` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `LargeVec<Item>: ToWasm` is not satisfied
+  --> tests/compilation_tests/wasm/large_vec_sync_return.rs:11:39
+   |
+11 | pub fn echo(items: LargeVec<Item>) -> LargeVec<Item> {
+   |                                       ^^^^^^^^^^^^^^ the trait `ToWasm` is not implemented for `LargeVec<Item>`
+   |
+   = help: the following other types implement trait `ToWasm`:
+             ()
+             Item
+             Ts<T>
+             bool
+             char
+             f32
+             f64
+             i128
+           and $N others
+
+error[E0277]: the trait bound `LargeVec<Item>: ToWasm` is not satisfied
+  --> tests/compilation_tests/wasm/large_vec_sync_return.rs:10:1
+   |
+10 | #[wasm_export]
+   | ^^^^^^^^^^^^^^ the trait `ToWasm` is not implemented for `LargeVec<Item>`
+   |
+   = help: the following other types implement trait `ToWasm`:
+             ()
+             Item
+             Ts<T>
+             bool
+             char
+             f32
+             f64
+             i128
+           and $N others
    = note: this error originates in the attribute macro `::bitwarden_ffi::_macro::wasm_bindgen` (in Nightly builds, run with -Z macro-backtrace for more info)

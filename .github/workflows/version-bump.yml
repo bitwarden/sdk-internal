@@ -11,11 +11,13 @@ on:
         options:
           - bitwarden-core
           - bitwarden-sm
+          - bitwarden-access-connector
       version_number:
         description: "New version (example: '2024.1.0')"
         required: true
       cut_rc_branch:
-        description: "Cut RC branch?"
+        # Leave unticked for bitwarden-access-connector: this cuts the shared SDK rc branch.
+        description: "Cut RC branch? (leave unticked for bitwarden-access-connector)"
         default: false
         type: boolean
 
@@ -106,6 +108,13 @@ jobs:
         env:
           VERSION_NUMBER: ${{ inputs.version_number }}
         run: cargo bin cargo-set-version -p bitwarden-sm "$VERSION_NUMBER"
+
+      ### bitwarden-access-connector
+      - name: Bump bitwarden-access-connector crate Version
+        if: ${{ inputs.project == 'bitwarden-access-connector' }}
+        env:
+          VERSION_NUMBER: ${{ inputs.version_number }}
+        run: cargo bin cargo-set-version -p bitwarden-access-connector "$VERSION_NUMBER"
 
       ############################
       # VERSION BUMP SECTION END #

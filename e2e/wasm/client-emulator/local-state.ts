@@ -6,6 +6,7 @@ import type {
   InitUserCryptoRequest,
   PasswordManagerClient,
   Policy,
+  ProfileOrganization,
   Repository,
 } from "@bitwarden/sdk-internal";
 
@@ -18,7 +19,7 @@ import { API_URL, IDENTITY_URL } from "../server-emulator/urls";
 export const SETTINGS: ClientSettings = { apiUrl: API_URL, identityUrl: IDENTITY_URL };
 
 /** A `Repository` backed by a `Map`, with a dump for assertions. */
-export class TestRepository<T extends { id?: unknown }> implements Repository<T> {
+export class TestRepository<T> implements Repository<T> {
   private readonly items = new Map<string, T>();
 
   async get(id: string): Promise<T | null> {
@@ -86,6 +87,7 @@ export class LocalState {
   readonly ciphers = new TestRepository<Cipher>();
   readonly folders = new TestRepository<Folder>();
   readonly policies = new TestRepository<Policy>();
+  readonly organizations = new TestRepository<ProfileOrganization>();
 
   /** Organization keys sealed to this account, keyed by organization id. */
   organizationKeys: Record<string, string> = {};
@@ -129,6 +131,7 @@ export class LocalState {
     ciphers?: Cipher[];
     folders?: Folder[];
     policies?: Policy[];
+    organizations?: ProfileOrganization[];
   }): Promise<void> {
     if (vault.ciphers !== undefined) {
       await this.ciphers.removeAll();
@@ -141,6 +144,12 @@ export class LocalState {
     if (vault.policies !== undefined) {
       await this.policies.removeAll();
       await this.policies.setBulk(vault.policies.map((policy) => [String(policy.id), policy]));
+    }
+    if (vault.organizations !== undefined) {
+      await this.organizations.removeAll();
+      await this.organizations.setBulk(
+        vault.organizations.map((organization) => [String(organization.details.id), organization]),
+      );
     }
   }
 
@@ -183,7 +192,7 @@ export class LocalState {
       organization_shared_key: null,
       send: null,
       policy: this.policies,
-      organization: null,
+      organization: this.organizations,
     });
 
     return client;

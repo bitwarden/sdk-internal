@@ -11,13 +11,10 @@ import type {
   WasmStateBridge,
 } from "@bitwarden/sdk-internal";
 
-import {
-  AccountKeysResponse,
-  CipherResponse,
-  FolderResponse,
-  toKdf,
-  type SyncResponse,
-} from "../server-emulator/dto";
+import { AccountKeysResponse } from "../server-emulator/dto/account-keys";
+import { toKdf } from "../server-emulator/dto/kdf";
+import { ProfileOrganizationResponse, type SyncResponse } from "../server-emulator/dto/sync";
+import { CipherResponse, FolderResponse } from "../server-emulator/dto/vault";
 import type { ServerEmulator } from "../server-emulator/server-emulator";
 import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
 
@@ -139,6 +136,9 @@ export class ClientEmulator {
         ),
       ),
       folders: synced.folders.map(FolderResponse.toFolder),
+      organizations: synced.profile.organizations.map((organization) =>
+        ProfileOrganizationResponse.toProfileOrganization(organization, synced.profile.id),
+      ),
     });
   }
 

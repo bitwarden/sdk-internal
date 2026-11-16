@@ -188,6 +188,52 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Runs the Kotlin bindings against a host build of the SDK on the JVM, so it needs neither the
+  # Android targets nor an emulator.
+  e2e-tests:
+    name: E2E tests
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: kotlin-e2e-tests-cargo
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
+
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@main
+        with:
+          key: ${{ github.job }}
+
+      - name: Set up Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@f29f5a9d7b09a7c6b29859002d29d24e1674c884 # v5.0.1
+
+      - name: Build JVM bindings
+        run: ./crates/bitwarden-uniffi/kotlin/build-jvm.sh
+
+      - name: Run e2e tests
+        run: ./e2e/kotlin/test.sh --warning-mode all --stacktrace
+
   check-android-breaking-changes:
     name: Check for Android breaking changes
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
