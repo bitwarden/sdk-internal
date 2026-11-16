@@ -36,14 +36,18 @@ macro_rules! create_client_managed_repositories {
         $macro! {
             $container_name;
             // List any SDK-managed repositories here. The format is:
-            // <fully qualified path to the item>, <item type idenfier>, <field name>, <name of the repository implementation>
-            ::bitwarden_vault::Cipher, Cipher, cipher, CipherRepository;
-            ::bitwarden_vault::Folder, Folder, folder, FolderRepository;
-            ::bitwarden_core::key_management::LocalUserDataKeyState, LocalUserDataKeyState, local_user_data_key_state, LocalUserDataKeyStateRepository;
-            ::bitwarden_core::client::persisted_state::OrganizationSharedKey, OrganizationSharedKey, organization_shared_key, OrganizationSharedKeyRepository;
-            ::bitwarden_send::Send, Send, send, SendRepository;
-            ::bitwarden_policies::Policy, Policy, policy, PolicyRepository;
-            ::bitwarden_organizations::ProfileOrganization, ProfileOrganization, organization, ProfileOrganizationRepository;
+            // <fully qualified path to the item>, <item type idenfier>, <field name>, <name of the repository implementation>,
+            // <name of the repository's iterator>
+            //
+            // The UniFFI bindings name the batched iterator that `list_iter` returns with the last
+            // name, which `macro_rules!` cannot build from the others. The WASM bindings ignore it.
+            ::bitwarden_vault::Cipher, Cipher, cipher, CipherRepository, CipherIterator;
+            ::bitwarden_vault::Folder, Folder, folder, FolderRepository, FolderIterator;
+            ::bitwarden_core::key_management::LocalUserDataKeyState, LocalUserDataKeyState, local_user_data_key_state, LocalUserDataKeyStateRepository, LocalUserDataKeyStateIterator;
+            ::bitwarden_core::client::persisted_state::OrganizationSharedKey, OrganizationSharedKey, organization_shared_key, OrganizationSharedKeyRepository, OrganizationSharedKeyIterator;
+            ::bitwarden_send::Send, Send, send, SendRepository, SendIterator;
+            ::bitwarden_policies::Policy, Policy, policy, PolicyRepository, PolicyIterator;
+            ::bitwarden_organizations::ProfileOrganization, ProfileOrganization, organization, ProfileOrganizationRepository, ProfileOrganizationIterator;
         }
     };
 }

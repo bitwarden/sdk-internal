@@ -158,7 +158,7 @@ export interface Repository<T> {
 /// implementation of [WasmRepository] and a way to convert it into something that implements
 /// the [Repository] trait.
 macro_rules! create_wasm_repositories {
-    ( $container_name:ident ; $( $qualified_type_name:ty, $type_name:ident, $field_name:ident, $repo_name:ident );+ $(;)? ) => {
+    ( $container_name:ident ; $( $qualified_type_name:ty, $type_name:ident, $field_name:ident, $repo_name:ident, $_uniffi_iterator_name:ident );+ $(;)? ) => {
 
         const _: () = {
             #[wasm_bindgen(typescript_custom_section)]
