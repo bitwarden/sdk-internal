@@ -718,6 +718,7 @@ src/models/update_target_system_request_model.rs
 src/models/update_tde_offboarding_password_request_model.rs
 src/models/update_temp_password_request_model.rs
 src/models/upgrade_premium_to_organization_request.rs
+src/models/upgrade_premium_to_organization_response_model.rs
 src/models/uri_match_type.rs
 src/models/user_access_policy_response_model.rs
 src/models/user_decryption_response_model.rs

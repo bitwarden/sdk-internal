@@ -29,7 +29,7 @@ use bitwarden_managed_settings::{ManagedSettingsClient, ManagedSettingsClientExt
 use bitwarden_member_administration::OrganizationUsersManagementClientExt as _;
 use bitwarden_organization_domains::OrganizationDomainsClientExt as _;
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
-use bitwarden_organizations::OrganizationsClientExt as _;
+use bitwarden_organizations::{OrganizationCreateClientExt as _, OrganizationsClientExt as _};
 use bitwarden_policies::{PoliciesClientExt as _, PolicySyncHandler};
 use bitwarden_send::{SendClientExt as _, SendSyncHandler, SendSyncHandlerClientExt as _};
 use bitwarden_sync::SyncClientExt as _;
@@ -55,7 +55,7 @@ pub mod clients {
     pub use bitwarden_member_administration::OrganizationUsersManagementClient;
     pub use bitwarden_organization_domains::OrganizationDomainsClient;
     pub use bitwarden_organization_invite_link::InviteLinkClient;
-    pub use bitwarden_organizations::OrganizationsClient;
+    pub use bitwarden_organizations::{OrganizationCreateClient, OrganizationsClient};
     pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::{SendClient, SendSyncHandlerClient};
     pub use bitwarden_sync::SyncClient;
@@ -230,6 +230,11 @@ impl PasswordManagerClient {
     /// Organization invite link operations
     pub fn invite_link(&self) -> bitwarden_organization_invite_link::InviteLinkClient {
         self.0.invite_link()
+    }
+
+    /// Organization creation operations.
+    pub fn organization_create(&self) -> bitwarden_organizations::OrganizationCreateClient {
+        self.0.organization_create()
     }
 
     /// Organization verified domain operations.

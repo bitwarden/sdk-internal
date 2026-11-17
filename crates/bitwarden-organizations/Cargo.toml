@@ -18,29 +18,42 @@ keywords.workspace = true
 uniffi = ["bitwarden-core/uniffi", "dep:uniffi"]
 wasm = [
     "bitwarden-core/wasm",
+    "bitwarden-crypto/wasm",
+    "bitwarden-error/wasm",
     "bitwarden-ffi/wasm",
+    "bitwarden-organization-crypto/wasm",
     "bitwarden-state/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
 ]
 
 [dependencies]
+bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
+bitwarden-error = { workspace = true }
 bitwarden-ffi = { workspace = true }
+bitwarden-organization-crypto = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
+thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
+bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
 bitwarden-test = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [lints]
 workspace = true

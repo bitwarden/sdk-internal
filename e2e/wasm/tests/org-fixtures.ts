@@ -6,7 +6,12 @@
 // together with this account's private key (not the default account in
 // `utils.ts`).
 
-import { InviteSecret, OrganizationId, UnsignedSharedKey } from "@bitwarden/sdk-internal";
+import {
+  InviteSecret,
+  OrganizationId,
+  ProviderId,
+  UnsignedSharedKey,
+} from "@bitwarden/sdk-internal";
 
 // `test_bitwarden_com_account` uses 600_000 PBKDF2 iterations, unlike the
 // default account fixtures in `utils.ts` which use 100_000.
@@ -23,6 +28,14 @@ export const TEST_ORGANIZATION_ID =
 
 export const TEST_ORGANIZATION_KEY =
   "4.rY01mZFXHOsBAg5Fq4gyXuklWfm6mQASm42DJpx05a+e2mmp+P5W6r54WU2hlREX0uoTxyP91bKKwickSPdCQQ58J45LXHdr9t2uzOYyjVzpzebFcdMw1eElR9W2DW8wEk9+mvtWvKwu7yTebzND+46y1nRMoFydi5zPVLSlJEf81qZZ4Uh1UUMLwXz+NRWfixnGXgq2wRq1bH0n3mqDhayiG4LJKgGdDjWXC8W8MMXDYx24SIJrJu9KiNEMprJE+XVF9nQVNijNAjlWBqkDpsfaWTUfeVLRLctfAqW1blsmIv4RQ91PupYJZDNc8nO9ZTF3TEVM+2KHoxzDJrLs2Q==" as unknown as UnsignedSharedKey;
+
+// Generated the same way as TEST_ORGANIZATION_KEY (by the ignored
+// `generate_e2e_test_vectors` test in `bitwarden-organizations`): a fresh symmetric key
+// encapsulated to this account's public key, standing in for a provider's shared key.
+export const TEST_PROVIDER_ID = "b7a2629e-32b5-4ec1-829a-124094766205" as unknown as ProviderId;
+
+export const TEST_PROVIDER_KEY =
+  "4.gEMHci27FciGSl611AAY+mdEdK1BCz2p1MNnkCyjQD4So2hDviVbefwSK6Z4dga/jw+E4VRuLQ9UpBi5P1Z0eTRp8f1MMlyJurmmmmISiar6SsekLvpqscS01pQ2so2En0ItXMTOFyaRPXsJ9k9dQC1KsP22d4EcKeN+KL41QjXq1Cc85H/N1Tb9JDrSQDfeXz0Mo3QwTq8QDQWJS2VDqWMvV5QCetV2/9V3TG47O9XXRRei8sqfsXhIBwHNFqhDcB2sAk4id+UtMhLh7N6DiAPgLfQdujwIVUHfjBBYLcMZhES3eknZdiwwbLVr4I0acsFPayxyUbqe9ZyqtNTcnw==" as unknown as UnsignedSharedKey;
 
 // Invite-link fixtures. All five are generated together by the ignored
 // `generate_integration_test_fixtures` test in `bitwarden-organization-invite-link`, and must be

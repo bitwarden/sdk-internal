@@ -1266,6 +1266,8 @@ pub mod update_temp_password_request_model;
 pub use self::update_temp_password_request_model::UpdateTempPasswordRequestModel;
 pub mod upgrade_premium_to_organization_request;
 pub use self::upgrade_premium_to_organization_request::UpgradePremiumToOrganizationRequest;
+pub mod upgrade_premium_to_organization_response_model;
+pub use self::upgrade_premium_to_organization_response_model::UpgradePremiumToOrganizationResponseModel;
 pub mod uri_match_type;
 pub use self::uri_match_type::UriMatchType;
 pub mod user_access_policy_response_model;

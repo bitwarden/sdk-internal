@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`1a0141664b10e8da58e63ce13f5f7f238b3a37b4`](https://github.com/bitwarden/server/commit/1a0141664b10e8da58e63ce13f5f7f238b3a37b4)
+  [`0f4940564bd9ca2e3ae6e48fd49a2c37440b2567`](https://github.com/bitwarden/server/commit/0f4940564bd9ca2e3ae6e48fd49a2c37440b2567)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -1247,6 +1247,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [UpdateTdeOffboardingPasswordRequestModel](docs/UpdateTdeOffboardingPasswordRequestModel.md)
 - [UpdateTempPasswordRequestModel](docs/UpdateTempPasswordRequestModel.md)
 - [UpgradePremiumToOrganizationRequest](docs/UpgradePremiumToOrganizationRequest.md)
+- [UpgradePremiumToOrganizationResponseModel](docs/UpgradePremiumToOrganizationResponseModel.md)
 - [UriMatchType](docs/UriMatchType.md)
 - [UserAccessPolicyResponseModel](docs/UserAccessPolicyResponseModel.md)
 - [UserDecryptionResponseModel](docs/UserDecryptionResponseModel.md)

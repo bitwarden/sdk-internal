@@ -861,6 +861,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-ffi",
+ "bitwarden-state",
  "bitwarden-sync",
  "serde",
  "thiserror",
@@ -868,6 +869,7 @@ dependencies = [
  "tracing",
  "tsify",
  "uniffi",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -1278,8 +1280,13 @@ dependencies = [
 name = "bitwarden-organizations"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-api-api",
  "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-error",
  "bitwarden-ffi",
+ "bitwarden-organization-crypto",
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-uuid",
@@ -1287,11 +1294,13 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
+ "thiserror",
  "tokio",
  "tsify",
  "uniffi",
  "uuid",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
