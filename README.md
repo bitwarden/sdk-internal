@@ -573,11 +573,13 @@ npm run lint -- --only clippy
 ```
 
 The list of available checks: `fmt`, `clippy`, `sort`, `udeps`, `dylint`, `doc`, `prettier`,
-`dep-ownership`, `cargo-lock`, `advisories`.
+`dep-ownership`, `cargo-lock`, `advisories`, `bans`.
 
 `advisories` checks `Cargo.lock` against the RustSec advisory database, with ignores in
 [deny.toml](./deny.toml). A newly published advisory can make it fail without any change in this
 repository, so CI reports it in a separate job that does not block merging.
+
+`bans` enforces the crate version and feature bans in [deny.toml](./deny.toml).
 
 The command is implemented in [scripts/lint.sh](./scripts/lint.sh) and mirrors
 [.github/workflows/lint.yml](./.github/workflows/lint.yml), so a local pass means CI will pass.

@@ -27,6 +27,11 @@ instead.
   before writing scenarios.
 - Single-function logic stays in Rust unit tests.
 
+A new e2e test that goes through a binding gets a counterpart in every other suite under `e2e/`, for
+example `e2e/swift` for the Swift UniFFI bindings (run it with `npm run e2e:swift`; see
+`e2e/swift/README.md`). `.claude/rules/e2e-tests.md` has the rule: matching names, changed tests,
+when a counterpart can be skipped, and how to document it.
+
 ## WASM harness
 
 ```
@@ -41,7 +46,7 @@ instead.
 | `server-emulator/server-emulator.ts`             | `seedUserTestVector`, `seedOrganization`, `seedEmergencyAccessTestVector`, `getUser`, `db`                                          |
 | `server-emulator/api-server.ts`                  | Route model (`/sync`, kdf, rotation, ciphers, folders…) with real server rules (409, 400)                                           |
 | `server-emulator/*-server.ts`                    | One service per file (`api`, `emergency-access`, `identity`, `key-connector`); `routes()` bound to its origin in `installFetchHook` |
-| `server-emulator/dto.ts`                         | Server wire DTOs + converters (`SyncResponse.forUser`, `CipherRequest.toCipher`…)                                                   |
+| `server-emulator/dto/*.ts`                       | Server wire DTOs + converters, one file per feature (`sync.ts` → `SyncResponse.forUser`, `vault.ts` → `CipherRequest.toCipher`…)    |
 | `server-emulator/http-mock.ts`                   | Fetch hook; records `requests`, `unmatched`, `bodyFor`, `called`                                                                    |
 | `client-emulator/client-emulator.ts`             | `ClientEmulator` (`login(email, LoginMethod, password?)`, `sync`, `unlock`, `unlockWith`, `lock`, `restart`, `reinit`)              |
 | `client-emulator/local-state.ts`                 | `LocalState`: state bridge + repositories; `locked()`, `unlock(method)`, `clearEphemeral`                                           |

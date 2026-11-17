@@ -59,6 +59,8 @@ jobs:
             needs_node: true
           - check: cargo-lock
             needs_rust: true
+          - check: bans
+            needs_rust: true
 
     steps:
       - name: Checkout

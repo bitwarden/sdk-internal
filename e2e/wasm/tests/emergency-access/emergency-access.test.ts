@@ -5,7 +5,7 @@ import { validateCiphers, validateVault } from "../../client-emulator/validate";
 import {
   EmergencyAccessStatus as ServerStatus,
   EmergencyAccessType as ServerType,
-} from "../../server-emulator/dto";
+} from "../../server-emulator/dto/emergency-access";
 import { testHarness, type TestHarness } from "../../test-harness";
 import { testVectors } from "../../vectors/test-vectors";
 import { asB64, asEmergencyAccessId } from "../type-assertion-helpers";

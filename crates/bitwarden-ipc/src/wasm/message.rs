@@ -36,6 +36,20 @@ impl OutgoingMessage {
             topic,
         })
     }
+
+    #[wasm_only(note = "Read the `destination` field.")]
+    #[wasm_bindgen(getter)]
+    /// Destination endpoint for this message.
+    pub fn destination(&self) -> Endpoint {
+        self.destination.clone()
+    }
+
+    #[wasm_only(note = "Write the `destination` field.")]
+    #[wasm_bindgen(setter = destination)]
+    /// Sets the destination endpoint for this message.
+    pub fn set_destination(&mut self, destination: Endpoint) {
+        self.destination = destination;
+    }
 }
 
 #[bitwarden_ffi::wasm_export]
@@ -65,5 +79,33 @@ impl IncomingMessage {
             .ok()
             .and_then(|payload| js_sys::JSON::parse(payload).ok())
             .unwrap_or(JsValue::UNDEFINED)
+    }
+
+    #[wasm_only(note = "Read the `destination` field.")]
+    #[wasm_bindgen(getter)]
+    /// Destination endpoint that received this message.
+    pub fn destination(&self) -> Endpoint {
+        self.destination.clone()
+    }
+
+    #[wasm_only(note = "Write the `destination` field.")]
+    #[wasm_bindgen(setter = destination)]
+    /// Sets the destination endpoint that received this message.
+    pub fn set_destination(&mut self, destination: Endpoint) {
+        self.destination = destination;
+    }
+
+    #[wasm_only(note = "Read the `source` field.")]
+    #[wasm_bindgen(getter)]
+    /// Source that sent this message, with per-variant metadata.
+    pub fn source(&self) -> Source {
+        self.source.clone()
+    }
+
+    #[wasm_only(note = "Write the `source` field.")]
+    #[wasm_bindgen(setter = source)]
+    /// Sets the source that sent this message.
+    pub fn set_source(&mut self, source: Source) {
+        self.source = source;
     }
 }

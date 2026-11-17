@@ -110,6 +110,11 @@ impl PasswordManagerClient {
         self.0.0.user_crypto_management()
     }
 
+    /// Operations that manage the cryptographic state of the user's organizations.
+    pub fn organization_crypto_management(&self) -> OrganizationCryptoManagementClient {
+        self.0.organization_crypto_management()
+    }
+
     /// Unlock related operations.
     pub fn unlock(&self) -> UnlockClient {
         self.0.unlock()

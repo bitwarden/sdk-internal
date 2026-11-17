@@ -385,7 +385,9 @@ impl CoseKeyView<'_> {
             CoseKeyView::Aes256Gcm(_) => CoseContentEncryptionAlgorithm::Aes256Gcm,
             CoseKeyView::XChaCha20Poly1305(_) => CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
             CoseKeyView::XAes256Gcm(_) => CoseContentEncryptionAlgorithm::XAes256Gcm,
-            CoseKeyView::Aes256CbcHmac(_) => CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseKeyView::Aes256CbcHmac(_) => {
+                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead
+            }
         }
     }
 }

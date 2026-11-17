@@ -30,16 +30,24 @@ impl RegistrationClient {
 
     /// Initializes a new cryptographic state for a user and posts it to the server; enrolls the
     /// user to key connector unlock.
+    ///
+    /// `accept_organization_invite` defaults to `true` when not set.
+    #[uniffi::method(default(accept_organization_invite = None))]
     pub async fn post_keys_for_key_connector_registration(
         &self,
         key_connector_url: String,
         sso_org_identifier: String,
+        accept_organization_invite: Option<bool>,
     ) -> Result<KeyConnectorRegistrationResult, BitwardenError> {
         Ok(self
             .0
             .auth_new()
             .registration()
-            .post_keys_for_key_connector_registration(key_connector_url, sso_org_identifier)
+            .post_keys_for_key_connector_registration(
+                key_connector_url,
+                sso_org_identifier,
+                accept_organization_invite,
+            )
             .await?)
     }
 

@@ -2,11 +2,13 @@
 //! enrolls the user to master password unlock.
 use bitwarden_api_api::models::{
     OrganizationUserResetPasswordEnrollmentRequestModel, SetInitialPasswordRequestModel,
+    SsoJitProvisionFinishPasswordRequestModel,
 };
 use bitwarden_core::{
     OrganizationId, UserId,
     key_management::{
         MasterPasswordUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
+        crypto::MakeJitMasterPasswordRegistrationResponse,
     },
 };
 use bitwarden_encoding::B64;
@@ -36,6 +38,16 @@ pub struct JitMasterPasswordRegistrationRequest {
     pub master_password_hint: Option<String>,
     /// Should enroll user into admin password reset
     pub reset_password_enroll: bool,
+    /// Whether the server moves the pending organization membership from Invited to Accepted and
+    /// the user is enrolled in admin account recovery. Send `false` for open-invite links so the
+    /// membership stays Invited and is Accepted by the client after successful registration.
+    /// This also skips account recovery enrollment, even when `reset_password_enroll` is `true`.
+    /// Defaults to `true` when not set. Only used when the
+    /// `pm-34429-invite-link-auto-confirm` flag is on.
+    #[serde(default)]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub accept_organization_invite: Option<bool>,
 }
 
 /// Result of JIT master password registration process.
@@ -68,7 +80,7 @@ impl RegistrationClient {
 async fn internal_post_keys_for_jit_password_registration(
     registration_client: &RegistrationClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    request: JitMasterPasswordRegistrationRequest,
+    mut request: JitMasterPasswordRegistrationRequest,
 ) -> Result<JitMasterPasswordRegistrationResponse, RegistrationError> {
     // First call crypto API to get all keys
     info!("Initializing account cryptography");
@@ -76,12 +88,53 @@ async fn internal_post_keys_for_jit_password_registration(
         .client
         .crypto()
         .make_user_jit_master_password_registration(
-            request.master_password,
-            request.salt,
-            request.org_public_key,
+            // Take the password out of the request instead of cloning it, so no second copy of
+            // it is made.
+            std::mem::take(&mut request.master_password),
+            request.salt.clone(),
+            request.org_public_key.clone(),
         )
         .map_err(|_| RegistrationError::Crypto)?;
 
+    // TODO: Remove the legacy flow when the pm-34429-invite-link-auto-confirm flag is removed
+    // with https://bitwarden.atlassian.net/browse/PM-40052
+    if registration_client
+        .client
+        .flags()
+        .get()
+        .await
+        .invite_link_auto_confirm
+    {
+        sso_jit_provision_finish_password(api_client, &request, &registration_crypto_result)
+            .await?;
+    } else {
+        legacy_post_keys_for_jit_password_registration(
+            api_client,
+            &request,
+            &registration_crypto_result,
+        )
+        .await?;
+    }
+
+    info!("User initialized!");
+    // Note: This passing out of state and keys is temporary. Once SDK state management is more
+    // mature, the account cryptographic state and keys should be set directly here.
+    Ok(JitMasterPasswordRegistrationResponse {
+        account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
+        master_password_unlock: registration_crypto_result.master_password_unlock_data,
+        user_key: registration_crypto_result
+            .user_key
+            .to_encoded()
+            .to_vec()
+            .into(),
+    })
+}
+
+async fn legacy_post_keys_for_jit_password_registration(
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    request: &JitMasterPasswordRegistrationRequest,
+    registration_crypto_result: &MakeJitMasterPasswordRegistrationResponse,
+) -> Result<(), RegistrationError> {
     // Post the generated keys to the API here. The user now has keys and is "registered", but
     // has no unlock method.
     let api_request = SetInitialPasswordRequestModel {
@@ -94,8 +147,8 @@ async fn internal_post_keys_for_jit_password_registration(
         master_password_authentication: Some(Box::new(
             (&registration_crypto_result.master_password_authentication_data).into(),
         )),
-        master_password_hint: request.master_password_hint,
-        org_identifier: request.organization_sso_identifier,
+        master_password_hint: request.master_password_hint.clone(),
+        org_identifier: request.organization_sso_identifier.clone(),
         // TODO Deprecated fields below, to be removed with https://bitwarden.atlassian.net/browse/PM-27327
         kdf_parallelism: None,
         master_password_hash: None,
@@ -117,55 +170,101 @@ async fn internal_post_keys_for_jit_password_registration(
 
     // Enroll the user for reset password using the reset password key generated above.
     if request.reset_password_enroll {
-        info!("Enrolling into admin account recovery");
-        api_client
-            .organization_users_api()
-            .put_reset_password_enrollment(
-                request.org_id.into(),
-                request.user_id.into(),
-                Some(OrganizationUserResetPasswordEnrollmentRequestModel {
-                    reset_password_key: Some(
-                        registration_crypto_result.reset_password_key.to_string(),
-                    ),
-                    master_password_hash: Some(
-                        registration_crypto_result
-                            .master_password_authentication_data
-                            .master_password_authentication_hash
-                            .to_string(),
-                    ),
-                }),
-            )
-            .await
-            .map_err(|e| {
-                error!("Failed to enroll for reset password: {e:?}");
-                RegistrationError::Api
-            })?;
+        enroll_in_account_recovery(
+            api_client,
+            request.org_id,
+            request.user_id,
+            registration_crypto_result,
+        )
+        .await?;
     }
 
-    info!("User initialized!");
-    // Note: This passing out of state and keys is temporary. Once SDK state management is more
-    // mature, the account cryptographic state and keys should be set directly here.
-    Ok(JitMasterPasswordRegistrationResponse {
-        account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
-        master_password_unlock: registration_crypto_result.master_password_unlock_data,
-        user_key: registration_crypto_result
-            .user_key
-            .to_encoded()
-            .to_vec()
-            .into(),
-    })
+    Ok(())
+}
+
+async fn sso_jit_provision_finish_password(
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    request: &JitMasterPasswordRegistrationRequest,
+    registration_crypto_result: &MakeJitMasterPasswordRegistrationResponse,
+) -> Result<(), RegistrationError> {
+    let accept_organization_invite = request.accept_organization_invite.unwrap_or(true);
+    let api_request = SsoJitProvisionFinishPasswordRequestModel {
+        account_keys: Some(Box::new(
+            registration_crypto_result.account_keys_request.clone(),
+        )),
+        master_password_hint: request.master_password_hint.clone(),
+        ..SsoJitProvisionFinishPasswordRequestModel::new(
+            (&registration_crypto_result.master_password_authentication_data).into(),
+            (&registration_crypto_result.master_password_unlock_data).into(),
+            request.organization_sso_identifier.clone(),
+            accept_organization_invite,
+        )
+    };
+    info!("Posting user account cryptographic state to server");
+    api_client
+        .sso_jit_provision_finish_api()
+        .finish_jit_provision_for_password(Some(api_request))
+        .await
+        .map_err(|e| {
+            error!("Failed to finish SSO JIT provisioning: {e:?}");
+            RegistrationError::Api
+        })?;
+
+    // Enrollment accepts the invite, so skip it when the membership must stay Invited.
+    if accept_organization_invite && request.reset_password_enroll {
+        enroll_in_account_recovery(
+            api_client,
+            request.org_id,
+            request.user_id,
+            registration_crypto_result,
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+/// Enrolls the user into admin account recovery with the reset password key generated during
+/// registration.
+async fn enroll_in_account_recovery(
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    org_id: OrganizationId,
+    user_id: UserId,
+    registration_crypto_result: &MakeJitMasterPasswordRegistrationResponse,
+) -> Result<(), RegistrationError> {
+    info!("Enrolling into admin account recovery");
+    api_client
+        .organization_users_api()
+        .put_reset_password_enrollment(
+            org_id.into(),
+            user_id.into(),
+            Some(OrganizationUserResetPasswordEnrollmentRequestModel {
+                reset_password_key: Some(registration_crypto_result.reset_password_key.to_string()),
+                master_password_hash: Some(
+                    registration_crypto_result
+                        .master_password_authentication_data
+                        .master_password_authentication_hash
+                        .to_string(),
+                ),
+            }),
+        )
+        .await
+        .map_err(|e| {
+            error!("Failed to enroll for reset password: {e:?}");
+            RegistrationError::Api
+        })
 }
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroU32;
+    use std::{collections::HashMap, num::NonZeroU32, str::FromStr};
 
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{KdfRequestModel, KdfType},
     };
     use bitwarden_core::Client;
-    use bitwarden_crypto::{EncString, Kdf};
+    use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
 
     use super::*;
 
@@ -275,8 +374,18 @@ mod tests {
                     assert_eq!(*org_id, uuid::uuid!(TEST_ORG_ID));
                     assert_eq!(*user_id, uuid::uuid!(TEST_USER_ID));
                     if let Some(enrollment_request) = body {
-                        assert!(enrollment_request.reset_password_key.is_some());
-                        assert!(enrollment_request.master_password_hash.is_some());
+                        assert!(
+                            UnsignedSharedKey::from_str(
+                                enrollment_request.reset_password_key.as_ref().unwrap()
+                            )
+                            .is_ok()
+                        );
+                        assert!(
+                            B64::from_str(
+                                enrollment_request.master_password_hash.as_ref().unwrap()
+                            )
+                            .is_ok()
+                        );
                         true
                     } else {
                         false
@@ -294,6 +403,7 @@ mod tests {
             master_password: "test-password-123".to_string(),
             master_password_hint: Some(expected_hint.to_string()),
             reset_password_enroll: true,
+            accept_organization_invite: Some(false),
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -356,6 +466,7 @@ mod tests {
             master_password: "test-password-123".to_string(),
             master_password_hint: Some("test hint".to_string()),
             reset_password_enroll: true,
+            accept_organization_invite: None,
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -402,6 +513,7 @@ mod tests {
             master_password: "test-password-123".to_string(),
             master_password_hint: Some("test hint".to_string()),
             reset_password_enroll: true,
+            accept_organization_invite: None,
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -445,6 +557,7 @@ mod tests {
             master_password: "test-password-123".to_string(),
             master_password_hint: Some("test hint".to_string()),
             reset_password_enroll: false,
+            accept_organization_invite: None,
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -460,6 +573,205 @@ mod tests {
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_api.checkpoint();
             mock.organization_users_api.checkpoint();
+        }
+    }
+
+    async fn client_with_invite_link_auto_confirm() -> Client {
+        let client = Client::new(None);
+        client
+            .flags()
+            .load(HashMap::from([(
+                "pm-34429-invite-link-auto-confirm".to_string(),
+                true,
+            )]))
+            .await;
+        client
+    }
+
+    fn sso_jit_password_request(
+        reset_password_enroll: bool,
+        accept_organization_invite: Option<bool>,
+    ) -> JitMasterPasswordRegistrationRequest {
+        JitMasterPasswordRegistrationRequest {
+            org_id: TEST_ORG_ID.parse().unwrap(),
+            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
+            organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
+            user_id: TEST_USER_ID.parse().unwrap(),
+            salt: "test@example.com".to_string(),
+            master_password: "test-password-123".to_string(),
+            master_password_hint: Some("test hint".to_string()),
+            reset_password_enroll,
+            accept_organization_invite,
+        }
+    }
+
+    /// Runs the invite-link-auto-confirm flow and checks the accept value sent to the server and
+    /// whether account recovery enrollment is called.
+    async fn assert_sso_jit_password_flow(
+        request: JitMasterPasswordRegistrationRequest,
+        expected_accept: bool,
+        expect_enrollment: bool,
+    ) {
+        let client = client_with_invite_link_auto_confirm().await;
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sso_jit_provision_finish_api
+                .expect_finish_jit_provision_for_password()
+                .once()
+                .withf(move |body| {
+                    let req = body.as_ref().unwrap();
+                    assert_eq!(req.org_identifier, TEST_SSO_ORG_IDENTIFIER);
+                    assert_eq!(req.master_password_hint, Some("test hint".to_string()));
+                    assert_eq!(req.accept_organization_invite, expected_accept);
+                    assert!(req.account_keys.is_some());
+                    assert!(req.keys.is_none());
+                    assert_eq!(req.master_password_unlock.salt, "test@example.com");
+                    assert_eq!(req.master_password_authentication.salt, "test@example.com");
+                    let expected_kdf = Box::new(KdfRequestModel {
+                        kdf_type: KdfType::Argon2id,
+                        iterations: 6,
+                        memory: Some(32),
+                        parallelism: Some(4),
+                    });
+                    assert_eq!(req.master_password_unlock.kdf, expected_kdf);
+                    assert_eq!(req.master_password_authentication.kdf, expected_kdf);
+                    true
+                })
+                .returning(move |_body| Ok(()));
+            mock.accounts_api.expect_post_set_password().never();
+            mock.organization_users_api
+                .expect_put_reset_password_enrollment()
+                .times(usize::from(expect_enrollment))
+                .withf(move |org_id, user_id, body| {
+                    assert_eq!(*org_id, uuid::uuid!(TEST_ORG_ID));
+                    assert_eq!(*user_id, uuid::uuid!(TEST_USER_ID));
+                    let enrollment_request = body.as_ref().unwrap();
+                    assert!(
+                        UnsignedSharedKey::from_str(
+                            enrollment_request.reset_password_key.as_ref().unwrap()
+                        )
+                        .is_ok()
+                    );
+                    assert!(
+                        B64::from_str(enrollment_request.master_password_hash.as_ref().unwrap())
+                            .is_ok()
+                    );
+                    true
+                })
+                .returning(move |_org_id, _user_id, _body| Ok(()));
+        });
+
+        let result = internal_post_keys_for_jit_password_registration(
+            &registration_client,
+            &api_client,
+            request,
+        )
+        .await;
+
+        let result = result.unwrap();
+        assert!(matches!(
+            result.account_cryptographic_state,
+            WrappedAccountCryptographicState::V2 { .. }
+        ));
+        assert_eq!(result.master_password_unlock.salt, "test@example.com");
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.sso_jit_provision_finish_api.checkpoint();
+            mock.accounts_api.checkpoint();
+            mock.organization_users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_invite_link_auto_confirm_accept_defaults_to_true()
+     {
+        assert_sso_jit_password_flow(sso_jit_password_request(true, None), true, true).await;
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_invite_link_auto_confirm_accept_true_enrolls()
+     {
+        assert_sso_jit_password_flow(sso_jit_password_request(true, Some(true)), true, true).await;
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_invite_link_auto_confirm_accept_true_reset_password_enroll_false()
+     {
+        assert_sso_jit_password_flow(sso_jit_password_request(false, Some(true)), true, false)
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_invite_link_auto_confirm_accept_false_skips_enrollment()
+     {
+        // Enrollment would accept the invite, so it is skipped even when requested
+        assert_sso_jit_password_flow(sso_jit_password_request(true, Some(false)), false, false)
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_invite_link_auto_confirm_enrollment_failure()
+     {
+        let client = client_with_invite_link_auto_confirm().await;
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sso_jit_provision_finish_api
+                .expect_finish_jit_provision_for_password()
+                .once()
+                .returning(move |_body| Ok(()));
+            mock.organization_users_api
+                .expect_put_reset_password_enrollment()
+                .once()
+                .returning(move |_org_id, _user_id, _body| {
+                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
+                });
+        });
+
+        let result = internal_post_keys_for_jit_password_registration(
+            &registration_client,
+            &api_client,
+            sso_jit_password_request(true, Some(true)),
+        )
+        .await;
+
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.sso_jit_provision_finish_api.checkpoint();
+            mock.organization_users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_invite_link_auto_confirm_api_failure() {
+        let client = client_with_invite_link_auto_confirm().await;
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sso_jit_provision_finish_api
+                .expect_finish_jit_provision_for_password()
+                .once()
+                .returning(move |_body| {
+                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
+                });
+        });
+
+        let result = internal_post_keys_for_jit_password_registration(
+            &registration_client,
+            &api_client,
+            sso_jit_password_request(true, None),
+        )
+        .await;
+
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.sso_jit_provision_finish_api.checkpoint();
         }
     }
 }

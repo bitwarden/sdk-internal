@@ -22,11 +22,12 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "e2e:wasm": "npm ci --prefix e2e/wasm && npm run build:test --prefix e2e/wasm",
     "e2e:swift": "bash crates/bitwarden-uniffi/swift/build.sh && bash e2e/swift/test.sh",
+    "e2e:kotlin": "bash crates/bitwarden-uniffi/kotlin/build-jvm.sh && bash e2e/kotlin/test.sh",
     "prepare": "husky"
   },
   "devDependencies": {
     "@openapitools/openapi-generator-cli": "2.42.0",
-    "@types/node": "25.9.1",
+    "@types/node": "26.6.6",
     "husky": "9.1.7",
     "json5": "2.2.3",
     "lint-staged": "17.6.0",

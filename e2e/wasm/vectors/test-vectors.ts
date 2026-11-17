@@ -5,10 +5,12 @@ import type { InitUserCryptoMethod } from "@bitwarden/sdk-internal";
 import {
   hasMasterPassword,
   loadEmergencyAccessVectors,
+  loadOrganizationVectors,
   loadUserVectors,
   unlockMethodName,
   type EmergencyAccessVector,
   type MasterPasswordUserVector,
+  type OrganizationVector,
   type UserVector,
 } from "./load";
 
@@ -125,7 +127,30 @@ class EmergencyAccessVectors {
   }
 }
 
+/**
+ * The organization vectors.
+ *
+ * ```ts
+ * const vector = testVectors.organizations.get("example-org");
+ * ```
+ */
+class OrganizationVectors {
+  constructor(private readonly vectors: readonly OrganizationVector[]) {}
+
+  /** The named vector. Throws, listing the selection, when it is not in it. */
+  get(name: string): OrganizationVector {
+    const found = this.vectors.find((vector) => vector.name === name);
+    if (found === undefined) {
+      const available = this.vectors.map((vector) => vector.name).join(", ");
+      throw new Error(`no organization vector ${name}; have ${available}`);
+    }
+
+    return found;
+  }
+}
+
 export const testVectors = {
   users: new UserVectors(loadUserVectors()),
+  organizations: new OrganizationVectors(loadOrganizationVectors()),
   emergencyAccess: new EmergencyAccessVectors(loadEmergencyAccessVectors()),
 };

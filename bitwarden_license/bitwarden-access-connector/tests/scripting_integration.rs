@@ -143,58 +143,6 @@ async fn assert_outcome(api: &MockServer, expect_success: bool) {
     }
 }
 
-/// Runs the connector against `api`/`identity` with `vars` set until it reports an outcome or
-/// `deadline` passes, then shuts it down. The deadline is generous because PowerShell start-up is
-/// slow.
-async fn run_access_connector_with_env(
-    api: &MockServer,
-    identity: &MockServer,
-    script_root: Option<std::path::PathBuf>,
-    vars: Vec<(String, String)>,
-    deadline: Duration,
-) {
-    {
-        let _guard = lock_env();
-        // SAFETY: guarded by ENV_LOCK.
-        unsafe {
-            for (k, v) in &vars {
-                std::env::set_var(k, v);
-            }
-        }
-    }
-
-    let cancel = CancellationToken::new();
-    let cancel_clone = cancel.clone();
-    let cfg = make_cfg(api.uri(), identity.uri(), script_root);
-    let handle =
-        tokio::spawn(async move { bitwarden_access_connector::run(cfg, cancel_clone).await });
-
-    let give_up = tokio::time::Instant::now() + deadline;
-    while tokio::time::Instant::now() < give_up {
-        let requests = api.received_requests().await.expect("recording is on");
-        if requests.iter().any(|r| {
-            let p = r.url.path();
-            p.ends_with("/success") || p.ends_with("/failure")
-        }) {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-    cancel.cancel();
-    let exit = handle.await.expect("task panicked");
-    assert_eq!(exit, RunExit::Shutdown);
-
-    {
-        let _guard = lock_env();
-        // SAFETY: guarded by ENV_LOCK.
-        unsafe {
-            for (k, _) in &vars {
-                std::env::remove_var(k);
-            }
-        }
-    }
-}
-
 #[tokio::test]
 #[ignore = "Integration test requires PowerShell (pwsh) on PATH"]
 async fn ps1_is_dispatched_to_a_powershell_host_and_receives_the_payload() {

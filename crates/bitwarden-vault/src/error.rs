@@ -25,6 +25,21 @@ pub enum DecryptError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
+/// A cipher list decrypt failed.
+///
+/// `decrypt_list_with_failures` and `decrypt_list_full_with_failures` report ciphers that fail to
+/// decrypt in their result, so they only return [`DecryptListError::InvalidInput`].
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum DecryptListError {
+    /// A cipher failed to decrypt.
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+    /// An item of the input list is not valid.
+    #[error(transparent)]
+    InvalidInput(#[from] bitwarden_ffi::LargeVecError),
+}
+
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum VaultParseError {

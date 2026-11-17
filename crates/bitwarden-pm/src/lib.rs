@@ -27,6 +27,7 @@ use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
 use bitwarden_managed_settings::{ManagedSettingsClient, ManagedSettingsClientExt as _};
 use bitwarden_member_administration::OrganizationUsersManagementClientExt as _;
+use bitwarden_organization_crypto_management::OrganizationCryptoManagementClientExt as _;
 use bitwarden_organization_domains::OrganizationDomainsClientExt as _;
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
 use bitwarden_organizations::OrganizationsClientExt as _;
@@ -53,6 +54,7 @@ pub mod clients {
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_importers::ImporterClient;
     pub use bitwarden_member_administration::OrganizationUsersManagementClient;
+    pub use bitwarden_organization_crypto_management::OrganizationCryptoManagementClient;
     pub use bitwarden_organization_domains::OrganizationDomainsClient;
     pub use bitwarden_organization_invite_link::InviteLinkClient;
     pub use bitwarden_organizations::OrganizationsClient;
@@ -176,6 +178,13 @@ impl PasswordManagerClient {
         &self,
     ) -> bitwarden_user_crypto_management::UserCryptoManagementClient {
         self.0.user_crypto_management()
+    }
+
+    /// Operations that manage the cryptographic state of the user's organizations
+    pub fn organization_crypto_management(
+        &self,
+    ) -> bitwarden_organization_crypto_management::OrganizationCryptoManagementClient {
+        self.0.organization_crypto_management()
     }
 
     /// Vault item operations
