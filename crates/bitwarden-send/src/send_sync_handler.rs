@@ -200,6 +200,7 @@ mod tests {
             file: None,
             text: None,
             data: None,
+            data_v2: None,
             key: ENCRYPTED_STRING.parse().unwrap(),
             max_access_count: None,
             access_count: 0,

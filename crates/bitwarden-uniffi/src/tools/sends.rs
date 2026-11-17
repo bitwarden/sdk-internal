@@ -14,6 +14,11 @@ impl SendClient {
         Ok(self.0.encrypt(send)?)
     }
 
+    /// Encrypt send, with Item Send content in the sealed blob format (`Send.data_v2`)
+    pub fn encrypt_v2(&self, send: SendView) -> Result<Send> {
+        Ok(self.0.encrypt_v2(send)?)
+    }
+
     /// Encrypt a send file in memory
     pub fn encrypt_buffer(&self, send: Send, buffer: Vec<u8>) -> Result<Vec<u8>> {
         Ok(self.0.encrypt_buffer(send, &buffer)?)

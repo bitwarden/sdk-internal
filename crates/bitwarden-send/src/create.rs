@@ -19,7 +19,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     EmptyEmailListError, Send, SendAuthType, SendParseError, SendView, SendViewType,
-    send_client::SendClient,
+    send::ItemSendFormat, send_client::SendClient,
 };
 
 #[allow(missing_docs)]
@@ -81,6 +81,17 @@ impl
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<bitwarden_api_api::models::SendRequestModel, CryptoError> {
+        self.encrypt_with_item_format(ctx, key, ItemSendFormat::Legacy)
+    }
+}
+
+impl SendAddRequest {
+    fn encrypt_with_item_format(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        item_format: ItemSendFormat,
+    ) -> Result<bitwarden_api_api::models::SendRequestModel, CryptoError> {
         // Generate the send key
         let k = generate_random_bytes::<[u8; 16]>().to_vec();
 
@@ -88,7 +99,8 @@ impl
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
         let (send_type, file, text, data) =
-            self.view_type.clone().encrypt_composite(ctx, send_key)?;
+            self.view_type
+                .encrypt_with_item_format(ctx, send_key, item_format)?;
 
         let (password, emails) = self.auth.auth_data(&k);
 
@@ -130,10 +142,15 @@ async fn create_send<R: Repository<Send> + ?Sized>(
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     request: SendAddRequest,
+    item_format: ItemSendFormat,
 ) -> Result<SendView, CreateSendError> {
     request.auth.validate()?;
 
-    let send_request = key_store.encrypt(request)?;
+    let send_request = request.encrypt_with_item_format(
+        &mut key_store.context(),
+        request.key_identifier(),
+        item_format,
+    )?;
 
     let resp = api_client.sends_api().post(Some(send_request)).await?;
 
@@ -152,7 +169,33 @@ impl SendClient {
         let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
 
-        create_send(key_store, &config.api_client, repository.as_ref(), request).await
+        create_send(
+            key_store,
+            &config.api_client,
+            repository.as_ref(),
+            request,
+            ItemSendFormat::Legacy,
+        )
+        .await
+    }
+
+    /// Create a new [Send] and save it to the server. An Item Send is stored in the sealed blob
+    /// format ([`Send::data_v2`]); [`SendClient::create`] stores it in the [`Send::data`] format.
+    ///
+    /// Item Sends require `CipherView.id`, and partial (restricted) cipher views are refused.
+    pub async fn create_v2(&self, request: SendAddRequest) -> Result<SendView, CreateSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations();
+        let repository = self.get_repository()?;
+
+        create_send(
+            key_store,
+            &config.api_client,
+            repository.as_ref(),
+            request,
+            ItemSendFormat::SealedBlob,
+        )
+        .await
     }
 }
 
@@ -164,7 +207,10 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{AuthType, SendId, SendTextView, SendType, SendView};
+    use crate::{
+        AuthType, SendId, SendTextView, SendType, SendView,
+        send::tests::{TEST_ITEM_ID, item_send_cipher_view},
+    };
 
     #[tokio::test]
     async fn test_create_send() {
@@ -229,6 +275,7 @@ mod tests {
                 expiration_date: None,
                 auth: SendAuthType::None,
             },
+            ItemSendFormat::Legacy,
         )
         .await
         .unwrap();
@@ -312,10 +359,173 @@ mod tests {
                 expiration_date: None,
                 auth: SendAuthType::None,
             },
+            ItemSendFormat::Legacy,
         )
         .await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CreateSendError::Api(_)));
+    }
+
+    fn item_add_request() -> SendAddRequest {
+        SendAddRequest {
+            name: "item".to_string(),
+            notes: None,
+            view_type: SendViewType::Item(Box::new(crate::send::SendItemView {
+                data: item_send_cipher_view(),
+            })),
+            max_access_count: None,
+            disabled: false,
+            hide_email: false,
+            deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
+            expiration_date: None,
+            auth: SendAuthType::None,
+        }
+    }
+
+    /// Drives `create_send` with an echoing server and returns the captured request, the
+    /// key store and the repository.
+    async fn capture_create_post_model(
+        request: SendAddRequest,
+        item_format: ItemSendFormat,
+    ) -> (
+        bitwarden_api_api::models::SendRequestModel,
+        KeyStore<KeySlotIds>,
+        MemoryRepository<Send>,
+        SendView,
+    ) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+                .unwrap();
+        }
+
+        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let captured: std::sync::Arc<
+            std::sync::Mutex<Option<bitwarden_api_api::models::SendRequestModel>>,
+        > = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let sink = captured.clone();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            let sink = sink.clone();
+            mock.sends_api
+                .expect_post()
+                .returning(move |model| {
+                    let model = model.unwrap();
+                    *sink.lock().unwrap() = Some(model.clone());
+                    Ok(SendResponseModel {
+                        id: Some(send_id),
+                        name: model.name,
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        object: Some("send".to_string()),
+                        access_id: None,
+                        r#type: model.r#type,
+                        auth_type: model.auth_type,
+                        notes: model.notes,
+                        file: model.file,
+                        text: model.text,
+                        data: model.data,
+                        key: Some(model.key),
+                        max_access_count: model.max_access_count,
+                        access_count: Some(0),
+                        password: model.password,
+                        emails: model.emails,
+                        disabled: Some(model.disabled),
+                        expiration_date: model.expiration_date,
+                        deletion_date: Some(model.deletion_date),
+                        hide_email: model.hide_email,
+                    })
+                })
+                .once();
+        });
+
+        let repository = MemoryRepository::<Send>::default();
+        let view = create_send(&store, &api_client, &repository, request, item_format)
+            .await
+            .unwrap();
+
+        let model = captured
+            .lock()
+            .unwrap()
+            .take()
+            .expect("POST was not called");
+        (model, store, repository, view)
+    }
+
+    #[tokio::test]
+    async fn test_create_v2_sends_sealed_blob_with_metadata() {
+        let (model, store, repository, view) =
+            capture_create_post_model(item_add_request(), ItemSendFormat::SealedBlob).await;
+
+        let data = model.data.expect("item data");
+        assert_eq!(
+            data.encryption_version,
+            Some(bitwarden_api_api::models::SendEncryptionType::V1)
+        );
+        assert_eq!(
+            data.metadata.expect("metadata").item_id,
+            TEST_ITEM_ID.parse::<uuid::Uuid>().unwrap()
+        );
+        let blob = data.data.expect("blob");
+        assert!(serde_json::from_str::<bitwarden_vault::Cipher>(&blob).is_err());
+
+        assert_eq!(view.data.unwrap().data, item_send_cipher_view());
+        let stored = repository.get(view.id.unwrap()).await.unwrap().unwrap();
+        assert!(stored.data.is_none());
+        assert_eq!(stored.data_v2.as_ref().unwrap().data, blob);
+        let decrypted: SendView = store.decrypt(&stored).unwrap();
+        assert_eq!(decrypted.data.unwrap().data, item_send_cipher_view());
+    }
+
+    #[tokio::test]
+    async fn test_create_sends_serialized_cipher_without_metadata() {
+        let (model, _store, repository, view) =
+            capture_create_post_model(item_add_request(), ItemSendFormat::Legacy).await;
+
+        let data = model.data.expect("item data");
+        assert!(data.metadata.is_none());
+        let json = serde_json::to_value(&data).unwrap();
+        let mut keys: Vec<_> = json.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        assert_eq!(keys, ["data", "encryptionVersion"]);
+        assert!(serde_json::from_str::<bitwarden_vault::Cipher>(&data.data.unwrap()).is_ok());
+
+        let stored = repository.get(view.id.unwrap()).await.unwrap().unwrap();
+        assert!(stored.data.is_some());
+        assert!(stored.data_v2.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_create_v2_requires_item_id() {
+        let mut request = item_add_request();
+        if let SendViewType::Item(item) = &mut request.view_type {
+            item.data.id = None;
+        }
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+                .unwrap();
+        }
+        // No request may reach the server.
+        let api_client = ApiClient::new_mocked(|_mock| {});
+        let repository = MemoryRepository::<Send>::default();
+
+        let result = create_send(
+            &store,
+            &api_client,
+            &repository,
+            request,
+            ItemSendFormat::SealedBlob,
+        )
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(CreateSendError::Crypto(CryptoError::MissingField("id")))
+        ));
     }
 }

@@ -12,7 +12,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_uuid::uuid_newtype;
-use bitwarden_vault::{CipherId, CipherView};
+use bitwarden_vault::{Cipher, CipherId, CipherView, EncryptMode};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -91,12 +91,26 @@ pub struct SendItemView {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendItem {
     pub encryption_version: SendEncryptionType,
+    pub data: Cipher,
+}
+
+/// Item-based send content in the sealed blob format.
+///
+/// The item is sealed as a cipher blob directly under the send key. The blob holds no cipher
+/// id; [`SendItemMetadata::item_id`] carries it unencrypted next to the blob and restores
+/// `CipherView.id` on decrypt.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct SendItemV2 {
+    pub encryption_version: SendEncryptionType,
     /// Opaque sealed cipher blob, see [`CipherView::seal_blob_for_item_sends`].
     pub data: String,
     pub metadata: SendItemMetadata,
 }
 
-/// Unencrypted metadata of an Item Send
+/// Unencrypted metadata of an Item Send in the sealed blob format
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -275,6 +289,17 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<SendApiModels, CryptoError> {
+        self.encrypt_with_item_format(ctx, key, ItemSendFormat::Legacy)
+    }
+}
+
+impl SendViewType {
+    pub(crate) fn encrypt_with_item_format(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        item_format: ItemSendFormat,
+    ) -> Result<SendApiModels, CryptoError> {
         match self {
             SendViewType::File(f) => Ok((
                 bitwarden_api_api::models::SendType::File,
@@ -301,18 +326,33 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                 })),
                 None,
             )),
+            SendViewType::Item(i) if matches!(item_format, ItemSendFormat::SealedBlob) => {
+                let encrypted = i.encrypt_v2(ctx, key)?;
+                Ok((
+                    bitwarden_api_api::models::SendType::Item,
+                    None,
+                    None,
+                    Some(Box::new(bitwarden_api_api::models::SendDataModel {
+                        encryption_version: Some(encrypted.encryption_version.into()),
+                        data: Some(encrypted.data),
+                        metadata: Some(Box::new(SendItemMetadataModel {
+                            item_id: encrypted.metadata.item_id.into(),
+                        })),
+                    })),
+                ))
+            }
             SendViewType::Item(i) => {
                 let encrypted = i.encrypt_composite(ctx, key)?;
+                let serialized_cipher =
+                    serde_json::to_string(&encrypted.data).unwrap_or("{}".to_string());
                 Ok((
                     bitwarden_api_api::models::SendType::Item,
                     None,
                     None,
                     Some(Box::new(bitwarden_api_api::models::SendDataModel {
                         encryption_version: Some(DEFAULT_SEND_ENCRYPTION.into()),
-                        data: Some(encrypted.data),
-                        metadata: Box::new(SendItemMetadataModel {
-                            item_id: encrypted.metadata.item_id.into(),
-                        }),
+                        data: Some(serialized_cipher),
+                        metadata: None,
                     })),
                 ))
             }
@@ -354,6 +394,14 @@ pub struct Send {
     /// set, password authentication takes precedence and email OTP is ignored.
     pub emails: Option<String>,
     pub auth_type: AuthType,
+
+    /// Item Send content in the sealed blob format. Mutually exclusive with `data`: a Send
+    /// with both set fails to decrypt. Produced by [`crate::SendClient::encrypt_v2`] and by
+    /// parsing a server response whose item data carries metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub data_v2: Option<SendItemV2>,
 }
 
 bitwarden_state::register_repository_item!(SendId => Send, "Send");
@@ -550,9 +598,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendItemView> for SendItem {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<SendItemView, CryptoError> {
-        let mut data = CipherView::unseal_blob_for_item_sends(&self.data, ctx, key)?;
-        // The blob holds no id; restore it from the metadata.
-        data.id = Some(self.metadata.item_id);
+        let data: CipherView = self.data.decrypt(ctx, key)?;
         Ok(SendItemView { data })
     }
 }
@@ -563,7 +609,36 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendItem> for SendItem
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<SendItem, CryptoError> {
+        let cipher: Cipher = EncryptMode::Legacy(self.data.clone()).encrypt_composite(ctx, key)?;
         Ok(SendItem {
+            encryption_version: DEFAULT_SEND_ENCRYPTION,
+            data: cipher,
+        })
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendItemView> for SendItemV2 {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<SendItemView, CryptoError> {
+        let mut data = CipherView::unseal_blob_for_item_sends(&self.data, ctx, key)?;
+        // The blob holds no id; restore it from the metadata.
+        data.id = Some(self.metadata.item_id);
+        Ok(SendItemView { data })
+    }
+}
+
+impl SendItemView {
+    /// Encrypts this item into the sealed blob format. Requires `CipherView.id`, which travels
+    /// unencrypted as [`SendItemMetadata::item_id`].
+    fn encrypt_v2(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<SendItemV2, CryptoError> {
+        Ok(SendItemV2 {
             encryption_version: DEFAULT_SEND_ENCRYPTION,
             data: self.data.seal_blob_for_item_sends(ctx, key)?,
             metadata: SendItemMetadata {
@@ -585,6 +660,13 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendView> for Send {
         let k: Vec<u8> = self.key.decrypt(ctx, key)?;
         let key = Send::derive_shareable_key(ctx, &k)?;
 
+        let data = match (&self.data, &self.data_v2) {
+            // Fail closed: two item payloads leave it ambiguous which one the sender meant.
+            (Some(_), Some(_)) => return Err(CryptoError::Decrypt),
+            (None, Some(data_v2)) => data_v2.decrypt(ctx, key).ok(),
+            (data, None) => data.decrypt(ctx, key).ok().flatten(),
+        };
+
         Ok(SendView {
             id: self.id,
             access_id: self.access_id.clone(),
@@ -598,7 +680,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendView> for Send {
             r#type: self.r#type,
             file: self.file.decrypt(ctx, key).ok().flatten(),
             text: self.text.decrypt(ctx, key).ok().flatten(),
-            data: self.data.decrypt(ctx, key).ok().flatten(),
+            data,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -652,11 +734,31 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendListView> for Send {
     }
 }
 
+/// Wire format of the item content produced when encrypting a [`SendView`].
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum ItemSendFormat {
+    /// [`Send::data`]: the item as an encrypted [`Cipher`].
+    Legacy,
+    /// [`Send::data_v2`]: the item as a sealed cipher blob plus unencrypted metadata.
+    SealedBlob,
+}
+
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
     fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
+    ) -> Result<Send, CryptoError> {
+        self.encrypt_with_item_format(ctx, key, ItemSendFormat::Legacy)
+    }
+}
+
+impl SendView {
+    pub(crate) fn encrypt_with_item_format(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        item_format: ItemSendFormat,
     ) -> Result<Send, CryptoError> {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
@@ -676,6 +778,17 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
             _ => return Err(CryptoError::InvalidKey),
         };
         let send_key = Send::derive_shareable_key(ctx, &k)?;
+
+        let (data, data_v2) = match item_format {
+            ItemSendFormat::Legacy => (self.data.encrypt_composite(ctx, send_key)?, None),
+            ItemSendFormat::SealedBlob => (
+                None,
+                self.data
+                    .as_ref()
+                    .map(|d| d.encrypt_v2(ctx, send_key))
+                    .transpose()?,
+            ),
+        };
 
         Ok(Send {
             id: self.id,
@@ -698,7 +811,8 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
             r#type: self.r#type,
             file: self.file.encrypt_composite(ctx, send_key)?,
             text: self.text.encrypt_composite(ctx, send_key)?,
-            data: self.data.encrypt_composite(ctx, send_key)?,
+            data,
+            data_v2,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -731,6 +845,13 @@ impl TryFrom<SendResponseModel> for Send {
                 }
             }
         };
+        // Item data with metadata is in the sealed blob format; without it, a serialized Cipher.
+        let (data, data_v2) = match send.data {
+            Some(d) if d.metadata.is_some() => (None, Some((*d).try_into()?)),
+            Some(d) => (Some((*d).try_into()?), None),
+            None => (None, None),
+        };
+
         Ok(Send {
             id: send.id.map(SendId::new),
             access_id: send.access_id,
@@ -741,7 +862,8 @@ impl TryFrom<SendResponseModel> for Send {
             r#type: require!(send.r#type).try_into()?,
             file: send.file.map(|f| (*f).try_into()).transpose()?,
             text: send.text.map(|t| (*t).try_into()).transpose()?,
-            data: send.data.map(|d| (*d).try_into()).transpose()?,
+            data,
+            data_v2,
             max_access_count: send.max_access_count.map(|s| s as u32),
             access_count: require!(send.access_count) as u32,
             disabled: send.disabled.unwrap_or(false),
@@ -874,20 +996,40 @@ impl TryFrom<SendDataModel> for SendItem {
     type Error = SendParseError;
 
     fn try_from(data: SendDataModel) -> Result<Self, Self::Error> {
-        let Some(sealed) = data.data else {
+        let cipher = serde_json::from_str::<Cipher>(data.data.unwrap_or("{}".to_string()).as_str());
+        match cipher {
+            Err(_e) => Err(SendParseError::DeserializationFailure(
+                SendItemDeserializationFailureError,
+            )),
+            Ok(c) => Ok(SendItem {
+                encryption_version: SendEncryptionType::try_from(
+                    data.encryption_version
+                        .unwrap_or(DEFAULT_SEND_ENCRYPTION.into()),
+                )?,
+                data: c,
+            }),
+        }
+    }
+}
+
+impl TryFrom<SendDataModel> for SendItemV2 {
+    type Error = SendParseError;
+
+    fn try_from(data: SendDataModel) -> Result<Self, Self::Error> {
+        let (Some(sealed), Some(metadata)) = (data.data, data.metadata) else {
             return Err(SendParseError::DeserializationFailure(
                 SendItemDeserializationFailureError,
             ));
         };
 
-        Ok(SendItem {
+        Ok(SendItemV2 {
             encryption_version: SendEncryptionType::try_from(
                 data.encryption_version
                     .unwrap_or(DEFAULT_SEND_ENCRYPTION.into()),
             )?,
             data: sealed,
             metadata: SendItemMetadata {
-                item_id: CipherId::new(data.metadata.item_id),
+                item_id: CipherId::new(metadata.item_id),
             },
         })
     }
@@ -895,28 +1037,31 @@ impl TryFrom<SendDataModel> for SendItem {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use bitwarden_api_api::models::SendItemMetadataModel;
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use bitwarden_vault::{
         CipherRepromptType, CipherType, FieldType, FieldView, LoginView, PasswordHistoryView,
     };
 
     use super::*;
 
-    const TEST_USER_KEY: &str =
+    pub(crate) const TEST_USER_KEY: &str =
         "bYCsk857hl8QJJtxyRK65tjUrbxKC4aDifJpsml+NIv4W9cVgFvi3qVD+yJTUU2T4UwNKWYtt9pqWf7Q+2WCCg==";
     const TEST_SEND_KEY: &str = "2.KLv/j0V4Ebs0dwyPdtt4vw==|jcrFuNYN1Qb3onBlwvtxUV/KpdnR1LPRL4EsCoXNAt4=|gHSywGy4Rj/RsCIZFwze4s2AACYKBtqDXTrQXjkgtIE=";
     const TEST_SEND_KEY_B64: &str = "Pgui0FK85cNhBGWHAlBHBw";
     pub(crate) const TEST_ITEM_ID: &str = "5d4fbf2b-7a36-4b3c-9f2e-1a6d8c0e9b71";
 
-    /// Item Send `data`, sealed under the send key of [`TEST_SEND_KEY`]. Decrypts to
-    /// [`item_send_cipher_view`].
+    /// Item Send `data` in the sealed blob format, sealed under the send key of
+    /// [`TEST_SEND_KEY`]. Decrypts to [`item_send_cipher_view`].
     pub(crate) const TEST_VECTOR_ITEM_SEND_DATA: &str = "{\"format_version\":1,\"wrapped_cek\":\"2.e/m5UvBFEh4JEHYgnAVONQ==|Cl7wnKMdT9NxeisUg1Xx3OmOyZr7Z77luoLPCBxuo1EVAjf69q3yaFO25InB8swQgHdKgz/PVqtX6JmmbR4xu2PKZtNFNmRRUVnX5BWvvjE=|+PW2Knoda9s1qVKMAEcXDsw5ij/wUZ/GfR9xVDnpPSw=\",\"envelope\":\"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUCSl5i37B6J7uBZ8Ge91nw86AAE4gQI6AAE4gAGhBUxDZ7isjgG0Zt2UEERZATT9Jcf0kWC5y8qsWWn4iNEv9kbjf1jPeolS0FdxBu4y11Yez9MT1cPaJ8hxCjRztX5VgGzEKMnOcc491fwZXQByT0M9MLDDpJD3HDOOCzQ2gdk7VZktEmc8nhZoAGnZP0GmeoJh/my3WDukSsa2vOiOLE2KGIfF8OHa7nwXds9Z1aIhlavFSNAiqDWAdOk65OhqrvE0BPN7WdW7+NbuviPiEKa3wbCIhmjfQI1nW5simSqTMx4/ikLCqH2F3gLt4nk0SJ3KAbbQA3ENWMFef8s+m5uNWPIsALXeauC5X8XwvhOI2a1XNldR2r9LCEgg0vqzi+yCLVZpfKRQVFIfBmRwBtBObo1hFLBgbCkH8hXsX/eeU9qhL8oskb7s6HCGX0IGXoPzBLkUJH2IohWh3FMYVPd4Yw==\"}";
 
-    /// Cipher content of the Item Send test vector. Metadata matches what
+    /// Item Send `data` in the serialized encrypted `Cipher` format, encrypted under the send key
+    /// of [`TEST_SEND_KEY`]. Decrypts to [`item_send_cipher_view`].
+    pub(crate) const TEST_VECTOR_LEGACY_ITEM_SEND_DATA: &str = "{\"id\":\"5d4fbf2b-7a36-4b3c-9f2e-1a6d8c0e9b71\",\"organizationId\":null,\"folderId\":null,\"collectionIds\":[],\"key\":null,\"name\":\"2.DuQn0xkgzcEyduA8TyHZ0A==|k8e8lpX+e8MDc2as3njmkw==|OnHgaBqKtGaxv1WERNX49LPs1ffbzOLT+m5sVEBz+7s=\",\"notes\":\"2.SYzkj/6YtajSNs97RmjX+A==|s4gWfU0Ktiqz+P8fOw3P7A==|O9c+qUf9mJYtTokgUCYMd+ZdgF9fwE6FZfnf1L368zs=\",\"type\":1,\"login\":{\"username\":\"2.5mP6Yt6Gu08tDJvLSoXvDg==|HD6QBgXGzIcWvGNF+bo7v7yQgtT2Dlkfa6nGmEQsfHQ=|haprY/KeDkWBxj+oyB7UbMkhRb8rDrnYuHlbZYGfq4w=\",\"password\":\"2.fhw15kmX11yRuODjydSRSg==|vJh/VMiYaNXMXY4qYJV71g==|PclRZg39IgV8xAmTFE7j1B1NlNxKCzcwteRVHh2ZyZU=\",\"passwordRevisionDate\":null,\"uris\":null,\"totp\":null,\"autofillOnPageLoad\":null,\"fido2Credentials\":null},\"identity\":null,\"card\":null,\"secureNote\":null,\"sshKey\":null,\"bankAccount\":null,\"driversLicense\":null,\"passport\":null,\"favorite\":false,\"reprompt\":0,\"organizationUseTotp\":false,\"edit\":false,\"permissions\":null,\"viewPassword\":true,\"localData\":null,\"attachments\":null,\"fields\":[{\"name\":\"2.SeAH/KQvLHGmr0gr/KV/eA==|lwTrMOlxrba5zzqfq06rgA==|eeVFyx4laUZ4uUxjM0+aGBI2OBVCQyTNpljTQixkHUI=\",\"value\":\"2.ExJTt6cZXzFma6tEJlNALw==|tQoIWvOXSwVfQk0zoZJRtQ==|mDQh08/+E/HcVjcMaYYV8zu12k7wmKFd2jnfJenEWrg=\",\"type\":0,\"linkedId\":null}],\"passwordHistory\":[{\"password\":\"2.CP+8tU75e0o2sawEyC+Z3w==|zUSw8PjSnIuLP7Ofc7xx/g==|BOqVdo/zSPjWux+2hvc1ywUXMAgKU78/dQvxIg95Ihc=\",\"lastUsedDate\":\"2024-01-01T00:00:00Z\"}],\"creationDate\":\"1970-01-01T00:00:00Z\",\"deletedDate\":null,\"revisionDate\":\"1970-01-01T00:00:00Z\",\"archivedDate\":null,\"data\":null}";
+
+    /// Cipher content of the Item Send test vectors. Metadata matches what
     /// `unseal_blob_for_item_sends` defaults; the id comes from the Send metadata.
-    fn item_send_cipher_view() -> CipherView {
+    pub(crate) fn item_send_cipher_view() -> CipherView {
         CipherView {
             id: TEST_ITEM_ID.parse().ok(),
             organization_id: None,
@@ -969,7 +1114,7 @@ pub(crate) mod tests {
         }
     }
 
-    fn item_send_view() -> SendView {
+    pub(crate) fn item_send_view() -> SendView {
         SendView {
             id: "3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().ok(),
             access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_owned()),
@@ -996,33 +1141,19 @@ pub(crate) mod tests {
         }
     }
 
-    #[test]
-    #[ignore = "Generates test vectors; run manually"]
-    fn generate_item_send_test_vector() {
-        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
-        let crypto = create_test_crypto_with_user_key(user_key);
-        let send: Send = crypto.encrypt(item_send_view()).unwrap();
-        println!(
-            "pub(crate) const TEST_VECTOR_ITEM_SEND_DATA: &str = {:?};",
-            send.data.unwrap().data
-        );
+    /// [`item_send_view`] as the legacy format decrypts it: the `Cipher` decrypt path reports
+    /// empty attachment lists where the sealed blob path leaves them unset.
+    fn legacy_item_send_view() -> SendView {
+        let mut view = item_send_view();
+        let cipher = &mut view.data.as_mut().unwrap().data;
+        cipher.attachments = Some(Vec::new());
+        cipher.attachment_decryption_failures = Some(Vec::new());
+        view
     }
 
-    #[test]
-    fn test_item_send_test_vector() {
-        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
-        let crypto = create_test_crypto_with_user_key(user_key);
-
-        // Parse the wire model as received from the server.
-        let item = SendItem::try_from(SendDataModel {
-            encryption_version: Some(SendEncryptionType::V1.into()),
-            data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
-            metadata: Box::new(SendItemMetadataModel {
-                item_id: TEST_ITEM_ID.parse().unwrap(),
-            }),
-        })
-        .unwrap();
-        let send = Send {
+    /// An encrypted Item Send with no item content, for tests to fill in `data` / `data_v2`.
+    fn item_send() -> Send {
+        Send {
             id: "3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().ok(),
             access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_owned()),
             r#type: SendType::Item,
@@ -1031,7 +1162,7 @@ pub(crate) mod tests {
             notes: None,
             file: None,
             text: None,
-            data: Some(item),
+            data: None,
             key: TEST_SEND_KEY.parse().unwrap(),
             max_access_count: None,
             access_count: 0,
@@ -1043,6 +1174,62 @@ pub(crate) mod tests {
             hide_email: false,
             emails: None,
             auth_type: AuthType::None,
+            data_v2: None,
+        }
+    }
+
+    fn test_crypto() -> KeyStore<KeySlotIds> {
+        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
+        create_test_crypto_with_user_key(user_key)
+    }
+
+    fn encrypt_v2(crypto: &KeyStore<KeySlotIds>, view: SendView) -> Result<Send, CryptoError> {
+        let key = view.key_identifier();
+        view.encrypt_with_item_format(&mut crypto.context(), key, ItemSendFormat::SealedBlob)
+    }
+
+    #[test]
+    #[ignore = "Generates test vectors; run manually"]
+    fn generate_item_send_test_vector() {
+        let crypto = test_crypto();
+        let send = encrypt_v2(&crypto, item_send_view()).unwrap();
+        println!(
+            "pub(crate) const TEST_VECTOR_ITEM_SEND_DATA: &str = {:?};",
+            send.data_v2.unwrap().data
+        );
+    }
+
+    fn item_send_response(data: SendDataModel) -> SendResponseModel {
+        SendResponseModel {
+            id: Some("3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().unwrap()),
+            access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_owned()),
+            r#type: Some(bitwarden_api_api::models::SendType::Item),
+            name: Some("2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=".to_owned()),
+            key: Some(TEST_SEND_KEY.to_owned()),
+            data: Some(Box::new(data)),
+            access_count: Some(0),
+            revision_date: Some("2024-01-07T23:56:48.207363Z".to_owned()),
+            deletion_date: Some("2024-01-14T23:56:48Z".to_owned()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_item_send_test_vector() {
+        let crypto = test_crypto();
+
+        // Parse the wire model as received from the server.
+        let item = SendItemV2::try_from(SendDataModel {
+            encryption_version: Some(SendEncryptionType::V1.into()),
+            data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
+            metadata: Some(Box::new(SendItemMetadataModel {
+                item_id: TEST_ITEM_ID.parse().unwrap(),
+            })),
+        })
+        .unwrap();
+        let send = Send {
+            data_v2: Some(item),
+            ..item_send()
         };
 
         let view: SendView = crypto.decrypt(&send).unwrap();
@@ -1051,27 +1238,115 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_item_send_encrypt_round_trip() {
-        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
-        let crypto = create_test_crypto_with_user_key(user_key);
+    fn test_legacy_item_send_test_vector() {
+        let crypto = test_crypto();
 
-        let send: Send = crypto.encrypt(item_send_view()).unwrap();
-        let item = send.data.as_ref().unwrap();
-        // The wire data is the sealed blob itself, not a serialized `Cipher`.
-        assert!(serde_json::from_str::<bitwarden_vault::Cipher>(&item.data).is_err());
+        let item = SendItem::try_from(SendDataModel {
+            encryption_version: Some(SendEncryptionType::V1.into()),
+            data: Some(TEST_VECTOR_LEGACY_ITEM_SEND_DATA.to_string()),
+            metadata: None,
+        })
+        .unwrap();
+        let send = Send {
+            data: Some(item),
+            ..item_send()
+        };
 
         let view: SendView = crypto.decrypt(&send).unwrap();
+
+        assert_eq!(view, legacy_item_send_view());
+    }
+
+    #[test]
+    fn test_response_with_metadata_parses_to_data_v2() {
+        let send = Send::try_from(item_send_response(SendDataModel {
+            encryption_version: Some(SendEncryptionType::V1.into()),
+            data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
+            metadata: Some(Box::new(SendItemMetadataModel {
+                item_id: TEST_ITEM_ID.parse().unwrap(),
+            })),
+        }))
+        .unwrap();
+
+        assert!(send.data.is_none());
+        let item = send.data_v2.as_ref().unwrap();
+        assert_eq!(item.data, TEST_VECTOR_ITEM_SEND_DATA);
+        assert_eq!(item.metadata.item_id, TEST_ITEM_ID.parse().unwrap());
+
+        let view: SendView = test_crypto().decrypt(&send).unwrap();
         assert_eq!(view, item_send_view());
     }
 
     #[test]
-    fn test_item_send_metadata_round_trip() {
-        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
-        let crypto = create_test_crypto_with_user_key(user_key);
+    fn test_response_without_metadata_parses_to_data() {
+        let send = Send::try_from(item_send_response(SendDataModel {
+            encryption_version: Some(SendEncryptionType::V1.into()),
+            data: Some(TEST_VECTOR_LEGACY_ITEM_SEND_DATA.to_string()),
+            metadata: None,
+        }))
+        .unwrap();
 
+        assert!(send.data_v2.is_none());
+        assert!(send.data.is_some());
+
+        let view: SendView = test_crypto().decrypt(&send).unwrap();
+        assert_eq!(view, legacy_item_send_view());
+    }
+
+    #[test]
+    fn test_response_with_metadata_but_no_data_fails() {
+        let result = Send::try_from(item_send_response(SendDataModel {
+            encryption_version: None,
+            data: None,
+            metadata: Some(Box::new(SendItemMetadataModel {
+                item_id: TEST_ITEM_ID.parse().unwrap(),
+            })),
+        }));
+
+        assert!(matches!(
+            result,
+            Err(SendParseError::DeserializationFailure(_))
+        ));
+    }
+
+    #[test]
+    fn test_send_with_data_and_data_v2_fails_to_decrypt() {
+        let crypto = test_crypto();
+        let legacy = SendItem::try_from(SendDataModel {
+            encryption_version: Some(SendEncryptionType::V1.into()),
+            data: Some(TEST_VECTOR_LEGACY_ITEM_SEND_DATA.to_string()),
+            metadata: None,
+        })
+        .unwrap();
+        let v2 = SendItemV2::try_from(SendDataModel {
+            encryption_version: Some(SendEncryptionType::V1.into()),
+            data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_string()),
+            metadata: Some(Box::new(SendItemMetadataModel {
+                item_id: TEST_ITEM_ID.parse().unwrap(),
+            })),
+        })
+        .unwrap();
+        let send = Send {
+            data: Some(legacy),
+            data_v2: Some(v2),
+            ..item_send()
+        };
+
+        let result: Result<SendView, _> = crypto.decrypt(&send);
+
+        assert!(matches!(result, Err(CryptoError::Decrypt)));
+    }
+
+    #[test]
+    fn test_item_send_encrypt_v2_round_trip() {
+        let crypto = test_crypto();
+
+        let send = encrypt_v2(&crypto, item_send_view()).unwrap();
+        assert!(send.data.is_none());
+        let item = send.data_v2.as_ref().unwrap();
+        // The wire data is the sealed blob itself, not a serialized `Cipher`.
+        assert!(serde_json::from_str::<Cipher>(&item.data).is_err());
         // The item id travels as metadata next to the sealed blob.
-        let send: Send = crypto.encrypt(item_send_view()).unwrap();
-        let item = send.data.as_ref().unwrap();
         assert_eq!(
             item.metadata,
             SendItemMetadata {
@@ -1079,20 +1354,105 @@ pub(crate) mod tests {
             }
         );
 
-        let decrypted: SendView = crypto.decrypt(&send).unwrap();
-        assert_eq!(decrypted, item_send_view());
+        let view: SendView = crypto.decrypt(&send).unwrap();
+        assert_eq!(view, item_send_view());
     }
 
     #[test]
-    fn test_item_send_encrypt_requires_item_id() {
-        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
-        let crypto = create_test_crypto_with_user_key(user_key);
+    fn test_item_send_encrypt_v2_requires_item_id() {
+        let crypto = test_crypto();
 
         let mut view = item_send_view();
         view.data.as_mut().unwrap().data.id = None;
 
-        let result: Result<Send, _> = crypto.encrypt(view);
-        assert!(result.is_err());
+        let result = encrypt_v2(&crypto, view);
+        assert!(matches!(result, Err(CryptoError::MissingField("id"))));
+    }
+
+    #[test]
+    fn test_item_send_encrypt_v2_refuses_partial_view() {
+        let crypto = test_crypto();
+
+        let mut view = item_send_view();
+        view.data.as_mut().unwrap().data.partial = true;
+
+        let result = encrypt_v2(&crypto, view);
+        assert!(matches!(result, Err(CryptoError::EncryptRestrictedView)));
+    }
+
+    #[test]
+    fn test_item_send_encrypt_produces_legacy_format() {
+        let crypto = test_crypto();
+
+        let send: Send = crypto.encrypt(item_send_view()).unwrap();
+
+        assert!(send.data_v2.is_none());
+        let item = send.data.as_ref().unwrap();
+        assert_eq!(item.data.id, TEST_ITEM_ID.parse().ok());
+        // `dataV2` is omitted from the serialized form, so the JSON shape is unchanged.
+        let json = serde_json::to_value(&send).unwrap();
+        assert!(json.get("dataV2").is_none());
+
+        let view: SendView = crypto.decrypt(&send).unwrap();
+        assert_eq!(view, legacy_item_send_view());
+    }
+
+    #[test]
+    fn test_send_json_without_data_v2_round_trips_unchanged() {
+        let crypto = test_crypto();
+        let send = Send {
+            data: Some(
+                SendItem::try_from(SendDataModel {
+                    encryption_version: Some(SendEncryptionType::V1.into()),
+                    data: Some(TEST_VECTOR_LEGACY_ITEM_SEND_DATA.to_string()),
+                    metadata: None,
+                })
+                .unwrap(),
+            ),
+            ..item_send()
+        };
+        let json = serde_json::to_string(&send).unwrap();
+
+        // A Send serialized by a consumer that does not know `dataV2` deserializes and
+        // re-serializes to the identical string.
+        let parsed: Send = serde_json::from_str(&json).unwrap();
+        assert!(parsed.data_v2.is_none());
+        assert_eq!(serde_json::to_string(&parsed).unwrap(), json);
+
+        let view: SendView = crypto.decrypt(&parsed).unwrap();
+        assert_eq!(view, legacy_item_send_view());
+    }
+
+    #[test]
+    fn test_send_json_with_data_v2_round_trips() {
+        let crypto = test_crypto();
+        let send = encrypt_v2(&crypto, item_send_view()).unwrap();
+
+        let json = serde_json::to_string(&send).unwrap();
+        let parsed: Send = serde_json::from_str(&json).unwrap();
+
+        let view: SendView = crypto.decrypt(&parsed).unwrap();
+        assert_eq!(view, item_send_view());
+    }
+
+    #[test]
+    fn test_item_send_request_data_has_no_metadata() {
+        let crypto = test_crypto();
+        let view_type = SendViewType::Item(Box::new(SendItemView {
+            data: item_send_cipher_view(),
+        }));
+        let mut ctx = crypto.context();
+        let key = ctx.generate_symmetric_key();
+
+        let (_, _, _, data) = view_type.encrypt_composite(&mut ctx, key).unwrap();
+
+        let data = data.unwrap();
+        assert!(data.metadata.is_none());
+        let json = serde_json::to_value(&data).unwrap();
+        let mut keys: Vec<_> = json.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        assert_eq!(keys, ["data", "encryptionVersion"]);
+        assert!(serde_json::from_str::<Cipher>(data.data.as_deref().unwrap()).is_ok());
     }
 
     #[test]
@@ -1135,6 +1495,7 @@ pub(crate) mod tests {
                 hidden: false,
             }),
             data: None,
+            data_v2: None,
             key: "2.KLv/j0V4Ebs0dwyPdtt4vw==|jcrFuNYN1Qb3onBlwvtxUV/KpdnR1LPRL4EsCoXNAt4=|gHSywGy4Rj/RsCIZFwze4s2AACYKBtqDXTrQXjkgtIE=".parse().unwrap(),
             max_access_count: None,
             access_count: 0,
@@ -1383,6 +1744,7 @@ pub(crate) mod tests {
                 hidden: true,
             }),
             data: None,
+            data_v2: None,
             max_access_count: Some(42),
             access_count: 0,
             disabled: true,

@@ -21,6 +21,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     EmptyEmailListError, Send, SendAuthType, SendId, SendView, SendViewType,
     error::{ItemNotFoundError, SendParseError},
+    send::ItemSendFormat,
     send_client::SendClient,
 };
 
@@ -102,6 +103,7 @@ struct SendEditRequestWithKey {
     request: SendEditRequest,
     send_key: String,
     resolved_auth: ResolvedAuth,
+    item_format: ItemSendFormat,
 }
 
 /// Resolved auth for an encrypted edit request, built at the `edit_send` boundary.
@@ -134,11 +136,10 @@ impl
 
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
-        let (send_type, file, text, data) = self
-            .request
-            .view_type
-            .clone()
-            .encrypt_composite(ctx, send_key)?;
+        let (send_type, file, text, data) =
+            self.request
+                .view_type
+                .encrypt_with_item_format(ctx, send_key, self.item_format)?;
 
         let (auth_type, password, emails) = match &self.resolved_auth {
             ResolvedAuth::Overwrite(auth) => {
@@ -188,6 +189,7 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
     repository: &R,
     send_id: SendId,
     request: SendEditRequest,
+    item_format: ItemSendFormat,
 ) -> Result<SendView, EditSendError> {
     let id = send_id.to_string();
 
@@ -210,6 +212,7 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
         request,
         send_key,
         resolved_auth,
+        item_format,
     };
 
     let send_request = key_store.encrypt(request_with_key)?;
@@ -249,6 +252,31 @@ impl SendClient {
             repository.as_ref(),
             send_id,
             request,
+            ItemSendFormat::Legacy,
+        )
+        .await
+    }
+
+    /// Edit the [Send] and save it to the server. An Item Send is stored in the sealed blob
+    /// format ([`Send::data_v2`]); [`SendClient::edit`] stores it in the [`Send::data`] format.
+    ///
+    /// Item Sends require `CipherView.id`, and partial (restricted) cipher views are refused.
+    pub async fn edit_v2(
+        &self,
+        send_id: SendId,
+        request: SendEditRequest,
+    ) -> Result<SendView, EditSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations();
+        let repository = self.get_repository()?;
+
+        edit_send(
+            key_store,
+            &config.api_client,
+            repository.as_ref(),
+            send_id,
+            request,
+            ItemSendFormat::SealedBlob,
         )
         .await
     }
@@ -264,7 +292,10 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{AuthType, SendTextView, SendType, SendViewType};
+    use crate::{
+        AuthType, SendTextView, SendType, SendViewType,
+        send::tests::{TEST_ITEM_ID, item_send_cipher_view},
+    };
 
     // Pins the wire shape of `AuthEdit`. Both `AuthEdit` and `SendAuthType` are
     // internally tagged with `#[serde(tag = "type")]`; the `Set { auth: ... }` struct
@@ -413,6 +444,7 @@ mod tests {
                     auth: SendAuthType::None,
                 },
             },
+            ItemSendFormat::Legacy,
         )
         .await
         .unwrap();
@@ -473,6 +505,7 @@ mod tests {
                     auth: SendAuthType::None,
                 },
             },
+            ItemSendFormat::Legacy,
         )
         .await;
 
@@ -556,6 +589,7 @@ mod tests {
                     auth: SendAuthType::None,
                 },
             },
+            ItemSendFormat::Legacy,
         )
         .await;
 
@@ -630,6 +664,23 @@ mod tests {
         send_id: uuid::Uuid,
         request: SendEditRequest,
     ) -> bitwarden_api_api::models::SendRequestModel {
+        capture_edit_put_model_with_format(
+            store,
+            repository,
+            send_id,
+            request,
+            ItemSendFormat::Legacy,
+        )
+        .await
+    }
+
+    async fn capture_edit_put_model_with_format(
+        store: &KeyStore<KeySlotIds>,
+        repository: &MemoryRepository<Send>,
+        send_id: uuid::Uuid,
+        request: SendEditRequest,
+        item_format: ItemSendFormat,
+    ) -> bitwarden_api_api::models::SendRequestModel {
         let captured: std::sync::Arc<
             std::sync::Mutex<Option<bitwarden_api_api::models::SendRequestModel>>,
         > = std::sync::Arc::new(std::sync::Mutex::new(None));
@@ -674,6 +725,7 @@ mod tests {
             repository,
             SendId::new(send_id),
             request,
+            item_format,
         )
         .await
         .unwrap();
@@ -842,5 +894,69 @@ mod tests {
             model.auth_type,
             Some(bitwarden_api_api::models::AuthType::None),
         );
+    }
+
+    fn item_edit_request() -> SendEditRequest {
+        SendEditRequest {
+            name: "item".to_string(),
+            notes: None,
+            view_type: SendViewType::Item(Box::new(crate::send::SendItemView {
+                data: item_send_cipher_view(),
+            })),
+            max_access_count: None,
+            disabled: false,
+            hide_email: false,
+            deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
+            expiration_date: None,
+            auth: AuthEdit::Preserve,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_edit_v2_sends_sealed_blob_with_metadata() {
+        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let (store, repository) =
+            make_fixture_with_existing_auth(send_id, None, None, AuthType::None).await;
+
+        let model = capture_edit_put_model_with_format(
+            &store,
+            &repository,
+            send_id,
+            item_edit_request(),
+            ItemSendFormat::SealedBlob,
+        )
+        .await;
+
+        let data = model.data.expect("item data");
+        assert_eq!(
+            data.metadata.expect("metadata").item_id,
+            TEST_ITEM_ID.parse::<uuid::Uuid>().unwrap()
+        );
+        let blob = data.data.expect("blob");
+        assert!(serde_json::from_str::<bitwarden_vault::Cipher>(&blob).is_err());
+
+        // The stored Send carries the sealed blob and decrypts with the item id restored.
+        let stored = repository.get(SendId::new(send_id)).await.unwrap().unwrap();
+        assert!(stored.data.is_none());
+        assert!(stored.data_v2.is_some());
+        let view: SendView = store.decrypt(&stored).unwrap();
+        assert_eq!(view.data.unwrap().data, item_send_cipher_view());
+    }
+
+    #[tokio::test]
+    async fn test_edit_sends_serialized_cipher_without_metadata() {
+        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let (store, repository) =
+            make_fixture_with_existing_auth(send_id, None, None, AuthType::None).await;
+
+        let model = capture_edit_put_model(&store, &repository, send_id, item_edit_request()).await;
+
+        let data = model.data.expect("item data");
+        assert!(data.metadata.is_none());
+        assert!(serde_json::from_str::<bitwarden_vault::Cipher>(&data.data.unwrap()).is_ok());
+
+        let stored = repository.get(SendId::new(send_id)).await.unwrap().unwrap();
+        assert!(stored.data.is_some());
+        assert!(stored.data_v2.is_none());
     }
 }

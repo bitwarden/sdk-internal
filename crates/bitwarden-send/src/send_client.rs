@@ -10,7 +10,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{Send, SendListView, SendView};
+use crate::{Send, SendListView, SendView, send::ItemSendFormat};
 
 /// Generic error type for send encryption errors.
 #[allow(missing_docs)]
@@ -124,6 +124,24 @@ impl SendClient {
         Ok(send)
     }
 
+    /// Encrypt a [`SendView`] into a [`Send`] whose item content is in the sealed blob format
+    /// ([`Send::data_v2`]). [`SendClient::encrypt`] produces the [`Send::data`] format.
+    ///
+    /// Item Sends require `CipherView.id`, and partial (restricted) cipher views are refused.
+    /// Text and File Sends encrypt the same as with [`SendClient::encrypt`].
+    pub fn encrypt_v2(&self, send_view: SendView) -> Result<Send, SendEncryptError> {
+        let key_store = self.client.internal.get_key_store();
+        let mut ctx = key_store.context();
+
+        let send = send_view.encrypt_with_item_format(
+            &mut ctx,
+            send_view.key_identifier(),
+            ItemSendFormat::SealedBlob,
+        )?;
+
+        Ok(send)
+    }
+
     #[allow(missing_docs)]
     pub fn encrypt_file(
         &self,
@@ -163,5 +181,69 @@ pub trait SendClientExt {
 impl SendClientExt for Client {
     fn sends(&self) -> SendClient {
         SendClient::new(self.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
+
+    use super::*;
+    use crate::send::tests::{TEST_USER_KEY, item_send_view};
+
+    fn test_client() -> Client {
+        let client = Client::new(None);
+        let user_key: SymmetricCryptoKey = TEST_USER_KEY.to_string().try_into().unwrap();
+        let key_store: &KeyStore<KeySlotIds> = client.internal.get_key_store();
+        let mut ctx = key_store.context_mut();
+        let local_key_id = ctx.add_local_symmetric_key(user_key);
+        ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+            .unwrap();
+        drop(ctx);
+        client
+    }
+
+    #[test]
+    fn test_encrypt_v2_produces_sealed_blob_and_decrypts() {
+        let client = test_client();
+        let sends = client.sends();
+
+        let send = sends.encrypt_v2(item_send_view()).unwrap();
+
+        assert!(send.data.is_none());
+        let item = send.data_v2.as_ref().unwrap();
+        assert_eq!(
+            item.metadata.item_id,
+            item_send_view().data.unwrap().data.id.unwrap()
+        );
+
+        assert_eq!(sends.decrypt(send).unwrap(), item_send_view());
+    }
+
+    #[test]
+    fn test_encrypt_produces_serialized_cipher() {
+        let client = test_client();
+
+        let send = client.sends().encrypt(item_send_view()).unwrap();
+
+        assert!(send.data.is_some());
+        assert!(send.data_v2.is_none());
+    }
+
+    #[test]
+    fn test_encrypt_v2_requires_item_id() {
+        let client = test_client();
+        let mut view = item_send_view();
+        view.data.as_mut().unwrap().data.id = None;
+
+        let result = client.sends().encrypt_v2(view);
+
+        assert!(matches!(
+            result,
+            Err(SendEncryptError::Crypto(
+                bitwarden_crypto::CryptoError::MissingField("id")
+            ))
+        ));
     }
 }

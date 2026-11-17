@@ -4,11 +4,12 @@ use bitwarden_api_api::{
 };
 use bitwarden_core::{ApiError, key_management::KeySlotIds};
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable as _, KeyStore, SymmetricCryptoKey, derive_shareable_key,
+    CryptoError, Decryptable, EncString, KeyDecryptable as _, KeyStore, SymmetricCryptoKey,
+    derive_shareable_key,
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_error::bitwarden_error;
-use bitwarden_vault::{CipherId, CipherView};
+use bitwarden_vault::{Cipher, CipherId, CipherView};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -92,8 +93,11 @@ pub struct SendAccessItemResponse {
     pub encryption_version: Option<SendEncryptionType>,
     /// The encrypted item data
     pub data: Option<String>,
-    /// Unencrypted item metadata
-    pub metadata: SendItemMetadata,
+    /// Unencrypted item metadata. Present when `data` is a sealed cipher blob, absent when it is
+    /// a serialized encrypted `Cipher`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub metadata: Option<SendItemMetadata>,
 }
 
 /// File download URL data returned from a send file access call.
@@ -304,12 +308,29 @@ impl SendAccessKey {
                         "data",
                     )));
                 };
-                let mut cipher_view = CipherView::unseal_blob_for_item_sends(&data, &mut ctx, key)?;
-                // The blob holds no id; restore it from the metadata.
-                cipher_view.id = Some(d.metadata.item_id);
-                Some(SendAccessItemView {
-                    data: Some(cipher_view),
-                })
+                match d.metadata {
+                    Some(metadata) => {
+                        let mut cipher_view =
+                            CipherView::unseal_blob_for_item_sends(&data, &mut ctx, key)?;
+                        // The blob holds no id; restore it from the metadata.
+                        cipher_view.id = Some(metadata.item_id);
+                        Some(SendAccessItemView {
+                            data: Some(cipher_view),
+                        })
+                    }
+                    None => {
+                        let cipher = serde_json::from_str::<Cipher>(data.as_str());
+                        match cipher {
+                            Ok(c) => {
+                                let cipher_view: CipherView = c.decrypt(&mut ctx, key)?;
+                                Some(SendAccessItemView {
+                                    data: Some(cipher_view),
+                                })
+                            }
+                            Err(_) => None,
+                        }
+                    }
+                }
             }
             None => None,
         };
@@ -417,9 +438,9 @@ impl TryFrom<models::SendAccessResponseModel> for SendAccessResponse {
             data: r.data.map(|dat| SendAccessItemResponse {
                 encryption_version: dat.encryption_version,
                 data: dat.data,
-                metadata: SendItemMetadata {
-                    item_id: CipherId::new(dat.metadata.item_id),
-                },
+                metadata: dat.metadata.map(|m| SendItemMetadata {
+                    item_id: CipherId::new(m.item_id),
+                }),
             }),
             expiration_date: r.expiration_date.map(|s| s.parse()).transpose()?,
             creator_identifier: r.creator_identifier,
@@ -491,6 +512,47 @@ mod tests {
     const SEND_ID: &str = "25afb11c-9c95-4db5-8bac-c21cb204a3f1";
     const FILE_ID: &str = "file-id-abc";
     const ACCESS_TOKEN: &str = "send-access-token";
+
+    // ===== SendAccessResponseModel conversion =====
+
+    #[test]
+    fn test_access_response_model_with_item_metadata() {
+        let item_id: uuid::Uuid = "5d4fbf2b-7a36-4b3c-9f2e-1a6d8c0e9b71".parse().unwrap();
+        let model = SendAccessResponseModel {
+            r#type: Some(SendType::Item),
+            data: Some(Box::new(models::SendDataModel {
+                encryption_version: None,
+                data: Some("blob".to_owned()),
+                metadata: Some(Box::new(models::SendItemMetadataModel { item_id })),
+            })),
+            ..Default::default()
+        };
+
+        let response = SendAccessResponse::try_from(model).unwrap();
+
+        let item = response.data.unwrap();
+        assert_eq!(item.data.as_deref(), Some("blob"));
+        assert_eq!(item.metadata.unwrap().item_id, CipherId::new(item_id));
+    }
+
+    #[test]
+    fn test_access_response_model_without_item_metadata() {
+        let model = SendAccessResponseModel {
+            r#type: Some(SendType::Item),
+            data: Some(Box::new(models::SendDataModel {
+                encryption_version: None,
+                data: Some("{}".to_owned()),
+                metadata: None,
+            })),
+            ..Default::default()
+        };
+
+        let response = SendAccessResponse::try_from(model).unwrap();
+
+        let item = response.data.unwrap();
+        assert_eq!(item.data.as_deref(), Some("{}"));
+        assert!(item.metadata.is_none());
+    }
 
     // ===== access_send =====
 
@@ -665,7 +727,9 @@ mod tests {
             access::SendAccessItemResponse,
             send::{
                 SendItemMetadata,
-                tests::{TEST_ITEM_ID, TEST_VECTOR_ITEM_SEND_DATA},
+                tests::{
+                    TEST_ITEM_ID, TEST_VECTOR_ITEM_SEND_DATA, TEST_VECTOR_LEGACY_ITEM_SEND_DATA,
+                },
             },
         };
 
@@ -937,29 +1001,81 @@ mod tests {
             assert!(text.hidden);
         }
 
-        #[test]
-        fn decrypt_response_restores_item_id_from_metadata() {
-            let item_id: CipherId = TEST_ITEM_ID.parse().unwrap();
-            let response = SendAccessResponse {
+        fn item_access_response(item: SendAccessItemResponse) -> SendAccessResponse {
+            SendAccessResponse {
                 id: None,
                 type_: Some(SendType::Item),
                 name: None,
                 text: None,
                 file: None,
-                data: Some(SendAccessItemResponse {
-                    encryption_version: None,
-                    data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_owned()),
-                    metadata: SendItemMetadata { item_id },
-                }),
+                data: Some(item),
                 expiration_date: None,
                 creator_identifier: None,
-            };
+            }
+        }
+
+        #[test]
+        fn decrypt_response_restores_item_id_from_metadata() {
+            let item_id: CipherId = TEST_ITEM_ID.parse().unwrap();
+            let response = item_access_response(SendAccessItemResponse {
+                encryption_version: None,
+                data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_owned()),
+                metadata: Some(SendItemMetadata { item_id }),
+            });
 
             let access_key = SendAccessKey::from_url_b64(URL_KEY).expect("key parses");
             let view = access_key.decrypt_response(response).expect("decrypts");
 
             let cipher = view.data.and_then(|d| d.data).expect("item present");
             assert_eq!(cipher.id, Some(item_id));
+            assert_eq!(cipher.name, "Item Send");
+        }
+
+        #[test]
+        fn decrypt_response_without_metadata_decrypts_serialized_cipher() {
+            let response = item_access_response(SendAccessItemResponse {
+                encryption_version: None,
+                data: Some(TEST_VECTOR_LEGACY_ITEM_SEND_DATA.to_owned()),
+                metadata: None,
+            });
+
+            let access_key = SendAccessKey::from_url_b64(URL_KEY).expect("key parses");
+            let view = access_key.decrypt_response(response).expect("decrypts");
+
+            let cipher = view.data.and_then(|d| d.data).expect("item present");
+            assert_eq!(cipher.id, TEST_ITEM_ID.parse().ok());
+            assert_eq!(cipher.name, "Item Send");
+        }
+
+        #[test]
+        fn decrypt_response_without_metadata_ignores_a_sealed_blob() {
+            // Without metadata the data is parsed as a serialized Cipher; a sealed blob does not
+            // parse as one, and the item is omitted as for any unparseable legacy data.
+            let response = item_access_response(SendAccessItemResponse {
+                encryption_version: None,
+                data: Some(TEST_VECTOR_ITEM_SEND_DATA.to_owned()),
+                metadata: None,
+            });
+
+            let access_key = SendAccessKey::from_url_b64(URL_KEY).expect("key parses");
+            let view = access_key.decrypt_response(response).expect("decrypts");
+
+            assert!(view.data.is_none());
+        }
+
+        #[test]
+        fn access_response_json_without_metadata_deserializes() {
+            let json = serde_json::json!({
+                "type": 2,
+                "data": { "encryptionVersion": 1, "data": TEST_VECTOR_LEGACY_ITEM_SEND_DATA },
+            });
+
+            let response: SendAccessResponse = serde_json::from_value(json).unwrap();
+
+            let item = response.data.expect("item present");
+            assert!(item.metadata.is_none());
+            let reserialized = serde_json::to_value(&item).unwrap();
+            assert!(reserialized.get("metadata").is_none());
         }
 
         #[test]
