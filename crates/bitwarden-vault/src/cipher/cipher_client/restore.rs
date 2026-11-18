@@ -51,14 +51,12 @@ pub async fn restore<R: Repository<Cipher> + ?Sized>(
     })
 }
 
-/// Restores multiple soft-deleted ciphers on the server.
-pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
+/// Restores multiple soft-deleted ciphers on the server and stores the restored ciphers.
+pub(super) async fn restore_many_ciphers<R: Repository<Cipher> + ?Sized>(
     cipher_ids: Vec<CipherId>,
     api_client: &ApiClient,
     repository: &R,
-    key_store: &KeyStore<KeySlotIds>,
-    use_strict_decryption: bool,
-) -> Result<DecryptCipherListResult, RestoreCipherError> {
+) -> Result<Vec<Cipher>, RestoreCipherError> {
     let api = api_client.ciphers_api();
 
     let response_models: Vec<_> = api
@@ -86,6 +84,19 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
             repository.set(id, cipher.clone()).await?;
         }
     }
+
+    Ok(ciphers)
+}
+
+/// Restores multiple soft-deleted ciphers on the server.
+pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
+    cipher_ids: Vec<CipherId>,
+    api_client: &ApiClient,
+    repository: &R,
+    key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
+) -> Result<DecryptCipherListResult, RestoreCipherError> {
+    let ciphers = restore_many_ciphers(cipher_ids, api_client, repository).await?;
 
     Ok(if use_strict_decryption {
         let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();

@@ -19,6 +19,7 @@ mod delete;
 mod download_url;
 mod renew;
 mod upgrade;
+mod v2;
 
 pub use admin::{
     AttachmentAdminClient, CipherAdminGetAttachmentDownloadUrlError, DeleteAttachmentAdminError,

@@ -45,17 +45,15 @@ pub async fn restore_as_admin(
     })
 }
 
-/// Restores multiple soft-deleted ciphers on the server.
-pub async fn restore_many_as_admin(
+/// Restores multiple soft-deleted ciphers on the server, using the admin endpoint.
+pub(super) async fn restore_many_ciphers_as_admin(
     cipher_ids: Vec<CipherId>,
     org_id: OrganizationId,
     api_client: &ApiClient,
-    key_store: &KeyStore<KeySlotIds>,
-    use_strict_decryption: bool,
-) -> Result<DecryptCipherListResult, RestoreCipherAdminError> {
+) -> Result<Vec<Cipher>, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
 
-    let ciphers: Vec<Cipher> = api
+    Ok(api
         .put_restore_many_admin(Some(CipherBulkRestoreRequestModel {
             ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
             organization_id: Some(org_id.into()),
@@ -65,7 +63,18 @@ pub async fn restore_many_as_admin(
         .into_iter()
         .flatten()
         .map(|c| c.merge_with_cipher(None))
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Restores multiple soft-deleted ciphers on the server.
+pub async fn restore_many_as_admin(
+    cipher_ids: Vec<CipherId>,
+    org_id: OrganizationId,
+    api_client: &ApiClient,
+    key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
+) -> Result<DecryptCipherListResult, RestoreCipherAdminError> {
+    let ciphers = restore_many_ciphers_as_admin(cipher_ids, org_id, api_client).await?;
 
     Ok(if use_strict_decryption {
         let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();

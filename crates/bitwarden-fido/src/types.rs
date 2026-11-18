@@ -1,8 +1,12 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use bitwarden_crypto::CryptoError;
+use bitwarden_core::key_management::KeySlotIds;
+use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
-use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
+use bitwarden_vault::{
+    CipherId, CipherListView, CipherListViewType, CipherView, CipherViewV2,
+    Fido2CredentialListView, LoginListView,
+};
 use passkey::types::webauthn::UserVerificationRequirement;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -69,8 +73,9 @@ impl Fido2CredentialAutofillView {
     #[allow(missing_docs)]
     pub fn from_cipher_view(
         cipher: &CipherView,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
-        let credentials = cipher.get_fido2_credentials();
+        let credentials = cipher.decrypt_fido2_credentials(ctx)?;
 
         credentials
             .iter()
@@ -112,34 +117,58 @@ impl Fido2CredentialAutofillView {
                 fido2_credentials: Some(fido2_credentials),
                 username,
                 ..
-            }) => fido2_credentials
-                .iter()
-                .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
-                    c.user_handle
-                        .as_ref()
-                        .map(|u| B64Url::try_from(u.as_str()))
-                        .map(|user_handle| {
-                            Ok(Fido2CredentialAutofillView {
-                                credential_id: string_to_guid_bytes(&c.credential_id)?,
-                                cipher_id: cipher
-                                    .id
-                                    .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
-                                    .into(),
-                                rp_id: c.rp_id.clone(),
-                                user_handle: user_handle?.into_bytes(),
-                                user_name_for_ui: c
-                                    .user_name
-                                    .none_whitespace()
-                                    .or(c.user_display_name.none_whitespace())
-                                    .or(username.none_whitespace())
-                                    .or(cipher.name.none_whitespace()),
-                                has_counter: Self::has_signature_counter(&c.counter),
-                            })
-                        })
-                })
-                .collect(),
+            }) => Self::from_list_credentials(cipher.id, &cipher.name, username, fido2_credentials),
             _ => Ok(vec![]),
         }
+    }
+
+    /// Builds the autofill views from the FIDO2 credentials of a [`CipherViewV2`].
+    pub fn from_cipher_view_v2(
+        cipher: &CipherViewV2,
+    ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
+        let Some(login) = &cipher.login else {
+            return Ok(vec![]);
+        };
+        let credentials: Vec<Fido2CredentialListView> = login
+            .fido2_credentials
+            .iter()
+            .flatten()
+            .map(Fido2CredentialListView::from)
+            .collect();
+        Self::from_list_credentials(cipher.id, &cipher.name, &login.username, &credentials)
+    }
+
+    fn from_list_credentials(
+        cipher_id: Option<CipherId>,
+        cipher_name: &String,
+        username: &Option<String>,
+        credentials: &[Fido2CredentialListView],
+    ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
+        credentials
+            .iter()
+            .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
+                c.user_handle
+                    .as_ref()
+                    .map(|u| B64Url::try_from(u.as_str()))
+                    .map(|user_handle| {
+                        Ok(Fido2CredentialAutofillView {
+                            credential_id: string_to_guid_bytes(&c.credential_id)?,
+                            cipher_id: cipher_id
+                                .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
+                                .into(),
+                            rp_id: c.rp_id.clone(),
+                            user_handle: user_handle?.into_bytes(),
+                            user_name_for_ui: c
+                                .user_name
+                                .none_whitespace()
+                                .or(c.user_display_name.none_whitespace())
+                                .or(username.none_whitespace())
+                                .or(cipher_name.none_whitespace()),
+                            has_counter: Self::has_signature_counter(&c.counter),
+                        })
+                    })
+            })
+            .collect()
     }
 
     fn has_signature_counter(str: &String) -> bool {
@@ -1170,5 +1199,83 @@ mod tests {
         };
         let transformed = GetAssertionExtensionsOutput::from(output);
         assert_eq!(prf1, transformed.prf.unwrap().results.first);
+    }
+
+    #[test]
+    fn test_autofill_from_cipher_view_v2() {
+        use bitwarden_vault::{
+            CipherRepromptType, CipherType, CipherViewV2, Fido2CredentialViewV2, LoginViewV2,
+        };
+
+        use super::Fido2CredentialAutofillView;
+
+        let credential = |credential_id: &str, user_handle: Option<&str>| Fido2CredentialViewV2 {
+            credential_id: credential_id.to_string(),
+            key_type: "public-key".to_string(),
+            key_algorithm: "ECDSA".to_string(),
+            key_curve: "P-256".to_string(),
+            key_value: "key-value".to_string(),
+            rp_id: "example.com".to_string(),
+            user_handle: user_handle.map(str::to_string),
+            user_name: None,
+            user_display_name: Some("Display".to_string()),
+            counter: "5".to_string(),
+            rp_name: None,
+            discoverable: "true".to_string(),
+            creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
+        };
+        let cipher = CipherViewV2 {
+            id: Some("fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: "Login".to_string(),
+            notes: None,
+            r#type: CipherType::Login,
+            login: Some(LoginViewV2 {
+                username: Some("user".to_string()),
+                password: None,
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: Some(vec![
+                    credential("6dd2d5fa-25e4-4b12-a1fb-4e7a8fc6b6a5", Some("AQID")),
+                    // Credentials without a user handle are skipped.
+                    credential("a7a6c8f2-0d5f-4b55-9f3d-1c2b3a4d5e6f", None),
+                ]),
+            }),
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: true,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            attachment_decryption_failures: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+            archived_date: None,
+            partial: false,
+        };
+
+        let views = Fido2CredentialAutofillView::from_cipher_view_v2(&cipher).unwrap();
+        assert_eq!(views.len(), 1);
+        assert_eq!(views[0].rp_id, "example.com");
+        assert_eq!(views[0].user_handle, vec![1, 2, 3]);
+        assert_eq!(views[0].user_name_for_ui.as_deref(), Some("Display"));
+        assert!(views[0].has_counter);
     }
 }

@@ -1,7 +1,8 @@
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::OrganizationId;
 use bitwarden_vault::{
-    Cipher, CipherListView, CipherView, DecryptCipherListResult, EncryptionContext,
+    Cipher, CipherListView, CipherListViewV2, CipherView, CipherViewV2, DecryptCipherListResult,
+    DecryptCipherListResultV2, EncryptionContext, Fido2CredentialView,
 };
 
 use crate::Result;
@@ -38,6 +39,13 @@ impl CiphersClient {
         Ok(self.0.decrypt_list_with_failures(ciphers).await)
     }
 
+    pub fn decrypt_fido2_credentials(
+        &self,
+        cipher_view: CipherView,
+    ) -> Result<Vec<Fido2CredentialView>> {
+        Ok(self.0.decrypt_fido2_credentials(cipher_view)?)
+    }
+
     /// Move a cipher to an organization, reencrypting the cipher key if necessary
     pub fn move_to_organization(
         &self,
@@ -57,6 +65,52 @@ impl CiphersClient {
         Ok(self
             .0
             .prepare_ciphers_for_bulk_share(ciphers, organization_id, collection_ids)
+            .await?)
+    }
+
+    /// Encrypt a fully decrypted cipher
+    pub async fn encrypt_v2(&self, cipher_view: CipherViewV2) -> Result<EncryptionContext> {
+        Ok(self.0.encrypt_v2(cipher_view).await?)
+    }
+
+    /// Decrypt a cipher into a fully decrypted cipher view
+    pub async fn decrypt_v2(&self, cipher: Cipher) -> Result<CipherViewV2> {
+        Ok(self.0.decrypt_v2(cipher).await?)
+    }
+
+    /// Decrypt cipher list into fully decrypted list views
+    pub async fn decrypt_list_v2(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListViewV2>> {
+        Ok(self.0.decrypt_list_v2(ciphers).await?)
+    }
+
+    /// Decrypt cipher list into fully decrypted list views
+    /// Returns both successfully decrypted ciphers and any that failed to decrypt
+    pub async fn decrypt_list_with_failures_v2(
+        &self,
+        ciphers: Vec<Cipher>,
+    ) -> Result<DecryptCipherListResultV2> {
+        Ok(self.0.decrypt_list_with_failures_v2(ciphers).await)
+    }
+
+    /// Move a fully decrypted cipher to an organization
+    pub fn move_to_organization_v2(
+        &self,
+        cipher: CipherViewV2,
+        organization_id: OrganizationId,
+    ) -> Result<CipherViewV2> {
+        Ok(self.0.move_to_organization_v2(cipher, organization_id)?)
+    }
+
+    /// Prepare fully decrypted ciphers for bulk share to an organization
+    pub async fn prepare_ciphers_for_bulk_share_v2(
+        &self,
+        ciphers: Vec<CipherViewV2>,
+        organization_id: OrganizationId,
+        collection_ids: Vec<CollectionId>,
+    ) -> Result<Vec<EncryptionContext>> {
+        Ok(self
+            .0
+            .prepare_ciphers_for_bulk_share_v2(ciphers, organization_id, collection_ids)
             .await?)
     }
 }

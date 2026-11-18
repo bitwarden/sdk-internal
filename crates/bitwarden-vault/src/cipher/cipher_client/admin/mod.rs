@@ -14,6 +14,7 @@ mod delete;
 mod edit;
 mod get;
 mod restore;
+mod v2;
 
 pub use get::GetAssignedOrgCiphersAdminError;
 

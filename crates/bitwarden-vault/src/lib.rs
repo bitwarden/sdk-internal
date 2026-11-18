@@ -20,6 +20,7 @@ pub use domain::GlobalDomains;
 mod totp;
 pub use totp::{
     Totp, TotpAlgorithm, TotpError, TotpResponse, generate_totp, generate_totp_cipher_view,
+    generate_totp_cipher_view_v2,
 };
 mod error;
 pub use error::{DecryptError, EncryptError, VaultParseError};

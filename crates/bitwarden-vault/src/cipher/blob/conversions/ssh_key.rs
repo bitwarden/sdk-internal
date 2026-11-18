@@ -13,6 +13,9 @@ mod tests {
 
     #[test]
     fn test_ssh_key_cipher_round_trip() {
+        let (key_store, key_id) = create_test_key_store();
+        let mut ctx = key_store.context_mut();
+
         let original = crate::CipherView {
             name: "My SSH Key".to_string(),
             notes: None,
@@ -25,9 +28,10 @@ mod tests {
             ..create_shell_cipher_view(CipherType::SshKey)
         };
 
-        let blob = CipherBlobV1::from_cipher_view(&original).unwrap();
+        let blob = CipherBlobV1::from_cipher_view(&original, &mut ctx, key_id).unwrap();
         let mut restored = create_shell_cipher_view(CipherType::SshKey);
-        blob.apply_to_cipher_view(&mut restored).unwrap();
+        blob.apply_to_cipher_view(&mut restored, &mut ctx, key_id)
+            .unwrap();
 
         assert_eq!(restored.name, "My SSH Key");
         assert_eq!(restored.r#type, CipherType::SshKey);

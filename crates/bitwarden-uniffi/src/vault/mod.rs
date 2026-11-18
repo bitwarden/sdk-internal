@@ -1,4 +1,4 @@
-use bitwarden_vault::{CipherListView, TotpResponse};
+use bitwarden_vault::{CipherListView, CipherListViewV2, TotpResponse};
 use chrono::{DateTime, Utc};
 
 use crate::error::Result;
@@ -62,5 +62,14 @@ impl VaultClient {
         time: Option<DateTime<Utc>>,
     ) -> Result<TotpResponse> {
         Ok(self.0.totp().generate_totp_cipher_view(view, time)?)
+    }
+
+    /// Generate a TOTP code from a provided fully decrypted cipher list view.
+    pub fn generate_totp_cipher_view_v2(
+        &self,
+        view: CipherListViewV2,
+        time: Option<DateTime<Utc>>,
+    ) -> Result<TotpResponse> {
+        Ok(self.0.totp().generate_totp_cipher_view_v2(view, time)?)
     }
 }

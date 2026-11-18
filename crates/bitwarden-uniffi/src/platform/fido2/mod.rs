@@ -9,7 +9,9 @@ use bitwarden_fido::{
     PublicKeyCredentialAuthenticatorAttestationResponse, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
 };
-use bitwarden_vault::{CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView};
+use bitwarden_vault::{
+    CipherListView, CipherView, CipherViewV2, EncryptionContext, Fido2CredentialNewView,
+};
 use device_auth_key::{ClientDeviceAuthKeyAuthenticator, DeviceAuthKeyStore};
 
 use crate::error::{Error, Result};
@@ -53,14 +55,26 @@ impl ClientFido2 {
         )))
     }
 
-    pub fn get_fido2_autofill_credentials(
+    pub fn decrypt_fido2_autofill_credentials(
         &self,
         cipher_view: CipherView,
     ) -> Result<Vec<Fido2CredentialAutofillView>> {
         let result = self
             .0
-            .get_fido2_autofill_credentials(cipher_view)
-            .map_err(Error::GetFido2AutofillCredentials)?;
+            .decrypt_fido2_autofill_credentials(cipher_view)
+            .map_err(Error::DecryptFido2AutofillCredentials)?;
+
+        Ok(result)
+    }
+
+    pub fn decrypt_fido2_autofill_credentials_v2(
+        &self,
+        cipher_view: CipherViewV2,
+    ) -> Result<Vec<Fido2CredentialAutofillView>> {
+        let result = self
+            .0
+            .decrypt_fido2_autofill_credentials_v2(cipher_view)
+            .map_err(Error::DecryptFido2AutofillCredentials)?;
 
         Ok(result)
     }

@@ -9,6 +9,7 @@ pub(crate) mod cipher;
 pub(crate) mod cipher_client;
 pub(crate) mod cipher_permissions;
 pub(crate) mod cipher_view_type;
+pub(crate) mod cipher_view_v2;
 pub(crate) mod drivers_license;
 pub(crate) mod field;
 pub(crate) mod identity;
@@ -38,17 +39,23 @@ pub use cipher::{
     EncryptionContext, ListOrganizationCiphersResult,
 };
 pub use cipher_client::{
-    CiphersClient, GetAssignedOrgCiphersAdminError, should_use_blob_encryption,
+    CipherCreateRequestV2, CipherEditRequestV2, CipherViewTypeV2, CiphersClient,
+    DecryptCipherResultV2, GetAssignedOrgCiphersAdminError, ListOrganizationCiphersResultV2,
+    should_use_blob_encryption,
 };
 pub use cipher_view_type::CipherViewType;
+pub use cipher_view_v2::{
+    AttachmentViewV2, CipherListViewTypeV2, CipherListViewV2, CipherViewV2,
+    DecryptCipherListResultV2, Fido2CredentialViewV2, LoginListViewV2, LoginViewV2,
+};
 pub use drivers_license::DriversLicenseView;
 #[cfg(feature = "wasm")]
 pub use field::FieldListView;
 pub use field::{FieldType, FieldView};
 pub use identity::IdentityView;
 pub use login::{
-    Fido2Credential, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView, Login,
-    LoginListView, LoginUriView, LoginView, UriMatchType,
+    Fido2Credential, Fido2CredentialFullView, Fido2CredentialListView, Fido2CredentialNewView,
+    Fido2CredentialView, Login, LoginListView, LoginUriView, LoginView, UriMatchType,
 };
 pub use passport::PassportView;
 pub use secure_note::{SecureNoteType, SecureNoteView};
