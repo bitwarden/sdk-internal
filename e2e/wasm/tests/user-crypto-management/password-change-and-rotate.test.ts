@@ -22,6 +22,10 @@ const V1_USER_KEY_BYTES = 64;
 const isV1UserKey = (key: SymmetricKey | B64 | null) =>
   key !== null && Buffer.from(key as string, "base64").length === V1_USER_KEY_BYTES;
 
+/** A legacy cipher carries its name outside the sealed blob, which V1-only clients cannot read. */
+const isLegacyCipher = (cipher: { name?: unknown }) =>
+  cipher.name !== undefined && cipher.name !== null;
+
 /**
  * A rotation bundled with a password change, for each user key version and upgrade choice.
  *
@@ -115,6 +119,11 @@ describe("password change and rotate user keys", () => {
         expect(harness.server.getUser(seeded.email).accountCryptographicState).toHaveProperty(
           expectedVersion,
         );
+
+        // 3. Verify the stored ciphers stay legacy on V1, so older devices can still read them
+        const ciphers = seeded.ciphers();
+        expect(ciphers.length).toBeGreaterThan(0);
+        expect(ciphers.every(isLegacyCipher)).toBe(expectedVersion === "V1");
       },
       TIMEOUT,
     );

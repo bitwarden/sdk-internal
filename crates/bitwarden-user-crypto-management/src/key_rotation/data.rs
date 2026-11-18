@@ -135,38 +135,48 @@ fn reencrypt_ciphers(
     new_key: SymmetricKeySlotId,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<bitwarden_vault::Cipher>, DataReencryptionError> {
+    // A V2 new user key lands the account on the V2 security state, so legacy ciphers are
+    // re-sealed as blobs. A V1 new user key keeps the account on V1, where older clients that
+    // cannot read blobs must still read the vault, so legacy ciphers stay legacy.
+    let new_key_is_v1 = ctx
+        .is_v1_symmetric_key(new_key)
+        .map_err(|_| DataReencryptionError::Encryption)?;
+
     ciphers
         .iter()
         .map(|cipher| {
             let _span = debug_span!("reencrypt_cipher", cipher_id = ?cipher.id).entered();
 
-            // Rotation always lands the account on the V2 security state, so every individual
-            // cipher ends up blob-encrypted. Ciphers that are already sealed blobs only need their
-            // per-item key re-wrapped; the sealed blob is left untouched. Legacy ciphers are
-            // decrypted and re-sealed as blobs.
+            // Ciphers that are already sealed blobs only need their per-item key re-wrapped; the
+            // sealed blob is left untouched.
             if cipher.is_blob_encrypted() && cipher.key.is_some() {
                 debug!("Cipher already blob-encrypted, re-wrapping cipher key");
                 let mut cipher = cipher.clone();
                 cipher
                     .rewrap_cipher_key(current_key, new_key, ctx)
                     .map_err(|_| DataReencryptionError::CipherKeyRewrap)?;
-                Ok(cipher)
+                return Ok(cipher);
+            }
+
+            let cipher_view = decrypt_for_reencrypt(cipher, current_key, new_key, ctx)?;
+            let mode = if new_key_is_v1 {
+                debug!("Re-encrypting legacy cipher in legacy format");
+                EncryptMode::Legacy(cipher_view)
             } else {
                 debug!("Upgrading legacy cipher to blob encryption");
-                let cipher_view = decrypt_for_blob_upgrade(cipher, current_key, new_key, ctx)?;
                 EncryptMode::Blob(cipher_view)
-                    .encrypt_composite(ctx, new_key)
-                    .map_err(|_| DataReencryptionError::Encryption)
-            }
+            };
+            mode.encrypt_composite(ctx, new_key)
+                .map_err(|_| DataReencryptionError::Encryption)
         })
         .collect::<Result<Vec<bitwarden_vault::Cipher>, DataReencryptionError>>()
 }
 
-/// Decrypts a legacy cipher into a view ready to be re-sealed as a blob under `new_key`.
+/// Decrypts a legacy cipher into a view ready to be re-encrypted under `new_key`.
 ///
 /// The returned view carries a per-item cipher key wrapped under `new_key`, with its sub-keys
 /// (attachment keys, FIDO2 credentials) wrapped under that cipher key.
-fn decrypt_for_blob_upgrade(
+fn decrypt_for_reencrypt(
     cipher: &bitwarden_vault::Cipher,
     current_key: SymmetricKeySlotId,
     new_key: SymmetricKeySlotId,
@@ -607,6 +617,53 @@ mod tests {
         assert_upgraded_to_blob(&mut ctx, &out[0], new);
         assert_fido2_decryptable(&mut ctx, &out[0], new);
         assert_attachment_key_decryptable(&mut ctx, &out[0], new);
+    }
+
+    #[test]
+    fn test_v1_rotation_keyless_stays_legacy() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (old, new) = make_v1_rotation_keys(&mut ctx);
+
+        let cipher = make_rotatable_cipher(&mut ctx, old, false, true, false);
+        let out = super::reencrypt_ciphers(&[cipher], old, new, &mut ctx).unwrap();
+
+        assert_kept_legacy(&mut ctx, &out[0], new);
+        assert_attachment_key_decryptable(&mut ctx, &out[0], new);
+    }
+
+    #[test]
+    fn test_v1_rotation_keyed_stays_legacy() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (old, new) = make_v1_rotation_keys(&mut ctx);
+
+        let cipher = make_rotatable_cipher(&mut ctx, old, true, true, true);
+        let out = super::reencrypt_ciphers(&[cipher], old, new, &mut ctx).unwrap();
+
+        assert_kept_legacy(&mut ctx, &out[0], new);
+        assert_fido2_decryptable(&mut ctx, &out[0], new);
+        assert_attachment_key_decryptable(&mut ctx, &out[0], new);
+    }
+
+    /// The old and new user keys for a rotation that keeps a V1 account on V1.
+    fn make_v1_rotation_keys(
+        ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
+    ) -> (SymmetricKeySlotId, SymmetricKeySlotId) {
+        let old = ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new = ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
+        (old, new)
+    }
+
+    /// Asserts the rotated cipher stays in the legacy format, so V1-only clients can read it, and
+    /// decrypts under `user_key` to the baseline [`make_cipher_view`] fields.
+    fn assert_kept_legacy(
+        ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
+        rotated: &Cipher,
+        user_key: SymmetricKeySlotId,
+    ) {
+        assert!(!rotated.is_blob_encrypted());
+        assert_decrypts_to(rotated, &make_cipher_view(), user_key, ctx);
     }
 
     /// The old and new user keys for a rotation: two distinct non-`User` slots (so the rotation
