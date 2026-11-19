@@ -1,7 +1,7 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_api_base::new_http_client_builder;
-use bitwarden_crypto::{CipherSuite, KeyStore};
+use bitwarden_crypto::KeyStore;
 use bitwarden_managed_settings_types::ManagementProfile;
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
@@ -13,6 +13,7 @@ use crate::{
     client::{
         client::Client,
         client_settings::{ClientName, ClientSettings, HostPlatformInfo},
+        deployment::deployment,
         internal::{ApiConfigurations, InternalClient},
     },
 };
@@ -185,12 +186,13 @@ impl ClientBuilder {
             }),
         };
 
-        // Configure the key store's cipher suite from the client's environment, so all crypto
+        // Configure the key store's cipher suite from the client's deployment, so all crypto
         // operations (e.g. the KDF for a new account) pick compliant algorithms.
+        let cipher_suite = deployment(&client.internal).cipher_suite();
         client
             .internal
             .get_key_store()
-            .set_cipher_suite(CipherSuite::from_gov_mode(client.gov_mode()));
+            .set_cipher_suite(cipher_suite);
 
         client
     }
