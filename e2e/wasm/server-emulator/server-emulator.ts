@@ -41,6 +41,7 @@ import type {
   V2UpgradeToken,
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
+import { OrganizationUserType } from "@bitwarden/sdk-internal";
 
 /** Binds every route key in `routes` to `origin`. */
 function bindToOrigin(routes: Routes, origin: string): Routes {
@@ -118,6 +119,8 @@ export interface SeedOrganization {
   organizationKeyId?: string | null;
   members: {
     userEmail: string;
+    /** The member's role. Defaults to {@link OrganizationUserType.User}. */
+    type?: OrganizationUserType;
     organizationKeySealedToMember: string;
     accountRecoveryKey?: string;
   }[];
@@ -254,6 +257,7 @@ export class ServerEmulator {
       const user = this.getUser(member.userEmail);
       members.push({
         userId: user.userId,
+        type: member.type ?? OrganizationUserType.User,
         organizationKeySealedToMember: member.organizationKeySealedToMember,
         accountRecoveryKey: member.accountRecoveryKey,
       });

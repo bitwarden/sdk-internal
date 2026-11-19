@@ -45,6 +45,7 @@ crates/bitwarden-uniffi/swift/tmp
 crates/bitwarden-uniffi/swift/.build
 crates/bitwarden-uniffi/swift/.swiftpm
 crates/bitwarden-uniffi/kotlin/sdk/src/main/java/com/bitwarden/**/*.kt
+crates/bitwarden-uniffi/kotlin/jvm
 
 # API Swagger files
 /artifacts

@@ -1,8 +1,14 @@
 // `GET /sync`'s response and the models only it serves.
 
-import type { Cipher, Folder } from "@bitwarden/sdk-internal";
+import type { Cipher, Folder, ProfileOrganization } from "@bitwarden/sdk-internal";
+import {
+  OrganizationUserStatusType,
+  OrganizationUserType,
+  ProductTierType,
+} from "@bitwarden/sdk-internal";
 
-import type { UserEntity } from "../entities";
+import { asKeyId, asOrganizationId, asUserId } from "../../tests/type-assertion-helpers";
+import type { OrganizationEntity, OrganizationMember, UserEntity } from "../entities";
 import { AccountKeysResponse } from "./account-keys";
 import { MasterPasswordUnlockResponse } from "./master-password";
 import { CipherResponse, FolderResponse } from "./vault";
@@ -75,7 +81,150 @@ export class KeysResponse {
 export class ProfileOrganizationResponse {
   object!: "profileOrganization";
   id!: string;
+  name!: string;
   key!: string;
+  type!: OrganizationUserType;
+  status!: OrganizationUserStatusType;
+  enabled!: boolean;
+  /** The id of the organization key, or `null` before a member has recorded it. */
+  organizationKeyId!: string | null;
+
+  /** The organization as `member` sees it. */
+  static fromMembership(
+    organization: OrganizationEntity,
+    member: OrganizationMember,
+  ): ProfileOrganizationResponse {
+    return {
+      object: "profileOrganization",
+      id: organization.organizationId,
+      name: organization.name,
+      key: member.organizationKeySealedToMember,
+      type: member.type,
+      status: OrganizationUserStatusType.Confirmed,
+      enabled: true,
+      organizationKeyId: organization.organizationKeyId,
+    };
+  }
+
+  /**
+   * An organization a vector records only as a key sealed to the account. With no organization
+   * row, it reads as one the account is a confirmed `User` of, with no key id recorded.
+   */
+  static fromSealedKey(id: string, key: string): ProfileOrganizationResponse {
+    return {
+      object: "profileOrganization",
+      id,
+      name: "",
+      key,
+      type: OrganizationUserType.User,
+      status: OrganizationUserStatusType.Confirmed,
+      enabled: true,
+      organizationKeyId: null,
+    };
+  }
+
+  /**
+   * A served organization as a client stores it, as `OrganizationRecordMapper.toSdk` does in the
+   * clients. The fields the server emulator does not model take their SDK defaults.
+   */
+  static toProfileOrganization(
+    response: ProfileOrganizationResponse,
+    userId: string,
+  ): ProfileOrganization {
+    return {
+      details: {
+        id: asOrganizationId(response.id),
+        name: response.name,
+        enabled: response.enabled,
+        hasPublicAndPrivateKeys: false,
+        keyId:
+          response.organizationKeyId === null ? undefined : asKeyId(response.organizationKeyId),
+      },
+      plan: {
+        productTierType: ProductTierType.Free,
+        seats: 10,
+        maxCollections: undefined,
+        maxStorageGb: undefined,
+        selfHost: false,
+        usersGetPremium: false,
+        usePolicies: false,
+        useGroups: false,
+        useDirectory: false,
+        useEvents: false,
+        useTotp: false,
+        use2fa: false,
+        useApi: false,
+        useSso: false,
+        useOrganizationDomains: false,
+        useKeyConnector: false,
+        useScim: false,
+        useCustomPermissions: false,
+        useResetPassword: false,
+        useSecretsManager: false,
+        usePasswordManager: false,
+        usePam: false,
+        useActivateAutofillPolicy: false,
+        useAutomaticUserConfirmation: false,
+        useAccessIntelligence: false,
+        useAdminSponsoredFamilies: false,
+        useDisableSMAdsForUsers: false,
+        usePhishingBlocker: false,
+        useMyItems: false,
+        useInviteLinks: false,
+      },
+      membership: {
+        status: response.status,
+        type: response.type,
+        permissions: {
+          accessEventLogs: false,
+          accessImportExport: false,
+          accessReports: false,
+          createNewCollections: false,
+          editAnyCollection: false,
+          deleteAnyCollection: false,
+          manageGroups: false,
+          manageSso: false,
+          managePolicies: false,
+          manageUsers: false,
+          manageResetPassword: false,
+          manageScim: false,
+          manageAccessRules: false,
+          manageRotation: false,
+        },
+        userId: asUserId(userId),
+        organizationUserId: undefined,
+        isMember: true,
+        isProviderUser: false,
+        resetPasswordEnrolled: false,
+        ssoBound: false,
+        userIsClaimedByOrganization: false,
+        accessSecretsManager: false,
+        accessPam: false,
+      },
+      collectionManagement: {
+        limitCollectionCreation: false,
+        limitCollectionDeletion: false,
+        limitItemDeletion: false,
+        allowAdminAccessToAllCollectionItems: false,
+      },
+      provider: undefined,
+      sso: {
+        enabled: false,
+        identifier: undefined,
+        memberDecryptionType: undefined,
+        keyConnectorEnabled: false,
+        keyConnectorUrl: undefined,
+      },
+      familySponsorship: {
+        available: false,
+        friendlyName: undefined,
+        validUntil: undefined,
+        lastSyncDate: undefined,
+        toDelete: undefined,
+        isAdminInitiated: false,
+      },
+    };
+  }
 }
 
 export class ProfileResponse {

@@ -4,6 +4,36 @@
 //! attribute macros, each one gates what it generates on the calling crate's `wasm` feature, so a
 //! call site needs no `cfg` of its own.
 
+/// Implements the traits for a serde DTO, which crosses as `Ts<Self>`.
+///
+/// Used by `#[wasm_record]`; there is no reason to call it directly. `impl_wire_record!(T, input)`
+/// implements only [`FromWasm`](crate::FromWasm), for `#[wasm_record(input)]`.
+#[macro_export]
+macro_rules! impl_wire_record {
+    ($ty:ty, input) => {
+        #[cfg(feature = "wasm")]
+        impl $crate::FromWasm for $ty {
+            type Wire = $crate::Ts<$ty>;
+
+            fn from_wire(wire: Self::Wire) -> ::core::result::Result<Self, $crate::WireError> {
+                wire.to_rust().map_err($crate::WireError::from)
+            }
+        }
+    };
+    ($ty:ty) => {
+        $crate::impl_wire_record!($ty, input);
+
+        #[cfg(feature = "wasm")]
+        impl $crate::ToWasm for $ty {
+            type Wire = $crate::Ts<$ty>;
+
+            fn to_wire(self) -> ::core::result::Result<Self::Wire, $crate::WireError> {
+                $crate::Ts::from_rust(&self).map_err($crate::WireError::from)
+            }
+        }
+    };
+}
+
 /// Implements both traits for a type that crosses as itself: a `#[wasm_bindgen]` handle, an
 /// `extern "C"` type, or a primitive wasm_bindgen already understands.
 ///
@@ -42,9 +72,10 @@ macro_rules! impl_wire_object {
 /// - `impl_wire_string!(T, parse = f)` implements only [`FromWasm`](crate::FromWasm), for a type
 ///   JavaScript never receives.
 ///
-/// Also implements wasm_bindgen's ABI traits through the same conversion, so the type needs no
-/// hand-written `WasmDescribe` / `FromWasmAbi` / `IntoWasmAbi`. `from_abi` cannot fail, so it
-/// throws on a malformed string.
+/// Also implements `WasmDescribe` and, with a `format`, `IntoWasmAbi` through the same conversion,
+/// for `extern "C"` imports that pass the type to JavaScript. There is no `FromWasmAbi`: a value
+/// coming from JavaScript goes through [`FromWasm`](crate::FromWasm), so a malformed string is an
+/// `Err` rather than a throw.
 #[macro_export]
 macro_rules! impl_wire_string {
     ($ty:ty $(,)?) => {
@@ -100,29 +131,6 @@ macro_rules! impl_wire_string {
         impl $crate::_macro::wasm_bindgen::describe::WasmDescribe for $ty {
             fn describe() {
                 <::std::string::String as $crate::_macro::wasm_bindgen::describe::WasmDescribe>::describe();
-            }
-        }
-
-        #[cfg(feature = "wasm")]
-        impl $crate::_macro::wasm_bindgen::convert::FromWasmAbi for $ty {
-            type Abi =
-                <::std::string::String as $crate::_macro::wasm_bindgen::convert::FromWasmAbi>::Abi;
-
-            unsafe fn from_abi(abi: Self::Abi) -> Self {
-                // SAFETY: `abi` came from wasm_bindgen as a `String` ABI value, per `Self::Abi`.
-                let wire = unsafe {
-                    <::std::string::String as $crate::_macro::wasm_bindgen::convert::FromWasmAbi>::from_abi(abi)
-                };
-                $crate::_macro::wasm_bindgen::UnwrapThrowExt::unwrap_throw(
-                    <$ty as $crate::FromWasm>::from_wire(wire),
-                )
-            }
-        }
-
-        #[cfg(feature = "wasm")]
-        impl $crate::_macro::wasm_bindgen::convert::OptionFromWasmAbi for $ty {
-            fn is_none(abi: &Self::Abi) -> bool {
-                <::std::string::String as $crate::_macro::wasm_bindgen::convert::OptionFromWasmAbi>::is_none(abi)
             }
         }
     };

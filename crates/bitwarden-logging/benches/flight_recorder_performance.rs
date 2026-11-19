@@ -42,6 +42,7 @@ fn test_event() -> FlightRecorderEvent {
         target: "bench::module".to_string(),
         message: "benchmark event".to_string(),
         fields: HashMap::new(),
+        process: None,
     }
 }
 

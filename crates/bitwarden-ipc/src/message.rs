@@ -14,7 +14,9 @@ pub struct OutgoingMessage {
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
     /// Destination endpoint for this message.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
+    // The accessors are `#[wasm_export]` methods in `wasm::message`, so the endpoint converts the
+    // way every other exported value does rather than through a generated field accessor.
+    #[cfg_attr(feature = "wasm", wasm_bindgen(skip))]
     pub destination: Endpoint,
     /// Optional topic used for routing/dispatch.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
@@ -30,10 +32,10 @@ pub struct IncomingMessage {
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
     /// Destination endpoint that received this message.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
+    #[cfg_attr(feature = "wasm", wasm_bindgen(skip))]
     pub destination: Endpoint,
     /// Source that sent this message, with per-variant metadata.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
+    #[cfg_attr(feature = "wasm", wasm_bindgen(skip))]
     pub source: Source,
     /// Optional topic used for routing/dispatch.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
