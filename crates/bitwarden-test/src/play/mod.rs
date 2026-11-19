@@ -45,7 +45,7 @@ mod scene_template;
 pub mod scenes;
 
 pub use bitwarden_test_macro::play_test;
-pub use config::PlayConfig;
+pub use config::{PlayConfig, SeederCredentials};
 pub use error::{PlayError, PlayResult};
 pub(crate) use http_client::PlayHttpClient;
 pub use play::{Play, PlayBuilder};
