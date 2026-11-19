@@ -949,13 +949,16 @@ The `e2e` tests run the connector against a live server, seeding state through t
    export BITWARDEN_API_URL=https://localhost:8080/api
    export BITWARDEN_IDENTITY_URL=https://localhost:8080/identity
    export BITWARDEN_SEEDER_URL=http://localhost:5047
+   export BITWARDEN_SEEDER_USERNAME=<the SeederApi's seederSettings account username>
+   export BITWARDEN_SEEDER_PASSWORD=<the SeederApi's seederSettings account password>
    ```
 
 3. Run `cargo test -p bitwarden-access-connector --test e2e`.
 
-The server must run with `globalSettings:selfHosted` true (or with IP rate limiting otherwise off).
-The tests run in parallel from one IP, and each starts its own connector, which requests its own
-token. That exceeds the cloud's per-IP limits of 10 token requests and 200 API GETs a minute.
+The server needs IP rate limiting off for localhost: set `globalSettings:selfHosted` to true, or set
+`IpRateLimitOptions:IpWhitelist` to contain `127.0.0.1` and `::1` on both the Api and Identity. The
+tests run in parallel from one IP, and each starts its own connector, which requests its own token.
+That exceeds the cloud's per-IP limits of 10 token requests and 200 API GETs a minute.
 
 The failure tests assume the default `globalSettings:pam:rotation` retry options (`MaxAttempts` 5,
 `RetryBaseDelay` 1 s). Don't override them on the server under test.

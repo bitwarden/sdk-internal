@@ -8,6 +8,7 @@ use std::{
 };
 
 use bitwarden_access_connector::executor::RunExit;
+use bitwarden_access_token::AccessToken;
 use bitwarden_test::play::{Play, play_test};
 use tokio::time::Instant;
 
@@ -18,7 +19,7 @@ use super::{
         RunOutcome, RunningConnector, connector_state, has_resolved_attempt, job_state, run_for,
         run_until_resolved,
     },
-    scenes::enums::{attempt_action, connector_status, job_action, sync_state},
+    scenes::enums::{attempt_action, connector_status, job_action, sync_state, target_status},
 };
 
 /// How long a never-claimed check keeps the connector polling (50 ms poll interval).
@@ -45,19 +46,21 @@ fn assert_never_claimed(outcome: &RunOutcome) {
 /// Runs the connector for `fixture` for [`IDLE_RUN`], asserting nothing is claimed and
 /// the script never runs.
 async fn assert_job_is_never_claimed(play: &Play, fixture: &RotationFixture) {
+    assert_job_is_never_claimed_by(play, fixture, fixture.connector.token()).await;
+}
+
+/// Like [`assert_job_is_never_claimed`], but polling as the connector holding `token` rather than
+/// the fixture's own, with the fixture's job and script environment.
+async fn assert_job_is_never_claimed_by(
+    play: &Play,
+    fixture: &RotationFixture,
+    token: AccessToken,
+) {
     let out_dir = tempfile::tempdir().expect("tempdir");
     let out_path = out_dir.path().join("out");
     let env = fixture.script_env("record_and_exit.sh", &out_path, &[]);
 
-    let outcome = run_for(
-        play,
-        fixture.connector.token(),
-        fixture.job_id,
-        &env,
-        None,
-        IDLE_RUN,
-    )
-    .await;
+    let outcome = run_for(play, token, fixture.job_id, &env, None, IDLE_RUN).await;
 
     assert_never_claimed(&outcome);
     assert!(!script_ran(&out_path), "the script must not run");
@@ -159,6 +162,20 @@ async fn config_sealed_for_another_cipher_is_refused(play: Play) {
     assert_claim_refused_before_target(&play, &fixture, "cipher_id_mismatch").await;
 }
 
+/// A rotation config sealed under a key other than the organization's cannot be opened by the
+/// connector: refused as `sealed_data_rejected` (`config_blob_invalid`), reported
+/// `TargetUnchanged`, with no script run.
+#[cfg(unix)]
+#[play_test]
+async fn config_sealed_under_a_foreign_key_is_refused(play: Play) {
+    let fixture = RotationFixture::builder()
+        .seal_config_under_foreign_key(true)
+        .seed(&play)
+        .await;
+
+    assert_claim_refused_before_target(&play, &fixture, "config_blob_invalid").await;
+}
+
 /// A connector that is not assigned to the target never sees the job and keeps polling.
 #[cfg(unix)]
 #[play_test]
@@ -191,6 +208,44 @@ async fn disabled_config_job_is_never_claimed(play: Play) {
     assert_job_is_never_claimed(&play, &fixture).await;
 }
 
+/// A connector never claims another organization's job: organization A's connector polls for
+/// organization B's job (with B's script environment) and is never handed it. The seeder refuses
+/// cross-organization assignments, so the connector is simply not assigned to B's target.
+#[cfg(unix)]
+#[play_test]
+async fn connector_never_claims_another_organizations_job(play: Play) {
+    let own = RotationFixture::builder().seed(&play).await;
+    let other = RotationFixture::builder().seed(&play).await;
+    assert_ne!(own.organization_id, other.organization_id);
+
+    assert_job_is_never_claimed_by(&play, &other, own.connector.token()).await;
+}
+
+/// A job whose target system went back to `PendingSeal` after seeding is not offered or
+/// claimable.
+#[cfg(unix)]
+#[play_test]
+async fn pending_seal_target_job_is_never_claimed(play: Play) {
+    let fixture = RotationFixture::builder().seed(&play).await;
+    fixture
+        .set_target_status(&play, target_status::PENDING_SEAL)
+        .await;
+
+    assert_job_is_never_claimed(&play, &fixture).await;
+}
+
+/// A job whose `NextClaimableDate` is in the future (here 10 minutes) is not offered or claimable.
+#[cfg(unix)]
+#[play_test]
+async fn job_that_is_not_yet_claimable_is_never_claimed(play: Play) {
+    let fixture = RotationFixture::builder()
+        .next_claimable_in_seconds(600)
+        .seed(&play)
+        .await;
+
+    assert_job_is_never_claimed(&play, &fixture).await;
+}
+
 /// An already expired job is not offered or claimable.
 #[cfg(unix)]
 #[play_test]
@@ -203,12 +258,17 @@ async fn expired_job_is_never_claimed(play: Play) {
     assert_job_is_never_claimed(&play, &fixture).await;
 }
 
-/// Two connectors assigned to one job race for it: exactly one attempt exists, it is claimed by
-/// one of them, the job succeeds, and neither connector stops on its own.
+/// Two connectors assigned to one job race for it: the job only opens after both are polling
+/// (each has recorded a heartbeat and the job has no attempt), then exactly one attempt exists,
+/// it is claimed by one of them, the job succeeds, and neither connector stops on its own.
 #[cfg(unix)]
 #[play_test]
 async fn two_connectors_produce_a_single_attempt(play: Play) {
-    let fixture = RotationFixture::builder().seed(&play).await;
+    // The job opens six seconds after seeding, once both connectors have been polling.
+    let fixture = RotationFixture::builder()
+        .next_claimable_in_seconds(6)
+        .seed(&play)
+        .await;
     let second = fixture.add_connector(&play).await;
 
     let out_dir = tempfile::tempdir().expect("tempdir");
@@ -219,12 +279,37 @@ async fn two_connectors_produce_a_single_attempt(play: Play) {
     let first_running = RunningConnector::start(&play, fixture.connector.token(), &env, None);
     let second_running = RunningConnector::start(&play, second.token(), &env, None);
 
+    // Wait until both connectors are polling; the job must still be closed to them.
+    let give_up = Instant::now() + Duration::from_secs(4);
+    loop {
+        let first_beat = connector_state(&play, fixture.connector.access_connector_id).await;
+        let second_beat = connector_state(&play, second.access_connector_id).await;
+        if first_beat.last_heartbeat_date.is_some() && second_beat.last_heartbeat_date.is_some() {
+            break;
+        }
+        assert!(
+            !first_running.has_exited() && !second_running.has_exited(),
+            "a connector exited early"
+        );
+        assert!(
+            Instant::now() < give_up,
+            "both connectors should be polling: {first_beat:?} {second_beat:?}"
+        );
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    let job = job_state(&play, fixture.job_id).await;
+    assert!(
+        job.attempts.is_empty(),
+        "the job was claimed before it opened: {job:?}"
+    );
+
     let give_up = Instant::now() + RESOLVE_DEADLINE;
     let job = loop {
         let job = job_state(&play, fixture.job_id).await;
         if job.action == job_action::SUCCEEDED {
             break job;
         }
+        assert_ne!(job.action, job_action::FAILED, "the job failed: {job:?}");
         assert!(
             !first_running.has_exited() && !second_running.has_exited(),
             "a connector exited early: {job:?}"

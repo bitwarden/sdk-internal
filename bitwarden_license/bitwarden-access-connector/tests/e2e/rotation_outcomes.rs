@@ -23,6 +23,10 @@ use super::{
 
 const DEADLINE: Duration = Duration::from_secs(60);
 
+/// The server's default `globalSettings:pam:rotation:MaxAttempts`: a job fails after this many
+/// errored attempts. The e2e README says not to override it.
+const MAX_ATTEMPTS: usize = 5;
+
 /// Long enough for the server's retry backoff (1s, 2s, 4s, 8s by default) between five attempts.
 const FAILURE_DEADLINE: Duration = Duration::from_secs(90);
 
@@ -71,7 +75,11 @@ fn assert_failed(outcome: &RunOutcome, failure_reason: &str, sync: i32) {
     assert_eq!(outcome.exit, RunExit::Shutdown);
     let job: &PamRotationJobState = &outcome.job;
     assert_eq!(job.action, job_action::FAILED);
-    assert!(!job.attempts.is_empty(), "the job has no attempts");
+    assert_eq!(
+        job.attempts.len(),
+        MAX_ATTEMPTS,
+        "the job fails after exactly MaxAttempts errored attempts: {job:?}"
+    );
     for attempt in &job.attempts {
         assert_eq!(attempt.action, attempt_action::ERRORED, "{attempt:?}");
         assert!(!attempt.cipher_updated, "{attempt:?}");
@@ -350,4 +358,131 @@ async fn nonexistent_script_fails_as_credentials_unresolved(play: Play) {
     );
     assert!(!was_run(&out_path, "rotate"), "nothing may run");
     assert_cipher_untouched(&play, &fixture, &before).await;
+}
+
+/// A rotate that exits 2 ("target updated") fails every attempt as `script_failed: exit code 2`
+/// with the target reported updated. Verify never runs and the cipher is untouched.
+#[cfg(unix)]
+#[play_test]
+async fn rotate_exit_2_reports_target_updated(play: Play) {
+    let fixture = RotationFixture::builder().seed(&play).await;
+    let before = read(&play, &fixture).await;
+    let out_dir = tempfile::tempdir().expect("tempdir");
+    let out_path = out_dir.path().join("out");
+    let env = fixture.script_env(
+        "record_and_exit.sh",
+        &out_path,
+        &[("EXIT_CODE_ROTATE", "2")],
+    );
+
+    let outcome = run_until_failed(&play, &fixture, &env).await;
+
+    assert_failed(
+        &outcome,
+        "script_failed: exit code 2",
+        sync_state::TARGET_UPDATED,
+    );
+    assert!(was_run(&out_path, "rotate"), "rotate did not run");
+    assert!(
+        !was_run(&out_path, "verify"),
+        "verify must not run after a failed rotate"
+    );
+    assert_cipher_untouched(&play, &fixture, &before).await;
+}
+
+/// A rotate that exits 3 ("indeterminate") fails every attempt as `script_failed: exit code 3`
+/// with the target's state reported indeterminate. Verify never runs and the cipher is untouched.
+#[cfg(unix)]
+#[play_test]
+async fn rotate_exit_3_reports_indeterminate(play: Play) {
+    let fixture = RotationFixture::builder().seed(&play).await;
+    let before = read(&play, &fixture).await;
+    let out_dir = tempfile::tempdir().expect("tempdir");
+    let out_path = out_dir.path().join("out");
+    let env = fixture.script_env(
+        "record_and_exit.sh",
+        &out_path,
+        &[("EXIT_CODE_ROTATE", "3")],
+    );
+
+    let outcome = run_until_failed(&play, &fixture, &env).await;
+
+    assert_failed(
+        &outcome,
+        "script_failed: exit code 3",
+        sync_state::INDETERMINATE,
+    );
+    assert!(was_run(&out_path, "rotate"), "rotate did not run");
+    assert!(
+        !was_run(&out_path, "verify"),
+        "verify must not run after a failed rotate"
+    );
+    assert_cipher_untouched(&play, &fixture, &before).await;
+}
+
+/// A stale vault converges on a later attempt: the first attempt's verify fails (the target has
+/// the new password, the vault does not), the retry rotates again, verifies and writes the cipher.
+/// The failed attempt wrote nothing, so the history holds only the initial password and the
+/// vault holds the password of the last rotate.
+#[cfg(unix)]
+#[play_test]
+async fn failed_verify_converges_on_a_later_attempt(play: Play) {
+    let fixture = RotationFixture::builder().seed(&play).await;
+    let out_dir = tempfile::tempdir().expect("tempdir");
+    let out_path = out_dir.path().join("out");
+    let env = fixture.script_env("fail_verify_once.sh", &out_path, &[]);
+
+    let outcome = run_until_resolved_job(&play, &fixture, &env).await;
+
+    assert!(
+        outcome.resolved,
+        "the job never succeeded: {:?}",
+        outcome.job
+    );
+    assert_eq!(outcome.exit, RunExit::Shutdown);
+    let job = &outcome.job;
+    assert_eq!(job.action, job_action::SUCCEEDED);
+    assert_eq!(job.attempts.len(), 2, "{job:?}");
+    let failed = &job.attempts[0];
+    assert_eq!(failed.action, attempt_action::ERRORED, "{failed:?}");
+    assert_eq!(failed.sync_state, Some(sync_state::TARGET_UPDATED));
+    assert!(!failed.cipher_updated);
+    assert_eq!(
+        failed.failure_reason.as_deref(),
+        Some("script_failed: exit code 1")
+    );
+    let converged = &job.attempts[1];
+    assert_eq!(converged.action, attempt_action::ROTATED, "{converged:?}");
+    assert!(converged.cipher_updated);
+    assert_eq!(converged.failure_reason, None);
+
+    // The recorded rotate payload is the second (last) one.
+    let rotate = read_payload(&out_path, "rotate");
+    let new_password = rotate["newPassword"]
+        .as_str()
+        .expect("rotate got a password");
+    let after = read(&play, &fixture).await;
+    assert_eq!(after.password, new_password);
+    assert_eq!(
+        after.password_history,
+        std::slice::from_ref(&fixture.initial_password)
+    );
+}
+
+/// Runs the connector until the job succeeds or fails.
+async fn run_until_resolved_job(
+    play: &Play,
+    fixture: &RotationFixture,
+    env: &[(String, String)],
+) -> RunOutcome {
+    run_until(
+        play,
+        fixture.connector.token(),
+        fixture.job_id,
+        env,
+        None,
+        FAILURE_DEADLINE,
+        |job| job.action == job_action::SUCCEEDED || job.action == job_action::FAILED,
+    )
+    .await
 }

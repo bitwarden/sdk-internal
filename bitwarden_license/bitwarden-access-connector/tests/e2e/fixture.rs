@@ -8,7 +8,7 @@ use bitwarden_core::{
     OrganizationId,
     key_management::{KeySlotIds, SymmetricKeySlotId},
 };
-use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
+use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 use bitwarden_encoding::B64;
 use bitwarden_pam_sealed::{
     RotationConfigSealedV1, Sealed, SealedPasswordPolicy, SealedTargetSystemKind,
@@ -89,6 +89,9 @@ pub struct RotationFixtureBuilder {
     terminate_sessions: bool,
     account_identity: String,
     job_expires_in_seconds: Option<i32>,
+    password_policy: Option<SealedPasswordPolicy>,
+    next_claimable_in_seconds: Option<i32>,
+    seal_config_under_foreign_key: bool,
 }
 
 impl RotationFixture {
@@ -102,6 +105,9 @@ impl RotationFixture {
             terminate_sessions: false,
             account_identity: DEFAULT_ACCOUNT_IDENTITY.to_owned(),
             job_expires_in_seconds: None,
+            password_policy: None,
+            next_claimable_in_seconds: None,
+            seal_config_under_foreign_key: false,
         }
     }
 
@@ -164,15 +170,15 @@ impl RotationFixture {
         .expect("PamRotationConfigUpdateScene");
     }
 
+    /// Re-seals the target system with its existing sealed blob and `status` (see
+    /// [`target_status`]) after the job was seeded.
+    pub async fn set_target_status(&self, play: &Play, status: i32) {
+        seal_target(play, self.target_system_id, &self.target_sealed, status).await;
+    }
+
     /// Disables the target system after the job was seeded.
     pub async fn disable_target(&self, play: &Play) {
-        seal_target(
-            play,
-            self.target_system_id,
-            &self.target_sealed,
-            target_status::DISABLED,
-        )
-        .await;
+        self.set_target_status(play, target_status::DISABLED).await;
     }
 }
 
@@ -223,6 +229,25 @@ impl RotationFixtureBuilder {
     /// Seconds until the job expires; negative seeds an expired job (default: the seeder's).
     pub fn job_expires_in_seconds(mut self, seconds: i32) -> Self {
         self.job_expires_in_seconds = Some(seconds);
+        self
+    }
+
+    /// The password policy sealed into the target system (default: 12 to 24 characters with every
+    /// class).
+    pub fn password_policy(mut self, policy: SealedPasswordPolicy) -> Self {
+        self.password_policy = Some(policy);
+        self
+    }
+
+    /// Seconds until the job first becomes claimable (default: the seeder's, immediately).
+    pub fn next_claimable_in_seconds(mut self, seconds: i32) -> Self {
+        self.next_claimable_in_seconds = Some(seconds);
+        self
+    }
+
+    /// Seals the rotation config under a freshly generated key instead of the organization key.
+    pub fn seal_config_under_foreign_key(mut self, foreign: bool) -> Self {
+        self.seal_config_under_foreign_key = foreign;
         self
     }
 
@@ -288,14 +313,17 @@ impl RotationFixtureBuilder {
             .result()
             .target_system_id;
 
-        let password_policy = SealedPasswordPolicy {
-            min_length: 12,
-            max_length: 24,
-            include_uppercase: true,
-            include_lowercase: true,
-            include_digits: true,
-            include_symbols: true,
-        };
+        let password_policy = self
+            .password_policy
+            .clone()
+            .unwrap_or(SealedPasswordPolicy {
+                min_length: 12,
+                max_length: 24,
+                include_uppercase: true,
+                include_lowercase: true,
+                include_digits: true,
+                include_symbols: true,
+            });
         let target_sealed = seal_target_blob(
             &org_key,
             TargetSystemSealedV1 {
@@ -341,8 +369,13 @@ impl RotationFixtureBuilder {
             .result()
             .cipher_id;
 
+        let config_key = if self.seal_config_under_foreign_key {
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac)
+        } else {
+            org_key.clone()
+        };
         let config_sealed = seal_config_blob(
-            &org_key,
+            &config_key,
             RotationConfigSealedV1 {
                 target_system_id,
                 cipher_id: if self.tamper_config_cipher_id {
@@ -372,7 +405,7 @@ impl RotationFixtureBuilder {
             .scene::<PamRotationJobScene>(&PamRotationJobArgs {
                 rotation_config_id,
                 expires_in_seconds: self.job_expires_in_seconds,
-                next_claimable_in_seconds: None,
+                next_claimable_in_seconds: self.next_claimable_in_seconds,
             })
             .await
             .expect("PamRotationJobScene")

@@ -3,6 +3,7 @@
 use std::time::Duration;
 
 use bitwarden_access_connector::executor::RunExit;
+use bitwarden_pam_sealed::SealedPasswordPolicy;
 use bitwarden_test::play::{Play, play_test};
 
 use super::{
@@ -13,11 +14,22 @@ use super::{
 };
 
 /// The custom script rotates, verify passes, and the vault ends up holding what the script was
-/// given.
+/// given. The sealed policy (17 characters, uppercase and digits only) is what the generated
+/// password follows, the old password moves into history and the cipher's revision date changes.
 #[cfg(unix)]
 #[play_test]
 async fn rotation_succeeds_and_the_vault_holds_the_new_password(play: Play) {
-    let fixture = RotationFixture::builder().seed(&play).await;
+    let fixture = RotationFixture::builder()
+        .password_policy(SealedPasswordPolicy {
+            min_length: 17,
+            max_length: 17,
+            include_uppercase: true,
+            include_lowercase: false,
+            include_digits: true,
+            include_symbols: false,
+        })
+        .seed(&play)
+        .await;
     let before = read_login(
         &play,
         fixture.organization_id,
@@ -86,14 +98,23 @@ async fn rotation_succeeds_and_the_vault_holds_the_new_password(play: Play) {
     assert_eq!(after.password, new_password);
     assert_ne!(after.password, fixture.initial_password);
     assert_eq!(
-        after.password_history.first(),
-        Some(&fixture.initial_password)
+        after.password_history,
+        std::slice::from_ref(&fixture.initial_password)
     );
+    assert_ne!(after.revision_date, before.revision_date);
     assert_eq!(after.key, before.key, "the item key is unchanged");
     assert!(after.password_revision_date.is_some());
-    let length = u32::try_from(new_password.chars().count()).expect("length fits");
-    assert!(
-        (fixture.password_policy.min_length..=fixture.password_policy.max_length).contains(&length),
-        "password length {length} is outside the sealed policy"
+    assert_eq!(
+        new_password.chars().count(),
+        17,
+        "the policy fixes the length"
     );
+    assert!(
+        new_password
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()),
+        "the policy allows only uppercase letters and digits"
+    );
+    assert!(new_password.chars().any(|c| c.is_ascii_uppercase()));
+    assert!(new_password.chars().any(|c| c.is_ascii_digit()));
 }
