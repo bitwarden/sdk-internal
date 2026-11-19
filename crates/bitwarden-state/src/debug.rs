@@ -12,7 +12,7 @@
 //! The registration logic is covered by the unit test below (run under
 //! `--all-features`). CI never builds the feature into a wasm/mobile artifact,
 //! so the generated binding surface is verified by hand:
-//! `crates/bitwarden-wasm-internal/build.sh -d`, then the integration-tests
+//! `crates/bitwarden-wasm-internal/build.sh -d`, then the e2e/wasm
 //! `debug().state()` browse.
 
 use std::{

@@ -5,8 +5,6 @@ use bitwarden_encoding::{B64, FromStrVisitor, NotB64EncodedError};
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     Aes256GcmKey, CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CoseKeyView, CryptoError, EncString,
@@ -386,24 +384,7 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type DataEnvelope = Tagged<string, "DataEnvelope">;
 "#;
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for DataEnvelope {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for DataEnvelope {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-
-        let s = unsafe { String::from_abi(abi) };
-        Self::from_str(&s).unwrap_throw()
-    }
-}
+bitwarden_ffi::impl_wire_string!(DataEnvelope, parse = |wire: String| wire.parse());
 
 fn pad_cbor(data: &[u8]) -> Result<Vec<u8>, CryptoError> {
     let mut data = data.to_vec();
@@ -508,6 +489,13 @@ pub enum DataEnvelopeNamespace {
     /// registration-finish so an anonymous, email-verified new user can complete an open
     /// organization invite in a single flow.
     RegistrationOpenOrgInviteData = 3,
+    /// Namespace for PAM target systems (`bitwarden-pam-sealed::TargetSystemSealed`), sealed by
+    /// the admin client so a hostile server cannot change what the access connector rotates or
+    /// how.
+    PamTargetSystem = 4,
+    /// Namespace for PAM rotation configs (`bitwarden-pam-sealed::RotationConfigSealed`), sealed
+    /// for the same reason as [`DataEnvelopeNamespace::PamTargetSystem`].
+    PamRotationConfig = 5,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -531,6 +519,8 @@ impl TryFrom<i128> for DataEnvelopeNamespace {
             1 => Ok(DataEnvelopeNamespace::VaultItem),
             2 => Ok(DataEnvelopeNamespace::OrganizationInvite),
             3 => Ok(DataEnvelopeNamespace::RegistrationOpenOrgInviteData),
+            4 => Ok(DataEnvelopeNamespace::PamTargetSystem),
+            5 => Ok(DataEnvelopeNamespace::PamRotationConfig),
             #[cfg(test)]
             -1 => Ok(DataEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
@@ -838,6 +828,43 @@ mod tests {
             &cek,
         )
         .unwrap();
+        assert_eq!(round_tripped, data);
+    }
+
+    #[test]
+    fn test_pam_namespaces_map_to_expected_discriminants() {
+        // The wire discriminants are load-bearing once shipped; a regression here would silently
+        // invalidate every envelope sealed by production callers (bitwarden-pam-sealed).
+        assert_eq!(
+            DataEnvelopeNamespace::try_from(4i128).unwrap(),
+            DataEnvelopeNamespace::PamTargetSystem
+        );
+        assert_eq!(i128::from(DataEnvelopeNamespace::PamTargetSystem), 4);
+
+        assert_eq!(
+            DataEnvelopeNamespace::try_from(5i128).unwrap(),
+            DataEnvelopeNamespace::PamRotationConfig
+        );
+        assert_eq!(i128::from(DataEnvelopeNamespace::PamRotationConfig), 5);
+    }
+
+    #[test]
+    fn test_pam_target_system_rejects_cross_namespace_unseal() {
+        // A target-system blob must not unseal under the sibling PamRotationConfig namespace (or
+        // vice versa).
+        let data: TestData = TestDataV1 { field: 42 }.into();
+
+        let cek = Aes256GcmKey::make();
+        let envelope =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::PamTargetSystem, &cek).unwrap();
+
+        assert!(matches!(
+            unseal_with_cek::<TestData>(&envelope, DataEnvelopeNamespace::PamRotationConfig, &cek),
+            Err(DataEnvelopeError::InvalidNamespace)
+        ));
+
+        let round_tripped: TestData =
+            unseal_with_cek(&envelope, DataEnvelopeNamespace::PamTargetSystem, &cek).unwrap();
         assert_eq!(round_tripped, data);
     }
 

@@ -1,7 +1,5 @@
 use bitwarden_collections::collection_client::CollectionsClient;
 use bitwarden_core::{Client, FromClient};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     AttachmentsClient, CipherRiskClient, CiphersClient, FoldersClient, PasswordHistoryClient,
@@ -10,7 +8,7 @@ use crate::{
 
 #[allow(missing_docs)]
 #[derive(Clone)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct VaultClient {
     pub(crate) client: Client,
 }
@@ -28,7 +26,7 @@ impl VaultClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl VaultClient {
     /// Attachment related operations.
     pub fn attachments(&self) -> AttachmentsClient {

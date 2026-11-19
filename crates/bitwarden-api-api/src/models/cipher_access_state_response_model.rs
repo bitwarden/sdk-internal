@@ -12,10 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// CipherAccessStateResponseModel : A single-snapshot read of the caller's access state for one
-/// cipher, powering the cipher-view banner and the vault-row badge. At most one of the three
-/// branches is meaningfully \"next\": an active lease authorizes access, a pending request awaits a
-/// decision, and an approved request awaits activation by the caller.
+/// CipherAccessStateResponseModel : The caller's access state for one cipher, read as a single
+/// snapshot.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherAccessStateResponseModel {
     #[serde(
@@ -56,21 +54,27 @@ pub struct CipherAccessStateResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub extensions_allowed: Option<bool>,
-    /// The longest a single extension of the active lease may run, in seconds; null when there is
-    /// no cap or no active lease.
+    /// The longest single extension the active lease's rule allows; null without an active lease
+    /// or when the rule does not allow extensions.
     #[serde(
         rename = "maxExtensionDurationSeconds",
         alias = "MaxExtensionDurationSeconds",
         skip_serializing_if = "Option::is_none"
     )]
     pub max_extension_duration_seconds: Option<i32>,
+    /// False when no lease or request is in play and the rule's conditions would refuse a new
+    /// request now, for example outside its IP allowlist. Submit would fail the same way. Absent
+    /// means true.
+    #[serde(
+        rename = "canRequest",
+        alias = "CanRequest",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub can_request: Option<bool>,
 }
 
 impl CipherAccessStateResponseModel {
-    /// A single-snapshot read of the caller's access state for one cipher, powering the cipher-view
-    /// banner and the vault-row badge. At most one of the three branches is meaningfully \"next\":
-    /// an active lease authorizes access, a pending request awaits a decision, and an approved
-    /// request awaits activation by the caller.
+    /// The caller's access state for one cipher, read as a single snapshot.
     pub fn new() -> CipherAccessStateResponseModel {
         CipherAccessStateResponseModel {
             object: None,
@@ -80,6 +84,7 @@ impl CipherAccessStateResponseModel {
             approved_request: None,
             extensions_allowed: None,
             max_extension_duration_seconds: None,
+            can_request: None,
         }
     }
 }

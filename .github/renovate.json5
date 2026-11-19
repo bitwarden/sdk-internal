@@ -86,7 +86,7 @@
     },
     {
       matchManagers: ["cargo"],
-      matchPackageNames: ["crypto-bigint", "icu_normalizer", "keepass"],
+      matchPackageNames: ["crypto-bigint", "curve25519-dalek", "icu_normalizer", "keepass"],
       commitMessagePrefix: "[deps] Tools:",
       reviewers: ["team:team-tools-dev"],
     },
@@ -98,8 +98,15 @@
     },
     {
       matchManagers: ["cargo"],
+      matchPackageNames: ["ldap3"],
+      commitMessagePrefix: "[deps] PAM:",
+      reviewers: ["team:team-pam-dev"],
+    },
+    {
+      matchManagers: ["cargo"],
       matchPackageNames: [
         "aes",
+        "anyhow",
         "async-trait",
         "cargo-dylint",
         "cargo-sort",
@@ -121,6 +128,9 @@
         "mockall",
         "password-rules-parser",
         "proc-macro2",
+        "prost",
+        "prost-build",
+        "prost-types",
         "quote",
         "rand_chacha",
         "reqwest",
@@ -141,6 +151,7 @@
         "syn",
         "thiserror",
         "tokio",
+        "toml",
         "tracing",
         "tracing-subscriber",
         "tsify",

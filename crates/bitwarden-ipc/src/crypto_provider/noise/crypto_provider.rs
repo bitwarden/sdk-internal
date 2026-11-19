@@ -6,6 +6,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     crypto_provider::noise::{
+        NOISE_MAX_MESSAGE_LEN, NOISE_TAG_LEN,
         handshake::{
             CipherSuite, HandshakeFinishMessage, HandshakeInitiator, HandshakeResponder,
             HandshakeStartMessage,
@@ -14,6 +15,7 @@ use crate::{
     },
     error::{ErrorKind, IpcErrorKind},
     message::{IncomingMessage, OutgoingMessage},
+    timeline::{self, Entry, Track},
     traits::{
         CommunicationBackend, CommunicationBackendReceiver, CryptoProvider, SessionRepository,
     },
@@ -97,6 +99,9 @@ impl NoiseCryptoProvider {
         Ses: SessionRepository<NoiseCryptoProviderState>,
     {
         debug!("Starting noise handshake with {:?}", destination);
+        let _span = timeline::span(Track::Handshakes, timeline::Duration::Actual, || {
+            handshake_entry("Initiator", &destination)
+        });
 
         let mut initiator = HandshakeInitiator::new(&CipherSuite::default());
         let message = initiator
@@ -171,6 +176,14 @@ impl NoiseCryptoProvider {
     }
 }
 
+/// Timeline entry for a handshake, e.g. "Noise handshake" as "Initiator" with "DesktopMain".
+fn handshake_entry(role: &str, peer: &crate::endpoint::Endpoint) -> Entry {
+    Entry {
+        name: "Noise handshake".to_owned(),
+        properties: vec![("Role", role.to_owned()), ("Peer", format!("{peer:?}"))],
+    }
+}
+
 /// Re-handshake interval in seconds. Sessions older than this will automatically
 /// re-key on the next send operation.
 const REHANDSHAKE_INTERVAL_SECS: u64 = 300;
@@ -192,6 +205,10 @@ where
     type Session = NoiseCryptoProviderState;
     type SendError = NoiseCryptoProviderError;
     type ReceiveError = NoiseCryptoProviderError;
+
+    fn max_payload_len(&self) -> usize {
+        NOISE_MAX_MESSAGE_LEN - NOISE_TAG_LEN
+    }
 
     async fn send(
         &self,
@@ -336,6 +353,10 @@ where
 
             match transport_frame {
                 Frame::HandshakeStart(handshake_start) => {
+                    let _span =
+                        timeline::span(Track::Handshakes, timeline::Duration::Actual, || {
+                            handshake_entry("Responder", &source_endpoint)
+                        });
                     let mut responder = HandshakeResponder::new(&handshake_start.ciphersuite);
                     responder
                         .read_start_message(&handshake_start)

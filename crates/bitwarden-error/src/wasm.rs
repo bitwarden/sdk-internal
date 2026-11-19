@@ -1,5 +1,9 @@
 use wasm_bindgen::prelude::*;
 
+/// `name` of the JavaScript `Error` thrown when a value cannot cross the boundary, in either
+/// direction. Narrow on it from TypeScript with `error.name === "SdkConversionError"`.
+pub const CONVERSION_ERROR_NAME: &str = "SdkConversionError";
+
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 extern "C" {

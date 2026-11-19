@@ -12,10 +12,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, PasswordHistoryView, VaultParseError, cipher::cipher::CopyableCipherFields};
@@ -25,7 +21,7 @@ use crate::{Cipher, PasswordHistoryView, VaultParseError, cipher::cipher::Copyab
 #[repr(u8)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum UriMatchType {
     Domain = 0,
     Host = 1,
@@ -39,7 +35,7 @@ pub enum UriMatchType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct LoginUri {
     pub uri: Option<EncString>,
     pub r#match: Option<UriMatchType>,
@@ -51,7 +47,7 @@ pub struct LoginUri {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct LoginUriView {
     pub uri: Option<String>,
     pub r#match: Option<UriMatchType>,
@@ -91,7 +87,7 @@ impl LoginUriView {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2Credential {
     pub credential_id: EncString,
     pub key_type: EncString,
@@ -112,7 +108,7 @@ pub struct Fido2Credential {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2CredentialListView {
     pub credential_id: String,
     pub rp_id: String,
@@ -127,7 +123,7 @@ pub struct Fido2CredentialListView {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2CredentialView {
     pub credential_id: String,
     pub key_type: String,
@@ -153,7 +149,7 @@ pub struct Fido2CredentialView {
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2CredentialFullView {
     pub credential_id: String,
     pub key_type: String,
@@ -178,7 +174,7 @@ pub struct Fido2CredentialFullView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Fido2CredentialNewView {
     pub credential_id: String,
     pub key_type: String,
@@ -323,7 +319,7 @@ impl From<&Fido2CredentialView> for Fido2CredentialListView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Login {
     pub username: Option<EncString>,
     pub password: Option<EncString>,
@@ -332,6 +328,10 @@ pub struct Login {
     pub uris: Option<Vec<LoginUri>>,
     pub totp: Option<EncString>,
     pub autofill_on_page_load: Option<bool>,
+    /// Whether the login's credentials may answer HTTP authentication challenges. Stored
+    /// unencrypted, like `autofill_on_page_load`.
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    pub http_authentication_enabled: Option<bool>,
 
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
@@ -341,7 +341,7 @@ pub struct Login {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct LoginView {
     pub username: Option<String>,
     pub password: Option<String>,
@@ -350,6 +350,11 @@ pub struct LoginView {
     pub uris: Option<Vec<LoginUriView>>,
     pub totp: Option<String>,
     pub autofill_on_page_load: Option<bool>,
+    /// Whether the login's credentials may answer HTTP authentication challenges. Sealed in the
+    /// blob for blob-encrypted ciphers, and stored unencrypted on [`Login`] for ciphers in the
+    /// legacy field-level format.
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    pub http_authentication_enabled: Option<bool>,
 
     pub fido2_credentials: Option<Vec<Fido2CredentialView>>,
 }
@@ -413,7 +418,7 @@ impl LoginView {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct LoginListView {
     pub fido2_credentials: Option<Vec<Fido2CredentialListView>>,
     pub has_fido2: bool,
@@ -453,6 +458,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Login> for LoginView {
                 .filter(|s| !s.is_empty())
                 .encrypt(ctx, key)?,
             autofill_on_page_load: self.autofill_on_page_load,
+            http_authentication_enabled: self.http_authentication_enabled,
             fido2_credentials: self
                 .fido2_credentials
                 .as_ref()
@@ -495,6 +501,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for Login {
             uris: self.uris.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.decrypt(ctx, key).ok().flatten(),
             autofill_on_page_load: self.autofill_on_page_load,
+            http_authentication_enabled: self.http_authentication_enabled,
             fido2_credentials: self
                 .fido2_credentials
                 .as_ref()
@@ -535,6 +542,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for StrictDecrypt<&L
             uris: self.0.uris.decrypt(ctx, key)?,
             totp: self.0.totp.decrypt(ctx, key)?,
             autofill_on_page_load: self.0.autofill_on_page_load,
+            http_authentication_enabled: self.0.http_authentication_enabled,
             fido2_credentials: self
                 .0
                 .fido2_credentials
@@ -624,6 +632,7 @@ impl TryFrom<CipherLoginModel> for Login {
                 .transpose()?,
             totp: EncString::try_from_optional(login.totp)?,
             autofill_on_page_load: login.autofill_on_page_load,
+            http_authentication_enabled: login.http_authentication_enabled,
             fido2_credentials: login
                 .fido2_credentials
                 .map(|v| v.into_iter().map(|c| c.try_into()).collect())
@@ -747,6 +756,7 @@ impl From<Login> for bitwarden_api_api::models::CipherLoginModel {
             password_revision_date: login.password_revision_date.map(|d| d.to_rfc3339()),
             totp: login.totp.map(|t| t.to_string()),
             autofill_on_page_load: login.autofill_on_page_load,
+            http_authentication_enabled: login.http_authentication_enabled,
             fido2_credentials: login
                 .fido2_credentials
                 .map(|c| c.into_iter().map(|c| c.into()).collect()),
@@ -843,6 +853,7 @@ mod tests {
             uris: None,
             totp: None,
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             fido2_credentials: None,
         };
 
@@ -859,6 +870,7 @@ mod tests {
             uris: None,
             totp: None,
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             fido2_credentials: None,
         };
 
@@ -875,6 +887,7 @@ mod tests {
             uris: None,
             totp: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             fido2_credentials: None,
         };
 

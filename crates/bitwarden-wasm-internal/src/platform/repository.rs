@@ -5,7 +5,7 @@
  * This looks something like this:
  *
  * ```rust,ignore
- * #[wasm_bindgen]
+ * #[bitwarden_ffi::wasm_import]
  * extern "C" {
  *     pub type CipherRepository;
  *
@@ -143,7 +143,7 @@ macro_rules! create_wasm_repositories {
             );
         };
 
-        #[wasm_bindgen]
+        #[bitwarden_ffi::wasm_import]
         extern "C" {
             #[wasm_bindgen(typescript_type = $container_name)]
             pub type $container_name;
@@ -166,7 +166,7 @@ macro_rules! create_wasm_repositories {
         }
 
         $(
-            #[wasm_bindgen]
+            #[bitwarden_ffi::wasm_import]
             extern "C" {
                 #[wasm_bindgen]
                 pub type $repo_name;

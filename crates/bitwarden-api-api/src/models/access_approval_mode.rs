@@ -11,12 +11,11 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 
 use crate::models;
-/// AccessApprovalMode : The approval path a lease request will take, surfaced by the pre-check so
-/// the client can present the right workflow: Bit.Services.Pam.Enums.AccessApprovalMode.Automatic
-/// (pick a duration) or Bit.Services.Pam.Enums.AccessApprovalMode.Human (pick a window + justify).
-/// The approval path a lease request will take, surfaced by the pre-check so the client can present
-/// the right workflow: Bit.Services.Pam.Enums.AccessApprovalMode.Automatic (pick a duration) or
-/// Bit.Services.Pam.Enums.AccessApprovalMode.Human (pick a window + justify).
+/// AccessApprovalMode : The approval path a lease request will take:
+/// Bit.Services.Pam.Enums.AccessApprovalMode.Automatic (pick a duration) or
+/// Bit.Services.Pam.Enums.AccessApprovalMode.Human (pick a window and justify). The approval path a
+/// lease request will take: Bit.Services.Pam.Enums.AccessApprovalMode.Automatic (pick a duration)
+/// or Bit.Services.Pam.Enums.AccessApprovalMode.Human (pick a window and justify).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum AccessApprovalMode {
     Automatic,

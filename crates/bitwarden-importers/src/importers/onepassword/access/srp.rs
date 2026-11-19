@@ -103,36 +103,45 @@ impl SrpInfo {
     }
 }
 
-/// Runs the SRP exchange and labels the resulting key with the session id.
-pub(super) async fn perform_and_verify(
-    credentials: &Credentials,
-    account_key: &AccountKey,
-    srp_info: &SrpInfo,
+/// Runs the SRP exchange from a precomputed x and labels the key with the session id. The salt only
+/// feeds the verification hash.
+pub(super) async fn perform_and_verify_with_x(
+    srp_x: &[u8],
+    username: &str,
+    key_uuid: &str,
+    salt: &[u8],
     session_id: &str,
     rest: &RestClient,
 ) -> Result<AesKey, OnePasswordError> {
-    let key = perform(
-        &generate_secret_a(),
-        credentials,
-        account_key,
-        srp_info,
-        rest,
-    )
-    .await?;
+    let srp_x = scalar_bytes(srp_x)?;
+
+    let key = perform(&generate_secret_a(), srp_x, username, key_uuid, salt, rest).await?;
     Ok(AesKey::new(session_id, key.to_vec()))
+}
+
+/// The bytes of x without leading zeros, which a big integer serializer may add. x is a SHA-256
+/// scalar, so a value that still does not fit comes from a malformed credential bundle.
+fn scalar_bytes(srp_x: &[u8]) -> Result<&[u8], OnePasswordError> {
+    let leading_zeros = srp_x.iter().take_while(|byte| **byte == 0).count();
+    let significant = &srp_x[leading_zeros..];
+    if significant.len() > SCALAR_BITS as usize / 8 {
+        return Err(OnePasswordError::Internal(
+            "the SRP x is longer than 32 bytes".into(),
+        ));
+    }
+
+    Ok(significant)
 }
 
 /// The exchange itself, with `secret_a` taken as an argument so tests can pin it.
 async fn perform(
     secret_a: &BoxedUint,
-    credentials: &Credentials,
-    account_key: &AccountKey,
-    srp_info: &SrpInfo,
+    srp_x: &[u8],
+    username: &str,
+    key_uuid: &str,
+    salt: &[u8],
     rest: &RestClient,
 ) -> Result<[u8; 32], OnePasswordError> {
-    // The password and the Secret Key stretched into the SRP private value.
-    let srp_x = compute_x(credentials, account_key, srp_info)?;
-
     // Trade our public ephemeral for the server's.
     let shared_a = compute_shared_a(secret_a);
     let shared_b = exchange_a_for_b(&shared_a, rest).await?;
@@ -141,14 +150,14 @@ async fn perform(
     validate_b(&shared_b)?;
 
     // Both sides reach the same key without the password ever crossing the wire.
-    let session_key = compute_key(secret_a, &shared_a, &shared_b, &srp_x);
+    let session_key = compute_key(secret_a, &shared_a, &shared_b, srp_x);
 
     // Prove to the server that we hold it.
     verify_key(
         &session_key,
-        &credentials.username,
-        &account_key.uuid,
-        srp_info.salt(),
+        username,
+        key_uuid,
+        salt,
         &shared_a,
         &shared_b,
         rest,
@@ -211,20 +220,9 @@ fn compute_key(
     shared_b: &BoxedUint,
     srp_x: &[u8],
 ) -> [u8; 32] {
-    // The multiplier k = H(N, g), always
-    // 3509477ea9fca66eadb7cf7b1bd0eb508f54d3989a9c988006a7d0b338374dd2 for this group.
-    let mut g_mod_n_input = to_compatible_byte_array(&N);
-    g_mod_n_input.extend_from_slice(&mod_n_bytes(&G));
-    let g_mod_n = sha256(&g_mod_n_input);
-
-    // The scrambling parameter u = H(A, B), which ties the key to both ephemerals.
-    let mut ab = mod_n_bytes(shared_a);
-    ab.extend_from_slice(&mod_n_bytes(shared_b));
-    let ab_sha256 = sha256(&ab);
-
     // a + u*x, the half only we can build.
     let x = scalar(srp_x);
-    let exponent = scalar(&ab_sha256)
+    let exponent = scalar(&compute_u(shared_a, shared_b))
         .concatenating_mul(&x)
         .wrapping_add(secret_a);
 
@@ -232,7 +230,7 @@ fn compute_key(
     // difference is almost always negative, so each operand is reduced mod N first and `sub_mod`
     // adds N back when the subtraction underflows.
     let k_g_pow_x = mod_pow(&G, &x)
-        .concatenating_mul(&scalar(&g_mod_n))
+        .concatenating_mul(&scalar(&compute_k()))
         .rem(N.as_nz_ref());
     let base = shared_b
         .rem(N.as_nz_ref())
@@ -240,6 +238,21 @@ fn compute_key(
 
     // K is the premaster secret hashed in the server's hex encoding.
     sha256(to_server_hex(&mod_pow(&base, &exponent)).as_bytes())
+}
+
+/// The multiplier `k = H(N, g)`, always
+/// 3509477ea9fca66eadb7cf7b1bd0eb508f54d3989a9c988006a7d0b338374dd2 for this group.
+fn compute_k() -> [u8; 32] {
+    let mut input = to_compatible_byte_array(&N);
+    input.extend_from_slice(&mod_n_bytes(&G));
+    sha256(&input)
+}
+
+/// The scrambling parameter `u = H(A, B)`, which ties the key to both ephemerals.
+fn compute_u(shared_a: &BoxedUint, shared_b: &BoxedUint) -> [u8; 32] {
+    let mut ab = mod_n_bytes(shared_a);
+    ab.extend_from_slice(&mod_n_bytes(shared_b));
+    sha256(&ab)
 }
 
 /// Hex in the exact format 1Password's server expects: lowercase, with all leading zero nibbles
@@ -377,7 +390,7 @@ fn calculate_client_hash(
 }
 
 /// Derives SRP `x`, which proves we know the password without sending it.
-fn compute_x(
+pub(super) fn compute_x(
     credentials: &Credentials,
     account_key: &AccountKey,
     srp_info: &SrpInfo,
@@ -397,6 +410,91 @@ fn compute_x(
 
 fn sha256(data: &[u8]) -> [u8; 32] {
     Sha256::digest(data).into()
+}
+
+/// The server's half of the exchange, for the tests of flows that run a login end to end. It holds
+/// the verifier of an account, the way 1Password does, and reuses the math of the client.
+#[cfg(test)]
+pub(super) struct TestServer {
+    username: String,
+    key_uuid: String,
+    salt: Vec<u8>,
+    verifier: BoxedUint,
+    secret_b: BoxedUint,
+    shared_b: BoxedUint,
+}
+
+#[cfg(test)]
+impl TestServer {
+    /// A server that knows the account with the given `srp_x`, and answers with the SRP public
+    /// value `B = k*v + g^b`, where `b` is `secret_b`.
+    pub(super) fn new(
+        srp_x: &[u8],
+        secret_b: &[u8; 32],
+        username: &str,
+        key_uuid: &str,
+        salt: &[u8],
+    ) -> TestServer {
+        let verifier = mod_pow(&G, &scalar(srp_x));
+        let secret_b = scalar(secret_b);
+
+        // B = k*v + g^b
+        let k_verifier = verifier
+            .concatenating_mul(&scalar(&compute_k()))
+            .rem(N.as_nz_ref());
+        let shared_b = k_verifier.add_mod(&mod_pow(&G, &secret_b), N.as_nz_ref());
+
+        TestServer {
+            username: username.to_string(),
+            key_uuid: key_uuid.to_string(),
+            salt: salt.to_vec(),
+            verifier,
+            secret_b,
+            shared_b,
+        }
+    }
+
+    /// `B` in the encoding of `userB`.
+    pub(super) fn shared_b(&self) -> String {
+        to_server_hex(&self.shared_b)
+    }
+
+    /// The session key for the client's `A`, or `None` when `A` is not a value.
+    pub(super) fn session_key(&self, shared_a: &str) -> Option<[u8; 32]> {
+        let shared_a = from_server_hex(shared_a).ok()?;
+
+        // S = (A * v^u)^b
+        let u = scalar(&compute_u(&shared_a, &self.shared_b));
+        let base = mod_pow(&self.verifier, &u)
+            .concatenating_mul(&shared_a)
+            .rem(N.as_nz_ref());
+        Some(sha256(
+            to_server_hex(&mod_pow(&base, &self.secret_b)).as_bytes(),
+        ))
+    }
+
+    /// The server's proof, if `client_verify_hash` proves the client holds the session key of
+    /// `shared_a` and knows the account.
+    pub(super) fn confirm_key(&self, shared_a: &str, client_verify_hash: &str) -> Option<String> {
+        let session_key = self.session_key(shared_a)?;
+        let shared_a = from_server_hex(shared_a).ok()?;
+
+        let client_hash = calculate_client_hash(
+            &session_key,
+            &self.username,
+            &self.key_uuid,
+            &self.salt,
+            &shared_a,
+            &self.shared_b,
+        );
+        (BASE64URL_NOPAD.encode(&client_hash) == client_verify_hash).then(|| {
+            BASE64URL_NOPAD.encode(&calculate_server_hash(
+                &shared_a,
+                &client_hash,
+                &session_key,
+            ))
+        })
+    }
 }
 
 #[cfg(test)]
@@ -521,6 +619,138 @@ mod tests {
             HEXLOWER.encode(&x),
             "e7e14f282b01332cc193dc42f8501e3ffe8afdbf4b431ed4bfd885ff0bdfecf3"
         );
+    }
+
+    #[tokio::test]
+    async fn rejects_a_precomputed_x_longer_than_a_scalar() {
+        let server = MockServer::start().await;
+        let rest = RestClient::new(
+            new_http_client(),
+            format!("http://{}/api", server.address()),
+            "client-id",
+            "user-agent",
+            "op-user-agent",
+        )
+        .expect("valid headers");
+
+        let error =
+            perform_and_verify_with_x(&[1; 33], "username", "key-uuid", b"salt", "SESSION", &rest)
+                .await
+                .map(|_| ())
+                .expect_err("33 bytes do not fit the scalar");
+
+        assert!(matches!(error, OnePasswordError::Internal(_)));
+        assert!(
+            server
+                .received_requests()
+                .await
+                .unwrap_or_default()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn leading_zeros_do_not_count_towards_the_width_of_a_precomputed_x() {
+        let x = [0x5a; 32];
+        let mut padded = vec![0];
+        padded.extend_from_slice(&x);
+
+        assert_eq!(scalar_bytes(&x).expect("fits"), x);
+        assert_eq!(scalar_bytes(&padded).expect("fits"), x);
+    }
+
+    #[test]
+    fn a_precomputed_x_of_only_zeros_is_a_zero_scalar() {
+        let significant = scalar_bytes(&[0; 33]).expect("fits");
+
+        assert!(bool::from(scalar(significant).is_zero()));
+    }
+
+    /// SSO feeds its precomputed x into the same exchange.
+    #[tokio::test]
+    async fn a_precomputed_x_reaches_the_key_the_password_path_derives() {
+        let salt =
+            super::super::opdata::decode64_loose("-JLqTVQLjQg08LWZ0gyuUA").expect("valid salt");
+        let account_key =
+            AccountKey::parse("A3-RTN9SA-DY9445Y5FF96X6E7B5GPFA95R9").expect("valid account key");
+        let credentials = Credentials {
+            username: "username".into(),
+            password: "password".into(),
+            account_key: "A3-RTN9SA-DY9445Y5FF96X6E7B5GPFA95R9".into(),
+            sign_in_address: SignInAddress {
+                subdomain: "my".into(),
+                domain: SignInDomain::Global,
+            },
+        };
+        let srp_info = SrpInfo::new("SRPg-4096".into(), "PBES2g-HS256".into(), 100000, salt)
+            .expect("supported parameters");
+
+        // The x the password path computes, fed straight back in the way the SSO flow does.
+        let srp_x = compute_x(&credentials, &account_key, &srp_info).expect("derivation succeeds");
+
+        let secret_a = BoxedUint::from_be_hex(
+            "37bbf7bf6a51f902673556ea6a2db91dd9987554ab74c3bc089b213693d9c06e",
+            SCALAR_BITS,
+        )
+        .expect("valid hex");
+        let shared_a = compute_shared_a(&secret_a);
+        let shared_b = big(SHARED_B);
+        let expected = compute_key(&secret_a, &shared_a, &shared_b, &srp_x);
+
+        // The server plays back the pinned B and a proof over these exact inputs.
+        let client_hash = calculate_client_hash(
+            &expected,
+            &credentials.username,
+            &account_key.uuid,
+            srp_info.salt(),
+            &shared_a,
+            &shared_b,
+        );
+        let server_hash =
+            BASE64URL_NOPAD.encode(&calculate_server_hash(&shared_a, &client_hash, &expected));
+
+        let server = MockServer::start().await;
+        server
+            .register(
+                Mock::given(matchers::path("/api/v2/auth"))
+                    .respond_with(
+                        ResponseTemplate::new(200).set_body_json(json!({ "userB": SHARED_B })),
+                    )
+                    .expect(1),
+            )
+            .await;
+        server
+            .register(
+                Mock::given(matchers::path("/api/v2/auth/confirm-key"))
+                    .respond_with(
+                        ResponseTemplate::new(200)
+                            .set_body_json(json!({ "serverVerifyHash": server_hash })),
+                    )
+                    .expect(1),
+            )
+            .await;
+        let rest = RestClient::new(
+            new_http_client(),
+            format!("http://{}/api", server.address()),
+            "client-id",
+            "user-agent",
+            "op-user-agent",
+        )
+        .expect("valid headers");
+
+        let key = perform(
+            &secret_a,
+            &srp_x,
+            &credentials.username,
+            &account_key.uuid,
+            srp_info.salt(),
+            &rest,
+        )
+        .await
+        .expect("the exchange verifies against the mock server");
+
+        assert_eq!(HEXLOWER.encode(&key), HEXLOWER.encode(&expected));
+        server.verify().await;
     }
 
     /// Pinned against the web client's `recieveServerHash`, which hashes
@@ -649,6 +879,59 @@ mod tests {
                 "unexpected error: {error}"
             );
         }
+    }
+
+    fn test_server() -> TestServer {
+        TestServer::new(
+            &[0x5a; 32],
+            &[0x33; 32],
+            VERIFY_USERNAME,
+            VERIFY_KEY_UUID,
+            VERIFY_SALT,
+        )
+    }
+
+    /// The client's proof for `srp_x` against the ephemeral of `server`.
+    fn client_proof(server: &TestServer, srp_x: &[u8]) -> (String, [u8; 32], [u8; 32]) {
+        let secret_a = scalar(&[0x77; 32]);
+        let shared_a = compute_shared_a(&secret_a);
+        let shared_b = from_server_hex(&server.shared_b()).expect("valid B");
+
+        let key = compute_key(&secret_a, &shared_a, &shared_b, srp_x);
+        let proof = calculate_client_hash(
+            &key,
+            VERIFY_USERNAME,
+            VERIFY_KEY_UUID,
+            VERIFY_SALT,
+            &shared_a,
+            &shared_b,
+        );
+        (to_server_hex(&shared_a), key, proof)
+    }
+
+    /// The test server and the client reach the same key, and each accepts the other's proof.
+    #[test]
+    fn the_test_server_agrees_with_the_client() {
+        let server = test_server();
+        let (shared_a, key, proof) = client_proof(&server, &[0x5a; 32]);
+
+        assert_eq!(server.session_key(&shared_a), Some(key));
+        assert_eq!(
+            server.confirm_key(&shared_a, &BASE64URL_NOPAD.encode(&proof)),
+            Some(BASE64URL_NOPAD.encode(&calculate_server_hash(&big(&shared_a), &proof, &key)))
+        );
+    }
+
+    #[test]
+    fn the_test_server_rejects_a_client_that_does_not_know_the_account() {
+        let server = test_server();
+        let (shared_a, _, proof) = client_proof(&server, &[0x5b; 32]);
+
+        assert!(
+            server
+                .confirm_key(&shared_a, &BASE64URL_NOPAD.encode(&proof))
+                .is_none()
+        );
     }
 
     #[test]

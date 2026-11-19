@@ -12,6 +12,12 @@ repository.workspace = true
 license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
+# The generated code has no unit tests or doc tests, so skip building a test harness and running
+# rustdoc over it.
+[lib]
+test = false
+doctest = false
+
 [features]
 mockall = ["dep:mockall"]
 

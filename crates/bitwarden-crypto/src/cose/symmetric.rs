@@ -10,7 +10,8 @@ use coset::{
 
 use super::{AES_256_CBC_HMAC_SHA256_AEAD, XAES_256_GCM, XCHACHA20_POLY1305};
 use crate::{
-    ContentFormat, CoseEncrypt0Bytes, CryptoError, XAes256GcmKey, XChaCha20Poly1305Key,
+    Aes256CbcHmacKey, ContentFormat, CoseEncrypt0Bytes, CryptoError, XAes256GcmKey,
+    XChaCha20Poly1305Key,
     error::EncStringParseError,
     hazmat::symmetric_encryption::{
         Aead,
@@ -44,7 +45,7 @@ pub(crate) enum CoseContentEncryptionAlgorithm {
     /// XChaCha20-Poly1305 (private-use [`XCHACHA20_POLY1305`]).
     XChaCha20Poly1305,
     /// AES-256-CBC-HMAC-SHA256 Encrypt-then-MAC (private-use [`AES_256_CBC_HMAC_SHA256_AEAD`]).
-    Aes256CbcHmacSha256,
+    Aes256CbcHmacSha256Aead,
 }
 
 /// Policy for resolving and validating a COSE message's content-encryption algorithm.
@@ -66,7 +67,9 @@ impl TryFrom<&Algorithm> for CoseContentEncryptionAlgorithm {
             Algorithm::Assigned(iana::Algorithm::A256GCM) => Ok(Self::Aes256Gcm),
             Algorithm::PrivateUse(XAES_256_GCM) => Ok(Self::XAes256Gcm),
             Algorithm::PrivateUse(XCHACHA20_POLY1305) => Ok(Self::XChaCha20Poly1305),
-            Algorithm::PrivateUse(AES_256_CBC_HMAC_SHA256_AEAD) => Ok(Self::Aes256CbcHmacSha256),
+            Algorithm::PrivateUse(AES_256_CBC_HMAC_SHA256_AEAD) => {
+                Ok(Self::Aes256CbcHmacSha256Aead)
+            }
             _ => Err(CryptoError::WrongKeyType),
         }
     }
@@ -172,7 +175,7 @@ pub(crate) fn encrypt_cose(
                 cek,
             ))
         }
-        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
             let cek: &<Aes256CbcHmacSha256Aead as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Ok(Aes256CbcHmacSha256Aead::encrypt_cose(
@@ -211,7 +214,7 @@ pub(crate) fn decrypt_cose(
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             XChaCha20Poly1305::decrypt_cose(cose_encrypt, cek)?
         }
-        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
             let cek: &<Aes256CbcHmacSha256Aead as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Aes256CbcHmacSha256Aead::decrypt_cose(cose_encrypt, cek)?
@@ -276,7 +279,7 @@ pub(crate) fn encrypt_cose0(
                 cek,
             ))
         }
-        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
             let cek: &<Aes256CbcHmacSha256Aead as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Ok(Aes256CbcHmacSha256Aead::encrypt_cose0(
@@ -315,7 +318,7 @@ pub(crate) fn decrypt_cose0(
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             XChaCha20Poly1305::decrypt_cose0(cose_encrypt0, cek)?
         }
-        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256 => {
+        CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead => {
             let cek: &<Aes256CbcHmacSha256Aead as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Aes256CbcHmacSha256Aead::decrypt_cose0(cose_encrypt0, cek)?
@@ -865,6 +868,55 @@ pub(crate) fn decrypt_xaes256_gcm(
     Ok((decrypted, content_format))
 }
 
+/// Decrypts a typed COSE Encrypt0 message with an AES-256-CBC-HMAC-SHA256 key.
+///
+/// Decrypt only: Added in November 2026. Enable encryption after February 2027.
+pub(crate) fn decrypt_aes256_cbc_hmac_aead(
+    message: &CoseEncrypt0Bytes,
+    key: &Aes256CbcHmacKey,
+) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
+    let msg = CoseEncrypt0::from_slice(message.as_ref())
+        .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
+
+    let Some(ref algorithm) = msg.protected.header.alg else {
+        return Err(CryptoError::EncString(
+            EncStringParseError::CoseMissingAlgorithm,
+        ));
+    };
+    if *algorithm != Algorithm::PrivateUse(AES_256_CBC_HMAC_SHA256_AEAD) {
+        return Err(CryptoError::WrongKeyType);
+    }
+
+    let content_format = ContentFormat::try_from(&msg.protected.header)
+        .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
+    if key.key_id().as_slice() != msg.protected.header.key_id {
+        return Err(CryptoError::WrongCoseKeyId);
+    }
+
+    let nonce = Aes256CbcHmacSha256AeadNonce::try_from(&msg)?;
+    let decrypted = msg.decrypt_ciphertext(
+        &[],
+        || CryptoError::MissingField("ciphertext"),
+        |data, aad| {
+            Aes256CbcHmacSha256Aead::decrypt(
+                key.as_composite_key(),
+                &nonce,
+                &Aes256CbcHmacSha256AeadCiphertext::from(data.to_vec()),
+                aad,
+            )
+        },
+    )?;
+
+    if should_pad_content(&content_format) {
+        return Ok((
+            crate::keys::utils::unpad_bytes(&decrypted)?.to_vec(),
+            content_format,
+        ));
+    }
+
+    Ok((decrypted, content_format))
+}
+
 #[cfg(test)]
 mod tests {
     use coset::{CoseEncrypt0Builder, CoseEncryptBuilder, CoseRecipientBuilder, HeaderBuilder};
@@ -894,6 +946,15 @@ mod tests {
         13, 36, 123, 53, 12, 31, 191, 40, 13, 175,
     ];
 
+    const TEST_VECTOR_AES256_CBC_HMAC_COSE_ENCRYPT0: &[u8] = &[
+        131, 88, 28, 163, 1, 58, 0, 1, 17, 122, 3, 24, 42, 4, 80, 172, 78, 207, 251, 46, 8, 122,
+        89, 24, 13, 29, 209, 153, 80, 184, 233, 161, 5, 80, 55, 75, 115, 189, 172, 49, 197, 173,
+        86, 194, 208, 7, 37, 220, 26, 141, 88, 64, 126, 139, 170, 11, 45, 71, 157, 51, 11, 88, 143,
+        209, 55, 20, 233, 101, 18, 59, 6, 218, 67, 253, 125, 84, 62, 121, 185, 250, 218, 33, 162,
+        128, 77, 180, 157, 50, 13, 17, 9, 106, 214, 220, 241, 165, 121, 26, 202, 211, 185, 2, 17,
+        180, 133, 229, 38, 180, 249, 13, 113, 124, 67, 36, 112, 254,
+    ];
+
     /// Every supported content-encryption algorithm, each paired with a CEK of the length that
     /// algorithm requires.
     fn algorithms() -> [(CoseContentEncryptionAlgorithm, &'static [u8]); 4] {
@@ -901,7 +962,10 @@ mod tests {
             (CoseContentEncryptionAlgorithm::Aes256Gcm, &CEK),
             (CoseContentEncryptionAlgorithm::XAes256Gcm, &CEK),
             (CoseContentEncryptionAlgorithm::XChaCha20Poly1305, &CEK),
-            (CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256, &CEK_64),
+            (
+                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
+                &CEK_64,
+            ),
         ]
     }
 
@@ -974,7 +1038,7 @@ mod tests {
     fn test_aes256_cbc_hmac_rejects_wrong_length_cek() {
         assert!(matches!(
             encrypt_cose0(
-                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+                CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
                 CoseEncrypt0Builder::new(),
                 HeaderBuilder::new().build(),
                 PLAINTEXT,
@@ -987,7 +1051,7 @@ mod tests {
     #[test]
     fn test_aes256_cbc_hmac_cose0_fails_with_wrong_key() {
         let message = encrypt_cose0(
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
             CoseEncrypt0Builder::new(),
             HeaderBuilder::new().build(),
             PLAINTEXT,
@@ -1000,7 +1064,9 @@ mod tests {
         assert!(
             decrypt_cose0(
                 &message,
-                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256),
+                CoseAlgorithmPolicy::Exactly(
+                    CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead
+                ),
                 &wrong_cek,
             )
             .is_err()
@@ -1012,7 +1078,9 @@ mod tests {
         assert!(
             decrypt_cose0(
                 &message,
-                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256),
+                CoseAlgorithmPolicy::Exactly(
+                    CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead
+                ),
                 &wrong_mac_key,
             )
             .is_err()
@@ -1022,7 +1090,7 @@ mod tests {
     #[test]
     fn test_aes256_cbc_hmac_cose0_fails_when_ciphertext_tampered() {
         let mut message = encrypt_cose0(
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
             CoseEncrypt0Builder::new(),
             HeaderBuilder::new().build(),
             PLAINTEXT,
@@ -1034,7 +1102,9 @@ mod tests {
         assert!(
             decrypt_cose0(
                 &message,
-                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256),
+                CoseAlgorithmPolicy::Exactly(
+                    CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead
+                ),
                 &CEK_64,
             )
             .is_err()
@@ -1046,7 +1116,7 @@ mod tests {
     #[test]
     fn test_aes256_cbc_hmac_cose0_rejects_mismatched_policy() {
         let message = encrypt_cose0(
-            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
             CoseEncrypt0Builder::new(),
             HeaderBuilder::new().build(),
             PLAINTEXT,
@@ -1474,6 +1544,126 @@ mod tests {
         assert!(matches!(
             decrypt_xchacha20_poly1305(&serialized_message, &key),
             Err(CryptoError::WrongKeyType)
+        ));
+    }
+
+    /// Type 2 key with `enc_key = 0..32`, `mac_key = 32..64`.
+    fn make_aes_cbc_hmac_key() -> Aes256CbcHmacKey {
+        Aes256CbcHmacKey::new(
+            &std::array::from_fn(|i| i as u8),
+            &std::array::from_fn(|i| (i + 32) as u8),
+        )
+    }
+
+    /// Test-only encryption; production code only decrypts this format.
+    fn encrypt_aes256_cbc_hmac(
+        plaintext: &[u8],
+        key: &Aes256CbcHmacKey,
+        content_format: ContentFormat,
+    ) -> CoseEncrypt0Bytes {
+        let protected_header = HeaderBuilder::from(content_format)
+            .key_id(key.key_id().as_slice().to_vec())
+            .build();
+        encrypt_cose0(
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
+            CoseEncrypt0Builder::new(),
+            protected_header,
+            plaintext,
+            key.as_composite_key(),
+        )
+        .unwrap()
+        .to_vec()
+        .unwrap()
+        .into()
+    }
+
+    #[test]
+    #[ignore = "Generates test vectors; run manually"]
+    fn generate_aes256_cbc_hmac_test_vector() {
+        let encrypted = encrypt_aes256_cbc_hmac(
+            TEST_VECTOR_PLAINTEXT,
+            &make_aes_cbc_hmac_key(),
+            ContentFormat::OctetStream,
+        );
+        println!(
+            "const TEST_VECTOR_AES256_CBC_HMAC_COSE_ENCRYPT0: &[u8] = &{:?};",
+            encrypted.as_ref()
+        );
+    }
+
+    /// Locks in the COSE Encrypt0 format for type 2 keys; must never break, or existing data will
+    /// no longer decrypt.
+    #[test]
+    fn test_decrypt_aes256_cbc_hmac_test_vector() {
+        let decrypted = decrypt_aes256_cbc_hmac_aead(
+            &CoseEncrypt0Bytes::from(TEST_VECTOR_AES256_CBC_HMAC_COSE_ENCRYPT0),
+            &make_aes_cbc_hmac_key(),
+        )
+        .unwrap();
+        assert_eq!(
+            decrypted,
+            (TEST_VECTOR_PLAINTEXT.to_vec(), ContentFormat::OctetStream)
+        );
+    }
+
+    #[test]
+    fn test_decrypt_aes256_cbc_hmac_content_formats() {
+        let key = make_aes_cbc_hmac_key();
+        for content_format in [
+            ContentFormat::OctetStream,
+            ContentFormat::Utf8,
+            ContentFormat::Pkcs8PrivateKey,
+            ContentFormat::CoseKey,
+        ] {
+            let encrypted = encrypt_aes256_cbc_hmac(TEST_VECTOR_PLAINTEXT, &key, content_format);
+            assert_eq!(
+                decrypt_aes256_cbc_hmac_aead(&encrypted, &key).unwrap(),
+                (TEST_VECTOR_PLAINTEXT.to_vec(), content_format)
+            );
+        }
+    }
+
+    #[test]
+    fn test_decrypt_aes256_cbc_hmac_fail_wrong_key_id() {
+        let other_key = Aes256CbcHmacKey::new(&[1u8; 32], &[2u8; 32]);
+        assert!(matches!(
+            decrypt_aes256_cbc_hmac_aead(
+                &CoseEncrypt0Bytes::from(TEST_VECTOR_AES256_CBC_HMAC_COSE_ENCRYPT0),
+                &other_key
+            ),
+            Err(CryptoError::WrongCoseKeyId)
+        ));
+    }
+
+    #[test]
+    fn test_decrypt_aes256_cbc_hmac_fail_wrong_algorithm() {
+        // XChaCha20-Poly1305 message
+        assert!(matches!(
+            decrypt_aes256_cbc_hmac_aead(
+                &CoseEncrypt0Bytes::from(TEST_VECTOR_COSE_ENCRYPT0),
+                &make_aes_cbc_hmac_key()
+            ),
+            Err(CryptoError::WrongKeyType)
+        ));
+    }
+
+    #[test]
+    fn test_decrypt_aes256_cbc_hmac_fail_tampered_ciphertext() {
+        let message = CoseEncrypt0::from_slice(TEST_VECTOR_AES256_CBC_HMAC_COSE_ENCRYPT0).unwrap();
+        let mut ciphertext = message.ciphertext.clone().unwrap();
+        ciphertext[0] ^= 1;
+        let tampered: CoseEncrypt0Bytes = CoseEncrypt0Builder::new()
+            .protected(message.protected.header)
+            .unprotected(message.unprotected)
+            .ciphertext(ciphertext)
+            .build()
+            .to_vec()
+            .unwrap()
+            .into();
+
+        assert!(matches!(
+            decrypt_aes256_cbc_hmac_aead(&tampered, &make_aes_cbc_hmac_key()),
+            Err(CryptoError::KeyDecrypt)
         ));
     }
 

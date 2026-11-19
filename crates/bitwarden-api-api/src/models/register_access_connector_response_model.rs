@@ -22,17 +22,14 @@ pub struct RegisterAccessConnectorResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    /// The access connector's unique identifier.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    /// The organization the access connector was registered in.
     #[serde(
         rename = "organizationId",
         alias = "OrganizationId",
         skip_serializing_if = "Option::is_none"
     )]
     pub organization_id: Option<uuid::Uuid>,
-    /// The access connector's display label, as supplied at registration.
     #[serde(
         rename = "name",
         alias = "Name",
@@ -45,27 +42,22 @@ pub struct RegisterAccessConnectorResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub status: Option<models::PamAccessConnectorStatus>,
-    /// When the access connector was registered (UTC).
     #[serde(
         rename = "creationDate",
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub creation_date: Option<String>,
-    /// The id of the access connector's `dbo.ApiKey` credential. The operator assembles the access
-    /// connector's OAuth client id from it (`daemon.<ApiKeyId>`, resolved server-side by
-    /// `PamAccessConnectorClientProvider` in Identity).
+    /// The access connector's OAuth client id is `access-connector.<ApiKeyId>`.
     #[serde(
         rename = "apiKeyId",
         alias = "ApiKeyId",
         skip_serializing_if = "Option::is_none"
     )]
     pub api_key_id: Option<uuid::Uuid>,
-    /// WARNING: shown exactly once. The plaintext client secret for the access connector's
-    /// credential -- store it now; the server hashes it for storage and never persists or returns
-    /// the plaintext again. Pair with the client-wrapped org key you already hold locally to
-    /// assemble the access connector's token
-    /// (`0.daemon.<apiKeyId>.<client_secret>:<encryption_key>`).
+    /// WARNING: shown exactly once; the server stores only its hash. Combine it with the
+    /// client-side encryption key to form the token,
+    /// `0.access-connector.<apiKeyId>.<client_secret>:<encryption_key>`.
     #[serde(
         rename = "clientSecret",
         alias = "ClientSecret",

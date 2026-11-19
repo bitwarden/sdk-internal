@@ -21,31 +21,27 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    /// The access request's unique identifier.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    /// The cipher access was requested for.
     #[serde(
         rename = "cipherId",
         alias = "CipherId",
         skip_serializing_if = "Option::is_none"
     )]
     pub cipher_id: Option<uuid::Uuid>,
-    /// The collection the cipher belongs to, through which the request is governed.
+    /// The collection through which the request is governed.
     #[serde(
         rename = "collectionId",
         alias = "CollectionId",
         skip_serializing_if = "Option::is_none"
     )]
     pub collection_id: Option<uuid::Uuid>,
-    /// The organization that owns the cipher.
     #[serde(
         rename = "organizationId",
         alias = "OrganizationId",
         skip_serializing_if = "Option::is_none"
     )]
     pub organization_id: Option<uuid::Uuid>,
-    /// The member who opened the request.
     #[serde(
         rename = "requesterId",
         alias = "RequesterId",
@@ -65,20 +61,15 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub status: Option<models::AccessRequestStatus>,
-    /// The activation window resolved at submit — the bounds on WHEN this request may be promoted
-    /// to a lease. Both request modes collapse into it (on-demand → `now`..`now + duration`,
-    /// scheduled → the chosen start/end), so there is no separate duration or mode field; the
-    /// length is Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.
-    /// LeaseNotAfter minus
-    /// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.LeaseNotBefore. In
-    /// v1 the approved and leased windows are identical to this one.
+    /// Start of the window resolved at submit (now to now + duration on the automatic path, the
+    /// chosen start and end on the human path). The request can be activated only inside it.
     #[serde(
         rename = "leaseNotBefore",
         alias = "LeaseNotBefore",
         skip_serializing_if = "Option::is_none"
     )]
     pub lease_not_before: Option<String>,
-    /// The end of the resolved activation window (UTC); see
+    /// End of the window; see
     /// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.LeaseNotBefore.
     #[serde(
         rename = "leaseNotAfter",
@@ -86,32 +77,27 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub lease_not_after: Option<String>,
-    /// The optional justification the requester supplied when opening the request.
     #[serde(
         rename = "reason",
         alias = "Reason",
         skip_serializing_if = "Option::is_none"
     )]
     pub reason: Option<String>,
-    /// When the request was opened (UTC).
     #[serde(
         rename = "submittedAt",
         alias = "SubmittedAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub submitted_at: Option<String>,
-    /// When a party approved, denied, or cancelled the request (UTC). Null while pending or
-    /// expired.
+    /// When the request was last approved, denied or cancelled. Null while pending or after
+    /// expiring unanswered.
     #[serde(
         rename = "resolvedAt",
         alias = "ResolvedAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub resolved_at: Option<String>,
-    /// The request's decision log, oldest first — one element per decision (human or automatic).
-    /// Each carries who decided (`deciderKind`), the verdict, and (for a human decision) the
-    /// approver's identity and comment. Empty only while pending. An array so multi-party approval
-    /// lands without breaking the contract.
+    /// The request's decisions, oldest first.
     #[serde(
         rename = "decisions",
         alias = "Decisions",
@@ -131,7 +117,7 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub produced_lease_status: Option<models::AccessLeaseStatus>,
-    /// The produced lease's end (UTC), including any extension, or null when no lease exists.
+    /// The produced lease's end, including any extension, or null when no lease exists.
     #[serde(
         rename = "producedLeaseNotAfter",
         alias = "ProducedLeaseNotAfter",
@@ -145,16 +131,14 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub extension_of_lease_id: Option<uuid::Uuid>,
-    /// The requester's display name, denormalized by the server; null only when the user could not
-    /// be resolved.
+    /// The requester's display name; null when unset or the user could not be resolved.
     #[serde(
         rename = "requesterName",
         alias = "RequesterName",
         skip_serializing_if = "Option::is_none"
     )]
     pub requester_name: Option<String>,
-    /// The requester's email, denormalized by the server; null only when the user could not be
-    /// resolved.
+    /// The requester's email; null when the user could not be resolved.
     #[serde(
         rename = "requesterEmail",
         alias = "RequesterEmail",

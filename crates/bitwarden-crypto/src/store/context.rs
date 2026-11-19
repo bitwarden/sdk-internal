@@ -271,6 +271,20 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                     _ => return Err(CryptoError::InvalidKey),
                 }
             }
+            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::Aes256CbcHmacKey(key)) => {
+                let (content_bytes, content_format) =
+                    crate::cose::symmetric::decrypt_aes256_cbc_hmac_aead(
+                        &CoseEncrypt0Bytes::from(data.clone()),
+                        key,
+                    )?;
+                match content_format {
+                    ContentFormat::BitwardenLegacyKey => {
+                        SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
+                    }
+                    ContentFormat::CoseKey => SymmetricCryptoKey::try_from_cose(&content_bytes)?,
+                    _ => return Err(CryptoError::InvalidKey),
+                }
+            }
             (EncString::Unparseable { .. }, _) => return Err(CryptoError::UnparseableEncString),
             _ => {
                 tracing::warn!(
@@ -794,6 +808,13 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 )?;
                 Ok(data)
             }
+            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::Aes256CbcHmacKey(key)) => {
+                let (data, _) = crate::cose::symmetric::decrypt_aes256_cbc_hmac_aead(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
+                Ok(data)
+            }
             (EncString::Unparseable { .. }, _) => Err(CryptoError::UnparseableEncString),
             _ => {
                 tracing::warn!("Unsupported decryption operation for the given key and data");
@@ -1299,5 +1320,87 @@ mod tests {
             ),
             "Expected decrypt to fail when using deprecated type 0 keys",
         );
+    }
+
+    /// Type 7 EncString sealed with [`aes_cbc_hmac_key`]; same vector as in `enc_string`.
+    const AES256_CBC_HMAC_COSE_ENC_STRING: &str = "7.g1g/owE6AAERegN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLnV0ZjgtcGFkZGVkBFCsTs/7Lgh6WRgNHdGZULjpoQVQXYJbsJat2eG+9CcclU7mqVhwKiZITE/+y7LqmpX+A+QS7iZ3Ng/0/+zZnW/TFQ//5t5qnJl6p0GV3t804h4rSfwEGtXvI27//Uaup0KEq+XU8kwx5m4VSq8JarD48spPgxlrmpLncTpFgIh+Z6YDPc300PsAbOj+bHT+dSLFH7cRHA==";
+    const AES256_CBC_HMAC_COSE_PLAINTEXT: &str = "Type 7 AES-256-CBC-HMAC test vector";
+
+    /// Type 7 EncString wrapping [`wrapped_cbc_hmac_key`] with [`aes_cbc_hmac_key`].
+    const AES256_CBC_HMAC_COSE_WRAPPED_KEY: &str = "7.g1g+owE6AAERegN4ImFwcGxpY2F0aW9uL3guYml0d2FyZGVuLmxlZ2FjeS1rZXkEUKxOz/suCHpZGA0d0ZlQuOmhBVA/xHqu2ZfcJysRNmVH5qYlWHBIVgSz8gOKwZsPx3fPmRMza6dheBgQND7/vHtmRYVCp8UGYoT8WT2bgSl2vJy5QY782m9IzoXCLdLl21G0lGTRuwJtAOGfNwx1C8HR1ph44rgUug7rAP2qCc6Dfji2IXL6Y4qxblTC3LoelNcQsDgI";
+
+    /// Type 2 key with `enc_key = 0..32`, `mac_key = 32..64`.
+    fn aes_cbc_hmac_key() -> SymmetricCryptoKey {
+        SymmetricCryptoKey::Aes256CbcHmacKey(crate::Aes256CbcHmacKey::new(
+            &std::array::from_fn(|i| i as u8),
+            &std::array::from_fn(|i| (i + 32) as u8),
+        ))
+    }
+
+    /// Type 2 key with `enc_key = 64..96`, `mac_key = 96..128`.
+    fn wrapped_cbc_hmac_key() -> SymmetricCryptoKey {
+        SymmetricCryptoKey::Aes256CbcHmacKey(crate::Aes256CbcHmacKey::new(
+            &std::array::from_fn(|i| (i + 64) as u8),
+            &std::array::from_fn(|i| (i + 96) as u8),
+        ))
+    }
+
+    #[test]
+    #[ignore = "Generates test vectors; run manually"]
+    fn generate_aes256_cbc_hmac_wrapped_key_vector() {
+        let wrapping_key = aes_cbc_hmac_key();
+        let SymmetricCryptoKey::Aes256CbcHmacKey(key) = &wrapping_key else {
+            unreachable!();
+        };
+        let protected_header = coset::HeaderBuilder::from(crate::ContentFormat::BitwardenLegacyKey)
+            .key_id(key.key_id().as_slice().to_vec())
+            .build();
+        let message = crate::cose::symmetric::encrypt_cose0(
+            crate::cose::symmetric::CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256Aead,
+            coset::CoseEncrypt0Builder::new(),
+            protected_header,
+            wrapped_cbc_hmac_key().to_encoded().as_ref(),
+            key.as_composite_key(),
+        )
+        .unwrap();
+        let enc_string = EncString::Cose_Encrypt0_B64 {
+            data: coset::CborSerializable::to_vec(message).unwrap(),
+        };
+        println!(
+            "const AES256_CBC_HMAC_COSE_WRAPPED_KEY: &str = \"{}\";",
+            enc_string.to_string()
+        );
+    }
+
+    #[test]
+    fn test_decrypt_type7_data_with_type2_key() {
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+        let key_id = TestSymmKey::A(0);
+        ctx.set_symmetric_key(key_id, aes_cbc_hmac_key()).unwrap();
+
+        let enc_string: EncString = AES256_CBC_HMAC_COSE_ENC_STRING.parse().unwrap();
+        let decrypted = ctx
+            .decrypt_data_with_symmetric_key(key_id, &enc_string)
+            .unwrap();
+        assert_eq!(decrypted, AES256_CBC_HMAC_COSE_PLAINTEXT.as_bytes());
+    }
+
+    #[test]
+    fn test_unwrap_type7_key_with_type2_key() {
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+        let wrapping_key_id = TestSymmKey::A(0);
+        let expected_key_id = TestSymmKey::A(1);
+        ctx.set_symmetric_key(wrapping_key_id, aes_cbc_hmac_key())
+            .unwrap();
+        ctx.set_symmetric_key(expected_key_id, wrapped_cbc_hmac_key())
+            .unwrap();
+
+        let wrapped_key: EncString = AES256_CBC_HMAC_COSE_WRAPPED_KEY.parse().unwrap();
+        let unwrapped_key_id = ctx
+            .unwrap_symmetric_key(wrapping_key_id, &wrapped_key)
+            .unwrap();
+        ctx.assert_symmetric_keys_equal(unwrapped_key_id, expected_key_id);
     }
 }

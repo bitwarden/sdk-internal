@@ -185,13 +185,13 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
             #[wasm_bindgen(method)]
             pub async fn #set(
                 this: &crate::key_management::state_bridge::RawWasmStateBridge,
-                value: #ty,
+                value: <#ty as ::bitwarden_ffi::ToWasm>::Wire,
             );
             #[doc = #get_doc]
             #[wasm_bindgen(method)]
             pub async fn #get(
                 this: &crate::key_management::state_bridge::RawWasmStateBridge,
-            ) -> ::wasm_bindgen::JsValue;
+            ) -> Option<<#ty as ::bitwarden_ffi::FromWasm>::Wire>;
             #[doc = #clear_doc]
             #[wasm_bindgen(method)]
             pub async fn #clear(
@@ -268,31 +268,28 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
         let set = format_ident!("set_{}", f.name);
         let get = format_ident!("get_{}", f.name);
         let clear = format_ident!("clear_{}", f.name);
-        let get_err = format!("State bridge `get_{n}` failed to deserialize value from JsValue");
+        let get_err = format!("State bridge `get_{n}` failed to convert the value from JavaScript");
+        let set_err = format!("State bridge `set_{n}` failed to convert the value to JavaScript");
+        // Conversion happens inside the thread because a wire value can be a JS handle, and so
+        // `!Send`.
         quote! {
             async fn #set(&self, value: #ty) {
                 self.0
                     .run_in_thread(move |state| async move {
+                        let value = ::bitwarden_ffi::ToWasm::to_wire(value).expect(#set_err);
                         state.#set(value).await
                     })
                     .await
                     .expect("State bridge call panicked");
             }
             async fn #get(&self) -> Option<#ty> {
-                let js: ::wasm_bindgen::JsValue = self.0
+                self.0
                     .run_in_thread(|state| async move {
-                        state.#get().await
+                        let wire = state.#get().await?;
+                        Some(<#ty as ::bitwarden_ffi::FromWasm>::from_wire(wire).expect(#get_err))
                     })
                     .await
-                    .expect("State bridge call panicked");
-                if js.is_null() || js.is_undefined() {
-                    None
-                } else {
-                    Some(
-                        <#ty as ::core::convert::TryFrom<::wasm_bindgen::JsValue>>::try_from(js)
-                            .expect(#get_err),
-                    )
-                }
+                    .expect("State bridge call panicked")
             }
             async fn #clear(&self) {
                 self.0
@@ -329,7 +326,7 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
         const TS_CUSTOM_TYPES_STATE_BRIDGE: &'static str = #ts_iface;
 
         #[cfg(target_arch = "wasm32")]
-        #[::wasm_bindgen::prelude::wasm_bindgen]
+        #[::bitwarden_ffi::wasm_import]
         extern "C" {
             #(#extern_methods)*
         }

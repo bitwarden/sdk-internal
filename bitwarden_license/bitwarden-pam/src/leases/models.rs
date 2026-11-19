@@ -21,7 +21,7 @@ pub enum AccessLeaseStatus {
     Active,
     /// The lease's access window has closed; it no longer grants access.
     Expired,
-    /// The lease was revoked before its window closed.
+    /// An operator revoked the lease before its window closed.
     Revoked,
     /// The lease was cancelled by its requester before its window closed.
     Canceled,
@@ -42,13 +42,7 @@ impl From<ApiAccessLeaseStatus> for AccessLeaseStatus {
     }
 }
 
-/// A decrypted view of an access lease, as its requester sees it.
-///
-/// A lease is the single-use grant that an approved [`AccessRequest`](crate::AccessRequestView)
-/// mints when the requester activates it. While a lease is [`Active`](AccessLeaseStatus::Active)
-/// the requester may open the otherwise-gated cipher; once it
-/// [`Expired`](AccessLeaseStatus::Expired) or is [`Revoked`](AccessLeaseStatus::Revoked) the cipher
-/// re-locks.
+/// An access lease, as its requester sees it.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
@@ -89,7 +83,7 @@ pub enum AccessLeaseTermination {
     Revoked {
         /// Time it was revoked (UTC).
         at: DateTime<Utc>,
-        /// The operator who revoked it, or `None` absent an attributed revocation.
+        /// The operator who revoked it, or `None` when the server omits the revoker.
         by_user_id: Option<UserId>,
     },
 }
@@ -137,8 +131,8 @@ impl TryFrom<AccessLeaseResponseModel> for AccessLeaseView {
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessLeaseExtensionRequest {
-    /// How much further to push out the lease's end, in seconds. None asks the server to apply the
-    /// governing rule's default extension. Must be positive and within the rule's maximum.
+    /// How far to push out the lease's end, in seconds, within the governing rule's maximum
+    /// extension. The server rejects `None`.
     pub duration_seconds: Option<NonZeroU32>,
     /// The justification recorded with the extension. Required by the server to be non-empty.
     pub reason: String,

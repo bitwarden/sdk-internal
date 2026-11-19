@@ -1,7 +1,8 @@
 use bitwarden_error::bitwarden_error;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::rpc::error::RpcError;
+use crate::{endpoint::Endpoint, rpc::error::RpcError};
 
 /// Classification of an IPC error, returned by [`IpcErrorKind::kind`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,7 +61,8 @@ impl IpcErrorKind for () {
 pub struct AlreadyRunningError;
 
 /// Error returned by [`IpcClient::send`](crate::IpcClient::send).
-#[derive(Debug, Error, Clone, PartialEq, Eq)]
+#[derive(Debug, Error, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[bitwarden_ffi::wasm_record]
 pub enum SendError {
     /// The destination could not be reached (e.g. the peer transport is not connected).
     #[error("Destination unreachable")]
@@ -68,6 +70,26 @@ pub enum SendError {
     /// Any other send failure, carrying the underlying error's debug representation.
     #[error("{0}")]
     Other(String),
+}
+
+/// Error returned by [`IpcClient::broadcast`](crate::IpcClient::broadcast) when the group could
+/// not be turned into a set of endpoints. Nothing has been sent when this is returned; failures to
+/// deliver to an individual endpoint are reported per endpoint instead.
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+#[bitwarden_error(flat)]
+pub enum BroadcastError {
+    /// The platform cannot resolve this group.
+    #[error("The communication backend does not support broadcasting to this group")]
+    Unsupported,
+    /// The platform asked to delegate delivery to another endpoint, which is not supported.
+    #[error("Delegating delivery to another endpoint is not supported")]
+    DelegationUnsupported,
+    /// The platform resolved the group to an endpoint outside of it.
+    #[error("The communication backend resolved the group to an endpoint outside of it: {0:?}")]
+    OutOfScope(Endpoint),
+    /// The payload could not be serialized.
+    #[error("Failed to serialize payload: {0}")]
+    Serialization(String),
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

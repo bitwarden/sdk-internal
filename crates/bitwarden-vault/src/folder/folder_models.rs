@@ -10,8 +10,6 @@ use bitwarden_crypto::{
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::VaultParseError;
 
@@ -21,7 +19,7 @@ uuid_newtype!(pub FolderId);
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Folder {
     pub id: Option<FolderId>,
     pub name: EncString,
@@ -34,7 +32,7 @@ bitwarden_state::register_repository_item!(FolderId => Folder, "Folder");
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct FolderView {
     pub id: Option<FolderId>,
     pub name: String,

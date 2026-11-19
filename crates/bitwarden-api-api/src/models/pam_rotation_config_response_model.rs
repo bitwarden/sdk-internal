@@ -60,6 +60,13 @@ pub struct PamRotationConfigResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub sealed_data: Option<String>,
+    /// The content key of the sealed blob, wrapped by the organization key.
+    #[serde(
+        rename = "wrappedKey",
+        alias = "WrappedKey",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub wrapped_key: Option<String>,
     /// A Quartz 6-field cron expression evaluated in UTC. Null means no scheduled rotation.
     #[serde(
         rename = "scheduleCron",
@@ -139,6 +146,7 @@ impl PamRotationConfigResponseModel {
             target_system_name: None,
             target_system_method: None,
             sealed_data: None,
+            wrapped_key: None,
             schedule_cron: None,
             rotate_on_access_end: None,
             next_rotation_at: None,

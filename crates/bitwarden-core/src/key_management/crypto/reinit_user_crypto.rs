@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
+#[cfg(feature = "wasm")]
+use crate::key_management::wasm_unlock_state::copy_user_key_to_state;
 use crate::{
     Client,
     key_management::{
@@ -146,6 +148,14 @@ pub(crate) async fn reinit_user_crypto(
         .state_bridge
         .set_v2_upgrade_token(&req.upgrade_token)
         .await;
+
+    // Without this the client state keeps the V1 key, and the next re-creation of the SDK from
+    // state reads it back and runs a second rotation.
+    #[cfg(feature = "wasm")]
+    copy_user_key_to_state(client).await.map_err(|_| {
+        error!("Failed to copy the upgraded user key to state during reinit_user_crypto");
+        ReinitUserCryptoError::CryptoInitialization
+    })?;
 
     super::on_unlock_handler(client).await.map_err(|e| {
         error!(error = ?e, "Failure in on_unlock_handler during reinit_user_crypto.");

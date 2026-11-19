@@ -13,7 +13,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate, matchers};
 
 use super::{
     account_key::AccountKey,
-    client::download_vaults,
+    client::{MasterKey, download_vaults},
     credentials::Credentials,
     model::DownloadedAccount,
     opdata::{AesKey, decode64_loose},
@@ -104,9 +104,15 @@ async fn download_account_fixture(account_response: &str) -> DownloadedAccount {
     let account_key = AccountKey::parse(&credentials.account_key).expect("valid account key");
     let session = Session::new(session_key(), rest);
 
-    download_vaults(&credentials, &account_key, &session)
-        .await
-        .expect("the captured responses decrypt and parse")
+    download_vaults(
+        MasterKey::Derived {
+            credentials: &credentials,
+            account_key: &account_key,
+        },
+        &session,
+    )
+    .await
+    .expect("the captured responses decrypt and parse")
 }
 
 #[tokio::test]

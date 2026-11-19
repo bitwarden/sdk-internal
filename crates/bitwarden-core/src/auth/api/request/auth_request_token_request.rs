@@ -1,6 +1,5 @@
 use bitwarden_api_api::Configuration;
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 use uuid::Uuid;
 
 use crate::{
@@ -8,7 +7,7 @@ use crate::{
     auth::{api::response::IdentityTokenResponse, login::LoginError},
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub(crate) struct AuthRequestTokenRequest {
     scope: String,
     client_id: String,
@@ -36,7 +35,7 @@ impl AuthRequestTokenRequest {
         device_type: DeviceType,
         device_identifier: &str,
     ) -> Self {
-        let obj = Self {
+        Self {
             scope: "api offline_access".to_string(),
             client_id: "web".to_string(),
             device_type: device_type as u8,
@@ -46,9 +45,7 @@ impl AuthRequestTokenRequest {
             email: email.to_string(),
             auth_request_id: *auth_request_id,
             access_code: access_code.to_string(),
-        };
-        debug!(?obj, "initializing");
-        obj
+        }
     }
 
     pub(crate) async fn send(

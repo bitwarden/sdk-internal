@@ -69,6 +69,12 @@ pub trait OrganizationSponsorshipsApi: Send + Sync {
     /// DELETE /organization/sponsorship/sponsored/{sponsoredOrgId}
     async fn remove_sponsorship<'a>(&self, sponsored_org_id: uuid::Uuid) -> Result<(), Error>;
 
+    /// POST /organization/sponsorship/{organizationId}/families-for-enterprise/resend-self
+    async fn resend_own_sponsorship_offer<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<(), Error>;
+
     /// POST /organization/sponsorship/{organizationId}/families-for-enterprise/resend
     async fn resend_sponsorship_offer<'a>(
         &self,
@@ -76,11 +82,8 @@ pub trait OrganizationSponsorshipsApi: Send + Sync {
         sponsored_friendly_name: Option<&'a str>,
     ) -> Result<(), Error>;
 
-    /// DELETE /organization/sponsorship/{sponsoringOrganizationId}
-    async fn revoke_sponsorship<'a>(
-        &self,
-        sponsoring_organization_id: uuid::Uuid,
-    ) -> Result<(), Error>;
+    /// DELETE /organization/sponsorship/{organizationId}
+    async fn revoke_sponsorship<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
 
     /// POST /organization/sponsorship/sync
     async fn sync<'a>(
@@ -263,6 +266,27 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
+    async fn resend_own_sponsorship_offer<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organization/sponsorship/{organizationId}/families-for-enterprise/resend-self",
+            local_var_configuration.base_path,
+            organizationId = organization_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     async fn resend_sponsorship_offer<'a>(
         &self,
         organization_id: uuid::Uuid,
@@ -289,18 +313,15 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn revoke_sponsorship<'a>(
-        &self,
-        sponsoring_organization_id: uuid::Uuid,
-    ) -> Result<(), Error> {
+    async fn revoke_sponsorship<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/organization/sponsorship/{sponsoringOrganizationId}",
+            "{}/organization/sponsorship/{organizationId}",
             local_var_configuration.base_path,
-            sponsoringOrganizationId = sponsoring_organization_id
+            organizationId = organization_id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());

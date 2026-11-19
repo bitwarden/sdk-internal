@@ -7,8 +7,6 @@ use bitwarden_crypto::{
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{Send, SendListView, SendView};
 
@@ -53,13 +51,13 @@ pub enum SendDecryptFileError {
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct SendClient {
     pub(crate) client: Client,
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Decrypt a [`Send`] into a [`SendView`].
     /// This is a temporary function to support the transition to fully using the SDK for Send logic

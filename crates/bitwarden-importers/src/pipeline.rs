@@ -127,6 +127,7 @@ pub(crate) async fn submit_import(
                         read_only: false,
                         manage: true,
                         r#type: CollectionType::DefaultUserCollection,
+                        has_enabled_access_rule: None,
                     };
                     let collection_relationships =
                         (0..cipher_count).map(|c| (c, 0)).collect::<Vec<_>>();
@@ -357,6 +358,7 @@ fn build_org_collections(
         read_only: false,
         manage: true,
         r#type: CollectionType::SharedCollection,
+        has_enabled_access_rule: None,
     };
     let collections = match target {
         Some((id, target_name)) => {

@@ -46,7 +46,9 @@ encrypts other keys** — never content directly — via a
 implemented), or a signature key envelope (not yet implemented). One of the keys a KEK wraps (via a
 symmetric key envelope) may itself be another KEK, allowing chained key hierarchies. A KEK is
 **reused**: the same KEK wraps many keys over its lifetime, and rotating it means re-wrapping only
-the keys it protects, not re-encrypting content.
+the keys it protects, not re-encrypting content. New KEKs are XAES-256-GCM keys. Existing
+AES-256-CBC-HMAC keys that act as KEKs, such as V1 user keys and cipher keys, are also accepted so
+that they can adopt safe objects before they are rotated.
 
 **Content encryption keys (CEKs).** A symmetric key envelope may hold a CEK. A CEK encrypts content
 — via a [data envelope](../README.md#data-envelope) or an attachment stream (not yet implemented).

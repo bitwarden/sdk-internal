@@ -3,8 +3,6 @@ use std::sync::Arc;
 use bitwarden_core::{FromClient, client::ApiConfigurations, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::repository::Repository;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     Folder, FolderView,
@@ -12,7 +10,7 @@ use crate::{
 };
 
 /// Wrapper for folder specific functionality.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct FoldersClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -20,7 +18,7 @@ pub struct FoldersClient {
     pub(crate) repository: Option<Arc<dyn Repository<Folder>>>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[deprecated(
     note = "Use the higher level `FoldersClient` methods instead, which handle encryption and decryption for you."
 )]

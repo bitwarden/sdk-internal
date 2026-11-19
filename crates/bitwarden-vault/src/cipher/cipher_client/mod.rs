@@ -3,36 +3,42 @@ use std::sync::Arc;
 use bitwarden_core::{
     Client, FromClient, OrganizationId,
     client::{ApiConfigurations, FromClientPart},
-    key_management::{BLOB_SECURITY_VERSION, KeySlotIds},
+    key_management::{BLOB_SECURITY_VERSION, KeySlotIds, SymmetricKeySlotId},
 };
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
-use bitwarden_crypto::{IdentifyKey, KeyStore, KeyStoreContext};
+use bitwarden_crypto::{Decryptable, IdentifyKey, KeyStore, KeyStoreContext};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
+use bitwarden_ffi::LargeVec;
 use bitwarden_state::repository::{Repository, RepositoryError};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
+#[cfg(feature = "wasm")]
+use crate::Fido2CredentialFullView;
 use crate::{
-    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt},
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, DecryptListError, EncryptError,
+    cipher::cipher::{DecryptCipherListResult, DecryptCipherResult, EncryptMode, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
-#[cfg(feature = "wasm")]
-use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
 mod bulk_update_collections;
 
 pub use admin::{GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError};
+pub use bulk_update_collections::BulkUpdateCollectionsCipherError;
 mod create;
+pub use create::{CipherCreateRequest, CreateCipherError};
 mod delete;
+pub use delete::DeleteCipherError;
 mod edit;
+pub use edit::{CipherEditRequest, CipherPartialEditRequest, EditCipherError};
 mod get;
+pub use get::GetCipherError;
 mod move_many;
+pub use move_many::MoveCipherError;
 mod restore;
+pub use restore::RestoreCipherError;
 mod share_cipher;
 
 /// Returns `true` when cipher data for the given scope should be written in the blob-encrypted
@@ -47,7 +53,7 @@ pub fn should_use_blob_encryption(
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CiphersClient {
     #[allow(dead_code)]
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -72,7 +78,7 @@ impl FromClient for CiphersClient {
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     pub(crate) fn should_use_blob_encryption(
         &self,
@@ -175,8 +181,7 @@ impl CiphersClient {
     ///
     /// This method attempts to encrypt all ciphers in the list. If any cipher
     /// fails to encrypt, the entire operation fails and an error is returned.
-    #[cfg(feature = "wasm")]
-    // The signature is part of the wasm public surface; keep it `async`.
+    // The signature is part of the UniFFI and wasm public surface; keep it `async`.
     #[allow(clippy::unused_async)]
     pub async fn encrypt_list(
         &self,
@@ -232,68 +237,46 @@ impl CiphersClient {
         })
     }
 
-    #[allow(missing_docs)]
+    /// Decrypt cipher list. Fails if any cipher fails to decrypt.
     pub async fn decrypt_list(
         &self,
-        ciphers: Vec<Cipher>,
-    ) -> Result<Vec<CipherListView>, DecryptError> {
+        ciphers: LargeVec<Cipher>,
+    ) -> Result<Vec<CipherListView>, DecryptListError> {
         let key_store = self.client.internal.get_key_store();
-        Ok(if self.is_strict_decrypt().await {
-            let wrapped: Vec<StrictDecrypt<Cipher>> =
-                ciphers.into_iter().map(StrictDecrypt).collect();
-            key_store.decrypt_list(&wrapped)?
-        } else {
-            key_store.decrypt_list(&ciphers)?
-        })
+        let strict = self.is_strict_decrypt().await;
+        // The room for every cipher is reserved up front: growing by doubling holds the old and the
+        // new buffer at once.
+        let mut views = Vec::with_capacity(ciphers.len());
+        for result in decrypt_ciphers(key_store, ciphers, strict) {
+            views.push(result?.map_err(|failure| failure.1)?);
+        }
+        Ok(views)
     }
 
     /// Decrypt cipher list with failures
     /// Returns both successfully decrypted ciphers and any that failed to decrypt
     pub async fn decrypt_list_with_failures(
         &self,
-        ciphers: Vec<Cipher>,
-    ) -> DecryptCipherListResult {
-        let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            let wrapped: Vec<StrictDecrypt<Cipher>> =
-                ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
-            DecryptCipherListResult {
-                successes,
-                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-            }
-        } else {
-            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-            DecryptCipherListResult {
-                successes,
-                failures: failures.into_iter().cloned().collect(),
-            }
-        }
+        ciphers: LargeVec<Cipher>,
+    ) -> Result<DecryptCipherListResult, DecryptListError> {
+        let (successes, failures) = self.decrypt_ciphers_with_failures(ciphers).await?;
+        Ok(DecryptCipherListResult {
+            successes,
+            failures,
+        })
     }
 
     /// Decrypt full cipher list
     /// Returns both successfully fully decrypted ciphers and any that failed to decrypt
-    #[cfg(feature = "wasm")]
     pub async fn decrypt_list_full_with_failures(
         &self,
-        ciphers: Vec<Cipher>,
-    ) -> DecryptCipherResult {
-        let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            let wrapped: Vec<StrictDecrypt<Cipher>> =
-                ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
-            DecryptCipherResult {
-                successes,
-                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-            }
-        } else {
-            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-            DecryptCipherResult {
-                successes,
-                failures: failures.into_iter().cloned().collect(),
-            }
-        }
+        ciphers: LargeVec<Cipher>,
+    ) -> Result<DecryptCipherResult, DecryptListError> {
+        let (successes, failures) = self.decrypt_ciphers_with_failures(ciphers).await?;
+        Ok(DecryptCipherResult {
+            successes,
+            failures,
+        })
     }
 
     /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
@@ -338,6 +321,71 @@ impl CiphersClient {
     async fn is_strict_decrypt(&self) -> bool {
         self.client.flags().get().await.strict_cipher_decryption
     }
+
+    /// Decrypts `ciphers`, returning the decrypted ciphers and the ciphers that failed, each in
+    /// their original order.
+    async fn decrypt_ciphers_with_failures<Output>(
+        &self,
+        ciphers: LargeVec<Cipher>,
+    ) -> Result<(Vec<Output>, Vec<Cipher>), DecryptListError>
+    where
+        Cipher: Decryptable<KeySlotIds, SymmetricKeySlotId, Output>,
+        StrictDecrypt<Cipher>: Decryptable<KeySlotIds, SymmetricKeySlotId, Output>,
+        Output: Send + Sync,
+    {
+        let key_store = self.client.internal.get_key_store();
+        let strict = self.is_strict_decrypt().await;
+        // The room for every cipher is reserved up front: growing by doubling holds the old and the
+        // new buffer at once.
+        let mut successes = Vec::with_capacity(ciphers.len());
+        let mut failures = Vec::new();
+        for result in decrypt_ciphers(key_store, ciphers, strict) {
+            match result? {
+                Ok(output) => successes.push(output),
+                Err(failure) => failures.push(failure.0),
+            }
+        }
+        Ok((successes, failures))
+    }
+}
+
+/// The result of decrypting one cipher of a list: the decrypted cipher, or the cipher that failed
+/// along with its error, or an input item that is not a cipher.
+type DecryptedCipher<Output> = Result<
+    Result<Output, Box<(Cipher, bitwarden_crypto::CryptoError)>>,
+    bitwarden_ffi::LargeVecError,
+>;
+
+/// Decrypts `ciphers` in order with [`KeyStore::decrypt_large_vec`], with [`StrictDecrypt`] when
+/// `strict` is set. An input item that is not a cipher comes as an `Err`; callers fail the call
+/// there.
+fn decrypt_ciphers<'a, Output>(
+    key_store: &'a KeyStore<KeySlotIds>,
+    ciphers: LargeVec<Cipher>,
+    strict: bool,
+) -> Box<dyn Iterator<Item = DecryptedCipher<Output>> + 'a>
+where
+    Cipher: Decryptable<KeySlotIds, SymmetricKeySlotId, Output>,
+    StrictDecrypt<Cipher>: Decryptable<KeySlotIds, SymmetricKeySlotId, Output>,
+    Output: Send + 'a,
+{
+    if strict {
+        Box::new(
+            key_store
+                .decrypt_large_vec(ciphers.map(StrictDecrypt))
+                .map(|result| Ok(result?.map_err(unwrap_strict_failure))),
+        )
+    } else {
+        Box::new(key_store.decrypt_large_vec(ciphers))
+    }
+}
+
+/// The cipher in a failed strict decrypt, without its [`StrictDecrypt`] wrapper.
+fn unwrap_strict_failure(
+    failure: Box<(StrictDecrypt<Cipher>, bitwarden_crypto::CryptoError)>,
+) -> Box<(Cipher, bitwarden_crypto::CryptoError)> {
+    let (StrictDecrypt(cipher), error) = *failure;
+    Box::new((cipher, error))
 }
 
 #[cfg(test)]
@@ -351,9 +399,12 @@ mod tests {
     use bitwarden_crypto::{CryptoError, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
     #[cfg(feature = "wasm")]
-    use crate::{AttachmentView, cipher::blob::try_parse_blob};
+    use crate::AttachmentView;
+    use crate::{
+        Attachment, CipherRepromptType, CipherType, Login, VaultClientExt,
+        cipher::blob::try_parse_blob,
+    };
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -373,6 +424,7 @@ mod tests {
                 uris:None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             identity: None,
@@ -400,7 +452,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "wasm")]
     fn test_cipher_view() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
@@ -413,6 +464,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             id: Some(test_id),
@@ -489,7 +541,7 @@ mod tests {
                 login: Some(Login{
                     username: Some("2.ouEYEk+SViUtqncesfe9Ag==|iXzEJq1zBeNdDbumFO1dUA==|RqMoo9soSwz/yB99g6YPqk8+ASWRcSdXsKjbwWzyy9U=".parse().unwrap()),
                     password: Some("2.6yXnOz31o20Z2kiYDnXueA==|rBxTb6NK9lkbfdhrArmacw==|ogZir8Z8nLgiqlaLjHH+8qweAtItS4P2iPv1TELo5a0=".parse().unwrap()),
-                    password_revision_date: None, uris:None, totp: None, autofill_on_page_load: None, fido2_credentials: None }),
+                    password_revision_date: None, uris:None, totp: None, autofill_on_page_load: None, http_authentication_enabled: None, fido2_credentials: None }),
                 identity: None,
                 card: None,
                 secure_note: None,
@@ -512,7 +564,7 @@ mod tests {
                 revision_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
                 archived_date: None,
                 data: None,
-            }])
+            }].into())
             .await
             .unwrap();
 
@@ -528,8 +580,9 @@ mod tests {
         let result = client
             .vault()
             .ciphers()
-            .decrypt_list_with_failures(vec![valid_cipher])
-            .await;
+            .decrypt_list_with_failures(vec![valid_cipher].into())
+            .await
+            .unwrap();
 
         assert_eq!(result.successes.len(), 1);
         assert!(result.failures.is_empty());
@@ -549,8 +602,9 @@ mod tests {
         let result = client
             .vault()
             .ciphers()
-            .decrypt_list_with_failures(ciphers)
-            .await;
+            .decrypt_list_with_failures(ciphers.into())
+            .await
+            .unwrap();
 
         assert_eq!(result.successes.len(), 1);
         assert_eq!(result.failures.len(), 1);
@@ -772,7 +826,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "wasm")]
     async fn test_decrypt_list_full_with_failures_all_success() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
@@ -781,8 +834,9 @@ mod tests {
         let result = client
             .vault()
             .ciphers()
-            .decrypt_list_full_with_failures(vec![valid_cipher])
-            .await;
+            .decrypt_list_full_with_failures(vec![valid_cipher].into())
+            .await
+            .unwrap();
 
         assert_eq!(result.successes.len(), 1);
         assert!(result.failures.is_empty());
@@ -790,7 +844,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "wasm")]
     async fn test_decrypt_list_full_with_failures_mixed_results() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
         let valid_cipher = test_cipher();
@@ -803,8 +856,9 @@ mod tests {
         let result = client
             .vault()
             .ciphers()
-            .decrypt_list_full_with_failures(ciphers)
-            .await;
+            .decrypt_list_full_with_failures(ciphers.into())
+            .await
+            .unwrap();
 
         assert_eq!(result.successes.len(), 1);
         assert_eq!(result.failures.len(), 1);
@@ -813,7 +867,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "wasm")]
     async fn test_decrypt_list_full_with_failures_all_failures() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
         let mut invalid_cipher1 = test_cipher();
@@ -827,23 +880,24 @@ mod tests {
         let result = client
             .vault()
             .ciphers()
-            .decrypt_list_full_with_failures(ciphers)
-            .await;
+            .decrypt_list_full_with_failures(ciphers.into())
+            .await
+            .unwrap();
 
         assert!(result.successes.is_empty());
         assert_eq!(result.failures.len(), 2);
     }
 
     #[tokio::test]
-    #[cfg(feature = "wasm")]
     async fn test_decrypt_list_full_with_failures_empty_list() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
         let result = client
             .vault()
             .ciphers()
-            .decrypt_list_full_with_failures(vec![])
-            .await;
+            .decrypt_list_full_with_failures(vec![].into())
+            .await
+            .unwrap();
 
         assert!(result.successes.is_empty());
         assert!(result.failures.is_empty());
@@ -914,7 +968,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -933,7 +986,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list_empty() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -944,7 +996,6 @@ mod tests {
         assert!(result.unwrap().is_empty());
     }
 
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list_roundtrip() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -971,7 +1022,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list_preserves_user_id() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -1029,7 +1079,6 @@ mod tests {
 
     /// At `BLOB_SECURITY_VERSION`, personal ciphers encrypt through the blob
     /// path, producing a blob-shaped `Cipher`.
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn encrypt_produces_blob_shape_at_blob_version() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -1051,7 +1100,6 @@ mod tests {
 
     /// `encrypt_list` at blob version, mixing a personal (blob-eligible) view
     /// with an organization-owned (legacy-only) view
-    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn encrypt_list_mixed_personal_and_organization() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;

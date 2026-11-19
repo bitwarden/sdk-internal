@@ -239,6 +239,18 @@ pub struct OrganizationSubscriptionResponseModel {
     )]
     pub max_autoscale_sm_service_accounts: Option<i32>,
     #[serde(
+        rename = "pamSeats",
+        alias = "PamSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pam_seats: Option<i32>,
+    #[serde(
+        rename = "maxAutoscalePamSeats",
+        alias = "MaxAutoscalePamSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_autoscale_pam_seats: Option<i32>,
+    #[serde(
         rename = "limitCollectionCreation",
         alias = "LimitCollectionCreation",
         skip_serializing_if = "Option::is_none"
@@ -364,6 +376,22 @@ pub struct OrganizationSubscriptionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub sm_service_accounts_grace: Option<i32>,
+    /// The count of Privileged Controls seats in use. Null on self-hosted and when Privileged
+    /// Controls is off.
+    #[serde(
+        rename = "occupiedPamSeats",
+        alias = "OccupiedPamSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub occupied_pam_seats: Option<i32>,
+    /// True when the plan supports Privileged Controls, Privileged Controls is on, and the
+    /// subscription has no Privileged Controls line. Null on self-hosted.
+    #[serde(
+        rename = "isOnPamSalesInitiatedTrial",
+        alias = "IsOnPamSalesInitiatedTrial",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub is_on_pam_sales_initiated_trial: Option<bool>,
     /// Date when a self-hosted organization's subscription expires, without any grace period.
     #[serde(
         rename = "expirationWithoutGracePeriod",
@@ -427,6 +455,8 @@ impl OrganizationSubscriptionResponseModel {
             sm_service_accounts: None,
             max_autoscale_sm_seats: None,
             max_autoscale_sm_service_accounts: None,
+            pam_seats: None,
+            max_autoscale_pam_seats: None,
             limit_collection_creation: None,
             limit_collection_deletion: None,
             limit_item_deletion: None,
@@ -447,6 +477,8 @@ impl OrganizationSubscriptionResponseModel {
             upcoming_invoice: None,
             pending_annual_upgrade: None,
             sm_service_accounts_grace: None,
+            occupied_pam_seats: None,
+            is_on_pam_sales_initiated_trial: None,
             expiration_without_grace_period: None,
             expiration: None,
             exempt_from_billing_automation: None,

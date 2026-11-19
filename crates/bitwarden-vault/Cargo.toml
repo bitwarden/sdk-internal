@@ -25,6 +25,7 @@ wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-core/wasm",
     "bitwarden-encoding/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-state/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -40,6 +41,7 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-logging = { workspace = true }
 bitwarden-ssh = { workspace = true }
 bitwarden-state = { workspace = true }
@@ -73,8 +75,13 @@ zxcvbn = { workspace = true }
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
 bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
 bitwarden-test = { workspace = true }
+criterion = "0.8.0"
 tokio = { workspace = true, features = ["rt"] }
 wiremock = { workspace = true }
 
 [lints]
 workspace = true
+
+[[bench]]
+name = "decrypt_cipher_list"
+harness = false

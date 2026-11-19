@@ -12,8 +12,6 @@ use futures::TryStreamExt;
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio_util::io::StreamReader;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::{
     create::{
@@ -66,7 +64,7 @@ pub enum CipherUpgradeAttachmentError {
     Upload,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Upgrades a legacy v1 attachment to `CipherKey(AttachmentKey(Contents))`.
     ///
@@ -145,7 +143,6 @@ impl AttachmentsClient {
             file_name: material.encrypted_file_name,
             file_size: reencrypted.len() as u64,
             last_known_revision_date: cipher.revision_date,
-            as_admin: false,
         };
         let created = self.create_attachment(cipher_id, request).await?;
 

@@ -1,0 +1,149 @@
+# Runs the client breaking change check for a fork PR. Fork PRs don't get secrets, so the regular
+# build-wasm-internal.yml run can't start the check in bitwarden/clients for them.
+#
+# This workflow runs in the context of the target branch and has access to secrets, but it never checks out or runs
+# the fork's code. The regular pull_request run of build-wasm-internal.yml builds the fork's code without secrets and
+# uploads the SDK artifacts, and this workflow passes that run to the breaking change check.
+#
+# It only runs when a user with write access adds the "ci:signed-build" label to a fork PR, and only if the labeled
+# commit has an approving review from a user with write access. The label is removed once the check starts, so every
+# new commit needs to be approved and labeled again. The artifacts were built by the fork's code, so only approve and
+# add the label after reviewing the PR.
+
+name: Breaking change check (Fork PR)
+
+on:
+  pull_request_target:
+    types: [labeled]
+    branches:
+      - main
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check-run:
+    name: Check PR run
+    if: ${{ github.event.label.name == 'ci:signed-build' && github.event.pull_request.head.repo.full_name != github.repository }}
+    uses: bitwarden/gh-actions/.github/workflows/check-run.yml@main
+    permissions:
+      contents: read
+
+  remove-label:
+    name: Remove signed build label
+    needs: check-run
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          _PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if ! OUTPUT=$(gh api --method DELETE "repos/$GITHUB_REPOSITORY/issues/$_PR_NUMBER/labels/ci%3Asigned-build" 2>&1); then
+            if [[ "$OUTPUT" == *"HTTP 404"* ]]; then
+              echo "Label already removed."
+            else
+              echo "$OUTPUT"
+              exit 1
+            fi
+          fi
+
+  check-approval:
+    name: Check approval of the labeled commit
+    needs: check-run
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Require an approving review on the labeled commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          _PR_NUMBER: ${{ github.event.pull_request.number }}
+          _HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          approvers=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$_PR_NUMBER/reviews" \
+            --jq ".[] | select(.state == \"APPROVED\" and .commit_id == \"$_HEAD_SHA\") | .user.login" | sort -u)
+          for user in $approvers; do
+            permission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$user/permission" --jq .permission)
+            if [[ "$permission" == "admin" || "$permission" == "write" ]]; then
+              echo "Commit $_HEAD_SHA is approved by $user."
+              exit 0
+            fi
+          done
+          echo "::error::No approving review on commit $_HEAD_SHA from a user with write access. Approve the latest commit, then add the label again."
+          exit 1
+
+  find-build:
+    name: Find the build of the labeled commit
+    needs:
+      - check-run
+      - check-approval
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    permissions:
+      actions: read
+    outputs:
+      run_id: ${{ steps.find.outputs.run_id }}
+    steps:
+      - name: Wait for the build
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          _HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          for _ in $(seq 1 60); do
+            run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-wasm-internal.yml/runs?event=pull_request&head_sha=$_HEAD_SHA&per_page=1" \
+              --jq '.workflow_runs[0] // empty | "\(.id) \(.status) \(.conclusion)"')
+            read -r run_id status conclusion <<< "$run"
+            if [[ "$status" == "completed" ]]; then
+              case "$conclusion" in
+                success)
+                  echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+                  echo "Using build run $run_id."
+                  exit 0
+                  ;;
+                action_required)
+                  echo "::error::The build of commit $_HEAD_SHA is waiting for a maintainer to approve running workflows for this PR. Approve it, wait for the build, then add the label again."
+                  exit 1
+                  ;;
+                *)
+                  echo "::error::The build of commit $_HEAD_SHA finished with '$conclusion'."
+                  exit 1
+                  ;;
+              esac
+            fi
+            echo "Waiting for the build of commit $_HEAD_SHA (${status:-not started yet})..."
+            sleep 60
+          done
+          echo "::error::The build of commit $_HEAD_SHA did not finish within 60 minutes. Add the label again once it has."
+          exit 1
+
+  trigger-breaking-change-check:
+    name: Trigger client breaking change checks
+    needs:
+      - check-run
+      - find-build
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    uses: ./.github/workflows/detect-breaking-changes.yml
+    secrets:
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      pr_head_sha: ${{ github.event.pull_request.head.sha }}
+      pr_head_ref: ${{ github.event.pull_request.head.ref }}
+      build_run_id: ${{ needs.find-build.outputs.run_id }}
+      client_repo: "bitwarden/clients"
+      client_label: "typescript"
+      client_workflow: "sdk-breaking-change-check.yml"
+      artifact_identifier: "sdk-internal"

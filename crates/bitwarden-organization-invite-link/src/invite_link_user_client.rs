@@ -11,12 +11,14 @@ use bitwarden_core::{
     key_management::{KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId},
     require,
 };
-use bitwarden_crypto::{
-    CoseKeyThumbprintExt, KeyStore, PrimitiveEncryptable, PublicKey, SpkiPublicKeyBytes,
-    UnsignedSharedKey,
-};
+use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, PublicKey, SpkiPublicKeyBytes};
 use bitwarden_encoding::B64;
-use bitwarden_organization_crypto::invite::{Invite, InviteSecret};
+use bitwarden_organization_crypto::{
+    account_recovery::{AccountRecovery, AccountRecoveryMakeError},
+    invite::{Invite, InviteSecret},
+    organization_shared_key::OrganizationSharedKey,
+    trust_proof::{CryptographicProof, TrustProof},
+};
 
 use crate::{AcceptInviteLinkError, InviteLinkError, OrganizationInviteLinkStatusView};
 
@@ -142,37 +144,49 @@ impl InviteLinkUserClient {
             let invite_key =
                 invite.unseal_invite_key_with_invite_secret(&invite_secret, &mut ctx)?;
 
-            // Enroll into account recovery when requested. Verify the account-recovery public key
-            // against the organization public-key thumbprint bound into the invite before
-            // enrolling: a substituted recovery key would not match, so the organization key cannot
-            // be captured by an attacker-supplied key. Then encapsulate the user key to it.
-            let reset_password_key = match &recovery_public_key {
-                Some(recovery_public_key) => {
-                    let recovery_public_key =
-                        PublicKey::from_der(&SpkiPublicKeyBytes::from(recovery_public_key))?;
-                    let bound_thumbprint =
-                        invite.get_public_key_thumbprint(invite_key, &mut ctx)?;
-                    if bound_thumbprint != recovery_public_key.thumbprint()? {
-                        return Err(AcceptInviteLinkError::RecoveryKeyMismatch);
-                    }
-                    Some(
-                        UnsignedSharedKey::encapsulate(
+            // Enroll into account recovery when requested. The account-recovery public key must
+            // match the organization public-key thumbprint bound into the invite: a substituted
+            // recovery key would not match, so the user key cannot be captured by an
+            // attacker-supplied key.
+            let reset_password_key = recovery_public_key
+                .as_ref()
+                .map(
+                    |recovery_public_key| -> Result<String, AcceptInviteLinkError> {
+                        let recovery_public_key =
+                            PublicKey::from_der(&SpkiPublicKeyBytes::from(recovery_public_key))?;
+                        let bound_thumbprint =
+                            invite.get_public_key_thumbprint(invite_key, &mut ctx)?;
+                        let account_recovery = AccountRecovery::make(
                             SymmetricKeySlotId::User,
                             &recovery_public_key,
+                            &TrustProof::ManuallyTrustedThumbprint(bound_thumbprint),
                             &ctx,
-                        )?
-                        .to_string(),
-                    )
-                }
-                None => None,
-            };
+                        )
+                        .map_err(|error| match error {
+                            AccountRecoveryMakeError::UntrustedPublicKey => {
+                                AcceptInviteLinkError::RecoveryKeyMismatch
+                            }
+                            error @ (AccountRecoveryMakeError::PrivateKeyNotInContext
+                            | AccountRecoveryMakeError::EncapsulationFailed) => error.into(),
+                        })?;
+                        Ok(String::from(&account_recovery))
+                    },
+                )
+                .transpose()?;
 
             if invite.supports_confirmation() {
                 // Self-confirm: recover the organization key and encapsulate it to the user.
                 let org_key = invite.unseal_organization_key(invite_key, &mut ctx)?;
                 let user_public_key = ctx.get_public_key(PrivateKeySlotId::UserPrivateKey)?;
-                let org_user_key =
-                    UnsignedSharedKey::encapsulate(org_key, &user_public_key, &ctx)?.to_string();
+                let organization_shared_key = OrganizationSharedKey::make(
+                    org_key,
+                    &user_public_key,
+                    &TrustProof::CryptographicallyTrusted(CryptographicProof::OwnPrivateKey(
+                        PrivateKeySlotId::UserPrivateKey,
+                    )),
+                    &ctx,
+                )?;
+                let org_user_key = String::from(&organization_shared_key);
                 let default_user_collection_name = default_collection_name
                     .encrypt(&mut ctx, org_key)?
                     .to_string();

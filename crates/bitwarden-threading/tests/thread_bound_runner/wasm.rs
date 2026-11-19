@@ -1,6 +1,6 @@
 use bitwarden_threading::ThreadBoundRunner;
 use serde::{Deserialize, Serialize};
-use tsify::{Tsify, serde_wasm_bindgen};
+use tsify::serde_wasm_bindgen;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -10,15 +10,15 @@ trait Store<T> {
     async fn save(&self, item: T);
 }
 
-#[derive(Clone, Debug, Tsify, Serialize, Deserialize, PartialEq, Eq)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[bitwarden_ffi::wasm_record]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Cipher {
     id: String,
     name: String,
     password: String,
 }
 
-#[wasm_bindgen(inline_js = "export class CipherService {
+#[bitwarden_ffi::wasm_import(inline_js = "export class CipherService {
     constructor() {
         this.ciphers = {};
     }
@@ -40,8 +40,8 @@ extern "C" {
     #[wasm_bindgen(method)]
     pub async fn get(this: &CipherService, id: String) -> JsValue;
 
-    #[wasm_bindgen(method)]
-    pub async fn save(this: &CipherService, cipher: Cipher);
+    #[wasm_bindgen(method, catch)]
+    pub async fn save(this: &CipherService, cipher: Cipher) -> Result<(), JsValue>;
 }
 
 #[wasm_bindgen_test]
@@ -70,10 +70,9 @@ pub async fn test_get_cipher() {
 
         async fn save(&self, item: Cipher) {
             self.0
-                .run_in_thread(|state| async move {
-                    state.save(item).await;
-                })
+                .run_in_thread(|state| async move { state.save(item).await })
                 .await
+                .expect("Failed to run in thread")
                 .expect("Failed to save cipher");
         }
     }

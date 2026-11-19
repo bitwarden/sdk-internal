@@ -21,11 +21,13 @@ use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClientExt as _;
 use bitwarden_crypto_sync_handler::CryptoSyncHandler;
 use bitwarden_crypto_sync_handler::CryptoSyncHandlerClientExt as _;
 use bitwarden_emergency_access::EmergencyAccessClientExt as _;
+use bitwarden_encrypted_migrator::EncryptedMigratorClientExt as _;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
 use bitwarden_managed_settings::{ManagedSettingsClient, ManagedSettingsClientExt as _};
 use bitwarden_member_administration::OrganizationUsersManagementClientExt as _;
+use bitwarden_organization_crypto_management::OrganizationCryptoManagementClientExt as _;
 use bitwarden_organization_domains::OrganizationDomainsClientExt as _;
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
 use bitwarden_organizations::OrganizationsClientExt as _;
@@ -47,10 +49,12 @@ pub mod clients {
     pub use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClient;
     pub use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
     pub use bitwarden_emergency_access::EmergencyAccessClient;
+    pub use bitwarden_encrypted_migrator::EncryptedMigratorClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_importers::ImporterClient;
     pub use bitwarden_member_administration::OrganizationUsersManagementClient;
+    pub use bitwarden_organization_crypto_management::OrganizationCryptoManagementClient;
     pub use bitwarden_organization_domains::OrganizationDomainsClient;
     pub use bitwarden_organization_invite_link::InviteLinkClient;
     pub use bitwarden_organizations::OrganizationsClient;
@@ -176,6 +180,13 @@ impl PasswordManagerClient {
         self.0.user_crypto_management()
     }
 
+    /// Operations that manage the cryptographic state of the user's organizations
+    pub fn organization_crypto_management(
+        &self,
+    ) -> bitwarden_organization_crypto_management::OrganizationCryptoManagementClient {
+        self.0.organization_crypto_management()
+    }
+
     /// Vault item operations
     pub fn vault(&self) -> bitwarden_vault::VaultClient {
         self.0.vault()
@@ -247,6 +258,11 @@ impl PasswordManagerClient {
         &self,
     ) -> bitwarden_member_administration::OrganizationUsersManagementClient {
         self.0.organization_users_management()
+    }
+
+    /// Encrypted migrations that bring the account's keys and encrypted data to the current format.
+    pub fn encrypted_migrator(&self) -> bitwarden_encrypted_migrator::EncryptedMigratorClient {
+        self.0.encrypted_migrator()
     }
 
     /// Sync operations

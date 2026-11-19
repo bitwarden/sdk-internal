@@ -1,7 +1,7 @@
-//! Persisted state types and setting keys for the Bitwarden SDK.
+//! Persisted state types and persisted value keys for the Bitwarden SDK.
 
 use bitwarden_crypto::{UnsignedSharedKey, safe::SymmetricKeyEnvelope};
-use bitwarden_state::{register_repository_item, register_setting_key};
+use bitwarden_state::{register_persisted_value, register_repository_item};
 use serde::{Deserialize, Serialize};
 
 use super::{flags::Flags, login_method::UserLoginMethod};
@@ -46,40 +46,40 @@ pub struct AuthenticationTokens {
     pub expires_on: i64,
 }
 
-// Setting keys
-register_setting_key!(
-    /// Setting key for the user's login method.
-    pub const USER_LOGIN_METHOD: UserLoginMethod = "user_login_method"
+// Persisted value keys
+register_persisted_value!(
+    /// Persisted value key for the user's login method.
+    pub USER_LOGIN_METHOD: UserLoginMethod = "user_login_method"
 );
-register_setting_key!(
-    /// Setting key for the base API URLs.
-    pub const BASE_URLS: BaseUrls = "base_urls"
+register_persisted_value!(
+    /// Persisted value key for the base API URLs.
+    pub BASE_URLS: BaseUrls = "base_urls"
 );
-register_setting_key!(
-    /// Setting key for the user ID.
-    pub const USER_ID: UserId = "user_id"
+register_persisted_value!(
+    /// Persisted value key for the user ID.
+    pub USER_ID: UserId = "user_id"
 );
-register_setting_key!(
-    /// Setting key for the active user's email.
-    pub const USER_EMAIL: String = "user_email"
+register_persisted_value!(
+    /// Persisted value key for the active user's email.
+    pub USER_EMAIL: String = "user_email"
 );
-register_setting_key!(
-    /// Setting key for feature flags.
-    pub const FLAGS: Flags = "flags"
+register_persisted_value!(
+    /// Persisted value key for feature flags.
+    pub FLAGS: Flags = "flags"
 );
-register_setting_key!(
-    /// Setting key for the timestamp at which feature flags were last fetched from `/config`.
-    pub const FLAGS_FETCHED_AT: chrono::DateTime<chrono::Utc> = "flags_fetched_at"
+register_persisted_value!(
+    /// Persisted value key for the timestamp at which feature flags were last fetched from `/config`.
+    pub FLAGS_FETCHED_AT: chrono::DateTime<chrono::Utc> = "flags_fetched_at"
 );
-register_setting_key!(
-    /// Setting key for authentication tokens.
-    pub const AUTHENTICATION_TOKENS: AuthenticationTokens = "authentication_tokens"
+register_persisted_value!(
+    /// Persisted value key for authentication tokens.
+    pub AUTHENTICATION_TOKENS: AuthenticationTokens = "authentication_tokens"
 );
-register_setting_key!(
-    /// Setting key for the account cryptographic state.
-    pub const ACCOUNT_CRYPTO_STATE: WrappedAccountCryptographicState = "account_crypto_state"
+register_persisted_value!(
+    /// Persisted value key for the account cryptographic state.
+    pub ACCOUNT_CRYPTO_STATE: WrappedAccountCryptographicState = "account_crypto_state"
 );
-register_setting_key!(
-    /// Setting key for the session-protected user key.
-    pub const SESSION_PROTECTED_USER_KEY: SymmetricKeyEnvelope = "session_protected_user_key"
+register_persisted_value!(
+    /// Persisted value key for the session-protected user key.
+    pub SESSION_PROTECTED_USER_KEY: SymmetricKeyEnvelope = "session_protected_user_key"
 );

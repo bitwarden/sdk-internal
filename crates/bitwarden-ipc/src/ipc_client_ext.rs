@@ -3,8 +3,9 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     RpcHandler,
+    broadcast::{BroadcastGroup, EndpointSendResult},
     endpoint::Endpoint,
-    error::{RequestError, SubscribeError},
+    error::{BroadcastError, RequestError, SubscribeError},
     ipc_client::IpcClientTypedSubscription,
     ipc_client_trait::IpcClient,
     message::{OutgoingMessage, PayloadTypeName, TypedOutgoingMessage},
@@ -15,6 +16,7 @@ use crate::{
         response_message::IncomingRpcResponseMessage,
     },
     serde_utils,
+    timeline::{self, Duration, Entry, Track},
 };
 
 /// Extension trait providing generic convenience methods on any [`IpcClient`].
@@ -59,6 +61,27 @@ pub trait IpcClientExt: IpcClient {
         }
     }
 
+    /// Send a message with a payload of any serializable type to every member of `group`. See
+    /// [`IpcClient::broadcast`] for how the group is resolved and how failures are reported.
+    fn broadcast_typed<Payload>(
+        &self,
+        payload: Payload,
+        group: BroadcastGroup,
+    ) -> impl std::future::Future<Output = Result<Vec<EndpointSendResult>, BroadcastError>> + Send
+    where
+        Payload: Serialize + PayloadTypeName + Send,
+    {
+        async move {
+            let payload =
+                serde_utils::to_vec(&payload).map_err(|e: serde_utils::SerializeError| {
+                    BroadcastError::Serialization(e.to_string())
+                })?;
+
+            self.broadcast(group, payload, Some(Payload::PAYLOAD_TYPE_NAME.to_owned()))
+                .await
+        }
+    }
+
     /// Create a subscription to receive messages that can be deserialized into the provided
     /// payload type.
     fn subscribe_typed<Payload>(
@@ -96,6 +119,11 @@ pub trait IpcClientExt: IpcClient {
         Request::Response: Send,
     {
         async move {
+            let _span = timeline::span(Track::Requests, Duration::Actual, || Entry {
+                name: Request::NAME.to_owned(),
+                properties: vec![("Destination", format!("{destination:?}"))],
+            });
+
             let request_payload = RpcRequestMessage::new(request);
 
             // Each request gets its own response topic, subscribed to before sending, and the

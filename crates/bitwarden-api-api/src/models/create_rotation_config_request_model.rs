@@ -24,6 +24,9 @@ pub struct CreateRotationConfigRequestModel {
     /// The config's sealed blob.
     #[serde(rename = "sealedData", alias = "SealedData")]
     pub sealed_data: String,
+    /// The content key of the sealed blob, wrapped by the organization key.
+    #[serde(rename = "wrappedKey", alias = "WrappedKey")]
+    pub wrapped_key: String,
     /// A Quartz 6-field cron expression evaluated in UTC. Null means no scheduled rotation.
     #[serde(
         rename = "scheduleCron",
@@ -46,11 +49,13 @@ impl CreateRotationConfigRequestModel {
         cipher_id: uuid::Uuid,
         target_system_id: uuid::Uuid,
         sealed_data: String,
+        wrapped_key: String,
     ) -> CreateRotationConfigRequestModel {
         CreateRotationConfigRequestModel {
             cipher_id,
             target_system_id,
             sealed_data,
+            wrapped_key,
             schedule_cron: None,
             rotate_on_access_end: None,
         }

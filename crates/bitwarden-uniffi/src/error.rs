@@ -75,6 +75,36 @@ pub enum BitwardenError {
     Encrypt(#[from] bitwarden_vault::EncryptError),
     #[error(transparent)]
     EncryptFile(#[from] bitwarden_vault::EncryptFileError),
+    #[error(transparent)]
+    CreateCipher(#[from] bitwarden_vault::CreateCipherError),
+    #[error(transparent)]
+    EditCipher(#[from] bitwarden_vault::EditCipherError),
+    #[error(transparent)]
+    DeleteCipher(#[from] bitwarden_vault::DeleteCipherError),
+    #[error(transparent)]
+    GetCipher(#[from] bitwarden_vault::GetCipherError),
+    #[error(transparent)]
+    RestoreCipher(#[from] bitwarden_vault::RestoreCipherError),
+    #[error(transparent)]
+    MoveCipher(#[from] bitwarden_vault::MoveCipherError),
+    #[error(transparent)]
+    BulkUpdateCollectionsCipher(#[from] bitwarden_vault::BulkUpdateCollectionsCipherError),
+    #[error(transparent)]
+    CreateFolder(#[from] bitwarden_vault::CreateFolderError),
+    #[error(transparent)]
+    EditFolder(#[from] bitwarden_vault::EditFolderError),
+    #[error(transparent)]
+    GetFolder(#[from] bitwarden_vault::GetFolderError),
+    #[error(transparent)]
+    CreateAttachment(#[from] bitwarden_vault::CipherCreateAttachmentError),
+    #[error(transparent)]
+    DeleteAttachment(#[from] bitwarden_vault::CipherDeleteAttachmentError),
+    #[error(transparent)]
+    RenewFileUploadUrl(#[from] bitwarden_vault::CipherRenewFileUploadUrlError),
+    #[error(transparent)]
+    UpgradeAttachment(#[from] bitwarden_vault::CipherUpgradeAttachmentError),
+    #[error(transparent)]
+    GetAttachmentDownloadUrl(#[from] bitwarden_vault::CipherGetAttachmentDownloadUrlError),
 
     // Collections
     #[error(transparent)]
@@ -127,6 +157,23 @@ pub enum BitwardenError {
     #[error("A conversion error occurred: {0}")]
     Conversion(String),
 }
+
+impl From<bitwarden_vault::DecryptListError> for BitwardenError {
+    fn from(error: bitwarden_vault::DecryptListError) -> Self {
+        match error {
+            bitwarden_vault::DecryptListError::Crypto(error) => {
+                bitwarden_vault::DecryptError::Crypto(error).into()
+            }
+            // `InvalidInput` only comes from items converted from JavaScript, so a `Vec` from
+            // UniFFI never reaches this arm. It exists because the WASM binding shares the error
+            // type.
+            bitwarden_vault::DecryptListError::InvalidInput(error) => {
+                Self::Conversion(error.to_string())
+            }
+        }
+    }
+}
+
 /// Required From implementation for UNIFFI callback error handling
 /// Converts unexpected mobile exceptions into BitwardenError
 impl From<uniffi::UnexpectedUniFFICallbackError> for BitwardenError {

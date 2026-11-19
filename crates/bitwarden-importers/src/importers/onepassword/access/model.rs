@@ -26,11 +26,9 @@ pub struct Vault {
 }
 
 /// A vault that could not be opened.
+#[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct SkippedVault {
     /// The vault's 1Password uuid.
     pub id: String,
@@ -41,11 +39,9 @@ pub struct SkippedVault {
 }
 
 /// An item that could not be read from an otherwise accessible vault.
+#[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct SkippedItem {
     /// The item's 1Password uuid.
     pub id: String,
@@ -58,12 +54,9 @@ pub struct SkippedItem {
 }
 
 /// A safe, structured reason for leaving source data unimported.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum SkippedReason {
     /// The account does not have the key or permission required to read the data.
     NoAccess,
@@ -87,12 +80,9 @@ pub struct Item {
 /// The kind of a vault item, mapped from its template id. The ids are 1Password's standard
 /// category template UUIDs; an unrecognized id is preserved as [`ItemCategory::Unknown`] so nothing
 /// is lost.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify)
-)]
+#[bitwarden_ffi::wasm_record]
 pub enum ItemCategory {
     /// Template `001`.
     Login,

@@ -22,15 +22,14 @@ pub struct RuleBypassableCiphersResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    /// The rule these collections were assessed against.
     #[serde(
         rename = "ruleId",
         alias = "RuleId",
         skip_serializing_if = "Option::is_none"
     )]
     pub rule_id: Option<uuid::Uuid>,
-    /// The collections through which this rule's ciphers are reachable without a lease. Empty
-    /// means the rule protects everything it governs.
+    /// The collections through which this rule's ciphers are reachable without a lease. Empty when
+    /// the rule protects everything it governs, is disabled, or is not in this organization.
     #[serde(
         rename = "ungatedCollectionIds",
         alias = "UngatedCollectionIds",

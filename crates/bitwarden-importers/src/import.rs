@@ -4,7 +4,8 @@ use bitwarden_core::Client;
 
 use crate::{
     Credentials, ImportError, ImportOptions, ImportSummary, OnePasswordImportSummary,
-    OnePasswordTwoFactorUi,
+    OnePasswordSignInMethods, OnePasswordSsoCredentials, OnePasswordSsoUi, OnePasswordTwoFactorUi,
+    SignInAddress,
     importers::{
         self,
         onepassword::{access, convert},
@@ -31,10 +32,46 @@ pub(crate) async fn import_onepassword(
     two_factor: &dyn OnePasswordTwoFactorUi,
     options: ImportOptions,
 ) -> Result<OnePasswordImportSummary, ImportError> {
-    // 1Password is a third-party host, so this goes through the client's external transport rather
-    // than the one configured for the Bitwarden API.
-    let onepassword = access::Client::new(client.internal.get_http_client().clone());
-    let mut account = onepassword.open_account(credentials, two_factor).await?;
+    let onepassword = access_client(client);
+    let account = onepassword.open_account(credentials, two_factor).await?;
+    submit_onepassword(client, account, options).await
+}
+
+/// See [crate::ImporterClient::import_onepassword_sso] for more documentation.
+pub(crate) async fn import_onepassword_sso(
+    client: &Client,
+    credentials: OnePasswordSsoCredentials,
+    ui: &dyn OnePasswordSsoUi,
+    options: ImportOptions,
+) -> Result<OnePasswordImportSummary, ImportError> {
+    let onepassword = access_client(client);
+    let account = onepassword.open_account_sso(credentials, ui).await?;
+    submit_onepassword(client, account, options).await
+}
+
+/// See [crate::ImporterClient::onepassword_sign_in_methods] for more documentation.
+pub(crate) async fn onepassword_sign_in_methods(
+    client: &Client,
+    username: String,
+    sign_in_address: SignInAddress,
+) -> Result<OnePasswordSignInMethods, ImportError> {
+    Ok(access_client(client)
+        .sign_in_methods(&username, sign_in_address)
+        .await?)
+}
+
+/// 1Password is a third-party host, so this goes through the client's external transport rather
+/// than the one configured for the Bitwarden API.
+fn access_client(client: &Client) -> access::Client {
+    access::Client::new(client.internal.get_http_client().clone())
+}
+
+/// Converts a downloaded account and submits it, collecting what could not be imported.
+async fn submit_onepassword(
+    client: &Client,
+    mut account: access::model::DownloadedAccount,
+    options: ImportOptions,
+) -> Result<OnePasswordImportSummary, ImportError> {
     let skipped_items = account
         .vaults
         .iter_mut()

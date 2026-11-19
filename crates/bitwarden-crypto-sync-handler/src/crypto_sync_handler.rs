@@ -1,5 +1,7 @@
 //! Key management work that runs on every sync.
 
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+use bitwarden_core::key_management::crypto::{ReinitUserCryptoError, ReinitUserCryptoRequest};
 #[cfg(not(target_arch = "wasm32"))]
 use bitwarden_core::key_management::{
     MasterPasswordError, V2UpgradeTokenError, WebAuthnPrfError,
@@ -14,6 +16,8 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyId;
 use serde::{Deserialize, Serialize};
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+use tracing::debug;
 use tracing::warn;
 
 /// The parts of a sync response the key management sync handler needs.
@@ -157,6 +161,7 @@ async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
     // Handlers MUST NOT fail, to avoid partial state writes
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
+    handle_v2_upgrade(client, data).await;
 
     // Further key management sync handlers go here.
 }
@@ -224,6 +229,46 @@ async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncDa
 
     state_bridge.set_account_cryptographic_state(incoming).await;
 }
+
+/// Applies a V1 to V2 upgrade done on another device to an unlocked client.
+///
+/// The upgrade token and V2 state are stored above, but an unlocked client still holds the V1 user
+/// key, in memory and in client state. Re-initializing swaps it for the V2 key and writes that
+/// back, so the client does not prompt for a second, destructive, V2 to V2 rotation.
+///
+///   unlocked client (K1) ── sync(V2 state + token) ──▶ reinit ──▶ K2 in memory and in state
+///   locked client       ── sync(V2 state + token) ──▶ nothing, the next unlock upgrades
+#[cfg(any(feature = "uniffi", feature = "wasm"))]
+async fn handle_v2_upgrade(client: &Client, data: &CryptoSyncData) {
+    let Some(account_cryptographic_state) = data.account_cryptographic_state.clone() else {
+        return;
+    };
+    let Some(upgrade_token) = data
+        .user_decryption
+        .as_ref()
+        .and_then(|user_decryption| user_decryption.v2_upgrade_token.clone())
+    else {
+        return;
+    };
+
+    let result = client
+        .crypto()
+        .reinit_user_crypto(ReinitUserCryptoRequest {
+            account_cryptographic_state,
+            upgrade_token,
+        })
+        .await;
+
+    match result {
+        Ok(()) => {}
+        Err(ReinitUserCryptoError::NotUnlocked) => debug!("Locked, skipping V2 upgrade reinit"),
+        // Handlers MUST NOT fail, to avoid partial state writes
+        Err(e) => warn!(error = ?e, "Failed to apply the V2 upgrade to the unlocked client"),
+    }
+}
+
+#[cfg(not(any(feature = "uniffi", feature = "wasm")))]
+async fn handle_v2_upgrade(_client: &Client, _data: &CryptoSyncData) {}
 
 /// Whether the sync carries a state that constitutes a cryptographic downgrade
 ///

@@ -1,0 +1,221 @@
+name: Build access connector
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "bitwarden_license/bitwarden-access-connector/**"
+      - ".github/workflows/build-access-connector.yml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "bitwarden_license/bitwarden-access-connector/**"
+      - ".github/workflows/build-access-connector.yml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build bwac - ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # Sign only the Windows binary, and only on push to main or manual dispatch. PR builds are never signed.
+      _SIGN_WINDOWS: ${{ matrix.target == 'x86_64-pc-windows-msvc' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            binary: bwac
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            binary: bwac
+          - os: macos-26
+            target: aarch64-apple-darwin
+            binary: bwac
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            binary: bwac.exe
+            rustflags: "-C target-feature=+crt-static"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: access-connector-${{ matrix.target }}
+          # The build output cache below restores target/, including the dependencies.
+          cache-targets: false
+
+      - name: Cache build output
+        uses: bitwarden/gh-actions/cargo-build-cache@main
+        with:
+          key: access-connector-${{ matrix.target }}
+
+      - name: Build
+        run: cargo build -p bitwarden-access-connector --release --locked --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: "-D warnings ${{ matrix.rustflags }}"
+
+      - name: Smoke test binary
+        env:
+          BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
+        run: |
+          "${BINARY}" --version
+          "${BINARY}" run --help
+
+      - name: Check the systemd unit template
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sed -e 's|@SERVICE_USER@|root|g' \
+              -e 's|@ENV_FILE@|/etc/bwac/env|g' \
+              -e 's|@BINARY_PATH@|/bin/true|g' \
+              -e 's|@CONFIG_FILE@|/etc/bwac/config.toml|g' \
+              -e 's|@STATE_DIR@|/var/lib/bwac|g' \
+              bitwarden_license/bitwarden-access-connector/bundle/templates/bwac.service.in \
+              > /tmp/bwac.service
+          systemd-analyze verify /tmp/bwac.service
+
+      - name: Check the launchd plist template
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          cp bitwarden_license/bitwarden-access-connector/bundle/templates/launchd.plist.in \
+              /tmp/bwac.plist
+          plutil -lint /tmp/bwac.plist
+
+      - name: Check the config template
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb')); print(sys.argv[1], 'is valid TOML')" \
+              bitwarden_license/bitwarden-access-connector/bundle/templates/config.toml.in
+
+      - name: Check the launcher template parses
+        if: startsWith(matrix.os, 'windows')
+        shell: powershell
+        run: |
+          $path = "bitwarden_license\bitwarden-access-connector\bundle\templates\bwac-launcher.ps1"
+          $errors = $null
+          $tokens = $null
+          [void] [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path, [ref] $tokens, [ref] $errors)
+          if ($errors) {
+              $errors | ForEach-Object {
+                  Write-Host "::error file=$path,line=$($_.Extent.StartLineNumber)::$($_.Message)"
+              }
+              exit 1
+          }
+          Write-Host "$path parses clean"
+
+      - name: Stage binary and bundle
+        env:
+          BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          BUNDLE: bitwarden_license/bitwarden-access-connector/bundle
+        run: |
+          mkdir package
+          cp -R "${BUNDLE}/." package/
+          cp "${BINARY}" package/
+
+      - name: Log in to Azure
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Get Azure Key Vault secrets
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        id: get-kv-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: "bitwarden-ci"
+          secrets: "code-signing-vault-url,
+            code-signing-client-id,
+            code-signing-tenant-id,
+            code-signing-client-secret,
+            code-signing-cert-name"
+
+      - name: Log out from Azure
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        uses: bitwarden/gh-actions/azure-logout@main
+
+      - name: Install AzureSignTool
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        run: dotnet tool install --global AzureSignTool --version 4.0.1
+
+      - name: Sign Windows binary and launcher script
+        if: ${{ env._SIGN_WINDOWS == 'true' }}
+        env:
+          SIGNING_VAULT_URL: ${{ steps.get-kv-secrets.outputs.code-signing-vault-url }}
+          SIGNING_CLIENT_ID: ${{ steps.get-kv-secrets.outputs.code-signing-client-id }}
+          SIGNING_TENANT_ID: ${{ steps.get-kv-secrets.outputs.code-signing-tenant-id }}
+          SIGNING_CLIENT_SECRET: ${{ steps.get-kv-secrets.outputs.code-signing-client-secret }}
+          SIGNING_CERT_NAME: ${{ steps.get-kv-secrets.outputs.code-signing-cert-name }}
+          # Sign the staged copies so target/ (saved by the build cache) and bundle/ stay unsigned.
+          BINARY: package/${{ matrix.binary }}
+        run: |
+          # Scripts customers run unchanged. The examples are meant to be edited, so they stay unsigned.
+          SCRIPTS=(
+            package/templates/bwac-launcher.ps1
+          )
+          for f in "${BINARY}" "${SCRIPTS[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "::error::File to sign not found: $f"
+              exit 1
+            fi
+          done
+          printf 'Signing %s\n' "${BINARY}" "${SCRIPTS[@]}"
+          azuresigntool sign -v \
+            -kvu "$SIGNING_VAULT_URL" \
+            -kvi "$SIGNING_CLIENT_ID" \
+            -kvt "$SIGNING_TENANT_ID" \
+            -kvs "$SIGNING_CLIENT_SECRET" \
+            -kvc "$SIGNING_CERT_NAME" \
+            -fd sha256 \
+            -du https://bitwarden.com \
+            -tr http://timestamp.digicert.com \
+            "${BINARY}" "${SCRIPTS[@]}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bwac-${{ matrix.target }}
+          path: package/
+          if-no-files-found: error
+
+  ci-pass:
+    name: Check if build passed
+    runs-on: ubuntu-24.04
+    needs: build
+    if: always()
+    steps:
+      - name: Verify all builds passed
+        if: ${{ needs.build.result != 'success' }}
+        run: exit 1

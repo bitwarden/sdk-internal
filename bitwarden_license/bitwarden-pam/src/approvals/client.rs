@@ -1,31 +1,26 @@
 use std::sync::Arc;
 
-use bitwarden_api_api::models::AccessDecisionRequestModel;
+use bitwarden_api_api::models::{AccessDecisionRequestModel, AccessRequestRevokeRequestModel};
 use bitwarden_core::{FromClient, client::ApiConfigurations};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::{error::ApprovalError, models::AccessDecisionRequest};
+use super::{
+    error::ApprovalError,
+    models::{AccessDecisionRequest, AccessRequestRevokeRequest},
+};
 use crate::{AccessRequestId, access_requests::AccessRequestView};
 
-/// Client for a PAM approver's queue.
-///
-/// Lists pending ([`list_inbox`](ApprovalsClient::list_inbox)) and decided
-/// ([`list_history`](ApprovalsClient::list_history)) requests, and decides one. The requester
-/// side is [`AccessRequestsClient`](crate::AccessRequestsClient).
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+/// Client for a PAM approver's queue. The requester side is
+/// [`AccessRequestsClient`](crate::AccessRequestsClient).
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct ApprovalsClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl ApprovalsClient {
-    /// Lists the pending access requests awaiting the caller's decision.
-    ///
-    /// `GET /access-requests/inbox`. The server scopes this by Manage permission on the request's
-    /// collection and returns only pending requests, so an empty list is the normal answer for a
-    /// member who approves nothing.
+    /// Lists the pending access requests awaiting the caller's decision, in collections the caller
+    /// can manage.
     pub async fn list_inbox(&self) -> Result<Vec<AccessRequestView>, ApprovalError> {
         let response = self
             .api_configurations
@@ -44,9 +39,6 @@ impl ApprovalsClient {
     }
 
     /// Lists the decided access requests for collections the caller manages.
-    ///
-    /// `GET /access-requests/history`. Same response shape as [`list_inbox`](Self::list_inbox),
-    /// not an audit-event shape.
     pub async fn list_history(&self) -> Result<Vec<AccessRequestView>, ApprovalError> {
         let response = self
             .api_configurations
@@ -66,9 +58,8 @@ impl ApprovalsClient {
 
     /// Records a decision on a pending access request.
     ///
-    /// `POST /access-requests/{id}/decision`. Only `status`, `resolved_at`, and the decision just
-    /// recorded are guaranteed populated on the response, so callers should merge it onto the row
-    /// they already hold rather than replacing it.
+    /// The response guarantees only `status`, `resolved_at` and the new decision, so merge it onto
+    /// the row already held instead of replacing it.
     pub async fn decide(
         &self,
         id: AccessRequestId,
@@ -84,6 +75,25 @@ impl ApprovalsClient {
             .await?;
 
         Ok(AccessRequestView::try_from(response)?)
+    }
+
+    /// Revokes an approved access request the requester has not started. The server records it as
+    /// the approver's deny decision, with the reason shown to the requester.
+    pub async fn revoke(
+        &self,
+        id: AccessRequestId,
+        request: AccessRequestRevokeRequest,
+    ) -> Result<(), ApprovalError> {
+        self.api_configurations
+            .api_client
+            .access_requests_api()
+            .revoke(
+                id.into(),
+                Some(AccessRequestRevokeRequestModel::from(request)),
+            )
+            .await?;
+
+        Ok(())
     }
 }
 
@@ -280,6 +290,56 @@ mod tests {
         };
 
         let result = client(api_client).decide(request_id(), request).await;
+
+        assert!(matches!(result, Err(ApprovalError::Api(_))));
+    }
+
+    #[tokio::test]
+    async fn revoke_sends_the_reason() {
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_requests_api
+                .expect_revoke()
+                .returning(move |id, body| {
+                    assert_eq!(id, uuid::Uuid::from(request_id()));
+                    assert_eq!(
+                        body.and_then(|b| b.reason).as_deref(),
+                        Some("Approved by mistake")
+                    );
+                    Ok(())
+                })
+                .once();
+        });
+
+        let request = AccessRequestRevokeRequest {
+            reason: "Approved by mistake".to_string(),
+        };
+
+        let result = client(api_client).revoke(request_id(), request).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn revoke_surfaces_api_error() {
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_requests_api
+                .expect_revoke()
+                .returning(move |_id, _body| {
+                    Err(bitwarden_api_api::apis::Error::Response(
+                        bitwarden_api_api::apis::ResponseContent {
+                            status: reqwest::StatusCode::CONFLICT,
+                            message: "This request has already been resolved.".to_string(),
+                        },
+                    ))
+                })
+                .once();
+        });
+
+        let request = AccessRequestRevokeRequest {
+            reason: "Approved by mistake".to_string(),
+        };
+
+        let result = client(api_client).revoke(request_id(), request).await;
 
         assert!(matches!(result, Err(ApprovalError::Api(_))));
     }

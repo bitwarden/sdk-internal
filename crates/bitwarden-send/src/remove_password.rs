@@ -3,8 +3,6 @@ use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{Send, SendId, SendView, error::SendParseError, send_client::SendClient};
 
@@ -42,7 +40,7 @@ async fn remove_send_password<R: Repository<Send> + ?Sized>(
     Ok(key_store.decrypt(&send)?)
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Remove the password from a [Send], saving the updated state to the server and local state.
     pub async fn remove_password(

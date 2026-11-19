@@ -2,8 +2,6 @@ use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{AttachmentsClient, Cipher, CipherId, VaultParseError, cipher::cipher::PartialCipher};
 
@@ -21,7 +19,7 @@ pub enum CipherDeleteAttachmentError {
     VaultParse(#[from] VaultParseError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Deletes an attachment from a cipher, and updates the local repository with the new
     /// cipher data returned from the API.

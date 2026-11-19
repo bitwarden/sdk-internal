@@ -1,16 +1,15 @@
 use bitwarden_api_api::models::{
     AccessDecisionRequestModel, AccessDecisionVerdict as ApiAccessDecisionVerdict,
+    AccessRequestRevokeRequestModel,
 };
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::error::ApprovalError;
 use crate::AccessDecisionVerdict;
 
 /// An approver's decision on a pending access request.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessDecisionRequest {
     /// The verdict to record; [`AccessDecisionVerdict::Unknown`] cannot be submitted.
@@ -33,6 +32,24 @@ impl TryFrom<AccessDecisionRequest> for AccessDecisionRequestModel {
             verdict,
             comment: request.comment,
         })
+    }
+}
+
+/// An approver revoking an approved access request the requester has not started.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[bitwarden_ffi::wasm_record]
+#[serde(rename_all = "camelCase")]
+pub struct AccessRequestRevokeRequest {
+    /// Why the approval is revoked. Required by the server; recorded with the approver's decision
+    /// and shown to the requester.
+    pub reason: String,
+}
+
+impl From<AccessRequestRevokeRequest> for AccessRequestRevokeRequestModel {
+    fn from(request: AccessRequestRevokeRequest) -> Self {
+        Self {
+            reason: Some(request.reason),
+        }
     }
 }
 
@@ -76,5 +93,14 @@ mod tests {
         let result = AccessDecisionRequestModel::try_from(request);
 
         assert!(matches!(result, Err(ApprovalError::UnsubmittableVerdict)));
+    }
+
+    #[test]
+    fn revoke_converts_to_model() {
+        let model = AccessRequestRevokeRequestModel::from(AccessRequestRevokeRequest {
+            reason: "Approved by mistake".to_string(),
+        });
+
+        assert_eq!(model.reason.as_deref(), Some("Approved by mistake"));
     }
 }

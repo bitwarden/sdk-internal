@@ -55,6 +55,13 @@ pub struct RotationClaimResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub target_system_sealed_data: Option<String>,
+    /// The content key of the target system's sealed blob, wrapped by the organization key.
+    #[serde(
+        rename = "targetSystemWrappedKey",
+        alias = "TargetSystemWrappedKey",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub target_system_wrapped_key: Option<String>,
     #[serde(
         rename = "cipherId",
         alias = "CipherId",
@@ -68,6 +75,13 @@ pub struct RotationClaimResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub rotation_config_sealed_data: Option<String>,
+    /// The content key of the rotation config's sealed blob, wrapped by the organization key.
+    #[serde(
+        rename = "rotationConfigWrappedKey",
+        alias = "RotationConfigWrappedKey",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub rotation_config_wrapped_key: Option<String>,
     /// The claim's lease deadline. Past it, the release sweep may reclaim the job if the access
     /// connector's heartbeat has also gone stale.
     #[serde(
@@ -90,8 +104,10 @@ impl RotationClaimResponseModel {
             target_system_id: None,
             target_system_name: None,
             target_system_sealed_data: None,
+            target_system_wrapped_key: None,
             cipher_id: None,
             rotation_config_sealed_data: None,
+            rotation_config_wrapped_key: None,
             execute_by: None,
         }
     }

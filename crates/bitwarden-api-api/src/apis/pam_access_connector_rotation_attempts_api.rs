@@ -40,23 +40,22 @@ pub trait PamAccessConnectorRotationAttemptsApi: Send + Sync {
     ) -> Result<(), Error>;
 
     /// GET /access-connectors/rotation/attempts/{id}/cipher
-    /// Returns the cipher for this access connector's claimed, executing attempt only -- never a
-    /// general cipher read. Data is returned exactly as stored: opaque ciphertext the server never
-    /// decrypts.
+    /// Returns the cipher of this access connector's claimed, executing attempt, with its full
+    /// encrypted data.
     async fn get_cipher<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::RotationCipherResponseModel, Error>;
+    ) -> Result<models::CipherMiniResponseModel, Error>;
 
     /// PUT /access-connectors/rotation/attempts/{id}/cipher
-    /// Writes the rotated secret back to the cipher (spec AcceptCipherUpdate) via an atomic
-    /// capability check. 409 means the claim/attempt no longer holds, or LastKnownRevisionDate no
-    /// longer matches the cipher's current revision (a concurrent user edit won) -- audited as
-    /// write_rejected. 404 means the attempt id is unknown (no audit).
+    /// Writes the rotated cipher (spec AcceptCipherUpdate): a Login cipher request without Data,
+    /// with the item key unchanged and LastKnownRevisionDate from the read. 409: the claim or
+    /// attempt no longer holds, or the revision moved (audited as write_rejected). 404: unknown
+    /// attempt.
     async fn put_cipher<'a>(
         &self,
         id: uuid::Uuid,
-        submit_cipher_update_request_model: models::SubmitCipherUpdateRequestModel,
+        cipher_request_model: models::CipherRequestModel,
     ) -> Result<(), Error>;
 
     /// POST /access-connectors/rotation/attempts/{id}/success
@@ -112,13 +111,12 @@ impl PamAccessConnectorRotationAttemptsApi for PamAccessConnectorRotationAttempt
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    /// Returns the cipher for this access connector's claimed, executing attempt only -- never a
-    /// general cipher read. Data is returned exactly as stored: opaque ciphertext the server never
-    /// decrypts.
+    /// Returns the cipher of this access connector's claimed, executing attempt, with its full
+    /// encrypted data.
     async fn get_cipher<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::RotationCipherResponseModel, Error> {
+    ) -> Result<models::CipherMiniResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -136,14 +134,14 @@ impl PamAccessConnectorRotationAttemptsApi for PamAccessConnectorRotationAttempt
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    /// Writes the rotated secret back to the cipher (spec AcceptCipherUpdate) via an atomic
-    /// capability check. 409 means the claim/attempt no longer holds, or LastKnownRevisionDate no
-    /// longer matches the cipher's current revision (a concurrent user edit won) -- audited as
-    /// write_rejected. 404 means the attempt id is unknown (no audit).
+    /// Writes the rotated cipher (spec AcceptCipherUpdate): a Login cipher request without Data,
+    /// with the item key unchanged and LastKnownRevisionDate from the read. 409: the claim or
+    /// attempt no longer holds, or the revision moved (audited as write_rejected). 404: unknown
+    /// attempt.
     async fn put_cipher<'a>(
         &self,
         id: uuid::Uuid,
-        submit_cipher_update_request_model: models::SubmitCipherUpdateRequestModel,
+        cipher_request_model: models::CipherRequestModel,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -158,7 +156,7 @@ impl PamAccessConnectorRotationAttemptsApi for PamAccessConnectorRotationAttempt
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&submit_cipher_update_request_model);
+        local_var_req_builder = local_var_req_builder.json(&cipher_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }

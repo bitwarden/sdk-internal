@@ -96,19 +96,10 @@ impl AccessRulesClient {
         AccessRuleView::try_from(response)
     }
 
-    /// Where this rule fails to gate: the collections letting the ciphers it governs through
-    /// without a lease.
+    /// The ungated collections that expose this rule's ciphers without a lease.
     ///
-    /// `GET /organizations/{orgId}/access-rules/{id}/bypassable-ciphers`. Gating requires every
-    /// collection reaching a cipher to gate it; one ungated collection leaves it fully exposed.
-    /// An empty list is normal; non-empty is the "something is wrong" signal.
-    ///
-    /// Affected ciphers aren't named: decrypting one needs the caller's own vault key, which an
-    /// admin outside the warned collection lacks. Collections are nameable without it.
-    ///
-    /// Errors surface as [`Api`](AccessRuleError::Api), not
-    /// [`NotFound`](AccessRuleError::NotFound): this endpoint never 404s a missing rule, so any
-    /// 404 is infrastructural.
+    /// Returns collections, not ciphers, since the caller may be unable to decrypt them. A missing
+    /// rule answers empty, so this never fails with [`NotFound`](AccessRuleError::NotFound).
     pub async fn bypassable_ciphers(
         &self,
         organization_id: OrganizationId,
@@ -123,7 +114,6 @@ impl AccessRulesClient {
 
         Ok(response
             .ungated_collection_ids
-            // An omitted list is the same answer as an empty one: nothing is bypassable.
             .unwrap_or_default()
             .into_iter()
             .map(CollectionId::new)
@@ -132,9 +122,7 @@ impl AccessRulesClient {
 
     /// Enables or disables a rule; no other field changes.
     ///
-    /// Takes the rule as the caller already has it (every caller is listing rules), one round
-    /// trip instead of read-then-write. Rebuilt via [`From<AccessRuleView>`], so no caller
-    /// enumerates the editable fields.
+    /// Takes the rule as the caller already holds it, saving a read before the write.
     pub async fn set_enabled(
         &self,
         organization_id: OrganizationId,
@@ -291,8 +279,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Identity and order, not just length: a conversion that dropped, defaulted, or
-        // reordered ids would still pass a length-only check.
         assert_eq!(
             result.into_iter().map(uuid::Uuid::from).collect::<Vec<_>>(),
             vec![collection_id(), other]

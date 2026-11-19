@@ -26,8 +26,22 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait TeamsIntegrationApi: Send + Sync {
+    /// POST /organizations/{organizationId}/integrations/teams/complete
+    async fn complete<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        organization_integration_o_auth_complete_request_model: Option<
+            models::OrganizationIntegrationOAuthCompleteRequestModel,
+        >,
+    ) -> Result<models::OrganizationIntegrationOAuthCompleteResponseModel, Error>;
+
     /// GET /organizations/integrations/teams/create
-    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error>;
+    async fn create<'a>(
+        &self,
+        code: Option<&'a str>,
+        state: Option<&'a str>,
+        error: Option<&'a str>,
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/integrations/{integrationId}/teams/channels
     async fn get_channels<'a>(
@@ -40,7 +54,10 @@ pub trait TeamsIntegrationApi: Send + Sync {
     async fn incoming_post(&self) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/integrations/teams/redirect
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
+    async fn redirect<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<models::OrganizationIntegrationOAuthRedirectResponseModel, Error>;
 }
 
 pub struct TeamsIntegrationApiClient {
@@ -56,7 +73,38 @@ impl TeamsIntegrationApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl TeamsIntegrationApi for TeamsIntegrationApiClient {
-    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error> {
+    async fn complete<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        organization_integration_o_auth_complete_request_model: Option<
+            models::OrganizationIntegrationOAuthCompleteRequestModel,
+        >,
+    ) -> Result<models::OrganizationIntegrationOAuthCompleteResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/integrations/teams/complete",
+            local_var_configuration.base_path,
+            organizationId = organization_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&organization_integration_o_auth_complete_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn create<'a>(
+        &self,
+        code: Option<&'a str>,
+        state: Option<&'a str>,
+        error: Option<&'a str>,
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -75,6 +123,10 @@ impl TeamsIntegrationApi for TeamsIntegrationApiClient {
         if let Some(ref param_value) = state {
             local_var_req_builder =
                 local_var_req_builder.query(&[("state", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = error {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("error", &param_value.to_string())]);
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
@@ -121,7 +173,10 @@ impl TeamsIntegrationApi for TeamsIntegrationApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
+    async fn redirect<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<models::OrganizationIntegrationOAuthRedirectResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -136,6 +191,6 @@ impl TeamsIntegrationApi for TeamsIntegrationApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 }

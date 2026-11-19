@@ -53,6 +53,12 @@ pub struct CipherLoginModel {
     )]
     pub autofill_on_page_load: Option<bool>,
     #[serde(
+        rename = "httpAuthenticationEnabled",
+        alias = "HttpAuthenticationEnabled",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub http_authentication_enabled: Option<bool>,
+    #[serde(
         rename = "fido2Credentials",
         alias = "Fido2Credentials",
         skip_serializing_if = "Option::is_none"
@@ -70,6 +76,7 @@ impl CipherLoginModel {
             password_revision_date: None,
             totp: None,
             autofill_on_page_load: None,
+            http_authentication_enabled: None,
             fido2_credentials: None,
         }
     }

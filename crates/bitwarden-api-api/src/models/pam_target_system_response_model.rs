@@ -54,6 +54,13 @@ pub struct PamTargetSystemResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub sealed_data: Option<String>,
+    /// The content key of the sealed blob, wrapped by the organization key.
+    #[serde(
+        rename = "wrappedKey",
+        alias = "WrappedKey",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub wrapped_key: Option<String>,
     #[serde(
         rename = "creationDate",
         alias = "CreationDate",
@@ -79,6 +86,7 @@ impl PamTargetSystemResponseModel {
             method: None,
             status: None,
             sealed_data: None,
+            wrapped_key: None,
             creation_date: None,
             revision_date: None,
         }

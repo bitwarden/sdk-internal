@@ -12,9 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// AccessLeaseExtensionRequestModel : A request to extend an active lease, identified by the
-/// route's lease id. Extensions are always auto-approved, subject to the governing rule allowing
-/// extensions and the per-lease maximum not being reached.
+/// AccessLeaseExtensionRequestModel : A request to extend the routed lease. Extensions are approved
+/// automatically, once per lease, when the governing rule allows them.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessLeaseExtensionRequestModel {
     /// How far the lease's end is pushed out, in seconds, bounded by the governing rule's maximum
@@ -31,9 +30,8 @@ pub struct AccessLeaseExtensionRequestModel {
 }
 
 impl AccessLeaseExtensionRequestModel {
-    /// A request to extend an active lease, identified by the route's lease id. Extensions are
-    /// always auto-approved, subject to the governing rule allowing extensions and the per-lease
-    /// maximum not being reached.
+    /// A request to extend the routed lease. Extensions are approved automatically, once per lease,
+    /// when the governing rule allows them.
     pub fn new(reason: String) -> AccessLeaseExtensionRequestModel {
         AccessLeaseExtensionRequestModel {
             duration_seconds: None,

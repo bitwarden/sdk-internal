@@ -12,12 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// PamAccessConnectorDetailResponseModel : An access connector's detail view for `GET
-/// access-connectors/{id}`: the list shape flattened onto the same object, plus the access
-/// connector's recent rotation activity. The fleet surface renders the header from the access
-/// connector fields and the activity section from
-/// Bit.Services.Pam.AccessConnector.Api.Models.Response.PamAccessConnectorDetailResponseModel.Jobs,
-/// so both arrive in one response.
+/// PamAccessConnectorDetailResponseModel : An access connector with its recent rotation activity.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PamAccessConnectorDetailResponseModel {
     #[serde(
@@ -26,18 +21,14 @@ pub struct PamAccessConnectorDetailResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    /// The access connector's unique identifier.
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    /// The organization this access connector belongs to.
     #[serde(
         rename = "organizationId",
         alias = "OrganizationId",
         skip_serializing_if = "Option::is_none"
     )]
     pub organization_id: Option<uuid::Uuid>,
-    /// The access connector's display label, shown wherever access connectors are listed and
-    /// managed.
     #[serde(
         rename = "name",
         alias = "Name",
@@ -50,49 +41,43 @@ pub struct PamAccessConnectorDetailResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub status: Option<models::PamAccessConnectorStatus>,
-    /// Derived from
-    /// Bit.Services.Pam.AccessConnector.Api.Models.Response.PamAccessConnectorResponseModel.
-    /// LastHeartbeatAt against `PamRotationOptions.ConnectorOfflineAfter` -- spec
-    /// `ConnectorConnection`.
+    /// Whether Bit.Services.Pam.AccessConnector.Api.Models.Response.
+    /// PamAccessConnectorResponseModel.LastHeartbeatAt is within `AccessConnectorOfflineAfter` of
+    /// now (spec `ConnectorConnection`).
     #[serde(
         rename = "isConnected",
         alias = "IsConnected",
         skip_serializing_if = "Option::is_none"
     )]
     pub is_connected: Option<bool>,
-    /// The last time the access connector polled or reported (UTC). Null until its first request;
-    /// bumped only by the access connector's own requests, never by a sweep.
+    /// The last time the access connector polled or reported. Null until its first request.
     #[serde(
         rename = "lastHeartbeatAt",
         alias = "LastHeartbeatAt",
         skip_serializing_if = "Option::is_none"
     )]
     pub last_heartbeat_at: Option<String>,
-    /// The target systems this access connector is assigned to work. An access connector is
-    /// offered rotation jobs only for the targets it is assigned.
+    /// The only target systems the access connector is offered rotation jobs for.
     #[serde(
         rename = "assignedTargetSystemIds",
         alias = "AssignedTargetSystemIds",
         skip_serializing_if = "Option::is_none"
     )]
     pub assigned_target_system_ids: Option<Vec<uuid::Uuid>>,
-    /// When the access connector was registered (UTC).
     #[serde(
         rename = "creationDate",
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub creation_date: Option<String>,
-    /// When the access connector was last modified (UTC).
     #[serde(
         rename = "revisionDate",
         alias = "RevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub revision_date: Option<String>,
-    /// The access connector's recent jobs, newest first, each carrying only the attempts this
-    /// access connector recorded -- capped by `GetAccessConnectorDetailsQuery` rather than being
-    /// the access connector's whole history.
+    /// The access connector's most recent jobs (capped), newest first, each with only the attempts
+    /// it recorded.
     #[serde(
         rename = "jobs",
         alias = "Jobs",
@@ -102,11 +87,7 @@ pub struct PamAccessConnectorDetailResponseModel {
 }
 
 impl PamAccessConnectorDetailResponseModel {
-    /// An access connector's detail view for `GET access-connectors/{id}`: the list shape flattened
-    /// onto the same object, plus the access connector's recent rotation activity. The fleet
-    /// surface renders the header from the access connector fields and the activity section from
-    /// Bit.Services.Pam.AccessConnector.Api.Models.Response.PamAccessConnectorDetailResponseModel.
-    /// Jobs, so both arrive in one response.
+    /// An access connector with its recent rotation activity.
     pub fn new() -> PamAccessConnectorDetailResponseModel {
         PamAccessConnectorDetailResponseModel {
             object: None,

@@ -7,8 +7,6 @@ use bitwarden_api_api::{
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{MissingFieldError, OrganizationId, require};
 use bitwarden_state::repository::Repository;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherError, CipherId, CipherView, CiphersClient, EncryptionContext,
@@ -104,7 +102,7 @@ async fn share_ciphers_bulk(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     fn update_organization_and_collections(
         &self,
@@ -274,6 +272,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             id: Some(TEST_CIPHER_ID.parse().unwrap()),
@@ -473,6 +472,7 @@ mod tests {
                     uris: None,
                     totp: None,
                     autofill_on_page_load: None,
+                    http_authentication_enabled: None,
                     fido2_credentials: None,
                 }),
                 id: Some(TEST_CIPHER_ID.parse().unwrap()),
@@ -641,6 +641,7 @@ mod tests {
                     uris: None,
                     totp: None,
                     autofill_on_page_load: None,
+                    http_authentication_enabled: None,
                     fido2_credentials: None,
                 }),
                 id: Some(TEST_CIPHER_ID.parse().unwrap()),
@@ -767,6 +768,7 @@ mod tests {
                 uris: None,
                 totp: None,
                 autofill_on_page_load: None,
+                http_authentication_enabled: None,
                 fido2_credentials: None,
             }),
             id: Some(TEST_CIPHER_ID.parse().unwrap()),

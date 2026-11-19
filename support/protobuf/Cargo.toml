@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "bitwarden-protobuf-tools"
+version = "3.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "build-keeper-proto"
+path = "src/bin/build-keeper-proto.rs"
+
+[dependencies]
+prost-build = "0.14.4"

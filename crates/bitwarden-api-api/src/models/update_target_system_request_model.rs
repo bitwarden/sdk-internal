@@ -21,11 +21,23 @@ pub struct UpdateTargetSystemRequestModel {
     /// The target system's sealed blob.
     #[serde(rename = "sealedData", alias = "SealedData")]
     pub sealed_data: String,
+    /// The content key of the sealed blob, wrapped by the organization key. Stored apart from the
+    /// blob so organization key rotation only re-wraps the key.
+    #[serde(rename = "wrappedKey", alias = "WrappedKey")]
+    pub wrapped_key: String,
 }
 
 impl UpdateTargetSystemRequestModel {
     /// The updatable shape of a target system (spec `UpdateTargetSystem`).
-    pub fn new(name: String, sealed_data: String) -> UpdateTargetSystemRequestModel {
-        UpdateTargetSystemRequestModel { name, sealed_data }
+    pub fn new(
+        name: String,
+        sealed_data: String,
+        wrapped_key: String,
+    ) -> UpdateTargetSystemRequestModel {
+        UpdateTargetSystemRequestModel {
+            name,
+            sealed_data,
+            wrapped_key,
+        }
     }
 }

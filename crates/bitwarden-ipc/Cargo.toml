@@ -30,6 +30,7 @@ bitwarden-threading = { workspace = true }
 ciborium = { workspace = true }
 erased-serde = ">=0.4.6, <0.5"
 js-sys = { workspace = true, optional = true }
+rand = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
@@ -46,7 +47,11 @@ tsify = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
+web-time = "1.1.0"
 zeroize = { workspace = true, features = ["zeroize_derive"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "sync", "test-util", "time"] }
 
 [lints]
 workspace = true

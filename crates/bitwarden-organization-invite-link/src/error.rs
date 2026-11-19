@@ -1,7 +1,10 @@
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
-use bitwarden_organization_crypto::invite::InviteKeyBundleError;
+use bitwarden_organization_crypto::{
+    account_recovery::AccountRecoveryMakeError, invite::InviteKeyBundleError,
+    organization_shared_key::OrganizationSharedKeyMakeError,
+};
 use http::StatusCode;
 use thiserror::Error;
 
@@ -40,6 +43,12 @@ pub enum AcceptInviteLinkError {
     /// A cryptographic invite operation (unsealing the invite key or organization key) failed.
     #[error(transparent)]
     Invite(#[from] InviteKeyBundleError),
+    /// The user's key could not be shared with the organization for account recovery.
+    #[error(transparent)]
+    AccountRecovery(#[from] AccountRecoveryMakeError),
+    /// The organization key could not be shared with the user on self-confirmation.
+    #[error(transparent)]
+    OrganizationSharedKey(#[from] OrganizationSharedKeyMakeError),
     /// A network request to the server failed.
     #[error(transparent)]
     Api(#[from] ApiError),
@@ -100,6 +109,16 @@ pub enum AcceptInviteLinkError {
     /// The user belongs to another organization whose Single Organization policy forbids joining.
     #[error("A Single Organization policy prevents joining")]
     SingleOrganizationPolicy,
+    /// The user belongs to another organization whose Automatic User Confirmation policy forbids
+    /// membership in other organizations.
+    #[error("Another organization's Automatic User Confirmation policy prevents joining")]
+    AutoConfirmPolicyViolationOtherOrg,
+    /// The organization's Automatic User Confirmation policy requires the user to leave all other
+    /// organizations first.
+    #[error(
+        "The organization's Automatic User Confirmation policy requires leaving all other organizations"
+    )]
+    AutoConfirmPolicyViolationTargetOrg,
     /// The organization requires two-step login, which the user has not enabled.
     #[error("Two-step login is required to join the organization")]
     TwoFactorRequiredForMembership,
@@ -155,6 +174,8 @@ impl AcceptInviteLinkError {
             "reset_password_key_required" => Self::ResetPasswordKeyRequired,
             "member_of_another_organization" => Self::MemberOfAnotherOrganization,
             "single_organization_policy" => Self::SingleOrganizationPolicy,
+            "auto_confirm_policy_violation_other_org" => Self::AutoConfirmPolicyViolationOtherOrg,
+            "auto_confirm_policy_violation_target_org" => Self::AutoConfirmPolicyViolationTargetOrg,
             "two_factor_required_for_membership" => Self::TwoFactorRequiredForMembership,
             "only_one_free_organization_admin_allowed" => Self::OnlyOneFreeOrganizationAdminAllowed,
             code => {
@@ -193,6 +214,8 @@ mod tests {
             ("resetPasswordKey", "reset_password_key_required"),
             ("organizationId", "member_of_another_organization"),
             ("organizationId", "single_organization_policy"),
+            ("organizationId", "auto_confirm_policy_violation_other_org"),
+            ("organizationId", "auto_confirm_policy_violation_target_org"),
             ("organizationId", "two_factor_required_for_membership"),
             ("organizationId", "only_one_free_organization_admin_allowed"),
         ];
