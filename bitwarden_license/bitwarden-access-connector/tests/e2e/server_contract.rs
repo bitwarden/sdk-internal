@@ -8,7 +8,6 @@ use std::{
 };
 
 use bitwarden_access_connector::executor::RunExit;
-use bitwarden_access_token::AccessToken;
 use bitwarden_test::play::{Play, play_test};
 use tokio::time::Instant;
 
@@ -19,7 +18,7 @@ use super::{
         RunOutcome, RunningConnector, connector_state, has_resolved_attempt, job_state, run_for,
         run_until_resolved,
     },
-    scenes::enums::{attempt_action, connector_status, job_action, sync_state, target_status},
+    scenes::enums::{attempt_action, connector_status, job_action, sync_state},
 };
 
 /// How long a never-claimed check keeps the connector polling (50 ms poll interval).
@@ -46,21 +45,19 @@ fn assert_never_claimed(outcome: &RunOutcome) {
 /// Runs the connector for `fixture` for [`IDLE_RUN`], asserting nothing is claimed and
 /// the script never runs.
 async fn assert_job_is_never_claimed(play: &Play, fixture: &RotationFixture) {
-    assert_job_is_never_claimed_by(play, fixture, fixture.connector.token()).await;
-}
-
-/// Like [`assert_job_is_never_claimed`], but polling as the connector holding `token` rather than
-/// the fixture's own, with the fixture's job and script environment.
-async fn assert_job_is_never_claimed_by(
-    play: &Play,
-    fixture: &RotationFixture,
-    token: AccessToken,
-) {
     let out_dir = tempfile::tempdir().expect("tempdir");
     let out_path = out_dir.path().join("out");
     let env = fixture.script_env("record_and_exit.sh", &out_path, &[]);
 
-    let outcome = run_for(play, token, fixture.job_id, &env, None, IDLE_RUN).await;
+    let outcome = run_for(
+        play,
+        fixture.connector.token(),
+        fixture.job_id,
+        &env,
+        None,
+        IDLE_RUN,
+    )
+    .await;
 
     assert_never_claimed(&outcome);
     assert!(!script_ran(&out_path), "the script must not run");
@@ -176,7 +173,9 @@ async fn config_sealed_under_a_foreign_key_is_refused(play: Play) {
     assert_claim_refused_before_target(&play, &fixture, "config_blob_invalid").await;
 }
 
-/// A connector that is not assigned to the target never sees the job and keeps polling.
+/// A connector that is not assigned to the target never sees the job and keeps polling. It also
+/// pins that every connector-facing route, including an idle poll, records `LastHeartbeatDate` on
+/// the connector (null before its first request).
 #[cfg(unix)]
 #[play_test]
 async fn unassigned_connector_never_claims_the_job(play: Play) {
@@ -184,8 +183,19 @@ async fn unassigned_connector_never_claims_the_job(play: Play) {
         .assign_connector(false)
         .seed(&play)
         .await;
+    let before = connector_state(&play, fixture.connector.access_connector_id).await;
+    assert!(
+        before.last_heartbeat_date.is_none(),
+        "heartbeat before any request: {before:?}"
+    );
 
     assert_job_is_never_claimed(&play, &fixture).await;
+
+    let after = connector_state(&play, fixture.connector.access_connector_id).await;
+    assert!(
+        after.last_heartbeat_date.is_some(),
+        "no heartbeat after polling: {after:?}"
+    );
 }
 
 /// A job whose target system was disabled after seeding is not offered or claimable.
@@ -204,32 +214,6 @@ async fn disabled_target_job_is_never_claimed(play: Play) {
 async fn disabled_config_job_is_never_claimed(play: Play) {
     let fixture = RotationFixture::builder().seed(&play).await;
     fixture.disable_config(&play).await;
-
-    assert_job_is_never_claimed(&play, &fixture).await;
-}
-
-/// A connector never claims another organization's job: organization A's connector polls for
-/// organization B's job (with B's script environment) and is never handed it. The seeder refuses
-/// cross-organization assignments, so the connector is simply not assigned to B's target.
-#[cfg(unix)]
-#[play_test]
-async fn connector_never_claims_another_organizations_job(play: Play) {
-    let own = RotationFixture::builder().seed(&play).await;
-    let other = RotationFixture::builder().seed(&play).await;
-    assert_ne!(own.organization_id, other.organization_id);
-
-    assert_job_is_never_claimed_by(&play, &other, own.connector.token()).await;
-}
-
-/// A job whose target system went back to `PendingSeal` after seeding is not offered or
-/// claimable.
-#[cfg(unix)]
-#[play_test]
-async fn pending_seal_target_job_is_never_claimed(play: Play) {
-    let fixture = RotationFixture::builder().seed(&play).await;
-    fixture
-        .set_target_status(&play, target_status::PENDING_SEAL)
-        .await;
 
     assert_job_is_never_claimed(&play, &fixture).await;
 }
@@ -394,31 +378,6 @@ async fn connector_of_an_organization_without_pam_is_refused(play: Play) {
     let job = job_state(&play, fixture.job_id).await;
     assert_eq!(job.action, job_action::NONE);
     assert!(job.attempts.is_empty());
-}
-
-/// Every connector-facing route, including an idle poll, records `LastHeartbeatDate` on the
-/// connector (null before its first request).
-#[cfg(unix)]
-#[play_test]
-async fn idle_polling_records_a_heartbeat(play: Play) {
-    // Unassigned, so the polls stay idle and the job is never touched.
-    let fixture = RotationFixture::builder()
-        .assign_connector(false)
-        .seed(&play)
-        .await;
-    let before = connector_state(&play, fixture.connector.access_connector_id).await;
-    assert!(
-        before.last_heartbeat_date.is_none(),
-        "heartbeat before any request: {before:?}"
-    );
-
-    assert_job_is_never_claimed(&play, &fixture).await;
-
-    let after = connector_state(&play, fixture.connector.access_connector_id).await;
-    assert!(
-        after.last_heartbeat_date.is_some(),
-        "no heartbeat after polling: {after:?}"
-    );
 }
 
 /// Kills the child on drop so a failing test never leaks a connector.

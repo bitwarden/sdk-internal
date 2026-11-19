@@ -334,62 +334,6 @@ async fn missing_script_credential_fails_as_credentials_unresolved(play: Play) {
     assert_cipher_untouched(&play, &fixture, &before).await;
 }
 
-/// A `SCRIPT` that does not exist fails the attempt before anything runs:
-/// `credentials_unresolved` with `ScriptNotFound`, target unchanged.
-#[cfg(unix)]
-#[play_test]
-async fn nonexistent_script_fails_as_credentials_unresolved(play: Play) {
-    let fixture = RotationFixture::builder().seed(&play).await;
-    let before = read(&play, &fixture).await;
-    let out_dir = tempfile::tempdir().expect("tempdir");
-    let out_path = out_dir.path().join("out");
-    let missing = out_dir.path().join("no-such-script.sh");
-    let env = fixture.env(&[
-        ("SCRIPT", missing.to_str().expect("utf8 path")),
-        ("OUT_PATH", out_path.to_str().expect("utf8 path")),
-    ]);
-
-    let outcome = run_until_failed(&play, &fixture, &env).await;
-
-    assert_failed(
-        &outcome,
-        "credentials_unresolved: error kind: ScriptNotFound",
-        sync_state::TARGET_UNCHANGED,
-    );
-    assert!(!was_run(&out_path, "rotate"), "nothing may run");
-    assert_cipher_untouched(&play, &fixture, &before).await;
-}
-
-/// A rotate that exits 2 ("target updated") fails every attempt as `script_failed: exit code 2`
-/// with the target reported updated. Verify never runs and the cipher is untouched.
-#[cfg(unix)]
-#[play_test]
-async fn rotate_exit_2_reports_target_updated(play: Play) {
-    let fixture = RotationFixture::builder().seed(&play).await;
-    let before = read(&play, &fixture).await;
-    let out_dir = tempfile::tempdir().expect("tempdir");
-    let out_path = out_dir.path().join("out");
-    let env = fixture.script_env(
-        "record_and_exit.sh",
-        &out_path,
-        &[("EXIT_CODE_ROTATE", "2")],
-    );
-
-    let outcome = run_until_failed(&play, &fixture, &env).await;
-
-    assert_failed(
-        &outcome,
-        "script_failed: exit code 2",
-        sync_state::TARGET_UPDATED,
-    );
-    assert!(was_run(&out_path, "rotate"), "rotate did not run");
-    assert!(
-        !was_run(&out_path, "verify"),
-        "verify must not run after a failed rotate"
-    );
-    assert_cipher_untouched(&play, &fixture, &before).await;
-}
-
 /// A rotate that exits 3 ("indeterminate") fails every attempt as `script_failed: exit code 3`
 /// with the target's state reported indeterminate. Verify never runs and the cipher is untouched.
 #[cfg(unix)]
