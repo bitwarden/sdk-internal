@@ -954,7 +954,8 @@ The `e2e` tests run the connector against a live server, seeding state through t
 3. Run `cargo test -p bitwarden-access-connector --test e2e`.
 
 The server must run with `globalSettings:selfHosted` true (or with IP rate limiting otherwise off).
-The tests poll every 50 ms and request a token per connector, which the cloud rate limits throttle.
+The tests run in parallel from one IP, and each starts its own connector, which requests its own
+token. That exceeds the cloud's per-IP limits of 10 token requests and 200 API GETs a minute.
 
 The failure tests assume the default `globalSettings:pam:rotation` retry options (`MaxAttempts` 5,
 `RetryBaseDelay` 1 s). Don't override them on the server under test.
