@@ -2,13 +2,18 @@ use bitwarden_crypto::CipherSuite;
 
 use crate::client::{gov_mode::is_gov_mode, internal::InternalClient};
 
-/// Cloud domains operated by Bitwarden, outside Gov.
-const CLOUD_DOMAINS: [&str; 2] = ["bitwarden.com", "bitwarden.eu"];
+/// Cloud domains operated by Bitwarden, outside Gov: US, EU, US dev and US QA.
+const CLOUD_DOMAINS: [&str; 4] = [
+    "bitwarden.com",
+    "bitwarden.eu",
+    "usdev.bitwarden.pw",
+    "qa.bitwarden.pw",
+];
 
 /// Where the server the client talks to is hosted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Deployment {
-    /// Bitwarden cloud (US or EU).
+    /// Bitwarden cloud (US, EU, or a US dev/QA environment).
     Cloud,
     /// Bitwarden Gov cloud (FedRAMP).
     Gov,
@@ -29,32 +34,34 @@ impl Deployment {
     }
 }
 
-/// Returns the [`Deployment`] inferred from the configured API URL host.
-///
-/// Hosts on, or under, a [`CLOUD_DOMAINS`] entry are cloud; Gov hosts per [`is_gov_mode`]; any
-/// other host, or an unparsable URL, is self-hosted.
-pub(crate) fn deployment(internal: &InternalClient) -> Deployment {
-    if is_gov_mode(internal) {
-        return Deployment::Gov;
+impl InternalClient {
+    /// Returns the [`Deployment`] inferred from the configured API URL host.
+    ///
+    /// Hosts on, or under, a [`CLOUD_DOMAINS`] entry are cloud; Gov hosts per [`is_gov_mode`]; any
+    /// other host, or an unparsable URL, is self-hosted.
+    pub(crate) fn deployment_type(&self) -> Deployment {
+        if is_gov_mode(self) {
+            return Deployment::Gov;
+        }
+
+        let host = url::Url::parse(&self.api_configurations.api_config.base_path)
+            .ok()
+            .and_then(|u| u.host_str().map(str::to_lowercase));
+        let Some(host) = host else {
+            return Deployment::SelfHosted;
+        };
+
+        // Match the domain itself or a subdomain, e.g. `api.bitwarden.com`, but not
+        // `bitwarden.com.evil.example` or `mybitwarden.com`.
+        let is_cloud = CLOUD_DOMAINS
+            .iter()
+            .any(|d| host == *d || host.ends_with(&format!(".{d}")));
+        if is_cloud {
+            return Deployment::Cloud;
+        }
+
+        Deployment::SelfHosted
     }
-
-    let host = url::Url::parse(&internal.api_configurations.api_config.base_path)
-        .ok()
-        .and_then(|u| u.host_str().map(str::to_lowercase));
-    let Some(host) = host else {
-        return Deployment::SelfHosted;
-    };
-
-    // Match the domain itself or a subdomain, e.g. `api.bitwarden.com`, but not
-    // `bitwarden.com.evil.example` or `mybitwarden.com`.
-    let is_cloud = CLOUD_DOMAINS
-        .iter()
-        .any(|d| host == *d || host.ends_with(&format!(".{d}")));
-    if is_cloud {
-        return Deployment::Cloud;
-    }
-
-    Deployment::SelfHosted
 }
 
 #[cfg(test)]
@@ -67,7 +74,7 @@ mod tests {
             api_url: url.into(),
             ..Default::default()
         }));
-        deployment(&client.internal)
+        client.internal.deployment_type()
     }
 
     #[test]
@@ -83,6 +90,26 @@ mod tests {
         assert_eq!(
             deployment_for("https://API.BITWARDEN.COM"),
             Deployment::Cloud
+        );
+    }
+
+    #[test]
+    fn cloud_for_us_dev_and_qa_hosts() {
+        assert_eq!(
+            deployment_for("https://api.usdev.bitwarden.pw"),
+            Deployment::Cloud
+        );
+        assert_eq!(
+            deployment_for("https://api.qa.bitwarden.pw"),
+            Deployment::Cloud
+        );
+    }
+
+    #[test]
+    fn self_hosted_for_other_bitwarden_pw_hosts() {
+        assert_eq!(
+            deployment_for("https://api.euqa.bitwarden.pw"),
+            Deployment::SelfHosted
         );
     }
 

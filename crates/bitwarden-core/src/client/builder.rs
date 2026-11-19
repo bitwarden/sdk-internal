@@ -13,7 +13,6 @@ use crate::{
     client::{
         client::Client,
         client_settings::{ClientName, ClientSettings, HostPlatformInfo},
-        deployment::deployment,
         internal::{ApiConfigurations, InternalClient},
     },
 };
@@ -188,7 +187,7 @@ impl ClientBuilder {
 
         // Configure the key store's cipher suite from the client's deployment, so all crypto
         // operations (e.g. the KDF for a new account) pick compliant algorithms.
-        let cipher_suite = deployment(&client.internal).cipher_suite();
+        let cipher_suite = client.internal.deployment_type().cipher_suite();
         client
             .internal
             .get_key_store()
