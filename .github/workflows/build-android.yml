@@ -224,6 +224,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Check out repo
@@ -239,6 +240,7 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           key: kotlin-e2e-tests-cargo
           # The build output cache below restores target/, including the dependencies.
           cache-targets: false
@@ -256,6 +258,16 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@f29f5a9d7b09a7c6b29859002d29d24e1674c884 # v5.0.1
+        env:
+          # Drops the Gradle caches saved before Aikido checked their downloads.
+          GRADLE_BUILD_ACTION_CACHE_KEY_PREFIX: v1-
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Build JVM bindings
         run: ./crates/bitwarden-uniffi/kotlin/build-jvm.sh
