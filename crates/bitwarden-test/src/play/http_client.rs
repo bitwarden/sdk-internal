@@ -185,47 +185,78 @@ mod tests {
         assert_eq!(result.name, "test-user");
     }
 
-    /// Seeder requests carry an `Authorization: Basic` header only when credentials are
-    /// configured.
-    #[tokio::test]
-    async fn test_seeder_basic_auth_sent_only_when_configured() {
+    /// Sends one seeder request (POST or DELETE) to a dedicated mock server and asserts that
+    /// exactly one request arrived, carrying an `Authorization: Basic` header only when
+    /// credentials are configured.
+    ///
+    /// Uses `MockServer::builder()` rather than `MockServer::start()`: the latter hands out
+    /// servers from a pool shared across tests, so other requests could land on the same server.
+    async fn assert_seeder_basic_auth(credentials: bool, delete: bool) {
         // base64("user:pass")
         let expected = "Basic dXNlcjpwYXNz";
 
-        for (credentials, delete) in [(true, false), (true, true), (false, false), (false, true)] {
-            let mock_server = MockServer::start().await;
-            Mock::given(wiremock::matchers::any())
-                .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
-                .mount(&mock_server)
-                .await;
+        let mock_server = MockServer::builder().start().await;
+        Mock::given(wiremock::matchers::any())
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .mount(&mock_server)
+            .await;
 
-            let mut config = create_test_config(&mock_server.uri());
-            if credentials {
-                config = config.with_seeder_credentials("user", "pass");
-            }
-            let client = PlayHttpClient::new("id".to_string(), config);
-
-            if delete {
-                client.delete_seeder("/seed/id").await.unwrap();
-            } else {
-                let _: serde_json::Value = client
-                    .post_seeder("/seed/", &serde_json::json!({}))
-                    .await
-                    .unwrap();
-            }
-
-            let requests = mock_server.received_requests().await.unwrap();
-            assert_eq!(requests.len(), 1);
-            let auth = requests[0]
-                .headers
-                .get("authorization")
-                .map(|v| v.to_str().unwrap().to_string());
-            if credentials {
-                assert_eq!(auth.as_deref(), Some(expected));
-            } else {
-                assert_eq!(auth, None);
-            }
+        let mut config = create_test_config(&mock_server.uri());
+        if credentials {
+            config = config.with_seeder_credentials("user", "pass");
         }
+        let client = PlayHttpClient::new("id".to_string(), config);
+
+        if delete {
+            client.delete_seeder("/seed/id").await.unwrap();
+        } else {
+            let _: serde_json::Value = client
+                .post_seeder("/seed/", &serde_json::json!({}))
+                .await
+                .unwrap();
+        }
+
+        let requests = mock_server.received_requests().await.unwrap();
+        let received: Vec<String> = requests
+            .iter()
+            .map(|r| format!("{} {}", r.method, r.url))
+            .collect();
+        assert_eq!(
+            requests.len(),
+            1,
+            "expected exactly one request, received: {received:#?}"
+        );
+        let auth = requests[0]
+            .headers
+            .get("authorization")
+            .map(|v| v.to_str().unwrap().to_string());
+        if credentials {
+            assert_eq!(auth.as_deref(), Some(expected));
+        } else {
+            assert_eq!(auth, None);
+        }
+    }
+
+    /// Seeder requests carry an `Authorization: Basic` header only when credentials are
+    /// configured.
+    #[tokio::test]
+    async fn test_seeder_post_sends_basic_auth_with_credentials() {
+        assert_seeder_basic_auth(true, false).await;
+    }
+
+    #[tokio::test]
+    async fn test_seeder_delete_sends_basic_auth_with_credentials() {
+        assert_seeder_basic_auth(true, true).await;
+    }
+
+    #[tokio::test]
+    async fn test_seeder_post_omits_basic_auth_without_credentials() {
+        assert_seeder_basic_auth(false, false).await;
+    }
+
+    #[tokio::test]
+    async fn test_seeder_delete_omits_basic_auth_without_credentials() {
+        assert_seeder_basic_auth(false, true).await;
     }
 
     #[tokio::test]
