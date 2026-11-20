@@ -37,6 +37,10 @@ pub use rehydration::{RehydrationError, SaveStateData};
 pub mod tracing_middleware;
 mod transport;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub use bitwarden_api_base::{
+    ClientCertSigner, ClientCertSignerError, ClientCertificate, TlsSigScheme,
+};
 pub use builder::ClientBuilder;
 pub(crate) use builder::build_default_headers;
 pub use client::Client;

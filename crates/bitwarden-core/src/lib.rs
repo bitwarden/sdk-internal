@@ -30,6 +30,8 @@ pub use client::{
     ProxyCredentials, ProxySettings, TimeoutSettings, TransportSettings, get_host_platform_info,
     init_host_platform_info,
 };
+#[cfg(not(target_arch = "wasm32"))]
+pub use client::{ClientCertSigner, ClientCertSignerError, ClientCertificate, TlsSigScheme};
 #[cfg(feature = "internal")]
 pub use client::{FetchFlagsError, FlagsClient, RehydrationError, SaveStateData};
 pub use global::GlobalClient;
