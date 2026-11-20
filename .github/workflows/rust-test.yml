@@ -30,9 +30,21 @@ jobs:
       - name: Check if tests passed
         run: exit 0
 
+  fetch-crates:
+    name: Fetch crates
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/_fetch-crates.yml
+    secrets:
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+
   test:
     name: ${{ matrix.os }} / default
     runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
+    needs: fetch-crates
     strategy:
       matrix:
         include:
@@ -73,8 +85,21 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           # The build output cache below restores target/, including the dependencies.
           cache-targets: false
+
+      # After the cache restore, so this run's index entries replace any older cached ones.
+      - name: Download crates
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cargo-crates
+          path: ~/.cargo
+
+      # Aikido only runs on Linux X64 runners, so Cargo only uses the crates fetch-crates downloaded.
+      - name: Keep Cargo offline
+        shell: bash
+        run: echo "CARGO_NET_OFFLINE=true" >> "$GITHUB_ENV"
 
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
       # that changed and the crates that depend on them. Without any match, the run builds
@@ -101,6 +126,9 @@ jobs:
   test-wasm:
     name: WASM
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout
@@ -124,6 +152,15 @@ jobs:
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          prefix-key: v1-rust
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Test WASM
         run: cargo test --target wasm32-unknown-unknown -p bitwarden-wasm-internal -p bitwarden-threading -p bitwarden-error -p bitwarden-uuid -p bitwarden-ffi --all-features
@@ -136,6 +173,9 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout
@@ -152,19 +192,28 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           # The build output cache below restores target/, including the dependencies.
           cache-targets: false
 
       # The build output cache also holds the workspace crates, so a run only recompiles the crates
       # that changed and the crates that depend on them. Without any match, the run builds
       # everything, using the crate downloads restored by rust-cache above.
+      # The -v1 suffix drops the .bin tools built before Aikido checked their downloads.
       - name: Cache build output
         uses: bitwarden/gh-actions/cargo-build-cache@main
         with:
-          key: ${{ github.job }}
+          key: ${{ github.job }}-v1
           path: |
             !target/**/*.profraw
             .bin
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4

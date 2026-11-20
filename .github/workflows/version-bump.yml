@@ -36,6 +36,8 @@ jobs:
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          prefix-key: v1-rust
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -71,6 +73,13 @@ jobs:
           repository: bitwarden/sdk-internal
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4

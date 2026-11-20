@@ -27,6 +27,9 @@ jobs:
     name: Check dependencies maximum versions for - ${{ matrix.settings.os }} - ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os || 'ubuntu-24.04' }}
     timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
 
     strategy:
       fail-fast: false
@@ -50,7 +53,15 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
+          prefix-key: v1-rust
           key: dmaxv-${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}
+
+      - name: Set up Aikido Endpoint Protection
+        uses: bitwarden/gh-actions/setup-aikido-endpoint-protection@main
+        with:
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Refresh Cargo.lock to latest in-range versions
         run: cargo update
