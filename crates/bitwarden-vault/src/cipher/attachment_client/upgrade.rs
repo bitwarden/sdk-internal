@@ -184,7 +184,9 @@ impl AttachmentsClient {
         download_url: &str,
     ) -> Result<Vec<u8>, CipherUpgradeAttachmentError> {
         let response = self
-            .http_client
+            .api_configurations
+            .api_config
+            .client
             .get(download_url)
             .send()
             .await
@@ -226,9 +228,8 @@ impl AttachmentsClient {
     /// Uploads the re-encrypted bytes to the newly created attachment slot.
     ///
     /// Transport depends on [`AttachmentFileUploadType`]: `Azure` PUTs to the presigned blob URL
-    /// on the unauthenticated client (the SAS token in the URL authorizes it; a Bearer token must
-    /// not be attached), while `Direct` POSTs to the authenticated Bitwarden API endpoint
-    /// (`POST /ciphers/{id}/attachment/{attachmentId}`) using the configured API client.
+    /// without a Bearer token (the SAS token in the URL authorizes it), while `Direct` POSTs to the
+    /// authenticated Bitwarden API endpoint (`POST /ciphers/{id}/attachment/{attachmentId}`).
     async fn upload_reencrypted(
         &self,
         cipher_id: CipherId,
@@ -238,7 +239,9 @@ impl AttachmentsClient {
         match created.file_upload_type {
             AttachmentFileUploadType::Azure => {
                 let response = self
-                    .http_client
+                    .api_configurations
+                    .api_config
+                    .client
                     .put(&created.upload_url)
                     .header("x-ms-blob-type", "BlockBlob")
                     .body(reencrypted)
@@ -320,7 +323,6 @@ mod tests {
             key_store,
             api_configurations: Arc::new(api_configurations),
             repository: Some(Arc::new(repository)),
-            http_client: reqwest::Client::new(),
         }
     }
 
