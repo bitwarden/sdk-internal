@@ -64,4 +64,17 @@ impl StateClient {
     pub fn value<K: PersistedValueKey>(&self) -> PersistedValue<K> {
         self.client.internal.state_registry.value::<K>()
     }
+
+    /// Register a client-managed backend for the persisted value identified by `K`.
+    ///
+    /// Register before building the feature clients that use `K`.
+    pub fn register_client_managed_value<K: PersistedValueKey>(
+        &self,
+        value: impl Into<PersistedValue<K>>,
+    ) {
+        self.client
+            .internal
+            .state_registry
+            .register_client_managed_value(value)
+    }
 }
