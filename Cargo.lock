@@ -625,6 +625,7 @@ dependencies = [
  "reqwest-middleware",
  "rustls",
  "rustls-platform-verifier",
+ "rustls-webpki",
  "serde",
  "serde_json",
  "thiserror",

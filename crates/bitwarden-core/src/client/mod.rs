@@ -36,10 +36,13 @@ pub use rehydration::{RehydrationError, SaveStateData};
 
 pub mod tracing_middleware;
 mod transport;
+#[cfg(not(target_arch = "wasm32"))]
+mod validate_settings;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use bitwarden_api_base::{
-    ClientCertSigner, ClientCertSignerError, ClientCertificate, TlsSigScheme,
+    ClientCertSigner, ClientCertSignerError, ClientCertificate, ClientCertificateError,
+    TlsSigScheme,
 };
 pub use builder::ClientBuilder;
 pub(crate) use builder::build_default_headers;
@@ -49,6 +52,8 @@ pub use client_settings::{
     init_host_platform_info,
 };
 pub use transport::{ProxyCredentials, ProxySettings, TimeoutSettings, TransportSettings};
+#[cfg(not(target_arch = "wasm32"))]
+pub use validate_settings::{ValidateClientSettingsError, validate_client_settings};
 
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]

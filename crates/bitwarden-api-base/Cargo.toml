@@ -35,6 +35,7 @@ url = ">=2.5, <3"
 reqwest = { workspace = true, features = ["rustls-no-provider"] }
 rustls = { workspace = true }
 rustls-platform-verifier = { workspace = true }
+rustls-webpki = { workspace = true, features = ["alloc"] }
 
 [lints]
 workspace = true
