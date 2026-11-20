@@ -20,8 +20,7 @@ use passkey::{
         crypto::sha256,
         ctap2::{
             self, Ctap2Code, Ctap2Error, StatusCode, VendorError,
-            extensions::{AuthenticatorPrfInputs, AuthenticatorPrfValues},
-            make_credential::Options,
+            extensions::AuthenticatorPrfInputs, make_credential::Options,
         },
     },
 };
@@ -31,8 +30,8 @@ use crate::{
     GetAssertionRequest, MakeCredentialResult, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
     types::{
-        GetAssertionExtensionsOutput, PublicKeyCredentialDescriptor, PublicKeyCredentialParameters,
-        UV, WebAuthnEntityError,
+        GetAssertionExtensionsOutput, PrfInputValues, PublicKeyCredentialDescriptor,
+        PublicKeyCredentialParameters, UV, WebAuthnEntityError,
     },
 };
 
@@ -462,12 +461,23 @@ fn convert_creation_options(
             up: true,
         });
 
-    // Note, we currently hard-code this value instead of getting it from the server.
+    // Use the server's PRF input, else the Bitwarden login salt. Apply the WebAuthn PRF domain
+    // separation like an assertion does, so a later assertion with the same input gives the same
+    // output.
+    let prf_first = extensions
+        .as_ref()
+        .and_then(|e| e.prf.as_ref())
+        .and_then(|prf| prf.eval.as_ref())
+        .and_then(|eval| eval.first.clone())
+        .unwrap_or_else(|| sha256("passwordless-login".as_bytes()).to_vec());
     let prf_input = AuthenticatorPrfInputs {
-        eval: Some(AuthenticatorPrfValues {
-            first: sha256("passwordless-login".as_bytes()),
-            second: None,
-        }),
+        eval: Some(
+            PrfInputValues {
+                first: prf_first,
+                second: None,
+            }
+            .into(),
+        ),
         eval_by_credential: None,
     };
 
@@ -478,13 +488,11 @@ fn convert_creation_options(
         pub_key_cred_params,
         exclude_list,
         options: authenticator_options,
-        extensions: extensions
-            .as_ref()
-            .map(|_| ctap2::make_credential::ExtensionInputs {
-                hmac_secret: None,
-                hmac_secret_mc: None,
-                prf: Some(prf_input),
-            }),
+        extensions: Some(ctap2::make_credential::ExtensionInputs {
+            hmac_secret: None,
+            hmac_secret_mc: None,
+            prf: Some(prf_input),
+        }),
         pin_auth: None,
         pin_protocol: None,
     };
@@ -842,5 +850,144 @@ impl passkey::authenticator::UserValidationMethod for DeviceAuthKeyUiInternal {
 
     fn is_verification_enabled(&self) -> Option<bool> {
         Some(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{GetAssertionExtensionsInput, GetAssertionPrfInput};
+
+    #[derive(Default)]
+    struct MemStore {
+        record: Option<DeviceAuthKeyRecord>,
+        metadata: Option<DeviceAuthKeyMetadata>,
+    }
+
+    #[async_trait::async_trait]
+    impl DeviceAuthKeyStore for MemStore {
+        async fn create_record(
+            &mut self,
+            record: DeviceAuthKeyRecord,
+        ) -> Result<(), DeviceAuthKeyError> {
+            self.record = Some(record);
+            Ok(())
+        }
+        async fn create_metadata(
+            &mut self,
+            metadata: DeviceAuthKeyMetadata,
+        ) -> Result<(), DeviceAuthKeyError> {
+            self.metadata = Some(metadata);
+            Ok(())
+        }
+        async fn get_metadata(&self) -> Result<Option<DeviceAuthKeyMetadata>, DeviceAuthKeyError> {
+            Ok(self.metadata.as_ref().map(|m| DeviceAuthKeyMetadata {
+                record_identifier: m.record_identifier.clone(),
+                creation_date: m.creation_date,
+                credential_id: m.credential_id.clone(),
+                rp_id: m.rp_id.clone(),
+                user_name: m.user_name.clone(),
+                user_display_name: m.user_display_name.clone(),
+                user_handle: m.user_handle.clone(),
+            }))
+        }
+        async fn get_record(&self) -> Result<Option<DeviceAuthKeyRecord>, DeviceAuthKeyError> {
+            Ok(self.record.as_ref().map(|r| DeviceAuthKeyRecord {
+                credential_id: r.credential_id.clone(),
+                key: r.key.clone(),
+                rp_id: r.rp_id.clone(),
+                user_id: r.user_id.clone(),
+                counter: r.counter,
+                hmac_secret: r.hmac_secret.clone(),
+            }))
+        }
+        async fn delete_record_and_metadata(&mut self) -> Result<(), DeviceAuthKeyError> {
+            self.record = None;
+            self.metadata = None;
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn prf_output_at_creation_equals_prf_output_at_assertion() {
+        // Server-shaped attestation options without PRF extension input.
+        let options: CredentialCreateOptions = serde_json::from_value(serde_json::json!({
+            "rp": {"id": "localhost", "name": "Bitwarden"},
+            "user": {"id": "AQIDBAUGBwg", "name": "dak@example.com", "displayName": "dak"},
+            "challenge": "AAECAwQFBgcICQoLDA0ODw",
+            "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
+            "authenticatorSelection": {"residentKey": "required", "requireResidentKey": true, "userVerification": "required"}
+        }))
+        .expect("options");
+
+        // Creation: the request builder and authenticator setup of create_device_auth_key.
+        let (request, _) = convert_creation_options(
+            &options,
+            "localhost".to_string(),
+            "https://localhost:8080".to_string(),
+        )
+        .expect("request");
+        let mut mem = MemStore::default();
+        let created_prf = {
+            let store = DeviceAuthKeyStoreInternal { store: &mut mem };
+            let mut authenticator = passkey::authenticator::Authenticator::new(
+                crate::AAGUID,
+                store,
+                DeviceAuthKeyUiInternal {},
+            )
+            .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential());
+            let response = authenticator
+                .make_credential(request)
+                .await
+                .expect("make_credential");
+            let Ok(result) = MakeCredentialResult::try_from(response) else {
+                panic!("make_credential response does not convert");
+            };
+            result
+                .extensions
+                .prf
+                .and_then(|p| p.results)
+                .expect("creation PRF")
+                .first
+        };
+
+        // Assertion with the PRF input that the web vault sends.
+        let client = Client::new(None);
+        let mut dak = DeviceAuthKeyAuthenticator {
+            client: &client,
+            store: &mut mem,
+        };
+        let asserted = dak
+            .assert_device_auth_key(GetAssertionRequest {
+                rp_id: "localhost".to_string(),
+                client_data_hash: vec![0u8; 32],
+                allow_list: None,
+                options: crate::types::Options {
+                    rk: true,
+                    uv: UV::Required,
+                },
+                extensions: Some(GetAssertionExtensionsInput {
+                    prf: Some(GetAssertionPrfInput {
+                        eval: Some(PrfInputValues {
+                            first: sha256("passwordless-login".as_bytes()).to_vec(),
+                            second: None,
+                        }),
+                        eval_by_credential: None,
+                    }),
+                }),
+            })
+            .await
+            .expect("assert");
+        let asserted_prf = asserted
+            .extensions
+            .prf
+            .expect("assertion PRF")
+            .results
+            .first;
+
+        assert_eq!(
+            created_prf, asserted_prf,
+            "creation and assertion PRF outputs differ"
+        );
     }
 }
