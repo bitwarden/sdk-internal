@@ -569,6 +569,8 @@ pub enum CopyableCipherFields {
     DriversLicenseMiddleName,
     DriversLicenseLastName,
     DriversLicenseLicenseNumber,
+    CardCardholderName,
+    CardExpiration,
 }
 
 #[serde_with::skip_serializing_none]
@@ -1211,6 +1213,15 @@ impl CipherView {
                         c.code
                             .as_ref()
                             .map(|_| CopyableCipherFields::CardSecurityCode),
+                        c.cardholder_name
+                            .as_deref()
+                            .filter(|name| !name.is_empty())
+                            .map(|_| CopyableCipherFields::CardCardholderName),
+                        c.exp_month
+                            .as_deref()
+                            .filter(|month| !month.is_empty())
+                            .zip(c.exp_year.as_deref().filter(|year| !year.is_empty()))
+                            .map(|_| CopyableCipherFields::CardExpiration),
                     ]
                     .into_iter()
                     .flatten()
@@ -2355,7 +2366,39 @@ mod tests {
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::{Fido2Credential, PasswordHistoryView, login::Fido2CredentialListView};
+    use crate::{CardView, Fido2Credential, PasswordHistoryView, login::Fido2CredentialListView};
+
+    #[test]
+    fn test_get_copyable_card_fields_from_view() {
+        for name in [None, Some(""), Some("Jane Doe")] {
+            for month in [None, Some(""), Some("5")] {
+                for year in [None, Some(""), Some("2030")] {
+                    let mut view = generate_cipher();
+                    view.r#type = CipherType::Card;
+                    view.login = None;
+                    view.card = Some(CardView {
+                        cardholder_name: name.map(str::to_owned),
+                        exp_month: month.map(str::to_owned),
+                        exp_year: year.map(str::to_owned),
+                        code: None,
+                        brand: None,
+                        number: None,
+                    });
+                    let fields = view.get_copyable_fields();
+
+                    assert_eq!(
+                        fields.contains(&CopyableCipherFields::CardCardholderName),
+                        name.is_some_and(|value| !value.is_empty()),
+                    );
+                    assert_eq!(
+                        fields.contains(&CopyableCipherFields::CardExpiration),
+                        month.is_some_and(|value| !value.is_empty())
+                            && year.is_some_and(|value| !value.is_empty()),
+                    );
+                }
+            }
+        }
+    }
 
     // Test constants for encrypted strings
     const TEST_ENC_STRING_1: &str = "2.xzDCDWqRBpHm42EilUvyVw==|nIrWV3l/EeTbWTnAznrK0Q==|sUj8ol2OTgvvTvD86a9i9XUP58hmtCEBqhck7xT5YNk=";
@@ -4354,6 +4397,16 @@ mod tests {
                     list_view
                         .copyable_fields
                         .contains(&CopyableCipherFields::CardSecurityCode)
+                );
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::CardCardholderName)
+                );
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::CardExpiration)
                 );
             }
 

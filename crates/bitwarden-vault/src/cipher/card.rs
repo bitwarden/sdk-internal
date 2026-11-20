@@ -198,6 +198,13 @@ impl CipherKind for Card {
             self.code
                 .as_ref()
                 .map(|_| CopyableCipherFields::CardSecurityCode),
+            self.cardholder_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::CardCardholderName),
+            self.exp_month
+                .as_ref()
+                .zip(self.exp_year.as_ref())
+                .map(|_| CopyableCipherFields::CardExpiration),
         ]
         .into_iter()
         .flatten()
@@ -240,6 +247,36 @@ pub(super) fn build_subtitle_card(brand: Option<String>, number: Option<String>)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_copyable_fields_cardholder_name_and_expiration() {
+        let encrypted: EncString = "2.6TpmzzaQHgYr+mXjdGLQlg==|vT8VhfvMlWSCN9hxGYftZ5rjKRsZ9ofjdlUCx5Gubnk=|uoD3/GEQBWKKx2O+/YhZUCzVkfhm8rFK3sUEVV84mv8=".parse().unwrap();
+
+        for has_name in [false, true] {
+            for has_month in [false, true] {
+                for has_year in [false, true] {
+                    let card = Card {
+                        cardholder_name: has_name.then(|| encrypted.clone()),
+                        exp_month: has_month.then(|| encrypted.clone()),
+                        exp_year: has_year.then(|| encrypted.clone()),
+                        code: None,
+                        brand: None,
+                        number: None,
+                    };
+                    let fields = card.get_copyable_fields(None);
+
+                    assert_eq!(
+                        fields.contains(&CopyableCipherFields::CardCardholderName),
+                        has_name,
+                    );
+                    assert_eq!(
+                        fields.contains(&CopyableCipherFields::CardExpiration),
+                        has_month && has_year,
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_build_subtitle_card_visa() {
