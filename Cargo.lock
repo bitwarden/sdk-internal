@@ -627,6 +627,8 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "thiserror",
+ "tracing",
  "uniffi",
  "url",
 ]
