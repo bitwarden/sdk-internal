@@ -10,7 +10,7 @@ The following lints are currently available:
 - `repr_with_tsify`: Forbids deriving both `serde_repr` (`Serialize_repr`/`Deserialize_repr`) and
   `tsify::Tsify` on the same type, because the integer wire format produced by `serde_repr`
   disagrees with the string-based TypeScript declaration produced by `Tsify`. Use
-  `#[cfg_attr(feature = "wasm", wasm_bindgen)]` for repr-encoded enums.
+  `#[bitwarden_ffi::wasm_object]` for repr-encoded enums.
 - `uniffi_async_export`: Ensures `#[uniffi::export]` on `async fn`s (free or inside an impl)
   specifies `async_runtime = "tokio"`.
 - `uniffi_config`: Ensures crates calling `uniffi::setup_scaffolding!()` ship a `uniffi.toml`, so

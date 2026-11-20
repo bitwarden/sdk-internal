@@ -50,7 +50,7 @@ bitwarden-encrypted-migrator = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
 bitwarden-ffi = { workspace = true, features = ["wasm"] }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
-bitwarden-logging = { workspace = true, features = ["wasm"] }
+bitwarden-logging = { workspace = true, features = ["ipc", "wasm"] }
 bitwarden-managed-settings = { workspace = true, features = ["wasm"] }
 bitwarden-member-administration = { workspace = true, features = ["wasm"] }
 # This dependency is not used directly, but we need to include it in order to
@@ -70,6 +70,7 @@ bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
+bitwarden-web-connector = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"
 rand = { workspace = true }
 rsa = { workspace = true }

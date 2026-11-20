@@ -1,0 +1,40 @@
+[package]
+name = "bitwarden-web-connector"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[features]
+wasm = [
+    "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
+    "dep:wasm-bindgen",
+] # WASM support
+
+[dependencies]
+bitwarden-encoding = { workspace = true }
+bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
+bitwarden-random = { workspace = true, features = ["snow"] }
+rand = { workspace = true }
+snow = { version = "0.10.0", default-features = false, features = [
+    "default-resolver",
+    "default-resolver-crypto",
+    "use-p256",
+] }
+thiserror = { workspace = true }
+url = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[lints]
+workspace = true
