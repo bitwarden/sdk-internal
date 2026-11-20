@@ -11,6 +11,10 @@ use super::{
 use crate::AccessRuleId;
 
 /// Client for PAM access rule CRUD operations.
+///
+/// Every operation, reads included, requires authority over the organization's access rules (an
+/// Owner, an Admin, or a Custom user who can manage access rules); the server answers anyone else
+/// with `403`. To tell whether a collection is gated, read its `has_enabled_access_rule` instead.
 #[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct AccessRulesClient {
