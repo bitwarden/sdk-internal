@@ -121,19 +121,38 @@ fn redact_url(url: &str) -> String {
 pub(crate) struct HttpClientFactory {
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) transport: Option<TransportSettings>,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) client_certificate: Option<std::sync::Arc<super::ClientCertificate>>,
 }
 
 impl HttpClientFactory {
+    /// For hosts the Bitwarden server did not point the client to, such as HIBP.
+    pub(crate) fn external(&self) -> reqwest::ClientBuilder {
+        self.builder(false)
+    }
+
+    /// For the identity and API clients.
+    pub(crate) fn bitwarden(&self) -> reqwest::ClientBuilder {
+        self.builder(true)
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn builder(&self) -> reqwest::ClientBuilder {
-        apply_transport(
-            bitwarden_api_base::new_http_client_builder(),
-            self.transport.as_ref(),
-        )
+    fn builder(&self, with_client_certificate: bool) -> reqwest::ClientBuilder {
+        let certificate = self
+            .client_certificate
+            .as_deref()
+            .filter(|_| with_client_certificate);
+        let builder = match certificate {
+            Some(certificate) => {
+                bitwarden_api_base::new_http_client_builder_with_client_certificate(certificate)
+            }
+            None => bitwarden_api_base::new_http_client_builder(),
+        };
+        apply_transport(builder, self.transport.as_ref())
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub(crate) fn builder(&self) -> reqwest::ClientBuilder {
+    fn builder(&self, _with_client_certificate: bool) -> reqwest::ClientBuilder {
         bitwarden_api_base::new_http_client_builder()
     }
 }

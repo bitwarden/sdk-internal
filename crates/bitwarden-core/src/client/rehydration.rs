@@ -58,8 +58,8 @@ impl Client {
     ///
     /// Does NOT unlock the vault.
     ///
-    /// Use [`Client::builder`] for a client with [`TransportSettings`](crate::TransportSettings),
-    /// since they are not persisted.
+    /// Use [`Client::builder`] for a client with [`TransportSettings`](crate::TransportSettings)
+    /// or a client certificate, since neither is persisted.
     pub async fn load_from_state(
         token_handler: Arc<dyn TokenHandler>,
         registry: StateRegistry,
