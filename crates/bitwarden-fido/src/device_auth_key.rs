@@ -1,14 +1,16 @@
 use bitwarden_api_api::models::{
-    AttestationResponse, AuthenticationExtensionsClientOutputs,
-    AuthenticatorAttestationRawResponse, AuthenticatorTransport, CredentialCreateOptions,
-    PublicKeyCredentialType, SecretVerificationRequestModel, UserVerificationRequirement,
-    WebAuthnCredentialCreateOptionsResponseModel, WebAuthnLoginCredentialCreateRequestModel,
+    AssertionResponse, AttestationResponse, AuthenticationExtensionsClientOutputs,
+    AuthenticatorAssertionRawResponse, AuthenticatorAttestationRawResponse, AuthenticatorTransport,
+    CredentialCreateOptions, PublicKeyCredentialType, SecretVerificationRequestModel,
+    UserVerificationRequirement, WebAuthnCredentialCreateOptionsResponseModel,
+    WebAuthnLoginCredentialCreateRequestModel,
 };
 use bitwarden_core::{
     Client, key_management::SymmetricKeySlotId, mobile::KdfClient,
     platform::SecretVerificationRequest,
 };
 use bitwarden_crypto::{HashPurpose, Kdf, RotateableKeySet};
+use bitwarden_encoding::{B64, B64Url};
 use chrono::{DateTime, Utc};
 use coset::{CborSerializable, CoseKey};
 use passkey::{
@@ -30,8 +32,9 @@ use crate::{
     GetAssertionRequest, MakeCredentialResult, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
     types::{
-        GetAssertionExtensionsOutput, PrfInputValues, PublicKeyCredentialDescriptor,
-        PublicKeyCredentialParameters, UV, WebAuthnEntityError,
+        GetAssertionExtensionsInput, GetAssertionExtensionsOutput, GetAssertionPrfInput,
+        PrfInputValues, PublicKeyCredentialDescriptor, PublicKeyCredentialParameters, UV,
+        WebAuthnEntityError,
     },
 };
 
@@ -47,7 +50,7 @@ pub struct DeviceAuthKeyAuthenticator<'a> {
 impl DeviceAuthKeyAuthenticator<'_> {
     /// Create a device auth key by registering an unlock passkey and PRF keyset with the server.
     /// The passkey private key and metadata will be stored on the device using the provided trait
-    /// implementation.
+    /// implementation. Returns the PRF key set that was registered.
     pub async fn create_device_auth_key(
         &mut self,
         client_name: String,
@@ -63,7 +66,7 @@ impl DeviceAuthKeyAuthenticator<'_> {
         email: String,
         secret_verification_request: SecretVerificationRequest,
         kdf_params: Kdf,
-    ) -> Result<(), DeviceAuthKeyError> {
+    ) -> Result<RotateableKeySet, DeviceAuthKeyError> {
         // Derive secret verification request
         let config = self.client.internal.get_api_configurations();
         let api_client = &config.api_client;
@@ -87,15 +90,7 @@ impl DeviceAuthKeyAuthenticator<'_> {
         let WebAuthnCredentialCreateOptionsResponseModel { options, token, .. } = options_response;
 
         // Convert creation options
-        let (default_rp_id, origin) = {
-            let url =
-                Url::parse(&web_vault_url).map_err(|_| DeviceAuthKeyError::InvalidWebVaultUrl)?;
-            let Some(default_rp_id) = url.host().map(|host| host.to_string()) else {
-                return Err(DeviceAuthKeyError::InvalidWebVaultUrl);
-            };
-            let origin = url.origin().ascii_serialization();
-            (default_rp_id, origin)
-        };
+        let (default_rp_id, origin) = rp_id_and_origin(&web_vault_url)?;
         let (request, client_data_json) = convert_creation_options(options.as_ref(), default_rp_id, origin).map_err(|err| {
             tracing::error!(%err, ?options, "Received invalid WebAuthn attestation options from server");
             DeviceAuthKeyError::RetrieveRegistrationOptionsFailure
@@ -211,7 +206,110 @@ impl DeviceAuthKeyAuthenticator<'_> {
             tracing::error!(%err, "Failed to save device auth key metadata");
             err
         })?;
-        Ok(())
+        Ok(key_set)
+    }
+
+    /// Assert the device auth key for a `webauthn` grant login. Gets the assertion options from
+    /// the server and returns the token request values and the PRF output.
+    pub async fn assert_device_auth_key_for_login(
+        &mut self,
+        web_vault_url: String,
+    ) -> Result<DeviceAuthKeyLoginAssertion, DeviceAuthKeyError> {
+        let (default_rp_id, origin) = rp_id_and_origin(&web_vault_url)?;
+        let config = self.client.internal.get_api_configurations();
+        let options_response = config
+            .identity_client
+            .accounts_api()
+            .get_web_authn_login_assertion_options()
+            .await
+            .map_err(|err| {
+                tracing::error!(%err, "Failed to retrieve assertion options");
+                DeviceAuthKeyError::RetrieveAssertionOptionsFailure
+            })?;
+        let options = options_response.options;
+        let challenge = options
+            .challenge
+            .ok_or(DeviceAuthKeyError::RetrieveAssertionOptionsFailure)?;
+        let client_data_json = format!(
+            r#"{{"type":"webauthn.get","challenge":"{}","origin":"{}","crossOrigin":false}}"#,
+            B64Url::from(challenge.as_slice()),
+            origin
+        );
+        let rp_id = options.rp_id.unwrap_or(default_rp_id);
+        let (assertion, prf_output) = self
+            .assert_with_login_prf(rp_id, sha256(client_data_json.as_bytes()).to_vec())
+            .await?;
+
+        let device_response = AuthenticatorAssertionRawResponse {
+            id: B64Url::from(assertion.credential_id.as_slice()).to_string(),
+            raw_id: assertion.credential_id,
+            response: Some(Box::new(AssertionResponse {
+                authenticator_data: Some(assertion.authenticator_data),
+                signature: Some(assertion.signature),
+                client_data_json: Some(client_data_json.into_bytes()),
+                user_handle: Some(assertion.user_handle),
+            })),
+            r#type: PublicKeyCredentialType::PublicKey,
+            extensions: None,
+            client_extension_results: Box::new(AuthenticationExtensionsClientOutputs::new()),
+        };
+        let device_response =
+            serde_json::to_string(&device_response).map_err(|_| DeviceAuthKeyError::Conversion)?;
+        Ok(DeviceAuthKeyLoginAssertion {
+            token: options_response.token,
+            device_response,
+            prf_output,
+        })
+    }
+
+    /// Get the PRF output of the device auth key, to unlock the vault on this device.
+    pub async fn get_prf_output(&mut self) -> Result<B64, DeviceAuthKeyError> {
+        let metadata = self
+            .store
+            .get_metadata()
+            .await?
+            .ok_or(DeviceAuthKeyError::MissingDeviceAuthKey)?;
+        // No relying party verifies this assertion, so the client data hash is a placeholder.
+        let (_, prf_output) = self
+            .assert_with_login_prf(metadata.rp_id, vec![0; 32])
+            .await?;
+        Ok(prf_output)
+    }
+
+    /// Assert the device auth key with the login PRF input. Returns the assertion and the PRF
+    /// output.
+    async fn assert_with_login_prf(
+        &mut self,
+        rp_id: String,
+        client_data_hash: Vec<u8>,
+    ) -> Result<(DeviceAuthKeyGetAssertionResult, B64), DeviceAuthKeyError> {
+        let assertion = self
+            .assert_device_auth_key(GetAssertionRequest {
+                rp_id,
+                client_data_hash,
+                allow_list: None,
+                options: crate::types::Options {
+                    rk: false,
+                    uv: UV::Required,
+                },
+                extensions: Some(GetAssertionExtensionsInput {
+                    prf: Some(GetAssertionPrfInput {
+                        eval: Some(PrfInputValues {
+                            first: login_prf_input(),
+                            second: None,
+                        }),
+                        eval_by_credential: None,
+                    }),
+                }),
+            })
+            .await?;
+        let prf_output = assertion
+            .extensions
+            .prf
+            .as_ref()
+            .map(|prf| B64::from(prf.results.first.as_slice()))
+            .ok_or(DeviceAuthKeyError::PrfFailure)?;
+        Ok((assertion, prf_output))
     }
 
     /// Satisfy the given FIDO assertion `request` using the device auth key.
@@ -375,6 +473,21 @@ async fn build_secret_verification_request(
     })
 }
 
+/// The PRF input that Bitwarden clients use to log in with a passkey.
+fn login_prf_input() -> Vec<u8> {
+    sha256("passwordless-login".as_bytes()).to_vec()
+}
+
+/// The default RP ID (the host) and the origin of the web vault URL.
+fn rp_id_and_origin(web_vault_url: &str) -> Result<(String, String), DeviceAuthKeyError> {
+    let url = Url::parse(web_vault_url).map_err(|_| DeviceAuthKeyError::InvalidWebVaultUrl)?;
+    let rp_id = url
+        .host()
+        .map(|host| host.to_string())
+        .ok_or(DeviceAuthKeyError::InvalidWebVaultUrl)?;
+    Ok((rp_id, url.origin().ascii_serialization()))
+}
+
 /// Create a CTAP2 makeCredential request and clientDataJSON from the WebAuthn credential
 /// attestations options received from the server. Generates clientDataJSON from given origin and
 /// challenge, and injects the default RP ID if it's missing.
@@ -469,7 +582,7 @@ fn convert_creation_options(
         .and_then(|e| e.prf.as_ref())
         .and_then(|prf| prf.eval.as_ref())
         .and_then(|eval| eval.first.clone())
-        .unwrap_or_else(|| sha256("passwordless-login".as_bytes()).to_vec());
+        .unwrap_or_else(login_prf_input);
     let prf_input = AuthenticatorPrfInputs {
         eval: Some(
             PrfInputValues {
@@ -640,6 +753,17 @@ pub struct DeviceAuthKeyMetadata {
     pub user_display_name: String,
 }
 
+/// The values of a `webauthn` grant token request, and the PRF output of the device auth key.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct DeviceAuthKeyLoginAssertion {
+    /// The `token` value from the assertion options.
+    pub token: String,
+    /// The `deviceResponse` value: an `AuthenticatorAssertionRawResponse` as JSON.
+    pub device_response: String,
+    /// The PRF output that opens the PRF key set of the device auth key.
+    pub prf_output: B64,
+}
+
 /// Errors related to processing the device auth key.
 #[derive(Debug, thiserror::Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
@@ -705,6 +829,10 @@ pub enum DeviceAuthKeyError {
     /// Failed to retrieve the registration options from the server.
     #[error("Failed to retrieve the registration options from the server")]
     RetrieveRegistrationOptionsFailure,
+
+    /// Failed to retrieve the assertion options from the server.
+    #[error("Failed to retrieve the assertion options from the server")]
+    RetrieveAssertionOptionsFailure,
 
     /// Failed to generate rotateable key set from PRF output.
     #[error("Failed to generate rotateable key set from PRF output")]
@@ -855,8 +983,9 @@ impl passkey::authenticator::UserValidationMethod for DeviceAuthKeyUiInternal {
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_core::client::ApiConfigurations;
+
     use super::*;
-    use crate::types::{GetAssertionExtensionsInput, GetAssertionPrfInput};
 
     #[derive(Default)]
     struct MemStore {
@@ -908,8 +1037,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn prf_output_at_creation_equals_prf_output_at_assertion() {
+    /// Creates a device auth key in `mem` and returns the PRF output of the creation.
+    async fn create_test_credential(mem: &mut MemStore) -> Vec<u8> {
         // Server-shaped attestation options without PRF extension input.
         let options: CredentialCreateOptions = serde_json::from_value(serde_json::json!({
             "rp": {"id": "localhost", "name": "Bitwarden"},
@@ -927,29 +1056,32 @@ mod tests {
             "https://localhost:8080".to_string(),
         )
         .expect("request");
-        let mut mem = MemStore::default();
-        let created_prf = {
-            let store = DeviceAuthKeyStoreInternal { store: &mut mem };
-            let mut authenticator = passkey::authenticator::Authenticator::new(
-                crate::AAGUID,
-                store,
-                DeviceAuthKeyUiInternal {},
-            )
-            .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential());
-            let response = authenticator
-                .make_credential(request)
-                .await
-                .expect("make_credential");
-            let Ok(result) = MakeCredentialResult::try_from(response) else {
-                panic!("make_credential response does not convert");
-            };
-            result
-                .extensions
-                .prf
-                .and_then(|p| p.results)
-                .expect("creation PRF")
-                .first
+        let store = DeviceAuthKeyStoreInternal { store: mem };
+        let mut authenticator = passkey::authenticator::Authenticator::new(
+            crate::AAGUID,
+            store,
+            DeviceAuthKeyUiInternal {},
+        )
+        .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential());
+        let response = authenticator
+            .make_credential(request)
+            .await
+            .expect("make_credential");
+        let Ok(result) = MakeCredentialResult::try_from(response) else {
+            panic!("make_credential response does not convert");
         };
+        result
+            .extensions
+            .prf
+            .and_then(|p| p.results)
+            .expect("creation PRF")
+            .first
+    }
+
+    #[tokio::test]
+    async fn prf_output_at_creation_equals_prf_output_at_assertion() {
+        let mut mem = MemStore::default();
+        let created_prf = create_test_credential(&mut mem).await;
 
         // Assertion with the PRF input that the web vault sends.
         let client = Client::new(None);
@@ -989,5 +1121,77 @@ mod tests {
             created_prf, asserted_prf,
             "creation and assertion PRF outputs differ"
         );
+
+        // The PRF output for a local unlock is the same value.
+        dak.store
+            .create_metadata(DeviceAuthKeyMetadata {
+                record_identifier: "record".to_string(),
+                creation_date: Utc::now(),
+                credential_id: vec![],
+                rp_id: "localhost".to_string(),
+                user_name: "dak@example.com".to_string(),
+                user_display_name: "dak".to_string(),
+                user_handle: vec![],
+            })
+            .await
+            .expect("metadata");
+        let unlock_prf = dak.get_prf_output().await.expect("unlock PRF");
+        assert_eq!(unlock_prf, B64::from(created_prf.as_slice()));
+    }
+
+    #[tokio::test]
+    async fn login_assertion_returns_token_device_response_and_prf_output() {
+        let mut mem = MemStore::default();
+        let created_prf = create_test_credential(&mut mem).await;
+
+        let mut config = ApiConfigurations::from_api_client(
+            bitwarden_api_api::apis::ApiClient::new_mocked(|_| {}),
+        );
+        config.identity_client = bitwarden_api_identity::apis::ApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_get_web_authn_login_assertion_options()
+                .returning(|| {
+                    let mut options = bitwarden_api_identity::models::AssertionOptions::new();
+                    options.challenge = Some((0u8..16).collect());
+                    options.rp_id = Some("localhost".to_string());
+                    Ok(
+                        bitwarden_api_identity::models::WebAuthnLoginAssertionOptionsResponseModel {
+                            object: None,
+                            options: Box::new(options),
+                            token: "token".to_string(),
+                        },
+                    )
+                });
+        });
+        let client = Client::builder()
+            .with_api_configurations(std::sync::Arc::new(config))
+            .build();
+        let mut dak = DeviceAuthKeyAuthenticator {
+            client: &client,
+            store: &mut mem,
+        };
+
+        let assertion = dak
+            .assert_device_auth_key_for_login("https://localhost:8080".to_string())
+            .await
+            .expect("login assertion");
+
+        assert_eq!(assertion.token, "token");
+        assert_eq!(assertion.prf_output, B64::from(created_prf.as_slice()));
+        let device_response: serde_json::Value =
+            serde_json::from_str(&assertion.device_response).expect("device response JSON");
+        assert_eq!(device_response["type"], "public-key");
+        assert_eq!(device_response["id"], device_response["rawId"]);
+        let client_data_json = B64Url::try_from(
+            device_response["response"]["clientDataJSON"]
+                .as_str()
+                .expect("clientDataJSON"),
+        )
+        .expect("base64url");
+        let client_data: serde_json::Value =
+            serde_json::from_slice(client_data_json.as_bytes()).expect("client data");
+        assert_eq!(client_data["type"], "webauthn.get");
+        assert_eq!(client_data["challenge"], "AAECAwQFBgcICQoLDA0ODw");
+        assert_eq!(client_data["origin"], "https://localhost:8080");
     }
 }

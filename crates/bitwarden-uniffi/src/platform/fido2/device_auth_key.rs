@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use bitwarden_core::platform::SecretVerificationRequest;
-use bitwarden_crypto::Kdf;
+use bitwarden_crypto::{Kdf, RotateableKeySet};
+use bitwarden_encoding::B64;
 use bitwarden_fido::{
     DeviceAuthKeyError as BitDeviceAuthKeyError, DeviceAuthKeyGetAssertionResult,
-    DeviceAuthKeyMetadata, DeviceAuthKeyRecord, GetAssertionRequest,
+    DeviceAuthKeyLoginAssertion, DeviceAuthKeyMetadata, DeviceAuthKeyRecord, GetAssertionRequest,
 };
 
 use super::UniffiTraitBridge;
@@ -20,7 +21,7 @@ pub struct ClientDeviceAuthKeyAuthenticator {
 impl ClientDeviceAuthKeyAuthenticator {
     /// Create a device auth key by registering an unlock passkey and PRF keyset with the server.
     /// The passkey private key and metadata will be stored on the device using the provided trait
-    /// implementation.
+    /// implementation. Returns the PRF key set that was registered.
     pub async fn create_device_auth_key(
         &self,
         client_name: String,
@@ -28,7 +29,7 @@ impl ClientDeviceAuthKeyAuthenticator {
         email: String,
         secret_verification_request: SecretVerificationRequest,
         kdf: Kdf,
-    ) -> Result<()> {
+    ) -> Result<RotateableKeySet> {
         let mut store = UniffiTraitBridge(self.store.as_ref());
         let mut authenticator = self.client.create_device_key_authenticator(&mut store);
         authenticator
@@ -55,6 +56,30 @@ impl ClientDeviceAuthKeyAuthenticator {
         let mut authenticator = self.client.create_device_key_authenticator(&mut store);
         authenticator
             .assert_device_auth_key(request)
+            .await
+            .map_err(Error::DeviceAuthKey)
+    }
+
+    /// Assert the device auth key for a `webauthn` grant login. Returns the token request values
+    /// and the PRF output.
+    pub async fn assert_device_auth_key_for_login(
+        &self,
+        web_vault_url: String,
+    ) -> Result<DeviceAuthKeyLoginAssertion> {
+        let mut store = UniffiTraitBridge(self.store.as_ref());
+        let mut authenticator = self.client.create_device_key_authenticator(&mut store);
+        authenticator
+            .assert_device_auth_key_for_login(web_vault_url)
+            .await
+            .map_err(Error::DeviceAuthKey)
+    }
+
+    /// Get the PRF output of the device auth key, to unlock the vault on this device.
+    pub async fn get_prf_output(&self) -> Result<B64> {
+        let mut store = UniffiTraitBridge(self.store.as_ref());
+        let mut authenticator = self.client.create_device_key_authenticator(&mut store);
+        authenticator
+            .get_prf_output()
             .await
             .map_err(Error::DeviceAuthKey)
     }
@@ -192,6 +217,10 @@ pub enum DeviceAuthKeyCallbackError {
     #[error("Failed to retrieve the registration options from the server")]
     RetrieveRegistrationOptionsFailure,
 
+    /// Failed to retrieve the assertion options from the server.
+    #[error("Failed to retrieve the assertion options from the server")]
+    RetrieveAssertionOptionsFailure,
+
     /// Failed to generate rotateable key set from PRF output.
     #[error("Failed to generate rotateable key set from PRF output")]
     PrfFailure,
@@ -243,6 +272,9 @@ impl From<DeviceAuthKeyCallbackError> for BitDeviceAuthKeyError {
             DeviceAuthKeyCallbackError::RetrieveRegistrationOptionsFailure => {
                 Self::RetrieveRegistrationOptionsFailure
             }
+            DeviceAuthKeyCallbackError::RetrieveAssertionOptionsFailure => {
+                Self::RetrieveAssertionOptionsFailure
+            }
             DeviceAuthKeyCallbackError::PrfFailure => Self::PrfFailure,
             DeviceAuthKeyCallbackError::SubmitRegistrationFailure => {
                 Self::SubmitRegistrationFailure
@@ -274,6 +306,9 @@ impl From<BitDeviceAuthKeyError> for DeviceAuthKeyCallbackError {
             BitDeviceAuthKeyError::NotImplemented => Self::NotImplemented,
             BitDeviceAuthKeyError::RetrieveRegistrationOptionsFailure => {
                 Self::RetrieveRegistrationOptionsFailure
+            }
+            BitDeviceAuthKeyError::RetrieveAssertionOptionsFailure => {
+                Self::RetrieveAssertionOptionsFailure
             }
             BitDeviceAuthKeyError::PrfFailure => Self::PrfFailure,
             BitDeviceAuthKeyError::SubmitRegistrationFailure => Self::SubmitRegistrationFailure,

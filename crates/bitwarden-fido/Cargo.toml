@@ -20,6 +20,7 @@ uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
+bitwarden-api-identity = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
@@ -41,6 +42,9 @@ uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
+bitwarden-api-identity = { workspace = true, features = ["mockall"] }
+bitwarden-core = { workspace = true, features = ["test-fixtures"] }
 tokio = { workspace = true }
 
 [lints]
