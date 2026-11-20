@@ -193,7 +193,10 @@ describe("invite link client", () => {
           const admin = await sdkFor(ADMIN);
 
           // 1. Create a link, with domains the server has to sanitize
-          const link = await createLink(admin, true, ["Test.Bitwarden.com", "  other.com "]);
+          const link = await admin
+            .invite_link()
+            .admin()
+            .create(organizationId, ["Test.Bitwarden.com", "  other.com "], true);
 
           // 2. Verify the server stored it, with the domains sanitized
           const stored = harness.server.inviteLinkFor(organizationId);
@@ -230,7 +233,10 @@ describe("invite link client", () => {
           const admin = await sdkFor(ADMIN);
 
           // 1. Create a link
-          const link = await createLink(admin);
+          const link = await admin
+            .invite_link()
+            .admin()
+            .create(organizationId, [VECTOR_DOMAIN], true);
 
           // 2. Verify no request carried its secret
           expectNeverSent(parseFragment(link).secret);
@@ -246,7 +252,10 @@ describe("invite link client", () => {
           const first = await createLink(admin);
 
           // 1. Create a second link
-          const error = await rejection(createLink(admin), isInviteLinkError);
+          const error = await rejection(
+            admin.invite_link().admin().create(organizationId, [VECTOR_DOMAIN], true),
+            isInviteLinkError,
+          );
 
           // 2. Verify the server refused it and kept the first
           expect(error.variant).toBe("Api");
@@ -262,7 +271,10 @@ describe("invite link client", () => {
           const admin = await sdkFor(ADMIN);
 
           // 1. Create a link whose only domain is blank
-          const error = await rejection(createLink(admin, true, ["   "]), isInviteLinkError);
+          const error = await rejection(
+            admin.invite_link().admin().create(organizationId, ["   "], true),
+            isInviteLinkError,
+          );
 
           // 2. Verify the server refused it and stored nothing
           expect(error.variant).toBe("Api");
@@ -278,7 +290,10 @@ describe("invite link client", () => {
           const admin = await sdkFor(ADMIN);
 
           // 1. Create a link
-          const error = await rejection(createLink(admin), isInviteLinkError);
+          const error = await rejection(
+            admin.invite_link().admin().create(organizationId, [VECTOR_DOMAIN], true),
+            isInviteLinkError,
+          );
 
           // 2. Verify the server refused it and stored nothing
           expect(error.variant).toBe("Api");
@@ -295,7 +310,10 @@ describe("invite link client", () => {
           const member = await sdkFor("v1-argon2id-password");
 
           // 1. Create a link as a plain member
-          const error = await rejection(createLink(member), isInviteLinkError);
+          const error = await rejection(
+            member.invite_link().admin().create(organizationId, [VECTOR_DOMAIN], true),
+            isInviteLinkError,
+          );
 
           // 2. Verify the server refused it and stored nothing
           expect(error.variant).toBe("Api");
@@ -628,9 +646,14 @@ describe("invite link client", () => {
           const admin = await sdkFor(ADMIN);
           const link = await createLink(admin, true);
           const invitee = await signIn(vector.name);
+          const { code, secret } = parseFragment(link);
 
           // 1. Redeem the link
-          await redeem(invitee.getPasswordManagerClient(), link);
+          await invitee
+            .getPasswordManagerClient()
+            .invite_link()
+            .user()
+            .accept_and_optionally_confirm(organizationId, code, secret, COLLECTION_NAME, false);
 
           // 2. Verify the server holds a confirmed membership, with no recovery key since the
           //    invitee did not enroll
@@ -664,9 +687,13 @@ describe("invite link client", () => {
           seed();
           const link = await createLink(await sdkFor(ADMIN), true);
           const invitee = await sdkFor(INVITEE);
+          const { code, secret } = parseFragment(link);
 
           // 1. Redeem the link, enrolling into account recovery
-          await redeem(invitee, link, true);
+          await invitee
+            .invite_link()
+            .user()
+            .accept_and_optionally_confirm(organizationId, code, secret, COLLECTION_NAME, true);
 
           // 2. Verify the server holds a recovery key alongside the organization key
           const member = inviteeMembership();
@@ -683,9 +710,14 @@ describe("invite link client", () => {
           seed();
           const link = await createLink(await sdkFor(ADMIN), false);
           const invitee = await signIn(INVITEE);
+          const { code, secret } = parseFragment(link);
 
           // 1. Redeem the link
-          await redeem(invitee.getPasswordManagerClient(), link);
+          await invitee
+            .getPasswordManagerClient()
+            .invite_link()
+            .user()
+            .accept_and_optionally_confirm(organizationId, code, secret, COLLECTION_NAME, false);
 
           // 2. Verify the server holds an accepted membership with no organization key
           expect(inviteeMembership()).toMatchObject({
@@ -715,9 +747,13 @@ describe("invite link client", () => {
           seed();
           const link = await createLink(await sdkFor(ADMIN), false);
           const invitee = await sdkFor(INVITEE);
+          const { code, secret } = parseFragment(link);
 
           // 1. Redeem the link, enrolling into account recovery
-          await redeem(invitee, link, true);
+          await invitee
+            .invite_link()
+            .user()
+            .accept_and_optionally_confirm(organizationId, code, secret, COLLECTION_NAME, true);
 
           // 2. Verify the server holds an accepted membership with a recovery key
           const member = inviteeMembership();
@@ -734,10 +770,21 @@ describe("invite link client", () => {
             seed({ seats: FULL });
             const link = await createLink(await sdkFor(ADMIN), true);
             const invitee = await signIn(INVITEE);
+            const { code, secret } = parseFragment(link);
 
             // 1. Redeem the link
             const error = await rejection(
-              redeem(invitee.getPasswordManagerClient(), link),
+              invitee
+                .getPasswordManagerClient()
+                .invite_link()
+                .user()
+                .accept_and_optionally_confirm(
+                  organizationId,
+                  code,
+                  secret,
+                  COLLECTION_NAME,
+                  false,
+                ),
               isAcceptInviteLinkError,
             );
 
@@ -760,11 +807,22 @@ describe("invite link client", () => {
               seed();
               const admin = await signIn(ADMIN);
               const link = await createLink(admin.getPasswordManagerClient(), true);
+              const { code, secret } = parseFragment(link);
               const before = harness.server.getOrganization(organizationId).members;
 
               // 1. Redeem the link as a member already
               const error = await rejection(
-                redeem(admin.getPasswordManagerClient(), link),
+                admin
+                  .getPasswordManagerClient()
+                  .invite_link()
+                  .user()
+                  .accept_and_optionally_confirm(
+                    organizationId,
+                    code,
+                    secret,
+                    COLLECTION_NAME,
+                    false,
+                  ),
                 isAcceptInviteLinkError,
               );
 
@@ -784,11 +842,22 @@ describe("invite link client", () => {
               seed();
               const admin = await signIn(ADMIN);
               const link = await createLink(admin.getPasswordManagerClient(), false);
+              const { code, secret } = parseFragment(link);
               const before = harness.server.getOrganization(organizationId).members;
 
               // 1. Redeem the link as a member already
               const error = await rejection(
-                redeem(admin.getPasswordManagerClient(), link),
+                admin
+                  .getPasswordManagerClient()
+                  .invite_link()
+                  .user()
+                  .accept_and_optionally_confirm(
+                    organizationId,
+                    code,
+                    secret,
+                    COLLECTION_NAME,
+                    false,
+                  ),
                 isAcceptInviteLinkError,
               );
 
@@ -809,10 +878,21 @@ describe("invite link client", () => {
               const link = await createLink(await sdkFor(ADMIN), true);
               harness.server.setOrganizationPlan(organizationId, { useInviteLinks: false });
               const invitee = await signIn(INVITEE);
+              const { code, secret } = parseFragment(link);
 
               // 1. Redeem a link created before the plan dropped invite links
               const error = await rejection(
-                redeem(invitee.getPasswordManagerClient(), link),
+                invitee
+                  .getPasswordManagerClient()
+                  .invite_link()
+                  .user()
+                  .accept_and_optionally_confirm(
+                    organizationId,
+                    code,
+                    secret,
+                    COLLECTION_NAME,
+                    false,
+                  ),
                 isAcceptInviteLinkError,
               );
 
@@ -832,10 +912,21 @@ describe("invite link client", () => {
               seed();
               const link = await createLink(await sdkFor(ADMIN), true, ["example.com"]);
               const invitee = await signIn(INVITEE);
+              const { code, secret } = parseFragment(link);
 
               // 1. Redeem a link that does not allow the invitee's domain
               const error = await rejection(
-                redeem(invitee.getPasswordManagerClient(), link),
+                invitee
+                  .getPasswordManagerClient()
+                  .invite_link()
+                  .user()
+                  .accept_and_optionally_confirm(
+                    organizationId,
+                    code,
+                    secret,
+                    COLLECTION_NAME,
+                    false,
+                  ),
                 isAcceptInviteLinkError,
               );
 
@@ -871,11 +962,17 @@ describe("invite link client", () => {
       seed({}, vector.name);
 
       // 1. The admin creates a link
-      const link = await createLink(await sdkFor(ADMIN), true);
+      const admin = await sdkFor(ADMIN);
+      const link = await admin.invite_link().admin().create(organizationId, [VECTOR_DOMAIN], true);
 
       // 2. The invitee, holding no organization key, redeems it and enrolls into account recovery
       const invitee = await signIn(vector.name);
-      await redeem(invitee.getPasswordManagerClient(), link, true);
+      const { code, secret } = parseFragment(link);
+      await invitee
+        .getPasswordManagerClient()
+        .invite_link()
+        .user()
+        .accept_and_optionally_confirm(organizationId, code, secret, COLLECTION_NAME, true);
 
       // 3. Verify the server holds a confirmed membership with a recovery key
       const member = inviteeMembership(vector.name);
