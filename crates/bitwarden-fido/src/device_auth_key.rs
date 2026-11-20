@@ -20,10 +20,7 @@ use passkey::{
     types::{
         CredentialExtensions, Passkey, StoredHmacSecret,
         crypto::sha256,
-        ctap2::{
-            self, Ctap2Code, Ctap2Error, StatusCode, VendorError,
-            extensions::AuthenticatorPrfInputs, make_credential::Options,
-        },
+        ctap2::{self, Ctap2Code, Ctap2Error, StatusCode, VendorError, make_credential::Options},
     },
 };
 use reqwest::Url;
@@ -33,8 +30,8 @@ use crate::{
     PublicKeyCredentialUserEntity,
     types::{
         GetAssertionExtensionsInput, GetAssertionExtensionsOutput, GetAssertionPrfInput,
-        PrfInputValues, PublicKeyCredentialDescriptor, PublicKeyCredentialParameters, UV,
-        WebAuthnEntityError,
+        MakeCredentialExtensionsInput, MakeCredentialPrfInput, PrfInputValues,
+        PublicKeyCredentialDescriptor, PublicKeyCredentialParameters, UV, WebAuthnEntityError,
     },
 };
 
@@ -103,7 +100,7 @@ impl DeviceAuthKeyAuthenticator<'_> {
         let user_display_name = request.user.display_name.clone();
 
         // Create credential with passkey-rs, store record on device with given trait implementation
-        let store = DeviceAuthKeyStoreInternal { store: self.store };
+        let store = DeviceAuthKeyStoreInternal::new(self.store);
         let ui = DeviceAuthKeyUiInternal {};
         let mut authenticator =
             passkey::authenticator::Authenticator::new(super::AAGUID, store, ui)
@@ -230,11 +227,7 @@ impl DeviceAuthKeyAuthenticator<'_> {
         let challenge = options
             .challenge
             .ok_or(DeviceAuthKeyError::RetrieveAssertionOptionsFailure)?;
-        let client_data_json = format!(
-            r#"{{"type":"webauthn.get","challenge":"{}","origin":"{}","crossOrigin":false}}"#,
-            B64Url::from(challenge.as_slice()),
-            origin
-        );
+        let client_data_json = client_data_json("webauthn.get", &challenge, &origin);
         // Same PRF input rule as creation.
         let prf_input = prf_input_or_default(
             options
@@ -370,18 +363,21 @@ impl DeviceAuthKeyAuthenticator<'_> {
         };
 
         // Get signature
-        let store = DeviceAuthKeyStoreInternal { store: self.store };
+        let store = DeviceAuthKeyStoreInternal::new(self.store);
         let ui = DeviceAuthKeyUiInternal {};
         let mut authenticator =
             passkey::authenticator::Authenticator::new(super::AAGUID, store, ui)
                 .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential());
-        let response = authenticator
-            .get_assertion(request)
-            .await
-            .map_err(|status_code| {
+        let response = match authenticator.get_assertion(request).await {
+            Ok(response) => response,
+            Err(status_code) => {
                 tracing::error!(?status_code, "Authenticator failed to assert credential");
-                DeviceAuthKeyError::AuthenticatorFailure
-            })?;
+                return Err(authenticator
+                    .store()
+                    .take_record_error()
+                    .unwrap_or(DeviceAuthKeyError::AuthenticatorFailure));
+            }
+        };
 
         // Convert response
         let authenticator_data = response.auth_data.to_vec();
@@ -492,6 +488,16 @@ fn prf_input_or_default(server_input: Option<Vec<u8>>) -> Vec<u8> {
     server_input.unwrap_or_else(|| sha256("passwordless-login".as_bytes()).to_vec())
 }
 
+/// The `clientDataJSON` of a WebAuthn ceremony of the given type.
+fn client_data_json(kind: &str, challenge: &[u8], origin: &str) -> String {
+    format!(
+        r#"{{"type":"{}","challenge":"{}","origin":"{}","crossOrigin":false}}"#,
+        kind,
+        B64Url::from(challenge),
+        origin
+    )
+}
+
 /// The default RP ID (the host) and the origin of the web vault URL.
 fn rp_id_and_origin(web_vault_url: &str) -> Result<(String, String), DeviceAuthKeyError> {
     let url = Url::parse(web_vault_url).map_err(|_| DeviceAuthKeyError::InvalidWebVaultUrl)?;
@@ -536,11 +542,7 @@ fn convert_creation_options(
         unreachable!("Missing required fields on options");
     };
 
-    let challenge_b64 = bitwarden_encoding::B64Url::from(challenge.as_ref()).to_string();
-    let client_data_json = format!(
-        r#"{{"type":"webauthn.create","challenge":"{}","origin":"{}","crossOrigin":false}}"#,
-        challenge_b64, origin
-    );
+    let client_data_json = client_data_json("webauthn.create", challenge, &origin);
     let client_data_hash = passkey::types::crypto::sha256(client_data_json.as_bytes()).to_vec();
 
     // Inject default RP ID
@@ -598,17 +600,6 @@ fn convert_creation_options(
             .and_then(|prf| prf.eval.as_ref())
             .and_then(|eval| eval.first.clone()),
     );
-    let prf_input = AuthenticatorPrfInputs {
-        eval: Some(
-            PrfInputValues {
-                first: prf_first,
-                second: None,
-            }
-            .into(),
-        ),
-        eval_by_credential: None,
-    };
-
     let request = passkey::types::ctap2::make_credential::Request {
         client_data_hash: client_data_hash.into(),
         rp,
@@ -616,11 +607,17 @@ fn convert_creation_options(
         pub_key_cred_params,
         exclude_list,
         options: authenticator_options,
-        extensions: Some(ctap2::make_credential::ExtensionInputs {
-            hmac_secret: None,
-            hmac_secret_mc: None,
-            prf: Some(prf_input),
-        }),
+        extensions: Some(
+            MakeCredentialExtensionsInput {
+                prf: Some(MakeCredentialPrfInput {
+                    eval: Some(PrfInputValues {
+                        first: prf_first,
+                        second: None,
+                    }),
+                }),
+            }
+            .into(),
+        ),
         pin_auth: None,
         pin_protocol: None,
     };
@@ -911,6 +908,22 @@ pub trait DeviceAuthKeyStore: Send + Sync {
 
 struct DeviceAuthKeyStoreInternal<'a> {
     store: &'a mut dyn DeviceAuthKeyStore,
+    /// The error of a failed record read. passkey-rs turns it into a status code, so it is kept
+    /// here and returned instead, for example [DeviceAuthKeyError::UserCancelled].
+    record_error: std::sync::Mutex<Option<DeviceAuthKeyError>>,
+}
+
+impl<'a> DeviceAuthKeyStoreInternal<'a> {
+    fn new(store: &'a mut dyn DeviceAuthKeyStore) -> Self {
+        Self {
+            store,
+            record_error: std::sync::Mutex::new(None),
+        }
+    }
+
+    fn take_record_error(&self) -> Option<DeviceAuthKeyError> {
+        self.record_error.lock().ok()?.take()
+    }
 }
 
 #[async_trait::async_trait]
@@ -926,9 +939,14 @@ impl passkey::authenticator::CredentialStore for DeviceAuthKeyStoreInternal<'_> 
         match self.store.get_record().await {
             Ok(Some(key)) => Ok(vec![key]),
             Ok(None) => return Ok(vec![]),
-            Err(_) => Err(VendorError::try_from(0xf0)
-                .expect("valid vendor error")
-                .into()),
+            Err(err) => {
+                if let Ok(mut record_error) = self.record_error.lock() {
+                    *record_error = Some(err);
+                }
+                Err(VendorError::try_from(0xf0)
+                    .expect("valid vendor error")
+                    .into())
+            }
         }
     }
 
@@ -1006,6 +1024,7 @@ mod tests {
     struct MemStore {
         record: Option<DeviceAuthKeyRecord>,
         metadata: Option<DeviceAuthKeyMetadata>,
+        cancel_record_read: bool,
     }
 
     #[async_trait::async_trait]
@@ -1036,6 +1055,9 @@ mod tests {
             }))
         }
         async fn get_record(&self) -> Result<Option<DeviceAuthKeyRecord>, DeviceAuthKeyError> {
+            if self.cancel_record_read {
+                return Err(DeviceAuthKeyError::UserCancelled);
+            }
             Ok(self.record.as_ref().map(|r| DeviceAuthKeyRecord {
                 credential_id: r.credential_id.clone(),
                 key: r.key.clone(),
@@ -1071,7 +1093,7 @@ mod tests {
             "https://localhost:8080".to_string(),
         )
         .expect("request");
-        let store = DeviceAuthKeyStoreInternal { store: mem };
+        let store = DeviceAuthKeyStoreInternal::new(mem);
         let mut authenticator = passkey::authenticator::Authenticator::new(
             crate::AAGUID,
             store,
@@ -1208,5 +1230,30 @@ mod tests {
         assert_eq!(client_data["type"], "webauthn.get");
         assert_eq!(client_data["challenge"], "AAECAwQFBgcICQoLDA0ODw");
         assert_eq!(client_data["origin"], "https://localhost:8080");
+    }
+
+    #[tokio::test]
+    async fn assertion_returns_the_store_error_of_a_failed_record_read() {
+        let mut mem = MemStore::default();
+        create_test_credential(&mut mem).await;
+        mem.cancel_record_read = true;
+        mem.metadata = Some(DeviceAuthKeyMetadata {
+            record_identifier: "record".to_string(),
+            creation_date: Utc::now(),
+            credential_id: vec![],
+            rp_id: "localhost".to_string(),
+            user_name: "dak@example.com".to_string(),
+            user_display_name: "dak".to_string(),
+            user_handle: vec![],
+        });
+        let client = Client::new(None);
+        let mut dak = DeviceAuthKeyAuthenticator {
+            client: &client,
+            store: &mut mem,
+        };
+
+        let result = dak.get_prf_output().await;
+
+        assert!(matches!(result, Err(DeviceAuthKeyError::UserCancelled)));
     }
 }
