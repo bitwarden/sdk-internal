@@ -14,7 +14,7 @@
 // Refusals follow the real server's `InviteLinkRules`, in its order. Policies (auto-confirm, single
 // organization, two-step login) are not modelled: the emulator has none.
 
-import { OrganizationUserType } from "@bitwarden/sdk-internal";
+import { OrganizationUserStatusType, OrganizationUserType } from "@bitwarden/sdk-internal";
 
 import type { Database } from "./database";
 import {
@@ -180,7 +180,7 @@ export class OrganizationInviteLinkServer {
       const member = org === undefined ? undefined : this.memberOf(org, user);
       if (
         org === undefined ||
-        member?.status !== "confirmed" ||
+        member?.status !== OrganizationUserStatusType.Confirmed ||
         (member.type !== OrganizationUserType.Owner && member.type !== OrganizationUserType.Admin)
       ) {
         return error(HTTP_NOT_FOUND, NOT_PERMITTED);
@@ -204,7 +204,10 @@ export class OrganizationInviteLinkServer {
   /** The private key, wrapped by the organization key, so only members can open it anyway. */
   private privateKey(user: UserEntity, request: MockRequest): MockReply {
     const org = this.db.organizations.get(request.params.orgId);
-    if (org === undefined || this.memberOf(org, user)?.status !== "confirmed") {
+    if (
+      org === undefined ||
+      this.memberOf(org, user)?.status !== OrganizationUserStatusType.Confirmed
+    ) {
       return error(HTTP_NOT_FOUND, NOT_PERMITTED);
     }
 
@@ -467,7 +470,10 @@ export class OrganizationInviteLinkServer {
     }
 
     const member = this.memberOf(org, user);
-    const blocking = joining === Joining.Confirm ? ["confirmed"] : ["accepted", "confirmed"];
+    const blocking =
+      joining === Joining.Confirm
+        ? [OrganizationUserStatusType.Confirmed]
+        : [OrganizationUserStatusType.Accepted, OrganizationUserStatusType.Confirmed];
     if (member !== undefined && blocking.includes(member.status)) {
       return {
         status: HTTP_BAD_REQUEST,
@@ -520,7 +526,7 @@ export class OrganizationInviteLinkServer {
     }
 
     this.join(eligible.org, user, {
-      status: "accepted",
+      status: OrganizationUserStatusType.Accepted,
       organizationKeySealedToMember: null,
       accountRecoveryKey: posted.resetPasswordKey ?? undefined,
     });
@@ -550,7 +556,7 @@ export class OrganizationInviteLinkServer {
     }
 
     this.join(eligible.org, user, {
-      status: "confirmed",
+      status: OrganizationUserStatusType.Confirmed,
       organizationKeySealedToMember: posted.orgUserKey,
       accountRecoveryKey: posted.resetPasswordKey ?? undefined,
       // The server names the member's default collection with this, so it is stored as posted.

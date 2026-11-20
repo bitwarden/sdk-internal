@@ -46,7 +46,7 @@ import type {
   V2UpgradeToken,
   WrappedAccountCryptographicState,
 } from "@bitwarden/sdk-internal";
-import { OrganizationUserType } from "@bitwarden/sdk-internal";
+import { OrganizationUserStatusType, OrganizationUserType } from "@bitwarden/sdk-internal";
 
 /** Binds every route key in `routes` to `origin`. */
 function bindToOrigin(routes: Routes, origin: string): Routes {
@@ -291,7 +291,7 @@ export class ServerEmulator {
       members.push({
         userId: user.userId,
         type: member.type ?? OrganizationUserType.User,
-        status: "confirmed",
+        status: OrganizationUserStatusType.Confirmed,
         organizationKeySealedToMember: member.organizationKeySealedToMember,
         accountRecoveryKey: member.accountRecoveryKey,
       });

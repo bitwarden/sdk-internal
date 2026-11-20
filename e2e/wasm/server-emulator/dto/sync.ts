@@ -8,7 +8,7 @@ import {
 } from "@bitwarden/sdk-internal";
 
 import { asKeyId, asOrganizationId, asUserId } from "../../tests/type-assertion-helpers";
-import type { KeyHoldingOrganizationMember, OrganizationEntity, UserEntity } from "../entities";
+import type { ConfirmedMember, OrganizationEntity, UserEntity } from "../entities";
 import { AccountKeysResponse } from "./account-keys";
 import { MasterPasswordUnlockResponse } from "./master-password";
 import { CipherResponse, FolderResponse } from "./vault";
@@ -92,7 +92,7 @@ export class ProfileOrganizationResponse {
   /** The organization as `member` sees it. */
   static fromMembership(
     organization: OrganizationEntity,
-    member: KeyHoldingOrganizationMember,
+    member: ConfirmedMember,
   ): ProfileOrganizationResponse {
     return {
       object: "profileOrganization",

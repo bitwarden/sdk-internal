@@ -1,7 +1,7 @@
 // An in-memory model of the Bitwarden's api server
 
 import type { Cipher, Folder } from "@bitwarden/sdk-internal";
-import { OrganizationUserType } from "@bitwarden/sdk-internal";
+import { OrganizationUserStatusType, OrganizationUserType } from "@bitwarden/sdk-internal";
 
 import type { MockReply, Routes } from "./http-mock";
 
@@ -45,12 +45,7 @@ import {
   FolderRequest,
   FolderResponse,
 } from "./dto/vault";
-import type {
-  CipherEntity,
-  FolderEntity,
-  KeyHoldingOrganizationMember,
-  UserEntity,
-} from "./entities";
+import type { CipherEntity, ConfirmedMember, FolderEntity, UserEntity } from "./entities";
 import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_FORBIDDEN, HTTP_NOT_FOUND } from "./replies";
 
 export class ApiServer {
@@ -170,8 +165,10 @@ export class ApiServer {
 
     for (const organization of this.db.organizations.all()) {
       const member = organization.members.find(
-        (candidate): candidate is KeyHoldingOrganizationMember =>
-          candidate.userId === user.userId && candidate.organizationKeySealedToMember !== null,
+        (candidate): candidate is ConfirmedMember =>
+          candidate.userId === user.userId &&
+          candidate.status === OrganizationUserStatusType.Confirmed &&
+          candidate.organizationKeySealedToMember !== null,
       );
       if (member === undefined) {
         continue;
@@ -545,7 +542,8 @@ export class ApiServer {
 
     return (
       organization?.members.some(
-        (member) => member.userId === user.userId && member.status === "confirmed",
+        (member) =>
+          member.userId === user.userId && member.status === OrganizationUserStatusType.Confirmed,
       ) === true
     );
   }

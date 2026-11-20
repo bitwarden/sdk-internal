@@ -2,6 +2,7 @@ import {
   CollectionType,
   InviteSecret,
   OrganizationInviteLinkView,
+  OrganizationUserStatusType,
   OrganizationUserType,
   PasswordManagerClient,
   isAcceptInviteLinkError,
@@ -465,7 +466,7 @@ describe("invite link client", () => {
 
           // 2. Verify the invitee could only accept, since confirmation was stripped
           expect(inviteeMembership()).toMatchObject({
-            status: "accepted",
+            status: OrganizationUserStatusType.Accepted,
             organizationKeySealedToMember: null,
           });
         },
@@ -634,7 +635,7 @@ describe("invite link client", () => {
           // 2. Verify the server holds a confirmed membership, with no recovery key since the
           //    invitee did not enroll
           const member = inviteeMembership(vector.name);
-          expect(member?.status).toBe("confirmed");
+          expect(member?.status).toBe(OrganizationUserStatusType.Confirmed);
           expect(member?.organizationKeySealedToMember).toMatch(/^\d+\./);
           expect(member?.accountRecoveryKey).toBeUndefined();
 
@@ -669,7 +670,7 @@ describe("invite link client", () => {
 
           // 2. Verify the server holds a recovery key alongside the organization key
           const member = inviteeMembership();
-          expect(member?.status).toBe("confirmed");
+          expect(member?.status).toBe(OrganizationUserStatusType.Confirmed);
           expect(member?.accountRecoveryKey).toMatch(/^\d+\./);
           expect(member?.accountRecoveryKey).not.toBe(member?.organizationKeySealedToMember);
         },
@@ -688,7 +689,7 @@ describe("invite link client", () => {
 
           // 2. Verify the server holds an accepted membership with no organization key
           expect(inviteeMembership()).toMatchObject({
-            status: "accepted",
+            status: OrganizationUserStatusType.Accepted,
             organizationKeySealedToMember: null,
           });
 
@@ -720,7 +721,7 @@ describe("invite link client", () => {
 
           // 2. Verify the server holds an accepted membership with a recovery key
           const member = inviteeMembership();
-          expect(member?.status).toBe("accepted");
+          expect(member?.status).toBe(OrganizationUserStatusType.Accepted);
           expect(member?.accountRecoveryKey).toMatch(/^\d+\./);
         },
         UNLOCK_TIMEOUT,
@@ -889,7 +890,7 @@ describe("invite link client", () => {
 
       // 3. Verify the server holds a confirmed membership with a recovery key
       const member = inviteeMembership(vector.name);
-      expect(member?.status).toBe("confirmed");
+      expect(member?.status).toBe(OrganizationUserStatusType.Confirmed);
       expect(member?.accountRecoveryKey).toEqual(expect.any(String));
 
       // 4. Verify the invite secret lives in the link, never on the wire

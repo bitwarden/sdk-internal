@@ -4,6 +4,7 @@ import type {
   Folder,
   Kdf,
   KeyId,
+  OrganizationUserStatusType,
   OrganizationUserType,
   UnsignedSharedKey,
   V2UpgradeToken,
@@ -80,18 +81,16 @@ export interface FolderEntity {
   folder: Folder;
 }
 
-/**
- * How far a member has joined. An accepted member belongs to the organization but holds no
- * organization key until it is confirmed, so it cannot reach organization data yet.
- */
-export type OrganizationMemberStatus = "accepted" | "confirmed";
-
 /** A member of an organization, as the server holds it. */
 export interface OrganizationMember {
   userId: string;
   /** The member's role, which the server authorizes administrative changes by. */
   type: OrganizationUserType;
-  status: OrganizationMemberStatus;
+  /**
+   * How far the member has joined. An accepted member belongs to the organization but holds no
+   * organization key until it is confirmed, so it cannot reach organization data yet.
+   */
+  status: OrganizationUserStatusType;
   /** The organization key sealed to this member's public key, `null` until confirmed. */
   organizationKeySealedToMember: string | null;
   /** Present only for a member enrolled in account recovery. */
@@ -103,8 +102,11 @@ export interface OrganizationMember {
   defaultCollectionName?: string;
 }
 
-/** A member that holds the organization key, which only a confirmed member does. */
-export type KeyHoldingOrganizationMember = OrganizationMember & { organizationKeySealedToMember: string };
+/** A confirmed member, which holds the organization key. */
+export type ConfirmedMember = OrganizationMember & {
+  status: OrganizationUserStatusType.Confirmed;
+  organizationKeySealedToMember: string;
+};
 
 /** An organization as the server holds it. */
 export interface OrganizationEntity {
