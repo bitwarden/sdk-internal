@@ -10,7 +10,7 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_organizations::OrganizationUserId;
 use thiserror::Error;
 
-use crate::OrganizationUserBulkResponse;
+use crate::{DirectOrganizationInvite, OrganizationUserBulkResponse};
 
 /// Errors returned from [`OrganizationUsersManagementClient`] operations.
 #[bitwarden_error(flat)]
@@ -22,6 +22,9 @@ pub enum OrganizationUsersManagementError {
     /// A required field was missing from the server response.
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
+    /// A cryptographic operation failed.
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
 /// Client for administering the members of an organization.
@@ -90,6 +93,21 @@ impl OrganizationUsersManagementClient {
             .collect()
     }
 
+    /// Accepts a direct invitation to join an organization.
+    pub async fn accept_direct_invite(
+        &self,
+        invite: DirectOrganizationInvite,
+    ) -> Result<(), OrganizationUsersManagementError> {
+        match invite {
+            DirectOrganizationInvite::ExistingOrganization { .. } => {
+                self.accept_existing_organization(invite).await
+            }
+            DirectOrganizationInvite::PendingOrganization { .. } => {
+                self.accept_pending_organization(invite).await
+            }
+        }
+    }
+
     /// Re-sends the invitation email to a single invited member.
     pub async fn reinvite(
         &self,
@@ -103,6 +121,24 @@ impl OrganizationUsersManagementClient {
             .await?;
 
         Ok(())
+    }
+}
+
+impl OrganizationUsersManagementClient {
+    /// Accepts an invite to an organization that has already been initialized.
+    async fn accept_existing_organization(
+        &self,
+        _invite: DirectOrganizationInvite,
+    ) -> Result<(), OrganizationUsersManagementError> {
+        todo!("implemented in a follow-on ticket")
+    }
+
+    /// Accepts an invite to an organization that has not yet been initialized.
+    async fn accept_pending_organization(
+        &self,
+        _invite: DirectOrganizationInvite,
+    ) -> Result<(), OrganizationUsersManagementError> {
+        todo!("implemented in a follow-on ticket")
     }
 }
 
