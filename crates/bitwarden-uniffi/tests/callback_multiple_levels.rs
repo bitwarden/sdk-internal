@@ -49,6 +49,7 @@ fn test_callback_receives_multiple_log_levels() {
         Arc::new(MockTokenProvider),
         None,
         Arc::new(ManagedSettingsBindingClient::new()),
+        None,
     );
 
     // Emit logs at multiple levels

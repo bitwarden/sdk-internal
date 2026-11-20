@@ -52,6 +52,7 @@ fn test_message_visitor_captures_message_field() {
         Arc::new(MockTokenProvider),
         None,
         Arc::new(ManagedSettingsBindingClient::new()),
+        None,
     );
 
     // Emit logs at different levels with message text

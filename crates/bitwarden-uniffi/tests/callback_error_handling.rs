@@ -44,6 +44,7 @@ fn test_callback_error_does_not_crash_sdk() {
         Arc::new(MockTokenProvider),
         None,
         Arc::new(ManagedSettingsBindingClient::new()),
+        None,
     );
 
     // SDK should work before triggering callback

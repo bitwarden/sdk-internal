@@ -11,6 +11,8 @@ pub mod debug;
 use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
+#[cfg(not(target_arch = "wasm32"))]
+use bitwarden_core::ClientCertificate;
 use bitwarden_core::{
     ClientBuilder, FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
@@ -103,6 +105,30 @@ impl PasswordManagerClient {
         tokens: Arc<dyn ClientManagedTokens>,
         managed_settings: &ManagedSettingsClient,
     ) -> Self {
+        Self(Self::client_tokens_builder(settings, tokens, managed_settings).build())
+    }
+
+    /// Like [`new_with_client_tokens`](Self::new_with_client_tokens), and presents
+    /// `client_certificate` when the identity or API server requests client authentication.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new_with_client_tokens_and_certificate(
+        settings: Option<bitwarden_core::ClientSettings>,
+        tokens: Arc<dyn ClientManagedTokens>,
+        managed_settings: &ManagedSettingsClient,
+        client_certificate: Option<Arc<ClientCertificate>>,
+    ) -> Self {
+        let mut builder = Self::client_tokens_builder(settings, tokens, managed_settings);
+        if let Some(certificate) = client_certificate {
+            builder = builder.with_client_certificate(certificate);
+        }
+        Self(builder.build())
+    }
+
+    fn client_tokens_builder(
+        settings: Option<bitwarden_core::ClientSettings>,
+        tokens: Arc<dyn ClientManagedTokens>,
+        managed_settings: &ManagedSettingsClient,
+    ) -> ClientBuilder {
         let mut builder = ClientBuilder::new()
             .with_token_handler(ClientManagedTokenHandler::new(tokens))
             .with_middleware(vec![Arc::new(ReqwestTracingMiddleware)])
@@ -110,7 +136,7 @@ impl PasswordManagerClient {
         if let Some(s) = settings {
             builder = builder.with_settings(s);
         }
-        Self(builder.build())
+        builder
     }
 
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
