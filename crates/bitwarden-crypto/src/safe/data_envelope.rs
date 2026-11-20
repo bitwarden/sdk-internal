@@ -162,6 +162,16 @@ impl DataEnvelope {
         Ok(DataEnvelope { envelope_data })
     }
 
+    /// Get the key ID of the content-encryption-key this envelope was sealed with, read from the
+    /// COSE protected header without decrypting.
+    pub fn encrypted_by_key_id(&self) -> Result<KeyId, DataEnvelopeError> {
+        let msg = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref())
+            .map_err(|_| DataEnvelopeError::CoseDecoding)?;
+
+        KeyId::try_from(msg.protected.header.key_id.as_slice())
+            .map_err(|_| DataEnvelopeError::Parsing("Invalid encrypted by key id".to_string()))
+    }
+
     /// Unseals the data from the encrypted blob using a content-encryption-key stored in the
     /// context.
     pub fn unseal<Ids: KeySlotIds, T>(

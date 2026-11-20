@@ -1,0 +1,33 @@
+[package]
+name = "bitwarden-uniffi-server"
+description = """
+UniFFI bindings of the SDK for the Bitwarden server. Do not use.
+"""
+version = "0.1.0"
+publish = false
+
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[lib]
+crate-type = ["lib", "cdylib"]
+bench = false
+
+[dependencies]
+# The `uniffi` feature stays off: library-mode bindgen would otherwise emit every crypto type
+# into the server bindings.
+bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uniffi = { workspace = true }
+
+[lints]
+workspace = true

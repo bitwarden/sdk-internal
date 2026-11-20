@@ -70,7 +70,9 @@ impl SignedObject {
         &self.0
     }
 
-    fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
+    /// Returns the signing namespace from the COSE protected header, without verifying the
+    /// signature.
+    pub fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
         namespace(&self.0.protected)
     }
 
