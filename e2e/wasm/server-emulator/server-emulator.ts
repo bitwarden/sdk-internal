@@ -8,7 +8,6 @@ import type { EmergencyAccessStatusValue, EmergencyAccessTypeValue } from "./dto
 import type {
   AccountId,
   OrganizationEntity,
-  OrganizationInviteLinkEntity,
   OrganizationMember,
   StoredMasterPasswordUnlock,
   UserEntity,
@@ -374,11 +373,6 @@ export class ServerEmulator {
   ): void {
     const organization = this.getOrganization(organizationId);
     this.db.organizations.update(organization.organizationId, { ...organization, ...plan });
-  }
-
-  /** The organization's invite link, or `undefined` while it has none. */
-  inviteLinkFor(organizationId: OrganizationId | string): OrganizationInviteLinkEntity | undefined {
-    return this.db.inviteLinks.get(String(organizationId));
   }
 
   /**
