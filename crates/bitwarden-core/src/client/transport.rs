@@ -138,6 +138,7 @@ impl HttpClientFactory {
     }
 }
 
+/// Logs and skips invalid settings, since `ClientBuilder::build` is infallible.
 #[cfg(not(target_arch = "wasm32"))]
 fn apply_transport(
     mut builder: reqwest::ClientBuilder,
@@ -157,7 +158,54 @@ fn apply_transport(
         }
     }
 
+    if let Some(proxy) = transport.and_then(|t| t.proxy.as_ref()) {
+        match build_proxy(proxy) {
+            Ok(built) => builder = builder.proxy(built),
+            Err(reason) => {
+                tracing::error!(?proxy, "Invalid proxy settings, ignoring them: {reason}")
+            }
+        }
+    }
+
     builder
+}
+
+/// The error is safe to log, since it never contains the URL.
+#[cfg(not(target_arch = "wasm32"))]
+fn build_proxy(settings: &ProxySettings) -> Result<reqwest::Proxy, String> {
+    // Only http and https proxies work, since reqwest sends requests directly for any other scheme.
+    // Unparseable URLs are left to reqwest.
+    if let Some(url) = parse_proxy_url(&settings.url) {
+        check_http_scheme(&url)?;
+    }
+    let mut proxy = reqwest::Proxy::all(&settings.url).map_err(|error| {
+        // The innermost cause, since the outer errors can include the URL and its credentials.
+        let mut cause = std::error::Error::source(&error);
+        while let Some(next) = cause.and_then(std::error::Error::source) {
+            cause = Some(next);
+        }
+        match cause {
+            Some(cause) => cause.to_string(),
+            None => error.without_url().to_string(),
+        }
+    })?;
+    if let Some(credentials) = &settings.credentials {
+        proxy = proxy.basic_auth(&credentials.username, &credentials.password);
+    }
+    if let Some(no_proxy) = &settings.no_proxy {
+        proxy = proxy.no_proxy(reqwest::NoProxy::from_string(no_proxy));
+    }
+    Ok(proxy)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn check_http_scheme(url: &url::Url) -> Result<(), String> {
+    match url.scheme() {
+        "http" | "https" => Ok(()),
+        scheme => Err(format!(
+            "unsupported scheme `{scheme}`, expected `http` or `https`"
+        )),
+    }
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
@@ -232,6 +280,38 @@ mod tests {
 
         assert!(!debug.contains("secret"), "{debug}");
         assert!(debug.contains("proxy.example.com:3128"), "{debug}");
+    }
+
+    #[test]
+    fn build_proxy_rejects_unsupported_scheme() {
+        let proxy = ProxySettings {
+            url: "htps://user:secret@proxy.example.com:3128".to_owned(),
+            credentials: None,
+            no_proxy: None,
+        };
+
+        let reason = build_proxy(&proxy).expect_err("htps:// should be rejected");
+
+        assert!(reason.contains("`htps`"), "{reason}");
+        assert!(!reason.contains("secret"), "{reason}");
+    }
+
+    #[test]
+    fn build_proxy_accepts_http_https_and_missing_scheme() {
+        for url in [
+            "http://proxy.example.com:3128",
+            "https://proxy.example.com:3128",
+            "proxy.example.com:3128",
+            "user:secret@proxy.example.com:3128",
+        ] {
+            let proxy = ProxySettings {
+                url: url.to_owned(),
+                credentials: None,
+                no_proxy: None,
+            };
+
+            assert!(build_proxy(&proxy).is_ok(), "{url}");
+        }
     }
 
     #[test]
