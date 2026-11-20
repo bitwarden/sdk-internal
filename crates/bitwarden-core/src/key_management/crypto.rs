@@ -233,6 +233,7 @@ pub(super) async fn initialize_user_crypto(
             | InitUserCryptoMethod::PinState { .. }
             | InitUserCryptoMethod::KeyConnectorUrl { .. }
             | InitUserCryptoMethod::AuthRequest { .. }
+            | InitUserCryptoMethod::WebAuthnPrf { .. }
             | InitUserCryptoMethod::ClientManagedState { .. }
     );
 

@@ -235,9 +235,22 @@ impl DeviceAuthKeyAuthenticator<'_> {
             B64Url::from(challenge.as_slice()),
             origin
         );
+        // Same PRF input rule as creation.
+        let prf_input = prf_input_or_default(
+            options
+                .extensions
+                .as_ref()
+                .and_then(|e| e.prf.as_ref())
+                .and_then(|prf| prf.eval.as_ref())
+                .and_then(|eval| eval.first.clone()),
+        );
         let rp_id = options.rp_id.unwrap_or(default_rp_id);
         let (assertion, prf_output) = self
-            .assert_with_login_prf(rp_id, sha256(client_data_json.as_bytes()).to_vec())
+            .assert_with_prf(
+                rp_id,
+                sha256(client_data_json.as_bytes()).to_vec(),
+                prf_input,
+            )
             .await?;
 
         let device_response = AuthenticatorAssertionRawResponse {
@@ -262,7 +275,8 @@ impl DeviceAuthKeyAuthenticator<'_> {
         })
     }
 
-    /// Get the PRF output of the device auth key, to unlock the vault on this device.
+    /// Get the PRF output of the device auth key, to unlock the vault on this device. Uses the
+    /// default PRF input, so it matches a key set made without a server PRF input.
     pub async fn get_prf_output(&mut self) -> Result<B64, DeviceAuthKeyError> {
         let metadata = self
             .store
@@ -271,17 +285,17 @@ impl DeviceAuthKeyAuthenticator<'_> {
             .ok_or(DeviceAuthKeyError::MissingDeviceAuthKey)?;
         // No relying party verifies this assertion, so the client data hash is a placeholder.
         let (_, prf_output) = self
-            .assert_with_login_prf(metadata.rp_id, vec![0; 32])
+            .assert_with_prf(metadata.rp_id, vec![0; 32], prf_input_or_default(None))
             .await?;
         Ok(prf_output)
     }
 
-    /// Assert the device auth key with the login PRF input. Returns the assertion and the PRF
-    /// output.
-    async fn assert_with_login_prf(
+    /// Assert the device auth key with a PRF input. Returns the assertion and the PRF output.
+    async fn assert_with_prf(
         &mut self,
         rp_id: String,
         client_data_hash: Vec<u8>,
+        prf_input: Vec<u8>,
     ) -> Result<(DeviceAuthKeyGetAssertionResult, B64), DeviceAuthKeyError> {
         let assertion = self
             .assert_device_auth_key(GetAssertionRequest {
@@ -295,7 +309,7 @@ impl DeviceAuthKeyAuthenticator<'_> {
                 extensions: Some(GetAssertionExtensionsInput {
                     prf: Some(GetAssertionPrfInput {
                         eval: Some(PrfInputValues {
-                            first: login_prf_input(),
+                            first: prf_input,
                             second: None,
                         }),
                         eval_by_credential: None,
@@ -473,9 +487,9 @@ async fn build_secret_verification_request(
     })
 }
 
-/// The PRF input that Bitwarden clients use to log in with a passkey.
-fn login_prf_input() -> Vec<u8> {
-    sha256("passwordless-login".as_bytes()).to_vec()
+/// The server's PRF input, else the one that Bitwarden clients use to log in with a passkey.
+fn prf_input_or_default(server_input: Option<Vec<u8>>) -> Vec<u8> {
+    server_input.unwrap_or_else(|| sha256("passwordless-login".as_bytes()).to_vec())
 }
 
 /// The default RP ID (the host) and the origin of the web vault URL.
@@ -577,12 +591,13 @@ fn convert_creation_options(
     // Use the server's PRF input, else the Bitwarden login salt. Apply the WebAuthn PRF domain
     // separation like an assertion does, so a later assertion with the same input gives the same
     // output.
-    let prf_first = extensions
-        .as_ref()
-        .and_then(|e| e.prf.as_ref())
-        .and_then(|prf| prf.eval.as_ref())
-        .and_then(|eval| eval.first.clone())
-        .unwrap_or_else(login_prf_input);
+    let prf_first = prf_input_or_default(
+        extensions
+            .as_ref()
+            .and_then(|e| e.prf.as_ref())
+            .and_then(|prf| prf.eval.as_ref())
+            .and_then(|eval| eval.first.clone()),
+    );
     let prf_input = AuthenticatorPrfInputs {
         eval: Some(
             PrfInputValues {
