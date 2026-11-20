@@ -248,6 +248,13 @@ impl InternalClient {
             .map_or(1, |state| state.version())
     }
 
+    /// Whether this client runs the migrations that must run once per application, see
+    /// [`CryptoClient::disable_local_unlock_migrations`](crate::key_management::CryptoClient::disable_local_unlock_migrations).
+    #[cfg(feature = "internal")]
+    pub fn perform_local_unlock_migrations(&self) -> bool {
+        self.crypto_settings.perform_local_unlock_migrations()
+    }
+
     #[allow(missing_docs)]
     pub async fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
         let set_uuid = self.user_id.get_or_init(|| user_id);

@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use std::{future::Future, pin::Pin};
+
 #[cfg(all(target_arch = "wasm32", not(feature = "wasm")))]
 compile_error!(
     "The `wasm` feature must be enabled to use the `bitwarden-ipc` crate in a WebAssembly environment."
@@ -24,3 +26,26 @@ pub fn spawn(future: impl std::future::Future<Output = ()> + Send + 'static) {
 pub fn spawn(future: impl std::future::Future<Output = ()> + 'static) {
     wasm_bindgen_futures::spawn_local(future);
 }
+
+/// A boxed future with the same `Send` bound as [`spawn`]: `Send` natively, and not `Send` in
+/// WebAssembly.
+pub type BoxFuture<'a, T> = Pin<Box<dyn MaybeSendFuture<Output = T> + 'a>>;
+
+/// The same `Send` bound as [`spawn`]: `Send` natively, and nothing in WebAssembly.
+#[cfg(not(target_arch = "wasm32"))]
+pub trait MaybeSend: Send {}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl<T: Send + ?Sized> MaybeSend for T {}
+
+/// The same `Send` bound as [`spawn`]: `Send` natively, and nothing in WebAssembly.
+#[cfg(target_arch = "wasm32")]
+pub trait MaybeSend {}
+
+#[cfg(target_arch = "wasm32")]
+impl<T: ?Sized> MaybeSend for T {}
+
+/// A [`Future`] that is [`MaybeSend`].
+pub trait MaybeSendFuture: Future + MaybeSend {}
+
+impl<F: Future + MaybeSend + ?Sized> MaybeSendFuture for F {}
