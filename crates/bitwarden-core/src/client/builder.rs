@@ -1,6 +1,5 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
-use bitwarden_api_base::new_http_client_builder;
 use bitwarden_crypto::KeyStore;
 use bitwarden_managed_settings_types::ManagementProfile;
 use bitwarden_state::registry::StateRegistry;
@@ -14,6 +13,7 @@ use crate::{
         client::Client,
         client_settings::{ClientName, ClientSettings, HostPlatformInfo},
         internal::{ApiConfigurations, InternalClient},
+        transport::HttpClientFactory,
     },
 };
 
@@ -93,7 +93,13 @@ impl ClientBuilder {
     pub fn build(self) -> Client {
         let settings = self.settings.unwrap_or_default();
 
-        let external_http_client = new_http_client_builder()
+        let http_clients = HttpClientFactory {
+            #[cfg(not(target_arch = "wasm32"))]
+            transport: settings.transport.clone(),
+        };
+
+        let external_http_client = http_clients
+            .builder()
             .build()
             .expect("External HTTP Client build should not fail");
 
@@ -105,7 +111,8 @@ impl ClientBuilder {
             .unwrap_or_else(StateRegistry::new_with_memory_db);
 
         // Create the HTTP client for the Identity service, without authentication middleware.
-        let identity_http_client = new_http_client_builder()
+        let identity_http_client = http_clients
+            .builder()
             .default_headers(headers.clone())
             .build()
             .expect("Bw HTTP Client build should not fail");
@@ -127,12 +134,14 @@ impl ClientBuilder {
         // a proactive cookie strategy instead of reactive 302/307 detection.
         #[cfg(not(target_arch = "wasm32"))]
         let api_http_client = if self.middleware.is_empty() {
-            new_http_client_builder()
+            http_clients
+                .builder()
                 .default_headers(headers)
                 .build()
                 .expect("Bw HTTP Client build should not fail")
         } else {
-            new_http_client_builder()
+            http_clients
+                .builder()
                 .default_headers(headers)
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
@@ -140,7 +149,8 @@ impl ClientBuilder {
         };
 
         #[cfg(target_arch = "wasm32")]
-        let api_http_client = new_http_client_builder()
+        let api_http_client = http_clients
+            .builder()
             .default_headers(headers)
             .build()
             .expect("Bw HTTP Client build should not fail");

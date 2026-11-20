@@ -51,18 +51,24 @@ pub struct ProxyCredentials {
 }
 
 /// Request timeout overrides, in milliseconds. Unset fields keep the SDK defaults.
+///
+/// HTTP/2 pings and TCP keep-alive already close connections to a dead peer. A hung server on
+/// HTTP/1.1 is only detected by `read_ms` or `request_ms`.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, JsonSchema)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct TimeoutSettings {
     /// Maximum time to establish a connection, including the TLS handshake and any proxy tunnel.
+    /// Defaults to 30 seconds.
     #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub connect_ms: Option<u64>,
-    /// Read timeout. Bounds the wait from sending the request to receiving the response headers,
-    /// and then each gap between chunks of the response body.
+    /// Bounds the wait for the response headers, then each gap between response body chunks. It
+    /// also caps the upload time, since it is not reset while the request body uploads. No
+    /// default.
     #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub read_ms: Option<u64>,
-    /// Deadline for the whole request, from connecting until the response body is read.
+    /// Deadline for the whole request, from connecting until the response body is read. No
+    /// default.
     #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub request_ms: Option<u64>,
 }
@@ -108,6 +114,50 @@ fn redact_url(url: &str) -> String {
         Some((scheme, host, None)) => format!("{scheme}://{host}"),
         None => "<redacted>".to_owned(),
     }
+}
+
+/// Builds every HTTP client of a [`Client`](crate::Client), so each one gets the transport
+/// settings.
+pub(crate) struct HttpClientFactory {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) transport: Option<TransportSettings>,
+}
+
+impl HttpClientFactory {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn builder(&self) -> reqwest::ClientBuilder {
+        apply_transport(
+            bitwarden_api_base::new_http_client_builder(),
+            self.transport.as_ref(),
+        )
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn builder(&self) -> reqwest::ClientBuilder {
+        bitwarden_api_base::new_http_client_builder()
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn apply_transport(
+    mut builder: reqwest::ClientBuilder,
+    transport: Option<&TransportSettings>,
+) -> reqwest::ClientBuilder {
+    if let Some(timeouts) = transport.and_then(|t| t.timeouts.as_ref()) {
+        use std::time::Duration;
+
+        if let Some(ms) = timeouts.connect_ms {
+            builder = builder.connect_timeout(Duration::from_millis(ms));
+        }
+        if let Some(ms) = timeouts.read_ms {
+            builder = builder.read_timeout(Duration::from_millis(ms));
+        }
+        if let Some(ms) = timeouts.request_ms {
+            builder = builder.timeout(Duration::from_millis(ms));
+        }
+    }
+
+    builder
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
