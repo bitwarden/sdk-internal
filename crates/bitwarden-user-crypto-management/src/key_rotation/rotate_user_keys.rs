@@ -19,7 +19,9 @@ use crate::{
             account_cryptographic_state_to_wrapped_model, rotate_account_cryptographic_state,
         },
         data::{check_for_old_attachments, reencrypt_data},
-        rotation_context::make_rotation_context,
+        rotation_context::{
+            UserKeyUpgrade, ensure_rotates_to_v2, make_rotation_context, user_key_upgrade,
+        },
         sync::{SyncedAccountData, sync_current_account_data},
         unlock::{ReencryptCommonUnlockDataInput, reencrypt_common_unlock_data},
         unlock_method::{PrimaryUnlockMethod, reencrypt_unlock_method_data},
@@ -64,12 +66,19 @@ pub struct RotateUserKeysRequest {
 #[bitwarden_ffi::wasm_export]
 impl UserCryptoManagementClient {
     /// Rotates the user's encryption keys without a password change.
+    ///
+    /// The server takes only a V2 account here. A V1 user is refused with
+    /// `RotateUserKeysError::UpgradeRequired` unless `force-upgrade-v2-encryption` is on.
     pub async fn rotate_user_keys(
         &self,
         request: RotateUserKeysRequest,
     ) -> Result<(), RotateUserKeysError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
+
+        // Checked before any request, so a refused rotation leaves the account untouched
+        let user_key_upgrade = user_key_upgrade(&self.client).await;
+        ensure_rotates_to_v2(key_store, user_key_upgrade)?;
 
         let sync = sync_current_account_data(api_client)
             .await
@@ -196,6 +205,9 @@ async fn internal_rotate_user_keys(
             request.trusted_organization_public_keys.as_slice(),
             request.trusted_emergency_access_public_keys.as_slice(),
             request.upgrade_token_action.clone(),
+            // The server takes only a V2 account here. `rotate_user_keys` refuses a V1 user
+            // without the upgrade before calling this.
+            UserKeyUpgrade::UpgradeToV2,
             &mut ctx,
         )?;
 
