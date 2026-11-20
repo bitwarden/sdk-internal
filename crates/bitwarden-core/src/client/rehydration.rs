@@ -57,6 +57,9 @@ impl Client {
     /// Reconstruct a locked Client from a populated StateRegistry.
     ///
     /// Does NOT unlock the vault.
+    ///
+    /// Use [`Client::builder`] for a client with [`TransportSettings`](crate::TransportSettings),
+    /// since they are not persisted.
     pub async fn load_from_state(
         token_handler: Arc<dyn TokenHandler>,
         registry: StateRegistry,
