@@ -20,15 +20,22 @@ export function error(status: number, message: string): MockReply {
 
 /**
  * A refusal in the RFC 7807 shape the newer endpoints use, carrying one machine-readable `code`
- * against the request `property` it concerns.
+ * against the request `property` it concerns. A 404 keeps the same shape under the server's
+ * not-found type and title.
  */
-export function validationProblem(property: string, code: string, detail: string): MockReply {
+export function validationProblem(
+  property: string,
+  code: string,
+  detail: string,
+  status: typeof HTTP_BAD_REQUEST | typeof HTTP_NOT_FOUND = HTTP_BAD_REQUEST,
+): MockReply {
   const body: ValidationProblemResponse = {
-    type: "validation_error",
-    title: "One or more validation errors occurred.",
-    status: HTTP_BAD_REQUEST,
+    ...(status === HTTP_NOT_FOUND
+      ? { type: "not_found", title: "The requested resource was not found." }
+      : { type: "validation_error", title: "One or more validation errors occurred." }),
+    status,
     errors: { [property]: [{ type: code, detail }] },
   };
 
-  return { status: HTTP_BAD_REQUEST, json: body };
+  return { status, json: body };
 }

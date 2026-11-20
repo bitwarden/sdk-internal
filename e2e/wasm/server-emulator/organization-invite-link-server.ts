@@ -11,8 +11,9 @@
 //   invitee: invite ────┴──► accept  ──► member, Accepted (an admin still has to confirm)
 //                       └──► confirm ──► member, Confirmed (holds the organization key at once)
 //
-// Refusals follow the real server's `InviteLinkRules`, in its order. Policies (auto-confirm, single
-// organization, two-step login) are not modelled: the emulator has none.
+// Refusals to the invitee follow the real server's invite link validators, in their order, and
+// answer as validation problems (`InviteLinkValidationErrors.cs`). Policies (auto-confirm, single
+// organization, two-step login) and revoked memberships are not modelled: the emulator has none.
 
 import { OrganizationUserStatusType, OrganizationUserType } from "@bitwarden/sdk-internal";
 
@@ -68,17 +69,17 @@ const alreadyMember = (org: OrganizationEntity) => `You're already a member of $
 const noSeats = (org: OrganizationEntity) => `The ${org.name} vault has no available seats.`;
 
 /**
- * Why an invitee may not join, carrying both forms the server answers in: `accept` and `invite`
- * refuse with a plain message, `confirm` with a validation problem naming a code and property.
+ * Why an invitee may not join. `invite`, `accept` and `confirm` all answer with a validation
+ * problem naming the code and the property it concerns.
  */
 interface Refusal {
-  status: number;
+  status: typeof HTTP_BAD_REQUEST | typeof HTTP_NOT_FOUND;
   message: string;
   code: string;
   property: string;
 }
 
-/** A link that could not be found answers 404 everywhere, in the plain form even from `confirm`. */
+/** A link that could not be found answers 404, still as a validation problem. */
 const linkNotFound: Refusal = {
   status: HTTP_NOT_FOUND,
   message: LINK_NOT_FOUND,
@@ -86,12 +87,8 @@ const linkNotFound: Refusal = {
   property: "code",
 };
 
-const plain = (refusal: Refusal): MockReply => error(refusal.status, refusal.message);
-
-const problem = (refusal: Refusal): MockReply =>
-  refusal.status === HTTP_NOT_FOUND
-    ? plain(refusal)
-    : validationProblem(refusal.property, refusal.code, refusal.message);
+const refuse = (refusal: Refusal): MockReply =>
+  validationProblem(refusal.property, refusal.code, refusal.message, refusal.status);
 
 /** Which membership an invitee may already hold and still redeem a link. */
 enum Joining {
@@ -428,16 +425,12 @@ export class OrganizationInviteLinkServer {
   // ── The invitee ────────────────────────────────────────────────────────────────────────────────
 
   /**
-   * The server's `InviteLinkRules`: the link must exist under that code, the plan must include
-   * invite links, and `user` must be allowed to join `joining` the way it asks. The domain check
-   * runs before the verified-email check on purpose, so an unverified address on a foreign domain
-   * learns nothing about verification.
+   * The server's `InviteLinkValidationService.ValidateEligibility`: the link must exist under that
+   * code, the plan must include invite links, and `user`'s address must be allowed and verified.
+   * The domain check runs before the verified-email check on purpose, so an unverified address on a
+   * foreign domain learns nothing about verification.
    */
-  private eligibility(
-    user: UserEntity,
-    posted: InviteLinkCodeRequest,
-    joining: Joining,
-  ): Eligible | Refusal {
+  private eligibility(user: UserEntity, posted: InviteLinkCodeRequest): Eligible | Refusal {
     const found = this.linkFor(posted);
     if (found === undefined) {
       return linkNotFound;
@@ -469,21 +462,30 @@ export class OrganizationInviteLinkServer {
       };
     }
 
+    return found;
+  }
+
+  /** The server's `InviteLinkRules`: whether `user`'s membership lets it join the way it asks. */
+  private membershipRefusal(
+    org: OrganizationEntity,
+    user: UserEntity,
+    joining: Joining,
+  ): Refusal | undefined {
     const member = this.memberOf(org, user);
     const blocking =
       joining === Joining.Confirm
         ? [OrganizationUserStatusType.Confirmed]
         : [OrganizationUserStatusType.Accepted, OrganizationUserStatusType.Confirmed];
-    if (member !== undefined && blocking.includes(member.status)) {
-      return {
-        status: HTTP_BAD_REQUEST,
-        message: alreadyMember(org),
-        code: "already_organization_member",
-        property: "code",
-      };
+    if (member === undefined || !blocking.includes(member.status)) {
+      return undefined;
     }
 
-    return found;
+    return {
+      status: HTTP_BAD_REQUEST,
+      message: alreadyMember(org),
+      code: "already_organization_member",
+      property: "code",
+    };
   }
 
   /** A seat for `user`, unless it already holds one. */
@@ -500,29 +502,37 @@ export class OrganizationInviteLinkServer {
     };
   }
 
-  /** The sealed invite, for the invitee to open with the secret from the link. */
+  /**
+   * The sealed invite, for the invitee to open with the secret from the link. Checks membership the
+   * way the link joins, and seats, so the invitee learns of a refusal before it does any crypto.
+   */
   private invite(user: UserEntity, posted: InviteLinkCodeRequest): MockReply {
-    const found = this.linkFor(posted);
-    const joining = found?.link.supportsConfirmation === true ? Joining.Confirm : Joining.Accept;
-
-    const eligible = this.eligibility(user, posted, joining);
+    const eligible = this.eligibility(user, posted);
     if ("status" in eligible) {
-      return plain(eligible);
+      return refuse(eligible);
+    }
+    const { org, link } = eligible;
+    const joining = link.supportsConfirmation ? Joining.Confirm : Joining.Accept;
+    const refused = this.membershipRefusal(org, user, joining) ?? this.seatRefusal(org, user);
+    if (refused !== undefined) {
+      return refuse(refused);
     }
 
-    const body: OrganizationInviteResponse = { invite: eligible.link.invite };
+    const body: OrganizationInviteResponse = { invite: link.invite };
     return { json: body };
   }
 
   /** Joins as an accepted member. An admin still has to confirm it before it holds any key. */
   private accept(user: UserEntity, posted: AcceptInviteLinkRequest): MockReply {
-    const eligible = this.eligibility(user, posted, Joining.Accept);
+    const eligible = this.eligibility(user, posted);
     if ("status" in eligible) {
-      return plain(eligible);
+      return refuse(eligible);
     }
-    const noSeat = this.seatRefusal(eligible.org, user);
-    if (noSeat !== undefined) {
-      return plain(noSeat);
+    const refused =
+      this.membershipRefusal(eligible.org, user, Joining.Accept) ??
+      this.seatRefusal(eligible.org, user);
+    if (refused !== undefined) {
+      return refuse(refused);
     }
 
     this.join(eligible.org, user, {
@@ -536,12 +546,13 @@ export class OrganizationInviteLinkServer {
 
   /**
    * Joins as a confirmed member holding the organization key the invitee sealed to itself, which it
-   * could only recover by opening the invite with the link's secret.
+   * could only recover by opening the invite with the link's secret. The link's support for
+   * confirmation is checked before membership, as the server does.
    */
   private confirm(user: UserEntity, posted: ConfirmInviteLinkRequest): MockReply {
-    const eligible = this.eligibility(user, posted, Joining.Confirm);
+    const eligible = this.eligibility(user, posted);
     if ("status" in eligible) {
-      return problem(eligible);
+      return refuse(eligible);
     }
     if (!eligible.link.supportsConfirmation) {
       return validationProblem(
@@ -550,9 +561,11 @@ export class OrganizationInviteLinkServer {
         CONFIRMATION_NOT_SUPPORTED,
       );
     }
-    const noSeat = this.seatRefusal(eligible.org, user);
-    if (noSeat !== undefined) {
-      return problem(noSeat);
+    const refused =
+      this.membershipRefusal(eligible.org, user, Joining.Confirm) ??
+      this.seatRefusal(eligible.org, user);
+    if (refused !== undefined) {
+      return refuse(refused);
     }
 
     this.join(eligible.org, user, {

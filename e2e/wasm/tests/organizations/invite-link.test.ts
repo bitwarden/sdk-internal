@@ -752,10 +752,7 @@ describe("invite link client", () => {
         );
 
         // The server refuses these while the invitee fetches the invite, before it accepts or
-        // confirms. That endpoint refuses with a plain message rather than a validation problem,
-        // and the SDK only maps validation problems to typed variants, so these arrive as `Api`
-        // carrying the server's message. The typed variants for these codes are only reachable if
-        // the server or the SDK changes how the fetch is refused.
+        // confirms.
         describe("refused while fetching the invite", () => {
           it(
             "rejects a member who confirms",
@@ -772,8 +769,7 @@ describe("invite link client", () => {
               );
 
               // 2. Verify it was refused
-              expect(error.variant).toBe("Api");
-              expect(error.message).toContain(`You're already a member of ${org.seed.name}.`);
+              expect(error.variant).toBe("AlreadyOrganizationMember");
 
               // 3. Verify neither side moved
               expect(harness.server.getOrganization(organizationId).members).toEqual(before);
@@ -797,8 +793,7 @@ describe("invite link client", () => {
               );
 
               // 2. Verify it was refused
-              expect(error.variant).toBe("Api");
-              expect(error.message).toContain(`You're already a member of ${org.seed.name}.`);
+              expect(error.variant).toBe("AlreadyOrganizationMember");
 
               // 3. Verify neither side moved
               expect(harness.server.getOrganization(organizationId).members).toEqual(before);
@@ -822,10 +817,7 @@ describe("invite link client", () => {
               );
 
               // 2. Verify it was refused
-              expect(error.variant).toBe("Api");
-              expect(error.message).toContain(
-                "Your organization's plan does not support invite links.",
-              );
+              expect(error.variant).toBe("InviteLinkNotAvailable");
 
               // 3. Verify neither side moved
               expect(inviteeMembership()).toBeUndefined();
@@ -848,10 +840,7 @@ describe("invite link client", () => {
               );
 
               // 2. Verify it was refused
-              expect(error.variant).toBe("Api");
-              expect(error.message).toContain(
-                `You're not allowed to join the ${org.seed.name} vault with your email domain.`,
-              );
+              expect(error.variant).toBe("EmailDomainNotAllowed");
 
               // 3. Verify neither side moved
               expect(inviteeMembership()).toBeUndefined();
