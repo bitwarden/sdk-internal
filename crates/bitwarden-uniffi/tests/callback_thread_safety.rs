@@ -52,6 +52,7 @@ fn test_callback_thread_safety() {
         Arc::new(MockTokenProvider),
         None,
         Arc::new(ManagedSettingsBindingClient::new()),
+        None,
     );
 
     // Spawn multiple threads logging simultaneously

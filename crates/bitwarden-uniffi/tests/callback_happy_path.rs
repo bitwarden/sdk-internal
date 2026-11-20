@@ -50,6 +50,7 @@ fn test_callback_happy_path() {
         Arc::new(MockTokenProvider),
         None,
         Arc::new(ManagedSettingsBindingClient::new()),
+        None,
     );
 
     // Trigger SDK logging
