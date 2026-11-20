@@ -29,6 +29,8 @@ pub enum BitwardenError {
     #[error(transparent)]
     ReinitUserCrypto(#[from] bitwarden_core::key_management::crypto::ReinitUserCryptoError),
     #[error(transparent)]
+    ValidateClientSettings(#[from] bitwarden_core::ValidateClientSettingsError),
+    #[error(transparent)]
     AuthValidate(#[from] bitwarden_core::auth::AuthValidateError),
     #[error(transparent)]
     ApproveAuthRequest(#[from] bitwarden_core::auth::ApproveAuthRequestError),

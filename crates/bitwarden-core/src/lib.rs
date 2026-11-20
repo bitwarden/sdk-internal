@@ -31,9 +31,14 @@ pub use client::{
     init_host_platform_info,
 };
 #[cfg(not(target_arch = "wasm32"))]
-pub use client::{ClientCertSigner, ClientCertSignerError, ClientCertificate, TlsSigScheme};
+pub use client::{
+    ClientCertSigner, ClientCertSignerError, ClientCertificate, ClientCertificateError,
+    TlsSigScheme,
+};
 #[cfg(feature = "internal")]
 pub use client::{FetchFlagsError, FlagsClient, RehydrationError, SaveStateData};
+#[cfg(not(target_arch = "wasm32"))]
+pub use client::{ValidateClientSettingsError, validate_client_settings};
 pub use global::GlobalClient;
 
 mod ids;

@@ -61,6 +61,26 @@ impl TlsSigScheme {
         }
     }
 
+    /// Whether an RSA key with a modulus of `modulus_bits` can encode this scheme's signature, per
+    /// RFC 8017 sections 9.1.1 (PSS with a digest-length salt) and 9.2 (PKCS #1 v1.5, whose
+    /// SHA-2 `DigestInfo` prefix is 19 bytes).
+    fn fits_rsa_modulus(self, modulus_bits: usize) -> bool {
+        let (digest_len, pss) = match self {
+            Self::RsaPkcs1Sha256 => (32, false),
+            Self::RsaPkcs1Sha384 => (48, false),
+            Self::RsaPkcs1Sha512 => (64, false),
+            Self::RsaPssSha256 => (32, true),
+            Self::RsaPssSha384 => (48, true),
+            Self::RsaPssSha512 => (64, true),
+            Self::EcdsaP256Sha256 | Self::EcdsaP384Sha384 => return false,
+        };
+        if pss {
+            modulus_bits.saturating_sub(1).div_ceil(8) >= 2 * digest_len + 2
+        } else {
+            modulus_bits.div_ceil(8) >= 19 + digest_len + 11
+        }
+    }
+
     fn algorithm(self) -> SignatureAlgorithm {
         match self {
             Self::EcdsaP256Sha256 | Self::EcdsaP384Sha384 => SignatureAlgorithm::ECDSA,
@@ -98,9 +118,10 @@ impl From<uniffi::UnexpectedUniFFICallbackError> for ClientCertSignerError {
 /// host application.
 ///
 /// Both methods are called synchronously on the caller's thread: `schemes` inside
-/// [`ClientCertificate::new`], and `sign` during the TLS handshake, on the thread that awaits the
-/// networked SDK call. Apps must not await networked SDK calls on the main thread, and
-/// implementations must be thread-safe and must not block on user interaction.
+/// [`ClientCertificate::new`], and `sign` inside [`ClientCertificate::validate`] and during the TLS
+/// handshake, on the thread that awaits the networked SDK call. Apps must not await networked SDK
+/// calls on the main thread, and implementations must be thread-safe and must not block on user
+/// interaction.
 #[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 pub trait ClientCertSigner: Send + Sync {
     /// Signs `message` with `scheme`, which is always one of the schemes returned by
@@ -116,8 +137,8 @@ pub trait ClientCertSigner: Send + Sync {
         message: Vec<u8>,
     ) -> Result<Vec<u8>, ClientCertSignerError>;
 
-    /// Every scheme the key can sign with. The SDK calls this once, when the certificate is
-    /// configured, and picks its preferred scheme among those the server accepts.
+    /// Every scheme the key can sign with. The SDK calls this once, keeps those that fit the leaf's
+    /// key, and picks its preferred one among those the server accepts.
     fn schemes(&self) -> Vec<TlsSigScheme>;
 }
 
@@ -128,6 +149,7 @@ pub trait ClientCertSigner: Send + Sync {
 /// still followed.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct ClientCertificate {
+    key: Arc<DelegatedSigningKey>,
     resolver: Arc<DelegatedResolver>,
 }
 
@@ -140,26 +162,24 @@ impl ClientCertificate {
         let mut schemes = signer.schemes();
         schemes.sort_by_key(|scheme| SCHEME_PREFERENCE.iter().position(|s| s == scheme));
         schemes.dedup();
+        let chain: Vec<CertificateDer<'static>> =
+            chain.into_iter().map(CertificateDer::from).collect();
+        // An unparseable leaf keeps every scheme, and `validate` reports it.
+        if let Some(key_type) = chain.first().and_then(leaf_key_type) {
+            schemes.retain(|scheme| key_type.accepts(*scheme));
+        }
 
         if schemes.is_empty() {
             tracing::error!(
-                "mTLS: the client certificate signer advertised no signature schemes, so the \
-                 client certificate will never be sent"
-            );
-        } else if schemes
-            .iter()
-            .any(|scheme| scheme.algorithm() != schemes[0].algorithm())
-        {
-            tracing::error!(
-                ?schemes,
-                "mTLS: the client certificate signer advertised schemes for more than one key type"
+                "mTLS: the client certificate signer advertised no signature schemes for the \
+                 leaf's key, so the client certificate will never be sent"
             );
         }
 
         let key = Arc::new(DelegatedSigningKey { signer, schemes });
-        let certified_key =
-            CertifiedKey::new(chain.into_iter().map(CertificateDer::from).collect(), key);
+        let certified_key = CertifiedKey::new(chain, key.clone());
         Self {
+            key,
             resolver: Arc::new(DelegatedResolver {
                 certified_key: Arc::new(certified_key),
             }),
@@ -171,6 +191,196 @@ impl ClientCertificate {
     pub(crate) fn resolver(&self) -> Arc<dyn ResolvesClientCert> {
         self.resolver.clone()
     }
+
+    /// Checks that the chain parses and that the signer's signature with every scheme it advertises
+    /// for the leaf's key verifies against that key.
+    pub fn validate(&self) -> Result<(), ClientCertificateError> {
+        let certificates = self
+            .resolver
+            .certified_key
+            .cert
+            .iter()
+            .enumerate()
+            .map(|(index, certificate)| {
+                webpki::EndEntityCert::try_from(certificate)
+                    .map_err(|_| ClientCertificateError::InvalidCertificate { index })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let leaf = certificates
+            .first()
+            .ok_or(ClientCertificateError::EmptyChain)?;
+        let key_type = LeafKeyType::from_spki(leaf.subject_public_key_info().as_ref())
+            .ok_or(ClientCertificateError::UnsupportedKey)?;
+        if self.key.schemes.is_empty() {
+            return Err(ClientCertificateError::NoCompatibleScheme);
+        }
+        for &scheme in &self.key.schemes {
+            let signature = self
+                .key
+                .signer
+                .sign(scheme, PROBE_MESSAGE.to_vec())
+                .map_err(|error| ClientCertificateError::SigningFailed {
+                    scheme,
+                    reason: error.to_string(),
+                })?;
+            if key_type.is_verifiable() && !verifies(leaf, scheme, &signature) {
+                return Err(ClientCertificateError::KeyMismatch { scheme });
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Not a TLS handshake message, so a signature over it cannot stand in for one.
+const PROBE_MESSAGE: &[u8] = b"Bitwarden SDK client certificate check";
+
+fn verifies(leaf: &webpki::EndEntityCert<'_>, scheme: TlsSigScheme, signature: &[u8]) -> bool {
+    crate::client::crypto_provider()
+        .signature_verification_algorithms
+        .mapping
+        .iter()
+        .filter(|(mapped, _)| *mapped == scheme.to_rustls())
+        .flat_map(|(_, algorithms)| algorithms.iter())
+        .any(|algorithm| {
+            leaf.verify_signature(*algorithm, PROBE_MESSAGE, signature)
+                .is_ok()
+        })
+}
+
+fn leaf_key_type(leaf: &CertificateDer<'_>) -> Option<LeafKeyType> {
+    let leaf = webpki::EndEntityCert::try_from(leaf).ok()?;
+    LeafKeyType::from_spki(leaf.subject_public_key_info().as_ref())
+}
+
+/// Why [`ClientCertificate::validate`] rejected a certificate.
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ClientCertificateError {
+    /// The chain contains no certificates.
+    #[error("The certificate chain is empty")]
+    EmptyChain,
+    /// A certificate in the chain is not valid X.509 DER.
+    #[error("Certificate {index} in the chain is not a valid X.509 certificate")]
+    InvalidCertificate {
+        /// Position in the chain, where 0 is the leaf.
+        index: usize,
+    },
+    /// The leaf's key is neither RSA nor ECDSA on P-256 or P-384.
+    #[error("The leaf certificate's key is not RSA or ECDSA on P-256 or P-384")]
+    UnsupportedKey,
+    /// The signer advertises no scheme that matches the leaf's key.
+    #[error("The signer advertises no signature scheme for the leaf certificate's key")]
+    NoCompatibleScheme,
+    /// The signer failed to sign the test message.
+    #[error("The signer failed to sign with {scheme:?}: {reason}")]
+    SigningFailed {
+        /// The scheme the signature was requested with.
+        scheme: TlsSigScheme,
+        /// The signer's error.
+        reason: String,
+    },
+    /// The signer's signature does not verify with the leaf certificate's key.
+    #[error("The {scheme:?} signature does not match the leaf certificate's key")]
+    KeyMismatch {
+        /// The scheme the signature was made with.
+        scheme: TlsSigScheme,
+    },
+}
+
+/// The leaf key types the SDK can sign handshakes for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LeafKeyType {
+    Rsa { modulus_bits: usize },
+    EcdsaP256,
+    EcdsaP384,
+}
+
+impl LeafKeyType {
+    /// Reads the key type from the DER `AlgorithmIdentifier` at the start of an SPKI. DER encodes
+    /// each identifier as a single byte string, so comparing prefixes is exact.
+    fn from_spki(spki: &[u8]) -> Option<Self> {
+        // rsaEncryption, with or without the NULL parameters.
+        const RSA: &[u8] = &[
+            0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,
+        ];
+        // id-ecPublicKey followed by the named curve.
+        const EC_P256: &[u8] = &[
+            0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48,
+            0xce, 0x3d, 0x03, 0x01, 0x07,
+        ];
+        const EC_P384: &[u8] = &[
+            0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x05, 0x2b, 0x81, 0x04,
+            0x00, 0x22,
+        ];
+
+        let (content, _) = der_expect(spki, DER_SEQUENCE)?;
+        let (algorithm, rest) = der_expect(content, DER_SEQUENCE)?;
+        if algorithm.starts_with(RSA) {
+            let (public_key, _) = der_expect(rest, DER_BIT_STRING)?;
+            // The first byte counts the unused bits, which is 0 for every key encoding.
+            let modulus_bits = rsa_modulus_bits(public_key.strip_prefix(&[0])?)?;
+            Some(Self::Rsa { modulus_bits })
+        } else if algorithm == EC_P256 {
+            Some(Self::EcdsaP256)
+        } else if algorithm == EC_P384 {
+            Some(Self::EcdsaP384)
+        } else {
+            None
+        }
+    }
+
+    fn accepts(self, scheme: TlsSigScheme) -> bool {
+        match self {
+            Self::Rsa { modulus_bits } => scheme.fits_rsa_modulus(modulus_bits),
+            Self::EcdsaP256 => scheme == TlsSigScheme::EcdsaP256Sha256,
+            Self::EcdsaP384 => scheme == TlsSigScheme::EcdsaP384Sha384,
+        }
+    }
+
+    /// RSA keys outside 2048 to 8192 bits are only checked for a successful signature, since the
+    /// rustls providers reject them.
+    fn is_verifiable(self) -> bool {
+        match self {
+            Self::Rsa { modulus_bits } => (2048..=8192).contains(&modulus_bits),
+            Self::EcdsaP256 | Self::EcdsaP384 => true,
+        }
+    }
+}
+
+const DER_INTEGER: u8 = 0x02;
+const DER_BIT_STRING: u8 = 0x03;
+const DER_SEQUENCE: u8 = 0x30;
+
+/// Returns the bit length of the modulus of a DER `RSAPublicKey`.
+fn rsa_modulus_bits(public_key: &[u8]) -> Option<usize> {
+    let (key, _) = der_expect(public_key, DER_SEQUENCE)?;
+    let (modulus, _) = der_expect(key, DER_INTEGER)?;
+    let start = modulus.iter().position(|&byte| byte != 0)?;
+    let significant = &modulus[start..];
+    Some(significant.len() * 8 - significant[0].leading_zeros() as usize)
+}
+
+/// Splits the DER element at the start of `der` into its content and the bytes after it, if its
+/// tag is `tag`.
+fn der_expect(der: &[u8], tag: u8) -> Option<(&[u8], &[u8])> {
+    let (&actual, rest) = der.split_first()?;
+    let (&first, rest) = rest.split_first()?;
+    if actual != tag {
+        return None;
+    }
+    let (len, rest) = if first < 0x80 {
+        (usize::from(first), rest)
+    } else {
+        let count = usize::from(first & 0x7f);
+        if count == 0 || count > std::mem::size_of::<usize>() || rest.len() < count {
+            return None;
+        }
+        let (bytes, rest) = rest.split_at(count);
+        let len = bytes
+            .iter()
+            .fold(0usize, |len, &byte| (len << 8) | usize::from(byte));
+        (len, rest)
+    };
+    (len <= rest.len()).then(|| rest.split_at(len))
 }
 
 impl std::fmt::Debug for ClientCertificate {
@@ -432,5 +642,228 @@ mod tests {
             error,
             rustls::Error::General("Client certificate signing failed: key unavailable".to_owned())
         );
+    }
+
+    #[test]
+    fn rsa_schemes_fit_the_modulus_rfc_8017_requires() {
+        let fitting = |modulus_bits| {
+            ALL_RSA
+                .into_iter()
+                .filter(|scheme| scheme.fits_rsa_modulus(modulus_bits))
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(fitting(2048), ALL_RSA);
+        assert_eq!(fitting(1034), ALL_RSA);
+        // PSS with SHA-512 needs a 130-byte encoded message, and a 1033-bit key encodes 129.
+        assert_eq!(
+            fitting(1033),
+            ALL_RSA
+                .into_iter()
+                .filter(|scheme| *scheme != TlsSigScheme::RsaPssSha512)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(fitting(512), vec![TlsSigScheme::RsaPkcs1Sha256]);
+        assert!(!TlsSigScheme::EcdsaP256Sha256.fits_rsa_modulus(4096));
+    }
+
+    #[test]
+    fn reads_the_rsa_modulus_length_without_the_sign_byte() {
+        // SEQUENCE { INTEGER 0x00 0x80 0x00 0x01, INTEGER 65537 }: a 24-bit modulus.
+        let key = [
+            0x30, 0x0b, 0x02, 0x04, 0x00, 0x80, 0x00, 0x01, 0x02, 0x03, 0x01, 0x00, 0x01,
+        ];
+        assert_eq!(rsa_modulus_bits(&key), Some(24));
+
+        // SEQUENCE { INTEGER 0x01 0xff, ... }: the top byte has 7 leading zero bits.
+        let key = [
+            0x30, 0x09, 0x02, 0x02, 0x01, 0xff, 0x02, 0x03, 0x01, 0x00, 0x01,
+        ];
+        assert_eq!(rsa_modulus_bits(&key), Some(9));
+
+        assert_eq!(rsa_modulus_bits(&[0x30, 0x03, 0x02, 0x01, 0x00]), None);
+    }
+
+    const P256_CERT: &str = include_str!("../tests/fixtures/client_certificate/p256.crt");
+    const P256_KEY: &str = include_str!("../tests/fixtures/client_certificate/p256.key");
+    const P256_OTHER_KEY: &str =
+        include_str!("../tests/fixtures/client_certificate/p256-other.key");
+    const P384_CERT: &str = include_str!("../tests/fixtures/client_certificate/p384.crt");
+    const P384_KEY: &str = include_str!("../tests/fixtures/client_certificate/p384.key");
+    const RSA_CERT: &str = include_str!("../tests/fixtures/client_certificate/rsa.crt");
+    const RSA_KEY: &str = include_str!("../tests/fixtures/client_certificate/rsa.key");
+    const ED25519_CERT: &str = include_str!("../tests/fixtures/client_certificate/ed25519.crt");
+
+    fn der(pem: &str) -> Vec<u8> {
+        use rustls::pki_types::pem::PemObject;
+
+        CertificateDer::from_pem_slice(pem.as_bytes())
+            .expect("fixture should be a PEM certificate")
+            .to_vec()
+    }
+
+    /// Advertises `schemes` and signs each of them with `key`.
+    struct KeySigner {
+        key: Arc<dyn SigningKey>,
+        schemes: Vec<TlsSigScheme>,
+    }
+
+    impl KeySigner {
+        fn new(key_pem: &str, schemes: &[TlsSigScheme]) -> Arc<Self> {
+            use rustls::pki_types::{PrivateKeyDer, pem::PemObject};
+
+            let key = PrivateKeyDer::from_pem_slice(key_pem.as_bytes())
+                .expect("fixture should be a PEM private key");
+            Arc::new(Self {
+                key: crate::client::crypto_provider()
+                    .key_provider
+                    .load_private_key(key)
+                    .expect("fixture key should load"),
+                schemes: schemes.to_vec(),
+            })
+        }
+    }
+
+    impl ClientCertSigner for KeySigner {
+        fn sign(
+            &self,
+            scheme: TlsSigScheme,
+            message: Vec<u8>,
+        ) -> Result<Vec<u8>, ClientCertSignerError> {
+            let signer = self
+                .key
+                .choose_scheme(&[scheme.to_rustls()])
+                .expect("fixture key should support the scheme");
+            Ok(signer.sign(&message).expect("signing should succeed"))
+        }
+
+        fn schemes(&self) -> Vec<TlsSigScheme> {
+            self.schemes.clone()
+        }
+    }
+
+    fn validate(
+        chain: Vec<Vec<u8>>,
+        signer: Arc<dyn ClientCertSigner>,
+    ) -> Result<(), ClientCertificateError> {
+        ClientCertificate::new(chain, signer).validate()
+    }
+
+    fn unusable_signer(schemes: &[TlsSigScheme]) -> Arc<RecordingSigner> {
+        Arc::new(RecordingSigner {
+            schemes: schemes.to_vec(),
+            fail: true,
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn validate_accepts_keys_that_sign_every_advertised_scheme() {
+        validate(
+            vec![der(P256_CERT)],
+            KeySigner::new(P256_KEY, &[TlsSigScheme::EcdsaP256Sha256]),
+        )
+        .unwrap();
+        validate(
+            vec![der(P384_CERT)],
+            KeySigner::new(P384_KEY, &[TlsSigScheme::EcdsaP384Sha384]),
+        )
+        .unwrap();
+        validate(vec![der(RSA_CERT)], KeySigner::new(RSA_KEY, &ALL_RSA)).unwrap();
+        // The intermediate does not need to match the leaf's key type.
+        validate(
+            vec![der(P256_CERT), der(RSA_CERT)],
+            KeySigner::new(P256_KEY, &[TlsSigScheme::EcdsaP256Sha256]),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn validate_rejects_a_scheme_the_signer_fails_to_sign() {
+        let error = validate(
+            vec![der(P256_CERT)],
+            unusable_signer(&[TlsSigScheme::EcdsaP256Sha256]),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            ClientCertificateError::SigningFailed {
+                scheme: TlsSigScheme::EcdsaP256Sha256,
+                reason: "Client certificate signing failed: key unavailable".to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    fn validate_rejects_a_signer_whose_key_does_not_match_the_leaf() {
+        let error = validate(
+            vec![der(P256_CERT)],
+            KeySigner::new(P256_OTHER_KEY, &[TlsSigScheme::EcdsaP256Sha256]),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            ClientCertificateError::KeyMismatch {
+                scheme: TlsSigScheme::EcdsaP256Sha256,
+            }
+        );
+    }
+
+    #[test]
+    fn validate_rejects_an_empty_chain() {
+        let error = validate(vec![], unusable_signer(&[TlsSigScheme::EcdsaP256Sha256]));
+
+        assert_eq!(error, Err(ClientCertificateError::EmptyChain));
+    }
+
+    #[test]
+    fn validate_rejects_unparseable_certificates() {
+        let leaf = der(P256_CERT);
+        let mut trailing = leaf.clone();
+        trailing.push(0);
+
+        for (chain, index) in [
+            (vec![b"not a certificate".to_vec()], 0),
+            (vec![leaf[..leaf.len() - 1].to_vec()], 0),
+            (vec![trailing], 0),
+            (vec![leaf, b"not a certificate".to_vec()], 1),
+        ] {
+            let error = validate(chain, unusable_signer(&[TlsSigScheme::EcdsaP256Sha256]));
+
+            assert_eq!(
+                error,
+                Err(ClientCertificateError::InvalidCertificate { index })
+            );
+        }
+    }
+
+    #[test]
+    fn validate_rejects_schemes_for_another_key_type() {
+        for (certificate, schemes) in [
+            (P256_CERT, vec![TlsSigScheme::EcdsaP384Sha384]),
+            (P256_CERT, vec![TlsSigScheme::RsaPssSha256]),
+            (P256_CERT, vec![]),
+            (RSA_CERT, vec![TlsSigScheme::EcdsaP256Sha256]),
+        ] {
+            let error = validate(vec![der(certificate)], unusable_signer(&schemes));
+
+            assert_eq!(
+                error,
+                Err(ClientCertificateError::NoCompatibleScheme),
+                "{schemes:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_rejects_an_unsupported_key_type() {
+        let error = validate(
+            vec![der(ED25519_CERT)],
+            unusable_signer(&[TlsSigScheme::EcdsaP256Sha256]),
+        );
+
+        assert_eq!(error, Err(ClientCertificateError::UnsupportedKey));
     }
 }

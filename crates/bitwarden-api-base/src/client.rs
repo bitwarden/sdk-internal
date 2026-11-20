@@ -60,8 +60,13 @@ pub fn new_http_client_builder_with_client_certificate(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+pub(crate) use native::crypto_provider;
+
+#[cfg(not(target_arch = "wasm32"))]
 mod native {
-    use rustls::{ClientConfig, ConfigBuilder, client::WantsClientCert};
+    use std::sync::Arc;
+
+    use rustls::{ClientConfig, ConfigBuilder, client::WantsClientCert, crypto::CryptoProvider};
     use rustls_platform_verifier::BuilderVerifierExt;
 
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
@@ -71,8 +76,15 @@ mod native {
         TCP_KEEPALIVE_INTERVAL, TCP_KEEPALIVE_RETRIES,
     };
 
-    pub(super) fn platform_verifier() -> ConfigBuilder<ClientConfig, WantsClientCert> {
+    /// The process-wide rustls provider, shared with certificate validation so that it verifies
+    /// signatures with the same algorithms the handshake uses.
+    pub(crate) fn crypto_provider() -> &'static Arc<CryptoProvider> {
         let _ = rustls::crypto::ring::default_provider().install_default();
+        CryptoProvider::get_default().expect("a default crypto provider should be installed")
+    }
+
+    pub(super) fn platform_verifier() -> ConfigBuilder<ClientConfig, WantsClientCert> {
+        crypto_provider();
         ClientConfig::builder()
             .with_platform_verifier()
             .expect("Failed to create platform verifier")

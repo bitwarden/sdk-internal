@@ -212,6 +212,19 @@ impl Client {
     }
 }
 
+/// Checks settings a user entered before the app stores them, since the [`Client`] constructor
+/// never fails and only logs invalid settings.
+#[uniffi::export(default(client_certificate = None))]
+pub fn validate_client_settings(
+    settings: ClientSettings,
+    client_certificate: Option<Arc<ClientCertificate>>,
+) -> Result<()> {
+    Ok(bitwarden_core::validate_client_settings(
+        &settings,
+        client_certificate.as_deref(),
+    )?)
+}
+
 static INIT: Once = Once::new();
 
 /// Log level for SDK logging
