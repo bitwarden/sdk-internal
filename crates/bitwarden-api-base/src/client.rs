@@ -37,23 +37,55 @@ const TCP_USER_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60)
 /// Returns a [`reqwest::ClientBuilder`] with the SDK's TLS, connect timeout, and keep-alive
 /// defaults. On WASM the builder is returned unmodified.
 pub fn new_http_client_builder() -> reqwest::ClientBuilder {
-    #[allow(unused_mut)]
-    let mut client_builder = reqwest::Client::builder();
-
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let _ = rustls::crypto::ring::default_provider().install_default();
+        native::builder(native::platform_verifier().with_no_client_auth())
+    }
 
-        use rustls::ClientConfig;
-        use rustls_platform_verifier::ConfigVerifierExt;
-        let mut tls =
-            ClientConfig::with_platform_verifier().expect("Failed to create platform verifier");
+    #[cfg(target_arch = "wasm32")]
+    {
+        reqwest::Client::builder()
+    }
+}
+
+/// Returns a builder like [`new_http_client_builder`] that also presents `client_certificate`.
+/// Only use it for clients that talk to Bitwarden servers.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn new_http_client_builder_with_client_certificate(
+    client_certificate: &crate::ClientCertificate,
+) -> reqwest::ClientBuilder {
+    native::builder(
+        native::platform_verifier().with_client_cert_resolver(client_certificate.resolver()),
+    )
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+mod native {
+    use rustls::{ClientConfig, ConfigBuilder, client::WantsClientCert};
+    use rustls_platform_verifier::BuilderVerifierExt;
+
+    #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+    use super::TCP_USER_TIMEOUT;
+    use super::{
+        CONNECT_TIMEOUT, HTTP2_KEEP_ALIVE_INTERVAL, HTTP2_KEEP_ALIVE_TIMEOUT, TCP_KEEPALIVE,
+        TCP_KEEPALIVE_INTERVAL, TCP_KEEPALIVE_RETRIES,
+    };
+
+    pub(super) fn platform_verifier() -> ConfigBuilder<ClientConfig, WantsClientCert> {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        ClientConfig::builder()
+            .with_platform_verifier()
+            .expect("Failed to create platform verifier")
+    }
+
+    pub(super) fn builder(mut tls: ClientConfig) -> reqwest::ClientBuilder {
         // The HTTP/2 pings need h2, which reqwest does not offer on a preconfigured rustls config.
         tls.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
 
         // No default read timeout, since it is not reset while the request body uploads and would
         // fail slow uploads.
-        client_builder = client_builder
+        #[allow(unused_mut)]
+        let mut client_builder = reqwest::Client::builder()
             .tls_backend_preconfigured(tls)
             .connect_timeout(CONNECT_TIMEOUT)
             .http2_keep_alive_interval(HTTP2_KEEP_ALIVE_INTERVAL)
@@ -73,9 +105,9 @@ pub fn new_http_client_builder() -> reqwest::ClientBuilder {
         {
             client_builder = client_builder.https_only(true);
         }
-    }
 
-    client_builder
+        client_builder
+    }
 }
 
 /// Returns a [`reqwest::Client`] built from [`new_http_client_builder`].

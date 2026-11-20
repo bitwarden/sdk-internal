@@ -24,6 +24,8 @@ reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
 uniffi = { workspace = true, optional = true }
 url = ">=2.5, <3"
 
