@@ -947,10 +947,10 @@ mod tests {
                     .expect_get_user_key()
                     .once()
                     .returning(move || {
-                        Err(bitwarden_api_key_connector::apis::Error::ResponseError(
+                        Err(bitwarden_api_key_connector::apis::Error::Response(
                             bitwarden_api_key_connector::apis::ResponseContent {
                                 status: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                                content: "Server Error".to_string(),
+                                message: "Server Error".to_string(),
                             },
                         ))
                     });
