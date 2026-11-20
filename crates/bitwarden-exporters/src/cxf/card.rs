@@ -90,10 +90,12 @@ fn sanitize_brand(value: String) -> Option<String> {
         "visa" => Some(CardBrand::Visa),
         "mastercard" => Some(CardBrand::Mastercard),
         "amex" | "americanexpress" => Some(CardBrand::Amex),
+        "dinacard" => Some(CardBrand::DinaCard),
         "discover" => Some(CardBrand::Discover),
         "dinersclub" => Some(CardBrand::DinersClub),
         "jcb" => Some(CardBrand::Jcb),
         "maestro" => Some(CardBrand::Maestro),
+        "mir" => Some(CardBrand::Mir),
         "unionpay" => Some(CardBrand::UnionPay),
         "rupay" => Some(CardBrand::RuPay),
         _ => None,
@@ -128,7 +130,33 @@ mod tests {
             Some("Diners Club".to_string())
         );
         assert_eq!(sanitize_brand("j c b".into()), Some("JCB".to_string()));
+        assert_eq!(
+            sanitize_brand(" Dina Card ".into()),
+            Some("DinaCard".to_string())
+        );
+        assert_eq!(sanitize_brand(" MIR ".into()), Some("Mir".to_string()));
         assert_eq!(sanitize_brand("Some unknown".into()), None);
+    }
+
+    #[test]
+    fn test_additional_card_brands_round_trip() {
+        for brand in ["DinaCard", "Mir"] {
+            let original = Card {
+                cardholder_name: None,
+                exp_month: None,
+                exp_year: None,
+                code: None,
+                brand: Some(brand.to_string()),
+                number: None,
+            };
+            let credentials: Vec<Credential> = original.into();
+            let Credential::CreditCard(credit_card) = &credentials[0] else {
+                panic!("Expected CreditCardCredential");
+            };
+
+            let restored = Card::from(credit_card.as_ref());
+            assert_eq!(restored.brand.as_deref(), Some(brand));
+        }
     }
 
     #[test]

@@ -770,6 +770,22 @@ fn a_card_type_maps_onto_a_bitwarden_brand() {
     );
 }
 
+/// Recognized card brands remain card data instead of being moved into custom fields.
+#[test]
+fn additional_card_brands_are_preserved_during_import() {
+    for (raw_brand, expected_brand) in [("Dina Card", "DinaCard"), ("MIR", "Mir")] {
+        let details = details_from_json(serde_json::json!({
+            "sections": [{"fields": [
+                {"n": "type", "t": "type", "k": "cctype", "v": raw_brand}
+            ]}]
+        }));
+        let (card, claimed) = card(&details);
+
+        assert_eq!(card.brand.as_deref(), Some(expected_brand));
+        assert!(rendered(&details, &claimed).is_empty());
+    }
+}
+
 /// The public key and the fingerprint are only ever in the field's attributes, so a mapping that
 /// read the value alone would lose both. The captured key is PKCS#8 and arrives as OpenSSH, with
 /// the fingerprint 1Password showed.
