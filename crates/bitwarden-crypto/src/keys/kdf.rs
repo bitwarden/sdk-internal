@@ -1,9 +1,9 @@
 use std::{num::NonZeroU32, pin::Pin};
 
+use bitwarden_crypto_primitives::{argon2, pbkdf2::pbkdf2_hmac_sha256, sha256};
 use hybrid_array::Array;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use sha2::Digest;
 use typenum::U32;
 use zeroize::Zeroize;
 
@@ -38,13 +38,13 @@ impl KdfDerivedKeyMaterial {
     ) -> Result<Self, CryptoError> {
         match kdf {
             Kdf::PBKDF2 { iterations } => {
-                let iterations = iterations.get();
-                if iterations < PBKDF2_MIN_ITERATIONS {
+                if iterations.get() < PBKDF2_MIN_ITERATIONS {
                     return Err(CryptoError::InsufficientKdfParameters);
                 }
 
-                let mut hash = measure(SlowCryptoOp::Pbkdf2, || {
-                    crate::util::pbkdf2(secret, salt, iterations)
+                let mut hash = [0u8; sha256::DIGEST_LEN];
+                measure(SlowCryptoOp::Pbkdf2, || {
+                    pbkdf2_hmac_sha256(secret, salt, *iterations, &mut hash);
                 });
 
                 let key_material = Box::pin(hash.into());
@@ -67,16 +67,19 @@ impl KdfDerivedKeyMaterial {
                     return Err(CryptoError::InsufficientKdfParameters);
                 }
 
-                let salt_sha = sha2::Sha256::new().chain_update(salt).finalize();
+                let salt_sha = sha256::digest(salt);
 
                 let mut hash = Box::pin(Array::<u8, U32>::default());
 
-                use argon2::*;
-                let params = Params::new(memory, iterations, parallelism, Some(32))?;
-                let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+                let params = argon2::Params {
+                    memory_kib: memory,
+                    iterations,
+                    parallelism,
+                };
                 measure(SlowCryptoOp::Argon2id, || {
-                    argon.hash_password_into(secret, &salt_sha, hash.as_mut_slice())
-                })?;
+                    argon2::argon2id_v13(secret, &salt_sha, &params, hash.as_mut_slice())
+                })
+                .map_err(CryptoError::Argon)?;
 
                 // Argon2 is using some stack memory that is not zeroed. Eventually some function
                 // will overwrite the stack, but we use this trick to force the used

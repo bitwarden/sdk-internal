@@ -1,6 +1,8 @@
+use bitwarden_crypto_primitives::{
+    ed25519 as ed25519_primitives, p256 as p256_primitives, rsa as rsa_primitives,
+};
 use pkcs8::EncodePrivateKey;
-use rsa::RsaPrivateKey;
-use ssh_key::{EcdsaCurve, PrivateKey};
+use ssh_key::{EcdsaCurve, Mpint, PrivateKey};
 
 use crate::error::SshKeyExportError;
 
@@ -14,31 +16,59 @@ pub fn export_pkcs8_der_key(private_key: &str) -> Result<Vec<u8>, SshKeyExportEr
         PrivateKey::from_openssh(private_key).map_err(|_| SshKeyExportError::KeyConversion)?;
 
     match private_key.key_data() {
-        ssh_key::private::KeypairData::Ed25519(keypair) => {
-            let sk: ed25519_dalek::SigningKey = keypair
-                .try_into()
-                .map_err(|_| SshKeyExportError::KeyConversion)?;
-
-            Ok(sk
-                .to_pkcs8_der()
-                .map_err(|_| SshKeyExportError::KeyConversion)?
-                .as_bytes()
-                .to_vec())
-        }
-        ssh_key::private::KeypairData::Rsa(keypair) => {
-            let rk: RsaPrivateKey = keypair
-                .try_into()
-                .map_err(|_| SshKeyExportError::KeyConversion)?;
-
-            Ok(rk
-                .to_pkcs8_der()
-                .map_err(|_| SshKeyExportError::KeyConversion)?
-                .as_bytes()
-                .to_vec())
-        }
+        ssh_key::private::KeypairData::Ed25519(keypair) => export_ed25519_pkcs8_der(keypair),
+        ssh_key::private::KeypairData::Rsa(keypair) => export_rsa_pkcs8_der(keypair),
         ssh_key::private::KeypairData::Ecdsa(keypair) => export_ecdsa_pkcs8_der(keypair),
         _ => Err(SshKeyExportError::KeyConversion),
     }
+}
+
+fn export_ed25519_pkcs8_der(
+    keypair: &ssh_key::private::Ed25519Keypair,
+) -> Result<Vec<u8>, SshKeyExportError> {
+    // Derive the public key from the seed and reject keypairs whose halves don't match.
+    let seed = keypair.private.as_ref();
+    let public_key = ed25519_primitives::SigningKey::from_seed(seed)
+        .verifying_key()
+        .to_bytes();
+    if public_key != keypair.public.0 {
+        return Err(SshKeyExportError::KeyConversion);
+    }
+
+    // PKCS#8 v2 document carrying both the seed and the public key.
+    let keypair_bytes = ed25519::KeypairBytes {
+        secret_key: *seed,
+        public_key: Some(ed25519::pkcs8::PublicKeyBytes(public_key)),
+    };
+    Ok(keypair_bytes
+        .to_pkcs8_der()
+        .map_err(|_| SshKeyExportError::KeyConversion)?
+        .as_bytes()
+        .to_vec())
+}
+
+fn export_rsa_pkcs8_der(
+    keypair: &ssh_key::private::RsaKeypair,
+) -> Result<Vec<u8>, SshKeyExportError> {
+    // Cross from ssh-key into primitives via the big-endian components.
+    fn positive(mpint: &Mpint) -> Result<&[u8], SshKeyExportError> {
+        mpint
+            .as_positive_bytes()
+            .ok_or(SshKeyExportError::KeyConversion)
+    }
+
+    let n = positive(keypair.public().n())?;
+    let e = positive(keypair.public().e())?;
+    let d = positive(keypair.private().d())?;
+    let p = positive(keypair.private().p())?;
+    let q = positive(keypair.private().q())?;
+
+    let private_key = rsa_primitives::PrivateKey::from_components(n, e, d, &[p, q])
+        .map_err(|_| SshKeyExportError::KeyConversion)?;
+    Ok(private_key
+        .to_pkcs8_der()
+        .map_err(|_| SshKeyExportError::KeyConversion)?
+        .to_vec())
 }
 
 fn export_ecdsa_pkcs8_der(
@@ -49,12 +79,15 @@ fn export_ecdsa_pkcs8_der(
 
     match curve {
         EcdsaCurve::NistP256 => {
-            let sk = p256::SecretKey::from_slice(private_key_bytes)
+            // Cross from ssh-key into primitives via the raw scalar.
+            let scalar = private_key_bytes
+                .try_into()
+                .map_err(|_| SshKeyExportError::KeyConversion)?;
+            let sk = p256_primitives::SecretKey::from_bytes(scalar)
                 .map_err(|_| SshKeyExportError::KeyConversion)?;
             Ok(sk
                 .to_pkcs8_der()
                 .map_err(|_| SshKeyExportError::KeyConversion)?
-                .as_bytes()
                 .to_vec())
         }
         EcdsaCurve::NistP384 => {

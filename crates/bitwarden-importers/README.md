@@ -20,11 +20,11 @@ layer is being ported from TypeScript (`clients` repo) into the `keeper` module 
 (strangler-fig). The first piece, `keeper::crypto`, implements **Keeper's** formats —
 unauthenticated AES-CBC ("aes-v1"), AES-GCM with a prepended nonce ("aes-v2"), an ECDH-P256 →
 SHA-256 → AES-GCM scheme, and Keeper's custom `encryptionParams` blob. These are **not** Bitwarden
-cryptography and deliberately do not live in `bitwarden-crypto`; Use the RustCrypto crates. The
-crypto is currently internal Rust with no WASM / UniFFI bindings — the low-level primitives are
-deliberately not exposed across the FFI boundary. Platform bindings will be created once the
-structured access layer (records, folders, the `sync-down` protobuf) is ported, so the exposed
-surface can be record/folder-level operations rather than raw byte arrays.
+cryptography and deliberately do not live in `bitwarden-crypto`; they use
+`bitwarden-crypto-primitives`. The crypto is currently internal Rust with no WASM / UniFFI bindings
+— the low-level primitives are deliberately not exposed across the FFI boundary. Platform bindings
+will be created once the structured access layer (records, folders, the `sync-down` protobuf) is
+ported, so the exposed surface can be record/folder-level operations rather than raw byte arrays.
 
 ## Architecture
 

@@ -3,13 +3,13 @@
 //! Aes256CbcHmacSha256 is the construct used in type 2 EncStrings. It is authenticated encryption
 //! (AE) via Encrypt-then-MAC, but has no support for associated data (it is not AEAD).
 
-use aes::cipher::{BlockModeDecrypt, BlockModeEncrypt, KeyIvInit, block_padding::Pkcs7};
-use hmac::{KeyInit, Mac};
+use bitwarden_crypto_primitives::{
+    aes_cbc,
+    hmac::{HashAlg, Hmac},
+};
 use subtle::ConstantTimeEq;
 
 use super::SymmetricEncryptionError;
-
-type HmacSha256 = hmac::Hmac<sha2::Sha256>;
 
 pub(crate) const IV_SIZE: usize = 16;
 pub(crate) const ENC_KEY_SIZE: usize = 32;
@@ -35,8 +35,7 @@ impl Aes256CbcHmacSha256 {
     ) -> ([u8; MAC_SIZE], Vec<u8>) {
         let (enc_key, mac_key) = split_to_subkeys(key);
 
-        let data = cbc::Encryptor::<aes::Aes256>::new(enc_key.into(), iv.into())
-            .encrypt_padded_vec::<Pkcs7>(plaintext);
+        let data = aes_cbc::encrypt_pkcs7(enc_key, iv, plaintext);
         let mac = calculate_mac(iv, &data, mac_key);
 
         (mac, data)
@@ -56,18 +55,8 @@ impl Aes256CbcHmacSha256 {
             return Err(SymmetricEncryptionError::IntegrityCheckFailed);
         }
 
-        // Decrypt data in place in a copy of the ciphertext
-        let mut data = ciphertext.to_vec();
-        let decrypted_slice = cbc::Decryptor::<aes::Aes256>::new(enc_key.into(), iv.into())
-            .decrypt_padded::<Pkcs7>(&mut data)
-            .map_err(|_| SymmetricEncryptionError::FormatWrong)?;
-
-        // Decryption returns a subslice of the buffer; truncate to the subslice length instead of
-        // cloning it
-        let decrypted_len = decrypted_slice.len();
-        data.truncate(decrypted_len);
-
-        Ok(data)
+        aes_cbc::decrypt_pkcs7(enc_key, iv, ciphertext)
+            .map_err(|_| SymmetricEncryptionError::FormatWrong)
     }
 }
 
@@ -86,11 +75,11 @@ fn split_to_subkeys(key: &[u8; KEY_SIZE]) -> (&[u8; ENC_KEY_SIZE], &[u8; MAC_KEY
 /// Generate a MAC using HMAC-SHA256 over the IV and ciphertext, without length prefixes or
 /// associated data.
 fn calculate_mac(iv: &[u8], data: &[u8], mac_key: &[u8; MAC_KEY_SIZE]) -> [u8; MAC_SIZE] {
-    let mut hmac =
-        HmacSha256::new_from_slice(mac_key).expect("hmac new_from_slice should not fail");
+    let mut hmac = Hmac::new(HashAlg::Sha256, mac_key);
     hmac.update(iv);
     hmac.update(data);
-    let mac: [u8; MAC_SIZE] = (*hmac.finalize().into_bytes())
+    let mac: [u8; MAC_SIZE] = hmac
+        .finalize()
         .try_into()
         // This is safe because HMAC-SHA256 output size is always 32 bytes
         .expect("HMAC output size to be correct");

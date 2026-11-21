@@ -1,7 +1,8 @@
 //! SRP-4096: the A/B exchange with the server and the crypto behind it.
 
-use std::sync::LazyLock;
+use std::{num::NonZeroU32, sync::LazyLock};
 
+use bitwarden_crypto_primitives::sha256;
 use crypto_bigint::{
     BoxedUint, ConcatenatingMul, Odd, Resize,
     modular::{BoxedMontyForm, BoxedMontyParams},
@@ -9,7 +10,6 @@ use crypto_bigint::{
 use data_encoding::{BASE64URL_NOPAD, HEXLOWER};
 use rand::Rng;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 
 use super::{
     account_key::AccountKey,
@@ -400,16 +400,17 @@ pub(super) fn compute_x(
         &srp_info.salt,
         kdf::normalize_username(&credentials.username).as_bytes(),
     );
+    let iterations = NonZeroU32::new(srp_info.iterations).ok_or(OnePasswordError::Parse)?;
     let k2 = kdf::pbes2(
         &kdf::normalize_password(&credentials.password),
         &k1,
-        srp_info.iterations,
+        iterations,
     );
     account_key.combine_with(&k2)
 }
 
 fn sha256(data: &[u8]) -> [u8; 32] {
-    Sha256::digest(data).into()
+    sha256::digest(data)
 }
 
 /// The server's half of the exchange, for the tests of flows that run a login end to end. It holds

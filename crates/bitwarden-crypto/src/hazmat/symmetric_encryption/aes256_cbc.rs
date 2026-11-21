@@ -7,7 +7,7 @@
 //! In most cases you should use the [EncString][crate::EncString] with
 //! [KeyDecryptable][crate::KeyDecryptable] instead.
 
-use aes::cipher::{BlockModeDecrypt, KeyIvInit, block_padding::Pkcs7};
+use bitwarden_crypto_primitives::aes_cbc;
 
 use super::SymmetricEncryptionError;
 
@@ -24,27 +24,14 @@ impl Aes256Cbc {
         ciphertext: &[u8],
         key: &[u8; KEY_SIZE],
     ) -> Result<Vec<u8>, SymmetricEncryptionError> {
-        // Decrypt data in place in a copy of the ciphertext
-        let mut data = ciphertext.to_vec();
-        let decrypted_key_slice = cbc::Decryptor::<aes::Aes256>::new(key.into(), iv.into())
-            .decrypt_padded::<Pkcs7>(&mut data)
-            .map_err(|_| SymmetricEncryptionError::FormatWrong)?;
-
-        // Decryption returns a subslice of the buffer; truncate to the subslice length instead of
-        // cloning it
-        let decrypted_len = decrypted_key_slice.len();
-        data.truncate(decrypted_len);
-
-        Ok(data)
+        aes_cbc::decrypt_pkcs7(key, iv, ciphertext)
+            .map_err(|_| SymmetricEncryptionError::FormatWrong)
     }
 
     /// Encrypt using AES-256 in CBC mode.
     #[cfg(test)]
     fn encrypt(iv: &[u8; IV_SIZE], plaintext: &[u8], key: &[u8; KEY_SIZE]) -> Vec<u8> {
-        use aes::cipher::BlockModeEncrypt;
-
-        cbc::Encryptor::<aes::Aes256>::new(key.into(), iv.into())
-            .encrypt_padded_vec::<Pkcs7>(plaintext)
+        aes_cbc::encrypt_pkcs7(key, iv, plaintext)
     }
 }
 
