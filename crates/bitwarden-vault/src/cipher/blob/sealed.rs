@@ -195,6 +195,7 @@ mod tests {
         "z27dMz/RK4wboY/Ako0YVFr9jaiSjgQQyGkTZ4LIuNrOXyeDAjeD41qbhVKl0OSjP3QuN9xmAJQE8+V5/Tl7ig==";
     const TEST_VECTOR_SEALED_BLOB: &str = r#"{"format_version":1,"wrapped_cek":"2.LQJf2BbznXX+NelBY4pSJg==|txMmjZEOhSMA7Jrm+rZt1LDfA6s3G2QU5Z8MqO4nG9s2ZXuzSLU/iYOUXD8xw+eHVSu7IUHu1LsCm4SLf+ZhkX5QIo4hJT3DHSbgu6VPUC0=|yuU/EWQWyihf2Yh9lQ1NP+zTROEpnXoRS//GfxDgC4k=","envelope":"g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFBoHnjLne8MPV72YPXuskd6OgABOIECOgABOIABoQVYGA00vxb7gF7Y3SUyoCMy34C1HrB3fSY3jVhxZXQmmotGEIwwRlG+SpTcyTl5m4lUnozWrjAYfWitl1+cz457Wq3iDW/MvrHE7c1g38QJxY6t1yhQL0dQy9DyDXQDiWGPtYzic2Ay+GtrlIERN37wOdhQ1HZDeoobHL+aKomvPTems/Ta2SqWC9HfE38="}"#;
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_sealed_blob_test_vector() {
         let wrapping_key =

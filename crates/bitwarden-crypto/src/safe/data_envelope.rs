@@ -624,6 +624,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_data_envelope_legacy_xchacha20_test_vector() {
         let cek = SymmetricCryptoKey::try_from(B64::try_from(TEST_VECTOR_CEK).unwrap()).unwrap();

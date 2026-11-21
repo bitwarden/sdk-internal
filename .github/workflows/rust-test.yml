@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - test
+      - test-openssl
     steps:
       - name: Check if tests passed
         run: exit 0
@@ -97,6 +98,43 @@ jobs:
       # tests/scripting_integration.rs runs here, so #[ignore]d pwsh tests belong in that file.
       - name: Test (integration, requires pwsh)
         run: cargo test --workspace --all-features ${{ matrix.exclude }} --test scripting_integration -- --ignored --test-threads=1
+
+  test-openssl:
+    name: OpenSSL backend
+    runs-on: ubuntu-24.04
+    # The OpenSSL backend links the system OpenSSL, which must be >= 3.5. Ubuntu 24.04 ships 3.0;
+    # Debian trixie ships 3.5.
+    container: debian:trixie
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl git libssl-dev pkg-config
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+
+      # Runs the whole SDK on OpenSSL. The crypto-primitives test vectors run here against the
+      # OpenSSL backend (the `test` job runs them against RustCrypto), and the cross-backend tests
+      # compare both. Tests that need XChaCha20-Poly1305, P-256 or ristretto255 are ignored on
+      # OpenSSL.
+      - name: Test
+        run: cargo test --workspace --all-features
+        env:
+          # Selects the OpenSSL backend of bitwarden-crypto-primitives.
+          RUSTFLAGS: --cfg bitwarden_crypto_backend="openssl"
 
   test-wasm:
     name: WASM
