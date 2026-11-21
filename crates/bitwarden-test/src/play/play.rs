@@ -173,7 +173,7 @@ impl Play {
             arguments,
         };
 
-        let result: Q::Result = self.client.post_seeder("/seed/query", &request).await?;
+        let result: Q::Result = self.client.post_seeder("/query", &request).await?;
 
         Ok(Q::from_result(result))
     }
@@ -363,7 +363,7 @@ mod tests {
 
         // Test query execution
         Mock::given(method("POST"))
-            .and(path("/seed/query"))
+            .and(path("/query"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_json(serde_json::json!({ "value": 42 })),
             )

@@ -276,17 +276,32 @@ pub fn seal_claim(
     target: TargetSystemSealedV1,
     config: RotationConfigSealedV1,
 ) -> (Sealed, Sealed) {
+    (
+        seal_target_blob(org_key, target),
+        seal_config_blob(org_key, config),
+    )
+}
+
+/// Seal a target-system blob under `org_key`.
+pub fn seal_target_blob(org_key: &SymmetricCryptoKey, target: TargetSystemSealedV1) -> Sealed {
     let store = KeyStore::<KeySlotIds>::default();
     let mut ctx = store.context_mut();
     #[allow(deprecated)]
     ctx.set_symmetric_key(test_org_slot(), org_key.clone())
         .expect("set_symmetric_key");
 
-    let target_blob = seal_target_system(target, &test_org_slot(), &mut ctx).expect("seal target");
-    let config_blob =
-        seal_rotation_config(config, &test_org_slot(), &mut ctx).expect("seal config");
+    seal_target_system(target, &test_org_slot(), &mut ctx).expect("seal target")
+}
 
-    (target_blob, config_blob)
+/// Seal a rotation-config blob under `org_key`.
+pub fn seal_config_blob(org_key: &SymmetricCryptoKey, config: RotationConfigSealedV1) -> Sealed {
+    let store = KeyStore::<KeySlotIds>::default();
+    let mut ctx = store.context_mut();
+    #[allow(deprecated)]
+    ctx.set_symmetric_key(test_org_slot(), org_key.clone())
+        .expect("set_symmetric_key");
+
+    seal_rotation_config(config, &test_org_slot(), &mut ctx).expect("seal config")
 }
 
 pub fn claim_body(

@@ -548,6 +548,7 @@ dependencies = [
  "bitwarden-pam-sealed",
  "bitwarden-sensitive-value",
  "bitwarden-state",
+ "bitwarden-test",
  "bitwarden-threading",
  "bitwarden-vault",
  "chrono",
