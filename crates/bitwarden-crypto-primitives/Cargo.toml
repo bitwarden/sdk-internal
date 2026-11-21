@@ -1,0 +1,58 @@
+[package]
+name = "bitwarden-crypto-primitives"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = [
+    "getrandom4",
+] # Only enables the wasm32 entropy source of the getrandom used by rand
+
+[features]
+default = []
+# Multi-threaded Argon2 lanes. Not available on wasm32.
+argon2-parallel = ["argon2/parallel"]
+
+[dependencies]
+aes = { workspace = true }
+aes-gcm = { workspace = true }
+argon2 = { version = "=0.6.0-rc.8", features = ["kdf", "zeroize"], default-features = false }
+cbc = { workspace = true }
+chacha20poly1305 = { version = "0.11.0-rc.3", features = ["zeroize"] }
+curve25519-dalek = { workspace = true }
+ed25519-dalek = { workspace = true, features = ["rand_core", "zeroize"] }
+hkdf = { workspace = true }
+hmac = { workspace = true, features = ["zeroize"] }
+ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
+p256 = { version = "=0.14.0", features = ["alloc", "ecdh", "pkcs8"], default-features = false }
+pbkdf2 = { workspace = true }
+rand = { workspace = true }
+rsa = { workspace = true }
+sha1 = { workspace = true, features = ["zeroize"] }
+sha2 = { workspace = true, features = ["zeroize"] }
+subtle = { workspace = true }
+thiserror = { workspace = true }
+xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = ["alloc"] }
+zeroize = { workspace = true, features = ["derive"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# OS entropy on wasm32 comes from `crypto.getRandomValues`.
+getrandom4 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
+
+[dev-dependencies]
+bitwarden-encoding = { workspace = true }
+hex = { version = ">=0.4.0, <0.5" }
+
+[lints]
+workspace = true
