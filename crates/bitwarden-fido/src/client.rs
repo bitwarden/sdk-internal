@@ -65,6 +65,7 @@ impl Fido2Client<'_> {
 
         let mut client = passkey::client::Client::new(self.authenticator.get_authenticator(true));
         let result = client.register(origin, request, client_data).await?;
+        let selected_credential = self.authenticator.get_selected_credential(&result.raw_id)?;
 
         Ok(PublicKeyCredentialAuthenticatorAttestationResponse {
             id: result.id,
@@ -85,7 +86,7 @@ impl Fido2Client<'_> {
                 attestation_object: result.response.attestation_object.into(),
                 transports: Some(vec!["internal".to_string(), "hybrid".to_string()]),
             },
-            selected_credential: self.authenticator.get_selected_credential()?,
+            selected_credential,
         })
     }
 
@@ -110,6 +111,7 @@ impl Fido2Client<'_> {
 
         let mut client = passkey::client::Client::new(self.authenticator.get_authenticator(false));
         let result = client.authenticate(origin, request, client_data).await?;
+        let selected_credential = self.authenticator.get_selected_credential(&result.raw_id)?;
 
         Ok(PublicKeyCredentialAuthenticatorAssertionResponse {
             id: result.id,
@@ -132,7 +134,7 @@ impl Fido2Client<'_> {
                 signature: result.response.signature.into(),
                 user_handle: result.response.user_handle.unwrap_or_default().into(),
             },
-            selected_credential: self.authenticator.get_selected_credential()?,
+            selected_credential,
         })
     }
 }

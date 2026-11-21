@@ -1,9 +1,11 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use bitwarden_crypto::CryptoError;
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
-use passkey::types::webauthn::UserVerificationRequirement;
+use passkey::{
+    crypto::{hash::Sha256Backend, rust_crypto::RustCryptoSha2},
+    types::webauthn::UserVerificationRequirement,
+};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -29,6 +31,16 @@ pub struct Fido2CredentialAutofillView {
     pub has_counter: bool,
 }
 
+/// The credential fields shared by `Fido2CredentialView` and `Fido2CredentialListView`.
+struct CredentialFields<'a> {
+    credential_id: &'a str,
+    rp_id: &'a str,
+    user_handle: Option<&'a str>,
+    user_name: Option<&'a String>,
+    user_display_name: Option<&'a String>,
+    counter: &'a String,
+}
+
 trait NoneWhitespace {
     /// Convert only whitespace to None
     fn none_whitespace(&self) -> Option<String>;
@@ -49,6 +61,12 @@ impl NoneWhitespace for Option<String> {
     }
 }
 
+impl NoneWhitespace for Option<&String> {
+    fn none_whitespace(&self) -> Option<String> {
+        self.and_then(|s| s.none_whitespace())
+    }
+}
+
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum Fido2CredentialAutofillViewError {
@@ -59,9 +77,6 @@ pub enum Fido2CredentialAutofillViewError {
     InvalidGuid(#[from] InvalidGuidError),
 
     #[error(transparent)]
-    Crypto(#[from] CryptoError),
-
-    #[error(transparent)]
     Base64Decode(#[from] NotB64UrlEncodedError),
 }
 
@@ -70,35 +85,25 @@ impl Fido2CredentialAutofillView {
     pub fn from_cipher_view(
         cipher: &CipherView,
     ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
-        let credentials = cipher.get_fido2_credentials();
-
-        credentials
+        let username = cipher.login.as_ref().and_then(|l| l.username.as_ref());
+        cipher
+            .get_fido2_credentials()
             .iter()
-            .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
-                c.user_handle
-                    .as_ref()
-                    .map(|u| B64Url::try_from(u.as_str()))
-                    .map(|user_handle| {
-                        Ok(Fido2CredentialAutofillView {
-                            credential_id: string_to_guid_bytes(&c.credential_id)?,
-                            cipher_id: cipher
-                                .id
-                                .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
-                                .into(),
-                            rp_id: c.rp_id.clone(),
-                            user_handle: user_handle?.into_bytes(),
-                            user_name_for_ui: c
-                                .user_name
-                                .none_whitespace()
-                                .or(c.user_display_name.none_whitespace())
-                                .or(cipher
-                                    .login
-                                    .as_ref()
-                                    .and_then(|l| l.username.none_whitespace()))
-                                .or(cipher.name.none_whitespace()),
-                            has_counter: Self::has_signature_counter(&c.counter),
-                        })
-                    })
+            .filter_map(|c| {
+                Self::from_credential(
+                    CredentialFields {
+                        credential_id: &c.credential_id,
+                        rp_id: &c.rp_id,
+                        user_handle: c.user_handle.as_deref(),
+                        user_name: c.user_name.as_ref(),
+                        user_display_name: c.user_display_name.as_ref(),
+                        counter: &c.counter,
+                    },
+                    cipher.id.map(Into::into),
+                    username,
+                    &cipher.name,
+                )
+                .transpose()
             })
             .collect()
     }
@@ -114,32 +119,51 @@ impl Fido2CredentialAutofillView {
                 ..
             }) => fido2_credentials
                 .iter()
-                .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
-                    c.user_handle
-                        .as_ref()
-                        .map(|u| B64Url::try_from(u.as_str()))
-                        .map(|user_handle| {
-                            Ok(Fido2CredentialAutofillView {
-                                credential_id: string_to_guid_bytes(&c.credential_id)?,
-                                cipher_id: cipher
-                                    .id
-                                    .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
-                                    .into(),
-                                rp_id: c.rp_id.clone(),
-                                user_handle: user_handle?.into_bytes(),
-                                user_name_for_ui: c
-                                    .user_name
-                                    .none_whitespace()
-                                    .or(c.user_display_name.none_whitespace())
-                                    .or(username.none_whitespace())
-                                    .or(cipher.name.none_whitespace()),
-                                has_counter: Self::has_signature_counter(&c.counter),
-                            })
-                        })
+                .filter_map(|c| {
+                    Self::from_credential(
+                        CredentialFields {
+                            credential_id: &c.credential_id,
+                            rp_id: &c.rp_id,
+                            user_handle: c.user_handle.as_deref(),
+                            user_name: c.user_name.as_ref(),
+                            user_display_name: c.user_display_name.as_ref(),
+                            counter: &c.counter,
+                        },
+                        cipher.id.map(Into::into),
+                        username.as_ref(),
+                        &cipher.name,
+                    )
+                    .transpose()
                 })
                 .collect(),
             _ => Ok(vec![]),
         }
+    }
+
+    /// Builds the autofill view for a single credential. Returns `None` for credentials without a
+    /// user handle, since they can't be used for autofill.
+    fn from_credential(
+        credential: CredentialFields<'_>,
+        cipher_id: Option<uuid::Uuid>,
+        login_username: Option<&String>,
+        cipher_name: &String,
+    ) -> Result<Option<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
+        let Some(user_handle) = credential.user_handle else {
+            return Ok(None);
+        };
+        Ok(Some(Fido2CredentialAutofillView {
+            credential_id: string_to_guid_bytes(credential.credential_id)?,
+            cipher_id: cipher_id.ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?,
+            rp_id: credential.rp_id.to_owned(),
+            user_handle: B64Url::try_from(user_handle)?.into_bytes(),
+            user_name_for_ui: credential
+                .user_name
+                .none_whitespace()
+                .or(credential.user_display_name.none_whitespace())
+                .or(login_username.none_whitespace())
+                .or(cipher_name.none_whitespace()),
+            has_counter: Self::has_signature_counter(credential.counter),
+        }))
     }
 
     fn has_signature_counter(str: &String) -> bool {
@@ -811,7 +835,9 @@ impl PrfInputValues {
     const WEBAUTHN_PRF_CONTEXT_STRING: &[u8] = b"WebAuthn PRF\0";
 
     fn hash_webauthn_prf_input(input: &[u8]) -> [u8; 32] {
-        passkey::types::crypto::sha256(&[Self::WEBAUTHN_PRF_CONTEXT_STRING, input].concat())
+        <RustCryptoSha2 as Sha256Backend>::sha256(
+            &[Self::WEBAUTHN_PRF_CONTEXT_STRING, input].concat(),
+        )
     }
 }
 
