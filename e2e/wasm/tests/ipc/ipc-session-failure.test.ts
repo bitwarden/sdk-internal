@@ -41,7 +41,7 @@ describe("IpcClient", () => {
       await client.start();
 
       await expect(
-        ipcRequestGetBiometricsStatus(client, TEST_USER_ID, AbortSignal.timeout(2000)),
+        ipcRequestGetBiometricsStatus(client, TEST_USER_ID, "DesktopRenderer", AbortSignal.timeout(2000)),
       ).rejects.toBeDefined();
       expect(client.isRunning()).toBe(true);
     });

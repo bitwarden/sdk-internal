@@ -2,6 +2,7 @@ use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_ipc::{Endpoint, HostId};
 use bitwarden_threading::ThreadBoundRunner;
+use tsify::serde_wasm_bindgen;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
@@ -15,6 +16,7 @@ export interface SharedUnlockDriver {
     list_users(): Promise<UserId[]>;
     suppress_vault_timeout(user_id: UserId, suppression_duration: number): Promise<void>;
     get_client_name(): Promise<string>;
+    get_desktop_endpoint(): Promise<Endpoint | undefined>;
     get_vault_url(user_id: UserId): Promise<string | undefined>;
     on_peer_state(user_id: UserId, lock_state: PeerLockState): Promise<void>;
     set_last_manual_lock(user_id: UserId, locked_at: number): Promise<void>;
@@ -50,6 +52,10 @@ extern "C" {
     /// Get the client type of the current device
     #[wasm_bindgen(method, catch)]
     async fn get_client_name(this: &RawJsSharedUnlockDriver) -> Result<JsValue, JsValue>;
+
+    /// Get the desktop endpoint this client shares unlock with.
+    #[wasm_bindgen(method, catch)]
+    async fn get_desktop_endpoint(this: &RawJsSharedUnlockDriver) -> Result<JsValue, JsValue>;
 
     /// Get vault URL for the user with the given ID, if available. This is used to verify IPC
     /// message sources.
@@ -244,8 +250,11 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
                 };
                 match client_name.as_str() {
                     "web" => Some(Endpoint::BrowserBackground { id: HostId::Own }),
-                    "browser" => Some(Endpoint::DesktopRenderer),
-                    "cli" => Some(Endpoint::DesktopRenderer),
+                    "browser" | "cli" => driver
+                        .get_desktop_endpoint()
+                        .await
+                        .ok()
+                        .and_then(|endpoint| serde_wasm_bindgen::from_value(endpoint).ok()),
                     _ => None,
                 }
             })

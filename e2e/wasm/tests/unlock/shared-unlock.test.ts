@@ -5,6 +5,7 @@
  * This test suite just tests basic wasm functionality / crossing the FFI boundary.
  */
 import {
+  Endpoint,
   IpcClient,
   PeerLockState,
   SharedUnlockClient,
@@ -47,7 +48,11 @@ type FollowerName = "browser" | "cli";
  * Minimal `SharedUnlockDriver` implementation. Every method here exists to be called across the
  * binding, so an adapter that stops marshalling one of them shows up as a failure below.
  */
-function makeDriver(clientName: ClientName, initialKey: SymmetricKey | undefined): MockDriver {
+function makeDriver(
+  clientName: ClientName,
+  initialKey: SymmetricKey | undefined,
+  desktopEndpoint: Endpoint = "DesktopRenderer",
+): MockDriver {
   let key = initialKey;
   let lastManualLock: number | undefined;
   const suppressions: number[] = [];
@@ -71,6 +76,8 @@ function makeDriver(clientName: ClientName, initialKey: SymmetricKey | undefined
         suppressions.push(suppression_duration);
       },
       get_client_name: async () => clientName,
+      // The caller decides which desktop process serves unlocks; the harness is told what to say.
+      get_desktop_endpoint: async () => desktopEndpoint,
       get_vault_url: async () => undefined,
       on_peer_state: async (_user_id, lock_state) => {
         reportPeerState(lock_state);
