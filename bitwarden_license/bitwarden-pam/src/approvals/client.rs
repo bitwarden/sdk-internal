@@ -39,12 +39,15 @@ impl ApprovalsClient {
     }
 
     /// Lists the decided access requests for collections the caller manages.
+    ///
+    /// Returns only the server's first page of history (its default page size), newest request
+    /// first.
     pub async fn list_history(&self) -> Result<Vec<AccessRequestView>, ApprovalError> {
         let response = self
             .api_configurations
             .api_client
             .access_requests_api()
-            .get_history()
+            .get_history(None, None, None, None, None)
             .await?;
 
         response
@@ -104,7 +107,7 @@ mod tests {
         models::{
             AccessDecisionVerdict as ApiAccessDecisionVerdict, AccessRequestDetailsResponseModel,
             AccessRequestDetailsResponseModelListResponseModel,
-            AccessRequestStatus as ApiAccessRequestStatus,
+            AccessRequestHistoryPageResponseModel, AccessRequestStatus as ApiAccessRequestStatus,
         },
     };
     use uuid::uuid;
@@ -175,11 +178,13 @@ mod tests {
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.access_requests_api
                 .expect_get_history()
-                .returning(move || {
-                    let mut list = AccessRequestDetailsResponseModelListResponseModel::new();
-                    list.data = Some(vec![sample_request()]);
-                    Ok(list)
-                })
+                .returning(
+                    move |_page, _page_size, _status, _collection_id, _requester_id| {
+                        let mut page = AccessRequestHistoryPageResponseModel::new();
+                        page.data = Some(vec![sample_request()]);
+                        Ok(page)
+                    },
+                )
                 .once();
         });
 

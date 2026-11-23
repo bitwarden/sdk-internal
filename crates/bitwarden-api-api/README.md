@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`1a0141664b10e8da58e63ce13f5f7f238b3a37b4`](https://github.com/bitwarden/server/commit/1a0141664b10e8da58e63ce13f5f7f238b3a37b4)
+  [`23bd20547bececfe3148c778f5da6b8fc125a5d9`](https://github.com/bitwarden/server/commit/23bd20547bececfe3148c778f5da6b8fc125a5d9)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -46,6 +46,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccessPoliciesApi_                          | [**put_service_account_people_access_policies**](docs/AccessPoliciesApi.md#access_policies_put_service_account_people_access_policies)                           | **PUT** /service-accounts/{id}/access-policies/people                                                    |
 | _AccessRequestsApi_                          | [**activate**](docs/AccessRequestsApi.md#pam_access_requests_activate)                                                                                           | **POST** /access-requests/{id}/activate                                                                  |
 | _AccessRequestsApi_                          | [**decide**](docs/AccessRequestsApi.md#pam_access_requests_decide)                                                                                               | **POST** /access-requests/{id}/decision                                                                  |
+| _AccessRequestsApi_                          | [**get_approved**](docs/AccessRequestsApi.md#pam_access_requests_get_approved)                                                                                   | **GET** /access-requests/approved                                                                        |
 | _AccessRequestsApi_                          | [**get_details**](docs/AccessRequestsApi.md#pam_access_requests_get_details)                                                                                     | **GET** /access-requests/{id}                                                                            |
 | _AccessRequestsApi_                          | [**get_history**](docs/AccessRequestsApi.md#pam_access_requests_get_history)                                                                                     | **GET** /access-requests/history                                                                         |
 | _AccessRequestsApi_                          | [**get_inbox**](docs/AccessRequestsApi.md#pam_access_requests_get_inbox)                                                                                         | **GET** /access-requests/inbox                                                                           |
@@ -54,7 +55,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccessRulesApi_                             | [**delete**](docs/AccessRulesApi.md#pam_access_rules_delete)                                                                                                     | **DELETE** /organizations/{orgId}/access-rules/{id}                                                      |
 | _AccessRulesApi_                             | [**get**](docs/AccessRulesApi.md#pam_access_rules_get)                                                                                                           | **GET** /organizations/{orgId}/access-rules/{id}                                                         |
 | _AccessRulesApi_                             | [**get_all**](docs/AccessRulesApi.md#pam_access_rules_get_all)                                                                                                   | **GET** /organizations/{orgId}/access-rules                                                              |
-| _AccessRulesApi_                             | [**get_bypassable_ciphers**](docs/AccessRulesApi.md#pam_access_rules_get_bypassable_ciphers)                                                                     | **GET** /organizations/{orgId}/access-rules/{id}/bypassable-ciphers                                      |
 | _AccessRulesApi_                             | [**post**](docs/AccessRulesApi.md#pam_access_rules_post)                                                                                                         | **POST** /organizations/{orgId}/access-rules                                                             |
 | _AccessRulesApi_                             | [**put**](docs/AccessRulesApi.md#pam_access_rules_put)                                                                                                           | **PUT** /organizations/{orgId}/access-rules/{id}                                                         |
 | _AccountBillingVNextApi_                     | [**add_credit_via_bit_pay**](docs/AccountBillingVNextApi.md#account_billing_v_next_add_credit_via_bit_pay)                                                       | **POST** /account/billing/vnext/credit/bitpay                                                            |
@@ -257,7 +257,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _InstallationsApi_                           | [**post**](docs/InstallationsApi.md#installations_post)                                                                                                          | **POST** /installations                                                                                  |
 | _LeasesApi_                                  | [**extend**](docs/LeasesApi.md#pam_leases_extend)                                                                                                                | **POST** /leases/{id}/extend                                                                             |
 | _LeasesApi_                                  | [**get_active**](docs/LeasesApi.md#pam_leases_get_active)                                                                                                        | **GET** /leases/active                                                                                   |
-| _LeasesApi_                                  | [**get_history**](docs/LeasesApi.md#pam_leases_get_history)                                                                                                      | **GET** /leases/history                                                                                  |
 | _LeasesApi_                                  | [**get_mine**](docs/LeasesApi.md#pam_leases_get_mine)                                                                                                            | **GET** /leases/mine                                                                                     |
 | _LeasesApi_                                  | [**revoke**](docs/LeasesApi.md#pam_leases_revoke)                                                                                                                | **POST** /leases/{id}/revoke                                                                             |
 | _LicensesApi_                                | [**get_user**](docs/LicensesApi.md#licenses_get_user)                                                                                                            | **GET** /licenses/user/{id}                                                                              |
@@ -633,6 +632,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [AccessRequestDecisionResponseModel](docs/AccessRequestDecisionResponseModel.md)
 - [AccessRequestDetailsResponseModel](docs/AccessRequestDetailsResponseModel.md)
 - [AccessRequestDetailsResponseModelListResponseModel](docs/AccessRequestDetailsResponseModelListResponseModel.md)
+- [AccessRequestHistoryPageResponseModel](docs/AccessRequestHistoryPageResponseModel.md)
+- [AccessRequestHistoryRequesterResponseModel](docs/AccessRequestHistoryRequesterResponseModel.md)
 - [AccessRequestResultResponseModel](docs/AccessRequestResultResponseModel.md)
 - [AccessRequestRevokeRequestModel](docs/AccessRequestRevokeRequestModel.md)
 - [AccessRequestStatus](docs/AccessRequestStatus.md)
@@ -772,8 +773,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [DeviceResponseModel](docs/DeviceResponseModel.md)
 - [DeviceTokenRequestModel](docs/DeviceTokenRequestModel.md)
 - [DeviceType](docs/DeviceType.md)
-- [DeviceVerificationRequestModel](docs/DeviceVerificationRequestModel.md)
-- [DeviceVerificationResponseModel](docs/DeviceVerificationResponseModel.md)
 - [DomainsResponseModel](docs/DomainsResponseModel.md)
 - [DropPasswordHealthReportApplicationRequest](docs/DropPasswordHealthReportApplicationRequest.md)
 - [EmailRequestModel](docs/EmailRequestModel.md)
@@ -1099,7 +1098,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [RotateUserAccountKeysAndDataRequestModel](docs/RotateUserAccountKeysAndDataRequestModel.md)
 - [RotateUserKeysRequestModel](docs/RotateUserKeysRequestModel.md)
 - [RotationClaimResponseModel](docs/RotationClaimResponseModel.md)
-- [RuleBypassableCiphersResponseModel](docs/RuleBypassableCiphersResponseModel.md)
 - [Saml2BindingType](docs/Saml2BindingType.md)
 - [Saml2NameIdFormat](docs/Saml2NameIdFormat.md)
 - [Saml2SigningBehavior](docs/Saml2SigningBehavior.md)
