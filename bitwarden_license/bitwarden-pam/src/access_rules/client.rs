@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{FromClient, OrganizationId, client::ApiConfigurations};
 
 use super::{
@@ -98,30 +97,6 @@ impl AccessRulesClient {
             .map_err(AccessRuleError::from_api_error)?;
 
         AccessRuleView::try_from(response)
-    }
-
-    /// The ungated collections that expose this rule's ciphers without a lease.
-    ///
-    /// Returns collections, not ciphers, since the caller may be unable to decrypt them. A missing
-    /// rule answers empty, so this never fails with [`NotFound`](AccessRuleError::NotFound).
-    pub async fn bypassable_ciphers(
-        &self,
-        organization_id: OrganizationId,
-        id: AccessRuleId,
-    ) -> Result<Vec<CollectionId>, AccessRuleError> {
-        let response = self
-            .api_configurations
-            .api_client
-            .access_rules_api()
-            .get_bypassable_ciphers(organization_id.into(), id.into())
-            .await?;
-
-        Ok(response
-            .ungated_collection_ids
-            .unwrap_or_default()
-            .into_iter()
-            .map(CollectionId::new)
-            .collect())
     }
 
     /// Enables or disables a rule; no other field changes.
@@ -250,94 +225,11 @@ mod tests {
         assert_eq!(result.id, rule);
     }
 
-    fn collection_id() -> uuid::Uuid {
-        uuid!("44444444-4444-4444-4444-444444444444")
-    }
-
-    fn bypassable_response(
-        ungated: Option<Vec<uuid::Uuid>>,
-    ) -> bitwarden_api_api::models::RuleBypassableCiphersResponseModel {
-        let mut response = bitwarden_api_api::models::RuleBypassableCiphersResponseModel::new();
-        response.rule_id = Some(rule_id().into());
-        response.ungated_collection_ids = ungated;
-        response
-    }
-
-    #[tokio::test]
-    async fn bypassable_ciphers_returns_the_reported_collections() {
-        let organization_id = org_id();
-        let rule = rule_id();
-        let other = uuid!("55555555-5555-5555-5555-555555555555");
-
-        let api_client = ApiClient::new_mocked(move |mock| {
-            mock.access_rules_api
-                .expect_get_bypassable_ciphers()
-                .returning(move |_org_id, _id| {
-                    Ok(bypassable_response(Some(vec![collection_id(), other])))
-                })
-                .once();
-        });
-
-        let result = client(api_client)
-            .bypassable_ciphers(organization_id, rule)
-            .await
-            .unwrap();
-
-        assert_eq!(
-            result.into_iter().map(uuid::Uuid::from).collect::<Vec<_>>(),
-            vec![collection_id(), other]
-        );
-    }
-
-    #[tokio::test]
-    async fn bypassable_ciphers_treats_an_omitted_list_as_empty() {
-        let organization_id = org_id();
-        let rule = rule_id();
-
-        let api_client = ApiClient::new_mocked(move |mock| {
-            mock.access_rules_api
-                .expect_get_bypassable_ciphers()
-                .returning(move |_org_id, _id| Ok(bypassable_response(None)))
-                .once();
-        });
-
-        let result = client(api_client)
-            .bypassable_ciphers(organization_id, rule)
-            .await
-            .unwrap();
-
-        assert!(result.is_empty());
-    }
-
     fn api_error(status: reqwest::StatusCode) -> bitwarden_api_api::ApiError {
         bitwarden_api_api::ApiError::Response(bitwarden_api_api::ResponseContent {
             status,
             message: String::new(),
         })
-    }
-
-    /// This endpoint never 404s a missing rule, so a 404 here is infrastructural.
-    #[tokio::test]
-    async fn bypassable_ciphers_leaves_not_found_as_api() {
-        let organization_id = org_id();
-        let rule = rule_id();
-
-        let api_client = ApiClient::new_mocked(move |mock| {
-            mock.access_rules_api
-                .expect_get_bypassable_ciphers()
-                .returning(move |_org_id, _id| Err(api_error(reqwest::StatusCode::NOT_FOUND)))
-                .once();
-        });
-
-        let error = client(api_client)
-            .bypassable_ciphers(organization_id, rule)
-            .await
-            .unwrap_err();
-
-        assert!(
-            matches!(error, AccessRuleError::Api(_)),
-            "expected Api, got {error:?}"
-        );
     }
 
     #[tokio::test]
