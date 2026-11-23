@@ -532,7 +532,7 @@ checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
 name = "bitwarden-access-connector"
-version = "4.0.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1036,13 +1036,17 @@ dependencies = [
 name = "bitwarden-ffi"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-error",
  "bitwarden-ffi-macro",
+ "js-sys",
  "serde",
  "serde_json",
  "thiserror",
  "trybuild",
  "tsify",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
 ]
 
 [[package]]
@@ -1191,11 +1195,14 @@ name = "bitwarden-logging"
 version = "4.0.0"
 dependencies = [
  "bitwarden-ffi",
+ "bitwarden-ipc",
  "bitwarden-logging-macro",
+ "bitwarden-threading",
  "chrono",
  "criterion",
  "serde",
  "serde_json",
+ "tokio",
  "tracing",
  "tracing-subscriber",
  "trybuild",
@@ -1719,6 +1726,7 @@ version = "4.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
+ "bitwarden-ffi",
  "console_error_panic_hook",
  "gloo-timers",
  "js-sys",
@@ -1838,6 +1846,7 @@ dependencies = [
 name = "bitwarden-uuid"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-ffi",
  "bitwarden-uuid-macro",
  "serde",
  "serde-wasm-bindgen",
@@ -1932,6 +1941,7 @@ dependencies = [
  "bitwarden-threading",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
+ "bitwarden-web-connector",
  "console_error_panic_hook",
  "rand 0.10.3",
  "rsa",
@@ -1941,10 +1951,24 @@ dependencies = [
  "tracing-subscriber",
  "tracing-web",
  "tsify",
- "tsify-macros",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "bitwarden-web-connector"
+version = "4.0.0"
+dependencies = [
+ "bitwarden-encoding",
+ "bitwarden-error",
+ "bitwarden-ffi",
+ "bitwarden-random",
+ "rand 0.10.3",
+ "snow",
+ "thiserror",
+ "url",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -7151,9 +7175,9 @@ dependencies = [
 
 [[package]]
 name = "tsify"
-version = "0.5.6"
+version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ec5505497c87f1c050b4392d3f11b49a04537fcb9dc0da57bc0af168a6331f2"
+checksum = "ea3af6b48c5c5624f7eb3c2f578d1335fadac433321980cae0063e8eb0acaa44"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
@@ -7163,9 +7187,9 @@ dependencies = [
 
 [[package]]
 name = "tsify-macros"
-version = "0.5.6"
+version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fc2c44dc9fe4baf55b88e032621b7a11b215a1f0a7de8d0aa04367207d915bc"
+checksum = "ef1e2e93369379d0a527c7d6632b58c55d52db7a106d8afbde3b354f3a57a9f1"
 dependencies = [
  "proc-macro2",
  "quote",

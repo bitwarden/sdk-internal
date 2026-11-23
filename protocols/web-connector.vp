@@ -1,0 +1,86 @@
+// Bitwarden Web Connector
+// A way for the app to call out to a browser to do some work, e.g. authenticate a web service, and receive a response.
+
+// Threat model:
+// In scope:
+// - local, passive observers of the request and/or callback URL should not be able to decrypt the response to a request the app started
+// - a remote attacker who crafts a request URL cannot receive the response
+// Out of scope:
+// - an attacker that can register the callback URL locally
+// - Browsers or OSes that persist scheme handler URIs to logs. (None do this today.)
+
+attacker[active]
+principal SchemeHandler[
+    // Represents local access on the device. A remote attacker doesn't know this.
+    knows private local_access_key
+    local_access_pub = PUBKEY(local_access_key)
+]
+principal App[
+    // The app can register itself with the scheme handler
+    // to read requests to the scheme handler
+    knows private local_access_key
+]
+principal Browser[]
+// The browser runs locally on the device and can send requests to
+// the scheme handler.
+SchemeHandler -> Browser: [local_access_pub]
+
+principal App[
+    // Hard-coded into the app and web connector page.
+    knows public domain_separator
+    generates initiator_e, state, request
+    initiator_pub = PUBKEY(initiator_e)
+]
+
+// This may be leaked locally by browser logs, /proc/<pid>, etc.
+// A remote attacker may also send this request to the browser to the user, e.g. via phishing.
+// Confidentiality of the response should still hold, even if the attacker can read these,
+// as long as the attacker does not also have local access.
+App -> Browser: state, initiator_pub, request
+
+principal Browser[
+    generates responder_e
+    responder_pub = PUBKEY(responder_e)
+    generates plaintext
+    responder_ss = DH_KEX(initiator_pub, responder_e)
+    encryption_key = HKDF(nil, responder_ss, nil)
+    handshake_hash = HASH(domain_separator, initiator_pub, state, request, responder_pub)
+    ciphertext = AEAD_ENC(encryption_key, nil, plaintext, handshake_hash)
+
+    // Send to scheme handler
+    callback = PKE_ENC(local_access_pub, CONCAT(responder_pub, ciphertext))
+]
+
+// A remote attacker can deliver callbacks, but can't read them until they have
+// local access (see phase 1).
+Browser -> SchemeHandler: callback
+SchemeHandler -> App: callback
+
+principal App[
+    callback2 = PKE_DEC(local_access_key, callback)
+    responder_pub2, ciphertext2 = SPLIT(callback2)?
+
+    initiator_ss = DH_KEX(responder_pub2, initiator_e)
+    decryption_key = HKDF(nil, initiator_ss, nil)
+    initiator_handshake_hash = HASH(domain_separator, initiator_pub, state, request, responder_pub2)
+    msg = AEAD_DEC(decryption_key, nil, ciphertext2, initiator_handshake_hash)?
+]
+
+phase[1]
+
+principal SchemeHandler[
+    // Represents the attacker getting local access to the device.
+    // They can read any requests and encrypted responses left over in logs.
+    // If they previously initiated or hereafter initiate a request with their
+    // own private key, they can decrypt the response.
+    // This is out of scope.
+    // leaks local_access_key
+]
+queries[
+    // Confidentiality is upheld unless the attacker phishes the user
+    // and gains local access to the device.
+    confidentiality? plaintext
+
+    // Expected to fail
+    // authentication? SchemeHandler -> App: callback
+]
