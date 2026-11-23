@@ -25,7 +25,10 @@ use crate::{
 mod admin;
 mod bulk_update_collections;
 
-pub use admin::{GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError};
+pub use admin::{
+    GetAssignedOrgCiphersAdminError, GetOrganizationCipherTypeCountsAdminError,
+    GetOrganizationCiphersAdminError, OrganizationCipherTypeCountResponse,
+};
 pub use bulk_update_collections::BulkUpdateCollectionsCipherError;
 mod create;
 pub use create::{CipherCreateRequest, CreateCipherError};
