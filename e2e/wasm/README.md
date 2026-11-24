@@ -39,6 +39,8 @@ BW_LIVE_PASSWORD=... \
 npm run test:live
 ```
 
+`BW_LIVE_EMAIL` and `BW_LIVE_PASSWORD` are optional; see the accounts below.
+
 `BW_LIVE_SERVER_URL` is expanded to `<url>/api` and `<url>/identity`, which is how a self-hosted
 install is laid out. A deployment that gives each service its own origin needs them named;
 `GET <url>/api/config` reports what they are, under `environment`:
@@ -55,11 +57,20 @@ one returning device rather than a new one each time — a new device is what tr
 verification — and `BW_LIVE_CLIENT_VERSION`, the version reported to the server, which a real server
 requires and the emulator does not ask for.
 
-The account needs to already exist, since the harness has no registration flow, and it needs
-two-factor disabled, no captcha requirement, and no organization memberships. **These tests write to
-the account**: they add a vault item if it has none, and they rotate its user key. Rotation is
-re-runnable, but note that it upgrades a V1 account to V2 on the first run and that cannot be
-undone.
+Live tests use one of two kinds of account.
+
+**A fresh account.** The test calls `harness.registerAccount()`, which registers a new account at a
+random address on the test mail server. The registration link goes to that address, and the harness
+reads the token from it. These tests need only `BW_LIVE_SERVER_URL` (and the per-service origins, if
+any). The mail server URL is `MAIL_API_URL` in `live/config.ts`. Each run leaves new accounts on the
+server.
+
+**The fixed account**, from `BW_LIVE_EMAIL` and `BW_LIVE_PASSWORD`. Use it for an account in a state
+that registration cannot make, such as a V1 account. Without both variables, these tests skip. The
+account needs to already exist, and it needs two-factor disabled, no captcha requirement, and no
+organization memberships. **These tests write to the account**: they add a vault item if it has
+none, and they rotate its user key. Rotation is re-runnable, but note that it upgrades a V1 account
+to V2 on the first run and that cannot be undone.
 
 ## Test vectors
 

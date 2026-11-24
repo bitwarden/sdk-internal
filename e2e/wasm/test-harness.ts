@@ -2,6 +2,8 @@ import type { ClientSettings, LoginRequest } from "@bitwarden/sdk-internal";
 
 import { ClientEmulator, LOGIN_REQUEST } from "./client-emulator/client-emulator";
 import { SETTINGS } from "./client-emulator/local-state";
+import type { LiveAccount } from "./live/config";
+import { registerAccount } from "./live/registration";
 import { ServerEmulator } from "./server-emulator/server-emulator";
 
 import type { HttpMock } from "./server-emulator/http-mock";
@@ -54,6 +56,20 @@ export class TestHarness {
 
   newClientEmulator(): ClientEmulator {
     return new ClientEmulator(this.settings, this.emulator, this.loginRequest);
+  }
+
+  /**
+   * A new account on the live server, registered with a master password, as a real client does
+   * it: the registration link goes to a fresh address on the test mail server.
+   *
+   * Throws in emulated mode: the emulator does not model registration.
+   */
+  async registerAccount(): Promise<LiveAccount> {
+    if (this.emulator !== undefined) {
+      throw new Error("no registration in emulated mode: seed an account with the server emulator");
+    }
+
+    return registerAccount(this.settings);
   }
 
   /** Unpatches `fetch`. Call in `afterEach`, or the patch outlives the test. */

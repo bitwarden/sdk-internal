@@ -18,21 +18,48 @@ const PASSWORD = "BW_LIVE_PASSWORD";
 const DEVICE_IDENTIFIER = "BW_LIVE_DEVICE_IDENTIFIER";
 const DEFAULT_DEVICE_IDENTIFIER = "sdk-internal-integration-tests";
 const CLIENT_VERSION = "BW_LIVE_CLIENT_VERSION";
-const DEFAULT_CLIENT_VERSION = "2026.9.0";
+const DEFAULT_CLIENT_VERSION = "2026.11.0";
 
-export interface LiveConfig {
+/**
+ * The mailbox API of the mail server that receives the test accounts' email, without a trailing
+ * slash. `GET <url>/<address>` lists a mailbox and `GET <url>/<address>/<id>` reads one message.
+ * The mail domain of a fresh account is this URL's host.
+ */
+export const MAIL_API_URL = "https://kmshared.centralus.cloudapp.azure.com/mail/api/v1/mailbox";
+
+/** The server a live test runs against, and the device it logs in from. */
+export interface LiveServer {
   settings: ClientSettings;
-  email: string;
-  password: string;
   loginRequest: LoginRequest;
 }
 
+/** An account on the live server, and the master password that logs it in. */
+export interface LiveAccount {
+  email: string;
+  password: string;
+}
+
+/** The live server, plus the fixed account from {@link EMAIL} and {@link PASSWORD}. */
+export interface LiveConfig extends LiveServer, LiveAccount {}
+
 /**
- * The live configuration, or `undefined` when {@link SERVER_URL} is unset.
+ * The live server, or `undefined` when {@link SERVER_URL} is unset.
+ *
+ * Enough for a test that registers its own account. A test on the fixed account uses
+ * {@link liveConfig}.
+ */
+export function liveServer(): LiveServer | undefined {
+  return isSet(SERVER_URL) ? requireLiveServer() : undefined;
+}
+
+/**
+ * The live server and the fixed account, or `undefined` when either is unconfigured.
+ *
+ * A run can configure only the server, for the tests that register their own account. Setting one
+ * of {@link EMAIL} and {@link PASSWORD} without the other is a mistake and throws.
  */
 export function liveConfig(): LiveConfig | undefined {
-  const baseUrl = process.env[SERVER_URL];
-  if (baseUrl === undefined || baseUrl === "") {
+  if (!isSet(SERVER_URL) || (!isSet(EMAIL) && !isSet(PASSWORD))) {
     return undefined;
   }
 
@@ -40,6 +67,14 @@ export function liveConfig(): LiveConfig | undefined {
 }
 
 export function requireLiveConfig(): LiveConfig {
+  return {
+    ...requireLiveServer(),
+    email: required(EMAIL),
+    password: required(PASSWORD),
+  };
+}
+
+export function requireLiveServer(): LiveServer {
   const baseUrl = trimTrailingSlash(required(SERVER_URL));
   const deviceIdentifier = process.env[DEVICE_IDENTIFIER] ?? DEFAULT_DEVICE_IDENTIFIER;
 
@@ -50,8 +85,6 @@ export function requireLiveConfig(): LiveConfig {
       deviceIdentifier,
       bitwardenClientVersion: process.env[CLIENT_VERSION] ?? DEFAULT_CLIENT_VERSION,
     },
-    email: required(EMAIL),
-    password: required(PASSWORD),
     loginRequest: {
       clientId: "web",
       device: {
@@ -82,10 +115,19 @@ function originOr(name: string, fallback: string): string {
   return configured === undefined || configured === "" ? fallback : trimTrailingSlash(configured);
 }
 
+function isSet(name: string): boolean {
+  const value = process.env[name];
+
+  return value !== undefined && value !== "";
+}
+
 function required(name: string): string {
   const value = process.env[name];
   if (value === undefined || value === "") {
-    throw new Error(`${name} is not set; live mode needs ${SERVER_URL}, ${EMAIL} and ${PASSWORD}`);
+    throw new Error(
+      `${name} is not set; live mode needs ${SERVER_URL}, and tests on the fixed account also ` +
+        `need ${EMAIL} and ${PASSWORD}`,
+    );
   }
 
   return value;
