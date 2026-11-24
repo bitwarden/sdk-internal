@@ -7,7 +7,7 @@ use typenum::U32;
 use zeroize::Zeroizing;
 
 use super::{
-    kdf::{Kdf, KdfDerivedKeyMaterial},
+    kdf::{Kdf, KdfDerivedKeyMaterial, normalize_master_password_salt},
     utils::stretch_key,
 };
 use crate::{
@@ -57,9 +57,17 @@ impl MasterKey {
         }
     }
 
+    /// Returns the salt exactly as [MasterKey::derive] uses it: trimmed and lowercased.
+    ///
+    /// Use this value when creating a new salt, so the stored salt matches the salt used for
+    /// derivation.
+    pub fn normalize_salt(salt: &str) -> String {
+        normalize_master_password_salt(salt)
+    }
+
     /// Derives a users master key from their password, email and KDF.
     ///
-    /// Note: the email is trimmed and converted to lowercase before being used.
+    /// Note: the email is normalized with [MasterKey::normalize_salt] before being used.
     // Only instrumented under `dangerous-crypto-debug`, where it intentionally logs key
     // material, so it uses `tracing::instrument` directly (the `bitwarden_logging` wrapper
     // enforces `skip_all`). There is no production instrumentation. The `allow` only applies
@@ -225,6 +233,32 @@ mod tests {
         EncString, SymmetricCryptoKey,
         keys::{master_key::KdfDerivedKeyMaterial, symmetric_crypto_key::derive_symmetric_key},
     };
+
+    #[test]
+    fn test_normalize_salt_trims_and_lowercases() {
+        assert_eq!(
+            MasterKey::normalize_salt(" Test@Example.com\n"),
+            "test@example.com"
+        );
+    }
+
+    #[test]
+    fn test_derive_uses_normalized_salt() {
+        let kdf = Kdf::PBKDF2 {
+            iterations: NonZeroU32::new(600_000).unwrap(),
+        };
+        let from_raw = MasterKey::derive("password", " Test@Example.com ", &kdf).unwrap();
+        let from_normalized = MasterKey::derive(
+            "password",
+            &MasterKey::normalize_salt(" Test@Example.com "),
+            &kdf,
+        )
+        .unwrap();
+        assert_eq!(
+            from_raw.derive_master_key_hash(b"password", HashPurpose::ServerAuthorization),
+            from_normalized.derive_master_key_hash(b"password", HashPurpose::ServerAuthorization)
+        );
+    }
 
     #[test]
     fn test_password_hash_pbkdf2() {

@@ -90,14 +90,22 @@ impl KdfDerivedKeyMaterial {
 
     /// Derives a users master key from their password, email and KDF.
     ///
-    /// Note: the email is trimmed and converted to lowercase before being used.
+    /// Note: the email is normalized with [normalize_master_password_salt] before being used.
     pub(super) fn derive(password: &str, email: &str, kdf: &Kdf) -> Result<Self, CryptoError> {
         Self::derive_kdf_key(
             password.as_bytes(),
-            email.trim().to_lowercase().as_bytes(),
+            normalize_master_password_salt(email).as_bytes(),
             kdf,
         )
     }
+}
+
+/// Normalizes a master password salt by trimming it and converting it to lowercase.
+///
+/// Master key derivation always uses the normalized salt, so a new salt must be normalized
+/// before it is stored or sent to the server.
+pub(super) fn normalize_master_password_salt(salt: &str) -> String {
+    salt.trim().to_lowercase()
 }
 
 #[deprecated(

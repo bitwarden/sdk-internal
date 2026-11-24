@@ -942,6 +942,10 @@ pub(crate) fn make_user_jit_master_password_registration(
     salt: String,
     org_public_key: B64,
 ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
+    // A new salt is stored as sent, and key derivation uses the trimmed, lowercased salt. Send
+    // the normalized salt so the stored salt matches the salt used for derivation.
+    let salt = MasterKey::normalize_salt(&salt);
+
     let mut ctx = client.internal.get_key_store().context_mut();
     let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
@@ -999,6 +1003,10 @@ pub(crate) fn make_user_password_registration(
     master_password: String,
     salt: String,
 ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
+    // A new salt is stored as sent, and key derivation uses the trimmed, lowercased salt. Send
+    // the normalized salt so the stored salt matches the salt used for derivation.
+    let salt = MasterKey::normalize_salt(&salt);
+
     // make_user_v2_crypto_state() - Creates user key (XAES-256-GCM), RSA key pair, ML-DSA
     // signing key pair, and signed security state
     let mut ctx = client.internal.get_key_store().context_mut();
@@ -2376,5 +2384,79 @@ mod tests {
             .expect("should decrypt user key");
 
         assert_eq!(retrieved_symmetric_key, decrypted_user_key);
+    }
+
+    const TEST_UNNORMALIZED_USER_EMAIL: &str = " Test@Bitwarden.com ";
+
+    #[tokio::test]
+    async fn test_make_user_password_registration_returns_normalized_salt() {
+        let response = Client::new(None)
+            .crypto()
+            .make_user_password_registration(
+                TEST_USER_PASSWORD.to_string(),
+                TEST_UNNORMALIZED_USER_EMAIL.to_string(),
+            )
+            .expect("user password registration should succeed");
+
+        assert_eq!(response.master_password_unlock_data.salt, TEST_USER_EMAIL);
+        assert_eq!(
+            response.master_password_authentication_data.salt,
+            TEST_USER_EMAIL
+        );
+
+        // The returned salt unwraps the user key without further normalization.
+        let master_key = MasterKey::derive(
+            TEST_USER_PASSWORD,
+            &response.master_password_unlock_data.salt,
+            &response.master_password_unlock_data.kdf,
+        )
+        .expect("master key should derive");
+        let decrypted_user_key = master_key
+            .decrypt_user_key(
+                response
+                    .master_password_unlock_data
+                    .master_key_wrapped_user_key
+                    .clone(),
+            )
+            .expect("should decrypt user key");
+        assert_eq!(decrypted_user_key, response.user_key);
+    }
+
+    #[tokio::test]
+    async fn test_make_user_jit_master_password_registration_returns_normalized_salt() {
+        let org_public_key: B64 = TEST_VECTOR_PUBLIC_KEY_V2
+            .parse()
+            .expect("org public key should parse");
+        let response = Client::new(None)
+            .crypto()
+            .make_user_jit_master_password_registration(
+                TEST_USER_PASSWORD.to_string(),
+                TEST_UNNORMALIZED_USER_EMAIL.to_string(),
+                org_public_key,
+            )
+            .expect("JIT master password registration should succeed");
+
+        assert_eq!(response.master_password_unlock_data.salt, TEST_USER_EMAIL);
+        assert_eq!(
+            response.master_password_authentication_data.salt,
+            TEST_USER_EMAIL
+        );
+
+        // The returned salt unwraps the user key without further normalization.
+        let master_key = MasterKey::derive(
+            TEST_USER_PASSWORD,
+            &response.master_password_unlock_data.salt,
+            &response.master_password_unlock_data.kdf,
+        )
+        .expect("master key should derive");
+        let decrypted_user_key = master_key
+            .decrypt_user_key(
+                response
+                    .master_password_unlock_data
+                    .master_key_wrapped_user_key
+                    .clone(),
+            )
+            .expect("should decrypt user key");
+        assert_eq!(decrypted_user_key, response.user_key);
     }
 }
