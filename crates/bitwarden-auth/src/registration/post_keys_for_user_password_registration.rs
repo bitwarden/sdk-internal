@@ -364,6 +364,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_post_user_password_registration_sends_normalized_salt() {
+        let registration_client = RegistrationClient::new(Client::new(None));
+
+        let identity_client = IdentityApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_register_finish()
+                .once()
+                .withf(|body| {
+                    let req = body.as_ref().unwrap();
+                    req.email.as_deref() == Some("Test@Example.com")
+                        && req.master_password_unlock.as_ref().unwrap().salt == "test@example.com"
+                        && req.master_password_authentication.as_ref().unwrap().salt
+                            == "test@example.com"
+                })
+                .returning(move |_body| Ok(RegisterFinishResponseModel { object: None }));
+        });
+
+        let request = UserMasterPasswordRegistrationRequest {
+            email: "Test@Example.com".to_string(),
+            salt: " Test@Example.com ".to_string(),
+            master_password: "test-password-123".to_string(),
+            master_password_hint: None,
+            email_verification_token: None,
+            sales_assisted_token: None,
+            organization_user_id: None,
+            org_invite_token: None,
+            org_sponsored_free_family_plan_token: None,
+            accept_emergency_access_invite_token: None,
+            accept_emergency_access_id: None,
+            provider_invite_token: None,
+            provider_user_id: None,
+            open_org_invite: None,
+        };
+
+        let result = internal_post_keys_for_user_password_registration(
+            &registration_client,
+            &identity_client,
+            request,
+        )
+        .await
+        .expect("registration should succeed");
+        assert_eq!(result.master_password_unlock.salt, "test@example.com");
+
+        if let IdentityApiClient::Mock(mut mock) = identity_client {
+            mock.accounts_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
     async fn test_post_user_password_registration_failure() {
         let client = Client::new(None);
         let registration_client = RegistrationClient::new(client);
