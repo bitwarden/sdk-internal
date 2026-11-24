@@ -161,12 +161,23 @@ pub struct CipherMiniDetailsResponseModel {
     pub reprompt: Option<models::CipherRepromptType>,
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
+    /// Legacy term. Omitted from the payload when
+    /// Bit.Api.Vault.Models.Response.CipherMiniDetailsResponseModel.SharedFolderIds is in use.
     #[serde(
         rename = "collectionIds",
         alias = "CollectionIds",
         skip_serializing_if = "Option::is_none"
     )]
     pub collection_ids: Option<Vec<uuid::Uuid>>,
+    /// Shared-folder term for
+    /// Bit.Api.Vault.Models.Response.CipherMiniDetailsResponseModel.CollectionIds. Only populated
+    /// by M:Bit.Api.Vault.Models.Response.CipherMiniDetailsResponseModel.UseSharedFolderTerms.
+    #[serde(
+        rename = "sharedFolderIds",
+        alias = "SharedFolderIds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shared_folder_ids: Option<Vec<uuid::Uuid>>,
 }
 
 impl CipherMiniDetailsResponseModel {
@@ -198,6 +209,7 @@ impl CipherMiniDetailsResponseModel {
             reprompt: None,
             key: None,
             collection_ids: None,
+            shared_folder_ids: None,
         }
     }
 }

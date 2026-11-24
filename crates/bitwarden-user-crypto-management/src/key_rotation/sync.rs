@@ -341,6 +341,7 @@ mod tests {
             view_password: Some(true),
             permissions: None,
             collection_ids: None,
+            shared_folder_ids: None,
         }
     }
 

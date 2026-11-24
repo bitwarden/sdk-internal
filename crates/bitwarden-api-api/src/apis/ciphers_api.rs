@@ -151,11 +151,11 @@ pub trait CiphersApi: Send + Sync {
         organization_id: Option<uuid::Uuid>,
     ) -> Result<(), Error>;
 
-    /// POST /ciphers/bulk-collections
-    async fn post_bulk_collections<'a>(
+    /// POST /ciphers/bulk-shared-folders
+    async fn post_bulk_shared_folders<'a>(
         &self,
-        cipher_bulk_update_collections_request_model: Option<
-            models::CipherBulkUpdateCollectionsRequestModel,
+        cipher_bulk_update_shared_folders_request_model: Option<
+            models::CipherBulkUpdateSharedFoldersRequestModel,
         >,
     ) -> Result<(), Error>;
 
@@ -201,27 +201,6 @@ pub trait CiphersApi: Send + Sync {
         &self,
         cipher_bulk_archive_request_model: Option<models::CipherBulkArchiveRequestModel>,
     ) -> Result<models::CipherResponseModelListResponseModel, Error>;
-
-    /// PUT /ciphers/{id}/collections
-    async fn put_collections<'a>(
-        &self,
-        id: uuid::Uuid,
-        cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::CipherDetailsResponseModel, Error>;
-
-    /// PUT /ciphers/{id}/collections-admin
-    async fn put_collections_admin<'a>(
-        &self,
-        id: &'a str,
-        cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::CipherMiniDetailsResponseModel, Error>;
-
-    /// PUT /ciphers/{id}/collections_v2
-    async fn put_collections_v_next<'a>(
-        &self,
-        id: uuid::Uuid,
-        cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::OptionalCipherDetailsResponseModel, Error>;
 
     /// PUT /ciphers/{id}/delete
     async fn put_delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
@@ -281,6 +260,27 @@ pub trait CiphersApi: Send + Sync {
         &self,
         cipher_bulk_share_request_model: Option<models::CipherBulkShareRequestModel>,
     ) -> Result<models::CipherMiniResponseModelListResponseModel, Error>;
+
+    /// PUT /ciphers/{id}/shared-folders
+    async fn put_shared_folders<'a>(
+        &self,
+        id: uuid::Uuid,
+        cipher_shared_folders_request_model: Option<models::CipherSharedFoldersRequestModel>,
+    ) -> Result<models::CipherDetailsResponseModel, Error>;
+
+    /// PUT /ciphers/{id}/shared-folders-admin
+    async fn put_shared_folders_admin<'a>(
+        &self,
+        id: &'a str,
+        cipher_shared_folders_request_model: Option<models::CipherSharedFoldersRequestModel>,
+    ) -> Result<models::CipherMiniDetailsResponseModel, Error>;
+
+    /// PUT /ciphers/{id}/shared-folders_v2
+    async fn put_shared_folders_v_next<'a>(
+        &self,
+        id: uuid::Uuid,
+        cipher_shared_folders_request_model: Option<models::CipherSharedFoldersRequestModel>,
+    ) -> Result<models::OptionalCipherDetailsResponseModel, Error>;
 
     /// PUT /ciphers/{id}/unarchive
     async fn put_unarchive<'a>(&self, id: uuid::Uuid)
@@ -789,10 +789,10 @@ impl CiphersApi for CiphersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn post_bulk_collections<'a>(
+    async fn post_bulk_shared_folders<'a>(
         &self,
-        cipher_bulk_update_collections_request_model: Option<
-            models::CipherBulkUpdateCollectionsRequestModel,
+        cipher_bulk_update_shared_folders_request_model: Option<
+            models::CipherBulkUpdateSharedFoldersRequestModel,
         >,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
@@ -800,7 +800,7 @@ impl CiphersApi for CiphersApiClient {
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/ciphers/bulk-collections",
+            "{}/ciphers/bulk-shared-folders",
             local_var_configuration.base_path
         );
         let mut local_var_req_builder =
@@ -808,7 +808,7 @@ impl CiphersApi for CiphersApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
-            local_var_req_builder.json(&cipher_bulk_update_collections_request_model);
+            local_var_req_builder.json(&cipher_bulk_update_shared_folders_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
@@ -955,75 +955,6 @@ impl CiphersApi for CiphersApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_archive_request_model);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
-    async fn put_collections<'a>(
-        &self,
-        id: uuid::Uuid,
-        cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::CipherDetailsResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/ciphers/{id}/collections",
-            local_var_configuration.base_path,
-            id = id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&cipher_collections_request_model);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
-    async fn put_collections_admin<'a>(
-        &self,
-        id: &'a str,
-        cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::CipherMiniDetailsResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/ciphers/{id}/collections-admin",
-            local_var_configuration.base_path,
-            id = crate::apis::urlencode(id)
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&cipher_collections_request_model);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
-    async fn put_collections_v_next<'a>(
-        &self,
-        id: uuid::Uuid,
-        cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::OptionalCipherDetailsResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/ciphers/{id}/collections_v2",
-            local_var_configuration.base_path,
-            id = id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&cipher_collections_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
@@ -1239,6 +1170,75 @@ impl CiphersApi for CiphersApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_share_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn put_shared_folders<'a>(
+        &self,
+        id: uuid::Uuid,
+        cipher_shared_folders_request_model: Option<models::CipherSharedFoldersRequestModel>,
+    ) -> Result<models::CipherDetailsResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/ciphers/{id}/shared-folders",
+            local_var_configuration.base_path,
+            id = id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&cipher_shared_folders_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn put_shared_folders_admin<'a>(
+        &self,
+        id: &'a str,
+        cipher_shared_folders_request_model: Option<models::CipherSharedFoldersRequestModel>,
+    ) -> Result<models::CipherMiniDetailsResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/ciphers/{id}/shared-folders-admin",
+            local_var_configuration.base_path,
+            id = crate::apis::urlencode(id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&cipher_shared_folders_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn put_shared_folders_v_next<'a>(
+        &self,
+        id: uuid::Uuid,
+        cipher_shared_folders_request_model: Option<models::CipherSharedFoldersRequestModel>,
+    ) -> Result<models::OptionalCipherDetailsResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/ciphers/{id}/shared-folders_v2",
+            local_var_configuration.base_path,
+            id = id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&cipher_shared_folders_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }

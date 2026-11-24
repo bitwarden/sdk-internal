@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use bitwarden_api_api::models::CipherBulkUpdateCollectionsRequestModel;
+use bitwarden_api_api::models::CipherBulkUpdateSharedFoldersRequestModel;
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_error::bitwarden_error;
@@ -35,11 +35,11 @@ impl CiphersClient {
         self.api_configurations
             .api_client
             .ciphers_api()
-            .post_bulk_collections(Some(CipherBulkUpdateCollectionsRequestModel {
+            .post_bulk_shared_folders(Some(CipherBulkUpdateSharedFoldersRequestModel {
                 organization_id: Some(organization_id.into()),
                 cipher_ids: Some(cipher_ids.iter().map(|id| (*id).into()).collect()),
-                collection_ids: Some(collection_ids.iter().map(|id| (*id).into()).collect()),
-                remove_collections: Some(remove_collections),
+                shared_folder_ids: Some(collection_ids.iter().map(|id| (*id).into()).collect()),
+                remove_shared_folders: Some(remove_collections),
             }))
             .await?;
 
@@ -151,7 +151,7 @@ mod tests {
     fn make_api_client() -> ApiClient {
         ApiClient::new_mocked(|mock| {
             mock.ciphers_api
-                .expect_post_bulk_collections()
+                .expect_post_bulk_shared_folders()
                 .returning(|_| Ok(()));
         })
     }

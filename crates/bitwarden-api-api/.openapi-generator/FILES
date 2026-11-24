@@ -180,6 +180,7 @@ src/models/cipher_bulk_restore_request_model.rs
 src/models/cipher_bulk_share_request_model.rs
 src/models/cipher_bulk_unarchive_request_model.rs
 src/models/cipher_bulk_update_collections_request_model.rs
+src/models/cipher_bulk_update_shared_folders_request_model.rs
 src/models/cipher_card_model.rs
 src/models/cipher_collections_request_model.rs
 src/models/cipher_create_request_model.rs
@@ -205,6 +206,7 @@ src/models/cipher_response_model.rs
 src/models/cipher_response_model_list_response_model.rs
 src/models/cipher_secure_note_model.rs
 src/models/cipher_share_request_model.rs
+src/models/cipher_shared_folders_request_model.rs
 src/models/cipher_ssh_key_model.rs
 src/models/cipher_type.rs
 src/models/cipher_with_id_request_model.rs
@@ -239,7 +241,6 @@ src/models/delete_recover_request_model.rs
 src/models/device_auth_request_response_model.rs
 src/models/device_auth_request_response_model_list_response_model.rs
 src/models/device_keys_request_model.rs
-src/models/device_keys_update_request_model.rs
 src/models/device_request_model.rs
 src/models/device_response_model.rs
 src/models/device_token_request_model.rs
@@ -704,7 +705,6 @@ src/models/untrust_devices_request_model.rs
 src/models/update_avatar_request_model.rs
 src/models/update_client_organization_request_body.rs
 src/models/update_collection_request_model.rs
-src/models/update_devices_trust_request_model.rs
 src/models/update_domains_request_model.rs
 src/models/update_invite_support_confirm_request_model.rs
 src/models/update_organization_invite_link_request_model.rs
@@ -717,6 +717,7 @@ src/models/update_target_system_request_model.rs
 src/models/update_tde_offboarding_password_request_model.rs
 src/models/update_temp_password_request_model.rs
 src/models/upgrade_premium_to_organization_request.rs
+src/models/upgrade_premium_to_organization_response_model.rs
 src/models/uri_match_type.rs
 src/models/user_access_policy_response_model.rs
 src/models/user_decryption_response_model.rs

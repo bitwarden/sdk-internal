@@ -65,12 +65,6 @@ pub trait DevicesApi: Send + Sync {
         untrust_devices_request_model: Option<models::UntrustDevicesRequestModel>,
     ) -> Result<(), Error>;
 
-    /// POST /devices/update-trust
-    async fn post_update_trust<'a>(
-        &self,
-        update_devices_trust_request_model: Option<models::UpdateDevicesTrustRequestModel>,
-    ) -> Result<(), Error>;
-
     /// PUT /devices/{id}
     async fn put<'a>(
         &self,
@@ -258,25 +252,6 @@ impl DevicesApi for DevicesApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&untrust_devices_request_model);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
-    async fn post_update_trust<'a>(
-        &self,
-        update_devices_trust_request_model: Option<models::UpdateDevicesTrustRequestModel>,
-    ) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str =
-            format!("{}/devices/update-trust", local_var_configuration.base_path);
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&update_devices_trust_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
