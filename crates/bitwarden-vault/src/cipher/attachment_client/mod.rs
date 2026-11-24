@@ -60,7 +60,6 @@ pub struct AttachmentsClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
     pub(crate) repository: Option<Arc<dyn Repository<Cipher>>>,
-    pub(crate) http_client: reqwest::Client,
 }
 
 #[bitwarden_ffi::wasm_export]

@@ -3,23 +3,22 @@ use std::{fmt, sync::OnceLock};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+#[cfg(not(target_arch = "wasm32"))]
+use super::transport::TransportSettings;
+
 /// Basic client behavior settings. These settings specify the various targets and behavior of the
 /// Bitwarden Client. They are optional and uneditable once the client is initialized.
 ///
-/// Defaults to
+/// Set the fields you need and take the rest from [`Default`], so that adding a field doesn't
+/// break callers:
 ///
 /// ```
-/// # use bitwarden_core::{ClientSettings, DeviceType};
+/// # use bitwarden_core::ClientSettings;
 /// let settings = ClientSettings {
-///     identity_url: "https://identity.bitwarden.com".to_string(),
-///     api_url: "https://api.bitwarden.com".to_string(),
-///     user_agent: "Bitwarden Rust-SDK".to_string(),
-///     device_type: DeviceType::SDK,
-///     bitwarden_client_version: None,
-///     bitwarden_package_type: None,
-///     device_identifier: None,
+///     identity_url: "https://identity.bitwarden.eu".to_string(),
+///     api_url: "https://api.bitwarden.eu".to_string(),
+///     ..Default::default()
 /// };
-/// let default = ClientSettings::default();
 /// ```
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -43,6 +42,11 @@ pub struct ClientSettings {
     /// Bitwarden Package Type to send to Bitwarden. We should evaluate this field to see if it
     /// should be optional later.
     pub bitwarden_package_type: Option<String>,
+    /// Proxy and timeout settings for the SDK's HTTP clients. Not available on WASM, where the
+    /// browser or Node fetch backend owns the transport.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    pub transport: Option<TransportSettings>,
 }
 
 impl Default for ClientSettings {
@@ -55,6 +59,8 @@ impl Default for ClientSettings {
             device_identifier: None,
             bitwarden_client_version: None,
             bitwarden_package_type: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            transport: None,
         }
     }
 }
@@ -209,6 +215,8 @@ impl HostPlatformInfo {
             bitwarden_package_type: self.bitwarden_package_type.clone(),
             api_url,
             identity_url,
+            #[cfg(not(target_arch = "wasm32"))]
+            transport: None,
         }
     }
 }

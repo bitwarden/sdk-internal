@@ -27,7 +27,8 @@ pub use bitwarden_core_macro::FromClient;
 pub use bitwarden_crypto::ZeroizingAllocator;
 pub use client::{
     Client, ClientBuilder, ClientName, ClientSettings, DeviceType, FromClient, HostPlatformInfo,
-    get_host_platform_info, init_host_platform_info,
+    ProxyCredentials, ProxySettings, TimeoutSettings, TransportSettings, get_host_platform_info,
+    init_host_platform_info,
 };
 #[cfg(feature = "internal")]
 pub use client::{FetchFlagsError, FlagsClient, RehydrationError, SaveStateData};
