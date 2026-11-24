@@ -223,4 +223,19 @@ mod tests {
 
         assert_eq!(model.reason.as_deref(), Some("Approved by mistake"));
     }
+
+    #[test]
+    fn history_status_wire_names_match_server() {
+        let cases = [
+            (AccessRequestHistoryStatus::Denied, "denied"),
+            (AccessRequestHistoryStatus::Revoked, "revoked"),
+            (AccessRequestHistoryStatus::Canceled, "canceled"),
+            (AccessRequestHistoryStatus::Expired, "expired"),
+            (AccessRequestHistoryStatus::SessionEnded, "sessionEnded"),
+        ];
+
+        for (status, expected) in cases {
+            assert_eq!(status.wire_name(), expected, "{status:?}");
+        }
+    }
 }
