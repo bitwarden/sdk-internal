@@ -5,6 +5,7 @@ mod builder;
 mod client;
 #[allow(missing_docs)]
 pub mod client_settings;
+mod deployment;
 #[allow(missing_docs)]
 pub mod encryption_settings;
 mod from_client_part;
