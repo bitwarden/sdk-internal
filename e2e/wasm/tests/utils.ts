@@ -1,4 +1,7 @@
+import { pbkdf2Sync } from "node:crypto";
+
 import {
+  PureCrypto,
   WasmStateBridge,
   PasswordProtectedKeyEnvelope,
   EncString,
@@ -443,4 +446,25 @@ export async function sleep(ms: number): Promise<void> {
   for (let elapsed = 0; elapsed < ms; elapsed += 1) {
     await new Promise((resolve) => setTimeout(resolve, 1));
   }
+}
+
+/**
+ * The master password's authentication hash, as a client sends it and the server stores it: the
+ * master key from the SDK's KDF, then one round of PBKDF2 over the password.
+ */
+export function masterPasswordAuthenticationHash(password: string, salt: string, kdf: Kdf): string {
+  const encoder = new TextEncoder();
+  const masterKey = PureCrypto.derive_kdf_material(
+    encoder.encode(password),
+    encoder.encode(salt),
+    kdf,
+  );
+
+  return pbkdf2Sync(
+    Buffer.from(masterKey),
+    Buffer.from(password, "utf8"),
+    1,
+    32,
+    "sha256",
+  ).toString("base64");
 }

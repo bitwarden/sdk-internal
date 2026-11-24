@@ -92,6 +92,15 @@ class Table<T> {
     this.byId.delete(id);
   }
 
+  /** Removes every item matching `predicate`. */
+  removeWhere(predicate: (item: T) => boolean): void {
+    for (const [id, item] of this.byId) {
+      if (predicate(item)) {
+        this.byId.delete(id);
+      }
+    }
+  }
+
   /** The items matching `predicate`, in insertion order. */
   filter(predicate: (item: T) => boolean): T[] {
     return [...this.byId.values()].filter(predicate);
@@ -116,4 +125,15 @@ export class Database {
     new SequentialUuidGenerator("emergency-access"),
   );
   readonly sessions = new Table<string>(new SequentialUuidGenerator("sessions"));
+  /** The accounts the seeder wrote under each play id, keyed by play id. */
+  readonly playItems = new Table<string[]>(new SequentialUuidGenerator("play-items"));
+
+  /** Removes an account with its vault and sessions, as deleting it does. */
+  removeUser(userId: string): void {
+    this.ciphers.removeWhere((cipher) => cipher.userId === userId);
+    this.folders.removeWhere((folder) => folder.userId === userId);
+    this.sessions.removeWhere((sessionUserId) => sessionUserId === userId);
+    this.users.remove(userId);
+    this.revisions.next();
+  }
 }

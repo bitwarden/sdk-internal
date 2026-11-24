@@ -1,10 +1,10 @@
 import { SETTINGS } from "../../client-emulator/local-state";
 import { testHarness, type TestHarness } from "../../test-harness";
-import { makePasswordManagerClient, makeStateBridge } from "../utils";
+import { makePasswordManagerClient, makeStateBridge, rejection } from "../utils";
 import { toSeedAccount } from "../../vectors/load";
 import { testVectors } from "../../vectors/test-vectors";
 
-import type { LoginClient, LoginRequest } from "@bitwarden/sdk-internal";
+import { isPasswordLoginError, type LoginClient, type LoginRequest } from "@bitwarden/sdk-internal";
 
 /** A real KDF derivation per login, and one of the accounts uses argon2id. */
 const TIMEOUT = 120_000;
@@ -63,8 +63,8 @@ describe("login via password", () => {
       });
 
       // The account is now reachable with the issued token, and the unlock data it came back with
-      // is the account's own. The token is opaque, so the assertion is that it authenticates the
-      // account rather than that it holds any particular value.
+      // is the account's own. The test treats the token as opaque: it checks that the token
+      // authenticates the account, not what the token holds.
       const authenticated = response.Authenticated;
       const synced = await fetch(`${SETTINGS.apiUrl}/sync`, {
         headers: { Authorization: `Bearer ${authenticated.accessToken}` },
@@ -99,12 +99,29 @@ describe("login via password", () => {
     TIMEOUT,
   );
 
+  /**
+   * Prelogin can't tell which addresses have accounts: the server answers an unknown one with a
+   * default KDF, and only the login itself is refused, as a wrong password would be.
+   */
   it(
-    "refuses to prelogin an account the server does not have",
+    "answers prelogin for an account the server does not have, then refuses the login",
     async () => {
-      await expect(
-        loginClient().get_password_prelogin("nobody@test.bitwarden.com"),
-      ).rejects.toBeDefined();
+      const email = "nobody@test.bitwarden.com";
+      const client = loginClient();
+
+      const prelogin = await client.get_password_prelogin(email);
+      expect(prelogin.kdf).toEqual({ pBKDF2: { iterations: 600_000 } });
+
+      const thrown = await rejection(
+        client.login_via_password({
+          loginRequest: LOGIN_REQUEST,
+          email,
+          password: "not a password anyone has",
+          preloginResponse: prelogin,
+        }),
+        isPasswordLoginError,
+      );
+      expect(thrown.variant).toBe("InvalidUsernameOrPassword");
     },
     TIMEOUT,
   );

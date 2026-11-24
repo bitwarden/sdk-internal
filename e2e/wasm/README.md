@@ -34,8 +34,9 @@ unless configured, and never run in CI.
 
 ```sh
 BW_LIVE_SERVER_URL=https://vault.example.com \
-BW_LIVE_EMAIL=someone@example.com \
-BW_LIVE_PASSWORD=... \
+BW_LIVE_SEEDER_URL=https://seeder.example.com \
+BW_LIVE_SEEDER_USERNAME=... \
+BW_LIVE_SEEDER_PASSWORD=... \
 npm run test:live
 ```
 
@@ -47,7 +48,7 @@ install is laid out. A deployment that gives each service its own origin needs t
 BW_LIVE_SERVER_URL=https://vault.usdev.bitwarden.pw \
 BW_LIVE_API_URL=https://api.usdev.bitwarden.pw \
 BW_LIVE_IDENTITY_URL=https://identity.usdev.bitwarden.pw \
-BW_LIVE_EMAIL=... BW_LIVE_PASSWORD=... npm run test:live
+BW_LIVE_SEEDER_URL=... BW_LIVE_SEEDER_USERNAME=... BW_LIVE_SEEDER_PASSWORD=... npm run test:live
 ```
 
 Also optional: `BW_LIVE_DEVICE_IDENTIFIER`, which defaults to a fixed value so repeat runs look like
@@ -55,11 +56,19 @@ one returning device rather than a new one each time — a new device is what tr
 verification — and `BW_LIVE_CLIENT_VERSION`, the version reported to the server, which a real server
 requires and the emulator does not ask for.
 
-The account needs to already exist, since the harness has no registration flow, and it needs
-two-factor disabled, no captcha requirement, and no organization memberships. **These tests write to
-the account**: they add a vault item if it has none, and they rotate its user key. Rotation is
-re-runnable, but note that it upgrades a V1 account to V2 on the first run and that cannot be
-undone.
+### Test accounts
+
+Each test seeds the accounts it needs, through the server's seeder API (`util/SeederApi`), with
+`harness.accounts.create()`, and `harness.dispose()` destroys them when the test ends. Accounts are
+seeded under one play id per harness, and destroyed by it, so a run leaves nothing behind; if a run
+crashes before it can, the seeder's own cleanup removes plays older than a day. Live mode therefore
+needs a server that runs the seeder with play-id tracking on, which no production server does.
+
+The seeder stores each address with a random prefix (`1854b016+sdk-it-…@example.com`), and
+`create()` answers the address the account logs in with. Test addresses use `example.com`, which
+never delivers mail; `BW_LIVE_EMAIL_DOMAIN` changes it.
+
+Seeded accounts are V1: the seeder doesn't make V2 accounts yet.
 
 ## Test vectors
 
