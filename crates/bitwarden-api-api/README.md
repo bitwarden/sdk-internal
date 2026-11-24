@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`23bd20547bececfe3148c778f5da6b8fc125a5d9`](https://github.com/bitwarden/server/commit/23bd20547bececfe3148c778f5da6b8fc125a5d9)
+  [`9c109b6b4addad5eb821e263e5cdc25657dc6563`](https://github.com/bitwarden/server/commit/9c109b6b4addad5eb821e263e5cdc25657dc6563)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -150,7 +150,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _CiphersApi_                                 | [**post_attachment**](docs/CiphersApi.md#ciphers_post_attachment)                                                                                                | **POST** /ciphers/{id}/attachment/v2                                                                     |
 | _CiphersApi_                                 | [**post_attachment_admin**](docs/CiphersApi.md#ciphers_post_attachment_admin)                                                                                    | **POST** /ciphers/{id}/attachment-admin                                                                  |
 | _CiphersApi_                                 | [**post_attachment_share**](docs/CiphersApi.md#ciphers_post_attachment_share)                                                                                    | **POST** /ciphers/{id}/attachment/{attachmentId}/share                                                   |
-| _CiphersApi_                                 | [**post_bulk_collections**](docs/CiphersApi.md#ciphers_post_bulk_collections)                                                                                    | **POST** /ciphers/bulk-collections                                                                       |
+| _CiphersApi_                                 | [**post_bulk_shared_folders**](docs/CiphersApi.md#ciphers_post_bulk_shared_folders)                                                                              | **POST** /ciphers/bulk-shared-folders                                                                    |
 | _CiphersApi_                                 | [**post_create**](docs/CiphersApi.md#ciphers_post_create)                                                                                                        | **POST** /ciphers/create                                                                                 |
 | _CiphersApi_                                 | [**post_file_for_existing_attachment**](docs/CiphersApi.md#ciphers_post_file_for_existing_attachment)                                                            | **POST** /ciphers/{id}/attachment/{attachmentId}                                                         |
 | _CiphersApi_                                 | [**post_purge**](docs/CiphersApi.md#ciphers_post_purge)                                                                                                          | **POST** /ciphers/purge                                                                                  |
@@ -158,9 +158,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _CiphersApi_                                 | [**put_admin**](docs/CiphersApi.md#ciphers_put_admin)                                                                                                            | **PUT** /ciphers/{id}/admin                                                                              |
 | _CiphersApi_                                 | [**put_archive**](docs/CiphersApi.md#ciphers_put_archive)                                                                                                        | **PUT** /ciphers/{id}/archive                                                                            |
 | _CiphersApi_                                 | [**put_archive_many**](docs/CiphersApi.md#ciphers_put_archive_many)                                                                                              | **PUT** /ciphers/archive                                                                                 |
-| _CiphersApi_                                 | [**put_collections**](docs/CiphersApi.md#ciphers_put_collections)                                                                                                | **PUT** /ciphers/{id}/collections                                                                        |
-| _CiphersApi_                                 | [**put_collections_admin**](docs/CiphersApi.md#ciphers_put_collections_admin)                                                                                    | **PUT** /ciphers/{id}/collections-admin                                                                  |
-| _CiphersApi_                                 | [**put_collections_v_next**](docs/CiphersApi.md#ciphers_put_collections_v_next)                                                                                  | **PUT** /ciphers/{id}/collections_v2                                                                     |
 | _CiphersApi_                                 | [**put_delete**](docs/CiphersApi.md#ciphers_put_delete)                                                                                                          | **PUT** /ciphers/{id}/delete                                                                             |
 | _CiphersApi_                                 | [**put_delete_admin**](docs/CiphersApi.md#ciphers_put_delete_admin)                                                                                              | **PUT** /ciphers/{id}/delete-admin                                                                       |
 | _CiphersApi_                                 | [**put_delete_many**](docs/CiphersApi.md#ciphers_put_delete_many)                                                                                                | **PUT** /ciphers/delete                                                                                  |
@@ -172,6 +169,9 @@ All URIs are relative to *https://api.bitwarden.com*
 | _CiphersApi_                                 | [**put_restore_many_admin**](docs/CiphersApi.md#ciphers_put_restore_many_admin)                                                                                  | **PUT** /ciphers/restore-admin                                                                           |
 | _CiphersApi_                                 | [**put_share**](docs/CiphersApi.md#ciphers_put_share)                                                                                                            | **PUT** /ciphers/{id}/share                                                                              |
 | _CiphersApi_                                 | [**put_share_many**](docs/CiphersApi.md#ciphers_put_share_many)                                                                                                  | **PUT** /ciphers/share                                                                                   |
+| _CiphersApi_                                 | [**put_shared_folders**](docs/CiphersApi.md#ciphers_put_shared_folders)                                                                                          | **PUT** /ciphers/{id}/shared-folders                                                                     |
+| _CiphersApi_                                 | [**put_shared_folders_admin**](docs/CiphersApi.md#ciphers_put_shared_folders_admin)                                                                              | **PUT** /ciphers/{id}/shared-folders-admin                                                               |
+| _CiphersApi_                                 | [**put_shared_folders_v_next**](docs/CiphersApi.md#ciphers_put_shared_folders_v_next)                                                                            | **PUT** /ciphers/{id}/shared-folders_v2                                                                  |
 | _CiphersApi_                                 | [**put_unarchive**](docs/CiphersApi.md#ciphers_put_unarchive)                                                                                                    | **PUT** /ciphers/{id}/unarchive                                                                          |
 | _CiphersApi_                                 | [**put_unarchive_many**](docs/CiphersApi.md#ciphers_put_unarchive_many)                                                                                          | **PUT** /ciphers/unarchive                                                                               |
 | _CiphersApi_                                 | [**renew_file_upload_url**](docs/CiphersApi.md#ciphers_renew_file_upload_url)                                                                                    | **GET** /ciphers/{id}/attachment/{attachmentId}/renew                                                    |
@@ -199,7 +199,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _DevicesApi_                                 | [**post**](docs/DevicesApi.md#devices_post)                                                                                                                      | **POST** /devices                                                                                        |
 | _DevicesApi_                                 | [**post_lost_trust**](docs/DevicesApi.md#devices_post_lost_trust)                                                                                                | **POST** /devices/lost-trust                                                                             |
 | _DevicesApi_                                 | [**post_untrust**](docs/DevicesApi.md#devices_post_untrust)                                                                                                      | **POST** /devices/untrust                                                                                |
-| _DevicesApi_                                 | [**post_update_trust**](docs/DevicesApi.md#devices_post_update_trust)                                                                                            | **POST** /devices/update-trust                                                                           |
 | _DevicesApi_                                 | [**put**](docs/DevicesApi.md#devices_put)                                                                                                                        | **PUT** /devices/{id}                                                                                    |
 | _DevicesApi_                                 | [**put_clear_token**](docs/DevicesApi.md#devices_put_clear_token)                                                                                                | **PUT** /devices/identifier/{identifier}/clear-token                                                     |
 | _DevicesApi_                                 | [**put_keys**](docs/DevicesApi.md#devices_put_keys)                                                                                                              | **PUT** /devices/{identifier}/keys                                                                       |
@@ -709,6 +708,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CipherBulkShareRequestModel](docs/CipherBulkShareRequestModel.md)
 - [CipherBulkUnarchiveRequestModel](docs/CipherBulkUnarchiveRequestModel.md)
 - [CipherBulkUpdateCollectionsRequestModel](docs/CipherBulkUpdateCollectionsRequestModel.md)
+- [CipherBulkUpdateSharedFoldersRequestModel](docs/CipherBulkUpdateSharedFoldersRequestModel.md)
 - [CipherCardModel](docs/CipherCardModel.md)
 - [CipherCollectionsRequestModel](docs/CipherCollectionsRequestModel.md)
 - [CipherCreateRequestModel](docs/CipherCreateRequestModel.md)
@@ -734,6 +734,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CipherResponseModelListResponseModel](docs/CipherResponseModelListResponseModel.md)
 - [CipherSecureNoteModel](docs/CipherSecureNoteModel.md)
 - [CipherShareRequestModel](docs/CipherShareRequestModel.md)
+- [CipherSharedFoldersRequestModel](docs/CipherSharedFoldersRequestModel.md)
 - [CipherSshKeyModel](docs/CipherSshKeyModel.md)
 - [CipherType](docs/CipherType.md)
 - [CipherWithIdRequestModel](docs/CipherWithIdRequestModel.md)
@@ -768,7 +769,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [DeviceAuthRequestResponseModel](docs/DeviceAuthRequestResponseModel.md)
 - [DeviceAuthRequestResponseModelListResponseModel](docs/DeviceAuthRequestResponseModelListResponseModel.md)
 - [DeviceKeysRequestModel](docs/DeviceKeysRequestModel.md)
-- [DeviceKeysUpdateRequestModel](docs/DeviceKeysUpdateRequestModel.md)
 - [DeviceRequestModel](docs/DeviceRequestModel.md)
 - [DeviceResponseModel](docs/DeviceResponseModel.md)
 - [DeviceTokenRequestModel](docs/DeviceTokenRequestModel.md)
@@ -1232,7 +1232,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [UpdateAvatarRequestModel](docs/UpdateAvatarRequestModel.md)
 - [UpdateClientOrganizationRequestBody](docs/UpdateClientOrganizationRequestBody.md)
 - [UpdateCollectionRequestModel](docs/UpdateCollectionRequestModel.md)
-- [UpdateDevicesTrustRequestModel](docs/UpdateDevicesTrustRequestModel.md)
 - [UpdateDomainsRequestModel](docs/UpdateDomainsRequestModel.md)
 - [UpdateInviteSupportConfirmRequestModel](docs/UpdateInviteSupportConfirmRequestModel.md)
 - [UpdateOrganizationInviteLinkRequestModel](docs/UpdateOrganizationInviteLinkRequestModel.md)
@@ -1245,6 +1244,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [UpdateTdeOffboardingPasswordRequestModel](docs/UpdateTdeOffboardingPasswordRequestModel.md)
 - [UpdateTempPasswordRequestModel](docs/UpdateTempPasswordRequestModel.md)
 - [UpgradePremiumToOrganizationRequest](docs/UpgradePremiumToOrganizationRequest.md)
+- [UpgradePremiumToOrganizationResponseModel](docs/UpgradePremiumToOrganizationResponseModel.md)
 - [UriMatchType](docs/UriMatchType.md)
 - [UserAccessPolicyResponseModel](docs/UserAccessPolicyResponseModel.md)
 - [UserDecryptionResponseModel](docs/UserDecryptionResponseModel.md)
