@@ -11,6 +11,8 @@ constructor, and exposes cross-platform generation through [`SdkRandomNumberClie
 **Use `rng()`, never `rand::rng()` directly**: All SDK crates draw randomness through
 `bitwarden_random::rng()` so a single, auditable CRNG (and the test seeding hook) backs every
 generator. Do not call `rand::rng()`, `rand::rngs::OsRng`, or `SysRng` from other crates.
+`bitwarden-crypto-primitives` is the one exception: it owns the backend CSPRNG this crate wraps, so
+it reaches the OS entropy source directly in `src/<backend>/random.rs`.
 
 **Only OS entropy in production**: The default `SdkRngImpl` is OS-backed. The seeded stream exists
 solely for reproducible tests.

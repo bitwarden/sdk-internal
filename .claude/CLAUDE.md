@@ -59,8 +59,9 @@ Four layers; dependencies point strictly downward:
 
 1. **Foundation** — `bitwarden-crypto`, `bitwarden-organization-crypto`, `bitwarden-state`,
    `bitwarden-threading`, `bitwarden-ipc`, `bitwarden-error`, `bitwarden-random` (the SDK's single
-   CRNG source — use it instead of calling `rand::rng()` directly), plus small utilities. These must
-   not depend on `bitwarden-core` or anything that does.
+   CRNG source — use it instead of calling `rand::rng()` directly), `bitwarden-crypto-primitives`
+   (the single raw-primitive and OS-entropy layer, and the only crate allowed to touch a backend RNG
+   directly), plus small utilities. These must not depend on `bitwarden-core` or anything that does.
 2. **Core** — `bitwarden-core` defines `Client`, a dependency-injection container (user identity,
    key store, API configuration, state). **Do not add features here** — feature crates extend
    `Client` via extension traits.
