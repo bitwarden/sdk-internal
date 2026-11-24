@@ -6,6 +6,7 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    sync::Arc,
     time::Duration,
 };
 
@@ -25,8 +26,8 @@ const MIN_POLL_INTERVAL_SECS: u64 = 15;
 const MAX_HEARTBEAT_INTERVAL_SECS: u64 = 120;
 
 /// The `[environment]` TOML section. Each URL resolves from its env var, then its field here, then
-/// `base`. With no `base`, an unset URL fails startup unless neither URL is set, which defaults to
-/// US cloud.
+/// `base`, which `BWAC_BASE_URL` overrides. With no `base`, an unset URL fails startup unless
+/// neither URL is set, which defaults to US cloud.
 #[derive(Debug, Default, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct EnvironmentConfig {
@@ -181,10 +182,23 @@ fn parse_token(raw: Option<String>) -> Result<AccessToken, AccessConnectorError>
 /// Error for a service URL that no layer supplied.
 fn missing_url(name: &str) -> AccessConnectorError {
     AccessConnectorError::InvalidConfig(format!(
-        "{name} URL must be supplied via the BWAC_{}_URL environment variable, \
-         [environment].{name}, or [environment].base in the config file",
+        "{name} URL must be supplied via the BWAC_{}_URL or BWAC_BASE_URL environment variable, \
+         or [environment].{name} or [environment].base in the config file",
         name.to_uppercase()
     ))
+}
+
+/// The SDK's HTTP client panics when the platform verifier finds no trust anchors, so check first.
+/// On Linux that means no CA bundle, or `SSL_CERT_FILE` or `SSL_CERT_DIR` naming nothing usable.
+fn check_trust_store() -> Result<(), AccessConnectorError> {
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    rustls_platform_verifier::Verifier::new(provider).map_err(|e| {
+        AccessConnectorError::InvalidConfig(format!(
+            "no trusted CA certificates could be loaded ({e}). Check SSL_CERT_FILE and \
+             SSL_CERT_DIR, or install the host's CA certificates"
+        ))
+    })?;
+    Ok(())
 }
 
 /// Validated configuration for the connector run loop, built by [`Config::from_cli`].
@@ -202,8 +216,8 @@ impl std::fmt::Debug for Config {
 }
 
 impl Config {
-    /// Build a validated [`Config`] from the CLI arguments. `BWAC_API_URL` and `BWAC_IDENTITY_URL`
-    /// override the file's URLs.
+    /// Build a validated [`Config`] from the CLI arguments. `BWAC_API_URL`, `BWAC_IDENTITY_URL` and
+    /// `BWAC_BASE_URL` override the file's `api`, `identity` and `base`.
     ///
     /// # Errors
     ///
@@ -226,12 +240,15 @@ impl Config {
             None => FileConfig::default(),
         };
 
+        check_trust_store()?;
+
         let env_url = |name: &str| non_blank(std::env::var(name).ok());
         Self::build(
             token,
             file,
             env_url("BWAC_API_URL"),
             env_url("BWAC_IDENTITY_URL"),
+            env_url("BWAC_BASE_URL"),
         )
     }
 
@@ -242,20 +259,20 @@ impl Config {
         file: FileConfig,
         env_api: Option<String>,
         env_identity: Option<String>,
+        env_base: Option<String>,
     ) -> Result<Self, AccessConnectorError> {
         let api = env_api.or(file.environment.api.clone());
         let identity = env_identity.or(file.environment.identity.clone());
+        let base = env_base.or(file.environment.base.clone());
         // Without a base, a lone api or identity URL must not pair with US cloud for the other.
-        if file.environment.base.is_none() {
+        if base.is_none() {
             match (&api, &identity) {
                 (Some(_), None) => return Err(missing_url("identity")),
                 (None, Some(_)) => return Err(missing_url("api")),
                 _ => {}
             }
         }
-        let server = file
-            .environment
-            .base
+        let server = base
             .as_deref()
             .map(Environment::from_base)
             .unwrap_or(Environment::Us);
@@ -348,7 +365,7 @@ identity = "https://identity.example.com"
     }
 
     fn build(toml: &str) -> Result<Config, AccessConnectorError> {
-        Config::build(token(), file(toml), None, None)
+        Config::build(token(), file(toml), None, None, None)
     }
 
     fn invalid_config_message(e: AccessConnectorError) -> String {
@@ -528,6 +545,7 @@ identity = "https://identity.example.com"
                 file(toml),
                 non_blank(env_api),
                 non_blank(env_identity),
+                None,
             )
             .unwrap_or_else(|e| panic!("{label}: expected Ok, got {e:?}"))
             .into_access_connector_config();
@@ -563,9 +581,83 @@ identity = "https://identity.example.com"
 
         // A lone env API URL must not pair with US cloud for identity.
         let env_api = Some("https://api.env.example.com".to_string());
-        let msg =
-            invalid_config_message(Config::build(token(), file(""), env_api, None).unwrap_err());
+        let msg = invalid_config_message(
+            Config::build(token(), file(""), env_api, None, None).unwrap_err(),
+        );
         assert!(msg.contains("identity URL"), "env api only: {msg:?}");
+    }
+
+    #[test]
+    fn env_base_url_resolution() {
+        const FILE_BASE: &str = "[environment]\nbase = \"https://file.example.com\"\n";
+        const ENV_BASE: &str = "https://env.example.com";
+        const ENV_API: &str = "https://api.env.example.com";
+        let env = |v: &str| Some(v.to_string());
+
+        // (label, toml, env api, env base, expected api, expected identity)
+        let rows = [
+            (
+                "env base only",
+                "",
+                None,
+                env(ENV_BASE),
+                "https://env.example.com/api",
+                "https://env.example.com/identity",
+            ),
+            (
+                "env base over file base",
+                FILE_BASE,
+                None,
+                env(ENV_BASE),
+                "https://env.example.com/api",
+                "https://env.example.com/identity",
+            ),
+            (
+                "env base picks a cloud",
+                "",
+                None,
+                env("https://vault.bitwarden.eu"),
+                Environment::Eu.api_url(),
+                Environment::Eu.identity_url(),
+            ),
+            (
+                "file api over env base",
+                "[environment]\napi = \"https://api.file.example.com\"\n",
+                None,
+                env(ENV_BASE),
+                "https://api.file.example.com",
+                "https://env.example.com/identity",
+            ),
+            (
+                "env api over env base",
+                "",
+                env(ENV_API),
+                env(ENV_BASE),
+                ENV_API,
+                "https://env.example.com/identity",
+            ),
+            (
+                "blank env base is unset",
+                FILE_BASE,
+                None,
+                Some("  ".to_string()),
+                "https://file.example.com/api",
+                "https://file.example.com/identity",
+            ),
+        ];
+        for (label, toml, env_api, env_base, api, identity) in rows {
+            let cfg = Config::build(
+                token(),
+                file(toml),
+                non_blank(env_api),
+                None,
+                non_blank(env_base),
+            )
+            .unwrap_or_else(|e| panic!("{label}: expected Ok, got {e:?}"))
+            .into_access_connector_config();
+            assert_eq!(cfg.api_url, api, "{label}: api");
+            assert_eq!(cfg.identity_url, identity, "{label}: identity");
+        }
     }
 
     #[test]
@@ -757,6 +849,26 @@ ca_certificate = "/etc/pki/ad-ca.pem"
             std::env::var("BWAC_TOKEN").is_err(),
             "BWAC_TOKEN must be absent from environment after from_cli consumes it"
         );
+    }
+
+    #[test]
+    fn from_cli_reads_bwac_base_url() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: guarded by ENV_LOCK.
+        unsafe {
+            std::env::set_var("BWAC_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWAC_BASE_URL", "https://bitwarden.example.com");
+            std::env::remove_var("BWAC_API_URL");
+            std::env::remove_var("BWAC_IDENTITY_URL");
+        }
+        let result = Config::from_cli(RunArgs { config: None });
+        // SAFETY: guarded by ENV_LOCK.
+        unsafe {
+            std::env::remove_var("BWAC_BASE_URL");
+        }
+        let cfg = result.expect("expected Ok").into_access_connector_config();
+        assert_eq!(cfg.api_url, "https://bitwarden.example.com/api");
+        assert_eq!(cfg.identity_url, "https://bitwarden.example.com/identity");
     }
 
     /// Covers `from_cli` honouring `args.config` and treating a blank URL variable as unset.
