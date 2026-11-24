@@ -33,22 +33,32 @@ impl PrivateKey {
         Self(RsaPrivateKey::new(&mut SystemRng, bits).expect("RSA key generation does not fail"))
     }
 
+    /// `RsaPrivateKey` accepts primes that share a factor, `p == q` included. Such a key has no
+    /// CRT coefficient (`q^-1 mod p`), so `components` and `to_pkcs8_der` cannot export it.
+    fn require_crt_coefficient(key: RsaPrivateKey) -> Result<Self, Error> {
+        if key.qinv().is_none() {
+            return Err(Error::InvalidKey);
+        }
+
+        Ok(Self(key))
+    }
+
     pub(crate) fn from_pkcs8_der(der: &[u8]) -> Result<Self, Error> {
         RsaPrivateKey::from_pkcs8_der(der)
-            .map(Self)
             .map_err(|_| Error::InvalidKey)
+            .and_then(Self::require_crt_coefficient)
     }
 
     pub(crate) fn from_pkcs8_pem(pem: &str) -> Result<Self, Error> {
         RsaPrivateKey::from_pkcs8_pem(pem)
-            .map(Self)
             .map_err(|_| Error::InvalidKey)
+            .and_then(Self::require_crt_coefficient)
     }
 
     pub(crate) fn from_pkcs1_der(der: &[u8]) -> Result<Self, Error> {
         RsaPrivateKey::from_pkcs1_der(der)
-            .map(Self)
             .map_err(|_| Error::InvalidKey)
+            .and_then(Self::require_crt_coefficient)
     }
 
     pub(crate) fn from_components(
@@ -70,8 +80,8 @@ impl PrivateKey {
             uint(d),
             primes.iter().map(|p| uint(p)).collect(),
         )
-        .map(Self)
         .map_err(|_| Error::InvalidKey)
+        .and_then(Self::require_crt_coefficient)
     }
 
     pub(crate) fn to_pkcs8_der(&self) -> Result<Zeroizing<Vec<u8>>, Error> {
@@ -81,10 +91,14 @@ impl PrivateKey {
 
     pub(crate) fn components(&self) -> PrivateComponents {
         let primes = self.0.primes();
-        let crt = self
-            .0
-            .crt_coefficient()
-            .expect("validated keys carry a CRT coefficient");
+        // Read the value the `rsa` crate computed when it built the key: recomputing it panics
+        // inside `crypto-bigint` when the primes differ in size.
+        let crt = Zeroizing::new(
+            self.0
+                .qinv()
+                .expect("constructors only build keys that carry a CRT coefficient")
+                .retrieve(),
+        );
         PrivateComponents {
             n: be(self.0.n()),
             e: be(self.0.e()),
