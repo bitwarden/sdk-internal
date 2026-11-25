@@ -33,26 +33,6 @@ pub struct UntrustedMembershipsResponse {
 
 #[bitwarden_ffi::wasm_export]
 impl UserCryptoManagementClient {
-    /// The organization public keys the user has to confirm as trusted before a key rotation.
-    ///
-    /// When the rotation creates a V2 upgrade token, the list is empty. Organization admins update
-    /// account recovery from that token, so the user confirms nothing. Every other rotation returns
-    /// one entry per organization the user is enrolled in for account recovery.
-    pub async fn get_untrusted_organization_public_keys(
-        &self,
-        upgrade_token_action: UpgradeTokenAction,
-    ) -> Result<Vec<V1OrganizationMembership>, RotateUserKeysError> {
-        let api_client = &self.client.internal.get_api_configurations().api_client;
-        let key_rotation_data = sync::get_key_rotation_data(api_client)
-            .await
-            .map_err(|_| RotateUserKeysError::Api)?;
-        Ok(organization_memberships_needing_trust(
-            key_rotation_data.organization_memberships,
-            upgrade_token_action,
-            self.client.internal.get_key_store(),
-        ))
-    }
-
     /// Fetches the emergency access public keys for V1 emergency access memberships for the user.
     /// These have to be trusted manually be the user before rotating.
     pub async fn get_untrusted_emergency_access_public_keys(
