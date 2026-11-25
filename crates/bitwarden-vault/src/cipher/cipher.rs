@@ -2019,8 +2019,11 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             id: cipher.id.map(CipherId::new),
             organization_id: cipher.organization_id.map(OrganizationId::new),
             folder_id: cipher.folder_id.map(FolderId::new),
+            // The server may send the IDs under the shared-folder name instead of
+            // `collectionIds` (see `UseSharedFolderTerms`); accept either.
             collection_ids: cipher
                 .collection_ids
+                .or(cipher.shared_folder_ids)
                 .unwrap_or_default()
                 .into_iter()
                 .map(CollectionId::new)
@@ -2327,8 +2330,11 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             revision_date: require!(self.revision_date)
                 .parse()
                 .map_err(Into::<VaultParseError>::into)?,
+            // The server may send the IDs under the shared-folder name instead of
+            // `collectionIds` (see `UseSharedFolderTerms`); accept either.
             collection_ids: self
                 .collection_ids
+                .or(self.shared_folder_ids)
                 .into_iter()
                 .flatten()
                 .map(CollectionId::new)
@@ -4143,6 +4149,63 @@ mod tests {
             cipher.view_password,
             "view_password should default to true for CipherMiniDetailsResponseModel"
         );
+    }
+
+    /// The shared-folder write endpoints send the IDs as `sharedFolderIds` and omit
+    /// `collectionIds`. Both names must populate `Cipher::collection_ids`.
+    #[test]
+    fn test_details_response_collection_ids_accept_shared_folder_name() {
+        use chrono::Utc;
+
+        let a = uuid::Uuid::new_v4();
+        let b = uuid::Uuid::new_v4();
+        let now = Utc::now().to_rfc3339();
+        let ids = vec![CollectionId::new(a), CollectionId::new(b)];
+
+        macro_rules! assert_ids {
+            ($model:ident) => {{
+                let base = $model {
+                    id: Some(TEST_UUID.parse().unwrap()),
+                    r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                    creation_date: Some(now.clone()),
+                    revision_date: Some(now.clone()),
+                    ..Default::default()
+                };
+                let shared = $model {
+                    shared_folder_ids: Some(vec![a, b]),
+                    ..base.clone()
+                };
+                assert_eq!(
+                    shared.merge_with_cipher(None).unwrap().collection_ids,
+                    ids,
+                    concat!(stringify!($model), ": sharedFolderIds")
+                );
+                let legacy = $model {
+                    collection_ids: Some(vec![a, b]),
+                    ..base.clone()
+                };
+                assert_eq!(
+                    legacy.merge_with_cipher(None).unwrap().collection_ids,
+                    ids,
+                    concat!(stringify!($model), ": collectionIds")
+                );
+                // An explicit empty set from the server is respected.
+                let empty = $model {
+                    shared_folder_ids: Some(vec![]),
+                    ..base
+                };
+                assert!(
+                    empty
+                        .merge_with_cipher(None)
+                        .unwrap()
+                        .collection_ids
+                        .is_empty()
+                );
+            }};
+        }
+
+        assert_ids!(CipherDetailsResponseModel);
+        assert_ids!(CipherMiniDetailsResponseModel);
     }
 
     /// PAM gating is authoritative from the server response: `merge_with_cipher` takes
