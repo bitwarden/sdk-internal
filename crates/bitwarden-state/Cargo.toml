@@ -37,7 +37,7 @@ wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch="wasm32"))'.dependencies]
-rusqlite = { version = ">=0.37.0, <0.41", features = ["bundled"] }
+rusqlite = { version = ">=0.37.0, <0.42", features = ["bundled"] }
 uniffi = { workspace = true, optional = true }
 
 [target.'cfg(target_arch="wasm32")'.dependencies]

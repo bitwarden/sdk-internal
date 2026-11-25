@@ -32,12 +32,6 @@ pub struct PrivilegedControlsPlanFeaturesResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub base_seats: Option<i32>,
-    #[serde(
-        rename = "defaultSeatMinimum",
-        alias = "DefaultSeatMinimum",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub default_seat_minimum: Option<i32>,
 }
 
 impl PrivilegedControlsPlanFeaturesResponseModel {
@@ -46,7 +40,6 @@ impl PrivilegedControlsPlanFeaturesResponseModel {
             stripe_seat_plan_id: None,
             seat_price: None,
             base_seats: None,
-            default_seat_minimum: None,
         }
     }
 }

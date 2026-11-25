@@ -36,6 +36,7 @@ pub mod organization_export_api;
 pub mod organization_integration_api;
 pub mod organization_integration_configuration_api;
 pub mod organization_invite_links_api;
+pub mod organization_keys_api;
 pub mod organization_reports_api;
 pub mod organization_sponsorships_api;
 pub mod organization_subscriptions_api;
@@ -49,7 +50,6 @@ pub mod pam_access_connector_rotation_target_systems_api;
 pub mod pam_access_connectors_api;
 pub mod plans_api;
 pub mod policies_api;
-pub mod preview_invoice_api;
 pub mod projects_api;
 pub mod provider_billing_api;
 pub mod provider_billing_v_next_api;
@@ -74,6 +74,7 @@ pub mod service_accounts_api;
 pub mod settings_api;
 pub mod slack_integration_api;
 pub mod sso_cookie_vendor_api;
+pub mod sso_jit_provision_finish_api;
 pub mod stripe_api;
 pub mod sync_api;
 pub mod teams_integration_api;
@@ -133,6 +134,7 @@ struct ApiClientReal {
     organization_integration_api: organization_integration_api::OrganizationIntegrationApiClient,
     organization_integration_configuration_api: organization_integration_configuration_api::OrganizationIntegrationConfigurationApiClient,
     organization_invite_links_api: organization_invite_links_api::OrganizationInviteLinksApiClient,
+    organization_keys_api: organization_keys_api::OrganizationKeysApiClient,
     organization_reports_api: organization_reports_api::OrganizationReportsApiClient,
     organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient,
     organization_subscriptions_api: organization_subscriptions_api::OrganizationSubscriptionsApiClient,
@@ -146,7 +148,6 @@ struct ApiClientReal {
     pam_access_connectors_api: pam_access_connectors_api::PamAccessConnectorsApiClient,
     plans_api: plans_api::PlansApiClient,
     policies_api: policies_api::PoliciesApiClient,
-    preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient,
     projects_api: projects_api::ProjectsApiClient,
     provider_billing_api: provider_billing_api::ProviderBillingApiClient,
     provider_billing_v_next_api: provider_billing_v_next_api::ProviderBillingVNextApiClient,
@@ -171,6 +172,7 @@ struct ApiClientReal {
     settings_api: settings_api::SettingsApiClient,
     slack_integration_api: slack_integration_api::SlackIntegrationApiClient,
     sso_cookie_vendor_api: sso_cookie_vendor_api::SsoCookieVendorApiClient,
+    sso_jit_provision_finish_api: sso_jit_provision_finish_api::SsoJitProvisionFinishApiClient,
     stripe_api: stripe_api::StripeApiClient,
     sync_api: sync_api::SyncApiClient,
     teams_integration_api: teams_integration_api::TeamsIntegrationApiClient,
@@ -218,6 +220,7 @@ pub struct ApiClientMock {
     pub organization_integration_api: organization_integration_api::MockOrganizationIntegrationApi,
     pub organization_integration_configuration_api: organization_integration_configuration_api::MockOrganizationIntegrationConfigurationApi,
     pub organization_invite_links_api: organization_invite_links_api::MockOrganizationInviteLinksApi,
+    pub organization_keys_api: organization_keys_api::MockOrganizationKeysApi,
     pub organization_reports_api: organization_reports_api::MockOrganizationReportsApi,
     pub organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi,
     pub organization_subscriptions_api: organization_subscriptions_api::MockOrganizationSubscriptionsApi,
@@ -231,7 +234,6 @@ pub struct ApiClientMock {
     pub pam_access_connectors_api: pam_access_connectors_api::MockPamAccessConnectorsApi,
     pub plans_api: plans_api::MockPlansApi,
     pub policies_api: policies_api::MockPoliciesApi,
-    pub preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi,
     pub projects_api: projects_api::MockProjectsApi,
     pub provider_billing_api: provider_billing_api::MockProviderBillingApi,
     pub provider_billing_v_next_api: provider_billing_v_next_api::MockProviderBillingVNextApi,
@@ -256,6 +258,7 @@ pub struct ApiClientMock {
     pub settings_api: settings_api::MockSettingsApi,
     pub slack_integration_api: slack_integration_api::MockSlackIntegrationApi,
     pub sso_cookie_vendor_api: sso_cookie_vendor_api::MockSsoCookieVendorApi,
+    pub sso_jit_provision_finish_api: sso_jit_provision_finish_api::MockSsoJitProvisionFinishApi,
     pub stripe_api: stripe_api::MockStripeApi,
     pub sync_api: sync_api::MockSyncApi,
     pub teams_integration_api: teams_integration_api::MockTeamsIntegrationApi,
@@ -304,6 +307,7 @@ impl ApiClient {
             organization_integration_api: organization_integration_api::OrganizationIntegrationApiClient::new(configuration.clone()),
             organization_integration_configuration_api: organization_integration_configuration_api::OrganizationIntegrationConfigurationApiClient::new(configuration.clone()),
             organization_invite_links_api: organization_invite_links_api::OrganizationInviteLinksApiClient::new(configuration.clone()),
+            organization_keys_api: organization_keys_api::OrganizationKeysApiClient::new(configuration.clone()),
             organization_reports_api: organization_reports_api::OrganizationReportsApiClient::new(configuration.clone()),
             organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient::new(configuration.clone()),
             organization_subscriptions_api: organization_subscriptions_api::OrganizationSubscriptionsApiClient::new(configuration.clone()),
@@ -317,7 +321,6 @@ impl ApiClient {
             pam_access_connectors_api: pam_access_connectors_api::PamAccessConnectorsApiClient::new(configuration.clone()),
             plans_api: plans_api::PlansApiClient::new(configuration.clone()),
             policies_api: policies_api::PoliciesApiClient::new(configuration.clone()),
-            preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient::new(configuration.clone()),
             projects_api: projects_api::ProjectsApiClient::new(configuration.clone()),
             provider_billing_api: provider_billing_api::ProviderBillingApiClient::new(configuration.clone()),
             provider_billing_v_next_api: provider_billing_v_next_api::ProviderBillingVNextApiClient::new(configuration.clone()),
@@ -342,6 +345,7 @@ impl ApiClient {
             settings_api: settings_api::SettingsApiClient::new(configuration.clone()),
             slack_integration_api: slack_integration_api::SlackIntegrationApiClient::new(configuration.clone()),
             sso_cookie_vendor_api: sso_cookie_vendor_api::SsoCookieVendorApiClient::new(configuration.clone()),
+            sso_jit_provision_finish_api: sso_jit_provision_finish_api::SsoJitProvisionFinishApiClient::new(configuration.clone()),
             stripe_api: stripe_api::StripeApiClient::new(configuration.clone()),
             sync_api: sync_api::SyncApiClient::new(configuration.clone()),
             teams_integration_api: teams_integration_api::TeamsIntegrationApiClient::new(configuration.clone()),
@@ -391,6 +395,7 @@ impl ApiClient {
             organization_integration_api: organization_integration_api::MockOrganizationIntegrationApi::new(),
             organization_integration_configuration_api: organization_integration_configuration_api::MockOrganizationIntegrationConfigurationApi::new(),
             organization_invite_links_api: organization_invite_links_api::MockOrganizationInviteLinksApi::new(),
+            organization_keys_api: organization_keys_api::MockOrganizationKeysApi::new(),
             organization_reports_api: organization_reports_api::MockOrganizationReportsApi::new(),
             organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi::new(),
             organization_subscriptions_api: organization_subscriptions_api::MockOrganizationSubscriptionsApi::new(),
@@ -404,7 +409,6 @@ impl ApiClient {
             pam_access_connectors_api: pam_access_connectors_api::MockPamAccessConnectorsApi::new(),
             plans_api: plans_api::MockPlansApi::new(),
             policies_api: policies_api::MockPoliciesApi::new(),
-            preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi::new(),
             projects_api: projects_api::MockProjectsApi::new(),
             provider_billing_api: provider_billing_api::MockProviderBillingApi::new(),
             provider_billing_v_next_api: provider_billing_v_next_api::MockProviderBillingVNextApi::new(),
@@ -429,6 +433,7 @@ impl ApiClient {
             settings_api: settings_api::MockSettingsApi::new(),
             slack_integration_api: slack_integration_api::MockSlackIntegrationApi::new(),
             sso_cookie_vendor_api: sso_cookie_vendor_api::MockSsoCookieVendorApi::new(),
+            sso_jit_provision_finish_api: sso_jit_provision_finish_api::MockSsoJitProvisionFinishApi::new(),
             stripe_api: stripe_api::MockStripeApi::new(),
             sync_api: sync_api::MockSyncApi::new(),
             teams_integration_api: teams_integration_api::MockTeamsIntegrationApi::new(),
@@ -708,6 +713,13 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.organization_invite_links_api,
         }
     }
+    pub fn organization_keys_api(&self) -> &dyn organization_keys_api::OrganizationKeysApi {
+        match self {
+            ApiClient::Real(real) => &real.organization_keys_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.organization_keys_api,
+        }
+    }
     pub fn organization_reports_api(
         &self,
     ) -> &dyn organization_reports_api::OrganizationReportsApi {
@@ -814,13 +826,6 @@ impl ApiClient {
             ApiClient::Real(real) => &real.policies_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.policies_api,
-        }
-    }
-    pub fn preview_invoice_api(&self) -> &dyn preview_invoice_api::PreviewInvoiceApi {
-        match self {
-            ApiClient::Real(real) => &real.preview_invoice_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.preview_invoice_api,
         }
     }
     pub fn projects_api(&self) -> &dyn projects_api::ProjectsApi {
@@ -1006,6 +1011,15 @@ impl ApiClient {
             ApiClient::Real(real) => &real.sso_cookie_vendor_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.sso_cookie_vendor_api,
+        }
+    }
+    pub fn sso_jit_provision_finish_api(
+        &self,
+    ) -> &dyn sso_jit_provision_finish_api::SsoJitProvisionFinishApi {
+        match self {
+            ApiClient::Real(real) => &real.sso_jit_provision_finish_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.sso_jit_provision_finish_api,
         }
     }
     pub fn stripe_api(&self) -> &dyn stripe_api::StripeApi {

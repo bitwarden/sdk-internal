@@ -419,8 +419,8 @@ pub struct Organization {
         skip_serializing_if = "Option::is_none"
     )]
     pub max_autoscale_pam_seats: Option<i32>,
-    /// The minimum number of Privileged Access Management seats the organization's subscription
-    /// must retain. NULL if the organization has never purchased Privileged Access Management.
+    /// No longer used. Kept only because the column still exists in the database; don't read or
+    /// write it.
     #[serde(
         rename = "pamSeatMinimum",
         alias = "PamSeatMinimum",

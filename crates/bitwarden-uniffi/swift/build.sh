@@ -21,9 +21,12 @@ else
   PROFILE_FLAG="--release"
 fi
 echo "$PROFILE_FLAG"
-cargo build --package bitwarden-uniffi --target aarch64-apple-ios-sim $PROFILE_FLAG
-cargo build --package bitwarden-uniffi --target aarch64-apple-ios $PROFILE_FLAG
-cargo build --package bitwarden-uniffi --target x86_64-apple-ios $PROFILE_FLAG
+# One invocation for all targets, so Cargo can build them in parallel.
+cargo build --package bitwarden-uniffi \
+  --target aarch64-apple-ios-sim \
+  --target aarch64-apple-ios \
+  --target x86_64-apple-ios \
+  $PROFILE_FLAG
 
 mkdir -p tmp/target/universal-ios-sim/$PROFILE
 

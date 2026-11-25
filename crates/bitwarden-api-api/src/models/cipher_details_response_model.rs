@@ -197,12 +197,23 @@ pub struct CipherDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub permissions: Option<Box<models::CipherPermissionsResponseModel>>,
+    /// Legacy term. Omitted from the payload when
+    /// Bit.Api.Vault.Models.Response.CipherDetailsResponseModel.SharedFolderIds is in use.
     #[serde(
         rename = "collectionIds",
         alias = "CollectionIds",
         skip_serializing_if = "Option::is_none"
     )]
     pub collection_ids: Option<Vec<uuid::Uuid>>,
+    /// Shared-folder term for
+    /// Bit.Api.Vault.Models.Response.CipherDetailsResponseModel.CollectionIds. Only populated by
+    /// M:Bit.Api.Vault.Models.Response.CipherDetailsResponseModel.UseSharedFolderTerms.
+    #[serde(
+        rename = "sharedFolderIds",
+        alias = "SharedFolderIds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shared_folder_ids: Option<Vec<uuid::Uuid>>,
 }
 
 impl CipherDetailsResponseModel {
@@ -240,6 +251,7 @@ impl CipherDetailsResponseModel {
             archived_date: None,
             permissions: None,
             collection_ids: None,
+            shared_folder_ids: None,
         }
     }
 }

@@ -1,0 +1,69 @@
+// Biometrics V1 IPC Protocol [deprecated]
+//
+// Note on replays: Replays are not protected per message, but instead
+// filtered at the application to be within 10s of wall-clock time.
+// This means that Verifpal will detect a replay attack, that
+// is accepted (but handled at the application level).
+
+// The attacker is passive. We assume there is no tampering
+// with the IPC channels actively. Instead, the passive attacker
+// models forensics sweeping the disk, after the device was stolen.
+attacker[passive]
+
+// Step 1: Extension generates private key, and sends it to the desktop
+principal Extension [
+	// The private key is ephemeral, and used once then discarded
+	generates privateKey
+	sessionPublicKey = PUBKEY(privateKey)
+]
+
+Extension -> Desktop: sessionPublicKey
+
+// Step 2: Destkop generates a symmetric key, and sends it to the extension
+principal Desktop [
+	// We model symmetric keygen + RSA encrypt as KEM_ENCAP
+	// Verifpal does not support RSA
+	generates seed
+	symmetricKey_Desktop, wrappedKey = KEM_ENCAP(sessionPublicKey, seed)
+]
+
+Desktop -> Extension: wrappedKey
+
+principal Extension [
+    // We model symmetric keygen + RSA encrypt
+	symmetricKey_Extension = KEM_DECAP(privateKey, wrappedKey)
+]
+
+
+// Simulate a message Desktop -> Extension
+principal Desktop [
+	generates message1
+	generates nonce1
+	packet1 = AEAD_ENC(symmetricKey_Desktop, nonce1, message1, nil)
+]
+
+Desktop -> Extension: packet1, nonce1
+
+principal Extension [
+	_ = AEAD_DEC(symmetricKey_Extension, nonce1, packet1, nil)?
+]
+
+// Simulate a message Extension -> Desktop
+principal Extension [
+	generates message2
+	generates nonce2
+	packet2 = AEAD_ENC(symmetricKey_Extension, nonce2, message2, nil)
+]
+
+Extension -> Desktop: packet2, nonce2
+
+principal Desktop [
+	_ = AEAD_DEC(symmetricKey_Desktop, nonce2, packet2, nil)?
+]
+
+queries [
+	confidentiality? message1
+	confidentiality? message2
+	authentication? Desktop -> Extension: packet1
+	authentication? Extension -> Desktop: packet2
+]

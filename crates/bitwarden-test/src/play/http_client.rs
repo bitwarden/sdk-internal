@@ -41,6 +41,14 @@ impl PlayHttpClient {
         builder.header("x-play-id", &self.play_id)
     }
 
+    /// Add HTTP basic auth to a seeder request, when credentials are configured
+    fn with_seeder_auth(&self, builder: RequestBuilder) -> RequestBuilder {
+        match &self.config.seeder_credentials {
+            Some(creds) => builder.basic_auth(&creds.username, Some(&creds.password)),
+            None => builder,
+        }
+    }
+
     /// POST JSON to the seeder API and parse JSON response
     pub(crate) async fn post_seeder<T: Serialize, R: DeserializeOwned>(
         &self,
@@ -58,7 +66,7 @@ impl PlayHttpClient {
         );
 
         let response = self
-            .with_play_id(self.client.post(&url))
+            .with_seeder_auth(self.with_play_id(self.client.post(&url)))
             .json(body)
             .send()
             .await?;
@@ -77,7 +85,10 @@ impl PlayHttpClient {
             "Play request"
         );
 
-        let response = self.with_play_id(self.client.delete(&url)).send().await?;
+        let response = self
+            .with_seeder_auth(self.with_play_id(self.client.delete(&url)))
+            .send()
+            .await?;
 
         let status = response.status();
         debug!(status = %status, "Play response");
@@ -172,6 +183,80 @@ mod tests {
 
         assert_eq!(result.id, 42);
         assert_eq!(result.name, "test-user");
+    }
+
+    /// Sends one seeder request (POST or DELETE) to a dedicated mock server and asserts that
+    /// exactly one request arrived, carrying an `Authorization: Basic` header only when
+    /// credentials are configured.
+    ///
+    /// Uses `MockServer::builder()` rather than `MockServer::start()`: the latter hands out
+    /// servers from a pool shared across tests, so other requests could land on the same server.
+    async fn assert_seeder_basic_auth(credentials: bool, delete: bool) {
+        // base64("user:pass")
+        let expected = "Basic dXNlcjpwYXNz";
+
+        let mock_server = MockServer::builder().start().await;
+        Mock::given(wiremock::matchers::any())
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .mount(&mock_server)
+            .await;
+
+        let mut config = create_test_config(&mock_server.uri());
+        if credentials {
+            config = config.with_seeder_credentials("user", "pass");
+        }
+        let client = PlayHttpClient::new("id".to_string(), config);
+
+        if delete {
+            client.delete_seeder("/seed/id").await.unwrap();
+        } else {
+            let _: serde_json::Value = client
+                .post_seeder("/seed/", &serde_json::json!({}))
+                .await
+                .unwrap();
+        }
+
+        let requests = mock_server.received_requests().await.unwrap();
+        let received: Vec<String> = requests
+            .iter()
+            .map(|r| format!("{} {}", r.method, r.url))
+            .collect();
+        assert_eq!(
+            requests.len(),
+            1,
+            "expected exactly one request, received: {received:#?}"
+        );
+        let auth = requests[0]
+            .headers
+            .get("authorization")
+            .map(|v| v.to_str().unwrap().to_string());
+        if credentials {
+            assert_eq!(auth.as_deref(), Some(expected));
+        } else {
+            assert_eq!(auth, None);
+        }
+    }
+
+    /// Seeder requests carry an `Authorization: Basic` header only when credentials are
+    /// configured.
+    #[tokio::test]
+    async fn test_seeder_post_sends_basic_auth_with_credentials() {
+        assert_seeder_basic_auth(true, false).await;
+    }
+
+    #[tokio::test]
+    async fn test_seeder_delete_sends_basic_auth_with_credentials() {
+        assert_seeder_basic_auth(true, true).await;
+    }
+
+    #[tokio::test]
+    async fn test_seeder_post_omits_basic_auth_without_credentials() {
+        assert_seeder_basic_auth(false, false).await;
+    }
+
+    #[tokio::test]
+    async fn test_seeder_delete_omits_basic_auth_without_credentials() {
+        assert_seeder_basic_auth(false, true).await;
     }
 
     #[tokio::test]

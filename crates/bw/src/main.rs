@@ -202,7 +202,7 @@ async fn legacy_temp_login() -> Result<()> {
         client::persisted_state::AUTHENTICATION_TOKENS,
         key_management::account_cryptographic_state::WrappedAccountCryptographicState,
     };
-    use color_eyre::eyre::eyre;
+    use color_eyre::eyre::WrapErr;
 
     let (Ok(email), Ok(password)) = (std::env::var("BW_EMAIL"), std::env::var("BW_PASSWORD"))
     else {
@@ -247,10 +247,10 @@ async fn legacy_temp_login() -> Result<()> {
     let tokens = client
         .platform()
         .state()
-        .setting(AUTHENTICATION_TOKENS)?
+        .value::<AUTHENTICATION_TOKENS>()
         .get()
-        .await?
-        .ok_or_else(|| eyre!("login did not persist authentication tokens"))?;
+        .await
+        .wrap_err("login did not persist authentication tokens")?;
 
     let user_id: UserId = tokens.access_token.parse::<JwtToken>()?.sub.parse()?;
 

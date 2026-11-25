@@ -51,6 +51,14 @@ pub struct TwoFactorEmailLoginRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub sso_email2_fa_session_token: Option<String>,
+    /// Identifier of the requesting device, read only when the request has no `Device-Identifier`
+    /// header.
+    #[serde(
+        rename = "deviceIdentifier",
+        alias = "DeviceIdentifier",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub device_identifier: Option<String>,
 }
 
 impl TwoFactorEmailLoginRequestModel {
@@ -66,6 +74,7 @@ impl TwoFactorEmailLoginRequestModel {
             email,
             auth_request_id: None,
             sso_email2_fa_session_token: None,
+            device_identifier: None,
         }
     }
 }

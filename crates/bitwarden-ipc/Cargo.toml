@@ -50,5 +50,8 @@ wasm-bindgen-futures = { workspace = true, optional = true }
 web-time = "1.1.0"
 zeroize = { workspace = true, features = ["zeroize_derive"] }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "sync", "test-util", "time"] }
+
 [lints]
 workspace = true

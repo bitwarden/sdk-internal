@@ -26,7 +26,7 @@ impl CiphersClient {
 
     /// Decrypt cipher list
     pub async fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>> {
-        Ok(self.0.decrypt_list(ciphers).await?)
+        Ok(self.0.decrypt_list(ciphers.into()).await?)
     }
 
     /// Encrypt a list of cipher views. Fails if any cipher fails to encrypt.
@@ -45,7 +45,7 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> Result<DecryptCipherListResult> {
-        Ok(self.0.decrypt_list_with_failures(ciphers).await)
+        Ok(self.0.decrypt_list_with_failures(ciphers.into()).await?)
     }
 
     /// Move a cipher to an organization, reencrypting the cipher key if necessary
@@ -78,7 +78,10 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> Result<DecryptCipherResult> {
-        Ok(self.0.decrypt_list_full_with_failures(ciphers).await)
+        Ok(self
+            .0
+            .decrypt_list_full_with_failures(ciphers.into())
+            .await?)
     }
 
     /// Create a new cipher and save it to the server and local state

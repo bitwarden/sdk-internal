@@ -402,8 +402,8 @@ impl TryFrom<AccessRequestResultResponseModel> for AccessRequestResultView {
 }
 
 /// The single badge to show for a gated cipher: an active lease outranks an approved request,
-/// which outranks a pending one. Has no `unavailable` or `expired` state, since the access-state
-/// response covers only the caller.
+/// which outranks a pending one, which outranks the rule refusing a new request. Has no `expired`
+/// state, since the access-state response is a snapshot.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
@@ -418,6 +418,9 @@ pub enum AccessBadgeState {
     Ready,
     /// The caller has a request awaiting a decision.
     Pending,
+    /// Nothing is held or pending, and the rule's conditions refuse a new request right now, for
+    /// example outside its IP allowlist.
+    Unavailable,
     /// No active lease, approved request, or pending request; the item is gated and resting.
     Privileged,
 }
@@ -471,6 +474,9 @@ impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
             AccessBadgeState::Ready
         } else if pending_request.is_some() {
             AccessBadgeState::Pending
+        } else if response.can_request == Some(false) {
+            // Absent reads as requestable, so an older server keeps the resting badge.
+            AccessBadgeState::Unavailable
         } else {
             AccessBadgeState::Privileged
         };
@@ -1020,6 +1026,42 @@ mod tests {
     }
 
     #[test]
+    fn badge_state_is_unavailable_when_the_rule_refuses_a_request() {
+        let response = CipherAccessStateResponseModel {
+            can_request: Some(false),
+            ..cipher_access_state_response_with(None, None, None)
+        };
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Unavailable);
+    }
+
+    #[test]
+    fn badge_state_prefers_pending_over_unavailable() {
+        let response = CipherAccessStateResponseModel {
+            can_request: Some(false),
+            ..cipher_access_state_response_with(None, Some(Box::new(full_response())), None)
+        };
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Pending);
+    }
+
+    #[test]
+    fn badge_state_is_privileged_when_the_rule_allows_a_request() {
+        let response = CipherAccessStateResponseModel {
+            can_request: Some(true),
+            ..cipher_access_state_response_with(None, None, None)
+        };
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Privileged);
+    }
+
+    #[test]
     fn active_badge_state_serializes_with_camel_case_expires_at() {
         let state = AccessBadgeState::Active {
             expires_at: "2025-01-01T01:00:00Z".parse().unwrap(),
@@ -1039,6 +1081,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(AccessBadgeState::Pending).unwrap(),
             serde_json::json!("pending")
+        );
+        assert_eq!(
+            serde_json::to_value(AccessBadgeState::Unavailable).unwrap(),
+            serde_json::json!("unavailable")
         );
         assert_eq!(
             serde_json::to_value(AccessBadgeState::Privileged).unwrap(),

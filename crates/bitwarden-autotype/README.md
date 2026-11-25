@@ -25,8 +25,7 @@ Each process registers the handlers for the requests it receives, backed by its 
 
 ## Tests
 
-Coverage lives in the TypeScript integration tests under
-`crates/bitwarden-wasm-internal/integration-tests/tests/autotype/`, which test the
+Coverage lives in the TypeScript integration tests under `e2e/wasm/tests/autotype/`, which test the
 `serialize → encrypt → decrypt → deserialize` path over a paired in-memory transport.
 
-Run the tests with `npm run build:test` from `crates/bitwarden-wasm-internal/integration-tests`.
+Run the tests with `npm run e2e:wasm` from the repository root.

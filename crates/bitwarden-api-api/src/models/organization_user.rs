@@ -92,6 +92,14 @@ pub struct OrganizationUser {
         skip_serializing_if = "Option::is_none"
     )]
     pub external_id: Option<String>,
+    /// The name used to identify the OrganizationUser in an external directory service, e.g. the
+    /// SCIM userName.
+    #[serde(
+        rename = "externalName",
+        alias = "ExternalName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub external_name: Option<String>,
     /// The date the OrganizationUser was created, i.e. when the User was first invited to the
     /// Organization.
     #[serde(
@@ -138,6 +146,22 @@ pub struct OrganizationUser {
         skip_serializing_if = "Option::is_none"
     )]
     pub revocation_reason: Option<models::RevocationReason>,
+    /// When the next invite reminder is due. Null when no reminders are scheduled. A revoke keeps
+    /// this value for a later restore.
+    #[serde(
+        rename = "inviteReminderDueDate",
+        alias = "InviteReminderDueDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub invite_reminder_due_date: Option<String>,
+    /// The number of invite reminders claimed in the current sequence. Null when no reminders are
+    /// scheduled.
+    #[serde(
+        rename = "inviteRemindersSentCount",
+        alias = "InviteRemindersSentCount",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub invite_reminders_sent_count: Option<i32>,
 }
 
 impl OrganizationUser {
@@ -157,12 +181,15 @@ impl OrganizationUser {
             status_new: None,
             r#type: None,
             external_id: None,
+            external_name: None,
             creation_date: None,
             revision_date: None,
             permissions: None,
             access_secrets_manager: None,
             access_pam: None,
             revocation_reason: None,
+            invite_reminder_due_date: None,
+            invite_reminders_sent_count: None,
         }
     }
 }

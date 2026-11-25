@@ -96,8 +96,7 @@ Prefer, in order:
    topologies (simple, tree, V-shaped), restarts, peer loss, client quirks — copy the closest one.
    Read `harness/mod.rs` docs first (fast timings, `RUST_LOG` capture). Run:
    `cargo test -p bitwarden-shared-unlock --test shared_unlock <filter>`.
-2. **WASM integration test** (Jest) in `crates/bitwarden-wasm-internal/integration-tests/`. Read its
-   `Readme.md` first. Building blocks:
+2. **WASM e2e test** (vitest) in `e2e/wasm/`. Read its `README.md` first. Building blocks:
    - `test-harness.ts` — `testHarness()` gives a `ServerEmulator` (fetch hooked) and
      `newClientEmulator()`. Call `restore()` in `afterEach`.
    - `server-emulator/` — backend model. **Seed state through the server and sync**; never write
@@ -135,8 +134,8 @@ server has) are fine; say what you added.
 WASM:
 
 ```sh
-cd crates/bitwarden-wasm-internal/integration-tests
-npm run build:test          # rebuilds wasm (build.sh) then runs jest
+cd e2e/wasm
+npm run build:test          # rebuilds wasm (build.sh), typechecks, then runs vitest
 npm run test -- -t "<name>" # re-run without rebuilding when only TS changed
 ```
 

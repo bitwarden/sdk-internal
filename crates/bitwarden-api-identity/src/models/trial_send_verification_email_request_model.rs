@@ -56,12 +56,6 @@ pub struct TrialSendVerificationEmailRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub payment_optional: Option<bool>,
-    #[serde(
-        rename = "pamSeatMinimum",
-        alias = "PamSeatMinimum",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub pam_seat_minimum: Option<i32>,
 }
 
 impl TrialSendVerificationEmailRequestModel {
@@ -80,7 +74,6 @@ impl TrialSendVerificationEmailRequestModel {
             products,
             trial_length: None,
             payment_optional: None,
-            pam_seat_minimum: None,
         }
     }
 }

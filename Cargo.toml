@@ -10,7 +10,7 @@ version = "4.0.0"
 authors = ["Bitwarden Inc"]
 edition = "2024"
 # Important: Changing rust-version should be considered a breaking change
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 homepage = "https://bitwarden.com"
 repository = "https://github.com/bitwarden/sdk-internal"
 license-file = "LICENSE"
@@ -44,6 +44,7 @@ bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite",
 bitwarden-crypto-sync-handler = { path = "crates/bitwarden-crypto-sync-handler", version = "=4.0.0" }
 bitwarden-emergency-access = { path = "crates/bitwarden-emergency-access", version = "=4.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=4.0.0" }
+bitwarden-encrypted-migrator = { path = "crates/bitwarden-encrypted-migrator", version = "=4.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=4.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=4.0.0" }
 bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=4.0.0" }
@@ -59,6 +60,7 @@ bitwarden-managed-settings = { path = "crates/bitwarden-managed-settings", versi
 bitwarden-managed-settings-types = { path = "crates/bitwarden-managed-settings-types", version = "=4.0.0" }
 bitwarden-member-administration = { path = "crates/bitwarden-member-administration", version = "=4.0.0" }
 bitwarden-organization-crypto = { path = "crates/bitwarden-organization-crypto", version = "=4.0.0" }
+bitwarden-organization-crypto-management = { path = "crates/bitwarden-organization-crypto-management", version = "=4.0.0" }
 bitwarden-organization-domains = { path = "crates/bitwarden-organization-domains", version = "=4.0.0" }
 bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-invite-link", version = "=4.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=4.0.0" }
@@ -84,6 +86,7 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=4.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=4.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=4.0.0" }
+bitwarden-web-connector = { path = "crates/bitwarden-web-connector", version = "=4.0.0" }
 cbc = { version = "0.2.0", features = ["alloc", "zeroize"] }
 chrono = { version = ">=0.4.34, <0.5", features = [
     "clock",
@@ -105,7 +108,10 @@ icu_normalizer = { version = "2.2.0", features = [
     "utf8_iter",
 ], default-features = false }
 js-sys = { version = ">=0.3.72, <0.4" }
-keepass = { version = ">=0.13.7, <0.16", default-features = false }
+keepass = { version = ">=0.13.7, <0.18", default-features = false }
+ldap3 = { version = "=0.12.1", default-features = false, features = [
+    "tls-rustls-ring",
+] }
 mockall = { version = ">=0.13.1, <0.16" }
 password-rules-parser = ">=1.1.0, <2"
 pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
@@ -140,7 +146,7 @@ serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde-wasm-bindgen = ">=0.6.0, <0.7"
 serde_bytes = { version = ">=0.11.17, <0.12.0" }
 serde_json = ">=1.0.96, <2.0"
-serde_qs = ">=0.12.0, <0.16"
+serde_qs = ">=1.1.3, <2"
 serde_repr = ">=0.1.12, <0.2"
 sha1 = "0.11.0"
 sha2 = "0.11.0"
@@ -154,30 +160,24 @@ tracing-subscriber = { version = "0.3.20", features = [
     "env-filter",
     "tracing-log",
 ] }
-# Tsify is pinned as newer versions deprecate from/into_wasm_abi
-# We use this extensively and the migration is going to be complex,
-# but in the meantime we want to avoid CI failures here.
-# https://github.com/madonoharu/tsify/blob/main/CHANGELOG.md#v057
-tsify = { version = ">=0.5.5, <0.5.7", features = [
+# 0.5.7 is the floor: it adds `Ts<T>`, which the wasm bindings cross the ABI with.
+tsify = { version = ">=0.5.7, <0.6", features = [
     "js",
 ], default-features = false }
-# The deprecation is emitted by the proc macro, and `tsify` only requires
-# `tsify-macros ^0.5.5`, so the bound above has to be repeated here to hold.
-tsify-macros = ">=0.5.5, <0.5.7"
 uniffi = "=0.32.0"
 url = ">=2.5.8, <3.0"
 uuid = { version = ">=1.3.3, <2.0", features = ["serde", "v4", "js"] }
 validator = { version = ">=0.18.1, <0.22", features = ["derive"] }
-wasm-bindgen = { version = "=0.2.114", features = ["serde-serialize"] }
-wasm-bindgen-cli = "=0.2.114"
-wasm-bindgen-futures = "0.4.64"
-wasm-bindgen-test = "0.3.64"
+wasm-bindgen = { version = "=0.2.130", features = ["serde-serialize"] }
+wasm-bindgen-cli = "=0.2.130"
+wasm-bindgen-futures = "0.4.80"
+wasm-bindgen-test = "0.3.80"
 wiremock = ">=0.6.0, <0.7"
 zeroize = { version = ">=1.7.0, <2.0" }
 zxcvbn = ">=3.0.1, <4.0"
 
 [workspace.lints.clippy]
-disallowed-macros = "deny"
+disallowed_macros = "deny"
 unused_async = "warn"
 unwrap_used = "deny"
 string_slice = "warn"
@@ -204,6 +204,7 @@ libraries = [{ path = "support/lints" }]
 # Install the runner once with `cargo install cargo-run-bin --locked`, then
 # invoke any tool via `cargo bin <tool> <args>`. See README for details.
 [workspace.metadata.bin]
+cargo-deny = { version = "0.20.0", locked = true }
 cargo-sort = { version = "2.0.2", locked = true }
 cargo-udeps = { version = "0.1.57", locked = true }
 cargo-hack = { version = "0.6.33", locked = true }
@@ -215,6 +216,7 @@ dylint-link = { version = "6.0.0", locked = true }
 cross = { version = "0.2.5", git = "https://github.com/cross-rs/cross.git", rev = "185398b1b885820515a212de720a306b08e2c8c9", locked = true }
 clippy-sarif = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
 sarif-fmt = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
+verifpal = { version = "1.6.7", git = "https://github.com/symbolicsoft/verifpal", rev = "b02e677bff5a0e4f61c5c6939015cef05faa69a0", locked = true }
 
 # Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
 # if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out

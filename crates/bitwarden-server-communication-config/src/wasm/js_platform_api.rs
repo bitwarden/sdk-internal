@@ -26,7 +26,7 @@ export interface ServerCommunicationConfigPlatformApi {
 }
 "#;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_import]
 extern "C" {
     /// JavaScript interface for the ServerCommunicationConfigPlatformApi
     #[wasm_bindgen(

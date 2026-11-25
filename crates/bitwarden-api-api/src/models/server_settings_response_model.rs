@@ -32,6 +32,12 @@ pub struct ServerSettingsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub enable_email_verification: Option<bool>,
+    #[serde(
+        rename = "enableOpenInviteLinkEmailVerification",
+        alias = "EnableOpenInviteLinkEmailVerification",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub enable_open_invite_link_email_verification: Option<bool>,
 }
 
 impl ServerSettingsResponseModel {
@@ -40,6 +46,7 @@ impl ServerSettingsResponseModel {
             disable_user_registration: None,
             suppress_onboarding_interstitials: None,
             enable_email_verification: None,
+            enable_open_invite_link_email_verification: None,
         }
     }
 }

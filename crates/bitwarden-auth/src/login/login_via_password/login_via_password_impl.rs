@@ -85,6 +85,7 @@ mod tests {
             device_identifier: None,
             bitwarden_client_version: None,
             bitwarden_package_type: None,
+            ..Default::default()
         };
         LoginClient::new(Client::new(Some(settings)))
     }
@@ -471,6 +472,7 @@ mod tests {
             device_identifier: None,
             bitwarden_client_version: None,
             bitwarden_package_type: None,
+            ..Default::default()
         };
         let login_client = LoginClient::new(Client::new(Some(settings)));
 
@@ -498,6 +500,7 @@ mod tests {
             device_identifier: None,
             bitwarden_client_version: None,
             bitwarden_package_type: None,
+            ..Default::default()
         };
         let login_client = LoginClient::new(Client::new(Some(settings)));
 

@@ -39,6 +39,12 @@ pub struct PurchaseSelections {
     )]
     pub secrets_manager: Option<Box<models::SecretsManagerSelections>>,
     #[serde(
+        rename = "privilegedControls",
+        alias = "PrivilegedControls",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub privileged_controls: Option<Box<models::PrivilegedControlsSelections>>,
+    #[serde(
         rename = "coupons",
         alias = "Coupons",
         skip_serializing_if = "Option::is_none"
@@ -53,6 +59,7 @@ impl PurchaseSelections {
             cadence: None,
             password_manager: None,
             secrets_manager: None,
+            privileged_controls: None,
             coupons: None,
         }
     }

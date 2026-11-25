@@ -41,7 +41,7 @@ impl Buffer {
     pub fn new(capacity: usize) -> Self {
         Self {
             #[cfg(target_arch = "wasm32")]
-            inner: js_sys::Uint8Array::new_with_length(capacity as u32).into(),
+            inner: js_sys::Uint8Array::new_with_length(capacity as u32),
 
             #[cfg(not(target_arch = "wasm32"))]
             inner: vec![0; capacity],

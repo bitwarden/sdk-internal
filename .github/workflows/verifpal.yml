@@ -1,0 +1,67 @@
+name: Verifpal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "protocols/**"
+      - ".github/workflows/verifpal.yml"
+  pull_request:
+    paths:
+      - "protocols/**"
+      - ".github/workflows/verifpal.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify protocol models
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+
+      # No restore keys: cargo-run-bin stores Verifpal under its version only, not its git rev,
+      # so an older cache would keep an old Verifpal after the rev in Cargo.toml changes.
+      - name: Cache cargo-run-bin tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .bin
+          key: cargo-bin-${{ runner.os }}-verifpal-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
+
+      - name: Install cargo-run-bin
+        run: cargo install cargo-run-bin --locked --version 1.7.4
+
+      - name: Check cargo-binstall is not configured
+        run: ./scripts/check-no-binstall.sh
+
+      - name: Build Verifpal
+        run: cargo bin verifpal --version
+
+      # Findings (attacks) are expected and do not fail the job.
+      # Parse and analysis errors exit non-zero and do.
+      - name: Verify models
+        run: |
+          shopt -s globstar nullglob
+          models=(protocols/**/*.vp)
+          if [ ${#models[@]} -eq 0 ]; then
+            echo "No models found"
+            exit 1
+          fi
+          for model in "${models[@]}"; do
+            echo "::group::$model"
+            cargo bin verifpal verify "$model"
+            echo "::endgroup::"
+          done

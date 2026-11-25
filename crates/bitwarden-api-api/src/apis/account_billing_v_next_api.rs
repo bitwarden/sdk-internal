@@ -87,7 +87,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<models::UpgradePremiumToOrganizationResponseModel, Error>;
 }
 
 pub struct AccountBillingVNextApiClient {
@@ -338,7 +338,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<models::UpgradePremiumToOrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -354,6 +354,6 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&upgrade_premium_to_organization_request);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 }

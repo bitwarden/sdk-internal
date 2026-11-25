@@ -8,6 +8,7 @@ use url::{Url, form_urlencoded};
 use zeroize::Zeroizing;
 
 use self::{
+    cpace::SignIn,
     enrollment::enroll_device,
     ui::{SsoLoginResult, SsoUi},
 };
@@ -27,6 +28,10 @@ use super::{
 mod cpace;
 mod enrollment;
 #[cfg(test)]
+mod fake_server;
+#[cfg(test)]
+mod flow_tests;
+#[cfg(test)]
 mod test_support;
 pub mod ui;
 
@@ -36,8 +41,8 @@ const DEVICE_NOT_ENROLLED: &str = "device_not_enrolled";
 
 /// The timing knobs of the SSO network flows, grouped so the tests can shrink them.
 pub(super) struct Timing {
-    /// Delay before retrying a request of `post_json_until_result`, which the server answered
-    /// with 200 and an empty body.
+    /// Delay before asking the server again for a CPace message or the shared credentials, which
+    /// it does not have yet.
     until_result_delay: Duration,
     /// Maximum number of attempts of such a request before it fails.
     until_result_attempts: u32,
@@ -106,16 +111,12 @@ pub(super) async fn sso_login(
     sso_session.require_new_device()?;
 
     // 9. The user approves the device on an enrolled one, which hands over the credential bundle.
-    let sign_in_token = sso_session.sso_auth.sign_in_token_details.token.as_str();
-    let bundle = enroll_device(
-        &credentials.username,
-        &account.sign_in_address,
-        sign_in_token,
-        ui,
-        &sso_rest,
-        timing,
-    )
-    .await?;
+    let sign_in = SignIn {
+        username: &credentials.username,
+        sign_in_address: &account.sign_in_address,
+        sign_in_token: &sso_session.sso_auth.sign_in_token_details.token,
+    };
+    let bundle = enroll_device(sign_in, ui, &sso_rest, timing).await?;
 
     // 10. The bundle holds the SRP x that signs in without a password.
     let srp_x = Zeroizing::new(decode64_loose(&bundle.srpx)?);
@@ -405,11 +406,12 @@ mod tests {
     use std::sync::Mutex;
 
     use async_trait::async_trait;
-    use serde_json::{Value, json};
+    use serde_json::json;
     use wiremock::{Mock, MockServer, ResponseTemplate, matchers};
 
     use super::{
-        test_support::{SIGN_IN_TOKEN, rest_client, vectors},
+        fake_server::{client_info, verify_response},
+        test_support::{rest_client, vectors},
         ui::SsoEnrollmentContext,
         *,
     };
@@ -482,30 +484,6 @@ mod tests {
             "user@example.com",
         )
         .expect("an SSO account")
-    }
-
-    fn client_info() -> ClientInfo {
-        ClientInfo::for_desktop("device-uuid")
-    }
-
-    /// What `v3/auth/sso/oidc/verify` answers, `state` being what the server says about the device.
-    fn verify_response(state: &str) -> Value {
-        json!({
-            "type": state,
-            "user": {
-                "sessionUuid": "SESSIONUUID",
-                "accountUuid": "ACCOUNTUUID",
-                "userUuid": "USERUUID",
-                "email": "user@example.com",
-            },
-            "ssoAuth": {
-                "signInTokenDetails": {
-                    "token": SIGN_IN_TOKEN,
-                    "publicKey": "PUBLICKEY",
-                    "exp": "2030-01-01T00:00:00Z",
-                },
-            },
-        })
     }
 
     fn session(state: &str) -> SsoSession {

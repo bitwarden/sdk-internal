@@ -1,0 +1,30 @@
+error[E0277]: the trait bound `LargeVec<Item>: serde::Serialize` is not satisfied
+  --> tests/compilation_tests/wasm/large_vec_serialize_field.rs:10:10
+   |
+10 | #[derive(Serialize)]
+   |          ^^^^^^^^^ the trait `Serialize` is not implemented for `LargeVec<Item>`
+11 | pub struct Items {
+12 |     pub items: LargeVec<Item>,
+   |     --- required by a bound introduced by this call
+   |
+   = note: for local types consider adding `#[derive(serde::Serialize)]` to your `LargeVec<Item>` type
+   = note: for types from other crates check whether the crate offers a `serde` feature flag
+   = help: the following other types implement trait `Serialize`:
+             &'a T
+             &'a mut T
+             ()
+             (T,)
+             (T0, T1)
+             (T0, T1, T2)
+             (T0, T1, T2, T3)
+             (T0, T1, T2, T3, T4)
+           and $N others
+note: required by a bound in `_::_serde::ser::SerializeStruct::serialize_field`
+  --> $CARGO/serde_core-$VERSION/src/ser/mod.rs
+   |
+   |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+   |        --------------- required by a bound in this associated function
+   |     where
+   |         T: ?Sized + Serialize;
+   |                     ^^^^^^^^^ required by this bound in `SerializeStruct::serialize_field`
+   = note: this error originates in the derive macro `Serialize` (in Nightly builds, run with -Z macro-backtrace for more info)

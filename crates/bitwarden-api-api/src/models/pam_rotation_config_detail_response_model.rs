@@ -112,6 +112,13 @@ pub struct PamRotationConfigDetailResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub has_active_job: Option<bool>,
+    /// Gets or sets whether the last job ended badly.
+    #[serde(
+        rename = "lastJobFailed",
+        alias = "LastJobFailed",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_job_failed: Option<bool>,
     /// An enabled manual-target config that has come due (spec `awaiting_manual_rotation`). An
     /// operator rotates it out of band and records that via `record-manual`.
     #[serde(
@@ -160,6 +167,7 @@ impl PamRotationConfigDetailResponseModel {
             enabled: None,
             last_rotation_at: None,
             has_active_job: None,
+            last_job_failed: None,
             awaiting_manual_rotation: None,
             creation_date: None,
             revision_date: None,

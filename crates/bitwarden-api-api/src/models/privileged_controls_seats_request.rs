@@ -15,11 +15,11 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PrivilegedControlsSeatsRequest {
     #[serde(
-        rename = "seats",
-        alias = "Seats",
+        rename = "seatAdjustment",
+        alias = "SeatAdjustment",
         skip_serializing_if = "Option::is_none"
     )]
-    pub seats: Option<i32>,
+    pub seat_adjustment: Option<i32>,
     #[serde(
         rename = "maxAutoscaleSeats",
         alias = "MaxAutoscaleSeats",
@@ -31,7 +31,7 @@ pub struct PrivilegedControlsSeatsRequest {
 impl PrivilegedControlsSeatsRequest {
     pub fn new() -> PrivilegedControlsSeatsRequest {
         PrivilegedControlsSeatsRequest {
-            seats: None,
+            seat_adjustment: None,
             max_autoscale_seats: None,
         }
     }
