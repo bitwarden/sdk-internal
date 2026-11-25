@@ -979,8 +979,8 @@ See also the [SDK architecture](https://contributing.bitwarden.com/architecture/
 
 ### Docker image
 
-The image runs `bwac` on Debian 13 as an unprivileged user with UID `10001`. `tini` runs as process
-1 and reaps the processes a killed script leaves behind.
+The image runs `bwac` on Ubuntu 24.04 as an unprivileged user with UID `10001`. `tini` runs as
+process 1 and reaps the processes a killed script leaves behind.
 
 The Dockerfile packages a Linux `bwac` built elsewhere, such as the `bwac-x86_64-unknown-linux-gnu`
 or `bwac-aarch64-unknown-linux-gnu` artifact of the build workflow. Put it at
