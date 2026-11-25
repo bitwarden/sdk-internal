@@ -1,16 +1,15 @@
 plugins {
     id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
     id 'maven-publish'
 }
 
 android {
     namespace = 'com.bitwarden.sdk'
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 28
-        targetSdk = 35
+        targetSdk = 37
 
         testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
         consumerProguardFiles 'consumer-rules.pro'
@@ -24,16 +23,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = '1.8'
-    }
-
-    lint {
-        baseline = file('lint-baseline.xml')
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     publishing {
@@ -43,9 +34,13 @@ android {
     }
 }
 
+String execOutput(String... args) {
+    return providers.exec { commandLine(args) }.standardOutput.asText.get().trim()
+}
+
 String composeDescription() {
-    def commitHash = 'git rev-parse HEAD'.execute().text.trim()
-    def changelog = 'git log -1 --oneline'.execute().text.trim()
+    def commitHash = execOutput('git', 'rev-parse', 'HEAD')
+    def changelog = execOutput('git', 'log', '-1', '--oneline')
     def workflowRunId = System.getenv('GITHUB_RUN_ID') ?: "local"
 
     def workflowRunUrl
@@ -65,12 +60,11 @@ String composeDescription() {
 }
 
 String composeVersion(String branchName){
-    def shortCommitHash = 'git rev-parse --short HEAD'.execute().text.trim()
+    def shortCommitHash = execOutput('git', 'rev-parse', '--short', 'HEAD')
     def workflowRunNumber = System.getenv('GITHUB_RUN_NUMBER') ?: "local"
 
-    def content = ['grep', '-o', '^version = ".*"', rootDir.toString() + '/../../../Cargo.toml'].execute().text.trim()
-    def match = ~/version = "(.*)"/
-    def sdkVersion = match.matcher(content)
+    def cargoToml = new File(rootDir, '../../../Cargo.toml').text
+    def sdkVersion = cargoToml =~ /(?m)^version = "(.*)"/
     sdkVersion.find()
 
     switch(branchName){
@@ -96,7 +90,7 @@ def exportSdkInfoToGithubOutput(String artifactId, String groupId, String versio
 publishing {
     publications {
         maven(MavenPublication) {
-            def branchName = 'git branch --show-current'.execute().text.trim()
+            def branchName = execOutput('git', 'branch', '--show-current')
             groupId = 'com.bitwarden'
             
             switch (branchName) {
@@ -160,13 +154,13 @@ File findRustlsPlatformVerifierClassesJar() {
 }
 
 dependencies {
-    implementation 'net.java.dev.jna:jna:5.17.0@aar'
+    implementation 'net.java.dev.jna:jna:5.19.1@aar'
     implementation files(findRustlsPlatformVerifierClassesJar())
 
-    implementation 'androidx.core:core-ktx:1.15.0'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1'
+    implementation 'androidx.core:core-ktx:1.19.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
 
     testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.7.0'
 }

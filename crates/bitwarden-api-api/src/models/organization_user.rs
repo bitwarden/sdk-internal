@@ -92,6 +92,14 @@ pub struct OrganizationUser {
         skip_serializing_if = "Option::is_none"
     )]
     pub external_id: Option<String>,
+    /// The name used to identify the OrganizationUser in an external directory service, e.g. the
+    /// SCIM userName.
+    #[serde(
+        rename = "externalName",
+        alias = "ExternalName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub external_name: Option<String>,
     /// The date the OrganizationUser was created, i.e. when the User was first invited to the
     /// Organization.
     #[serde(
@@ -173,6 +181,7 @@ impl OrganizationUser {
             status_new: None,
             r#type: None,
             external_id: None,
+            external_name: None,
             creation_date: None,
             revision_date: None,
             permissions: None,
