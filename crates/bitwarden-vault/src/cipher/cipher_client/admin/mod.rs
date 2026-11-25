@@ -12,8 +12,12 @@ mod delete;
 mod edit;
 mod get;
 mod restore;
+mod type_counts;
 
 pub use get::{GetAssignedOrgCiphersAdminError, GetOrganizationCiphersAdminError};
+pub use type_counts::{
+    GetOrganizationCipherTypeCountsAdminError, OrganizationCipherTypeCountResponse,
+};
 
 /// Client for performing admin operations on ciphers. Unlike the regular CiphersClient,
 /// this client uses the admin server API endpoints, and does not modify local state.
