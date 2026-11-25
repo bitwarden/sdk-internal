@@ -965,7 +965,7 @@ async fn receive_refuses_an_untrusted_host_without_a_prompt() {
 
 /// When our environment doesn't support interactive prompting for user confirmation of an untrusted
 /// host (such as in this test-running environment) we also fail informatively, with a different
-/// messange than above
+/// message than above
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn receive_refuses_an_untrusted_host_when_prompting_unavailable() {
     let server = MockServer::start().await;
