@@ -213,7 +213,6 @@ src/models/cipher_with_id_request_model.rs
 src/models/claimable_rotation_job_response_model.rs
 src/models/claimable_rotation_job_response_model_list_response_model.rs
 src/models/client_type.rs
-src/models/collection.rs
 src/models/collection_access_details_response_model.rs
 src/models/collection_access_details_response_model_list_response_model.rs
 src/models/collection_bulk_delete_request_model.rs
@@ -337,7 +336,6 @@ src/models/notification_response_model.rs
 src/models/notification_response_model_list_response_model.rs
 src/models/open_id_connect_redirect_behavior.rs
 src/models/optional_cipher_details_response_model.rs
-src/models/organization.rs
 src/models/organization_api_key_information.rs
 src/models/organization_api_key_information_list_response_model.rs
 src/models/organization_api_key_request_model.rs
@@ -356,6 +354,7 @@ src/models/organization_domain_request_model.rs
 src/models/organization_domain_response_model.rs
 src/models/organization_domain_response_model_list_response_model.rs
 src/models/organization_domain_sso_details_request_model.rs
+src/models/organization_export_response_model.rs
 src/models/organization_integration_configuration_request_model.rs
 src/models/organization_integration_configuration_response_model.rs
 src/models/organization_integration_o_auth_complete_request_model.rs
@@ -398,7 +397,6 @@ src/models/organization_subscription_response_model.rs
 src/models/organization_subscription_update_request_model.rs
 src/models/organization_update_request_model.rs
 src/models/organization_upgrade_request_model.rs
-src/models/organization_user.rs
 src/models/organization_user_accept_init_request_model.rs
 src/models/organization_user_accept_request_model.rs
 src/models/organization_user_account_recovery_request_model.rs
@@ -416,13 +414,14 @@ src/models/organization_user_pending_v2_upgrade_response_model.rs
 src/models/organization_user_pending_v2_upgrade_response_model_list_response_model.rs
 src/models/organization_user_public_key_response_model.rs
 src/models/organization_user_public_key_response_model_list_response_model.rs
+src/models/organization_user_report_details_response_model.rs
+src/models/organization_user_report_details_response_model_list_response_model.rs
 src/models/organization_user_reset_password_details_response_model.rs
 src/models/organization_user_reset_password_details_response_model_list_response_model.rs
 src/models/organization_user_reset_password_enrollment_request_model.rs
 src/models/organization_user_reset_password_request_model.rs
 src/models/organization_user_restore_request.rs
 src/models/organization_user_status_type.rs
-src/models/organization_user_status_type_new.rs
 src/models/organization_user_type.rs
 src/models/organization_user_update_request_model.rs
 src/models/organization_user_user_details_response_model.rs

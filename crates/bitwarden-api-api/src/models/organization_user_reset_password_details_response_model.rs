@@ -64,6 +64,12 @@ pub struct OrganizationUserResetPasswordDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub encrypted_private_key: Option<String>,
+    #[serde(
+        rename = "isSoleOwnerOfOtherOrganization",
+        alias = "IsSoleOwnerOfOtherOrganization",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub is_sole_owner_of_other_organization: Option<bool>,
 }
 
 impl OrganizationUserResetPasswordDetailsResponseModel {
@@ -78,6 +84,7 @@ impl OrganizationUserResetPasswordDetailsResponseModel {
             master_password_salt: None,
             reset_password_key: None,
             encrypted_private_key: None,
+            is_sole_owner_of_other_organization: None,
         }
     }
 }

@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 4.0.0
 - Server Git commit:
-  [`9c109b6b4addad5eb821e263e5cdc25657dc6563`](https://github.com/bitwarden/server/commit/9c109b6b4addad5eb821e263e5cdc25657dc6563)
+  [`a14a08bafc9a4cd4217b231f85db6613d44e6255`](https://github.com/bitwarden/server/commit/a14a08bafc9a4cd4217b231f85db6613d44e6255)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -371,6 +371,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationUsersApi_                       | [**get_invite**](docs/OrganizationUsersApi.md#organization_users_get_invite)                                                                                     | **POST** /organizations/users/invite-link/invite                                                         |
 | _OrganizationUsersApi_                       | [**get_mini_details**](docs/OrganizationUsersApi.md#organization_users_get_mini_details)                                                                         | **GET** /organizations/{orgId}/users/mini-details                                                        | Returns a set of basic information about all members of the organization. This is available to all members of the organization, since a broad range of features across the app depend on basic member lookups (collection management, group management, event logs, sponsorship, etc.) that are not specific to any one permission. For this reason, it contains as little information as possible and no cryptographic keys or other sensitive data.                                                                                 |
 | _OrganizationUsersApi_                       | [**get_pending_auto_confirm_users**](docs/OrganizationUsersApi.md#organization_users_get_pending_auto_confirm_users)                                             | **GET** /organizations/{orgId}/users/pending-auto-confirm                                                |
+| _OrganizationUsersApi_                       | [**get_report_details**](docs/OrganizationUsersApi.md#organization_users_get_report_details)                                                                     | **GET** /organizations/{orgId}/users/report-details                                                      | Returns the member details that organization reports need, such as the Member Access Report and Access Intelligence. This is available to users who can access reports, including Custom users with the Access Reports permission who cannot manage users. It is separate from M:Bit.Api.AdminConsole.Controllers.OrganizationUsersController.GetAll(System.Guid,System.Boolean,System.Boolean) so that reports do not depend on the Members page rules, and it returns only the fields the reports read.                             |
 | _OrganizationUsersApi_                       | [**get_reset_password_details**](docs/OrganizationUsersApi.md#organization_users_get_reset_password_details)                                                     | **GET** /organizations/{orgId}/users/{id}/reset-password-details                                         |
 | _OrganizationUsersApi_                       | [**invite**](docs/OrganizationUsersApi.md#organization_users_invite)                                                                                             | **POST** /organizations/{orgId}/users/invite                                                             |
 | _OrganizationUsersApi_                       | [**put**](docs/OrganizationUsersApi.md#organization_users_put)                                                                                                   | **PUT** /organizations/{orgId}/users/{id}                                                                |
@@ -741,7 +742,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ClaimableRotationJobResponseModel](docs/ClaimableRotationJobResponseModel.md)
 - [ClaimableRotationJobResponseModelListResponseModel](docs/ClaimableRotationJobResponseModelListResponseModel.md)
 - [ClientType](docs/ClientType.md)
-- [Collection](docs/Collection.md)
 - [CollectionAccessDetailsResponseModel](docs/CollectionAccessDetailsResponseModel.md)
 - [CollectionAccessDetailsResponseModelListResponseModel](docs/CollectionAccessDetailsResponseModelListResponseModel.md)
 - [CollectionBulkDeleteRequestModel](docs/CollectionBulkDeleteRequestModel.md)
@@ -864,7 +864,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [NotificationResponseModelListResponseModel](docs/NotificationResponseModelListResponseModel.md)
 - [OpenIdConnectRedirectBehavior](docs/OpenIdConnectRedirectBehavior.md)
 - [OptionalCipherDetailsResponseModel](docs/OptionalCipherDetailsResponseModel.md)
-- [Organization](docs/Organization.md)
 - [OrganizationApiKeyInformation](docs/OrganizationApiKeyInformation.md)
 - [OrganizationApiKeyInformationListResponseModel](docs/OrganizationApiKeyInformationListResponseModel.md)
 - [OrganizationApiKeyRequestModel](docs/OrganizationApiKeyRequestModel.md)
@@ -883,6 +882,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationDomainResponseModel](docs/OrganizationDomainResponseModel.md)
 - [OrganizationDomainResponseModelListResponseModel](docs/OrganizationDomainResponseModelListResponseModel.md)
 - [OrganizationDomainSsoDetailsRequestModel](docs/OrganizationDomainSsoDetailsRequestModel.md)
+- [OrganizationExportResponseModel](docs/OrganizationExportResponseModel.md)
 - [OrganizationIntegrationConfigurationRequestModel](docs/OrganizationIntegrationConfigurationRequestModel.md)
 - [OrganizationIntegrationConfigurationResponseModel](docs/OrganizationIntegrationConfigurationResponseModel.md)
 - [OrganizationIntegrationOAuthCompleteRequestModel](docs/OrganizationIntegrationOAuthCompleteRequestModel.md)
@@ -925,7 +925,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationSubscriptionUpdateRequestModel](docs/OrganizationSubscriptionUpdateRequestModel.md)
 - [OrganizationUpdateRequestModel](docs/OrganizationUpdateRequestModel.md)
 - [OrganizationUpgradeRequestModel](docs/OrganizationUpgradeRequestModel.md)
-- [OrganizationUser](docs/OrganizationUser.md)
 - [OrganizationUserAcceptInitRequestModel](docs/OrganizationUserAcceptInitRequestModel.md)
 - [OrganizationUserAcceptRequestModel](docs/OrganizationUserAcceptRequestModel.md)
 - [OrganizationUserAccountRecoveryRequestModel](docs/OrganizationUserAccountRecoveryRequestModel.md)
@@ -943,13 +942,14 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationUserPendingV2UpgradeResponseModelListResponseModel](docs/OrganizationUserPendingV2UpgradeResponseModelListResponseModel.md)
 - [OrganizationUserPublicKeyResponseModel](docs/OrganizationUserPublicKeyResponseModel.md)
 - [OrganizationUserPublicKeyResponseModelListResponseModel](docs/OrganizationUserPublicKeyResponseModelListResponseModel.md)
+- [OrganizationUserReportDetailsResponseModel](docs/OrganizationUserReportDetailsResponseModel.md)
+- [OrganizationUserReportDetailsResponseModelListResponseModel](docs/OrganizationUserReportDetailsResponseModelListResponseModel.md)
 - [OrganizationUserResetPasswordDetailsResponseModel](docs/OrganizationUserResetPasswordDetailsResponseModel.md)
 - [OrganizationUserResetPasswordDetailsResponseModelListResponseModel](docs/OrganizationUserResetPasswordDetailsResponseModelListResponseModel.md)
 - [OrganizationUserResetPasswordEnrollmentRequestModel](docs/OrganizationUserResetPasswordEnrollmentRequestModel.md)
 - [OrganizationUserResetPasswordRequestModel](docs/OrganizationUserResetPasswordRequestModel.md)
 - [OrganizationUserRestoreRequest](docs/OrganizationUserRestoreRequest.md)
 - [OrganizationUserStatusType](docs/OrganizationUserStatusType.md)
-- [OrganizationUserStatusTypeNew](docs/OrganizationUserStatusTypeNew.md)
 - [OrganizationUserType](docs/OrganizationUserType.md)
 - [OrganizationUserUpdateRequestModel](docs/OrganizationUserUpdateRequestModel.md)
 - [OrganizationUserUserDetailsResponseModel](docs/OrganizationUserUserDetailsResponseModel.md)

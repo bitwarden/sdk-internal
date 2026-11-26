@@ -68,6 +68,7 @@ pub trait SendsApi: Send + Sync {
         &self,
         id: &'a str,
         file_id: &'a str,
+        data: std::path::PathBuf,
     ) -> Result<(), Error>;
 
     /// PUT /sends/{id}
@@ -257,6 +258,7 @@ impl SendsApi for SendsApiClient {
         &self,
         id: &'a str,
         file_id: &'a str,
+        data: std::path::PathBuf,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -272,6 +274,9 @@ impl SendsApi for SendsApiClient {
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        let mut local_var_form = reqwest::multipart::Form::new();
+        // TODO: support file upload for 'data' parameter
+        local_var_req_builder = local_var_req_builder.multipart(local_var_form);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
