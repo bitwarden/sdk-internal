@@ -27,7 +27,10 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationExportApi: Send + Sync {
     /// GET /organizations/{organizationId}/export
-    async fn export<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
+    async fn export<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<models::OrganizationExportResponseModel, Error>;
 }
 
 pub struct OrganizationExportApiClient {
@@ -43,7 +46,10 @@ impl OrganizationExportApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationExportApi for OrganizationExportApiClient {
-    async fn export<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
+    async fn export<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+    ) -> Result<models::OrganizationExportResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -58,6 +64,6 @@ impl OrganizationExportApi for OrganizationExportApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 }

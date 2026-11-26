@@ -188,6 +188,19 @@ pub struct AccessAuditEventResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub access_connector_name: Option<String>,
+    /// The source IP address of the request that recorded the event. Null for a background job.
+    #[serde(
+        rename = "ipAddress",
+        alias = "IpAddress",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub ip_address: Option<String>,
+    #[serde(
+        rename = "deviceType",
+        alias = "DeviceType",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub device_type: Option<models::DeviceType>,
     /// True for a system event with no human actor.
     #[serde(
         rename = "automated",
@@ -237,6 +250,8 @@ impl AccessAuditEventResponseModel {
             rule_name: None,
             target_system_name: None,
             access_connector_name: None,
+            ip_address: None,
+            device_type: None,
             automated: None,
             incomplete: None,
         }
