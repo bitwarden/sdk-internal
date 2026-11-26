@@ -93,7 +93,18 @@ impl ClientBuilder {
     pub fn build(self) -> Client {
         let settings = self.settings.unwrap_or_default();
 
-        let external_http_client = new_http_client_builder()
+        // Every HTTP client gets the transport settings.
+        #[cfg(not(target_arch = "wasm32"))]
+        let http_client_builder = || {
+            super::transport::apply_transport(
+                new_http_client_builder(),
+                settings.transport.as_ref(),
+            )
+        };
+        #[cfg(target_arch = "wasm32")]
+        let http_client_builder = new_http_client_builder;
+
+        let external_http_client = http_client_builder()
             .build()
             .expect("External HTTP Client build should not fail");
 
@@ -105,7 +116,7 @@ impl ClientBuilder {
             .unwrap_or_else(StateRegistry::new_with_memory_db);
 
         // Create the HTTP client for the Identity service, without authentication middleware.
-        let identity_http_client = new_http_client_builder()
+        let identity_http_client = http_client_builder()
             .default_headers(headers.clone())
             .build()
             .expect("Bw HTTP Client build should not fail");
@@ -127,12 +138,12 @@ impl ClientBuilder {
         // a proactive cookie strategy instead of reactive 302/307 detection.
         #[cfg(not(target_arch = "wasm32"))]
         let api_http_client = if self.middleware.is_empty() {
-            new_http_client_builder()
+            http_client_builder()
                 .default_headers(headers)
                 .build()
                 .expect("Bw HTTP Client build should not fail")
         } else {
-            new_http_client_builder()
+            http_client_builder()
                 .default_headers(headers)
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
@@ -140,7 +151,7 @@ impl ClientBuilder {
         };
 
         #[cfg(target_arch = "wasm32")]
-        let api_http_client = new_http_client_builder()
+        let api_http_client = http_client_builder()
             .default_headers(headers)
             .build()
             .expect("Bw HTTP Client build should not fail");
