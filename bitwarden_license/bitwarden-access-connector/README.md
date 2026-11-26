@@ -563,29 +563,19 @@ The exit code tells the connector whether to retry and whether the target's pass
 reports the wrong state, the vault and the target can end up with different passwords and nothing
 will flag it.
 
-For `rotate`:
+| Code   | Retried | Target password | Use when                                            |
+| ------ | ------- | --------------- | --------------------------------------------------- |
+| `0`    |         |                 | The operation succeeded                             |
+| `1`    | No      | Unchanged       | It was rejected before anything changed             |
+| `2`    | No      | Changed         | The password was set, then a later step failed      |
+| `3`    | No      | Unknown         | You can't tell whether it was set                   |
+| `4`    | Yes     | Unchanged       | A retry might work: network error, rate limit, 5xx  |
+| other  | No      | Unknown         | Anything unexpected                                 |
+| signal | No      | Unknown         | The script was killed. The failure names the signal |
 
-| Code    | Retried | Target password | Use when                                            |
-| ------- | ------- | --------------- | --------------------------------------------------- |
-| `0`     |         | Changed         | The password was set                                |
-| `1`     | No      | Unchanged       | It was rejected before anything changed             |
-| `2`     | No      | Changed         | The password was set, then a later step failed      |
-| `3`     | No      | Unknown         | You can't tell whether it was set                   |
-| `4`     | Yes     | Unchanged       | A retry might work: network error, rate limit, 5xx  |
-| other   | No      | Unknown         | Anything unexpected                                 |
-| signal  | No      | Unknown         | The script was killed. The failure names the signal |
-| timeout | No      | Unknown         | The script ran longer than `script_timeout`         |
-
-When `rotate` fails, the target password column becomes the `sync_state`: `target_unchanged`,
-`target_updated` or `indeterminate`.
-
-For `verify`, `0` means the new password works and `4` is retried. Any other result, including a
-signal or a timeout, fails the rotation with `target_updated`, whatever the code means for `rotate`.
-By then `rotate` has changed the password, and the vault item still has the old one, so the account
-has to be reset by hand.
-
-For `terminate`, `0` means the sessions ended and `4` is retried. Any other result is reported as a
-failed session termination, but the rotation itself still succeeds.
+The target password column is for `rotate`, and a `rotate` that times out counts as unknown. Once
+`rotate` has succeeded, the password has already changed: if `verify` then fails for any reason, the
+rotation fails with `target_updated`. If `terminate` fails, the rotation still succeeds.
 
 ### Example
 
