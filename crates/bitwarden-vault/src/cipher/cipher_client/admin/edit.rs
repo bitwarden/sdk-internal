@@ -1,6 +1,6 @@
 use bitwarden_api_api::{
     apis::ApiClient,
-    models::{CipherCollectionsRequestModel, CipherRequestModel},
+    models::{CipherRequestModel, CipherSharedFoldersRequestModel},
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
@@ -123,8 +123,8 @@ pub async fn add_to_collections(
     key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
-    let req = CipherCollectionsRequestModel {
-        collection_ids: collection_ids
+    let req = CipherSharedFoldersRequestModel {
+        shared_folder_ids: collection_ids
             .into_iter()
             .map(|id| id.to_string())
             .collect(),
@@ -132,7 +132,7 @@ pub async fn add_to_collections(
 
     let api = api_client.ciphers_api();
     let cipher: Cipher = api
-        .put_collections_admin(&cipher_id.to_string(), Some(req))
+        .put_shared_folders_admin(&cipher_id.to_string(), Some(req))
         .await?
         .merge_with_cipher(None)?;
 

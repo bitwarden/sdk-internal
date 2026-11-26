@@ -57,7 +57,6 @@ pub trait OrganizationUsersApi: Send + Sync {
         &self,
         id: uuid::Uuid,
         org_id: &'a str,
-        organization: Option<models::Organization>,
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
@@ -67,7 +66,6 @@ pub trait OrganizationUsersApi: Send + Sync {
     async fn bulk_automatically_confirm_organization_users<'a>(
         &self,
         org_id: &'a str,
-        organization: Option<models::Organization>,
         organization_user_bulk_confirm_request_model: Option<
             models::OrganizationUserBulkConfirmRequestModel,
         >,
@@ -93,7 +91,6 @@ pub trait OrganizationUsersApi: Send + Sync {
     async fn bulk_enable_pam<'a>(
         &self,
         org_id: &'a str,
-        organization: Option<models::Organization>,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
     ) -> Result<(), Error>;
 
@@ -194,12 +191,17 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
     ) -> Result<models::OrganizationUserPendingAutoConfirmResponseModelListResponseModel, Error>;
 
+    /// GET /organizations/{orgId}/users/report-details
+    async fn get_report_details<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationUserReportDetailsResponseModelListResponseModel, Error>;
+
     /// GET /organizations/{orgId}/users/{id}/reset-password-details
     async fn get_reset_password_details<'a>(
         &self,
         id: uuid::Uuid,
         org_id: &'a str,
-        organization: Option<models::Organization>,
     ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/invite
@@ -214,7 +216,6 @@ pub trait OrganizationUsersApi: Send + Sync {
         &self,
         id: uuid::Uuid,
         org_id: &'a str,
-        organization: Option<models::Organization>,
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
     ) -> Result<(), Error>;
 
@@ -233,7 +234,6 @@ pub trait OrganizationUsersApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-        target_organization_user: Option<models::OrganizationUser>,
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
@@ -369,7 +369,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         id: uuid::Uuid,
         org_id: &'a str,
-        organization: Option<models::Organization>,
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
@@ -387,10 +386,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = organization {
-            local_var_req_builder = local_var_req_builder
-                .query(&[("organization", &serde_json::to_value(param_value)?)]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_confirm_request_model);
@@ -401,7 +396,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
     async fn bulk_automatically_confirm_organization_users<'a>(
         &self,
         org_id: &'a str,
-        organization: Option<models::Organization>,
         organization_user_bulk_confirm_request_model: Option<
             models::OrganizationUserBulkConfirmRequestModel,
         >,
@@ -418,10 +412,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = organization {
-            local_var_req_builder = local_var_req_builder
-                .query(&[("organization", &serde_json::to_value(param_value)?)]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_bulk_confirm_request_model);
@@ -481,7 +471,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
     async fn bulk_enable_pam<'a>(
         &self,
         org_id: &'a str,
-        organization: Option<models::Organization>,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
@@ -496,10 +485,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = organization {
-            local_var_req_builder = local_var_req_builder
-                .query(&[("organization", &serde_json::to_value(param_value)?)]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
@@ -839,11 +824,31 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
+    async fn get_report_details<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationUserReportDetailsResponseModelListResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/users/report-details",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
     async fn get_reset_password_details<'a>(
         &self,
         id: uuid::Uuid,
         org_id: &'a str,
-        organization: Option<models::Organization>,
     ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
@@ -858,10 +863,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = organization {
-            local_var_req_builder = local_var_req_builder
-                .query(&[("organization", &serde_json::to_value(param_value)?)]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
@@ -894,7 +895,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         id: uuid::Uuid,
         org_id: &'a str,
-        organization: Option<models::Organization>,
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
@@ -910,10 +910,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = organization {
-            local_var_req_builder = local_var_req_builder
-                .query(&[("organization", &serde_json::to_value(param_value)?)]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_update_request_model);
 
@@ -952,7 +948,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-        target_organization_user: Option<models::OrganizationUser>,
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
@@ -970,12 +965,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = target_organization_user {
-            local_var_req_builder = local_var_req_builder.query(&[(
-                "targetOrganizationUser",
-                &serde_json::to_value(param_value)?,
-            )]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_reset_password_request_model);

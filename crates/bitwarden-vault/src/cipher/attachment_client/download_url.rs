@@ -136,7 +136,6 @@ mod tests {
             key_store: KeyStore::<KeySlotIds>::default(),
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
             repository: Some(Arc::new(repository)),
-            http_client: reqwest::Client::new(),
         }
     }
 

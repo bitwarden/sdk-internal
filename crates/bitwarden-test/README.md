@@ -74,11 +74,13 @@ async fn test_example() {
 
 ### Environment Variables
 
-| Variable                 | Default                           | Description         |
-| ------------------------ | --------------------------------- | ------------------- |
-| `BITWARDEN_API_URL`      | `https://localhost:8080/api`      | Base API URL        |
-| `BITWARDEN_IDENTITY_URL` | `https://localhost:8080/identity` | Identity server URL |
-| `BITWARDEN_SEEDER_URL`   | `http://localhost:5047`           | Seeder API URL      |
+| Variable                    | Default                           | Description                           |
+| --------------------------- | --------------------------------- | ------------------------------------- |
+| `BITWARDEN_API_URL`         | `https://localhost:8080/api`      | Base API URL                          |
+| `BITWARDEN_IDENTITY_URL`    | `https://localhost:8080/identity` | Identity server URL                   |
+| `BITWARDEN_SEEDER_URL`      | `http://localhost:5047`           | Seeder API URL                        |
+| `BITWARDEN_SEEDER_USERNAME` | (none)                            | Seeder API basic auth user (set both) |
+| `BITWARDEN_SEEDER_PASSWORD` | (none)                            | Seeder API basic auth password        |
 
 ### Running E2E Tests
 

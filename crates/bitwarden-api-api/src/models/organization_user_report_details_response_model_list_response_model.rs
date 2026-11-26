@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DeviceVerificationResponseModel {
+pub struct OrganizationUserReportDetailsResponseModelListResponseModel {
     #[serde(
         rename = "object",
         alias = "Object",
@@ -21,25 +21,25 @@ pub struct DeviceVerificationResponseModel {
     )]
     pub object: Option<String>,
     #[serde(
-        rename = "isDeviceVerificationSectionEnabled",
-        alias = "IsDeviceVerificationSectionEnabled",
+        rename = "data",
+        alias = "Data",
         skip_serializing_if = "Option::is_none"
     )]
-    pub is_device_verification_section_enabled: Option<bool>,
+    pub data: Option<Vec<models::OrganizationUserReportDetailsResponseModel>>,
     #[serde(
-        rename = "unknownDeviceVerificationEnabled",
-        alias = "UnknownDeviceVerificationEnabled",
+        rename = "continuationToken",
+        alias = "ContinuationToken",
         skip_serializing_if = "Option::is_none"
     )]
-    pub unknown_device_verification_enabled: Option<bool>,
+    pub continuation_token: Option<String>,
 }
 
-impl DeviceVerificationResponseModel {
-    pub fn new() -> DeviceVerificationResponseModel {
-        DeviceVerificationResponseModel {
+impl OrganizationUserReportDetailsResponseModelListResponseModel {
+    pub fn new() -> OrganizationUserReportDetailsResponseModelListResponseModel {
+        OrganizationUserReportDetailsResponseModelListResponseModel {
             object: None,
-            is_device_verification_section_enabled: None,
-            unknown_device_verification_enabled: None,
+            data: None,
+            continuation_token: None,
         }
     }
 }

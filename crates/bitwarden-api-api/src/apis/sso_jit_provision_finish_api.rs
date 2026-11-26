@@ -36,8 +36,8 @@ pub trait SsoJitProvisionFinishApi: Send + Sync {
     ) -> Result<(), Error>;
 
     /// POST /sso-jit-provision-finish/password
-    /// Accepts MPAD + MPUD with exactly one keypair: V2 encryption (AccountKeys, V2 MP JIT flag on)
-    /// or V1 encryption (legacy Keys).
+    /// Accepts MPAD + MPUD with exactly one keypair: V2 encryption (AccountKeys) or V1 encryption
+    /// (legacy Keys).
     async fn finish_jit_provision_for_password<'a>(
         &self,
         sso_jit_provision_finish_password_request_model: Option<
@@ -94,8 +94,8 @@ impl SsoJitProvisionFinishApi for SsoJitProvisionFinishApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    /// Accepts MPAD + MPUD with exactly one keypair: V2 encryption (AccountKeys, V2 MP JIT flag on)
-    /// or V1 encryption (legacy Keys).
+    /// Accepts MPAD + MPUD with exactly one keypair: V2 encryption (AccountKeys) or V1 encryption
+    /// (legacy Keys).
     async fn finish_jit_provision_for_password<'a>(
         &self,
         sso_jit_provision_finish_password_request_model: Option<

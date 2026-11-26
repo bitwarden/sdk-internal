@@ -1,7 +1,7 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_api_base::new_http_client_builder;
-use bitwarden_crypto::{CipherSuite, KeyStore};
+use bitwarden_crypto::KeyStore;
 use bitwarden_managed_settings_types::ManagementProfile;
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
@@ -93,7 +93,18 @@ impl ClientBuilder {
     pub fn build(self) -> Client {
         let settings = self.settings.unwrap_or_default();
 
-        let external_http_client = new_http_client_builder()
+        // Every HTTP client gets the transport settings.
+        #[cfg(not(target_arch = "wasm32"))]
+        let http_client_builder = || {
+            super::transport::apply_transport(
+                new_http_client_builder(),
+                settings.transport.as_ref(),
+            )
+        };
+        #[cfg(target_arch = "wasm32")]
+        let http_client_builder = new_http_client_builder;
+
+        let external_http_client = http_client_builder()
             .build()
             .expect("External HTTP Client build should not fail");
 
@@ -105,7 +116,7 @@ impl ClientBuilder {
             .unwrap_or_else(StateRegistry::new_with_memory_db);
 
         // Create the HTTP client for the Identity service, without authentication middleware.
-        let identity_http_client = new_http_client_builder()
+        let identity_http_client = http_client_builder()
             .default_headers(headers.clone())
             .build()
             .expect("Bw HTTP Client build should not fail");
@@ -127,12 +138,12 @@ impl ClientBuilder {
         // a proactive cookie strategy instead of reactive 302/307 detection.
         #[cfg(not(target_arch = "wasm32"))]
         let api_http_client = if self.middleware.is_empty() {
-            new_http_client_builder()
+            http_client_builder()
                 .default_headers(headers)
                 .build()
                 .expect("Bw HTTP Client build should not fail")
         } else {
-            new_http_client_builder()
+            http_client_builder()
                 .default_headers(headers)
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
@@ -140,7 +151,7 @@ impl ClientBuilder {
         };
 
         #[cfg(target_arch = "wasm32")]
-        let api_http_client = new_http_client_builder()
+        let api_http_client = http_client_builder()
             .default_headers(headers)
             .build()
             .expect("Bw HTTP Client build should not fail");
@@ -185,12 +196,13 @@ impl ClientBuilder {
             }),
         };
 
-        // Configure the key store's cipher suite from the client's environment, so all crypto
+        // Configure the key store's cipher suite from the client's deployment, so all crypto
         // operations (e.g. the KDF for a new account) pick compliant algorithms.
+        let cipher_suite = client.internal.deployment_type().cipher_suite();
         client
             .internal
             .get_key_store()
-            .set_cipher_suite(CipherSuite::from_gov_mode(client.gov_mode()));
+            .set_cipher_suite(cipher_suite);
 
         client
     }

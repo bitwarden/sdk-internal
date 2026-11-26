@@ -21,6 +21,7 @@ pub enum EventSystemUser {
     TwoFactorDisabled,
     BitwardenPortal,
     Pam,
+    ScheduledJob,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -36,6 +37,7 @@ impl EventSystemUser {
             Self::TwoFactorDisabled => 4,
             Self::BitwardenPortal => 5,
             Self::Pam => 6,
+            Self::ScheduledJob => 7,
             Self::__Unknown(v) => *v,
         }
     }
@@ -49,6 +51,7 @@ impl EventSystemUser {
             4 => Self::TwoFactorDisabled,
             5 => Self::BitwardenPortal,
             6 => Self::Pam,
+            7 => Self::ScheduledJob,
             v => Self::__Unknown(v),
         }
     }

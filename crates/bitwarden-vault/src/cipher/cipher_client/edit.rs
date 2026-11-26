@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::{
-    CipherCollectionsRequestModel, CipherPartialRequestModel, CipherRequestModel,
+    CipherPartialRequestModel, CipherRequestModel, CipherSharedFoldersRequestModel,
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
@@ -472,8 +472,8 @@ impl CiphersClient {
         cipher_id: CipherId,
         collection_ids: Vec<CollectionId>,
     ) -> Result<CipherView, EditCipherError> {
-        let req = CipherCollectionsRequestModel {
-            collection_ids: collection_ids
+        let req = CipherSharedFoldersRequestModel {
+            shared_folder_ids: collection_ids
                 .into_iter()
                 .map(|id| id.to_string())
                 .collect(),
@@ -484,7 +484,7 @@ impl CiphersClient {
         let api = api_config.api_client.ciphers_api();
         let orig_cipher = repository.get(cipher_id).await?;
         let cipher_response = api
-            .put_collections_v_next(cipher_id.into(), Some(req))
+            .put_shared_folders_v_next(cipher_id.into(), Some(req))
             .await?
             .cipher
             .map(|c| *c)

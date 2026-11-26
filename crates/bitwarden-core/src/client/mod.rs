@@ -5,6 +5,7 @@ mod builder;
 mod client;
 #[allow(missing_docs)]
 pub mod client_settings;
+mod deployment;
 #[allow(missing_docs)]
 pub mod encryption_settings;
 mod from_client_part;
@@ -34,6 +35,7 @@ mod rehydration;
 pub use rehydration::{RehydrationError, SaveStateData};
 
 pub mod tracing_middleware;
+mod transport;
 
 pub use builder::ClientBuilder;
 pub(crate) use builder::build_default_headers;
@@ -42,6 +44,7 @@ pub use client_settings::{
     ClientName, ClientSettings, DeviceType, HostPlatformInfo, get_host_platform_info,
     init_host_platform_info,
 };
+pub use transport::{ProxyCredentials, ProxySettings, TimeoutSettings, TransportSettings};
 
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:test": "bash ../../crates/bitwarden-wasm-internal/build.sh && npm run test",
+    "build:test": "bash ../../crates/bitwarden-wasm-internal/build.sh && npm run build:test-helpers && npm run test",
+    "build:test-helpers": "cargo build --example initiator_peer -p bitwarden-web-connector",
     "test": "npm run typecheck && vitest run",
     "typecheck": "tsc --noEmit",
     "test:live": "npm run typecheck && vitest run --mode live",

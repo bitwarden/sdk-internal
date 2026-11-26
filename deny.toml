@@ -13,6 +13,8 @@ ignore = [
   # bitwarden-fido (directly and through passkey-rs) and snow 0.10 (bitwarden-ipc, bitwarden-random) depend on.
   # This entry stays until those move to elliptic-curve 0.14.
   { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5.x has no fix (via p256 0.13 in bitwarden-fido, passkey-rs and snow)." },
+  # chrono is unmaintained: https://rustsec.org/advisories/RUSTSEC-2026-0543
+  { id = "RUSTSEC-2026-0543", reason = "Will be replaced by jiff in all direct dependencies, tracked in PM-36836." },
 ]
 
 # https://embarkstudios.github.io/cargo-deny/checks/bans/cfg.html
