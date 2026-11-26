@@ -315,7 +315,8 @@ impl CryptoClient {
 #[bitwarden_ffi::wasm_export]
 impl CryptoClient {
     /// Stops unlock from running local state migrations: the V1 to V2 PIN migration and the
-    /// ephemeral PIN envelope reseal.
+    /// ephemeral PIN envelope reseal. Unlock handlers also read this setting, for example the
+    /// encrypted migrator does not schedule its background migrations.
     ///
     /// For applications running several clients for one user at once, e.g. a browser extension's
     /// popups next to its background. Concurrent migrations race on the same state, so all but one

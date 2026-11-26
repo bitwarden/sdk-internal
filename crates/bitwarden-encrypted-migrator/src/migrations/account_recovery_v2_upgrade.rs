@@ -7,7 +7,10 @@
 use bitwarden_core::{Client, FromClient, OrganizationId};
 use bitwarden_member_administration::OrganizationUsersManagementClient;
 use bitwarden_organizations::{OrganizationsClient, ProfileOrganization};
+use bitwarden_sensitive_value::MasterPassword;
 use tracing::warn;
+
+use crate::migration::{EncryptedMigration, MigrationNeed};
 
 pub(crate) struct AccountRecoveryV2UpgradeMigration {
     organizations: OrganizationsClient,
@@ -23,8 +26,15 @@ impl FromClient for AccountRecoveryV2UpgradeMigration {
     }
 }
 
-impl AccountRecoveryV2UpgradeMigration {
-    pub(crate) async fn run(&self) {
+impl EncryptedMigration for AccountRecoveryV2UpgradeMigration {
+    const NAME: &'static str = "account_recovery_v2_upgrade";
+
+    // `run` checks which organizations need the upgrade.
+    fn needs_migration(&self) -> MigrationNeed {
+        MigrationNeed::Needed
+    }
+
+    async fn run(&self, _master_password: Option<&MasterPassword>) {
         let organizations = match self.organizations.get_all().await {
             Ok(organizations) => organizations,
             Err(e) => {
@@ -46,7 +56,9 @@ impl AccountRecoveryV2UpgradeMigration {
             }
         }
     }
+}
 
+impl AccountRecoveryV2UpgradeMigration {
     /// The organizations this account can update account recovery keys for.
     fn organizations_to_upgrade(
         &self,
@@ -158,7 +170,7 @@ pub(crate) mod tests {
 
     async fn run(client: &Client) {
         AccountRecoveryV2UpgradeMigration::from_client(client)
-            .run()
+            .run(None)
             .await;
     }
 
