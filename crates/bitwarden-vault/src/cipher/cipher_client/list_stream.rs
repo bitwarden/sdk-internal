@@ -8,14 +8,11 @@
 
 use std::sync::Arc;
 
-use bitwarden_core::{
-    Client,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
-};
+use bitwarden_core::{Client, key_management::KeySlotIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError, RepositoryStream};
-use futures::{Stream, StreamExt, TryStreamExt, future::Either, stream};
+use bitwarden_state::repository::{Repository, RepositoryError};
+use futures::{Stream, TryStreamExt, future::Either, stream};
 use thiserror::Error;
 
 use crate::{Cipher, CipherListView, cipher::cipher::StrictDecrypt};
@@ -24,9 +21,6 @@ use crate::{Cipher, CipherListView, cipher::cipher::StrictDecrypt};
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum DecryptStreamError {
-    /// The user key is not in the key store, so no cipher can decrypt.
-    #[error("The vault is locked")]
-    VaultLocked,
     /// The ciphers could not be read from state.
     #[error(transparent)]
     Repository(#[from] RepositoryError),
@@ -40,10 +34,11 @@ pub type DecryptedChunk = Vec<Result<CipherListView, Box<Cipher>>>;
 /// Reads the ciphers from `repository` in chunks of up to `chunk_size` (at least one) and
 /// decrypts each chunk as it arrives, with [`KeyStore::decrypt_stream`].
 ///
-/// A cipher that fails to decrypt is its chunk's `Err` item and the stream goes on. A problem with
-/// the stream itself ends it with one `Err`: the repository failing to read, or the vault being
-/// locked when a chunk is decrypted. Strict decryption is decided by `client`'s feature flags
-/// when the stream is first polled.
+/// A cipher that fails to decrypt is its chunk's `Err` item and the stream goes on. With the vault
+/// locked, strict decryption fails every cipher, and lenient decryption blanks the fields of a
+/// cipher without its own cipher key. The repository failing to read ends the stream with one
+/// `Err`. Strict decryption is decided by `client`'s feature flags when the stream is first
+/// polled.
 pub(crate) fn decrypted_list_stream(
     repository: Result<Arc<dyn Repository<Cipher>>, RepositoryError>,
     key_store: KeyStore<KeySlotIds>,
@@ -51,10 +46,8 @@ pub(crate) fn decrypted_list_stream(
     chunk_size: usize,
 ) -> impl Stream<Item = Result<DecryptedChunk, DecryptStreamError>> + Send + 'static {
     stream::once(async move {
-        let repository = repository?;
-        let strict = client.flags().get().await.strict_cipher_decryption;
-        let chunks = unlocked_chunks(repository.stream(chunk_size), key_store.clone());
-        let decrypted = if strict {
+        let chunks = repository?.stream(chunk_size);
+        let decrypted = if client.flags().get().await.strict_cipher_decryption {
             let chunks =
                 chunks.map_ok(|ciphers| ciphers.into_iter().map(StrictDecrypt).collect::<Vec<_>>());
             Either::Left(
@@ -69,31 +62,10 @@ pub(crate) fn decrypted_list_stream(
                     .map_ok(|results| into_chunk(results, |cipher| cipher)),
             )
         };
-        Ok::<_, DecryptStreamError>(decrypted)
+        Ok::<_, RepositoryError>(decrypted)
     })
     .try_flatten()
-}
-
-/// Passes on each chunk of `chunks` while the user key is in `key_store`, and
-/// [`DecryptStreamError::VaultLocked`] in place of a chunk read when it is not: no cipher can
-/// decrypt then, and a locked vault is not a problem with any one cipher.
-fn unlocked_chunks(
-    chunks: RepositoryStream<Cipher>,
-    key_store: KeyStore<KeySlotIds>,
-) -> impl Stream<Item = Result<Vec<Cipher>, DecryptStreamError>> + Send + 'static {
-    chunks.map(move |chunk| {
-        let ciphers = chunk?;
-        // The context holds the store's read lock until the end of the condition, so the lock is
-        // released before the chunk is decrypted.
-        if key_store
-            .context()
-            .has_symmetric_key(SymmetricKeySlotId::User)
-        {
-            Ok(ciphers)
-        } else {
-            Err(DecryptStreamError::VaultLocked)
-        }
-    })
+    .map_err(DecryptStreamError::from)
 }
 
 /// Turns a chunk of [`KeyStore::decrypt_stream`] results into a [`DecryptedChunk`]: each failure
@@ -104,12 +76,7 @@ fn into_chunk<D>(
 ) -> DecryptedChunk {
     results
         .into_iter()
-        .map(|result| {
-            result.map_err(|failure| {
-                let (item, _) = *failure;
-                Box::new(cipher(item))
-            })
-        })
+        .map(|result| result.map_err(|failure| Box::new(cipher(failure.0))))
         .collect()
 }
 
@@ -119,10 +86,11 @@ mod tests {
 
     use bitwarden_core::{
         client::test_accounts::test_bitwarden_com_account,
-        key_management::create_test_crypto_with_user_key,
+        key_management::{SymmetricKeySlotId, create_test_crypto_with_user_key},
     };
     use bitwarden_crypto::{PrimitiveEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
+    use futures::StreamExt;
 
     use super::{super::tests::test_cipher, *};
     use crate::{CipherId, VaultClientExt};
@@ -333,17 +301,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ends_with_vault_locked_when_locked() {
-        let (client, key_store) = unlocked_client().await;
+    async fn fails_every_cipher_when_locked_and_strict() {
+        let (client, key_store) = strict_client().await;
         let repository = repository_of((1..=3).map(numbered_cipher).collect()).await;
+        let order = streamed_ids(&repository).await;
         key_store.clear();
 
         let chunks: Vec<_> = decrypted_list_stream(Ok(repository), key_store, client, 2)
             .collect()
             .await;
 
-        assert_eq!(chunks.len(), 1);
-        assert!(matches!(chunks[0], Err(DecryptStreamError::VaultLocked)));
+        let expected: Vec<_> = order.into_iter().map(Outcome::Failed).collect();
+        assert_eq!(outcomes(chunks), expected);
     }
 
     #[tokio::test]

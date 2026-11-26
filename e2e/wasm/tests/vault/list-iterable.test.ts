@@ -19,6 +19,9 @@ const VECTOR = testVectors.users.withMasterPassword().get("v1-pbkdf2-password");
 /** An organization the account does not belong to, so the store never holds its key. */
 const UNKNOWN_ORGANIZATION = "9b1e1d8c-0000-4000-8000-000000000001" as unknown as OrganizationId;
 
+/** The feature flag that has the SDK decrypt ciphers with `StrictDecrypt`. */
+const STRICT_CIPHER_DECRYPTION = "pm-34500-strict-cipher-decryption";
+
 type Item = BwResult<CipherListView, Cipher>;
 
 async function collect(items: AsyncIterable<Item>): Promise<Item[]> {
@@ -57,12 +60,15 @@ describe("CiphersClient.list_iterable", () => {
   afterEach(() => harness.restore());
 
   /** Logs `vector` in, syncs and unlocks it; the ciphers come from its client-managed state. */
-  async function unlocked(vector: MasterPasswordUserVector) {
+  async function unlocked(vector: MasterPasswordUserVector, flags?: Map<string, boolean>) {
     const seeded = harness.server.seedUserTestVector(vector);
     const client = harness.newClientEmulator();
     await client.login(seeded.email, LoginMethod.Password, vector.account.password);
     await client.unlock(vector.account.password);
     const sdk = client.getPasswordManagerClient();
+    if (flags) {
+      await sdk.platform().load_flags(flags);
+    }
     return { client, sdk, ciphers: sdk.vault().ciphers() };
   }
 
@@ -117,9 +123,10 @@ describe("CiphersClient.list_iterable", () => {
   );
 
   it(
-    "ends with VaultLocked when the vault is locked between chunks",
+    "fails each cipher after the vault is locked between chunks, with strict decryption",
     async () => {
-      const { client, sdk, ciphers } = await unlocked(VECTOR);
+      const strict = new Map([[STRICT_CIPHER_DECRYPTION, true]]);
+      const { client, sdk, ciphers } = await unlocked(VECTOR, strict);
       const stored = await client.local.ciphers.list();
       const iterator = ciphers.list_iterable(2)[Symbol.asyncIterator]();
 
@@ -127,13 +134,18 @@ describe("CiphersClient.list_iterable", () => {
       expect((await iterator.next()).done).toBe(false);
       await sdk.unlock().lock();
 
-      // 2. The chunk decrypted before the lock is still handed out
-      const buffered = await iterator.next();
-      expect(buffered.done ? undefined : itemId(buffered.value)).toBe(String(stored[1].id));
+      // 2. Read the rest of the vault
+      const rest: Item[] = [];
+      for (let result = await iterator.next(); !result.done; result = await iterator.next()) {
+        rest.push(result.value);
+      }
 
-      // 3. The next chunk fails as a whole instead of yielding a failure per cipher
-      expect(variant(await rejection(iterator.next()))).toBe("VaultLocked");
-      expect(await iterator.next()).toEqual({ value: undefined, done: true });
+      // 3. The chunk decrypted before the lock is still handed out; every later cipher fails
+      expect(rest.map(itemId)).toEqual(stored.slice(1).map((cipher) => String(cipher.id)));
+      expect(rest.map((item) => item.ok)).toEqual([
+        true,
+        ...Array<boolean>(stored.length - 2).fill(false),
+      ]);
     },
     TIMEOUT,
   );

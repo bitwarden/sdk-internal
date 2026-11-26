@@ -115,10 +115,10 @@ impl CiphersClient {
     /// time (250 when not given, at least one), as an `AsyncIterable` in the repository's order.
     ///
     /// Each cipher arrives as `{ ok: true, value }` with its view, or as `{ ok: false, error }`
-    /// with the encrypted cipher when it fails to decrypt. A failure of the listing itself ends
-    /// the iteration: the iterator's `next()` rejects once with a [`DecryptStreamError`], and later
-    /// calls return done. That happens when the repository fails to read, and when the vault is
-    /// locked when a chunk is decrypted. Breaking out of a `for await` stops reading.
+    /// with the encrypted cipher when it fails to decrypt, as [`Self::list`] decrypts it. The
+    /// repository failing to read ends the iteration: the iterator's `next()` rejects once with a
+    /// [`DecryptStreamError`], and later calls return done. Breaking out of a `for await` stops
+    /// reading.
     ///
     /// With a repository that reads lazily, WASM memory holds one chunk at a time; see
     /// [`Repository::stream`].
@@ -166,10 +166,9 @@ impl CiphersClient {
     /// Get all ciphers from state and decrypt them to [crate::CipherListView] in chunks of up to
     /// `chunk_size` (at least one), in the repository's order.
     ///
-    /// A cipher that fails to decrypt is its chunk's `Err` item. A failure of the listing itself
-    /// ends the stream with one `Err`: the repository failing to read, or the vault being locked
-    /// when a chunk is decrypted. With a repository that reads lazily, memory holds one chunk at a
-    /// time; see [`Repository::stream`].
+    /// A cipher that fails to decrypt is its chunk's `Err` item. The repository failing to read
+    /// ends the stream with one `Err`. With a repository that reads lazily, memory holds one chunk
+    /// at a time; see [`Repository::stream`].
     pub fn list_stream(
         &self,
         chunk_size: usize,
