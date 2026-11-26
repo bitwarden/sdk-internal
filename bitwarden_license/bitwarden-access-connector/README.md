@@ -547,8 +547,11 @@ shebang line, or a `.ps1` file.
 - The account's current password is never included. The script has to reset the password as an admin
   rather than change it. See
   [Rotation is an administrative reset](SECURITY.md#rotation-is-an-administrative-reset).
-- `accountIdentity` is untrusted input. Don't put it unescaped into a shell command, SQL query or
-  API path.
+- `accountIdentity` is untrusted input. Check that it names an account the script should manage, and
+  don't put it unescaped into a shell command, SQL query or API path.
+- Read stdin to the end for every operation, even if the script doesn't need the input. If the
+  script exits before the connector has written all of it, the run fails with `internal` and
+  `ScriptStdinWriteFailed`, and a `rotate` is reported as `indeterminate`.
 
 ### Exit codes
 
@@ -556,18 +559,19 @@ The exit code tells the connector whether to retry and whether the target's pass
 reports the wrong state, the vault and the target can end up with different passwords and nothing
 will flag it.
 
-| Code   | Retried | Target password                      | Use when                                            |
-| ------ | ------- | ------------------------------------ | --------------------------------------------------- |
-| `0`    |         |                                      | The operation succeeded                             |
-| `1`    | No      | Unchanged                            | It was rejected before anything changed             |
-| `2`    | No      | Changed                              | The password was set, then a later step failed      |
-| `3`    | No      | Unknown                              | You can't tell whether it was set                   |
-| `4`    | Yes     | Unchanged                            | A retry might work: network error, rate limit, 5xx  |
-| other  | No      | Unknown for `rotate`, else unchanged | Anything unexpected                                 |
-| signal | No      | Unknown for `rotate`, else unchanged | The script was killed. The failure names the signal |
+| Code   | Retried | Target password | Use when                                            |
+| ------ | ------- | --------------- | --------------------------------------------------- |
+| `0`    |         |                 | The operation succeeded                             |
+| `1`    | No      | Unchanged       | It was rejected before anything changed             |
+| `2`    | No      | Changed         | The password was set, then a later step failed      |
+| `3`    | No      | Unknown         | You can't tell whether it was set                   |
+| `4`    | Yes     | Unchanged       | A retry might work: network error, rate limit, 5xx  |
+| other  | No      | Unknown         | Anything unexpected                                 |
+| signal | No      | Unknown         | The script was killed. The failure names the signal |
 
-If the script times out, the connector assumes the password state is unknown for `rotate`, changed
-for `verify`, and unchanged for `terminate`.
+The target password column is for `rotate`, and a `rotate` that times out counts as unknown. Once
+`rotate` has succeeded, the password has already changed: if `verify` then fails for any reason, the
+rotation fails with `target_updated`. If `terminate` fails, the rotation still succeeds.
 
 ### Example
 
@@ -641,6 +645,7 @@ esac
 ### Checklist
 
 - [ ] `PATH` is set, or every tool is called by its full path.
+- [ ] The script reads stdin to the end, even for operations that don't need the input.
 - [ ] `rotate` resets the password without needing the current one.
 - [ ] Running `rotate` twice with the same password succeeds. Retries reuse the password.
 - [ ] `verify` really checks. If you can't sign in as the account, check a last-changed timestamp or
@@ -649,7 +654,28 @@ esac
 - [ ] Nothing logs `newPassword`, and there's no `set -x`.
 - [ ] The script finishes well within `script_timeout`.
 
-There are minimal shell and PowerShell examples in `bundle/examples/`.
+There are minimal shell and PowerShell examples in `bundle/examples/`. `always-succeeds` and
+`succeeds-half-the-time` don't rotate anything, so you can use them to test the connector's setup
+before writing a real script.
+
+### Testing a script
+
+Run the script the way the connector does: as the connector's user, with an empty environment and
+the input on stdin. `verify` changes nothing, so it's a safe first test:
+
+```sh
+jq -nc '{operation: "verify",
+         targetSystemId: "85808642-baba-4b8e-8c34-b48000d60a0a",
+         accountIdentity: "svc-backup@corp.example.com",
+         newPassword: "not-the-real-password",
+         credentials: {API_URL: "https://appliance.internal/api", ADMIN_TOKEN: "…"}}' |
+  sudo -u bwac env -i /opt/bwac/scripts/rotate-appliance.sh verify
+echo "exit $?"
+```
+
+With a wrong password, this should print `exit 1`. Unlike the connector, it also shows the script's
+output. On macOS the connector's user is `_bwac`. When the script works, rotate a non-production
+account by hand before setting a schedule.
 
 ## PowerShell scripts
 
@@ -790,6 +816,10 @@ WantedBy=multi-user.target
 `/etc/bwac/env` holds `BWAC_TOKEN` and the target credentials, owned by root with mode `0400`.
 systemd reads it directly, so variable names starting with a digit work.
 
+`ProtectSystem=strict` makes the whole file system read-only for the connector and its scripts. If a
+script writes to a file, such as an `htpasswd` file or a local config, add that path to
+`ReadWritePaths=`, then run `systemctl daemon-reload` and restart the service.
+
 `Restart=always` is fine to use. If the token is refused or the connector isn't eligible, it keeps
 restarting and logging the reason until someone fixes it.
 
@@ -910,6 +940,22 @@ recorded in Bitwarden.
 - `indeterminate`: the connector can't tell. Check the target by hand.
 
 ### Debugging scripts
+
+These failures happen before the script runs, so the target is unchanged:
+
+| `failure_code`           | `detail`                             | Cause                                                                                               |
+| ------------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `credentials_unresolved` | The missing variable's name          | `SCRIPT` isn't set for the target                                                                   |
+| `credentials_unresolved` | `error kind: ScriptNotFound`         | The `SCRIPT` path doesn't exist                                                                     |
+| `credentials_unresolved` | `error kind: ScriptOutsideRoot`      | The script isn't inside `script_root`, after following symlinks                                     |
+| `credentials_unresolved` | `error kind: ScriptRootInvalid`      | `script_root` can't be resolved, for example because it doesn't exist                               |
+| `credentials_unresolved` | `error kind: UnknownScriptType`      | `script_type` isn't `direct` or `powershell`                                                        |
+| `credentials_unresolved` | `error kind: PowerShellHostNotFound` | `powershell_path` isn't set and there's no PowerShell host on `PATH`                                |
+| `internal`               | `error kind: ScriptSpawnError`       | The script isn't executable, its shebang names a missing interpreter, or `powershell_path` is wrong |
+
+While the script runs, `internal` with `ScriptStdinWriteFailed` usually means the script exited
+without reading all of stdin, and `ScriptWaitFailed` means waiting for the process failed. During
+`rotate`, both are reported as `indeterminate`.
 
 Script output is thrown away, so have the script write to its own log file instead, without logging
 `newPassword`. You can also point a test target at `tests/fixtures/copy_stdin.sh` (or
