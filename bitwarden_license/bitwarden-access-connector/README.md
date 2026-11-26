@@ -518,10 +518,6 @@ writes a JSON document to stdin, and reads the result from the exit code:
 | `verify`    | After `rotate` succeeds. Always runs            |
 | `terminate` | After `verify`, if the job asks to end sessions |
 
-The Admin Console doesn't offer ending sessions for new custom script targets, so `terminate` only
-runs for targets saved earlier with session ending turned on. Handle it anyway, or exit with `1` for
-it.
-
 The script runs with:
 
 - an empty environment, with no `PATH` or `HOME`
