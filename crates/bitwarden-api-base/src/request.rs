@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use http::header::CONTENT_TYPE;
 use serde::de::{DeserializeOwned, Error as _};
 
@@ -18,11 +19,11 @@ fn content_type(response: &reqwest::Response) -> ContentType {
 #[inline(never)]
 async fn process_with_json_response_internal(
     request: reqwest_middleware::RequestBuilder,
-) -> Result<String, crate::Error> {
+) -> Result<Bytes, crate::Error> {
     let response = request.send().await?;
     let status = response.status();
     let content_type = content_type(&response);
-    let content = response.text().await?;
+    let content = response.bytes().await?;
 
     if !status.is_client_error() && !status.is_server_error() {
         match content_type {
@@ -34,7 +35,7 @@ async fn process_with_json_response_internal(
     } else {
         Err(ResponseContent {
             status,
-            message: content,
+            message: String::from_utf8_lossy(&content).into_owned(),
         }
         .into())
     }
@@ -46,7 +47,7 @@ pub async fn process_with_json_response<T: DeserializeOwned>(
 ) -> Result<T, crate::Error> {
     process_with_json_response_internal(request)
         .await
-        .and_then(|content| serde_json::from_str(&content).map_err(Into::into))
+        .and_then(|content| serde_json::from_slice(&content).map_err(Into::into))
 }
 
 /// Sends and processes a request expecting an empty response, returning `Ok(())` when successful.
