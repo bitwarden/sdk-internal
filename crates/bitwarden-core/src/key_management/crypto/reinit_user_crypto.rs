@@ -157,7 +157,7 @@ pub(crate) async fn reinit_user_crypto(
         ReinitUserCryptoError::CryptoInitialization
     })?;
 
-    super::on_unlock_handler(client).await.map_err(|e| {
+    super::on_unlock_handler(client, None).await.map_err(|e| {
         error!(error = ?e, "Failure in on_unlock_handler during reinit_user_crypto.");
         ReinitUserCryptoError::LocalMigrationFailed
     })?;
