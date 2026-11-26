@@ -45,15 +45,19 @@ jobs:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             binary: bwac
+            installer: install-access-connector.sh
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             binary: bwac
+            installer: install-access-connector.sh
           - os: macos-26
             target: aarch64-apple-darwin
             binary: bwac
+            installer: install-access-connector.sh
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             binary: bwac.exe
+            installer: Install-AccessConnector.ps1
             rustflags: "-C target-feature=+crt-static"
 
     steps:
@@ -116,31 +120,45 @@ jobs:
           python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb')); print(sys.argv[1], 'is valid TOML')" \
               bitwarden_license/bitwarden-access-connector/bundle/templates/config.toml.in
 
-      - name: Check the launcher template parses
+      - name: Check the shell install script
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: shellcheck bitwarden_license/bitwarden-access-connector/installers/install-access-connector.sh
+
+      - name: Check the PowerShell scripts parse
         if: startsWith(matrix.os, 'windows')
         shell: powershell
         run: |
-          $path = "bitwarden_license\bitwarden-access-connector\bundle\templates\bwac-launcher.ps1"
-          $errors = $null
-          $tokens = $null
-          [void] [System.Management.Automation.Language.Parser]::ParseFile(
-              (Resolve-Path $path).Path, [ref] $tokens, [ref] $errors)
-          if ($errors) {
-              $errors | ForEach-Object {
-                  Write-Host "::error file=$path,line=$($_.Extent.StartLineNumber)::$($_.Message)"
+          $failed = $false
+          foreach ($path in @(
+              "bitwarden_license\bitwarden-access-connector\bundle\templates\bwac-launcher.ps1",
+              "bitwarden_license\bitwarden-access-connector\installers\Install-AccessConnector.ps1")) {
+              $errors = $null
+              $tokens = $null
+              [void] [System.Management.Automation.Language.Parser]::ParseFile(
+                  (Resolve-Path $path).Path, [ref] $tokens, [ref] $errors)
+              if ($errors) {
+                  $errors | ForEach-Object {
+                      Write-Host "::error file=$path,line=$($_.Extent.StartLineNumber)::$($_.Message)"
+                  }
+                  $failed = $true
+              } else {
+                  Write-Host "$path parses clean"
               }
-              exit 1
           }
-          Write-Host "$path parses clean"
+          if ($failed) { exit 1 }
 
       - name: Stage binary and bundle
         env:
           BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
           BUNDLE: bitwarden_license/bitwarden-access-connector/bundle
+          INSTALLER: ${{ matrix.installer }}
         run: |
           mkdir package
           cp -R "${BUNDLE}/." package/
           cp "${BINARY}" package/
+          if [ -n "${INSTALLER}" ]; then
+            cp "bitwarden_license/bitwarden-access-connector/installers/${INSTALLER}" package/
+          fi
 
       - name: Log in to Azure
         if: ${{ env._SIGN_WINDOWS == 'true' }}
