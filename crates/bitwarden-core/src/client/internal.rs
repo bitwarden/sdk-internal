@@ -92,6 +92,8 @@ impl ApiConfigurations {
         self: &Arc<Self>,
         key_connector_url: String,
     ) -> bitwarden_api_key_connector::apis::ApiClient {
+        // Reuses the API client, so the customer-hosted Key Connector, usually behind the same mTLS
+        // gateway, also receives the client certificate.
         let api = self.api_config.clone();
 
         let key_connector = bitwarden_api_base::Configuration {

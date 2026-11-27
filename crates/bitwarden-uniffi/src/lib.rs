@@ -5,7 +5,7 @@ uniffi::setup_scaffolding!();
 use std::sync::{Arc, Once};
 
 use auth::AuthClient;
-use bitwarden_core::{ClientSettings, auth::ClientManagedTokens};
+use bitwarden_core::{ClientCertificate, ClientSettings, auth::ClientManagedTokens};
 
 #[allow(missing_docs)]
 pub mod auth;
@@ -57,11 +57,15 @@ impl Client {
     /// Management profile. The client shares its profile, so profiles pushed after construction
     /// are visible here. Pass a fresh `ManagedSettingsBindingClient` where the host has no UEM
     /// source.
-    #[uniffi::constructor]
+    ///
+    /// `client_certificate` is presented when the Bitwarden server requests client authentication
+    /// (mTLS).
+    #[uniffi::constructor(default(client_certificate = None))]
     pub fn new(
         token_provider: Arc<dyn ClientManagedTokens>,
         settings: Option<ClientSettings>,
         managed_settings: Arc<ManagedSettingsBindingClient>,
+        client_certificate: Option<Arc<ClientCertificate>>,
     ) -> Self {
         init_logger(None, None, true);
         setup_error_converter();
@@ -69,11 +73,14 @@ impl Client {
         #[cfg(target_os = "android")]
         android_support::init();
 
-        Self(bitwarden_pm::PasswordManagerClient::new_with_client_tokens(
-            settings,
-            token_provider,
-            &managed_settings.0,
-        ))
+        Self(
+            bitwarden_pm::PasswordManagerClient::new_with_client_tokens_and_certificate(
+                settings,
+                token_provider,
+                &managed_settings.0,
+                client_certificate,
+            ),
+        )
     }
 
     /// Crypto operations
@@ -396,6 +403,7 @@ mod tests {
             Arc::new(MockTokenProvider),
             None,
             Arc::new(ManagedSettingsBindingClient::new()),
+            None,
         );
 
         // Trigger a log

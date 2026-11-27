@@ -60,6 +60,7 @@ fn main() {
         Arc::new(DemoTokenProvider),
         None,
         Arc::new(ManagedSettingsBindingClient::new()),
+        None,
     );
 
     println!("✅ Client created - callback is receiving logs\n");
