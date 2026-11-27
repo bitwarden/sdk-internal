@@ -72,7 +72,12 @@ param(
 
     # Lines are "<sha256>  <file name>"; match the file name exactly.
     $expected = Get-Content (Join-Path $tmpDir $checksums) |
-      ForEach-Object { $fields = -split $_; if ($fields.Count -eq 2 -and $fields[1] -eq $archive) { $fields[0] } } |
+      ForEach-Object {
+        $fields = -split $_
+        if ($fields.Count -eq 2 -and $fields[1] -eq $archive) {
+          $fields[0]
+        }
+      } |
       Select-Object -First 1
     if (-not $expected) {
       throw "$archive is not listed in $checksums."
