@@ -4,6 +4,7 @@
 //! commonly used for account fingerprints, where the fingerprint material is the user's id and the
 //! public key is the user's public key.
 
+use bitwarden_crypto_primitives::hkdf;
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 use thiserror::Error;
@@ -16,12 +17,13 @@ use crate::{CryptoError, SpkiPublicKeyBytes, error::Result, wordlist::EFF_LONG_W
 /// - `fingerprint_material`: user's id.
 /// - `public_key`: user's public key.
 pub fn fingerprint(fingerprint_material: &str, public_key: &SpkiPublicKeyBytes) -> Result<String> {
-    let hkdf = hkdf::Hkdf::<sha2::Sha256>::from_prk(public_key.as_ref())
-        .map_err(|_| CryptoError::InvalidKeyLen)?;
-
     let mut user_fingerprint = [0u8; 32];
-    hkdf.expand(fingerprint_material.as_bytes(), &mut user_fingerprint)
-        .map_err(|_| CryptoError::InvalidKeyLen)?;
+    hkdf::expand(
+        public_key.as_ref(),
+        fingerprint_material.as_bytes(),
+        &mut user_fingerprint,
+    )
+    .map_err(|_| CryptoError::InvalidKeyLen)?;
 
     hash_word(user_fingerprint)
 }

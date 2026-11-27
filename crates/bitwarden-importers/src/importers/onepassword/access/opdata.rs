@@ -1,12 +1,10 @@
 //! AES-256-GCM "opdata" envelope with the tag appended after the ciphertext.
 //!
-//! Built on the `aes-gcm` crate and validated below against the IEEE 802.1 GCM test vectors. The
-//! tag is the trailing 16 bytes of the ciphertext, exactly as `aes-gcm` lays it out.
+//! Built on `bitwarden-crypto-primitives` and validated below against the IEEE 802.1 GCM test
+//! vectors. The tag is the trailing 16 bytes of the ciphertext, exactly as the primitive lays it
+//! out.
 
-use aes_gcm::{
-    Aes256Gcm, KeyInit,
-    aead::{Aead, Nonce, Payload},
-};
+use bitwarden_crypto_primitives::aes_gcm;
 use data_encoding::BASE64URL_NOPAD;
 use zeroize::{Zeroize, Zeroizing};
 
@@ -22,19 +20,8 @@ pub(super) fn encrypt(
     iv: &[u8],
     aad: &[u8],
 ) -> Result<Vec<u8>, OnePasswordError> {
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|_| OnePasswordError::Internal("the key must be 32 bytes long".into()))?;
-    let nonce = Nonce::<Aes256Gcm>::try_from(iv)
-        .map_err(|_| OnePasswordError::Internal("the iv must be 12 bytes long".into()))?;
-    cipher
-        .encrypt(
-            &nonce,
-            Payload {
-                msg: plaintext,
-                aad,
-            },
-        )
-        .map_err(|_| OnePasswordError::Internal("AES-GCM encryption failed".into()))
+    let (key, nonce) = gcm_params(key, iv)?;
+    Ok(aes_gcm::encrypt(key, nonce, aad, plaintext))
 }
 
 /// AES-256-GCM decrypt of `ciphertext || tag`.
@@ -49,19 +36,23 @@ pub(super) fn decrypt(
             "the ciphertext must be at least 16 bytes long".into(),
         ));
     }
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|_| OnePasswordError::Internal("the key must be 32 bytes long".into()))?;
-    let nonce = Nonce::<Aes256Gcm>::try_from(iv)
-        .map_err(|_| OnePasswordError::Internal("the iv must be 12 bytes long".into()))?;
-    cipher
-        .decrypt(
-            &nonce,
-            Payload {
-                msg: ciphertext,
-                aad,
-            },
-        )
+    let (key, nonce) = gcm_params(key, iv)?;
+    aes_gcm::decrypt(key, nonce, aad, ciphertext)
         .map_err(|_| OnePasswordError::Internal("the auth tag doesn't match".into()))
+}
+
+/// Checks the key and iv lengths, key first, so callers get the same error for the same bad input.
+fn gcm_params<'a>(
+    key: &'a [u8],
+    iv: &'a [u8],
+) -> Result<(&'a [u8; aes_gcm::KEY_LEN], &'a [u8; aes_gcm::NONCE_LEN]), OnePasswordError> {
+    let key = key
+        .try_into()
+        .map_err(|_| OnePasswordError::Internal("the key must be 32 bytes long".into()))?;
+    let nonce = iv
+        .try_into()
+        .map_err(|_| OnePasswordError::Internal("the iv must be 12 bytes long".into()))?;
+    Ok((key, nonce))
 }
 
 /// A decoded envelope: base64 fields turned into bytes.

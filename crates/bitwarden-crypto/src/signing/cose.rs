@@ -1,10 +1,11 @@
 //! This file contains helper functions to aid in COSE deserialization
 
+use bitwarden_crypto_primitives::{ed25519, ml_dsa_44};
 use coset::{
     CoseKey, Label, ProtectedHeader, RegisteredLabel,
     iana::{AkpKeyParameter, EllipticCurve, EnumI64, OkpKeyParameter},
 };
-use ml_dsa::B32;
+use zeroize::Zeroizing;
 
 use super::SigningNamespace;
 use crate::{
@@ -69,12 +70,12 @@ pub(super) fn key_id(cose_key: &CoseKey) -> Result<KeyId, EncodingError> {
 /// Helper function to parse a ed25519 signing key from a `CoseKey`.
 pub(super) fn ed25519_signing_key(
     cose_key: &CoseKey,
-) -> Result<ed25519_dalek::SigningKey, EncodingError> {
+) -> Result<ed25519::SigningKey, EncodingError> {
     // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
     let d = okp_d(cose_key)?;
     let crv = okp_curve(cose_key)?;
     if crv == EllipticCurve::Ed25519.to_i64().into() {
-        Ok(ed25519_dalek::SigningKey::from_bytes(
+        Ok(ed25519::SigningKey::from_seed(
             d.try_into()
                 .map_err(|_| EncodingError::InvalidCoseEncoding)?,
         ))
@@ -86,12 +87,12 @@ pub(super) fn ed25519_signing_key(
 /// Helper function to parse a ed25519 verifying key from a `CoseKey`.
 pub(super) fn ed25519_verifying_key(
     cose_key: &CoseKey,
-) -> Result<ed25519_dalek::VerifyingKey, EncodingError> {
+) -> Result<ed25519::VerifyingKey, EncodingError> {
     // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
     let x = okp_x(cose_key)?;
     let crv = okp_curve(cose_key)?;
     if crv == EllipticCurve::Ed25519.to_i64().into() {
-        ed25519_dalek::VerifyingKey::from_bytes(
+        ed25519::VerifyingKey::from_bytes(
             x.try_into()
                 .map_err(|_| EncodingError::InvalidValue("ed25519 OKP verifying key"))?,
         )
@@ -152,20 +153,21 @@ fn akp_pub(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
 
 /// Helper function to parse an ML-DSA signing key from a `CoseKey`. The `Priv` parameter
 /// contains the 32-byte seed, from which the full key pair is deterministically derived.
-pub(super) fn mldsa_seed(cose_key: &CoseKey) -> Result<B32, EncodingError> {
+pub(super) fn mldsa_seed(
+    cose_key: &CoseKey,
+) -> Result<Zeroizing<[u8; ML_DSA_SEED_SIZE]>, EncodingError> {
     let priv_bytes = akp_priv(cose_key)?;
     let seed: [u8; ML_DSA_SEED_SIZE] = priv_bytes
         .try_into()
         .map_err(|_| EncodingError::InvalidValue("ML-DSA seed length"))?;
-    Ok(seed.into())
+    Ok(Zeroizing::new(seed))
 }
 
 /// Helper function to parse an ML-DSA-44 verifying key from a `CoseKey`.
 pub(super) fn mldsa44_verifying_key(
     cose_key: &CoseKey,
-) -> Result<ml_dsa::VerifyingKey<ml_dsa::MlDsa44>, EncodingError> {
+) -> Result<ml_dsa_44::VerifyingKey, EncodingError> {
     let pub_bytes = akp_pub(cose_key)?;
-    let vk_encoded = ml_dsa::EncodedVerifyingKey::<ml_dsa::MlDsa44>::try_from(pub_bytes)
-        .map_err(|_| EncodingError::InvalidValue("ML-DSA-44 verifying key length"))?;
-    Ok(ml_dsa::VerifyingKey::<ml_dsa::MlDsa44>::decode(&vk_encoded))
+    ml_dsa_44::VerifyingKey::from_bytes(pub_bytes)
+        .map_err(|_| EncodingError::InvalidValue("ML-DSA-44 verifying key length"))
 }
