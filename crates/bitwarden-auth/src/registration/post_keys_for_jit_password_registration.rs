@@ -576,6 +576,44 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_sends_normalized_salt() {
+        let registration_client = RegistrationClient::new(Client::new(None));
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_set_password()
+                .once()
+                .withf(|body| {
+                    let req = body.as_ref().unwrap();
+                    req.master_password_unlock.as_ref().unwrap().salt == "test@example.com"
+                        && req.master_password_authentication.as_ref().unwrap().salt
+                            == "test@example.com"
+                })
+                .returning(move |_body| Ok(()));
+            mock.organization_users_api
+                .expect_put_reset_password_enrollment()
+                .never();
+        });
+
+        let mut request = sso_jit_password_request(false, Some(false));
+        request.salt = " Test@Example.com ".to_string();
+
+        let result = internal_post_keys_for_jit_password_registration(
+            &registration_client,
+            &api_client,
+            request,
+        )
+        .await
+        .expect("JIT password registration should succeed");
+        assert_eq!(result.master_password_unlock.salt, "test@example.com");
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_api.checkpoint();
+            mock.organization_users_api.checkpoint();
+        }
+    }
+
     async fn client_with_invite_link_auto_confirm() -> Client {
         let client = Client::new(None);
         client
