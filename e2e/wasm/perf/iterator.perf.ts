@@ -18,7 +18,6 @@
 // Env:
 //   PERF_VAULT_SIZE   ciphers in the vault                       (default 12000)
 //   PERF_RUNS         timed runs per operation                   (default 5)
-//   PERF_CHUNK_SIZE   ciphers per chunk of the iterable          (default 250)
 //   PERF_LABEL        writes perf/results/<label>/<task>.json when set
 //
 // Memory is measured separately, one mode per process, by the `iterator-memory-*.perf.ts` files.
@@ -33,7 +32,6 @@ import { encryptedVault } from "./decrypt-list-setup";
 
 const VAULT_SIZE = Number(process.env.PERF_VAULT_SIZE ?? 12_000);
 const RUNS = Number(process.env.PERF_RUNS ?? 5);
-const CHUNK_SIZE = Number(process.env.PERF_CHUNK_SIZE ?? 250);
 // Every task takes about half a second and runs `PERF_RUNS` times plus a warmup; together they
 // outlast vitest's default 60 s test timeout.
 const TIMEOUT = 30 * 60_000;
@@ -41,7 +39,7 @@ const TIMEOUT = 30 * 60_000;
 const TASKS: { name: string; mode: StreamMode }[] = [
   { name: "array decrypt_list_with_failures", mode: "array" },
   { name: "list", mode: "list" },
-  { name: `list_iterable ${CHUNK_SIZE}`, mode: "list-iterable" },
+  { name: "list_iterable", mode: "list-iterable" },
 ];
 
 test(
@@ -55,7 +53,7 @@ test(
     await bench.compare(
       ...TASKS.map((task) =>
         bench(task.name, benchOptions(`iterator ${task.name}`), async () => {
-          const { views, failures } = await decryptVault(ciphers, vault, task.mode, CHUNK_SIZE);
+          const { views, failures } = await decryptVault(ciphers, vault, task.mode);
           strictEqual(failures, 0);
           strictEqual(views.length, VAULT_SIZE);
         }),

@@ -1,12 +1,15 @@
+import { randomUUID } from "node:crypto";
+
 import {
   isDecryptStreamError,
+  type CipherId,
   type BwResult,
   type Cipher,
   type CipherListView,
   type OrganizationId,
 } from "@bitwarden/sdk-internal";
 
-import { LoginMethod } from "../../client-emulator/client-emulator";
+import { LoginMethod, type ClientEmulator } from "../../client-emulator/client-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
 import type { MasterPasswordUserVector } from "../../vectors/load";
 import { testVectors } from "../../vectors/test-vectors";
@@ -18,6 +21,12 @@ const VECTOR = testVectors.users.withMasterPassword().get("v1-pbkdf2-password");
 
 /** An organization the account does not belong to, so the store never holds its key. */
 const UNKNOWN_ORGANIZATION = "9b1e1d8c-0000-4000-8000-000000000001" as unknown as OrganizationId;
+
+/** How many ciphers `list_iterable` reads and decrypts at a time. */
+const CHUNK_SIZE = 250;
+
+/** A vault size that spans three chunks, the last of them partial. */
+const MULTI_CHUNK_VAULT = CHUNK_SIZE * 2 + 3;
 
 /** The feature flag that has the SDK decrypt ciphers with `StrictDecrypt`. */
 const STRICT_CIPHER_DECRYPTION = "pm-34500-strict-cipher-decryption";
@@ -72,15 +81,34 @@ describe("CiphersClient.list_iterable", () => {
     return { client, sdk, ciphers: sdk.vault().ciphers() };
   }
 
+  /**
+   * Fills `client`'s state up to `size` ciphers with copies of the ciphers it holds, each copy
+   * under a new id, and returns the ciphers in state order.
+   */
+  async function repeatCiphers(client: ClientEmulator, size: number) {
+    const stored = await client.local.ciphers.list();
+    if (stored.length === 0) {
+      throw new Error("the vault has no ciphers to repeat");
+    }
+    const repeated = Array.from({ length: size }, (_, i) =>
+      i < stored.length
+        ? stored[i]
+        : { ...stored[i % stored.length], id: randomUUID() as unknown as CipherId },
+    );
+    await client.local.ciphers.removeAll();
+    await client.local.ciphers.setBulk(repeated.map((cipher) => [String(cipher.id), cipher]));
+    return repeated;
+  }
+
   testVectors.users.withMasterPassword().each(
     "$name lists the same ciphers as list(), in the same order",
     async (vector) => {
       const { client, ciphers } = await unlocked(vector);
-      const stored = await client.local.ciphers.list();
+      const stored = await repeatCiphers(client, MULTI_CHUNK_VAULT);
 
-      // 1. List in one call, and through the iterable in chunks smaller than the vault
+      // 1. List in one call, and through the iterable in several chunks
       const listed = await ciphers.list();
-      const items = await collect(ciphers.list_iterable(2));
+      const items = await collect(ciphers.list_iterable());
 
       // 2. Verify the iterable yields every cipher once, in state order, as list() decrypts it
       expect(items.map(itemId)).toEqual(stored.map((cipher) => String(cipher.id)));
@@ -96,7 +124,7 @@ describe("CiphersClient.list_iterable", () => {
       const { client, ciphers } = await unlocked(VECTOR);
       // Only a cipher key that cannot be unwrapped fails a whole cipher; moving a cipher with a
       // cipher key into an organization whose key the store lacks does that.
-      const stored = await client.local.ciphers.list();
+      const stored = await repeatCiphers(client, MULTI_CHUNK_VAULT);
       const failing = stored.find((cipher) => cipher.key != null);
       if (failing === undefined) {
         throw new Error(`${VECTOR.name} has no cipher with a cipher key`);
@@ -107,7 +135,7 @@ describe("CiphersClient.list_iterable", () => {
       });
 
       const listed = await ciphers.list();
-      const items = await collect(ciphers.list_iterable(2));
+      const items = await collect(ciphers.list_iterable());
 
       expect(listed.failures).toHaveLength(1);
       expect(items.map(itemId)).toEqual(stored.map((cipher) => String(cipher.id)));
@@ -127,8 +155,8 @@ describe("CiphersClient.list_iterable", () => {
     async () => {
       const strict = new Map([[STRICT_CIPHER_DECRYPTION, true]]);
       const { client, sdk, ciphers } = await unlocked(VECTOR, strict);
-      const stored = await client.local.ciphers.list();
-      const iterator = ciphers.list_iterable(2)[Symbol.asyncIterator]();
+      const stored = await repeatCiphers(client, MULTI_CHUNK_VAULT);
+      const iterator = ciphers.list_iterable()[Symbol.asyncIterator]();
 
       // 1. Read the first chunk, then lock in place
       expect((await iterator.next()).done).toBe(false);
@@ -143,8 +171,8 @@ describe("CiphersClient.list_iterable", () => {
       // 3. The chunk decrypted before the lock is still handed out; every later cipher fails
       expect(rest.map(itemId)).toEqual(stored.slice(1).map((cipher) => String(cipher.id)));
       expect(rest.map((item) => item.ok)).toEqual([
-        true,
-        ...Array<boolean>(stored.length - 2).fill(false),
+        ...Array<boolean>(CHUNK_SIZE - 1).fill(true),
+        ...Array<boolean>(stored.length - CHUNK_SIZE).fill(false),
       ]);
     },
     TIMEOUT,
@@ -169,18 +197,18 @@ describe("CiphersClient.list_iterable", () => {
     "keeps working after a for await breaks out early",
     async () => {
       const { client, ciphers } = await unlocked(VECTOR);
-      const stored = await client.local.ciphers.list();
+      const stored = await repeatCiphers(client, MULTI_CHUNK_VAULT);
 
       // 1. Break out with a decrypted cipher still waiting in the chunk
       let read = 0;
-      for await (const _item of ciphers.list_iterable(2)) {
+      for await (const _item of ciphers.list_iterable()) {
         read++;
         break;
       }
       expect(read).toBe(1);
 
       // 2. Verify a second iterable lists the whole vault
-      const items = await collect(ciphers.list_iterable(2));
+      const items = await collect(ciphers.list_iterable());
       expect(items.map(itemId)).toEqual(stored.map((cipher) => String(cipher.id)));
     },
     TIMEOUT,
@@ -190,8 +218,8 @@ describe("CiphersClient.list_iterable", () => {
     "answers overlapping next() calls in call order, across chunks",
     async () => {
       const { client, ciphers } = await unlocked(VECTOR);
-      const stored = await client.local.ciphers.list();
-      const iterator = ciphers.list_iterable(2)[Symbol.asyncIterator]();
+      const stored = await repeatCiphers(client, MULTI_CHUNK_VAULT);
+      const iterator = ciphers.list_iterable()[Symbol.asyncIterator]();
 
       // 1. Ask for every cipher and two more at once, without awaiting in between
       const results = await Promise.all(
@@ -207,14 +235,9 @@ describe("CiphersClient.list_iterable", () => {
   );
 
   it(
-    "yields nothing from an empty vault, and reads in one chunk by default",
+    "yields nothing from an empty vault",
     async () => {
       const { client, ciphers } = await unlocked(VECTOR);
-      const stored = await client.local.ciphers.list();
-
-      expect((await collect(ciphers.list_iterable())).map(itemId)).toEqual(
-        stored.map((cipher) => String(cipher.id)),
-      );
 
       await client.local.ciphers.removeAll();
       expect(await collect(ciphers.list_iterable())).toEqual([]);

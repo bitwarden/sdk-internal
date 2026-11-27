@@ -89,8 +89,7 @@ async fn get_all_ciphers(
     })
 }
 
-/// How many ciphers [`CiphersClient::list_iterable`] reads and decrypts at a time by default.
-#[cfg(feature = "wasm")]
+/// How many ciphers [`CiphersClient::list_stream`] reads and decrypts at a time.
 const LIST_CHUNK_SIZE: usize = 250;
 
 #[allow(deprecated)]
@@ -111,8 +110,8 @@ impl CiphersClient {
         .await
     }
 
-    /// Get all ciphers from state and decrypt them to [crate::CipherListView] `chunk_size` at a
-    /// time (250 when not given, at least one), as an `AsyncIterable` in the repository's order.
+    /// Get all ciphers from state and decrypt them to [crate::CipherListView] a chunk at a time,
+    /// as an `AsyncIterable` in the repository's order.
     ///
     /// Each cipher arrives as `{ ok: true, value }` with its view, or as `{ ok: false, error }`
     /// with the encrypted cipher when it fails to decrypt, as [`Self::list`] decrypts it. The
@@ -123,12 +122,8 @@ impl CiphersClient {
     /// With a repository that reads lazily, WASM memory holds one chunk at a time; see
     /// [`Repository::stream`].
     #[cfg(feature = "wasm")]
-    pub fn list_iterable(
-        &self,
-        chunk_size: Option<u32>,
-    ) -> BwStream<Result<CipherListView, Box<Cipher>>> {
-        let chunk_size = chunk_size.map_or(LIST_CHUNK_SIZE, |size| size as usize);
-        BwStream::from_results(self.list_stream(chunk_size))
+    pub fn list_iterable(&self) -> BwStream<Result<CipherListView, Box<Cipher>>> {
+        BwStream::from_results(self.list_stream())
     }
 
     /// Get all ciphers from state and decrypt them to full [CipherView], returning both
@@ -164,20 +159,19 @@ impl CiphersClient {
 #[allow(deprecated)]
 impl CiphersClient {
     /// Get all ciphers from state and decrypt them to [crate::CipherListView] in chunks of up to
-    /// `chunk_size` (at least one), in the repository's order.
+    /// 250, in the repository's order.
     ///
     /// A cipher that fails to decrypt is its chunk's `Err` item. The repository failing to read
     /// ends the stream with one `Err`. With a repository that reads lazily, memory holds one chunk
     /// at a time; see [`Repository::stream`].
     pub fn list_stream(
         &self,
-        chunk_size: usize,
     ) -> impl Stream<Item = Result<DecryptedChunk, DecryptStreamError>> + Send + 'static {
         decrypted_list_stream(
             self.get_repository(),
             self.key_store.clone(),
             self.client.clone(),
-            chunk_size,
+            LIST_CHUNK_SIZE,
         )
     }
 }

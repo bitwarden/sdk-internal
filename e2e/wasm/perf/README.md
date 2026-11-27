@@ -74,7 +74,6 @@ list harnesses.
 ```sh
 npm run perf -- iterator.perf                    # time per mode
 npm run perf -- iterator-memory                  # memory, one file per mode
-PERF_CHUNK_SIZE=1000 npm run perf -- iterator-memory-list-iterable.perf  # another chunk size
 npm run perf -- iterable-gc                      # whether iterables left early are reclaimed
 PERF_GC=0 npm run perf -- iterable-gc            # the same, without collecting garbage
 ```

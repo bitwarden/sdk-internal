@@ -56,15 +56,11 @@ export interface Decrypted {
   failures: number;
 }
 
-/**
- * Decrypts the vault in `mode`: `vault` for `array`, the registered repository for the others.
- * `chunkSize` applies to the iterable modes.
- */
+/** Decrypts the vault in `mode`: `vault` for `array`, the registered repository for the others. */
 export async function decryptVault(
   ciphers: CiphersClient,
   vault: Cipher[],
   mode: StreamMode,
-  chunkSize: number,
 ): Promise<Decrypted> {
   switch (mode) {
     case "array": {
@@ -80,7 +76,7 @@ export async function decryptVault(
       const limit = expectedReads(mode, vault.length);
       const decrypted: Decrypted = { views: [], failures: 0 };
       let reads = 0;
-      for await (const item of ciphers.list_iterable(chunkSize)) {
+      for await (const item of ciphers.list_iterable()) {
         if (item.ok) {
           decrypted.views.push(item.value);
         } else {

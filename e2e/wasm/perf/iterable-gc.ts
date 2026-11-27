@@ -2,7 +2,7 @@
 // reclaimed.
 //
 //   repeat PERF_GC_ITERATIONS times:
-//     list_iterable(chunk PERF_GC_CHUNK) over PERF_GC_VAULT ciphers ──► next() once ──► leave
+//     list_iterable() over PERF_GC_VAULT ciphers ──► next() once ──► leave
 //   every PERF_GC_EVERY iterations: [collectGarbage()] ──► sampleMemory()
 //
 // The mode sets how an iterable is left:
@@ -27,7 +27,6 @@
 //   PERF_GC_ITERATIONS  iterables created                                (default 2000)
 //   PERF_GC_EVERY       iterations between samples                       (default 200)
 //   PERF_GC_VAULT       ciphers in the client-managed repository         (default 50)
-//   PERF_GC_CHUNK       chunk size                                       (default 10)
 //   PERF_LABEL          writes perf/results/<label>/iterable-gc-<mode>[-nogc].json when set
 
 import { strictEqual } from "node:assert/strict";
@@ -44,7 +43,6 @@ const GC = (process.env.PERF_GC ?? "1") === "1";
 const ITERATIONS = Number(process.env.PERF_GC_ITERATIONS ?? 2000);
 const EVERY = Number(process.env.PERF_GC_EVERY ?? 200);
 const VAULT_SIZE = Number(process.env.PERF_GC_VAULT ?? 50);
-const CHUNK_SIZE = Number(process.env.PERF_GC_CHUNK ?? 10);
 const TIMEOUT = 30 * 60_000;
 
 async function sample(iteration: number) {
@@ -62,7 +60,7 @@ export function iterableGcTest(mode: IterableGcMode): void {
       const retained: AsyncIterator<unknown>[] = [];
       const samples = [await sample(0)];
       for (let i = 1; i <= ITERATIONS; i++) {
-        const iterable = ciphers.list_iterable(CHUNK_SIZE);
+        const iterable = ciphers.list_iterable();
         if (mode === "break") {
           let read = 0;
           for await (const _view of iterable) {
