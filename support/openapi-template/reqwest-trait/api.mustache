@@ -5,12 +5,12 @@ use async_trait::async_trait;
 #[cfg(feature = "mockall")]
 use mockall::automock;
 {{/mockall}}
-use reqwest;
+use reqwest::{self, Method};
 use std::sync::Arc;
 use serde::{Deserialize, Serialize, de::Error as _};
 use crate::{apis::{ResponseContent, AuthRequired}, models};
 use super::{Error, configuration};
-use crate::apis::ContentType;
+use crate::apis::{ContentType, FormExt, RequestBuilderExt};
 
 {{#mockall}}
 #[cfg_attr(feature = "mockall", automock)]
@@ -182,256 +182,86 @@ impl {{classname}} for {{classname}}Client {
     ### Regular return type
     }}, Error> {
     {{/vendorExtensions.x-group-parameters}}
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!("{}{{{path}}}", local_var_configuration.base_path{{#pathParams}}, {{{baseName}}}={{#isString}}{{^isUuid}}crate::apis::urlencode({{/isUuid}}{{/isString}}{{{paramName}}}{{^required}}.unwrap(){{/required}}{{#required}}{{#isNullable}}.unwrap(){{/isNullable}}{{/required}}{{#isArray}}.join(",").as_ref(){{/isArray}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}.to_string(){{/isContainer}}{{/isPrimitiveType}}{{/isUuid}}{{/isString}}{{#isString}}{{^isUuid}}){{/isUuid}}{{/isString}}{{/pathParams}});
-        let mut local_var_req_builder = local_var_client.request(reqwest::Method::{{{httpMethod}}}, local_var_uri_str.as_str());
-
+        {{^isMultipart}}
+        {{#hasFormParams}}
+        compile_error!("x-www-form-urlencoded request bodies are unsupported");
+        {{/hasFormParams}}
+        {{/isMultipart}}
         {{#queryParams}}
-        {{#required}}
-        {{#isArray}}
-        local_var_req_builder = match "{{collectionFormat}}" {
-            "multi" => local_var_req_builder.query(&{{{paramName}}}.into_iter().map(|p| ("{{{baseName}}}".to_owned(), p.to_string())).collect::<Vec<(std::string::String, std::string::String)>>()),
-            _ => local_var_req_builder.query(&[("{{{baseName}}}", &{{{paramName}}}.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(",").to_string())]),
-        };
-        {{/isArray}}
-        {{^isArray}}
-        {{^isNullable}}
-        local_var_req_builder = local_var_req_builder.query(&[("{{{baseName}}}", &{{{paramName}}}.to_string())]);
-        {{/isNullable}}
-        {{#isNullable}}
         {{#isDeepObject}}
-        {{^isExplode}}
-        if let Some(ref param_value) = {{{paramName}}} {
-            let params = crate::apis::parse_deep_object("{{{baseName}}}", &serde_json::to_value(param_value)?);
-            local_var_req_builder = local_var_req_builder.query(&params);
-        }
-        {{/isExplode}}
-        {{#isExplode}}
-        {{#isModel}}
-        if let Some(ref param_value) = {{{paramName}}} {
-            local_var_req_builder = local_var_req_builder.query(&param_value);
-        }
-        {{/isModel}}
-        {{#isMap}}
-        if let Some(ref param_value) = {{{paramName}}} {
-            let mut query_params = Vec::with_capacity(param_value.len());
-            for (key, value) in param_value.iter() {
-                query_params.push((key.to_string(), serde_json::to_string(value)?));
-            }
-            local_var_req_builder = local_var_req_builder.query(&query_params);
-        }
-        {{/isMap}}
-        {{/isExplode}}
+        compile_error!("query parameter '{{{baseName}}}': deepObject style is unsupported");
         {{/isDeepObject}}
-        {{^isDeepObject}}
-        {{#isObject}}
-        if let Some(ref param_value) = {{{paramName}}} {
-            local_var_req_builder = local_var_req_builder.query(&[("{{{baseName}}}", &serde_json::to_value(param_value)?)]);
-        };
-        {{/isObject}}
-        {{#isModel}}
-        if let Some(ref param_value) = {{{paramName}}} {
-            local_var_req_builder = local_var_req_builder.query(&[("{{{baseName}}}", &serde_json::to_value(param_value)?)]);
-        };
-        {{/isModel}}
-        {{^isObject}}
-        {{^isModel}}
-        if let Some(ref param_value) = {{{paramName}}} {
-            local_var_req_builder = local_var_req_builder.query(&[("{{{baseName}}}", &param_value.to_string())]);
-        };
-        {{/isModel}}
-        {{/isObject}}
-        {{/isDeepObject}}
-        {{/isNullable}}
+        {{#isArray}}
+        {{^isCollectionFormatMulti}}
+        compile_error!("query parameter '{{{baseName}}}': only exploded arrays are supported");
+        {{/isCollectionFormatMulti}}
         {{/isArray}}
-        {{/required}}
-        {{^required}}
-        if let Some(ref param_value) = {{{paramName}}} {
-            {{#isArray}}
-            local_var_req_builder = match "{{collectionFormat}}" {
-                "multi" => local_var_req_builder.query(&param_value.into_iter().map(|p| ("{{{baseName}}}".to_owned(), p.to_string())).collect::<Vec<(std::string::String, std::string::String)>>()),
-                _ => local_var_req_builder.query(&[("{{{baseName}}}", &param_value.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(",").to_string())]),
-            };
-            {{/isArray}}
-            {{^isArray}}
-            {{#isDeepObject}}
-            {{^isExplode}}
-            let params = crate::apis::parse_deep_object("{{{baseName}}}", &serde_json::to_value(param_value)?);
-            local_var_req_builder = local_var_req_builder.query(&params);
-            {{/isExplode}}
-            {{#isExplode}}
-            {{#isModel}}
-            local_var_req_builder = local_var_req_builder.query(&param_value);
-            {{/isModel}}
-            {{#isMap}}
-            let mut query_params = Vec::with_capacity(param_value.len());
-            for (key, value) in param_value.iter() {
-                query_params.push((key.to_string(), serde_json::to_string(value)?));
-            }
-            local_var_req_builder = local_var_req_builder.query(&query_params);
-            {{/isMap}}
-            {{/isExplode}}
-            {{/isDeepObject}}
-            {{^isDeepObject}}
-            {{#isObject}}
-            local_var_req_builder = local_var_req_builder.query(&[("{{{baseName}}}", &serde_json::to_value(param_value)?)]);
-            {{/isObject}}
-            {{#isModel}}
-            local_var_req_builder = local_var_req_builder.query(&[("{{{baseName}}}", &serde_json::to_value(param_value)?)]);
-            {{/isModel}}
-            {{^isObject}}
-            {{^isModel}}
-            local_var_req_builder = local_var_req_builder.query(&[("{{{baseName}}}", &param_value.to_string())]);
-            {{/isModel}}
-            {{/isObject}}
-            {{/isDeepObject}}
-            {{/isArray}}
-        }
-        {{/required}}
         {{/queryParams}}
-        {{#hasHeaderParams}}
-        {{#headerParams}}
-        {{#required}}
-        {{^isNullable}}
-        local_var_req_builder = local_var_req_builder.header("{{{baseName}}}", {{{paramName}}}{{#isArray}}.join(","){{/isArray}}.to_string());
-        {{/isNullable}}
-        {{#isNullable}}
-        match {{{paramName}}} {
-            Some(local_var_param_value) => { local_var_req_builder = local_var_req_builder.header("{{{baseName}}}", local_var_param_value{{#isArray}}.join(","){{/isArray}}.to_string()); },
-            None => { local_var_req_builder = local_var_req_builder.header("{{{baseName}}}", ""); },
-        }
-        {{/isNullable}}
-        {{/required}}
-        {{^required}}
-        if let Some(local_var_param_value) = {{{paramName}}} {
-            local_var_req_builder = local_var_req_builder.header("{{{baseName}}}", local_var_param_value{{#isArray}}.join(","){{/isArray}}.to_string());
-        }
-        {{/required}}
-        {{/headerParams}}
-        {{/hasHeaderParams}}
         {{#hasAuthMethods}}
         {{#authMethods}}
         {{#-first}}
         {{#isApiKey}}
         {{#isKeyInQuery}}
-        unimplemented!("API key in query param is not supported");
+        compile_error!("API keys in query parameters are unsupported");
         {{/isKeyInQuery}}
-        {{#isKeyInHeader}}
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Header("{{{keyParamName}}}"));
-        {{/isKeyInHeader}}
         {{/isApiKey}}
-        {{#isBasic}}
-        {{#isBasicBasic}}
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Basic);
-        {{/isBasicBasic}}
-        {{#isBasicBearer}}
-        {{#vendorExtensions.x-explicit-bearer-token}}
-        local_var_req_builder = local_var_req_builder.header(reqwest::header::AUTHORIZATION, format!("Bearer {}", access_token));
-        {{/vendorExtensions.x-explicit-bearer-token}}
-        {{^vendorExtensions.x-explicit-bearer-token}}
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        {{/vendorExtensions.x-explicit-bearer-token}}
-        {{/isBasicBearer}}
-        {{/isBasic}}
-        {{#isOAuth}}
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        {{/isOAuth}}
         {{/-first}}
         {{/authMethods}}
         {{/hasAuthMethods}}
-        {{#isMultipart}}
-        {{#hasFormParams}}
-        let mut local_var_form = reqwest::multipart::Form::new();
         {{#formParams}}
         {{#isFile}}
         // TODO: support file upload for '{{{baseName}}}' parameter
         {{/isFile}}
-        {{^isFile}}
-        {{#required}}
-        {{^isNullable}}
-        local_var_form = local_var_form.text("{{{baseName}}}", {{{paramName}}}{{#isArray}}.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(","){{/isArray}}.to_string());
-        {{/isNullable}}
-        {{#isNullable}}
-        match {{{paramName}}} {
-            Some(local_var_param_value) => { local_var_form = local_var_form.text("{{{baseName}}}", local_var_param_value{{#isArray}}.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(","){{/isArray}}.to_string()); },
-            None => { local_var_form = local_var_form.text("{{{baseName}}}", ""); },
-        }
-        {{/isNullable}}
-        {{/required}}
-        {{^required}}
-        if let Some(local_var_param_value) = {{{paramName}}} {
-            local_var_form = local_var_form.text("{{{baseName}}}", local_var_param_value{{#isArray}}.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(","){{/isArray}}.to_string());
-        }
-        {{/required}}
-        {{/isFile}}
         {{/formParams}}
-        local_var_req_builder = local_var_req_builder.multipart(local_var_form);
-        {{/hasFormParams}}
-        {{/isMultipart}}
-        {{^isMultipart}}
-        {{#hasFormParams}}
-        let mut local_var_form_params = std::collections::HashMap::new();
-        {{#formParams}}
-        {{#isFile}}
-        {{#required}}
-        {{^isNullable}}
-        local_var_form_params.insert("{{{baseName}}}", unimplemented!("File form param not supported with x-www-form-urlencoded content"));
-        {{/isNullable}}
-        {{#isNullable}}
-        match {{{paramName}}} {
-            Some(local_var_param_value) => { local_var_form_params.insert("{{{baseName}}}", unimplemented!("File form param not supported with x-www-form-urlencoded content")); },
-            None => { unimplemented!("Required nullable file form param not supported with x-www-form-urlencoded content"); },
-        }
-        {{/isNullable}}
-        {{/required}}
-        {{^required}}
-        if let Some(local_var_param_value) = {{{paramName}}} {
-            local_var_form_params.insert("{{{baseName}}}", unimplemented!("File form param not supported with x-www-form-urlencoded content"));
-        }
-        {{/required}}
-        {{/isFile}}
-        {{^isFile}}
-        {{#required}}
-        {{^isNullable}}
-        local_var_form_params.insert("{{{baseName}}}", {{{paramName}}}{{#isArray}}.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(","){{/isArray}}.to_string());
-        {{/isNullable}}
-        {{#isNullable}}
-        match {{{paramName}}} {
-            Some(local_var_param_value) => { local_var_form_params.insert("{{{baseName}}}", local_var_param_value{{#isArray}}.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(","){{/isArray}}.to_string()); },
-            None => { local_var_form_params.insert("{{{baseName}}}", ""); },
-        }
-        {{/isNullable}}
-        {{/required}}
-        {{^required}}
-        if let Some(local_var_param_value) = {{{paramName}}} {
-            local_var_form_params.insert("{{{baseName}}}", local_var_param_value{{#isArray}}.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(","){{/isArray}}.to_string());
-        }
-        {{/required}}
-        {{/isFile}}
-        {{/formParams}}
-        local_var_req_builder = local_var_req_builder.form(&local_var_form_params);
-        {{/hasFormParams}}
-        {{/isMultipart}}
-        {{#hasBodyParam}}
-        {{#bodyParams}}
-        local_var_req_builder = local_var_req_builder.json(&{{{paramName}}});
-        {{/bodyParams}}
-        {{/hasBodyParam}}
-
-        {{^returnType}}
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-        {{/returnType}}
-        {{#returnType}}
-        {{^supportMultipleResponses}}
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-        {{/supportMultipleResponses}}
-        {{#supportMultipleResponses}}
-        unimplemented!("Multiple response types are unimplemented")
-        {{/supportMultipleResponses}}
-        {{/returnType}}
+        self.configuration
+            .request(Method::{{{httpMethod}}}, {{#hasPathParams}}&format!("{{{path}}}"{{#pathParams}}, {{{baseName}}} = {{#isString}}{{^isUuid}}crate::apis::urlencode({{/isUuid}}{{/isString}}{{{paramName}}}{{^required}}.unwrap(){{/required}}{{#required}}{{#isNullable}}.unwrap(){{/isNullable}}{{/required}}{{#isArray}}.join(",").as_ref(){{/isArray}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}.to_string(){{/isContainer}}{{/isPrimitiveType}}{{/isUuid}}{{/isString}}{{#isString}}{{^isUuid}}){{/isUuid}}{{/isString}}{{/pathParams}}){{/hasPathParams}}{{^hasPathParams}}"{{{path}}}"{{/hasPathParams}})
+            {{! with_query, with_header and with_text handle optional and array values themselves. }}
+            {{#queryParams}}
+            .with_query("{{{baseName}}}", &{{{paramName}}})?
+            {{/queryParams}}
+            {{#headerParams}}
+            .with_header("{{{baseName}}}", &{{{paramName}}})?
+            {{/headerParams}}
+            {{#hasAuthMethods}}
+            {{#authMethods}}
+            {{#-first}}
+            {{#isApiKey}}
+            {{#isKeyInHeader}}
+            .with_extension(AuthRequired::Header("{{{keyParamName}}}"))
+            {{/isKeyInHeader}}
+            {{/isApiKey}}
+            {{#isBasic}}
+            {{#isBasicBasic}}
+            .with_extension(AuthRequired::Basic)
+            {{/isBasicBasic}}
+            {{#isBasicBearer}}
+            {{#vendorExtensions.x-explicit-bearer-token}}
+            .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", access_token))
+            {{/vendorExtensions.x-explicit-bearer-token}}
+            {{^vendorExtensions.x-explicit-bearer-token}}
+            .with_extension(AuthRequired::Bearer)
+            {{/vendorExtensions.x-explicit-bearer-token}}
+            {{/isBasicBearer}}
+            {{/isBasic}}
+            {{#isOAuth}}
+            .with_extension(AuthRequired::Bearer)
+            {{/isOAuth}}
+            {{/-first}}
+            {{/authMethods}}
+            {{/hasAuthMethods}}
+            {{#isMultipart}}
+            .multipart(reqwest::multipart::Form::new(){{#formParams}}{{^isFile}}.with_text("{{{baseName}}}", &{{{paramName}}})?{{/isFile}}{{/formParams}})
+            {{/isMultipart}}
+            {{#bodyParams}}
+            .json(&{{{paramName}}})
+            {{/bodyParams}}
+            {{#returnType}}
+            .send_json()
+            {{/returnType}}
+            {{^returnType}}
+            .send_empty()
+            {{/returnType}}
+            .await
     }
     {{/isDeprecated}}
     {{/operation}}

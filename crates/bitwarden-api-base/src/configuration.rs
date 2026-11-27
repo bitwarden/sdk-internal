@@ -23,4 +23,14 @@ impl Configuration {
             client: new_http_client().into(),
         }
     }
+
+    /// Starts a request to `path`, relative to [`base_path`](Self::base_path).
+    pub fn request(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+    ) -> reqwest_middleware::RequestBuilder {
+        self.client
+            .request(method, format!("{}{}", self.base_path, path))
+    }
 }

@@ -19,6 +19,7 @@ uniffi = ["dep:bitwarden-uniffi-error", "dep:uniffi"]
 
 [dependencies]
 bitwarden-uniffi-error = { workspace = true, optional = true }
+bytes = ">=1.10.0, <2"
 http = ">=1.4.0, <2"
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }

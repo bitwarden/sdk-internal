@@ -620,6 +620,7 @@ name = "bitwarden-api-base"
 version = "4.0.0"
 dependencies = [
  "bitwarden-uniffi-error",
+ "bytes",
  "http",
  "reqwest",
  "reqwest-middleware",
