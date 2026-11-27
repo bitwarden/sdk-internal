@@ -14,6 +14,9 @@ pub enum EncryptError {
     BlobEncryption(#[from] BlobEncryptionError),
     #[error("Client User Id has not been set")]
     MissingUserId,
+    /// An item of the input list is not valid.
+    #[error(transparent)]
+    InvalidInput(#[from] bitwarden_ffi::LargeVecError),
 }
 
 /// Generic error type for decryption errors
