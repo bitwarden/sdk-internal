@@ -1,11 +1,17 @@
 #![doc = include_str!("../README.md")]
 
+use std::borrow::Cow;
+
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{
-    CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
+    CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
 };
 use crypto::{CoseKeyToPkcs8Error, PrivateKeyFromSecretKeyError};
-use passkey::types::{CredentialExtensions, Passkey, ctap2::Aaguid};
+use passkey::{
+    authenticator::PasskeyAccessor,
+    crypto::CoseKey,
+    types::{CredentialExtensions, Passkey, ctap2::Aaguid},
+};
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
@@ -62,24 +68,112 @@ pub struct SelectedCredential {
     credential: Fido2CredentialView,
 }
 
-// This container is needed so we can properly implement the TryFrom trait for Passkey
-// Otherwise we need to decrypt the Fido2 credentials every time we create a CipherView
+/// The passkey item handed to passkey-rs: one FIDO2 credential and the cipher it belongs to.
+///
+/// passkey-rs reads credentials through [PasskeyAccessor], which returns references, so the
+/// encoded fields of the stored credential are parsed once, up front. Keeping the cipher alongside
+/// lets the UI hints refer to it, and lets an updated credential be written back into it.
 #[derive(Clone)]
 pub(crate) struct CipherViewContainer {
     cipher: CipherView,
-    fido2_credentials: Vec<Fido2CredentialFullView>,
+    credential: Fido2CredentialView,
+    credential_id: Vec<u8>,
+    user_handle: Option<Vec<u8>>,
+    key: CoseKey,
+    counter: Option<u32>,
 }
 
 impl CipherViewContainer {
-    fn new(cipher: CipherView) -> Result<Self, CipherError> {
-        let fido2_credentials = cipher
+    /// Builds the passkey item for the cipher's current credential (index 0).
+    fn new(cipher: CipherView) -> Result<Self, Fido2Error> {
+        let credential = cipher
             .get_fido2_credentials()
             .into_iter()
-            .map(Fido2CredentialFullView::from)
-            .collect();
+            .next()
+            .ok_or(Fido2Error::NoFido2CredentialsFound)?;
+        Self::from_credential(cipher, credential)
+    }
+
+    fn from_credential(
+        cipher: CipherView,
+        credential: Fido2CredentialView,
+    ) -> Result<Self, Fido2Error> {
+        let counter: u32 = credential
+            .counter
+            .parse()
+            .map_err(|_| Fido2Error::InvalidCounter)?;
+        let key_value = B64Url::try_from(credential.key_value.as_str())?;
+        let user_handle = credential
+            .user_handle
+            .as_deref()
+            .map(B64Url::try_from)
+            .transpose()?
+            .map(B64Url::into_bytes);
+
         Ok(Self {
+            credential_id: string_to_guid_bytes(&credential.credential_id)?,
+            user_handle,
+            key: pkcs8_to_cose_key(key_value.as_bytes())?,
+            counter: (counter != 0).then_some(counter),
             cipher,
-            fido2_credentials,
+            credential,
+        })
+    }
+}
+
+impl PasskeyAccessor for CipherViewContainer {
+    fn key(&self) -> Cow<'_, CoseKey> {
+        Cow::Borrowed(&self.key)
+    }
+
+    fn credential_id(&self) -> &[u8] {
+        &self.credential_id
+    }
+
+    fn rp_id(&self) -> &str {
+        &self.credential.rp_id
+    }
+
+    fn user_handle(&self) -> Option<&[u8]> {
+        self.user_handle.as_deref()
+    }
+
+    fn username(&self) -> Option<&str> {
+        self.credential.user_name.as_deref()
+    }
+
+    fn user_display_name(&self) -> Option<&str> {
+        self.credential.user_display_name.as_deref()
+    }
+
+    fn counter(&self) -> Option<u32> {
+        self.counter
+    }
+
+    fn set_counter(&mut self, counter: u32) {
+        self.counter = Some(counter);
+        self.credential.counter = counter.to_string();
+    }
+
+    fn extensions(&self) -> Cow<'_, CredentialExtensions> {
+        Cow::Owned(CredentialExtensions { hmac_secret: None })
+    }
+}
+
+// passkey-client's `Client::new` still requires this conversion, although nothing calls it.
+impl TryFrom<CipherViewContainer> for Passkey {
+    type Error = Fido2Error;
+
+    fn try_from(value: CipherViewContainer) -> Result<Self, Self::Error> {
+        Ok(Passkey {
+            key: value.key,
+            credential_id: value.credential_id.into(),
+            rp_id: value.credential.rp_id,
+            user_handle: value.user_handle.map(Into::into),
+            username: value.credential.user_name,
+            user_display_name: value.credential.user_display_name,
+            counter: value.counter,
+            extensions: CredentialExtensions { hmac_secret: None },
         })
     }
 }
@@ -106,40 +200,6 @@ pub enum Fido2Error {
     InvalidCounter,
 }
 
-impl TryFrom<CipherViewContainer> for Passkey {
-    type Error = Fido2Error;
-
-    fn try_from(value: CipherViewContainer) -> Result<Self, Self::Error> {
-        let cred = value
-            .fido2_credentials
-            .first()
-            .ok_or(Fido2Error::NoFido2CredentialsFound)?;
-
-        try_from_credential_full_view(cred.clone())
-    }
-}
-
-fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passkey, Fido2Error> {
-    let counter: u32 = value
-        .counter
-        .parse()
-        .map_err(|_| Fido2Error::InvalidCounter)?;
-    let counter = (counter != 0).then_some(counter);
-    let key_value = B64Url::try_from(value.key_value)?;
-    let user_handle = value.user_handle.map(B64Url::try_from).transpose()?;
-
-    let key = pkcs8_to_cose_key(key_value.as_bytes())?;
-
-    Ok(Passkey {
-        key,
-        credential_id: string_to_guid_bytes(&value.credential_id)?.into(),
-        rp_id: value.rp_id.clone(),
-        user_handle: user_handle.map(|u| u.into_bytes().into()),
-        counter,
-        extensions: CredentialExtensions { hmac_secret: None },
-    })
-}
-
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum FillCredentialError {
@@ -147,35 +207,6 @@ pub enum FillCredentialError {
     InvalidInputLength(#[from] InvalidInputLengthError),
     #[error(transparent)]
     CoseKeyToPkcs8(#[from] CoseKeyToPkcs8Error),
-}
-
-#[allow(missing_docs)]
-pub fn fill_with_credential(
-    view: &Fido2CredentialView,
-    value: Passkey,
-) -> Result<Fido2CredentialFullView, FillCredentialError> {
-    let cred_id: Vec<u8> = value.credential_id.into();
-    let user_handle = value
-        .user_handle
-        .map(|u| B64Url::from(u.to_vec()).to_string());
-    let key_value = B64Url::from(cose_key_to_pkcs8(&value.key)?).to_string();
-
-    Ok(Fido2CredentialFullView {
-        credential_id: guid_bytes_to_string(&cred_id)?,
-        key_type: "public-key".to_owned(),
-        key_algorithm: "ECDSA".to_owned(),
-        key_curve: "P-256".to_owned(),
-        key_value,
-        rp_id: value.rp_id,
-        rp_name: view.rp_name.clone(),
-        user_handle,
-
-        counter: value.counter.unwrap_or(0).to_string(),
-        user_name: view.user_name.clone(),
-        user_display_name: view.user_display_name.clone(),
-        discoverable: "true".to_owned(),
-        creation_date: view.creation_date,
-    })
 }
 
 pub(crate) fn try_from_credential_new_view(
@@ -206,7 +237,7 @@ pub(crate) fn try_from_credential_full(
     value: Passkey,
     user: passkey::types::ctap2::make_credential::PublicKeyCredentialUserEntity,
     rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
-    options: passkey::types::ctap2::get_assertion::Options,
+    options: passkey::types::ctap2::make_credential::Options,
 ) -> Result<Fido2CredentialFullView, FillCredentialError> {
     let cred_id: Vec<u8> = value.credential_id.into();
     let key_value = B64Url::from(cose_key_to_pkcs8(&value.key)?).to_string();
