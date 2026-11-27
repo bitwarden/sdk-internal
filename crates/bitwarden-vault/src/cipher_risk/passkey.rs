@@ -282,8 +282,6 @@ mod tests {
             .and_then(|e| e.domain_name.clone())
     }
 
-    // --- loadPasskeyDirectory ---
-
     #[test]
     fn directory_builds_lookup_from_entries() {
         let dir = directory();
@@ -355,8 +353,6 @@ mod tests {
         assert!(!e.supports_passkey_mfa);
     }
 
-    // --- processCiphers ---
-
     #[test]
     fn process_returns_rows_for_matching_ciphers() {
         let candidates = vec![
@@ -394,8 +390,6 @@ mod tests {
             .collect();
         assert_eq!(ids, vec![id(3), id(1), id(2)]);
     }
-
-    // --- getPasskeyServiceMatch ---
 
     #[test]
     fn match_for_matching_cipher() {
@@ -507,7 +501,6 @@ mod tests {
 
     #[test]
     fn intermediate_subdomain_entry_does_not_match_deeper_host() {
-        // Neither the host nor the registrable domain equals the entry, so no match.
         let dir = vec![entry("aws.amazon.com", "", true, false)];
         let c = candidate(1, &["https://console.aws.amazon.com"]);
         assert_eq!(find_match(&c, &dir), None);
@@ -599,8 +592,6 @@ mod tests {
         assert!(find_match(&candidate(1, &["https://www.sub.example.com"]), &dir).is_some());
     }
 
-    // --- Registrable-domain differences from tldts (no Public Suffix List in the SDK) ---
-
     #[test]
     #[ignore = "requires a Public Suffix List; tldts returns example.co.uk"]
     fn psl_multi_label_suffix() {
@@ -627,8 +618,6 @@ mod tests {
         );
         assert_eq!(registrable_domain("intranet"), None);
     }
-
-    // --- evaluateCipher / buildPasskeyCipherRow ---
 
     #[test]
     fn evaluate_returns_row_for_matching_cipher() {
