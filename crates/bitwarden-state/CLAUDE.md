@@ -12,3 +12,7 @@ use SDK-managed storage.
 (sync, suitable for tests or apps that use only client-managed storage). Use
 `StateRegistry::new_with_db(configuration, migrations)` (async) for persistent storage — pass all
 migrations at construction time, not after the fact.
+
+**Register client-managed persisted values before building handles**: a `PersistedValue<K>` built
+before `register_client_managed_value` keeps using SDK-managed storage, and so do the feature
+clients built from it.
