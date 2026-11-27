@@ -49,15 +49,25 @@ mod wire;
 ///
 /// # Stream return types
 ///
-/// wasm_bindgen types a `BwStream<T>` as `any`, so a method returning one, directly or as the `Ok`
-/// of a `Result`, gets an `unchecked_return_type` inferred from its tokens: `AsyncIterable<T>`,
-/// with a `Result<T, E>` item as `BwResult<T, E>`. Inside it, `Box<T>` is `T`, `Vec<T>` is `T[]`
-/// (a typed array for numbers), `Option<T>` is `T | undefined`, and primitives map as in
-/// wasm_bindgen. Any other type is named by its last path segment, which is right for a
-/// `#[wasm_record]` or `#[wasm_object]` type unless it is renamed for JavaScript (`js_name`,
-/// `#[serde(rename)]`) or reached through a type alias; declare the type explicitly then. Tuples,
-/// references other than `&str`, `Self` and other generic types fail to compile and need an
-/// explicit attribute. An explicit `unchecked_return_type` always wins.
+/// wasm_bindgen types a `BwStream<T>` as `any`. To give JavaScript a real type, a method that
+/// returns a `BwStream<T>`, or a `Result` whose `Ok` is one, gets an `unchecked_return_type` worked
+/// out from the Rust type: `AsyncIterable<T>`, where a `Result<T, E>` item becomes
+/// `BwResult<T, E>`.
+///
+/// The item type is translated like this:
+///
+/// - `Box<T>` becomes `T`.
+/// - `Vec<T>` becomes `T[]`, or a typed array for numbers.
+/// - `Option<T>` becomes `T | undefined`.
+/// - Primitives map as they do in wasm_bindgen.
+/// - Any other type becomes the last segment of its path, so `crate::vault::CipherListView` becomes
+///   `CipherListView`.
+///
+/// The last rule gives the wrong name when the TypeScript name differs from the Rust one: a type
+/// renamed with `js_name` or `#[serde(rename)]`, or one used through a type alias. Write
+/// `unchecked_return_type` yourself in those cases. Tuples, `Self`, references other than `&str`,
+/// and generic types not listed above fail to compile until you write it. An
+/// `unchecked_return_type` you write always replaces the inferred one.
 ///
 /// # Example
 ///

@@ -18,8 +18,9 @@ use crate::{Never, ToWasm, TsError, WireError};
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
 /**
- * An item that either succeeded with a `value` or failed with an `error`, as a
- * `BwStream<Result<T, E>>` yields them. Narrow on `ok`.
+ * One result from a stream of results. When `ok` is true, the item succeeded and `value` holds it.
+ * When `ok` is false, the item failed and `error` holds what the method returns for a failure,
+ * such as the cipher that could not be decrypted. Check `ok` before reading either.
  */
 export type BwResult<T, E> = { ok: true; value: T } | { ok: false; error: E };
 "#;
