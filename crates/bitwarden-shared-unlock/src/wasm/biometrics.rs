@@ -293,51 +293,54 @@ pub async fn ipc_register_biometrics_handlers(
         .await;
 }
 
-/// Sends a `GetBiometricsStatus` RPC request to the desktop renderer
+/// Sends a `GetBiometricsStatus` RPC request to the given desktop endpoint.
 #[bitwarden_ffi::wasm_export(js_name = ipcRequestGetBiometricsStatus)]
 pub async fn ipc_request_get_biometrics_status(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     user_id: UserId,
+    destination: Endpoint,
     abort_signal: Option<AbortSignal>,
 ) -> Result<BiometricsStatus, RequestError> {
     ipc_client
         .client
         .request(
             GetBiometricsStatusRequest { user_id },
-            Endpoint::DesktopRenderer,
+            destination,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
         .await
 }
 
-/// Sends an `UnlockBiometrics` RPC request to the desktop renderer.
+/// Sends an `UnlockBiometrics` RPC request to the given desktop endpoint.
 #[bitwarden_ffi::wasm_export(js_name = ipcRequestUnlockBiometrics)]
 pub async fn ipc_request_unlock_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     user_id: UserId,
+    destination: Endpoint,
     abort_signal: Option<AbortSignal>,
 ) -> Result<UnlockBiometricsResponse, RequestError> {
     ipc_client
         .client
         .request(
             UnlockBiometricsRequest { user_id },
-            Endpoint::DesktopRenderer,
+            destination,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
         .await
 }
 
-/// Sends an `AuthenticateBiometrics` RPC request to the desktop renderer.
+/// Sends an `AuthenticateBiometrics` RPC request to the given desktop endpoint.
 #[bitwarden_ffi::wasm_export(js_name = ipcRequestAuthenticateBiometrics)]
 pub async fn ipc_request_authenticate_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
+    destination: Endpoint,
     abort_signal: Option<AbortSignal>,
 ) -> Result<bool, RequestError> {
     ipc_client
         .client
         .request(
             AuthenticateBiometricsRequest,
-            Endpoint::DesktopRenderer,
+            destination,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
         .await

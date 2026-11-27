@@ -51,7 +51,7 @@ describe("IpcClient", () => {
       await ipcRegisterBiometricsHandlers(responder, driver);
 
       const responses = await Promise.all(
-        users.map((u) => ipcRequestUnlockBiometrics(requester, u)),
+        users.map((u) => ipcRequestUnlockBiometrics(requester, u, "DesktopRenderer")),
       );
 
       responses.forEach((response, i) => {
@@ -98,12 +98,12 @@ describe("IpcClient", () => {
 
       // First request: the handshake's initial send throws, so the request fails but the client survives.
       await expect(
-        ipcRequestAuthenticateBiometrics(requester, AbortSignal.timeout(2000)),
+        ipcRequestAuthenticateBiometrics(requester, "DesktopRenderer", AbortSignal.timeout(2000)),
       ).rejects.toBeDefined();
       expect(requester.isRunning()).toBe(true);
 
       // Second request: the send works now, so it must succeed.
-      expect(await ipcRequestAuthenticateBiometrics(requester, AbortSignal.timeout(5000))).toBe(
+      expect(await ipcRequestAuthenticateBiometrics(requester, "DesktopRenderer", AbortSignal.timeout(5000))).toBe(
         true,
       );
     });
@@ -126,7 +126,7 @@ describe("IpcClient", () => {
 
       const startedAt = Date.now();
       await expect(
-        ipcRequestUnlockBiometrics(requester, TEST_USER_ID, AbortSignal.timeout(300)),
+        ipcRequestUnlockBiometrics(requester, TEST_USER_ID, "DesktopRenderer", AbortSignal.timeout(300)),
       ).rejects.toBeDefined();
       expect(Date.now() - startedAt).toBeLessThan(2000);
       expect(requester.isRunning()).toBe(true);

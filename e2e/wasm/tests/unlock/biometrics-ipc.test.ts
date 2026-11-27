@@ -40,7 +40,7 @@ describe("biometrics ipc", () => {
       }),
     );
 
-    const status = await ipcRequestGetBiometricsStatus(requester, TEST_USER_ID);
+    const status = await ipcRequestGetBiometricsStatus(requester, TEST_USER_ID, "DesktopRenderer");
 
     expect(status).toBe(BiometricsStatus.UnlockNeeded);
   });
@@ -51,7 +51,7 @@ describe("biometrics ipc", () => {
       makeMockBiometricsDriver({ userKey, uvResult: true, status: BiometricsStatus.Available }),
     );
 
-    const response = await ipcRequestUnlockBiometrics(requester, TEST_USER_ID);
+    const response = await ipcRequestUnlockBiometrics(requester, TEST_USER_ID, "DesktopRenderer");
 
     expect(response.user_key).toBe(userKey);
   });
@@ -65,7 +65,7 @@ describe("biometrics ipc", () => {
       }),
     );
 
-    const response = await ipcRequestUnlockBiometrics(requester, TEST_USER_ID);
+    const response = await ipcRequestUnlockBiometrics(requester, TEST_USER_ID, "DesktopRenderer");
 
     expect(response.user_key).toBeUndefined();
   });
@@ -79,7 +79,7 @@ describe("biometrics ipc", () => {
       }),
     );
 
-    expect(await ipcRequestAuthenticateBiometrics(requester)).toBe(true);
+    expect(await ipcRequestAuthenticateBiometrics(requester, "DesktopRenderer")).toBe(true);
   });
 
   it("forwards a failed biometrics UV check", async () => {
@@ -91,7 +91,7 @@ describe("biometrics ipc", () => {
       }),
     );
 
-    expect(await ipcRequestAuthenticateBiometrics(requester)).toBe(false);
+    expect(await ipcRequestAuthenticateBiometrics(requester, "DesktopRenderer")).toBe(false);
   });
 
   it("does not fail an in-flight unlock when a concurrent status response arrives", async () => {
@@ -112,14 +112,14 @@ describe("biometrics ipc", () => {
     // Capture the unlock's settled state without awaiting it, so that if the concurrent status
     // request below were to settle the unlock early, it surfaces as a failed assertion rather than
     // an unhandled rejection.
-    const unlock = ipcRequestUnlockBiometrics(requester, TEST_USER_ID).then(
+    const unlock = ipcRequestUnlockBiometrics(requester, TEST_USER_ID, "DesktopRenderer").then(
       (ok) => ({ ok }),
       (err) => ({ err: String(err) }),
     );
 
     // A status request completes while the unlock is still in flight. Its response is delivered
     // only to that request's own response topic, so it must leave the pending unlock untouched.
-    await expect(ipcRequestGetBiometricsStatus(requester, TEST_USER_ID)).resolves.toBe(
+    await expect(ipcRequestGetBiometricsStatus(requester, TEST_USER_ID, "DesktopRenderer")).resolves.toBe(
       BiometricsStatus.Available,
     );
 
