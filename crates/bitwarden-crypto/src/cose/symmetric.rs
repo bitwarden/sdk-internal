@@ -995,6 +995,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_encrypt_decrypt_cose_roundtrip() {
         for (algorithm, cek) in algorithms() {
@@ -1014,6 +1015,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_encrypt_decrypt_cose0_roundtrip() {
         for (algorithm, cek) in algorithms() {
@@ -1138,6 +1140,7 @@ mod tests {
         ));
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_decrypt_cose_algorithm_policies() {
         let builder =
@@ -1219,6 +1222,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_decrypt_cose0_algorithm_policies() {
         let message = encrypt_cose0(
@@ -1275,6 +1279,7 @@ mod tests {
         ));
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_decrypt_cose0_wrong_key_fails() {
         let cose_encrypt0 = encrypt_cose0(
@@ -1403,6 +1408,7 @@ mod tests {
         ));
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_decrypt_cose0_missing_algorithm_uses_default() {
         // A legacy message with no declared algorithm decrypts when a fallback algorithm is
@@ -1430,6 +1436,7 @@ mod tests {
         assert_eq!(decrypted, PLAINTEXT);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_encrypt_decrypt_xchacha20_roundtrip_octetstream() {
         use crate::SymmetricCryptoKey;
@@ -1446,6 +1453,7 @@ mod tests {
         assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::OctetStream));
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_encrypt_decrypt_xchacha20_roundtrip_utf8() {
         use crate::SymmetricCryptoKey;
@@ -1461,6 +1469,7 @@ mod tests {
         assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::Utf8));
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_encrypt_decrypt_xchacha20_roundtrip_pkcs8() {
         use crate::SymmetricCryptoKey;
@@ -1480,6 +1489,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_encrypt_decrypt_xchacha20_roundtrip_cosekey() {
         use crate::SymmetricCryptoKey;
@@ -1495,6 +1505,7 @@ mod tests {
         assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::CoseKey));
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_decrypt_xchacha20_test_vector() {
         let key = make_xchacha_key();

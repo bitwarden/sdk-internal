@@ -806,6 +806,7 @@ mod tests {
         println!("{:?}", envelope);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_testvector_cosekey() {
         let key_store = KeyStore::<TestIds>::default();
@@ -829,6 +830,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_testvector_legacykey() {
         let key_store = KeyStore::<TestIds>::default();

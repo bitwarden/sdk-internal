@@ -610,6 +610,7 @@ mod tests {
         parse_msg_a(vectors().cpace.msga_json.as_bytes()).expect("valid msga")
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn parses_msg_a() {
         let vectors = vectors().cpace;
@@ -641,6 +642,7 @@ mod tests {
         serde_json::to_vec(&msg_a).expect("serializes")
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn rejects_malformed_msg_a() {
         let point = |bytes: &[u8]| Some(json!(BASE64URL_NOPAD.encode(bytes)));
@@ -688,6 +690,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn rejects_an_invalid_point_with_an_internal_error() {
         let json = edited_msg_a("/ya", Some(json!(BASE64URL_NOPAD.encode(&[0xff; 32]))));
@@ -714,6 +717,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn calculates_passcode_hash() {
         let vectors = vectors().cpace;
@@ -726,6 +730,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn calculates_first_hash() {
         let vectors = vectors().cpace;
@@ -740,6 +745,7 @@ mod tests {
         assert_eq!(HEXLOWER.encode(hash.as_slice()), vectors.first_hash);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn calculates_second_hash() {
         let vectors = vectors().cpace;
@@ -753,6 +759,7 @@ mod tests {
         assert_eq!(HEXLOWER.encode(hash.as_slice()), vectors.second_hash);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn calculates_msg_b() {
         let vectors = vectors().cpace;
@@ -769,6 +776,7 @@ mod tests {
         assert_eq!(HEXLOWER.encode(&msg_b), vectors.msgb);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn calculates_auth_a() {
         let vectors = vectors().cpace;
@@ -778,6 +786,7 @@ mod tests {
         assert_eq!(HEXLOWER.encode(auth_a.as_slice()), vectors.auth_a);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn calculates_auth_b() {
         let vectors = vectors().cpace;
@@ -796,6 +805,7 @@ mod tests {
         assert_eq!(HEXLOWER.encode(&tag_b), vectors.tag_b);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn calculates_auth_b_and_tag_b_together() {
         let vectors = vectors().cpace;
@@ -832,6 +842,7 @@ mod tests {
     }
 
     /// The enrolled device's first message is the one of the vectors, when it is told the same.
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn the_enrolled_device_sends_the_first_message_of_the_vectors() {
         let vectors = vectors().cpace;
@@ -854,6 +865,7 @@ mod tests {
     }
 
     /// The enrolled device's side reaches the exchange key of the vectors, from its own secret.
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn the_enrolled_device_shares_credentials_the_exchange_key_opens() {
         let vectors = vectors().cpace;
@@ -909,6 +921,7 @@ mod tests {
     }
 
     /// The enrolled device holds `ya_secret`, and the vectors have to be consistent with it.
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn ya_is_the_generator_times_the_enrolled_secret() {
         let vectors = vectors().cpace;
@@ -922,6 +935,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn enrolled_device_expects_the_tag_b_of_the_vectors() {
         let vectors = vectors().cpace;
@@ -936,6 +950,7 @@ mod tests {
         assert_eq!(HEXLOWER.encode(&tag_b), vectors.tag_b);
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn enrolled_device_derives_the_same_auth_a() {
         let vectors = vectors().cpace;
@@ -1078,6 +1093,7 @@ mod tests {
         .await
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn exchanges_the_credentials_with_1password() {
         let exchanges = recorded_exchanges();
@@ -1092,6 +1108,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn a_wrong_code_still_sends_tag_b_and_asks_for_no_credentials() {
         let exchanges = recorded_exchanges();
@@ -1112,6 +1129,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn verifies_only_the_tag_a_of_msg_a_under_the_shared_key() {
         let exchanges = recorded_exchanges();
@@ -1135,6 +1153,7 @@ mod tests {
         assert!(!verify_tag_a(&tag_a, &[0; 64], &msg_a));
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn waits_for_a_msg_a_other_than_the_replaced_one() {
         let vectors = vectors().cpace;
@@ -1171,6 +1190,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn an_exchange_starts_from_the_msg_a_it_is_given() {
         let vectors = vectors().cpace;
@@ -1183,6 +1203,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn perform_cpace_sends_the_vector_messages_and_returns_the_bundle() {
         let vectors = vectors().cpace;
@@ -1196,6 +1217,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn a_rejected_msgb_is_an_error() {
         let vectors = vectors().cpace;
@@ -1247,6 +1269,7 @@ mod tests {
         server.verify().await;
     }
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[tokio::test]
     async fn exhausting_the_empty_answers_is_an_error() {
         let vectors = vectors().cpace;

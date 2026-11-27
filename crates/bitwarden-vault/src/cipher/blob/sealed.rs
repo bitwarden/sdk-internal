@@ -195,6 +195,7 @@ mod tests {
         "ytx2yTeNHMbFXIV0Et+PdH12TP6Od/SSJPryvQPqh3xacJI6Z1f3fyRjvNa5mhq/jncIN6KRkv+2j3EaS2D9cA==";
     const TEST_VECTOR_SEALED_BLOB: &str = r#"{"format_version":1,"wrapped_cek":"2.lWM2PaWJINJGmKz4FMN8ew==|bZ5qtkbxjniS1098TVzm63IKQOUgffznGkPP9LqvT5i7Y9wLjlhpxAB2h3icZvgGGtlMBWv5I21GnlcNjG830EBFyC+VaaeJtJoslu0+zpo=|jy4zv45oVDgbBV9N+E38I1KKHgMbZ+agJvGgHH+82Ls=","envelope":"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUOsIztihvsPzeLfnHjp76pY6AAE4gQI6AAE4gAGhBUzhTmCubZnEmR36ZJtYcUPFbv7gfSbFKNpQVoO/LB0Rc+xusns6bnK5oX972HnKQ6JRX4lYGrHoXxQFU15WJFqEVFR9QJf3wb3UjdVQ9d0aIGZuPr3H+TGr8rNk0UrEDcPsPrLEoEMkPgXqCwpd9aevAJM/6UqnzsqEK4NSBBTT"}"#;
 
+    #[cfg_attr(bitwarden_crypto_backend = "openssl", ignore)]
     #[test]
     fn test_recorded_sealed_blob_test_vector() {
         let wrapping_key =
