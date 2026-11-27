@@ -1,8 +1,10 @@
-// Statuses the models answer with, and the error body they share.
+// Statuses the models answer with, and the error bodies they share.
 
-import type { ErrorResponse } from "./dto/common";
+import type { ErrorResponse, ValidationProblemResponse } from "./dto/common";
 import type { MockReply } from "./http-mock";
 
+export const HTTP_CREATED = 201;
+export const HTTP_NO_CONTENT = 204;
 export const HTTP_BAD_REQUEST = 400;
 export const HTTP_UNAUTHORIZED = 401;
 export const HTTP_FORBIDDEN = 403;
@@ -12,6 +14,28 @@ export const HTTP_CONFLICT = 409;
 /** A refusal, in the shape every Bitwarden service refuses with. */
 export function error(status: number, message: string): MockReply {
   const body: ErrorResponse = { message };
+
+  return { status, json: body };
+}
+
+/**
+ * A refusal in the RFC 7807 shape the newer endpoints use, carrying one machine-readable `code`
+ * against the request `property` it concerns. A 404 keeps the same shape under the server's
+ * not-found type and title.
+ */
+export function validationProblem(
+  property: string,
+  code: string,
+  detail: string,
+  status: typeof HTTP_BAD_REQUEST | typeof HTTP_NOT_FOUND = HTTP_BAD_REQUEST,
+): MockReply {
+  const body: ValidationProblemResponse = {
+    ...(status === HTTP_NOT_FOUND
+      ? { type: "not_found", title: "The requested resource was not found." }
+      : { type: "validation_error", title: "One or more validation errors occurred." }),
+    status,
+    errors: { [property]: [{ type: code, detail }] },
+  };
 
   return { status, json: body };
 }
