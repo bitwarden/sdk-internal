@@ -29,7 +29,7 @@ crates/bitwarden-api-identity/.openapi-generator/** @bitwarden/team-auth-dev
 crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 
 # Claude related files
-.claude/ @bitwarden/team-ai-sme
+.claude/ @bitwarden/team-ai-sme @bitwarden/tech-leads
 .claude/skills/create-testvectors/ @bitwarden/team-ai-sme @bitwarden/team-key-management-dev
 .github/workflows/respond.yml @bitwarden/team-ai-sme
 .github/workflows/review-code.yml @bitwarden/team-ai-sme
