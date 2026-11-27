@@ -5,6 +5,7 @@ use crate::error::Result;
 
 #[allow(missing_docs)]
 pub mod attachments;
+pub mod cipher_risk;
 #[allow(missing_docs)]
 pub mod ciphers;
 #[allow(missing_docs)]
@@ -43,6 +44,11 @@ impl VaultClient {
     /// Attachment file operations
     pub fn attachments(&self) -> attachments::AttachmentsClient {
         attachments::AttachmentsClient(self.0.attachments())
+    }
+
+    /// Vault health operations, such as finding passkey opportunities
+    pub fn cipher_risk(&self) -> cipher_risk::CipherRiskClient {
+        cipher_risk::CipherRiskClient(self.0.cipher_risk())
     }
 
     /// Generate a TOTP code from a provided key.
