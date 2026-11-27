@@ -3,7 +3,7 @@ use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 #[cfg(feature = "wasm")]
 use bitwarden_ffi::BwStream;
-use bitwarden_state::repository::{Repository, RepositoryError};
+use bitwarden_state::repository::{Repository, RepositoryError, RepositoryOption};
 use futures::Stream;
 use thiserror::Error;
 
@@ -156,7 +156,6 @@ impl CiphersClient {
     }
 }
 
-#[allow(deprecated)]
 impl CiphersClient {
     /// Get all ciphers from state and decrypt them to [crate::CipherListView] in chunks of up to
     /// 250, in the repository's order.
@@ -167,10 +166,12 @@ impl CiphersClient {
     pub fn list_stream(
         &self,
     ) -> impl Stream<Item = Result<DecryptedChunk, DecryptStreamError>> + Send + 'static {
+        #[allow(deprecated)]
+        let client = self.client.clone();
         decrypted_list_stream(
-            self.get_repository(),
+            self.repository.require().cloned(),
             self.key_store.clone(),
-            self.client.clone(),
+            client,
             LIST_CHUNK_SIZE,
         )
     }
