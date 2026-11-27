@@ -21,6 +21,8 @@
 //! hash if the user proceeds — but per the decided fix, that's the token's only valid target,
 //! not a leak to a second, different host.
 
+use std::io::{self, IsTerminal};
+
 use bitwarden_auth::send_access::{
     SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
     SendEmailCredentials, SendEmailOtpCredentials, SendPasswordCredentials,
@@ -33,7 +35,7 @@ use bitwarden_core::get_host_platform_info;
 use bitwarden_pm::PasswordManagerClient;
 use bitwarden_send::{SendAccessKey, SendAccessView, SendType};
 use color_eyre::eyre::{Context as _, Result, bail, eyre};
-use inquire::{Password, Text, validator::Validation};
+use inquire::{Confirm, Password, Text, validator::Validation};
 use url::Url;
 
 use super::send_access_token_cache;
@@ -102,8 +104,30 @@ pub(crate) async fn run_receive(inputs: ReceiveInputs) -> CommandResult {
     let access_key = SendAccessKey::from_url_b64(&key_b64)
         .map_err(|_| eyre!("Failed to parse url, the url provided is not a valid Send url"))?;
 
-    let (api_url, identity_url, trusted) =
-        resolve_urls(&url, read_config_json().ok().flatten().as_ref());
+    let config = read_config_json().ok().flatten();
+    let (api_url, identity_url, trusted) = resolve_urls(&url, config.as_ref());
+
+    // If the Send is from an untrusted origin then we must get the user's permission to proceed
+    if !trusted {
+        if !can_interact() {
+            bail!(
+                "Send access will not be attempted, the origin of the Send URL is untrusted. Run command interactively to override"
+            );
+        }
+        // We don't know if the Send requires prompts for its auth (and won't until access is
+        // attempted) but we do know that we'll need one to confirm running the command on
+        // an untrusted Send domain
+        if !can_prompt() {
+            bail!(
+                "Send access will not be attempted; the origin of the Send URL is untrusted and a TTY prompt for override is unavailable"
+            );
+        }
+        let untrusted_origin_accepted = prompt_origin_override(&url, config.as_ref())?;
+        if !untrusted_origin_accepted {
+            bail!("Send access cancelled");
+        }
+    }
+
     // The cache key is the resolved host, never a separately configured environment — see
     // `send_access_token_cache`'s module doc for why that distinction matters. Only engaged for
     // a trusted host at all; see `resolve_urls`'s doc for why untrusted hosts are excluded
@@ -171,13 +195,15 @@ fn parse_send_url(url: &Url) -> Result<(String, String)> {
 /// 3. Otherwise `<origin>/api` + `<origin>/identity`, the single-domain self-host convention and
 ///    the legacy CLI's final fallback. Not trusted.
 ///
-/// The trust flag gates the send-access-token cache ([`send_access_token_cache`]): only a
-/// trusted host's token gets persisted to disk at all, matching the corresponding TS client fix
-/// (which caches only for configured and trusted domains). This is a stricter rule than
-/// correctness alone requires — [`send_access_token_cache`]'s `(resolved_host, send_id)` key
-/// already prevents a token from being looked up under a different host than the one it was
-/// minted against — but it keeps this CLI from ever writing a persistent, on-disk credential for
-/// an arbitrary, untrusted Send-link host, not just from misusing one it already wrote.
+/// The trust flag determines whether the command requires user confirmation and also gates the
+/// send-access-token cache ([`send_access_token_cache`]); an untrusted host is only allowed to
+/// proceed if the user specifically allows it, and only a trusted host's token gets persisted to
+/// disk at all, matching the corresponding TS client fix (which caches only for configured and
+/// trusted domains). This is a stricter rule than correctness alone requires —
+/// [`send_access_token_cache`]'s `(resolved_host, send_id)` key already prevents a token from being
+/// looked up under a different host than the one it was minted against — but it keeps this CLI from
+/// ever writing a persistent, on-disk credential for an arbitrary, untrusted Send-link host, not
+/// just from misusing one it already wrote.
 ///
 /// Pure so the precedence can be unit-tested without a client or a config file on disk.
 ///
@@ -297,7 +323,9 @@ async fn access_with_email_otp(
     client: &PasswordManagerClient,
     send_id: &str,
 ) -> Result<SendAccessTokenResponse> {
-    if !can_interact() {
+    // The Email-OTP flow fundamentally requires some interactive back and forth with the user, so
+    // if we're not allowed to show a prompt or our environment doesn't support prompting we bail
+    if !can_interact() || !can_prompt() {
         return Err(eyre!(
             "Email verification required. Run in interactive mode."
         ));
@@ -496,7 +524,9 @@ async fn download_bytes(client: &PasswordManagerClient, url: &str) -> Result<Vec
 // ===== Password resolution =====
 
 /// Resolve the Send's password, prompting when it wasn't supplied and the session is
-/// interactive. Mirrors legacy's `handlePasswordAuth` precedence exactly.
+/// interactive. If TTY is unavailable and prompting would fail, fail with a more
+/// descriptive error message than `inquire` would. Mirrors legacy's `handlePasswordAuth`
+/// precedence exactly.
 fn resolve_password(inputs: &ReceiveInputs) -> Result<String> {
     let supplied = password_from_args(
         inputs.password.as_deref(),
@@ -506,8 +536,13 @@ fn resolve_password(inputs: &ReceiveInputs) -> Result<String> {
 
     let password = match supplied {
         Some(password) => password,
-        None if can_interact() => prompt_password()?,
-        None => return Err(eyre!("Password required")),
+        None if !can_interact() => return Err(eyre!("Password required")),
+        None if !can_prompt() => {
+            return Err(eyre!(
+                "Password required but a TTY prompt for submission is unavailable"
+            ));
+        }
+        None => prompt_password()?,
     };
 
     if password.is_empty() {
@@ -569,6 +604,15 @@ fn can_interact() -> bool {
     std::env::var("BW_NOINTERACTION").as_deref() != Ok("true")
 }
 
+/// Whether the current environment supports prompting the user
+///
+/// Only return true if stdin is connected to a terminal, since that's the only
+/// reliably interactive scenario. Redirected or closed stdin (even with /dev/tty
+/// available) signals non-interactive use and will fail in inquire's terminal setup.
+fn can_prompt() -> bool {
+    io::stdin().is_terminal()
+}
+
 /// Prompt for the Send's password. `inquire` renders to stderr, so
 /// `bw receive <url> > out.txt` still captures only the Send's content — the same reason legacy
 /// passes `output: process.stderr` to inquirer.
@@ -594,6 +638,40 @@ fn prompt_email() -> Result<String> {
 
 fn prompt_otp() -> Result<String> {
     Ok(Text::new("Enter the verification code sent to your email:").prompt()?)
+}
+
+fn prompt_origin_override(send_url: &Url, config: Option<&ConfigFile>) -> Result<bool> {
+    let prompt_message = origin_override_message(send_url, config);
+    Ok(Confirm::new(prompt_message.as_str())
+        .with_default(false)
+        .prompt()?)
+}
+
+fn origin_override_message(send_url: &Url, config: Option<&ConfigFile>) -> String {
+    let send_origin = send_url.origin().ascii_serialization();
+    let mut message = format!("You are attempting to access a Send hosted on {send_origin}");
+    // If the CLI is configured to trust other origins besides the Bitwarden cloud-hosted
+    // regions we put those names in the message, matching the origins checked in [`resolve_urls`]
+    if let Some(specified_config) = config {
+        let trusted_origins: Vec<&str> = [
+            specified_config.web_vault.as_deref(),
+            specified_config.server.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        if !trusted_origins.is_empty() {
+            let trusted_origins_message = trusted_origins.join(" and ");
+            message.push_str(
+                format!(", but this CLI is configured for {trusted_origins_message}").as_str(),
+            );
+        }
+    }
+    message.push_str(
+        format!(". Do not proceed if you do not trust {send_origin}. Do you want to proceed?")
+            .as_str(),
+    );
+    message
 }
 
 #[cfg(test)]
@@ -897,5 +975,67 @@ mod tests {
     #[test]
     fn no_inputs_yields_no_password() {
         assert_eq!(password_from_args(None, None, None).unwrap(), None);
+    }
+
+    #[test]
+    fn origin_override_message_no_config() {
+        let config = ConfigFile::default();
+        let message = origin_override_message(
+            &Url::parse("https://send.untrustedorigin.com").unwrap(),
+            Some(&config),
+        );
+        assert_eq!(
+            message,
+            "You are attempting to access a Send hosted on https://send.untrustedorigin.com. Do not proceed if you do not trust https://send.untrustedorigin.com. Do you want to proceed?"
+        );
+    }
+
+    #[test]
+    fn origin_override_message_web_vault_only() {
+        let config = ConfigFile {
+            web_vault: Some("https://vault.bitwarden.com".to_string()),
+            ..Default::default()
+        };
+        let message = origin_override_message(
+            &Url::parse("https://send.untrustedorigin.com").unwrap(),
+            Some(&config),
+        );
+        assert_eq!(
+            message,
+            "You are attempting to access a Send hosted on https://send.untrustedorigin.com, but this CLI is configured for https://vault.bitwarden.com. Do not proceed if you do not trust https://send.untrustedorigin.com. Do you want to proceed?"
+        );
+    }
+
+    #[test]
+    fn origin_override_message_server_only() {
+        let config = ConfigFile {
+            server: Some("https://bitwarden.com".to_string()),
+            ..Default::default()
+        };
+        let message = origin_override_message(
+            &Url::parse("https://send.untrustedorigin.com").unwrap(),
+            Some(&config),
+        );
+        assert_eq!(
+            message,
+            "You are attempting to access a Send hosted on https://send.untrustedorigin.com, but this CLI is configured for https://bitwarden.com. Do not proceed if you do not trust https://send.untrustedorigin.com. Do you want to proceed?"
+        );
+    }
+
+    #[test]
+    fn origin_override_message_web_vault_and_server() {
+        let config = ConfigFile {
+            web_vault: Some("https://vault.bitwarden.com".to_string()),
+            server: Some("https://bitwarden.com".to_string()),
+            ..Default::default()
+        };
+        let message = origin_override_message(
+            &Url::parse("https://send.untrustedorigin.com").unwrap(),
+            Some(&config),
+        );
+        assert_eq!(
+            message,
+            "You are attempting to access a Send hosted on https://send.untrustedorigin.com, but this CLI is configured for https://vault.bitwarden.com and https://bitwarden.com. Do not proceed if you do not trust https://send.untrustedorigin.com. Do you want to proceed?"
+        );
     }
 }
