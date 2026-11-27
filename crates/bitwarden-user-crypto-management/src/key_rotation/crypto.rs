@@ -61,6 +61,21 @@ pub(super) fn rotate_account_cryptographic_state(
         "Rotating account cryptographic state",
     );
 
+    // `WrappedAccountCryptographicState::rotate` always upgrades V1 to V2. A V1 user key keeps
+    // the account on V1, so only the private key is re-wrapped.
+    if let WrappedAccountCryptographicState::V1 { private_key } =
+        wrapped_account_cryptographic_state
+        && ctx.is_v1_symmetric_key(*new_user_key_id).map_err(|_| ())?
+    {
+        let private_key_id = ctx
+            .unwrap_private_key(*current_user_key_id, private_key)
+            .map_err(|_| ())?;
+        let private_key = ctx
+            .wrap_private_key(*new_user_key_id, private_key_id)
+            .map_err(|_| ())?;
+        return Ok(WrappedAccountCryptographicState::V1 { private_key });
+    }
+
     // We can't really handle the error variants here. Either the provided account cryptographic
     // state is broken, or a key is missing.
     let rotated_account_cryptographic_state = WrappedAccountCryptographicState::rotate(
@@ -404,5 +419,41 @@ mod tests {
             security_state.security_state.is_some(),
             "security_state content should be present"
         );
+    }
+
+    #[test]
+    fn test_rotate_v1_to_v1_keeps_v1_state() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (old_user_key_id, public_key, wrapped_state) = make_v1_wrapped_state(&mut ctx);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+
+        let rotated_state = rotate_account_cryptographic_state(
+            &wrapped_state,
+            &old_user_key_id,
+            &new_user_key_id,
+            &mut ctx,
+        )
+        .expect("rotate_account_cryptographic_state should succeed");
+
+        // The private key opens under the new user key, and is the same key pair
+        let WrappedAccountCryptographicState::V1 { private_key } = &rotated_state else {
+            panic!("a V1 user key must keep the account on V1");
+        };
+        let private_key_id = ctx
+            .unwrap_private_key(new_user_key_id, private_key)
+            .expect("private key should unwrap with the new user key");
+        assert_eq!(ctx.get_public_key(private_key_id).unwrap(), public_key);
+
+        // The request model carries no V2 fields
+        let model = rotate_account_cryptographic_state_to_request_model(
+            &wrapped_state,
+            &old_user_key_id,
+            &new_user_key_id,
+            &mut ctx,
+        )
+        .expect("rotate_account_cryptographic_state_to_request_model should succeed");
+        assert!(model.signature_key_pair.is_none());
+        assert!(model.security_state.is_none());
     }
 }

@@ -17,9 +17,10 @@ const FALSE_MEANS_ABSENT_FIELDS: readonly string[] = ["httpAuthenticationEnabled
  * Fields where an empty list means the same as an absent value. A key rotation re-encrypts an item
  * into the blob format, and an item with no custom fields decrypts with `fields: []` from the
  * field-level format but with no `fields` from the blob: again a change of representation, not of
- * meaning.
+ * meaning. Likewise, an item re-encrypted in the field-level format is posted with an empty
+ * `passwordHistory` where it had none.
  */
-const EMPTY_MEANS_ABSENT_FIELDS: readonly string[] = ["fields"];
+const EMPTY_MEANS_ABSENT_FIELDS: readonly string[] = ["fields", "passwordHistory"];
 
 /**
  * Decrypts everything an unlocked client's repositories hold, comparing to the plaintext `seed`
