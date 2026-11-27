@@ -116,6 +116,20 @@ jobs:
           VERSION_NUMBER: ${{ inputs.version_number }}
         run: cargo bin cargo-set-version -p bitwarden-access-connector "$VERSION_NUMBER"
 
+      - name: Bump bitwarden-access-connector install scripts default version
+        if: ${{ inputs.project == 'bitwarden-access-connector' }}
+        env:
+          VERSION_NUMBER: ${{ inputs.version_number }}
+          SCRIPTS_DIR: bitwarden_license/bitwarden-access-connector/scripts
+        run: |
+          sed -i "s/^DEFAULT_BWAC_VERSION=\"[^\"]*\"$/DEFAULT_BWAC_VERSION=\"${VERSION_NUMBER}\"/" "${SCRIPTS_DIR}/install.sh"
+          sed -i "s/^\(\s*\)\$defaultBwacVersion = \"[^\"]*\"$/\1\$defaultBwacVersion = \"${VERSION_NUMBER}\"/" "${SCRIPTS_DIR}/install.ps1"
+          # Fail if a script was reformatted and sed no longer matched its version line.
+          grep -qx "DEFAULT_BWAC_VERSION=\"${VERSION_NUMBER}\"" "${SCRIPTS_DIR}/install.sh" \
+            || { echo "::error::install.sh default version was not updated"; exit 1; }
+          grep -qx "\s*\$defaultBwacVersion = \"${VERSION_NUMBER}\"" "${SCRIPTS_DIR}/install.ps1" \
+            || { echo "::error::install.ps1 default version was not updated"; exit 1; }
+
       ############################
       # VERSION BUMP SECTION END #
       ############################
