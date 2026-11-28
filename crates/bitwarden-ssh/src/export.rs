@@ -1,5 +1,4 @@
 use pkcs8::EncodePrivateKey;
-use rsa::RsaPrivateKey;
 use ssh_key::{EcdsaCurve, PrivateKey};
 
 use crate::error::SshKeyExportError;
@@ -26,7 +25,7 @@ pub fn export_pkcs8_der_key(private_key: &str) -> Result<Vec<u8>, SshKeyExportEr
                 .to_vec())
         }
         ssh_key::private::KeypairData::Rsa(keypair) => {
-            let rk: RsaPrivateKey = keypair
+            let rk: rsa::PrivateKey = keypair
                 .try_into()
                 .map_err(|_| SshKeyExportError::KeyConversion)?;
 
@@ -141,6 +140,14 @@ mod tests {
         let private_key = include_str!("../resources/generator/ecdsa_p521_key");
         let exported_key = export_pkcs8_der_key(private_key).unwrap();
         assert!(!exported_key.is_empty());
+    }
+
+    /// Composite keys have no PKCS#8 representation, so Credential Exchange cannot carry them.
+    #[test]
+    fn export_mldsa44_ed25519_is_unsupported() {
+        let private_key = include_str!("../resources/generator/mldsa44_ed25519_key");
+        let result = export_pkcs8_der_key(private_key);
+        assert_eq!(result.unwrap_err(), SshKeyExportError::KeyConversion);
     }
 
     #[test]

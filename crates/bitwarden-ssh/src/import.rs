@@ -129,7 +129,7 @@ pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyData, SshKeyImpo
             ssh_key::private::PrivateKey::from(Ed25519Keypair::from(&private_key.secret_key.into()))
         }
         rsa::pkcs1::ALGORITHM_OID => {
-            let private_key: rsa::RsaPrivateKey = private_key_info
+            let private_key: rsa::PrivateKey = private_key_info
                 .try_into()
                 .map_err(|_| SshKeyImportError::Parsing)?;
 
@@ -176,7 +176,10 @@ fn import_openssh_key(
 fn is_supported_algorithm(algorithm: &Algorithm) -> bool {
     matches!(
         algorithm,
-        Algorithm::Ed25519 | Algorithm::Rsa { .. } | Algorithm::Ecdsa { .. }
+        Algorithm::Ed25519
+            | Algorithm::Rsa { .. }
+            | Algorithm::Ecdsa { .. }
+            | Algorithm::MlDsa44Ed25519
     )
 }
 
@@ -343,6 +346,18 @@ mod tests {
     }
 
     #[test]
+    fn import_mldsa44_ed25519_openssh_unencrypted() {
+        let private_key = include_str!("../resources/generator/mldsa44_ed25519_key");
+        let result = import_key(private_key.to_string(), None).unwrap();
+        assert!(
+            result
+                .public_key
+                .starts_with("ssh-mldsa44-ed25519@openssh.com ")
+        );
+        assert_eq!(result.private_key, private_key.replace("\r\n", "\n"));
+    }
+
+    #[test]
     fn import_key_ed25519_putty() {
         let private_key = include_str!("../resources/import/ed25519_putty_openssh_unencrypted");
         let public_key =
@@ -397,6 +412,7 @@ mod tests {
             Algorithm::Ecdsa {
                 curve: ssh_key::EcdsaCurve::NistP521,
             },
+            Algorithm::MlDsa44Ed25519,
         ] {
             assert!(
                 is_supported_algorithm(&algorithm),

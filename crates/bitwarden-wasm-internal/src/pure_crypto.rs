@@ -11,7 +11,7 @@ use bitwarden_crypto::{
 };
 use rand::RngExt;
 use rsa::{
-    Oaep, RsaPrivateKey, RsaPublicKey,
+    Oaep, PrivateKey as RsaPrivateKey, PublicKey as RsaPublicKey,
     pkcs8::{DecodePrivateKey, DecodePublicKey},
 };
 use sha1::Sha1;
