@@ -1,0 +1,86 @@
+name: Build UniFFI server library
+
+# Builds the bitwarden-uniffi-server cdylib per .NET runtime identifier. dotnet-extensions
+# downloads these artifacts, generates the C# bindings from them and packs them into NuGet.
+
+on:
+  pull_request:
+    paths:
+      - "crates/bitwarden-uniffi-server/**"
+      - "crates/bitwarden-crypto/**"
+      - ".github/workflows/build-uniffi-server.yml"
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            os: ubuntu-24.04
+            lib: libbitwarden_uniffi_server.so
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+            lib: libbitwarden_uniffi_server.so
+          - rid: osx-arm64
+            os: macos-26
+            lib: libbitwarden_uniffi_server.dylib
+          - rid: win-x64
+            os: windows-2022
+            lib: bitwarden_uniffi_server.dll
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: uniffi-server-${{ matrix.rid }}
+
+      - name: Build
+        run: cargo build -p bitwarden-uniffi-server --release
+        env:
+          RUSTFLAGS: "-D warnings"
+
+      # Checksum and source commit travel with the library, so consumers can verify and pin it.
+      - name: Stage artifact
+        shell: bash
+        run: |
+          mkdir -p artifact
+          cp "target/release/${{ matrix.lib }}" artifact/
+          cd artifact
+          # macOS runners lack sha256sum; Windows Git Bash lacks a reliable shasum.
+          if command -v sha256sum > /dev/null; then
+            sha256sum "${{ matrix.lib }}" > "${{ matrix.lib }}.sha256"
+          else
+            shasum -a 256 "${{ matrix.lib }}" > "${{ matrix.lib }}.sha256"
+          fi
+          echo "$GITHUB_SHA" > source-commit.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bitwarden-uniffi-server-${{ matrix.rid }}
+          path: artifact
+          if-no-files-found: error

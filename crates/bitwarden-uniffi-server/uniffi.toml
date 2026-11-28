@@ -1,0 +1,3 @@
+[bindings.csharp]
+cdylib_name = "bitwarden_uniffi_server"
+namespace = "Bitwarden.Server.Sdk.Crypto.Native"
