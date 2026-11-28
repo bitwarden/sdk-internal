@@ -18,6 +18,9 @@ pub enum KeyAlgorithm {
     EcdsaP256,
     EcdsaP384,
     EcdsaP521,
+    /// `ssh-mldsa44-ed25519@openssh.com`, the ML-DSA-44 + Ed25519 composite of
+    /// [draft-miller-sshm-composite-sigs](https://www.ietf.org/archive/id/draft-miller-sshm-composite-sigs-01.html).
+    MlDsa44Ed25519,
 }
 
 /**
@@ -62,6 +65,8 @@ fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
             },
         )
         .map_err(KeyGenerationError::KeyGeneration),
+        KeyAlgorithm::MlDsa44Ed25519 => ssh_key::PrivateKey::random(rng, Algorithm::MlDsa44Ed25519)
+            .map_err(KeyGenerationError::KeyGeneration),
     }?;
 
     ssh_private_key_to_data(private_key).map_err(|_| KeyGenerationError::KeyConversion)
@@ -138,5 +143,55 @@ mod tests {
         let result = generate_sshkey_internal(key_algorithm, &mut rng);
         let target = include_str!("../resources/generator/ecdsa_p521_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
+    }
+
+    #[test]
+    fn generate_ssh_key_mldsa44_ed25519() {
+        let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let key_algorithm = KeyAlgorithm::MlDsa44Ed25519;
+        let result = generate_sshkey_internal(key_algorithm, &mut rng);
+        let target =
+            include_str!("../resources/generator/mldsa44_ed25519_key").replace("\r\n", "\n");
+        assert_eq!(result.unwrap().private_key, target);
+    }
+
+    /// A generated composite key must survive a round trip through the OpenSSH private key format
+    /// and still produce signatures its own public key accepts.
+    #[test]
+    fn mldsa44_ed25519_round_trip() {
+        use signature::{Signer, Verifier};
+        use ssh_key::Algorithm;
+
+        use crate::import::import_key;
+
+        const MESSAGE: &[u8] = b"bitwarden ssh agent";
+
+        let mut rng = rand_chacha::ChaCha12Rng::from_seed([1u8; 32]);
+        let generated = generate_sshkey_internal(KeyAlgorithm::MlDsa44Ed25519, &mut rng)
+            .expect("generation should succeed");
+        assert!(
+            generated
+                .public_key
+                .starts_with("ssh-mldsa44-ed25519@openssh.com ")
+        );
+
+        let imported =
+            import_key(generated.private_key.clone(), None).expect("import should succeed");
+        assert_eq!(imported.public_key, generated.public_key);
+        assert_eq!(imported.fingerprint, generated.fingerprint);
+
+        let private_key = ssh_key::PrivateKey::from_openssh(&imported.private_key)
+            .expect("re-imported key should parse");
+        assert_eq!(private_key.algorithm(), Algorithm::MlDsa44Ed25519);
+
+        // Trait-qualified: the inherent `sign`/`verify` on these types are the `sshsig` ones.
+        let signature: ssh_key::Signature =
+            Signer::try_sign(&private_key, MESSAGE).expect("signing should succeed");
+        Verifier::verify(private_key.public_key(), MESSAGE, &signature)
+            .expect("own signature should verify");
+
+        let mut tampered = MESSAGE.to_vec();
+        tampered[0] ^= 1;
+        assert!(Verifier::verify(private_key.public_key(), &tampered, &signature).is_err());
     }
 }
