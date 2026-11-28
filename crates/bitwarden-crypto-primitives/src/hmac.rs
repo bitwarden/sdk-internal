@@ -28,6 +28,20 @@ pub fn hmac(alg: HashAlg, key: &[u8], data: &[u8]) -> Vec<u8> {
 #[derive(Clone)]
 pub struct Hmac(backend::hmac::Hmac);
 
+// Force zeroize on drop impl for HMAC at compile time.
+const _: fn() = || {
+    fn assert_keyed_state_zeroizes_on_drop<D>()
+    where
+        D: hmac::EagerHash,
+        D::Core: zeroize::ZeroizeOnDrop,
+    {
+    }
+    assert_keyed_state_zeroizes_on_drop::<sha1::Sha1>();
+    assert_keyed_state_zeroizes_on_drop::<sha2::Sha256>();
+    assert_keyed_state_zeroizes_on_drop::<sha2::Sha384>();
+    assert_keyed_state_zeroizes_on_drop::<sha2::Sha512>();
+};
+
 impl Hmac {
     /// Starts a MAC under `key`. Any key length is accepted.
     pub fn new(alg: HashAlg, key: &[u8]) -> Self {

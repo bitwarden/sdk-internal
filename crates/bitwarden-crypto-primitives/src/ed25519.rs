@@ -102,6 +102,47 @@ mod tests {
         );
     }
 
+    /// The identity point, which has order 1.
+    const SMALL_ORDER_KEY: &str =
+        "0100000000000000000000000000000000000000000000000000000000000000";
+    /// `R` is the identity and `S = 0`, so the plain Ed25519 equation `[S]B = R + [k]A` holds for
+    /// every message under `SMALL_ORDER_KEY`. Only strict verification rejects it.
+    const SMALL_ORDER_SIG: &str = "0100000000000000000000000000000000000000000000000000000000000000\
+        0000000000000000000000000000000000000000000000000000000000000000";
+
+    #[test]
+    fn rejects_small_order_key() {
+        let key = VerifyingKey::from_bytes(&array(SMALL_ORDER_KEY)).expect("valid point");
+        assert_eq!(
+            key.verify(b"any message", &array(SMALL_ORDER_SIG)),
+            Err(Error::InvalidSignature)
+        );
+    }
+
+    /// `SIG` with the group order added to `S`: the same scalar, encoded non-canonically.
+    const SIG_WITH_NON_CANONICAL_S: &str = "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155\
+        4c8c7872aa064e049dbb3013fbf29380d25bf5f0595bbe24655141438e7a101b";
+
+    #[test]
+    fn rejects_non_canonical_signature() {
+        let key = VerifyingKey::from_bytes(&array(PUBLIC)).expect("valid point");
+        assert_eq!(
+            key.verify(b"", &array(SIG_WITH_NON_CANONICAL_S)),
+            Err(Error::InvalidSignature)
+        );
+    }
+
+    /// No curve point has `y = 2`.
+    const NOT_A_POINT: &str = "0200000000000000000000000000000000000000000000000000000000000000";
+
+    #[test]
+    fn from_bytes_rejects_bytes_that_are_not_a_point() {
+        assert_eq!(
+            VerifyingKey::from_bytes(&array(NOT_A_POINT)).err(),
+            Some(Error::InvalidKey)
+        );
+    }
+
     /// Deterministic signatures under a fixed seed, including over the empty message.
     #[test]
     fn known_answers_fixed_seed() {

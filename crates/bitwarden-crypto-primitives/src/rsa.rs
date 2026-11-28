@@ -392,6 +392,99 @@ mod tests {
         );
     }
 
+    /// PKCS#8 wraps the PKCS#1 `RSAPrivateKey` of a 2048-bit key in a fixed 26-byte header.
+    const PKCS8_HEADER_LEN: usize = 26;
+
+    #[test]
+    fn pkcs1_der_parses() {
+        let pkcs1 = &bytes(VECTOR_KEY)[PKCS8_HEADER_LEN..];
+        let parsed = PrivateKey::from_pkcs1_der(pkcs1).expect("parses");
+        assert!(parsed.public_key() == vector_key().public_key());
+
+        assert_eq!(
+            PrivateKey::from_pkcs1_der(b"junk").err(),
+            Some(Error::InvalidKey)
+        );
+    }
+
+    /// `n = 3 * 5 * 7` with `e = d = 5`, a valid key apart from having three primes.
+    const THREE_PRIME_MODULUS: &str = "69";
+    const THREE_PRIME_EXPONENT: &str = "05";
+
+    #[test]
+    fn from_components_rejects_three_primes() {
+        let n = bytes(THREE_PRIME_MODULUS);
+        let exponent = bytes(THREE_PRIME_EXPONENT);
+        let (p, q, r) = (bytes("03"), bytes("05"), bytes("07"));
+
+        assert_eq!(
+            PrivateKey::from_components(&n, &exponent, &exponent, &[&p, &q, &r]).err(),
+            Some(Error::InvalidKey)
+        );
+    }
+
+    /// `n = 7 * 7` with `e = d = 5`. The primes multiply to `n` and `e * d = 1 (mod 6)`, but `q`
+    /// has no inverse modulo `p`, so the key has no CRT coefficient.
+    const EQUAL_PRIMES_MODULUS: &str = "31";
+    const EQUAL_PRIMES_EXPONENT: &str = "05";
+    const EQUAL_PRIME: &str = "07";
+    const EQUAL_PRIMES_PKCS1: &str = "301b020100020131020105020105020107020107020105020105020101";
+    const EQUAL_PRIMES_PKCS8: &str = "3031020100300d06092a864886f70d0101010500041d\
+        301b020100020131020105020105020107020107020105020105020101";
+    const EQUAL_PRIMES_PEM: &str = "-----BEGIN PRIVATE KEY-----\n\
+        MDECAQAwDQYJKoZIhvcNAQEBBQAEHTAbAgEAAgExAgEFAgEFAgEHAgEHAgEFAgEF\n\
+        AgEB\n\
+        -----END PRIVATE KEY-----\n";
+
+    #[test]
+    fn rejects_key_with_equal_primes() {
+        let n = bytes(EQUAL_PRIMES_MODULUS);
+        let exponent = bytes(EQUAL_PRIMES_EXPONENT);
+        let prime = bytes(EQUAL_PRIME);
+
+        assert_eq!(
+            PrivateKey::from_components(&n, &exponent, &exponent, &[&prime, &prime]).err(),
+            Some(Error::InvalidKey)
+        );
+        assert_eq!(
+            PrivateKey::from_pkcs1_der(&bytes(EQUAL_PRIMES_PKCS1)).err(),
+            Some(Error::InvalidKey)
+        );
+        assert_eq!(
+            PrivateKey::from_pkcs8_der(&bytes(EQUAL_PRIMES_PKCS8)).err(),
+            Some(Error::InvalidKey)
+        );
+        assert_eq!(
+            PrivateKey::from_pkcs8_pem(EQUAL_PRIMES_PEM).err(),
+            Some(Error::InvalidKey)
+        );
+    }
+
+    /// A valid key whose primes differ in size: `p = 2^127 - 1` and `q = 2^61 - 1`.
+    const UNEQUAL_PRIMES_MODULUS: &str = "0fffffffffffffff7fffffffffffffffe000000000000001";
+    const UNEQUAL_PRIMES_PUBLIC_EXPONENT: &str = "010001";
+    const UNEQUAL_PRIMES_PRIVATE_EXPONENT: &str = "0cfb1fb7ab75075555aaaa5555aaaa5521be2b76a7d68d";
+    const LARGER_PRIME: &str = "7fffffffffffffffffffffffffffffff";
+    const SMALLER_PRIME: &str = "1fffffffffffffff";
+    /// `SMALLER_PRIME^-1 mod LARGER_PRIME`.
+    const UNEQUAL_PRIMES_COEFFICIENT: &str = "04210842108421082108421084210841";
+
+    #[test]
+    fn components_of_key_with_unequal_prime_sizes() {
+        let key = PrivateKey::from_components(
+            &bytes(UNEQUAL_PRIMES_MODULUS),
+            &bytes(UNEQUAL_PRIMES_PUBLIC_EXPONENT),
+            &bytes(UNEQUAL_PRIMES_PRIVATE_EXPONENT),
+            &[&bytes(LARGER_PRIME), &bytes(SMALLER_PRIME)],
+        )
+        .expect("valid");
+
+        assert_eq!(
+            hex::encode(key.components().iqmp.as_slice()),
+            UNEQUAL_PRIMES_COEFFICIENT
+        );
+    }
+
     #[test]
     fn known_answer_spki_and_reencoding() {
         let key = vector_key();
