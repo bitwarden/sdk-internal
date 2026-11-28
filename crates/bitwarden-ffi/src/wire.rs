@@ -134,6 +134,15 @@ impl<T: ToWasm> ToWasm for Option<T> {
     }
 }
 
+/// `Box<T>` crosses as `T` does; the box only matters on the Rust side.
+impl<T: ToWasm> ToWasm for Box<T> {
+    type Wire = T::Wire;
+
+    fn to_wire(self) -> Result<Self::Wire, WireError> {
+        (*self).to_wire()
+    }
+}
+
 /// Lets a shim name `Ts<T>` in a signature it was handed already-wrapped, for the hand-written
 /// `extern "C"` blocks that construct the wrapper themselves.
 impl<T: Tsify> FromWasm for Ts<T> {

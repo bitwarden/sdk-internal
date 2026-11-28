@@ -7,6 +7,7 @@ use syn::{
 
 use crate::{
     attrs::{self, Args},
+    ts_type,
     wire::{crosses_bare, from_wire_type, split_result, to_wire_type},
 };
 
@@ -302,6 +303,7 @@ fn take_shim(
         }
         None => true,
     });
+    ts_type::declare_return_type(&mut moved, sig)?;
 
     build_shim(
         sig,
@@ -818,6 +820,142 @@ mod tests {
 
         assert!(out.contains("compile_error!"), "{out}");
         assert!(out.contains("doesnotsupportgenericfunctions"), "{out}");
+    }
+
+    #[test]
+    fn infers_the_typescript_type_of_a_stream() {
+        let out = expand(
+            TokenStream::new(),
+            quote! {
+                impl CiphersClient {
+                    pub fn decrypt(&self) -> BwStream<Result<CipherListView, Box<Cipher>>> {
+                        todo!()
+                    }
+                }
+            },
+        );
+
+        assert!(
+            out.contains(
+                "unchecked_return_type=\"AsyncIterable<BwResult<CipherListView,Cipher>>\""
+            ),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn infers_the_type_of_an_async_stream_without_a_promise() {
+        // wasm_bindgen wraps the declared type of an async function in `Promise<..>` itself.
+        let out = expand(
+            TokenStream::new(),
+            quote! {
+                impl CiphersClient {
+                    pub async fn decrypt(&self) -> Result<BwStream<Cipher>, StreamError> {
+                        todo!()
+                    }
+                }
+            },
+        );
+
+        assert!(
+            out.contains("unchecked_return_type=\"AsyncIterable<Cipher>\""),
+            "{out}"
+        );
+        assert!(!out.contains("Promise"), "{out}");
+    }
+
+    #[test]
+    fn leaves_a_method_without_a_stream_alone() {
+        let out = expand(
+            TokenStream::new(),
+            quote! {
+                impl CiphersClient {
+                    pub fn list(&self) -> Result<Vec<Cipher>, Error> { todo!() }
+                }
+            },
+        );
+
+        assert!(!out.contains("unchecked_return_type"), "{out}");
+    }
+
+    #[test]
+    fn keeps_a_return_type_the_method_declares() {
+        let out = expand(
+            TokenStream::new(),
+            quote! {
+                impl CiphersClient {
+                    #[wasm_bindgen(unchecked_return_type = "AsyncIterable<Renamed>")]
+                    pub fn plain(&self) -> BwStream<Cipher> { todo!() }
+
+                    #[cfg_attr(feature = "wasm", wasm_bindgen(unchecked_return_type = "AsyncIterable<Renamed>"))]
+                    pub fn under_cfg_attr(&self) -> BwStream<Cipher> { todo!() }
+                }
+            },
+        );
+
+        assert_eq!(out.matches("unchecked_return_type").count(), 2, "{out}");
+        assert!(!out.contains("AsyncIterable<Cipher>"), "{out}");
+    }
+
+    #[test]
+    fn does_not_infer_for_a_private_method() {
+        // wasm_bindgen does not export it, so its type does not matter.
+        let out = expand(
+            TokenStream::new(),
+            quote! {
+                impl CiphersClient {
+                    fn decrypt(&self) -> BwStream<(u8, u8)> { todo!() }
+                }
+            },
+        );
+
+        assert!(!out.contains("compile_error!"), "{out}");
+        assert!(!out.contains("unchecked_return_type"), "{out}");
+    }
+
+    #[test]
+    fn rejects_a_stream_type_it_cannot_infer() {
+        let out = expand(
+            TokenStream::new(),
+            quote! {
+                impl CiphersClient {
+                    pub fn decrypt(&self) -> BwStream<(u8, u8)> { todo!() }
+                }
+            },
+        );
+
+        assert!(out.contains("compile_error!"), "{out}");
+        assert!(out.contains("cannotinfertheTypeScripttype"), "{out}");
+    }
+
+    #[test]
+    fn infers_the_type_of_a_free_function_in_its_own_arguments() {
+        let out = expand(
+            quote!(js_name = streamCiphers),
+            quote! {
+                pub fn stream_ciphers() -> BwStream<Cipher> { todo!() }
+            },
+        );
+
+        assert!(
+            out.contains(
+                "::bitwarden_ffi::_macro::wasm_bindgen(js_name=streamCiphers,unchecked_return_type=\"AsyncIterable<Cipher>\")"
+            ),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn keeps_a_return_type_a_free_function_declares() {
+        let out = expand(
+            quote!(unchecked_return_type = "AsyncIterable<Renamed>"),
+            quote! {
+                pub fn stream_ciphers() -> BwStream<Cipher> { todo!() }
+            },
+        );
+
+        assert_eq!(out.matches("unchecked_return_type").count(), 1, "{out}");
+        assert!(out.contains("AsyncIterable<Renamed>"), "{out}");
     }
 
     #[test]

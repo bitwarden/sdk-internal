@@ -16,6 +16,7 @@
 use proc_macro::TokenStream;
 
 mod attrs;
+mod ts_type;
 mod wasm_export;
 mod wasm_import;
 mod wasm_object;
@@ -45,6 +46,28 @@ mod wire;
 /// marked `#[deprecated]` so it shows struck through in IDE autocomplete. Takes an optional
 /// `note = "..."` for that deprecation. The JS name is unaffected: it lives on the shim, which
 /// calls the renamed method.
+///
+/// # Stream return types
+///
+/// wasm_bindgen types a `BwStream<T>` as `any`. To give JavaScript a real type, a method that
+/// returns a `BwStream<T>`, or a `Result` whose `Ok` is one, gets an `unchecked_return_type` worked
+/// out from the Rust type: `AsyncIterable<T>`, where a `Result<T, E>` item becomes
+/// `BwResult<T, E>`.
+///
+/// The item type is translated like this:
+///
+/// - `Box<T>` becomes `T`.
+/// - `Vec<T>` becomes `T[]`, or a typed array for numbers.
+/// - `Option<T>` becomes `T | undefined`.
+/// - Primitives map as they do in wasm_bindgen.
+/// - Any other type becomes the last segment of its path, so `crate::vault::CipherListView` becomes
+///   `CipherListView`.
+///
+/// The last rule gives the wrong name when the TypeScript name differs from the Rust one: a type
+/// renamed with `js_name` or `#[serde(rename)]`, or one used through a type alias. Write
+/// `unchecked_return_type` yourself in those cases. Tuples, `Self`, references other than `&str`,
+/// and generic types not listed above fail to compile until you write it. An
+/// `unchecked_return_type` you write always replaces the inferred one.
 ///
 /// # Example
 ///

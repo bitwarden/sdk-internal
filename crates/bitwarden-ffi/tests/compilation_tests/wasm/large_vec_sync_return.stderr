@@ -6,13 +6,13 @@ error[E0277]: the trait bound `LargeVec<Item>: ToWasm` is not satisfied
    |
    = help: the following other types implement trait `ToWasm`:
              ()
+             BwStream<T>
              Item
              Ts<T>
              bool
              char
              f32
              f64
-             i128
            and $N others
    = note: this error originates in the attribute macro `wasm_export` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -24,13 +24,13 @@ error[E0277]: the trait bound `LargeVec<Item>: ToWasm` is not satisfied
    |
    = help: the following other types implement trait `ToWasm`:
              ()
+             BwStream<T>
              Item
              Ts<T>
              bool
              char
              f32
              f64
-             i128
            and $N others
 
 error[E0277]: the trait bound `LargeVec<Item>: ToWasm` is not satisfied
@@ -41,12 +41,12 @@ error[E0277]: the trait bound `LargeVec<Item>: ToWasm` is not satisfied
    |
    = help: the following other types implement trait `ToWasm`:
              ()
+             BwStream<T>
              Item
              Ts<T>
              bool
              char
              f32
              f64
-             i128
            and $N others
    = note: this error originates in the attribute macro `::bitwarden_ffi::_macro::wasm_bindgen` (in Nightly builds, run with -Z macro-backtrace for more info)

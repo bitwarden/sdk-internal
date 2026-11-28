@@ -1,10 +1,18 @@
 use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError};
+#[cfg(feature = "wasm")]
+use bitwarden_ffi::BwStream;
+use bitwarden_state::repository::{Repository, RepositoryError, RepositoryOption};
+use futures::Stream;
 use thiserror::Error;
 
-use super::CiphersClient;
+use super::{
+    CiphersClient,
+    list_stream::{DecryptStreamError, DecryptedChunk, decrypted_list_stream},
+};
+#[cfg(feature = "wasm")]
+use crate::CipherListView;
 use crate::{
     Cipher, CipherId, CipherView, ItemNotFoundError,
     cipher::cipher::{DecryptCipherListResult, DecryptCipherResult, StrictDecrypt},
@@ -81,6 +89,9 @@ async fn get_all_ciphers(
     })
 }
 
+/// How many ciphers [`CiphersClient::list_stream`] reads and decrypts at a time.
+const LIST_CHUNK_SIZE: usize = 250;
+
 #[allow(deprecated)]
 #[bitwarden_ffi::wasm_export]
 impl CiphersClient {
@@ -97,6 +108,22 @@ impl CiphersClient {
             self.is_strict_decrypt().await,
         )
         .await
+    }
+
+    /// Get all ciphers from state and decrypt them to [crate::CipherListView] a chunk at a time,
+    /// as an `AsyncIterable` in the repository's order.
+    ///
+    /// Each cipher arrives as `{ ok: true, value }` with its view, or as `{ ok: false, error }`
+    /// with the encrypted cipher when it fails to decrypt, as [`Self::list`] decrypts it. The
+    /// repository failing to read ends the iteration: the iterator's `next()` rejects once with a
+    /// [`DecryptStreamError`], and later calls return done. Breaking out of a `for await` stops
+    /// reading.
+    ///
+    /// With a repository that reads lazily, WASM memory holds one chunk at a time; see
+    /// [`Repository::stream`].
+    #[cfg(feature = "wasm")]
+    pub fn list_iterable(&self) -> BwStream<Result<CipherListView, Box<Cipher>>> {
+        BwStream::from_results(self.list_stream())
     }
 
     /// Get all ciphers from state and decrypt them to full [CipherView], returning both
@@ -126,5 +153,26 @@ impl CiphersClient {
             self.is_strict_decrypt().await,
         )
         .await
+    }
+}
+
+impl CiphersClient {
+    /// Get all ciphers from state and decrypt them to [crate::CipherListView] in chunks of up to
+    /// 250, in the repository's order.
+    ///
+    /// A cipher that fails to decrypt is its chunk's `Err` item. The repository failing to read
+    /// ends the stream with one `Err`. With a repository that reads lazily, memory holds one chunk
+    /// at a time; see [`Repository::stream`].
+    pub fn list_stream(
+        &self,
+    ) -> impl Stream<Item = Result<DecryptedChunk, DecryptStreamError>> + Send + 'static {
+        #[allow(deprecated)]
+        let client = self.client.clone();
+        decrypted_list_stream(
+            self.repository.require().cloned(),
+            self.key_store.clone(),
+            client,
+            LIST_CHUNK_SIZE,
+        )
     }
 }
