@@ -142,6 +142,7 @@ rustls = { version = "0.23.27", default-features = false, features = [
     "ring",
 ] }
 rustls-platform-verifier = "0.7.0"
+rustls-webpki = { version = "0.103.16", default-features = false }
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde-wasm-bindgen = ">=0.6.0, <0.7"

@@ -151,7 +151,7 @@ pub(crate) fn apply_transport(
 
 /// The error is safe to log, since it never contains the URL.
 #[cfg(not(target_arch = "wasm32"))]
-fn build_proxy(settings: &ProxySettings) -> Result<reqwest::Proxy, String> {
+pub(super) fn build_proxy(settings: &ProxySettings) -> Result<reqwest::Proxy, String> {
     // Only http and https proxies work, since reqwest sends requests directly for any other scheme.
     // Unparseable URLs are left to reqwest.
     if let Some(url) = parse_proxy_url(&settings.url) {
@@ -178,7 +178,7 @@ fn build_proxy(settings: &ProxySettings) -> Result<reqwest::Proxy, String> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn check_http_scheme(url: &url::Url) -> Result<(), String> {
+pub(super) fn check_http_scheme(url: &url::Url) -> Result<(), String> {
     match url.scheme() {
         "http" | "https" => Ok(()),
         scheme => Err(format!(

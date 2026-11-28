@@ -20,7 +20,8 @@ pub use client::new_http_client_builder_with_client_certificate;
 pub use client::{new_http_client, new_http_client_builder};
 #[cfg(not(target_arch = "wasm32"))]
 pub use client_certificate::{
-    ClientCertSigner, ClientCertSignerError, ClientCertificate, TlsSigScheme,
+    ClientCertSigner, ClientCertSignerError, ClientCertificate, ClientCertificateError,
+    TlsSigScheme,
 };
 pub use configuration::Configuration;
 pub use error::{ApiError, Error, ResponseContent};
