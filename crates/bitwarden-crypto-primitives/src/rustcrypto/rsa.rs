@@ -1,5 +1,5 @@
 use rsa::{
-    BoxedUint, Oaep, RsaPrivateKey, RsaPublicKey,
+    BoxedUint, Oaep, PrivateKey as RsaPrivateKey, PublicKey as RsaPublicKey,
     pkcs1::DecodeRsaPrivateKey,
     pkcs8::{DecodePrivateKey, DecodePublicKey, EncodePrivateKey, EncodePublicKey},
     traits::{PrivateKeyParts, PublicKeyParts},

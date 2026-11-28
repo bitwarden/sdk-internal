@@ -1,6 +1,6 @@
 use bitwarden_encoding::B64;
 use rsa::{
-    Oaep, RsaPrivateKey, RsaPublicKey,
+    Oaep, PrivateKey as RsaPrivateKey, PublicKey as RsaPublicKey,
     pkcs8::{EncodePrivateKey, EncodePublicKey},
 };
 use sha1::Sha1;

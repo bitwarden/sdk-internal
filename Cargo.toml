@@ -219,6 +219,17 @@ clippy-sarif = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.
 sarif-fmt = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
 verifpal = { version = "1.6.7", git = "https://github.com/symbolicsoft/verifpal", rev = "b02e677bff5a0e4f61c5c6939015cef05faa69a0", locked = true }
 
+# TEMPORARY: the RustCrypto SSH crates come from a fork that adds the `mldsa44-ed25519` composite
+# key type, https://github.com/RustCrypto/SSH/pull/583. Remove this section and move
+# bitwarden-ssh back to crates.io releases once that PR merges and is published.
+#
+# All three crates must come from the same revision: it changes `Decode::decode` to take
+# `&mut Decoder<impl Reader>` instead of `&mut impl Reader`.
+[patch.crates-io]
+ssh-cipher = { git = "https://github.com/quexten/SSH.git", rev = "a3b41cc4027c5d7ffdf2d2e960a9f4a506fafe02" }
+ssh-encoding = { git = "https://github.com/quexten/SSH.git", rev = "a3b41cc4027c5d7ffdf2d2e960a9f4a506fafe02" }
+ssh-key = { git = "https://github.com/quexten/SSH.git", rev = "a3b41cc4027c5d7ffdf2d2e960a9f4a506fafe02" }
+
 # Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
 # if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out
 [profile.dev]
